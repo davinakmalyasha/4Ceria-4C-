@@ -8,21 +8,51 @@ use App\Models\Arsitek;
 
 class ArsitekController extends Controller
 {
-    public function index()
-    {
-        // Ambil data arsitek dari database
-        $arsiteks = Arsitek::all(); // Menggunakan Eloquent lebih baik daripada DB::table()
+   public function index(Request $request)
+{
+    $arsiteks = Arsitek::all(); 
+    $query = Arsitek::with('user');
 
-        // Kirim data ke view
-        return view('users-page.house.arsitek', compact('arsiteks'));
+    if ($request->lokasi) {
+        $query->where('lokasi', 'like', '%' . $request->lokasi . '%');
     }
 
-    public function show($id) 
-    {
-        // Cari arsitek berdasarkan ID
-        $arsitek = Arsitek::findOrFail($id);
-
-        // Tampilkan view detail
-        return view('users-page.detailArsitek', compact('arsitek'));
+    if ($request->spesialisasi) {
+        $query->where('spesialisasi', 'like', '%' . $request->spesialisasi . '%');
     }
+    
+    switch ($request->sort) {
+        case 'rate_asc':
+            $query->orderBy('rate_harga', 'asc');
+            break;
+        case 'rate_desc':
+            $query->orderBy('rate_harga', 'desc');
+            break;
+        case 'pengalaman_desc':
+            $query->orderBy('pengalaman_tahun', 'desc');
+            break;
+    }
+    if (is_numeric($request->min_rate)) {
+        $query->where('rate_harga', '>=', (int)$request->min_rate);
+    }
+    
+    if (is_numeric($request->max_rate)) {
+        $query->where('rate_harga', '<=', (int)$request->max_rate);
+    }
+    
+    $arsiteks = $query->get();
+
+    return view('users-page.house.arsitek', compact('arsiteks'));
+}
+
+
+public function show($id) 
+{
+    $arsitek = Arsitek::with(['user', 'projects'])->findOrFail($id);
+
+    return view('users-page.detailArsitek', compact('arsitek'));
+}
+
+
+
 }

@@ -2,7 +2,6 @@
     <link rel="stylesheet" href="{{ asset('css/profile.css') }}">
     <link rel="stylesheet" href="{{ asset('css/rumahDijual.css') }}">
     <link rel="stylesheet" href="{{ asset('css/aboutus.css') }}">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.css" />
     <style>
        
         .btn {
@@ -122,25 +121,86 @@ ul {
     margin-left: 15px;
     margin-top: -90px;
 }
+
+
+.profile-container {
+                position: relative;
+                display: inline-block;
+            }
+
+            .profile-image {
+                width: 150px;
+                height: 150px;
+                border-radius: 50%;
+                object-fit: cover;
+            }
+
+            .edit-photo-button {
+                background-color: #fd1d1d;
+                color: white;
+                border: none;
+                padding: 10px 15px;
+                border-radius: 5px;
+                cursor: pointer;
+                display: block;
+                margin-top: 10px;
+            }
+
+            .btn {
+                padding: 10px;
+                background-color: #fd1d1d;
+                color: white;
+                border: none;
+                border-radius: 5px;
+                cursor: pointer;
+            }
+            .btn-delete-photo {
+                background-color: #fd1d1d;
+                color: white;
+                border: none;
+                padding: 10px 15px;
+                border-radius: 5px;
+                cursor: pointer;
+                display: block;
+                margin-top: 10px;
+            }
+            .kelompokButton {
+                display: flex;
+            }
             </style>
    
-
- <div class="tab-menu">
- <a href="{{route('profile.edit', 1)}}">Profile</a>
- <a href="{{route('profile.edit', 2)}}">Rumah dijual</a>
- <a href="{{route('profile.edit', 3)}}">About us</a>
-       
-</div>
 
     @if($tab != 1)    
     <div id="profile" class="tab-content">
     @else
-    <div id="profile" class="tab-content active"></div>
+    <div id="profile" class="tab-content active">
     @endif
         <h3 class="sambutan">Welcome, {{ $user->username }}</h3>
 
         <div class="atasboss">
-            <img src="{{asset('assets/davin.profile.jpg')}}" alt="" class="profile-image">   
+
+        <div class="profile-container">
+        @if ($user->pic)
+    <img id="profileImage" src="{{ asset('storage/' . $user->pic) }}" alt="Profile Image" class="profile-image">
+@else
+<img src="{{asset('storage/Assets/Logo4C.png')}}" alt="" class="profile-image">
+@endif
+
+<div class="kelompokButton">
+        <button type="button" class="edit-photo-button" onclick="triggerFileInput()" style="display: none;">
+    <i class="fas fa-pencil-alt"></i> Edit Photo
+</button>
+<form action="{{ route('profile.pic.delete') }}" method="POST" onsubmit="return confirm('Yakin ingin menghapus foto profil?')">
+    @csrf
+    @method('DELETE')
+    <button type="submit" class="btn-delete-photo" style="display: none;">
+        Delete Photo
+    </button>
+</form>
+</div>
+</div>
+            </div>
+
             <div class="nameemail">
                 <h3 class="namanyadisini">{{ $user->username }}</h3>
                 <h3 class="emailinimah">{{ $user->email }}</h3>
@@ -151,7 +211,7 @@ ul {
             </div>
         </div>
 
-        <form action="{{ route('profile.update', Auth::id()) }}" method="POST">
+        <form action="{{ route('profile.update', Auth::id()) }}" method="POST" enctype="multipart/form-data">
             @method("PATCH")
             @csrf
             <div class="container">
@@ -160,8 +220,10 @@ ul {
                         <div class="kiri">
                             <div class="dataPenting">
                                 <ul>
+                                    
                                     <li>
                                         <h5>Username</h5>
+                                        
                                         <input type="text" id="username" name="username" value="{{ $user->username }}" disabled>
                                     </li>
                                     <li>
@@ -187,12 +249,14 @@ ul {
                                         <h5>Deskripsi</h5>
                                         <input type="text" id="deskripsi" name="update_deskripsi" value="{{ $user->Deskripsi }}" size="100" disabled>
                                     </li>
+                                    <input type="file" id="picInput" name="pic" style="display: none" onchange="previewImage()">
                                 </ul>
                             </div>
                         </div>
                     </div>
-    
+                   
                     <div class="bawah">
+                        
                     @foreach ($errors->all() as $error)
                                         <h4>{{$error}}</h4>
                                     @endforeach
@@ -252,146 +316,8 @@ ul {
 </div>
     </div>
     
-    @if($tab == 2)
-    <div id="rumahDijual" class="tab-content active">
-    @else
-    <div id="rumahDijual" class="tab-content">
-    @endif
+   
 
-    <div class="jr">
-    <div class="jejeran">
-        @if($houses->count() > 0)
-            @foreach($houses as $house)
-           <a href="{{route('house.detail',$house->id)}}">
-                <div class="pilihan">
-                @if($house->housePic->isNotEmpty())
-                        <img class="h-full object-cover" src="{{ asset('storage/'.$house->housePic->first()->dir) }}" alt="">
-                    @else
-                        <img class="h-full object-cover" src="{{ asset('storage/default/house/unavailable.png') }}" alt="No Image">
-                    @endif
-                    <div class="isipilihan">
-                        <h2>{{ $house->name }}</h2>
-                        <ul>
-                            <li><span>{{ 'Rp. ' . number_format($house->price, 0, ',', '.') }}</span></li>
-                            <li>{{ $house->alamat }}</li>
-                            <li>
-                                
-                                <ul class="logox">
-                                    <li class="ruang"><img src="{{ asset('storage/Assets/iconKamarTidur.png') }}" alt="Kamar Tidur"><p>{{ $house->br }} Kamar Tidur</p></li>
-                                    <li class="ruang"><img src="{{ asset('storage/Assets/iconKamarMandi.png') }}"><p>{{ $house->ba }} Kamar Mandi</p></li>
-                                    <li class="ruang"><img src="{{ asset('storage/Assets/iconLuasTanah.png') }}"><p>{{ $house->width * $house->length }} m²</p></li>
-                                </ul>
-                            </li>
-                        </ul>
-
-                    </div>
-                </div>
-                </a>
-            @endforeach
-    
-        @else
-            <p>Data Masih Kosong</p>
-        @endif
-    </div>
-    </div>
-
-
-    @if($tab == 3)
-    <div id="aboutus" class="tab-content active">
-    @else
-    <div id="aboutus" class="tab-content">
-    @endif
-        <div class="content">
-        <div class="dalem">
-            <div class="header">
-                 <div class="isiHeader">
-                   
-          <br>
-          <br  id="isi">
-          <div class="isic">
-            <div class="isi" >
-                <div class="kiriinibos">
-                <div class="forc">
-              <h2 data-aos="fade-right" data-aos-delay="50">
-                 Tentang 4C
-              </h2>
-              <img data-aos="fade-right" data-aos-delay="50" src="{{asset('storage/Assets/Logo4C.png')}}" alt="">
-              </div>
-              <p data-aos="fade-right" data-aos-delay="150">4C Adalah aplikasi dengan tema Konstruksi / Pembangunan dengan tujuan menjadi perantara pengguna umum untuk target penggunanya adalah pengguna Umum dan untuk fitur utamanya adalah  jual beli Rumah  </p>
-              </div>
-              <img class="fotot" src="{{asset('storage/Assets/4CTeam.jpg')}}" data-aos="fade-right" data-aos-delay="200">
-             </div>
-
-        
-            <div class="kisah">
-                <div class="kiriinibos1">
-                <h2 data-aos="fade-right" data-aos-delay="50">Awal mula</h2>
-                <p data-aos="fade-right" data-aos-delay="150">Kami hadir untuk mempermudah kepemilikan properti dan membantu pencari rumah menemukan pilihan terbaik. Dengan fitur analisis harga, perencana keuangan, dan pencarian berbasis peta, kami memastikan segalanya mudah dan tepat.</p>
-                     </div>
-                     <img class="fotot" src="{{asset('storage/Assets/4Cteam.jpg')}}" data-aos="fade-right" data-aos-delay="250">
-            </div>
-        
-                <div class="kepemimpinan" >
-                        <H1 data-aos="fade-up" data-aos-delay="50" class="Header"> Kepemimpinan </H1>
-                        
-                        <div class="isikepemimpinan">  
-                            <div class="teks">
-                                <H1 data-aos="fade-right" data-aos-delay="50">Davin Akmal Yasha</H1>
-                                <H3 data-aos="fade-right" data-aos-delay="100"> Grup CEO & Co-founder</H3><br>
-                                <p data-aos="fade-right" data-aos-delay="150">Davin merupakan salah satu pendiri dari 4C sejak didirikan pada tahun 2024. Sebelum ia mendirikan 4C ia adalah seorang mahasiswa Telkom University, setelah lulus dari Telkom davin bermimpi untuk membangun sebuah perusahaan dengan bertujuan menciptakan Pembangunan indonesia yang Creative Compherensive dan Cool.</p>
-                            </div>
-            
-                            <div class="PP">
-                                <img src="{{asset('storage/Assets/davin.profile.jpg')}}" alt="">
-                            </div>
-                        </div>
-                        <div class="isikepemimpinan">  
-                            <div class="teks">
-                                <H1 data-aos="fade-right" data-aos-delay="50">Riza Rabbani</H1>
-                                <H3 data-aos="fade-right" data-aos-delay="100"> Grup CEO & Co-founder> Grup CEO & Co-founder</H3> <br>
-                                <p data-aos="fade-right" data-aos-delay="150">Riza merupakan salah satu pendiri dari 4C juga. Sebelumnya dia juga seorang mahasiswa Telkom University. Setelah lulus dia bertemu dengan davin yang pada saat itu dapin mengajak riza untuk ikut berkontibusi untuk menciptakan 4C dan akhirnya riza pun ikut dalam pembuatan 4C </p>
-                            </div>
-            
-                            <div class="PP">
-                                <img src="{{asset('storage/Assets/rija.profile.jpg')}}" alt="">
-                            </div>
-                        </div>
-                        <div class="isikepemimpinan">  
-                            <div class="teks">
-                                <H1 data-aos="fade-right" data-aos-delay="50">Riza Rabbani>Muhammad Daffa</H1>
-                                <H3 data-aos="fade-right" data-aos-delay="100">OB</H3><br>
-                                <p data-aos="fade-right" data-aos-delay="150">Dapa juga merupakan salah satu pendiri dari 4C. Dia sebelumnya adalah juragan toko besi / bangunan dengan menyediakan alat alat dan perlengkapan untuk segala macam yang dibutuhkan untuk pembangunan. Dapa bergabung dengan 4C karena Dapin mengajak bekerja sama dengannya untuk bisa menganalisis produksi, biaya dalam pembangunan </p>
-                            </div>
-            
-                            <div class="PP">
-                                <img src="{{asset('storage/Assets/dapa.profile.jpg')}}" alt="">
-                            </div>
-                        </div>
-                        
-                        <div class="isikepemimpinan">  
-                            <div class="teks">
-                                <H1 data-aos="fade-right" data-aos-delay="50">Athallah Khansa Ziven</H1>
-                                <H3 data-aos="fade-right" data-aos-delay="100"> Grup CEO & Co-founder</H3><br>
-                                <p data-aos="fade-right" data-aos-delay="150">Athallah sama juga dengan pendiri lainnya dari 4C. Sebelum bergabung dengan 4C, Athallah menjabat sebagai Kepala Sumber Daya Manusia Global di sebuah perusahaan publik di mana dia mengarahkan manajemen perubahan dan membangun kembali tim dan proses operasional. Beliau diakui atas kepemimpinannya, profesionalismenya, dan integritasnya yang tinggi serta memperoleh penghargaan seperti HR Manager of the Year Asia pada tahun 2024. Ia dikenal karena menyeimbangkan antara kasih sayang dan keteguhan, serta mendorong perubahan positif.</p>
-                            </div>
-            
-                            <div class="PP">
-                                <img src="{{asset('storage/Assets/pen.profile.jpg')}}" alt="">
-                            </div>
-                        </div>
-                       
-                </div>
-            </div>
-    
-            <script src="https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.js"></script>
-            <script>
-                AOS.init();
-            </script>
-     </div> 
-        </div>
-        </div>
-        </div>
-    </div>
         
     <script>
     document.getElementById('addPhoneButton').addEventListener('click', function() {
@@ -401,41 +327,46 @@ ul {
 </script>
 
         <script>
-    //         document.addEventListener('DOMContentLoaded', () => {
-    //         const activeTab = sessionStorage.getItem('activeTab');
-    //         if (activeTab) {
-    //             document.querySelector(`button[onclick="openTab(event, '${activeTab}')"]`).click();
-    //         } else {
-    //             document.querySelector('.tab-link.active').click();
-    //         }
-    //     });
+            function triggerFileInput() {
+                document.getElementById("picInput").click();
+            }
 
-    //     function openTab(event, tabName) {
-    //         // Hide all tab content
-    //         const contents = document.querySelectorAll('.tab-content');
-    //         contents.forEach(content => content.classList.remove('active'));
+            // Fungsi untuk melihat pratinjau gambar setelah memilih file
+            function previewImage() {
+                var file = document.getElementById("picInput").files[0];
+                var reader = new FileReader();
 
-    //         // Remove active class from all tab links
-    //         const links = document.querySelectorAll('.tab-link');
-    //         links.forEach(link => link.classList.remove('active'));
+                reader.onloadend = function () {
+                    document.getElementById("profileImage").src = reader.result;
+                }
 
-    //         // Show the selected tab's content
-    //         document.getElementById(tabName).classList.add('active');
-    //         event.currentTarget.classList.add('active');
+                if (file) {
+                    reader.readAsDataURL(file);
+                }
+            }
+        
+            function deleteProfilePicture() {
+    if (confirm("Yakin ingin menghapus foto profil?")) {
+        fetch("{{ route('profile.pic.delete') }}", {
+            method: "DELETE",
+            headers: {
+                "X-CSRF-TOKEN": "{{ csrf_token() }}",
+                "Accept": "application/json"
+            }
+        })
+        .then(response => {
+            if (response.ok) {
+                window.location.reload(); // Refresh halaman setelah delete
+            } else {
+                alert("Gagal menghapus foto");
+            }
+        })
+        .catch(error => {
+            console.error("Error:", error);
+        });
+    }
+}
 
-    //         // Save the active tab to sessionStorage
-    //         sessionStorage.setItem('activeTab', tabName);
-    //     }
-    
-    // document.addEventListener("DOMContentLoaded", () => {
-    //     const urlParams = new URLSearchParams(window.location.search);
-    //     const tab = urlParams.get('tab'); 
-    //     if (tab) {
-    //         document.querySelector(`button[onclick="openTab(event, '${tab}')"]`).click();
-    //     } else {
-    //         document.querySelector('button[onclick="openTab(event, \'profile\')"]').click();
-    //     }
-    // });
 
     document.addEventListener('scroll', () => {
             const fireLine = document.getElementById('fireLine');
@@ -451,25 +382,22 @@ ul {
             }
         });
 
-            function enableEdit() {
-                const editButton = document.getElementById('editButton');
-                const updateButton = document.getElementById('updateButton');
-                document.querySelectorAll('input[type="text"], input[type="password"], input[type="email"]').forEach(input => {
-                    input.disabled = false;
-                });
-                document.querySelectorAll('input').forEach(input => {
-                    input.style.border = "1px solid #ddd";
-                });
-                editButton.textContent = "Batalkan"
-                updateButton.style.display = "inline-block";
-
-                editButton.onclick = function() {
-                    cancelEdit();
-                };
-            }
+        function enableEdit() {
+    const isDisabled = document.getElementById("username").disabled;
+    document.querySelectorAll('input[type="text"], input[type="password"], input[type="email"]').forEach(input => {
+        input.disabled = !isDisabled;
+        input.style.border = isDisabled ? "1px solid #ddd" : "none";
+    });
+   
+    document.getElementById("editButton").textContent = isDisabled ? "Batalkan" : "Edit Profile";
+    document.querySelector(".edit-photo-button").style.display = isDisabled ? "inline-block" : "none";
+    document.querySelector('.btn-delete-photo').style.display = isDisabled ? "inline-block" : "none";
+    document.getElementById("updateButton").style.display = isDisabled ? "inline-block" : "none";
+}
 
             function cancelEdit() {
                 const editButton = document.getElementById('editButton');
+                const btndeletephoto= document.getElementById('');
                 const updateButton = document.getElementById('updateButton');
                 document.querySelectorAll('input[type="text"], input[type="password"], input[type="email"]').forEach(input => {
                     input.disabled = true;

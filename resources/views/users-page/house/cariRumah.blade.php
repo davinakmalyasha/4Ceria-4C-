@@ -58,7 +58,7 @@
             <button type="button" onclick="resetFilter()">Batalkan</button>
             <input id="filter" type="submit" value="Cari">
         </div>
-<!-- adad -->  </form>
+ </form>
     <div id="response"></div>
 </div>           
 </div>

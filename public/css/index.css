@@ -45,7 +45,7 @@ body {
     margin-left: 1.6%;
     border-radius: 8px;
     color: white;
-    opacity: 0; /* Supaya elemen tidak muncul sebelum animasi */
+    opacity: 0; 
     transform: translateY(140px);
     
     transition: opacity 0.8s ease, transform 0.8s ease;
@@ -55,7 +55,7 @@ body {
     transform: translateY(0);
 }.scroll_section {
     display: flex;
-    gap: 20px; /* Beri jarak antar div */
+    gap: 20px;
     transition: transform 0.3s ease-out;
 }
 @keyframes fadeInUp {

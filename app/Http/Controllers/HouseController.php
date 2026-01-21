@@ -17,13 +17,20 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Log;
 use Illuminate\Support\Facades\Storage;
+use Spatie\Permission\Traits\HasRoles;
+
 
 class HouseController extends Controller
 {
+    public function index()
+{
+    $houses = House::where('id_user', Auth::id())->get();
+    return view('house.rumahDijual', compact('houses'));
+}
 
     //view/calling data
     public function dashboard(Request $request){
-        // $houseList = House::where('id_user', '!=', Auth::id())->get();
+        
         $houseList = House::with(['housePic' => function ($query){
             $query->limit(1);
         } ])->select("*", DB::raw('CAST(created_at AS DATE) as uploadDate'));
@@ -59,8 +66,8 @@ class HouseController extends Controller
         $provinces = Provinces::all();
         $regions = Regions::all();
         $houseList = $houseList->get();
-        // return $houseList;
-        return view('users-page.house.cariRumah', compact('houseList', 'provinces', 'regions', 'selectedProvince', 'selected'));
+       
+        return view('users-page.house.cariRumah', compact('provinces','houseList', 'regions', 'selectedProvince', 'selected'));
     }
     public function getRegion($provinceId){
         $regions = Regions::where('id_province', $provinceId)->get();
@@ -77,16 +84,19 @@ class HouseController extends Controller
         return view('users-page.house-view', compact('house', 'contacts'));
     }
     public function displayAll(){
+        
         $houses = House::with('user')->get();
         return view('house.houses-list', compact('houses'));
     }
     public function displayOwnedHouse(){
         $houses = House::where('house.id_user', '=', Auth::id())->get();
         // return $houses;
-        return view('users-page.house.house-list', compact('houses'));
+        return view('users-page.house.rumahDijual', compact('houses'));
     }
     public function formCreateHouse(){
-        return view('house.house-create');
+        $houses = House::where('house.id_user', '=', Auth::id())->get();
+        // return $houses;
+        return view('house.house-create', compact('houses')); 
     }
     public function displayDetail($idHouse){
 

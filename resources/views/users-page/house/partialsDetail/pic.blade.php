@@ -690,10 +690,8 @@ label {
     </div>
 @endforeach
 
-<!-- Tombol untuk menghapus foto -->
 <button id="deletePicButton" onclick="deleteSelectedPic()" style="display: none;" class="delete-button">Delete</button>
 
-<!-- Modal untuk konfirmasi penghapusan -->
 <div id="deletePicModal" style="display: none;" class="modal">
     <div class="modal-content">
         <p>
@@ -719,7 +717,6 @@ label {
     </div>
     <button type="submit" class="upload-button">Add</button>
 
-    <!-- Flash Messages -->
     @if(session('success'))      
         <div class="alert alert-success">
             {{ session('success') }}
@@ -736,7 +733,6 @@ label {
 </form>
                     
 <br><br>
-                    <!-- House Pictures -->
                     
                                 
                     <div class="mainDetailRumah">

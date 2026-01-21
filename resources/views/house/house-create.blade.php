@@ -1,6 +1,8 @@
 <x-app-layout>
 
     <link rel="stylesheet" href="{{URL::asset('css/tambah_data_rumah.css')}}">
+  
+    <a href="{{route('house.index')}}">Kembali</a>
     <div class="kelompok">
         <div class="mapsrumah" id="map"></div>
         <form action="{{route('house.create')}}" id="houseForm" method="post" enctype="multipart/form-data" autocomplete="off">

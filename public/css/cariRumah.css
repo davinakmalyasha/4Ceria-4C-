@@ -237,7 +237,6 @@ body {
  padding: 0.8px 5px 0.8px 5px;
 }
 
-/* Untuk semua browser kecuali Firefox */
 .dalem .content .filter form .cart::-webkit-scrollbar {
     display: none; /* Sembunyikan scrollbar */
   }
@@ -252,7 +251,7 @@ body {
       margin-bottom: 3%;
   }
 .dalem .content .filter form .cartharga{
-    width: 55%;
+    width: 60%;
     border: 2px solid rgb(210, 210, 210);
     border-radius: 10px;
     height: 100%;
@@ -273,11 +272,11 @@ margin-bottom: 2%;
   width: 50%;
 }
 .dalem .content .filter form .cartharga .form .input-wrapper input {
-    padding-left: 8%;
+    padding-left: 15%;
     font-size: 10px;
     outline: none;
     border: none;
-  
+    width: 100%;
 }
 .dalem .content .filter form .cartharga .minmax {
     display: flex;
@@ -317,7 +316,7 @@ border: 1px solid gray;
 }
 
 .input-wrapper input {
-    padding-left: 30px; /* Sesuaikan dengan lebar label */
+    padding-left: 30px; 
 }
 .dalem .content .filter form .cart:nth-child(1) input{
 border: none;
@@ -353,15 +352,18 @@ transition: 0.3s linear;
 }
 .submit-container {
     display: flex;
+
     gap: 1%;
 }
 .submit-container input {
     font-size: 15px;
     padding: 6px 16px;
     border-radius: 9px;
-    transition: 0.3s ease;
+    transition: 0.5s ease;
     outline: none;
-    border: 1px solid black;
+    border: none;
+    background-color: #fd1d1d;
+    color: white;
 }
 .submit-container button{
     font-size: 15px;
@@ -369,12 +371,10 @@ transition: 0.3s linear;
     border-radius: 8px;
     transition: 0.3s ease;
     outline: none;
-    border: 1px solid black;
+    border: none;
 }
 .submit-container input:hover {
-    color: white;
-    background-color: #fd1d1d;
-    border: 1px solid white;
+    padding: 8px 10px;
 }
 .submit-container button:hover {
     color: white;
@@ -429,8 +429,8 @@ transition: 0.3s linear;
     width: 100%;
     margin-bottom: 3%;
     height: 95px;
-    overflow-y: auto; /* Aktifkan scroll vertikal jika terjadi overflow */
-    overflow-x: hidden; /* Sembunyikan scroll horizontal */
+    overflow-y: auto;
+    overflow-x: hidden;
    
 }
 .dalem .content .filter-box .cart:first-child::-webkit-scrollbar{
@@ -474,7 +474,7 @@ transition: 0.3s linear;
     }
     /* harga */
     .dalem .content .filter-box .cartharga{
-        width: 100%;
+        width: 110%;
         height: 100%;
         margin-bottom: 3%;
     }
@@ -538,7 +538,7 @@ transition: 0.3s linear;
     width: 14px;
     height: 14px;
  }
-/* fasilitas */
+
 .cartfasilitas {
     width: 100%;
     border-radius: 10px;
@@ -565,23 +565,21 @@ transition: 0.3s linear;
      border: 1px solid white;
    }
 
-/* CSS untuk label "m²" di sebelah kanan input luas tanah */
+
 .input-wrapper {
     display: flex;
     align-items: center;
 }
 
 .input-wrapper .luastnh {
-    width: 70px;/* Menambahkan ruang di antara input dan label */
+    width: 70px;
 }
 .input-wrapper .luasTanah {
-    font-size: 10px; /* Ukuran font label */
-    color: #555; /* Warna teks label */
+    font-size: 10px; 
+    color: #555; 
     margin-left: 70%;
 }
 
-
-/* Style.css */
 
 
 .content {
@@ -619,7 +617,7 @@ a {
     max-height: 90%;
     padding: 6px;
     display: flex;
-    background-color: #f1f1f1;
+    background-color: #ffffff;
     box-shadow: 10px 10px 15px rgba(0, 0, 0, 0.25) ;
     transition: 0.5s ease-in-out;
     cursor: pointer;

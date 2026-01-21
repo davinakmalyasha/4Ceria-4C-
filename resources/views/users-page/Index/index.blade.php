@@ -80,7 +80,7 @@
                                 <div class="textkanansatu">
                                     <p>Navigasi mudah tanpa hambatan, mempermudah pengalaman Anda.</p>
                                 </div>
-                                <img src="{{ asset('storage/Assets/4CTeam.jpg') }}" width="100%" height="60px" style="object-fit: cover;" />
+                                <img src="{{ asset('storage/Assets/effortless.jpg') }}" width="100%" height="70px" style="object-fit: cover;" />
                             </div>
                             <hr>
                             <div class="kananDua">
@@ -91,7 +91,7 @@
                                 <div class="textkanansatu">
                                     <p>Desain sederhana dan intuitif, memudahkan akses kapan saja.</p>
                                 </div>
-                                <img src="{{ asset('storage/Assets/4CTeam.jpg') }}" width="100%" height="60px" style="object-fit: cover;" />
+                                <img src="{{ asset('storage/Assets/4CTeam.jpg') }}" width="100%" height="70px" style="object-fit: cover;" />
                             </div>
                         </div>
                         <div class="indukKanan2">
@@ -103,7 +103,7 @@
                                 <div class="textkanansatu1">
                                     <p>Proses instan untuk transaksi yang lebih efisien dan lancar.</p>
                                 </div>
-                                <img src="{{ asset('storage/Assets/4CTeam.jpg') }}" width="100%" height="60px" style="object-fit: cover;" />
+                                <img src="{{ asset('storage/Assets/4CTeam.jpg') }}" width="100%" height="70px" style="object-fit: cover;" />
                             </div>
                             <hr>
                             <div class="kananDua1">
@@ -114,7 +114,7 @@
                                 <div class="textkanansatu1">
                                     <p>Keamanan terjamin dengan sistem proteksi data yang kuat.</p>
                                 </div>
-                                <img src="{{ asset('storage/Assets/4CTeam.jpg') }}" width="100%" height="60px" style="object-fit: cover;" />
+                                <img src="{{ asset('storage/Assets/4CTeam.jpg') }}" width="100%" height="70px" style="object-fit: cover;" />
                             </div>
                         </div>
                     </div>

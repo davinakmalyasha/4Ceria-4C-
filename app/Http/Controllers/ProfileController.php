@@ -12,7 +12,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\View\View;
-
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Hash;
 class ProfileController extends Controller
 {
     /**
@@ -34,23 +35,47 @@ class ProfileController extends Controller
     public function update(ProfileUpdateRequest $request): RedirectResponse
     {
         $request->validate([
-            'username'=>'sometimes|required|string|max:55|unique:users,username,'.Auth::id(),
-            'email'=>'sometimes|required|string|email|max:255|unique:users,email,'.Auth::id()
+            'username'=>'required|string|max:55|unique:users,username,'.Auth::id(),
+            'name' => 'required|string|max:255',
+            'email'=>'required|string|email|max:255|unique:users,email,'.Auth::id(),
+            'update_password' => 'nullable|string|min:6',
+            'update_deskripsi' => 'nullable|string|max:255',
+            'pic' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
         ]);
+
         
-        $request->user()->fill($request->validated());
-
-        if ($request->user()->isDirty('email')) {
-            $request->user()->email_verified_at = null;
+    $user = User::find(Auth::id());
+    $user->username = $request->username;
+    $user->name = $request->name;
+    $user->email = $request->email;
+    $user->Deskripsi = $request->update_deskripsi;
+    if ($request->hasFile('pic')) {
+        if ($user->pic && Storage::exists('public/profileUser/'.$user->pic)) {
+            Storage::delete('public/profileUser/'.$user->pic);
         }
-        if ($request->user()->isDirty('username')) {
-            dd('Username is dirty and will be updated: ' . $request->user()->username);
-        }
-        $user = User::find(Auth::id());
-        $user->username = $request->username;
-        $user->save();
+        
+        // Simpan foto baru di folder profileUser
+        $path = $request->file('pic')->store('profileUser', 'public');
+        $user->pic = $path;
+    }
+    if ($request->filled('update_password')) {
+        $user->password = Hash::make($request->update_password);
+    }
 
-        $request->user()->save();
+    $user->save();
+        // $request->user()->fill($request->validated());
+
+        // if ($request->user()->isDirty('email')) {
+        //     $request->user()->email_verified_at = null;
+        // }
+        // if ($request->user()->isDirty('username')) {
+        //     dd('Username is dirty and will be updated: ' . $request->user()->username);
+        // }
+        // $user = User::find(Auth::id());
+        // $user->username = $request->username;
+        // $user->save();
+
+        // $request->user()->save();
 
 
         return Redirect::route('profile.edit', 1)->with('status', 'profile-updated');
@@ -59,6 +84,22 @@ class ProfileController extends Controller
     /**
      * Delete the user's account.
      */
+    public function deleteProfilePicture(Request $request): RedirectResponse
+{
+    $user = $request->user();
+
+    // Hapus foto lama jika ada
+    if ($user->pic && Storage::exists('public/profileUser/' . $user->pic)) {
+        Storage::delete('public/profileUser/' . $user->pic);
+    }
+
+    // Set foto profil menjadi null
+    $user->pic = null;
+    $user->save();
+
+    return Redirect::route('profile.edit', 1)->with('status', 'Profile picture deleted');
+}
+
     public function destroy(Request $request): RedirectResponse
     {
         $request->validateWithBag('userDeletion', [

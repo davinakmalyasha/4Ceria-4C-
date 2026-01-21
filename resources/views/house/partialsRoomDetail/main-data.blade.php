@@ -9,10 +9,8 @@
                 </div>
                 <div class="px-4 py-1 flex flex-row">
                     <div class="content-center px-2 flex flex-row items-center space-x-2">
-                        <label class="text-gray-800 dark:text-gray-200 whitespace-nowrap">Name</label>
-                        <input class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 w-full
-                        p-1.5 dark:bg-gray-800 dark:border-gray-600 dark:placeholder-gray-800 dark:text-white dark:focus:ring-blue-500
-                        dark:focus:border-blue-500" type="text" name="name" value="{{$room->name}}">
+                        <label>Name</label>
+                        <input type="text" name="name" value="{{$room->name}}">
 
                     </div>
                     <div class="content-center px-2 flex flex-row items-center space-x-2">

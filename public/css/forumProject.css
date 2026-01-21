@@ -1,0 +1,149 @@
+* {
+    font-family: "Plus Jakarta Sans";
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    scroll-behavior: smooth;
+}
+
+.kiriNavbar ul li:nth-child(6) {
+    list-style: none;
+    border-bottom: 3px solid #fd1d1d;
+}
+
+body {
+    background-color: #fff;
+    color: #333;
+    font-family: 'Segoe UI', sans-serif;
+}
+
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+   margin: 30px 0 30px 0;
+}
+
+.btn {
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-weight: 550;
+    text-decoration: none;
+    display: inline-block;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+}
+
+.btn-primary {
+    background-color: #fd1d1d;
+    color: white;
+}
+
+.btn-outline {
+    border: 2px solid #fd1d1d;
+    color: #fd1d1d;
+    background-color: transparent;
+}
+
+.btn-info {
+    background-color: #ffeaa7;
+    color: #2d3436;
+}
+
+.btn-danger {
+    background-color: #d63031;
+    color: white;
+}
+
+.project-card {
+    border: 1px solid #eee;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 30px;
+    background-color: #fdfdfd;
+    box-shadow: 0 0 10px rgba(0,0,0,0.03);
+}
+
+.project-header {
+    display: flex;
+    flex-direction: column;
+   
+}
+
+.project-desc {
+    margin: 10px 0;
+}
+
+.meta-info {
+    color: #636e72;
+    font-size: 14px;
+}
+
+.attachment img {
+    max-width: 30%;
+    margin-top: 10px;
+    border-radius: 8px;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.section {
+    margin-top: 25px;
+}
+
+.bid-card {
+    display: flex;
+    gap: 15px;
+    background: #fff;
+    border: 1px solid #eee;
+    border-left: 4px solid #fd1d1d;
+    border-radius: 10px;
+    padding: 15px;
+    margin-bottom: 15px;
+}
+
+.bid-card img {
+    width: 100px;
+    height: 100px;
+    border-radius: 100px;
+    object-fit: cover;
+    border: 2px solid #fd1d1d;
+}
+
+.bid-info {
+    flex: 1;
+}
+
+.bid-info h4 {
+    margin-bottom: 5px;
+    color: #fd1d1d;
+}
+
+.bid-actions {
+    margin-top: 10px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.contractor-options {
+    background-color: #fff0f0;
+    border: 1px dashed #fd1d1d;
+    padding: 15px;
+    border-radius: 10px;
+    margin-top: 20px;
+}
+
+.checkbox-list {
+    margin-top: 10px;
+}
+
+.no-bid {
+    font-style: italic;
+    color: #b2bec3;
+}

@@ -17,16 +17,15 @@
 
 <body>
     <div class="container" id="container">
-        <!-- Sign Up Form -->
+      
         <div class="form-container sign-up">
             <form id="registerForm" action="{{route('proses_register')}}" method="POST" onsubmit="return validateRegisterForm(event)">
                 @csrf
                 @method('POST')
                 <h1>Daftarkan Diri Anda</h1>
 
-                <!-- Input Fields -->
                 <div class="input-container">
-                    <input class="form-control" type="text" id="name" name="name" placeholder="Nama" onkeyup="validateName()">
+                    <input class="form-control" type="text" id="name" name="name" placeholder="Nama" onkeyup="validateName()" autocomplete="name">
                     <span id="name-error" class="error-text"></span>
                     @error('name')
                     <span class="error-text">{{$message}}</span>
@@ -34,7 +33,7 @@
                 </div>
 
                 <div class="input-container">
-                    <input class="form-control" type="text" id="Username" name="username" placeholder="User Name" onkeyup="validateUsername()">
+                    <input class="form-control" type="text" id="username" name="username" placeholder="User Name" onkeyup="validateUsername()" autocomplete="username">
                     <span id="username-error" class="error-text"></span>
                     @error('username')
                     <span class="error-text">{{$message}}</span>
@@ -42,7 +41,7 @@
                 </div>
 
                 <div class="input-container">
-                    <input class="form-control" type="text" id="email" name="email" placeholder="Email" onkeyup="validateEmail()">
+                    <input class="form-control" type="text" id="email" name="email" placeholder="Email" onkeyup="validateEmail()" autocomplete="email">
                     <span id="email-error" class="error-text"></span>
                     @error('email')
                     <span class="error-text">{{$message}}</span>
@@ -66,10 +65,11 @@
                 </div>
                 <div class="input-container">
                     <label for="role_type">Daftar Sebagai:</label>
-                    <select name="role_type" class="form-control" required>
+                    <select id="role_type" name="role_type" class="form-control" required>
                         <option value="user">User</option>
                         <option value="arsitek">Arsitek</option>
-                        <option value="arsitek">Kontraktor</option>
+                        <option value="kontraktor">Kontraktor</option>
+                        <option value="admin">admin</option>
                     </select>
                 </div>
 
@@ -77,7 +77,9 @@
             </form>
         </div>
 
-        <!-- Login Form -->
+
+
+        
         <div class="form-container sign-in">
             <form action="{{route('login')}}" method="POST">
                 @csrf
@@ -90,12 +92,15 @@
 
                 <div class="input-container">
                     <input class="form-control" type="password" name="password" placeholder="Password">
-                    <!-- <a href="forgot_password.php">Forget Your Password?</a> -->
+                    <a href="{{ route('password.request') }}">Forget Your Password?</a>
+
                 </div>
-                <label for="role">Login sebagai:</label>
-    <select name="role_type1" required>
+                <label for="role_type1">Login sebagai:</label>
+    <select id="role_type1" name="role_type1" required>
         <option value="user">User</option>
         <option value="arsitek">Arsitek</option>
+        <option value="kontraktor">kontraktor</option>
+        <option value="admin">admin</option>
     </select>
                 @error('login')
                 <span class="error-text">{{$message}}</span>
@@ -104,7 +109,6 @@
             </form>
         </div>
 
-        <!-- Toggle Container -->
         <div class="toggle-container">
             <div class="toggle">
                 <div class="toggle-panel toggle-left">
@@ -134,7 +138,6 @@
             container.classList.remove("active");
         });
 
-        // Script for password visibility toggle
         const togglePassword1 = document.getElementById('togglePassword1');
         const password1 = document.getElementById('password1');
         togglePassword1.addEventListener('click', () => {
@@ -157,7 +160,6 @@
         var passwordError = document.getElementById('password-error');
         var passwordconfirmError = document.getElementById('passwordconfirm-error');
 
-        // Validasi Name
         function validateName() {
             var name = document.getElementById('name').value;
             if (name.length == 0) {
@@ -167,9 +169,8 @@
             }
         }
 
-        // Validasi Username
         function validateUsername() {
-            var username = document.getElementById('Username').value;
+            var username = document.getElementById('username').value;
             if (username.length == 0) {
                 usernameError.innerHTML = 'Username tidak boleh kosong!';
             } else {
@@ -177,7 +178,6 @@
             }
         }
 
-        // Validasi Email
         function validateEmail() {
             var email = document.getElementById('email').value;
             var emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
@@ -187,13 +187,10 @@
             } else if (!emailPattern.test(email)) {
                 emailError.innerHTML = 'Email tidak valid!';
             } else {
-                emailError.innerHTML = ''; // Bersihkan pesan error
+                emailError.innerHTML = '';
             }
         }
 
-
-
-        // Validasi Password
         function validatePassword() {
             var password = document.getElementById('password1').value;
 
@@ -202,12 +199,10 @@
             } else if (password.length < 8) {
                 passwordError.innerHTML = 'Password minimal 8 karakter!';
             } else {
-                passwordError.innerHTML = ''; // Bersihkan pesan error
+                passwordError.innerHTML = '';
             }
         }
 
-
-        // Validasi Konfirmasi Password
         function validatePasswordConfirm() {
             var password1 = document.getElementById('password1').value;
             var password2 = document.getElementById('password2').value;
@@ -217,11 +212,10 @@
             } else if (password1 !== password2) {
                 passwordconfirmError.innerHTML = 'Password dan konfirmasi tidak cocok!';
             } else {
-                passwordconfirmError.innerHTML = ''; // Bersihkan pesan error
+                passwordconfirmError.innerHTML = ''; 
             }
         }
-
-        // Validasi Formulir Pendaftaran
+  
         function validateRegisterForm(event) {
             var valid = true;
 
@@ -231,12 +225,10 @@
             validatePassword();
             validatePasswordConfirm();
 
-            // Jika ada error, batalkan pengiriman form
             if (nameError.innerHTML || usernameError.innerHTML || emailError.innerHTML || passwordError.innerHTML || passwordconfirmError.innerHTML) {
                 valid = false;
             }
 
-            // Jika ada error, form tidak akan disubmit
             return valid;
         }
 
