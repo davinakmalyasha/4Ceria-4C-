@@ -62,4 +62,9 @@ public function kontraktorRating()
     return $this->hasOne(\App\Models\KontraktorRating::class, 'project_id', 'id');
 }
 
+public function images()
+{
+    return $this->hasMany(ProjectImage::class)->orderBy('sort_order');
+}
+
 }

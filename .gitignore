@@ -20,3 +20,12 @@ yarn-error.log
 /.idea
 /.vscode
 /.zed
+
+# OS generated files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+
+# Vite
+.vite/
+dist/

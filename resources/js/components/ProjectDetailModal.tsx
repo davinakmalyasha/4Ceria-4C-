@@ -1,0 +1,370 @@
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import { motion } from 'framer-motion';
+import { useAuth } from '../context/AuthContext';
+
+interface Bidder {
+    id: number;
+    name: string;
+    phone?: string;
+    specialization?: string;
+    experience_years?: number;
+    rate?: number;
+    location?: string;
+    user?: { name: string; email: string } | null;
+}
+
+interface Bid {
+    id: number;
+    price: number;
+    proposal: string;
+    status: string;
+    created_at: string;
+    bidder: Bidder | null;
+}
+
+interface ProjectDetail {
+    id: number;
+    title: string;
+    description: string;
+    budget: number;
+    location?: string;
+    type?: string;
+    status: string;
+    deadline?: string;
+    attachment?: string;
+    owner_id?: number;
+    bids_arsitek?: Bid[];
+    bids_kontraktor?: Bid[];
+    images?: { id: number; url: string; sort_order: number }[];
+}
+
+interface ProjectDetailModalProps {
+    project: { id: number; title: string; description: string; budget: number; status: string };
+    onClose: () => void;
+    formatCurrency: (val: number) => string;
+}
+
+export default function ProjectDetailModal({ project, onClose, formatCurrency }: ProjectDetailModalProps) {
+    const { user } = useAuth();
+    const [detail, setDetail] = useState<ProjectDetail | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [actionLoading, setActionLoading] = useState<number | null>(null);
+    const [lightboxImg, setLightboxImg] = useState<string | null>(null);
+
+    // Bid form state
+    const [bidPrice, setBidPrice] = useState('');
+    const [bidProposal, setBidProposal] = useState('');
+    const [bidSubmitting, setBidSubmitting] = useState(false);
+    const [bidMessage, setBidMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+    const isProfessional = user?.role_type === 'arsitek' || user?.role_type === 'kontraktor';
+
+    const fetchDetail = () => {
+        setIsLoading(true);
+        axios.get(`/projects/${project.id}`)
+            .then(res => setDetail(res.data.data))
+            .catch(() => setDetail(null))
+            .finally(() => setIsLoading(false));
+    };
+
+    useEffect(() => {
+        fetchDetail();
+    }, [project.id]);
+
+    const handleBidAction = async (bidId: number, bidType: 'arsitek' | 'kontraktor', action: 'accept' | 'decline') => {
+        setActionLoading(bidId);
+        try {
+            const endpoint = action === 'accept' ? 'accept-bid' : 'decline-bid';
+            const res = await axios.post(`/projects/${project.id}/${endpoint}`, {
+                bid_id: bidId,
+                bid_type: bidType,
+            });
+            setDetail(res.data.data);
+        } catch (err) {
+            console.error('Bid action failed:', err);
+        } finally {
+            setActionLoading(null);
+        }
+    };
+
+    const handleSubmitBid = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setBidSubmitting(true);
+        setBidMessage(null);
+        try {
+            await axios.post(`/projects/${project.id}/bids`, {
+                price: parseFloat(bidPrice),
+                proposal: bidProposal,
+            });
+            setBidMessage({ type: 'success', text: 'Bid submitted successfully!' });
+            setBidPrice('');
+            setBidProposal('');
+            fetchDetail(); // Refresh to show new bid
+        } catch (err: unknown) {
+            const error = err as { response?: { data?: { message?: string } } };
+            setBidMessage({ type: 'error', text: error.response?.data?.message || 'Failed to submit bid.' });
+        } finally {
+            setBidSubmitting(false);
+        }
+    };
+
+    const getStatusColor = (status: string) => {
+        switch (status) {
+            case 'accepted': return 'bg-green-100 text-green-800 border-green-200';
+            case 'rejected': return 'bg-red-100 text-red-800 border-red-200';
+            default: return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+        }
+    };
+
+    const allBids: (Bid & { type: 'arsitek' | 'kontraktor' })[] = [
+        ...(detail?.bids_arsitek || []).map(b => ({ ...b, type: 'arsitek' as const })),
+        ...(detail?.bids_kontraktor || []).map(b => ({ ...b, type: 'kontraktor' as const })),
+    ];
+
+    return (
+        <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-sm"
+            onClick={onClose}
+        >
+            <motion.div
+                initial={{ y: 50, opacity: 0, scale: 0.95 }}
+                animate={{ y: 0, opacity: 1, scale: 1 }}
+                exit={{ y: 20, opacity: 0, scale: 0.95 }}
+                transition={{ type: 'spring', duration: 0.4 }}
+                className="bg-white rounded-3xl overflow-hidden shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col relative"
+                onClick={(e: React.MouseEvent) => e.stopPropagation()}
+            >
+                {/* Header */}
+                <div className="bg-gray-50 px-6 py-4 border-b border-gray-100 flex justify-between items-center shrink-0">
+                    <div className="flex items-center gap-3">
+                        <h2 className="text-xl font-extrabold text-gray-900">Project Details</h2>
+                        <span className={`text-xs px-3 py-1 rounded-full uppercase tracking-wider font-bold shadow-sm border ${getStatusColor(detail?.status || project.status)}`}>
+                            {detail?.status || project.status}
+                        </span>
+                    </div>
+                    <button
+                        onClick={onClose}
+                        className="bg-white text-gray-500 px-4 py-2 rounded-full hover:bg-red-50 hover:text-[#FF2D20] transition-colors shadow-sm border border-gray-200 font-bold text-xs uppercase"
+                    >
+                        Close
+                    </button>
+                </div>
+
+                {/* Scrollable Body */}
+                <div className="p-6 sm:p-8 overflow-y-auto flex-1">
+                    {isLoading ? (
+                        <div className="flex justify-center py-12">
+                            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#FF2D20]"></div>
+                        </div>
+                    ) : (
+                        <>
+                            {/* Project Info */}
+                            <h3 className="text-2xl font-extrabold text-gray-900 leading-tight mb-2">{detail?.title || project.title}</h3>
+
+                            <div className="flex flex-wrap gap-3 mb-6">
+                                {detail?.location && (
+                                    <span className="text-xs bg-gray-100 text-gray-700 px-3 py-1 rounded-full font-medium">📍 {detail.location}</span>
+                                )}
+                                {detail?.type && (
+                                    <span className="text-xs bg-blue-50 text-blue-700 px-3 py-1 rounded-full font-medium capitalize">🔧 {detail.type}</span>
+                                )}
+                                {detail?.deadline && (
+                                    <span className="text-xs bg-orange-50 text-orange-700 px-3 py-1 rounded-full font-medium">📅 {new Date(detail.deadline).toLocaleDateString('id-ID')}</span>
+                                )}
+                            </div>
+
+                            <div className="bg-gray-50 rounded-2xl p-5 border border-gray-100 mb-6">
+                                <h4 className="text-xs font-bold text-gray-900 uppercase tracking-wider mb-2 flex items-center gap-2">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-[#FF2D20]"></span> Description
+                                </h4>
+                                <p className="text-gray-600 text-sm leading-relaxed whitespace-pre-wrap">{detail?.description || project.description}</p>
+                            </div>
+
+                            {/* Project Images Gallery */}
+                            {detail?.images && detail.images.length > 0 && (
+                                <div className="mb-6">
+                                    <h4 className="text-xs font-bold text-gray-900 uppercase tracking-wider mb-3 flex items-center gap-2">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-[#FF2D20]"></span> Project Photos
+                                        <span className="text-gray-400 font-normal">({detail.images.length})</span>
+                                    </h4>
+                                    <div className="grid grid-cols-3 gap-3">
+                                        {detail.images.map(img => (
+                                            <div 
+                                                key={img.id} 
+                                                className="aspect-square rounded-xl overflow-hidden border border-gray-200 cursor-pointer hover:border-[#FF2D20] hover:shadow-md transition-all group"
+                                                onClick={() => setLightboxImg(img.url)}
+                                            >
+                                                <img src={img.url} alt="Project" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="bg-red-50 px-5 py-4 rounded-2xl border border-red-100 mb-8 inline-block">
+                                <p className="text-xs text-red-600 font-bold uppercase tracking-wider mb-1">Budget</p>
+                                <p className="text-2xl font-extrabold text-[#FF2D20]">{formatCurrency(detail?.budget || project.budget)}</p>
+                            </div>
+
+                            {/* Bidding Progress */}
+                            <div className="border-t border-gray-100 pt-6">
+                                <h4 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                                    📋 Bidding Progress
+                                    <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full font-medium">
+                                        {allBids.length} bid{allBids.length !== 1 ? 's' : ''}
+                                    </span>
+                                </h4>
+
+                                {allBids.length === 0 ? (
+                                    <div className="text-center py-10 bg-gray-50 rounded-2xl border border-gray-200 border-dashed">
+                                        <p className="text-gray-400 font-medium text-sm">No bids received yet.</p>
+                                    <p className="text-gray-400 text-xs mt-1">Professionals will submit proposals here.</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-4">
+                                        {allBids.map(bid => (
+                                            <div key={`${bid.type}-${bid.id}`} className="bg-white rounded-2xl border border-gray-200 p-5 hover:border-gray-300 transition-colors shadow-sm">
+                                                {/* Bidder Header */}
+                                                <div className="flex items-start justify-between gap-4 mb-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#FF2D20] to-red-700 flex items-center justify-center text-white font-bold text-sm shrink-0">
+                                                            {bid.bidder?.name?.charAt(0)?.toUpperCase() || '?'}
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-bold text-gray-900">{bid.bidder?.name || 'Unknown'}</p>
+                                                            <div className="flex items-center gap-2 flex-wrap">
+                                                                <span className="text-xs text-gray-500 capitalize">{bid.type === 'arsitek' ? '🏛️ Architect' : '🏗️ Contractor'}</span>
+                                                                {bid.bidder?.location && <span className="text-xs text-gray-400">• {bid.bidder.location}</span>}
+                                                                {bid.bidder?.experience_years && <span className="text-xs text-gray-400">• {bid.bidder.experience_years}yr exp</span>}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <span className={`text-xs px-3 py-1 rounded-full uppercase tracking-wider font-bold border shrink-0 ${getStatusColor(bid.status)}`}>
+                                                        {bid.status}
+                                                    </span>
+                                                </div>
+
+                                                {/* Bidder Details */}
+                                                <div className="flex flex-wrap gap-2 mb-3 text-xs">
+                                                    {bid.bidder?.user?.email && (
+                                                        <span className="bg-gray-50 text-gray-600 px-2 py-1 rounded-lg border border-gray-100">✉️ {bid.bidder.user.email}</span>
+                                                    )}
+                                                    {bid.bidder?.phone && (
+                                                        <span className="bg-gray-50 text-gray-600 px-2 py-1 rounded-lg border border-gray-100">📱 {bid.bidder.phone}</span>
+                                                    )}
+                                                    {bid.bidder?.specialization && (
+                                                        <span className="bg-blue-50 text-blue-700 px-2 py-1 rounded-lg border border-blue-100">🔧 {bid.bidder.specialization}</span>
+                                                    )}
+                                                </div>
+
+                                                {/* Proposal */}
+                                                <div className="bg-gray-50 rounded-xl p-3 mb-4 border border-gray-100">
+                                                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Proposal</p>
+                                                    <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{bid.proposal}</p>
+                                                </div>
+
+                                                {/* Price + Actions */}
+                                                <div className="flex items-center justify-between">
+                                                    <div>
+                                                        <p className="text-xs text-gray-500 font-medium">Bid Amount</p>
+                                                        <p className="text-xl font-extrabold text-green-600">{formatCurrency(bid.price)}</p>
+                                                    </div>
+
+                                                    {bid.status === 'pending' && detail?.owner_id === user?.id && (
+                                                        <div className="flex gap-2">
+                                                            <button
+                                                                disabled={actionLoading === bid.id}
+                                                                onClick={() => handleBidAction(bid.id, bid.type, 'accept')}
+                                                                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition-colors disabled:opacity-50 shadow-sm"
+                                                            >
+                                                                {actionLoading === bid.id ? '...' : '✓ Accept'}
+                                                            </button>
+                                                            <button
+                                                                disabled={actionLoading === bid.id}
+                                                                onClick={() => handleBidAction(bid.id, bid.type, 'decline')}
+                                                                className="bg-white hover:bg-red-50 text-red-600 px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-wider border border-red-200 transition-colors disabled:opacity-50"
+                                                            >
+                                                                {actionLoading === bid.id ? '...' : '✕ Decline'}
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Bid Submission Form for Professionals */}
+                            {isProfessional && detail?.status === 'open' && (
+                                <div className="border-t border-gray-100 pt-6">
+                                    <h4 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                                        🚀 Submit Your Bid
+                                    </h4>
+
+                                    {bidMessage && (
+                                        <div className={`mb-4 p-3 rounded-xl text-sm font-medium border ${
+                                            bidMessage.type === 'success' 
+                                                ? 'bg-green-50 text-green-800 border-green-200' 
+                                                : 'bg-red-50 text-red-800 border-red-200'
+                                        }`}>
+                                            {bidMessage.text}
+                                        </div>
+                                    )}
+
+                                    <form onSubmit={handleSubmitBid} className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-semibold text-gray-700 mb-1">Your Price (IDR)</label>
+                                            <input
+                                                type="number"
+                                                value={bidPrice}
+                                                onChange={e => setBidPrice(e.target.value)}
+                                                required
+                                                min="0"
+                                                placeholder="e.g. 50000000"
+                                                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#FF2D20] focus:ring-2 focus:ring-red-100 outline-none text-sm transition-all"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-semibold text-gray-700 mb-1">Proposal</label>
+                                            <textarea
+                                                value={bidProposal}
+                                                onChange={e => setBidProposal(e.target.value)}
+                                                required
+                                                maxLength={2000}
+                                                rows={4}
+                                                placeholder="Describe your approach, timeline, and why you're the best fit..."
+                                                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#FF2D20] focus:ring-2 focus:ring-red-100 outline-none text-sm transition-all resize-none"
+                                            />
+                                        </div>
+                                        <button
+                                            type="submit"
+                                            disabled={bidSubmitting}
+                                            className="w-full bg-[#FF2D20] hover:bg-red-700 text-white py-3 rounded-xl font-bold transition-all disabled:opacity-50 shadow-sm"
+                                        >
+                                            {bidSubmitting ? 'Submitting...' : 'Submit Bid Proposal'}
+                                        </button>
+                                    </form>
+                                </div>
+                            )}
+                        </>
+                    )}
+                </div>
+        </motion.div>
+            {lightboxImg && <Lightbox src={lightboxImg} onClose={() => setLightboxImg(null)} />}
+        </motion.div>
+    );
+}
+
+/* Lightbox overlay */
+function Lightbox({ src, onClose }: { src: string; onClose: () => void }) {
+    return (
+        <div className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4" onClick={onClose}>
+            <img src={src} alt="Full" className="max-w-full max-h-[85vh] rounded-2xl shadow-2xl object-contain" onClick={e => e.stopPropagation()} />
+            <button onClick={onClose} className="absolute top-6 right-6 bg-white/20 hover:bg-white/40 text-white w-10 h-10 rounded-full flex items-center justify-center text-xl backdrop-blur-sm transition-colors">✕</button>
+        </div>
+    );
+}
