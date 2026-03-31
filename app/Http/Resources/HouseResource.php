@@ -32,11 +32,24 @@ class HouseResource extends JsonResource
                 'postal_code' => $this->postal_code,
                 'coordinates' => $this->coordinate,
             ],
+            'coordinate' => $this->coordinate,
             'user_id' => $this->id_user,
             'views' => $this->views,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
             'housePic' => $this->whenLoaded('housePic'),
+            'owner' => $this->whenLoaded('user', fn () => [
+                'name' => $this->user->name,
+                'email' => $this->user->email,
+                'phones' => $this->user->phoneNumber->pluck('contact')->toArray(),
+            ]),
+            'roomList' => $this->whenLoaded('room', fn () => $this->room->map(fn ($r) => [
+                'name' => $r->name,
+                'width' => $r->width,
+                'length' => $r->length,
+                'description' => $r->desc,
+                'pics' => $r->roomPic->map(fn ($p) => ['dir' => $p->dir]),
+            ])),
         ];
     }
 }

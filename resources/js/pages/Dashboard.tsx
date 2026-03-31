@@ -9,6 +9,7 @@ import PostProjectForm from '../components/PostProjectForm';
 import EditProfileForm from '../components/EditProfileForm';
 import ProfessionalProfileView from '../components/ProfessionalProfileView';
 import ProjectDetailModal from '../components/ProjectDetailModal';
+import ProjectBoard from '../components/Projects/ProjectBoard';
 interface House {
     id: number;
     name: string;
@@ -253,45 +254,14 @@ export default function Dashboard() {
 
                             {/* PROJECTS TAB */}
                             {activeTab === 'projects' && (
-                                <motion.div key="projects" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-6">
-                                    <div className="flex justify-between items-center mb-6">
-                                        <h3 className="text-2xl font-bold text-gray-900">
-                                            {user?.role_type === 'user' ? 'My Project History' : 'Project Bidding Board'}
-                                        </h3>
-                                        {user?.role_type === 'user' && (
-                                            <button onClick={() => setActiveTab('post-project')} className="bg-[#FF2D20] text-white px-4 py-2 rounded-lg font-bold hover:bg-red-700 transition-colors shadow-sm">
-                                                + Post a Project
-                                            </button>
-                                        )}
-                                    </div>
-                                    {isLoadingData ? <p>Loading projects...</p> : (
-                                        <div className="space-y-4">
-                                            {relevantProjects.length === 0 ? (
-                                                <div className="text-center py-12 bg-white rounded-2xl border border-gray-200 border-dashed">
-                                                    <p className="text-gray-500 font-medium">No projects found in this view.</p>
-                                                </div>
-                                            ) : relevantProjects.map(project => (
-                                                <div key={project.id} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 hover:border-red-300 transition-colors">
-                                                    <div>
-                                                        <div className="flex items-center gap-3 mb-2">
-                                                            <h4 className="text-lg font-bold text-gray-900">{project.title}</h4>
-                                                            <span className="text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded-full uppercase tracking-wider">{project.status}</span>
-                                                        </div>
-                                                        <p className="text-sm text-gray-600 line-clamp-2 max-w-2xl">{project.description}</p>
-                                                    </div>
-                                                    <div className="flex flex-row md:flex-col items-center md:items-end w-full md:w-auto justify-between md:justify-center gap-2 shrink-0">
-                                                        <p className="text-lg font-extrabold text-green-600">{formatCurrency(project.budget)}</p>
-                                                        <button 
-                                                            onClick={() => setSelectedProject(project)}
-                                                            className="bg-[#FF2D20] hover:bg-red-700 text-white px-4 py-2 rounded-lg font-semibold text-sm transition-colors"
-                                                        >
-                                                            View Details
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
+                                <motion.div key="projects" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-6 flex flex-col w-full">
+                                    <ProjectBoard 
+                                        projects={relevantProjects as any} 
+                                        isLoading={isLoadingData} 
+                                        userRole={user?.role_type}
+                                        onPostProject={() => setActiveTab('post-project')}
+                                        onViewProject={setSelectedProject as any}
+                                    />
 
                                     {/* Premium Project Details Modal */}
                                     <AnimatePresence>

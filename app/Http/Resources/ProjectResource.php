@@ -24,6 +24,8 @@ class ProjectResource extends JsonResource
             'selected_contractor_id' => $this->selected_kontraktor_id,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
+            'bids_arsitek_count' => $this->bids_arsitek_count ?? 0,
+            'bids_kontraktor_count' => $this->bids_kontraktor_count ?? 0,
             'images' => $this->whenLoaded('images', function () {
                 return $this->images->map(fn ($img) => [
                     'id' => $img->id,

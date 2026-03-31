@@ -14,7 +14,11 @@ class ProjectController extends Controller
 {
     public function index()
     {
-        $projects = Project::where('status', '!=', 'completed')->paginate(10);
+        $projects = Project::with('images')
+            ->withCount(['bidsArsitek', 'bidsKontraktor'])
+            ->latest()
+            ->paginate(50);
+            
         return ProjectResource::collection($projects);
     }
 

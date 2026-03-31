@@ -16,7 +16,7 @@ class HouseController extends Controller
 {
     public function index(Request $request)
     {
-        $query = House::with(['housePic', 'user']);
+        $query = House::with(['housePic', 'user.phoneNumber', 'room.roomPic']);
         
         $houses = $query->paginate(10);
         return HouseResource::collection($houses);
