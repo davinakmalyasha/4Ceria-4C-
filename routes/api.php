@@ -26,7 +26,7 @@ Route::get('/kontraktor', function () {
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', function (Request $request) {
-        return $request->user();
+        return $request->user()->load('phoneNumber');
     });
     Route::put('/me', function (Request $request) {
         $user = $request->user();
@@ -34,9 +34,33 @@ Route::middleware('auth:sanctum')->group(function () {
             'name' => 'required|string|max:255',
             'email' => 'required|email|max:255|unique:users,email,' . $user->id,
             'username' => 'required|string|max:255|unique:users,username,' . $user->id,
+            'phone_numbers' => 'nullable|array',
+            'phone_numbers.*' => 'required|string|max:20',
         ]);
-        $user->update($validated);
-        return response()->json(['message' => 'Profile updated successfully', 'user' => $user]);
+        
+        $user->update([
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'username' => $validated['username'],
+        ]);
+
+        if ($request->has('phone_numbers')) {
+            // Delete numbers that are not in the provided list
+            $user->phoneNumber()->whereNotIn('contact', $validated['phone_numbers'])->delete();
+
+            // Add new numbers that are not already in the database
+            $existingNumbers = $user->phoneNumber()->pluck('contact')->toArray();
+            foreach ($validated['phone_numbers'] as $number) {
+                if (!in_array($number, $existingNumbers)) {
+                    $user->phoneNumber()->create(['contact' => $number]);
+                }
+            }
+        }
+
+        return response()->json([
+            'message' => 'Profile updated successfully',
+            'user' => $user->load('phoneNumber')
+        ]);
     });
     
     // Protected API endpoints

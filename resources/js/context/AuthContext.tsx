@@ -9,6 +9,7 @@ interface User {
     email: string;
     role_type: string;
     username: string;
+    phone_number?: { id: number; contact: string }[];
 }
 
 interface AuthContextType {

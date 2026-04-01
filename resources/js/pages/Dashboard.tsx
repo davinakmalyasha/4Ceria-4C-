@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Home, User as UserIcon, LogOut, Compass, MessageSquare, Menu, FileText, CheckCircle, ChevronRight, Play, Briefcase, Users, Star, Heart } from 'lucide-react';
+import { Home, User as UserIcon, LogOut, Compass, MessageSquare, Menu, FileText, CheckCircle, ChevronRight, Play, Briefcase, Users, Star, Heart, Phone } from 'lucide-react';
 import axios from 'axios';
 import ExploreHouses from '../components/ExploreHouses';
 import PostProjectForm from '../components/PostProjectForm';
@@ -473,9 +473,6 @@ export default function Dashboard() {
                                             <div>
                                                 <h4 className="text-2xl font-bold text-gray-900">{user?.name}</h4>
                                                 <p className="text-gray-500">{user?.email}</p>
-                                                <span className="inline-block mt-2 px-3 py-1 bg-red-50 text-[#FF2D20] text-sm font-semibold rounded-lg capitalize">
-                                                    Account Type: {user?.role_type}
-                                                </span>
                                             </div>
                                         </div>
                                         <hr className="my-8 border-gray-100" />
@@ -483,12 +480,41 @@ export default function Dashboard() {
                                         {isEditingProfile ? (
                                             <EditProfileForm onCancel={() => setIsEditingProfile(false)} />
                                         ) : (
-                                            <div className="space-y-4">
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700">Username</label>
-                                                    <div className="mt-1 p-3 bg-gray-50 rounded-lg text-gray-900">{user?.username}</div>
+                                            <div className="space-y-6">
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                    <div>
+                                                        <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Username</label>
+                                                        <div className="text-gray-900 font-semibold text-lg">{user?.username}</div>
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Email Address</label>
+                                                        <div className="text-gray-900 font-semibold text-lg">{user?.email}</div>
+                                                    </div>
                                                 </div>
-                                                <button onClick={() => setIsEditingProfile(true)} className="text-[#FF2D20] font-semibold hover:underline">Edit Profile Details &rarr;</button>
+
+                                                <div>
+                                                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Verified Phone Numbers</label>
+                                                    <div className="space-y-2">
+                                                        {user?.phone_number && user.phone_number.length > 0 ? (
+                                                            user.phone_number.map((phone) => (
+                                                                <div key={phone.id} className="flex items-center gap-3 bg-gray-50 border border-gray-100 p-3 rounded-xl">
+                                                                    <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-[#FF2D20] shadow-sm">
+                                                                        <Phone size={14} />
+                                                                    </div>
+                                                                    <span className="font-bold text-gray-700">{phone.contact}</span>
+                                                                </div>
+                                                            ))
+                                                        ) : (
+                                                            <p className="text-sm text-gray-400 italic">No phone numbers added.</p>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                <div className="pt-4 border-t border-gray-100">
+                                                    <button onClick={() => setIsEditingProfile(true)} className="px-6 py-2 bg-[#FF2D20]/5 text-[#FF2D20] font-bold rounded-xl hover:bg-[#FF2D20]/10 transition-colors">
+                                                        Edit Profile Details
+                                                    </button>
+                                                </div>
                                             </div>
                                         )}
                                     </div>
