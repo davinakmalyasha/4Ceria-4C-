@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\HouseController;
 use App\Http\Controllers\Api\ProjectController;
+use App\Http\Controllers\Api\ProjectFeatureController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -44,4 +45,22 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/projects/{project}/bids', [ProjectController::class, 'submitBid']);
     Route::post('/projects/{project}/accept-bid', [ProjectController::class, 'acceptBid']);
     Route::post('/projects/{project}/decline-bid', [ProjectController::class, 'declineBid']);
+    Route::get('/my-bids', [ProjectController::class, 'myBids']);
+
+    // Project Features (Milestones, Comments, Documents)
+    Route::get('/projects/{project}/milestones', [ProjectFeatureController::class, 'getMilestones']);
+    Route::post('/projects/{project}/milestones', [ProjectFeatureController::class, 'storeMilestone']);
+    Route::put('/milestones/{milestone}', [ProjectFeatureController::class, 'updateMilestone']);
+    Route::delete('/projects/{project}/milestones/{milestone}', [ProjectFeatureController::class, 'deleteMilestone']);
+
+    Route::get('/projects/{project}/comments', [ProjectFeatureController::class, 'getComments']);
+    Route::post('/projects/{project}/comments', [ProjectFeatureController::class, 'storeComment']);
+
+    Route::get('/projects/{project}/documents', [ProjectFeatureController::class, 'getDocuments']);
+    Route::post('/projects/{project}/documents', [ProjectFeatureController::class, 'storeDocument']);
+    Route::delete('/projects/{project}/documents/{document}', [ProjectFeatureController::class, 'deleteDocument']);
+
+    // Ratings & Activity Log
+    Route::post('/projects/{project}/rate', [ProjectFeatureController::class, 'rateProject']);
+    Route::get('/projects/{project}/activity', [ProjectFeatureController::class, 'getActivity']);
 });

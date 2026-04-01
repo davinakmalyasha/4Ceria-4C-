@@ -20,6 +20,7 @@ class Project extends Model
         'jenis_proyek',
         'status',
         'selected_arsitek_id',
+        'selected_kontraktor_id',
         'deadline',         
         'attachment',      
     ];
@@ -65,6 +66,26 @@ public function kontraktorRating()
 public function images()
 {
     return $this->hasMany(ProjectImage::class)->orderBy('sort_order');
+}
+
+public function milestones()
+{
+    return $this->hasMany(ProjectMilestone::class);
+}
+
+public function comments()
+{
+    return $this->hasMany(ProjectComment::class)->orderBy('created_at', 'asc');
+}
+
+public function documents()
+{
+    return $this->hasMany(ProjectDocument::class)->orderBy('created_at', 'desc');
+}
+
+public function activityLogs()
+{
+    return $this->hasMany(ProjectActivityLog::class)->orderBy('created_at', 'desc');
 }
 
 }

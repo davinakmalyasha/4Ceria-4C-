@@ -6,18 +6,21 @@ import ProjectToolbar from './ProjectToolbar';
 import ProjectCard, { ProjectCardSkeleton } from './ProjectCard';
 import ProjectEmptyState from './ProjectEmptyState';
 import ProjectStatsDashboard from './ProjectStatsDashboard';
+import ProjectKanban from './ProjectKanban';
 
 interface ProjectBoardProps {
     projects: Project[];
     isLoading: boolean;
-    userRole?: string;
-    onPostProject: () => void;
     onViewProject: (project: Project) => void;
+    userRole?: string;
+    onPostProject?: () => void;
+    onEditProject?: (project: Project) => void;
+    onDeleteProject?: (project: Project) => void;
+    onStatusChange?: (projectId: number, newStatus: string) => void;
 }
 
 export default function ProjectBoard({ 
-    projects, isLoading, userRole, 
-    onPostProject, onViewProject 
+    projects, isLoading, userRole, onViewProject, onPostProject, onEditProject, onDeleteProject, onStatusChange 
 }: ProjectBoardProps) {
     
     const {
@@ -77,6 +80,15 @@ export default function ProjectBoard({
                         onClearFilters={() => { setSearch(''); setStatusFilter('all'); }}
                         onPostProject={userRole === 'user' ? onPostProject : undefined}
                     />
+                ) : viewMode === 'board' && onStatusChange ? (
+                    <ProjectKanban 
+                        projects={filteredProjects}
+                        onStatusChange={onStatusChange}
+                        onViewProject={onViewProject}
+                        onEditProject={onEditProject}
+                        onDeleteProject={onDeleteProject}
+                        userRole={userRole}
+                    />
                 ) : (
                     <div className="flex flex-col gap-6">
                         <div className={`grid ${viewMode === 'list' ? 'grid-cols-1 gap-4' : 'grid-cols-1 xl:grid-cols-2 gap-4 lg:gap-6'}`}>
@@ -94,7 +106,9 @@ export default function ProjectBoard({
                                             project={project} 
                                             onClick={() => onViewProject(project)}
                                             userRole={userRole}
-                                            viewMode={viewMode}
+                                            viewMode={viewMode === 'board' ? 'grid' : viewMode}
+                                            onEdit={onEditProject}
+                                            onDelete={onDeleteProject}
                                         />
                                     </motion.div>
                                 ))}

@@ -19,10 +19,11 @@ interface ProjectCardProps {
     onClick: (id: number) => void;
     userRole?: string;
     viewMode?: 'grid' | 'list';
+    onEdit?: (project: Project) => void;
+    onDelete?: (project: Project) => void;
 }
 
-export default function ProjectCard({ project, onClick, userRole, viewMode = 'grid' }: ProjectCardProps) {
-    const [menuOpen, setMenuOpen] = useState(false);
+export default function ProjectCard({ project, onClick, userRole, viewMode = 'grid', onEdit, onDelete }: ProjectCardProps) {
     
     const statusCfg = getStatusConfig(project.status);
     const StatusIcon = statusCfg.icon;
@@ -43,12 +44,6 @@ export default function ProjectCard({ project, onClick, userRole, viewMode = 'gr
                 <Calendar size={13} /> <span>{text}</span>
             </div>
         );
-    };
-
-    const handleAction = (e: React.MouseEvent, action: string) => {
-        e.stopPropagation();
-        setMenuOpen(false);
-        console.log(`Action [${action}] triggered for Project ${project.id}`);
     };
 
     const isList = viewMode === 'list';
@@ -111,32 +106,6 @@ export default function ProjectCard({ project, onClick, userRole, viewMode = 'gr
                                     </span>
                                 )}
                             </div>
-
-                            {/* Dot Menu */}
-                            {userRole === 'user' && (
-                                <div className="absolute right-0 top-0">
-                                    <button 
-                                        onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
-                                        className="p-1 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-                                    >
-                                        <MoreHorizontal size={20} />
-                                    </button>
-                                    <AnimatePresence>
-                                        {menuOpen && (
-                                            <motion.div 
-                                                initial={{ opacity: 0, scale: 0.95, y: -5 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}
-                                                className="absolute right-0 top-8 w-44 bg-white rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.1)] border border-gray-100 py-1 z-20 origin-top-right overflow-hidden"
-                                            >
-                                                <button onClick={(e) => handleAction(e, 'edit')} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"><Edit2 size={14} /> Edit Project</button>
-                                                <button onClick={(e) => handleAction(e, 'duplicate')} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"><Copy size={14} /> Duplicate</button>
-                                                <button onClick={(e) => handleAction(e, 'share')} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"><Share2 size={14} /> Share Link</button>
-                                                <div className="h-px bg-gray-100 my-1"></div>
-                                                <button onClick={(e) => handleAction(e, 'delete')} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 font-medium"><Trash2 size={14} /> Delete</button>
-                                            </motion.div>
-                                        )}
-                                    </AnimatePresence>
-                                </div>
-                            )}
                         </div>
                         <p className={`text-sm text-gray-500 leading-relaxed md:pr-4 break-words mt-2 ${isList ? 'line-clamp-2 md:line-clamp-1' : 'line-clamp-2'}`}>{project.description}</p>
                     </div>
@@ -172,11 +141,23 @@ export default function ProjectCard({ project, onClick, userRole, viewMode = 'gr
                             <MessageSquare size={14} /> {bidCount > 0 ? `${bidCount} Bid${bidCount > 1 ? 's' : ''}` : 'No bids yet'}
                         </div>
                     </div>
-                    <button 
-                        className={`flex justify-center flex-1 sm:flex-none items-center gap-2 bg-gray-900 group-hover:bg-[#FF2D20] text-white rounded-xl font-bold transition-all shadow-md group-hover:shadow-[0_4px_14px_0_rgba(255,45,32,0.2)] px-5 py-2.5 text-sm`}
-                    >
-                        <Eye size={16} /> View
-                    </button>
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                        {userRole === 'user' && (
+                            <>
+                                <button onClick={(e) => { e.stopPropagation(); onEdit?.(project); }} className="p-2.5 rounded-xl border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-colors bg-white shadow-sm flex-1 sm:flex-none flex justify-center">
+                                    <Edit2 size={16} />
+                                </button>
+                                <button onClick={(e) => { e.stopPropagation(); onDelete?.(project); }} className="p-2.5 rounded-xl border border-red-100 text-red-500 hover:bg-red-50 hover:text-red-700 hover:border-red-200 transition-colors bg-white shadow-sm flex-1 sm:flex-none flex justify-center">
+                                    <Trash2 size={16} />
+                                </button>
+                            </>
+                        )}
+                        <button 
+                            className={`flex justify-center flex-1 sm:flex-none items-center gap-2 bg-gray-900 group-hover:bg-[#FF2D20] text-white rounded-xl font-bold transition-all shadow-md group-hover:shadow-[0_4px_14px_0_rgba(255,45,32,0.2)] px-5 py-2.5 text-sm`}
+                        >
+                            <Eye size={16} /> View
+                        </button>
+                    </div>
                 </div>
             </div>
         </motion.div>

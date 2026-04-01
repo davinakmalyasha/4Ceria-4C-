@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Home, Compass, MessageSquare, Menu, LogOut, User as UserIcon, Users, Briefcase } from 'lucide-react';
+import { Home, User as UserIcon, LogOut, Compass, MessageSquare, Menu, FileText, CheckCircle, ChevronRight, Play, Briefcase, Users, Star } from 'lucide-react';
 import axios from 'axios';
 import ExploreHouses from '../components/ExploreHouses';
 import PostProjectForm from '../components/PostProjectForm';
@@ -10,6 +10,12 @@ import EditProfileForm from '../components/EditProfileForm';
 import ProfessionalProfileView from '../components/ProfessionalProfileView';
 import ProjectDetailModal from '../components/ProjectDetailModal';
 import ProjectBoard from '../components/Projects/ProjectBoard';
+import EditProjectModal from '../components/Projects/EditProjectModal';
+import ConfirmDeleteModal from '../components/Projects/ConfirmDeleteModal';
+import MyBidsList from '../components/Projects/MyBidsList';
+import RatingModal from '../components/Projects/RatingModal';
+import { Project } from '../types/project.types';
+
 interface House {
     id: number;
     name: string;
@@ -21,14 +27,6 @@ interface House {
     housePic?: { dir: string }[];
 }
 
-interface Project {
-    id: number;
-    title: string;
-    description: string;
-    budget: number;
-    status: string;
-    owner_id?: number;
-}
 
 export default function Dashboard() {
     const { user, logout, isLoading: isAuthLoading } = useAuth();
@@ -37,12 +35,74 @@ export default function Dashboard() {
     
     const [houses, setHouses] = useState<House[]>([]);
     const [projects, setProjects] = useState<Project[]>([]);
+    const [myBids, setMyBids] = useState<any[]>([]);
     const [architects, setArchitects] = useState<any[]>([]);
     const [constructors, setConstructors] = useState<any[]>([]);
     const [isLoadingData, setIsLoadingData] = useState(true);
     const [isEditingProfile, setIsEditingProfile] = useState(false);
     const [selectedProfessional, setSelectedProfessional] = useState<{ type: 'architect' | 'constructor', data: any } | null>(null);
     const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+
+    const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
+    const [isDeletingProject, setIsDeletingProject] = useState(false);
+    const [projectToEdit, setProjectToEdit] = useState<Project | null>(null);
+    const [ratingProject, setRatingProject] = useState<Project | null>(null);
+
+    const handleDeleteProjectConfirm = async () => {
+        if (!projectToDelete) return;
+        setIsDeletingProject(true);
+        try {
+            await axios.delete(`/projects/${projectToDelete.id}`);
+            setProjects(prev => prev.filter(p => p.id !== projectToDelete.id));
+            setProjectToDelete(null);
+        } catch (err) {
+            console.error('Failed to delete project', err);
+            alert('Failed to delete project. Please try again.');
+        } finally {
+            setIsDeletingProject(false);
+        }
+    };
+
+    const handleProjectEdited = (updatedProject: Project) => {
+        setProjects(prev => prev.map(p => p.id === updatedProject.id ? updatedProject : p));
+        setProjectToEdit(null);
+    };
+
+    const handleProjectStatusChange = async (projectId: number, newStatus: string) => {
+        const originalProject = projects.find(p => p.id === projectId);
+        if (!originalProject || originalProject.status === newStatus) return;
+
+        // If dropping to completed and user is the owner, show rating modal first
+        if (newStatus === 'completed' && user?.role_type === 'user' && originalProject.owner_id === user?.id) {
+            // Optimistic update
+            setProjects(prev => prev.map(p => p.id === projectId ? { ...p, status: newStatus } : p));
+            try {
+                await axios.put(`/projects/${projectId}`, { status: newStatus });
+                setRatingProject(originalProject);
+            } catch (err: any) {
+                console.error('Failed to change status', err);
+                setProjects(prev => prev.map(p => p.id === projectId ? { ...p, status: originalProject.status } : p));
+                alert(err.response?.data?.message || 'Failed to update project status.');
+            }
+            return;
+        }
+
+        // Optimistic update
+        setProjects(prev => prev.map(p => p.id === projectId ? { ...p, status: newStatus } : p));
+
+        try {
+            await axios.put(`/projects/${projectId}`, { status: newStatus });
+        } catch (err: any) {
+            console.error('Failed to change status', err);
+            // Revert on failure
+            setProjects(prev => prev.map(p => p.id === projectId ? { ...p, status: originalProject.status } : p));
+            if (err.response?.status === 403) {
+                alert(err.response.data.message || 'Unauthorized. Only the project owner or hired professional can do this.');
+            } else {
+                alert('Failed to update project status. Please try again.');
+            }
+        }
+    };
 
     const relevantProjects = user?.role_type === 'user' 
         ? projects.filter(p => p.owner_id === user.id)
@@ -63,6 +123,11 @@ export default function Dashboard() {
                 setProjects(projectRes.data.data);
                 setArchitects(archRes.data.data);
                 setConstructors(constrRes.data.data);
+
+                if (user.role_type === 'arsitek' || user.role_type === 'kontraktor') {
+                    const bidsRes = await axios.get('/my-bids');
+                    setMyBids(bidsRes.data.data || []);
+                }
             } catch (err) {
                 console.error('Failed to fetch dashboard data', err);
             } finally {
@@ -100,6 +165,7 @@ export default function Dashboard() {
         return [
             ...base,
             { id: 'projects', label: 'Bidding Board', icon: MessageSquare },
+            { id: 'my-bids', label: 'My Proposals', icon: FileText },
             { id: 'houses', label: 'Explore Houses', icon: Compass },
             { id: 'profile', label: 'My Profile', icon: UserIcon },
         ];
@@ -110,6 +176,7 @@ export default function Dashboard() {
     };
 
     return (
+        <>
         <div className="min-h-screen bg-neutral-100 flex overflow-hidden font-sans">
             {sidebarOpen && (
                 <div className="fixed inset-0 bg-black/50 z-40 md:hidden" onClick={() => setSidebarOpen(false)} />
@@ -198,10 +265,10 @@ export default function Dashboard() {
                                             </div>
                                         ) : (
                                             <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-6 rounded-2xl shadow-lg shadow-blue-500/30 flex flex-col justify-between h-40 text-white">
-                                                <p className="font-medium opacity-90">Find new projects</p>
+                                                <p className="font-medium opacity-90">Track your proposals</p>
                                                 <div className="mt-4">
-                                                    <button onClick={() => setActiveTab('projects')} className="bg-white text-blue-600 px-4 py-2 rounded-lg font-semibold text-sm hover:bg-gray-50 transition-colors w-fit">
-                                                        Browse Tenders
+                                                    <button onClick={() => setActiveTab('my-bids')} className="bg-white text-blue-600 px-4 py-2 rounded-lg font-semibold text-sm hover:bg-gray-50 transition-colors w-fit shadow-sm">
+                                                        View Pending Bids
                                                     </button>
                                                 </div>
                                             </div>
@@ -260,19 +327,58 @@ export default function Dashboard() {
                                         isLoading={isLoadingData} 
                                         userRole={user?.role_type}
                                         onPostProject={() => setActiveTab('post-project')}
-                                        onViewProject={setSelectedProject as any}
+                                        onViewProject={setSelectedProject}
+                                        onEditProject={setProjectToEdit}
+                                        onDeleteProject={setProjectToDelete}
+                                        onStatusChange={handleProjectStatusChange}
                                     />
 
-                                    {/* Premium Project Details Modal */}
+                                    {/* Action Modals */}
                                     <AnimatePresence>
                                         {selectedProject && (
                                             <ProjectDetailModal 
-                                                project={selectedProject}
+                                                project={selectedProject as any}
                                                 onClose={() => setSelectedProject(null)}
                                                 formatCurrency={formatCurrency}
                                             />
                                         )}
+                                        {projectToEdit && (
+                                            <EditProjectModal 
+                                                project={projectToEdit}
+                                                onClose={() => setProjectToEdit(null)}
+                                                onSuccess={handleProjectEdited}
+                                            />
+                                        )}
+                                        {projectToDelete && (
+                                            <ConfirmDeleteModal 
+                                                title={projectToDelete.title}
+                                                description="This action cannot be undone and will remove all associated bids."
+                                                isDeleting={isDeletingProject}
+                                                onConfirm={handleDeleteProjectConfirm}
+                                                onCancel={() => setProjectToDelete(null)}
+                                            />
+                                        )}
                                     </AnimatePresence>
+                                </motion.div>
+                            )}
+
+                            {/* MY BIDS TAB (Professionals Only) */}
+                            {activeTab === 'my-bids' && (
+                                <motion.div key="my-bids" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-6">
+                                    <div className="flex flex-col gap-2 mb-6">
+                                        <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                                            <FileText className="w-6 h-6 text-[#FF2D20]" /> My Proposals Pipeline
+                                        </h3>
+                                        <p className="text-gray-500 text-sm">Track the status of all your submitted project bids and connect with homeowners.</p>
+                                    </div>
+                                    <MyBidsList 
+                                        bids={myBids} 
+                                        isLoading={isLoadingData} 
+                                        onViewProject={(id) => {
+                                            const proj = projects.find(p => p.id === id);
+                                            if (proj) setSelectedProject(proj);
+                                        }}
+                                    />
                                 </motion.div>
                             )}
 
@@ -397,5 +503,20 @@ export default function Dashboard() {
                 </div>
             </main>
         </div>
+
+        {/* Rating Modal - shown when dropping project to Completed */}
+        <AnimatePresence>
+            {ratingProject && (
+                <RatingModal
+                    projectId={ratingProject.id}
+                    projectTitle={ratingProject.title}
+                    hasArsitek={!!ratingProject.selected_architect_id}
+                    hasKontraktor={!!ratingProject.selected_contractor_id}
+                    onClose={() => setRatingProject(null)}
+                    onRated={() => setRatingProject(null)}
+                />
+            )}
+        </AnimatePresence>
+        </>
     );
 }

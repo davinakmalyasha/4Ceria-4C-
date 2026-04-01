@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, SlidersHorizontal, ArrowDownAZ, LayoutGrid, List } from 'lucide-react';
+import { Search, SlidersHorizontal, ArrowDownAZ, LayoutGrid, List, KanbanSquare } from 'lucide-react';
 
 interface Props {
     search: string;
@@ -8,8 +8,8 @@ interface Props {
     onStatusChange: (val: string) => void;
     sortBy: string;
     onSortChange: (val: any) => void;
-    viewMode: 'grid' | 'list';
-    onViewModeChange: (val: 'grid' | 'list') => void;
+    viewMode: 'grid' | 'list' | 'board';
+    onViewModeChange: (val: 'grid' | 'list' | 'board') => void;
     stats: { all: number; open: number; inProgress: number; completed: number };
     totalCount: number;
     showPostButton?: boolean;
@@ -76,6 +76,12 @@ export default function ProjectToolbar({
                             className={`p-1.5 rounded-lg transition-all ${viewMode === 'list' ? 'bg-white text-[#FF2D20] shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
                         >
                             <List size={18} />
+                        </button>
+                        <button
+                            onClick={() => onViewModeChange('board')}
+                            className={`p-1.5 rounded-lg transition-all ${viewMode === 'board' ? 'bg-white text-[#FF2D20] shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                        >
+                            <KanbanSquare size={18} />
                         </button>
                     </div>
 

@@ -1,7 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
+import { Info, CheckSquare, MessageCircle, FileText, History } from 'lucide-react';
+import ProjectMilestones from './Projects/ProjectMilestones';
+import ProjectComments from './Projects/ProjectComments';
+import ProjectVault from './Projects/ProjectVault';
+import ProjectActivity from './Projects/ProjectActivity';
+import { Project } from '../types/project.types';
 
 interface Bidder {
     id: number;
@@ -34,6 +40,8 @@ interface ProjectDetail {
     deadline?: string;
     attachment?: string;
     owner_id?: number;
+    selected_architect_id?: number | null;
+    selected_contractor_id?: number | null;
     bids_arsitek?: Bid[];
     bids_kontraktor?: Bid[];
     images?: { id: number; url: string; sort_order: number }[];
@@ -51,6 +59,7 @@ export default function ProjectDetailModal({ project, onClose, formatCurrency }:
     const [isLoading, setIsLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState<number | null>(null);
     const [lightboxImg, setLightboxImg] = useState<string | null>(null);
+    const [activeTab, setActiveTab] = useState<'details' | 'milestones' | 'qa' | 'vault' | 'activity'>('details');
 
     // Bid form state
     const [bidPrice, setBidPrice] = useState('');
@@ -161,10 +170,31 @@ export default function ProjectDetailModal({ project, onClose, formatCurrency }:
                         </div>
                     ) : (
                         <>
-                            {/* Project Info */}
-                            <h3 className="text-2xl font-extrabold text-gray-900 leading-tight mb-2">{detail?.title || project.title}</h3>
+                            {/* Tabs Navigation */}
+                            <div className="flex border-b border-gray-200 mb-6 overflow-x-auto scrollbar-none">
+                                <button onClick={() => setActiveTab('details')} className={`flex items-center gap-2 pb-3 px-4 font-bold text-sm border-b-2 transition-colors whitespace-nowrap ${activeTab === 'details' ? 'border-[#FF2D20] text-[#FF2D20]' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+                                    <Info className="w-4 h-4" /> Details & Bids
+                                </button>
+                                <button onClick={() => setActiveTab('milestones')} className={`flex items-center gap-2 pb-3 px-4 font-bold text-sm border-b-2 transition-colors whitespace-nowrap ${activeTab === 'milestones' ? 'border-[#FF2D20] text-[#FF2D20]' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+                                    <CheckSquare className="w-4 h-4" /> Milestones
+                                </button>
+                                <button onClick={() => setActiveTab('qa')} className={`flex items-center gap-2 pb-3 px-4 font-bold text-sm border-b-2 transition-colors whitespace-nowrap ${activeTab === 'qa' ? 'border-[#FF2D20] text-[#FF2D20]' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+                                    <MessageCircle className="w-4 h-4" /> Q&A Chat
+                                </button>
+                                <button onClick={() => setActiveTab('vault')} className={`flex items-center gap-2 pb-3 px-4 font-bold text-sm border-b-2 transition-colors whitespace-nowrap ${activeTab === 'vault' ? 'border-[#FF2D20] text-[#FF2D20]' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+                                    <FileText className="w-4 h-4" /> Vault
+                                </button>
+                                <button onClick={() => setActiveTab('activity')} className={`flex items-center gap-2 pb-3 px-4 font-bold text-sm border-b-2 transition-colors whitespace-nowrap ${activeTab === 'activity' ? 'border-[#FF2D20] text-[#FF2D20]' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+                                    <History className="w-4 h-4" /> Activity
+                                </button>
+                            </div>
 
-                            <div className="flex flex-wrap gap-3 mb-6">
+                            <AnimatePresence mode="wait">
+                                {activeTab === 'details' && (
+                                    <motion.div key="details" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                                        <h3 className="text-2xl font-extrabold text-gray-900 leading-tight mb-2">{detail?.title || project.title}</h3>
+
+                                        <div className="flex flex-wrap gap-3 mb-6">
                                 {detail?.location && (
                                     <span className="text-xs bg-gray-100 text-gray-700 px-3 py-1 rounded-full font-medium">📍 {detail.location}</span>
                                 )}
@@ -350,6 +380,38 @@ export default function ProjectDetailModal({ project, onClose, formatCurrency }:
                                     </form>
                                 </div>
                             )}
+                                    </motion.div>
+                                )}
+
+                                {activeTab === 'milestones' && (
+                                    <motion.div key="milestones" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}>
+                                        {detail && (
+                                            <ProjectMilestones 
+                                                project={detail as unknown as Project} 
+                                                isOwnerOrWorker={user?.id === detail.owner_id || user?.id === detail.selected_architect_id || user?.id === detail.selected_contractor_id}
+                                            />
+                                        )}
+                                    </motion.div>
+                                )}
+
+                                {activeTab === 'qa' && (
+                                    <motion.div key="qa" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}>
+                                        {detail && <ProjectComments project={detail as unknown as Project} />}
+                                    </motion.div>
+                                )}
+
+                                {activeTab === 'vault' && (
+                                    <motion.div key="vault" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}>
+                                        {detail && <ProjectVault project={detail as unknown as Project} />}
+                                    </motion.div>
+                                )}
+
+                                {activeTab === 'activity' && (
+                                    <motion.div key="activity" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}>
+                                        {detail && <ProjectActivity project={detail as unknown as Project} />}
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
                         </>
                     )}
                 </div>

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Project;
+use App\Models\ProjectActivityLog;
 use Illuminate\Http\Request;
 use App\Http\Resources\ProjectResource;
 use App\Http\Requests\StoreProjectRequest;
@@ -46,6 +47,14 @@ class ProjectController extends Controller
         }
 
         $project->load('images');
+
+        ProjectActivityLog::create([
+            'project_id' => $project->id,
+            'user_id' => Auth::id(),
+            'action' => 'project_created',
+            'details' => "Project \"{$project->title}\" was posted",
+        ]);
+
         return new ProjectResource($project);
     }
 
@@ -140,6 +149,13 @@ class ProjectController extends Controller
             $project->update(['selected_kontraktor_id' => $bid->kontraktor_id]);
         }
 
+        ProjectActivityLog::create([
+            'project_id' => $project->id,
+            'user_id' => Auth::id(),
+            'action' => 'bid_accepted',
+            'details' => "Accepted {$request->bid_type} bid",
+        ]);
+
         $project->load(['bidsArsitek.arsitek.user', 'bidsKontraktor.kontraktor.user', 'user']);
         return new ProjectResource($project);
     }
@@ -169,8 +185,25 @@ class ProjectController extends Controller
 
     public function update(UpdateProjectRequest $request, Project $project)
     {
-        if ($project->user_id !== Auth::id()) {
-            return response()->json(['message' => 'Unauthorized. Must be project owner.'], 403);
+        $user = Auth::user();
+        $isOwner = $project->user_id === $user->id;
+        
+        // Find if user is the selected professional
+        $isWorker = false;
+        if ($user->role_type === 'arsitek' && $project->selected_arsitek_id) {
+            $arsitek = \App\Models\Arsitek::where('user_id', $user->id)->first();
+            if ($arsitek && $arsitek->id === $project->selected_arsitek_id) {
+                $isWorker = true;
+            }
+        } elseif ($user->role_type === 'kontraktor' && $project->selected_kontraktor_id) {
+            $kontraktor = \App\Models\Kontraktor::where('user_id', $user->id)->first();
+            if ($kontraktor && $kontraktor->id === $project->selected_kontraktor_id) {
+                $isWorker = true;
+            }
+        }
+
+        if (!$isOwner && !$isWorker) {
+            return response()->json(['message' => 'Unauthorized. Must be project owner or the hired professional.'], 403);
         }
 
         $data = $request->validated();
@@ -179,6 +212,15 @@ class ProjectController extends Controller
         }
 
         $project->update($data);
+
+        if (isset($data['status'])) {
+            ProjectActivityLog::create([
+                'project_id' => $project->id,
+                'user_id' => Auth::id(),
+                'action' => 'status_changed',
+                'details' => "Status changed to {$data['status']}",
+            ]);
+        }
 
         return new ProjectResource($project);
     }
@@ -191,5 +233,23 @@ class ProjectController extends Controller
 
         $project->delete();
         return response()->json(['message' => 'Project deleted successfully']);
+    }
+
+    public function myBids()
+    {
+        $user = Auth::user();
+        if ($user->role_type === 'arsitek') {
+            $arsitek = \App\Models\Arsitek::where('user_id', $user->id)->first();
+            if (!$arsitek) return response()->json(['data' => []]);
+            $bids = \App\Models\BidArsitek::with(['project'])->where('arsitek_id', $arsitek->id)->orderBy('created_at', 'desc')->get();
+            return response()->json(['data' => $bids]);
+        } elseif ($user->role_type === 'kontraktor') {
+            $kontraktor = \App\Models\Kontraktor::where('user_id', $user->id)->first();
+            if (!$kontraktor) return response()->json(['data' => []]);
+            $bids = \App\Models\BidKontraktor::with(['project'])->where('kontraktor_id', $kontraktor->id)->orderBy('created_at', 'desc')->get();
+            return response()->json(['data' => $bids]);
+        }
+
+        return response()->json(['data' => []]);
     }
 }

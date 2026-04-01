@@ -5,7 +5,7 @@ export function useProjectFilters(projects: Project[]) {
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [sortBy, setSortBy] = useState<'newest' | 'budget_desc' | 'budget_asc' | 'deadline_asc'>('newest');
-    const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+    const [viewMode, setViewMode] = useState<'grid' | 'list' | 'board'>('grid');
     const [visibleCount, setVisibleCount] = useState(8);
 
     const filteredProjects = useMemo(() => {

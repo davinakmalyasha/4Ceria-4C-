@@ -11,6 +11,34 @@ export interface ProjectImage {
     sort_order: number;
 }
 
+export interface ProjectMilestone {
+    id: number;
+    project_id: number;
+    title: string;
+    is_completed: boolean;
+    created_at: string;
+}
+
+export interface ProjectComment {
+    id: number;
+    project_id: number;
+    user_id: number;
+    message: string;
+    created_at: string;
+    user?: { id: number; name: string };
+}
+
+export interface ProjectDocument {
+    id: number;
+    project_id: number;
+    uploader_id: number;
+    file_name: string;
+    file_path: string;
+    file_type: string;
+    created_at: string;
+    uploader?: { id: number; name: string };
+}
+
 export interface Project {
     id: number;
     title: string;
@@ -30,6 +58,9 @@ export interface Project {
     bids_arsitek_count?: number;
     bids_kontraktor_count?: number;
     target_role?: string;
+    milestones?: ProjectMilestone[];
+    comments?: ProjectComment[];
+    documents?: ProjectDocument[];
 }
 
 export type ProjectStatus = Project['status'];
