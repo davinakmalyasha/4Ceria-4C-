@@ -2,11 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Home, User as UserIcon, LogOut, Compass, MessageSquare, Menu, FileText, CheckCircle, ChevronRight, Play, Briefcase, Users, Star, Heart, Phone } from 'lucide-react';
+import { Home, User as UserIcon, LogOut, Compass, MessageSquare, Menu, FileText, CheckCircle, ChevronRight, Play, Briefcase, Users, Star, Heart, Phone, PlusCircle, Building } from 'lucide-react';
 import axios from 'axios';
 import ExploreHouses from '../components/ExploreHouses';
 import PostProjectForm from '../components/PostProjectForm';
 import EditProfileForm from '../components/EditProfileForm';
+import SellHouseForm from '../components/SellHouseForm';
+import MyHousesContent from '../components/MyHousesContent';
+import OverviewContent from '../components/OverviewContent';
 import ProfessionalProfileView from '../components/ProfessionalProfileView';
 import ProjectDetailModal from '../components/ProjectDetailModal';
 import ProjectBoard from '../components/Projects/ProjectBoard';
@@ -162,6 +165,7 @@ export default function Dashboard() {
             return [
                 ...base,
                 { id: 'houses', label: 'Explore Houses', icon: Compass },
+                { id: 'my-houses', label: 'My Properties', icon: Building },
                 { id: 'projects', label: 'My Projects', icon: MessageSquare },
                 { id: 'architects', label: 'Hire Architect', icon: Users },
                 { id: 'constructors', label: 'Hire Constructor', icon: Briefcase },
@@ -250,77 +254,15 @@ export default function Dashboard() {
                         <AnimatePresence mode="wait">
                             {/* OVERVIEW TAB */}
                             {activeTab === 'overview' && (
-                                <motion.div key="overview" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-8">
-                                    <div>
-                                        <h3 className="text-2xl font-bold text-gray-900">Welcome back, {user?.name.split(' ')[0]}! 👋</h3>
-                                        <p className="mt-1 text-gray-500">Here's what's happening in the 4C marketplace today.</p>
-                                    </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between h-40">
-                                            <p className="text-gray-500 font-medium">
-                                                {user?.role_type === 'user' ? 'My Posted Projects' : 'Open Bidding Tenders'}
-                                            </p>
-                                            <h4 className="text-4xl font-extrabold text-[#FF2D20]">{relevantProjects.length > 0 ? relevantProjects.length : '0'}</h4>
-                                        </div>
-                                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between h-40">
-                                            <p className="text-gray-500 font-medium">Available Houses</p>
-                                            <h4 className="text-4xl font-extrabold text-gray-900">{houses.length > 0 ? houses.length : '0'}</h4>
-                                        </div>
-                                        {user?.role_type === 'user' ? (
-                                            <div className="bg-gradient-to-br from-red-600 to-[#FF2D20] p-6 rounded-2xl shadow-lg shadow-red-500/30 flex flex-col justify-between h-40 text-white">
-                                                <p className="font-medium opacity-90">Post a new project</p>
-                                                <div className="mt-4">
-                                                    <button onClick={() => setActiveTab('post-project')} className="bg-white text-red-600 px-4 py-2 rounded-lg font-semibold text-sm hover:bg-gray-50 transition-colors w-fit">
-                                                        Upload Spec
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-6 rounded-2xl shadow-lg shadow-blue-500/30 flex flex-col justify-between h-40 text-white">
-                                                <p className="font-medium opacity-90">Track your proposals</p>
-                                                <div className="mt-4">
-                                                    <button onClick={() => setActiveTab('my-bids')} className="bg-white text-blue-600 px-4 py-2 rounded-lg font-semibold text-sm hover:bg-gray-50 transition-colors w-fit shadow-sm">
-                                                        View Pending Bids
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                                        {/* Quick Houses List */}
-                                        <div className="space-y-4">
-                                            <div className="flex items-center justify-between">
-                                                <h3 className="text-lg font-bold text-gray-900">Recently Listed Houses</h3>
-                                                <button onClick={() => setActiveTab('houses')} className="text-sm font-medium text-red-600 hover:text-red-700">View all</button>
-                                            </div>
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                {isLoadingData ? <p>Loading...</p> : houses.slice(0, 2).map((h) => (
-                                                    <div key={h.id} className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 p-4 pb-5">
-                                                        <h4 className="font-bold text-gray-900 truncate">{h.name}</h4>
-                                                        <p className="text-sm text-gray-500 truncate mt-1">{h.address?.city}</p>
-                                                        <div className="mt-3"><span className="text-lg font-extrabold text-[#FF2D20]">{formatCurrency(h.price)}</span></div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                        {/* Quick Projects List */}
-                                        <div className="space-y-4">
-                                            <div className="flex items-center justify-between">
-                                                <h3 className="text-lg font-bold text-gray-900">
-                                                    {user?.role_type === 'user' ? 'My Recent Projects' : 'Active Tenders'}
-                                                </h3>
-                                                <button onClick={() => setActiveTab('projects')} className="text-sm font-medium text-red-600 hover:text-red-700">Explore board</button>
-                                            </div>
-                                            <div className="space-y-3">
-                                                {isLoadingData ? <p>Loading...</p> : relevantProjects.slice(0, 2).map((p) => (
-                                                    <div key={p.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-                                                        <div className="flex justify-between"><h4 className="font-bold truncate">{p.title}</h4> <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">{p.status}</span></div>
-                                                        <div className="mt-2 text-sm text-gray-500 truncate">Budget: {formatCurrency(p.budget)}</div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    </div>
+                                <motion.div key="overview" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="w-full">
+                                    <OverviewContent 
+                                        user={user} 
+                                        houses={houses} 
+                                        relevantProjects={relevantProjects} 
+                                        isLoadingData={isLoadingData} 
+                                        setActiveTab={setActiveTab} 
+                                        formatCurrency={formatCurrency} 
+                                    />
                                 </motion.div>
                             )}
 
@@ -415,6 +357,27 @@ export default function Dashboard() {
                             {activeTab === 'post-project' && (
                                 <motion.div key="post-project" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="w-full">
                                     <PostProjectForm onCancel={() => setActiveTab('overview')} onSuccess={() => setActiveTab('projects')} />
+                                </motion.div>
+                            )}
+
+                            {/* MY PROPERTIES TAB */}
+                            {activeTab === 'my-houses' && (
+                                <motion.div key="my-houses" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="w-full">
+                                    <MyHousesContent 
+                                        houses={houses.filter((h: any) => h.user_id === user?.id)} 
+                                        onAddProperty={() => setActiveTab('post-house')} 
+                                        onBack={() => setActiveTab('overview')}
+                                    />
+                                </motion.div>
+                            )}
+
+                            {/* SELL HOUSE TAB */}
+                            {activeTab === 'post-house' && (
+                                <motion.div key="post-house" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="w-full">
+                                    <SellHouseForm onCancel={() => setActiveTab('my-houses')} onSuccess={() => {
+                                        setActiveTab('my-houses');
+                                        axios.get('/houses').then(res => setHouses(res.data.data));
+                                    }} />
                                 </motion.div>
                             )}
 
