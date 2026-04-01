@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
-import { Info, CheckSquare, MessageCircle, FileText, History } from 'lucide-react';
+import { Info, CheckSquare, MessageCircle, FileText, History, ShieldCheck } from 'lucide-react';
 import ProjectMilestones from './Projects/ProjectMilestones';
 import ProjectComments from './Projects/ProjectComments';
 import ProjectVault from './Projects/ProjectVault';
 import ProjectActivity from './Projects/ProjectActivity';
+import ContractReviewModal from './Projects/ContractReviewModal';
 import { Project } from '../types/project.types';
 
 interface Bidder {
@@ -66,6 +67,7 @@ export default function ProjectDetailModal({ project, onClose, formatCurrency }:
     const [bidProposal, setBidProposal] = useState('');
     const [bidSubmitting, setBidSubmitting] = useState(false);
     const [bidMessage, setBidMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+    const [pendingContract, setPendingContract] = useState<{ bidId: number; bidType: 'arsitek' | 'kontraktor'; bidderName: string; bidPrice: number } | null>(null);
     const isProfessional = user?.role_type === 'arsitek' || user?.role_type === 'kontraktor';
 
     const fetchDetail = () => {
@@ -81,6 +83,15 @@ export default function ProjectDetailModal({ project, onClose, formatCurrency }:
     }, [project.id]);
 
     const handleBidAction = async (bidId: number, bidType: 'arsitek' | 'kontraktor', action: 'accept' | 'decline') => {
+        if (action === 'accept') {
+            const bid = allBids.find(b => b.id === bidId && b.type === bidType);
+            setPendingContract({ bidId, bidType, bidderName: bid?.bidder?.name || 'Unknown', bidPrice: bid?.price || 0 });
+            return;
+        }
+        await executeBidAction(bidId, bidType, action);
+    };
+
+    const executeBidAction = async (bidId: number, bidType: 'arsitek' | 'kontraktor', action: 'accept' | 'decline') => {
         setActionLoading(bidId);
         try {
             const endpoint = action === 'accept' ? 'accept-bid' : 'decline-bid';
@@ -272,9 +283,11 @@ export default function ProjectDetailModal({ project, onClose, formatCurrency }:
                                                             </div>
                                                         </div>
                                                     </div>
-                                                    <span className={`text-xs px-3 py-1 rounded-full uppercase tracking-wider font-bold border shrink-0 ${getStatusColor(bid.status)}`}>
-                                                        {bid.status}
-                                                    </span>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={`text-xs px-3 py-1 rounded-full uppercase tracking-wider font-bold border shrink-0 ${getStatusColor(bid.status)}`}>
+                                                            {bid.status}
+                                                        </span>
+                                                    </div>
                                                 </div>
 
                                                 {/* Bidder Details */}
@@ -415,8 +428,26 @@ export default function ProjectDetailModal({ project, onClose, formatCurrency }:
                         </>
                     )}
                 </div>
-        </motion.div>
+            </motion.div>
             {lightboxImg && <Lightbox src={lightboxImg} onClose={() => setLightboxImg(null)} />}
+
+            {/* Contract Review Modal */}
+            <AnimatePresence>
+                {pendingContract && (
+                    <ContractReviewModal
+                        projectTitle={detail?.title || project.title}
+                        bidderName={pendingContract.bidderName}
+                        bidPrice={pendingContract.bidPrice}
+                        bidType={pendingContract.bidType}
+                        formatCurrency={formatCurrency}
+                        onAccept={() => {
+                            executeBidAction(pendingContract.bidId, pendingContract.bidType, 'accept');
+                            setPendingContract(null);
+                        }}
+                        onCancel={() => setPendingContract(null)}
+                    />
+                )}
+            </AnimatePresence>
         </motion.div>
     );
 }

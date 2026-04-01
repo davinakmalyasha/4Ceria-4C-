@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Home, User as UserIcon, LogOut, Compass, MessageSquare, Menu, FileText, CheckCircle, ChevronRight, Play, Briefcase, Users, Star } from 'lucide-react';
+import { Home, User as UserIcon, LogOut, Compass, MessageSquare, Menu, FileText, CheckCircle, ChevronRight, Play, Briefcase, Users, Star, Heart } from 'lucide-react';
 import axios from 'axios';
 import ExploreHouses from '../components/ExploreHouses';
 import PostProjectForm from '../components/PostProjectForm';
@@ -15,6 +15,12 @@ import ConfirmDeleteModal from '../components/Projects/ConfirmDeleteModal';
 import MyBidsList from '../components/Projects/MyBidsList';
 import RatingModal from '../components/Projects/RatingModal';
 import { Project } from '../types/project.types';
+import ExploreArchitects from '../components/Architects/ExploreArchitects';
+import ExploreConstructors from '../components/Constructors/ExploreConstructors';
+import SavedItemsDashboard from '../components/SavedItemsDashboard';
+import ChatWidget from '../components/ChatWidget';
+import NotificationsDropdown from '../components/NotificationsDropdown';
+
 
 interface House {
     id: number;
@@ -42,6 +48,7 @@ export default function Dashboard() {
     const [isEditingProfile, setIsEditingProfile] = useState(false);
     const [selectedProfessional, setSelectedProfessional] = useState<{ type: 'architect' | 'constructor', data: any } | null>(null);
     const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+    const [activeChat, setActiveChat] = useState<any | null>(null);
 
     const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
     const [isDeletingProject, setIsDeletingProject] = useState(false);
@@ -158,6 +165,7 @@ export default function Dashboard() {
                 { id: 'projects', label: 'My Projects', icon: MessageSquare },
                 { id: 'architects', label: 'Hire Architect', icon: Users },
                 { id: 'constructors', label: 'Hire Constructor', icon: Briefcase },
+                { id: 'saved', label: 'Saved Items', icon: Heart },
                 { id: 'profile', label: 'My Profile', icon: UserIcon },
             ];
         }
@@ -227,10 +235,14 @@ export default function Dashboard() {
 
             {/* Main Content Area */}
             <main className="flex-1 flex flex-col h-screen overflow-hidden">
-                <header className="h-14 bg-white/80 backdrop-blur-md border-b border-gray-100 flex items-center px-6 z-30 md:hidden">
-                    <button className="p-2 -ml-2 rounded-lg text-gray-600 hover:bg-gray-100" onClick={() => setSidebarOpen(true)}>
+                <header className="h-14 bg-white/80 backdrop-blur-md border-b border-gray-100 flex items-center justify-between px-6 z-30 shrink-0">
+                    <button className="p-2 -ml-2 rounded-lg text-gray-600 hover:bg-gray-100 md:hidden" onClick={() => setSidebarOpen(true)}>
                         <Menu className="w-6 h-6" />
                     </button>
+                    <div className="hidden md:block text-sm font-semibold text-gray-500 capitalize">{activeTab.replace('-', ' ')}</div>
+                    <div className="flex items-center gap-2">
+                        <NotificationsDropdown />
+                    </div>
                 </header>
 
                 <div className="flex-1 overflow-y-auto p-4 sm:p-8 scrollbar-thin">
@@ -315,7 +327,24 @@ export default function Dashboard() {
                             {/* HOUSES TAB */}
                             {activeTab === 'houses' && (
                                 <motion.div key="houses" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="w-full">
-                                    <ExploreHouses houses={houses} />
+                                    <ExploreHouses houses={houses} isLoading={isLoadingData} onSelectHouse={(id) => {
+                                        const h = houses.find(x => x.id === id);
+                                        // Usually ExploreHouses has its own modal, it passes internal ID
+                                    }} />
+                                </motion.div>
+                            )}
+
+                            {/* SAVED ITEMS TAB */}
+                            {activeTab === 'saved' && (
+                                <motion.div key="saved" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="w-full">
+                                    <SavedItemsDashboard 
+                                        houses={houses} 
+                                        architects={architects as any} 
+                                        constructors={constructors as any} 
+                                        onSelectHouse={() => setActiveTab('houses')}
+                                        onSelectArchitect={(a) => { setActiveTab('architects'); setSelectedProfessional({ type: 'architect', data: a }); }}
+                                        onSelectConstructor={(c) => { setActiveTab('constructors'); setSelectedProfessional({ type: 'constructor', data: c }); }}
+                                    />
                                 </motion.div>
                             )}
 
@@ -391,76 +420,43 @@ export default function Dashboard() {
 
                             {/* ARCHITECTS TAB */}
                             {activeTab === 'architects' && (
-                                <motion.div key="architects" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-6">
-                                    <h3 className="text-2xl font-bold text-gray-900">Hire an Architect</h3>
-                                    
+                                <motion.div key="architects" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="w-full">
                                     {selectedProfessional?.type === 'architect' ? (
                                         <ProfessionalProfileView 
                                             type="architect" 
-                                            data={selectedProfessional.data} 
+                                            data={selectedProfessional.data}
+                                            projects={relevantProjects}
                                             onClose={() => setSelectedProfessional(null)} 
+                                            onOpenChat={(prof) => setActiveChat(prof)}
                                         />
                                     ) : (
-                                        <>
-                                            <p className="text-gray-500">Browse highly-rated architects for your next renovation project.</p>
-                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                                {isLoadingData ? <p>Loading architects...</p> : architects.map(arch => (
-                                                    <div key={arch.id} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 flex flex-col items-start hover:shadow-md transition-shadow">
-                                                        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#FF2D20] to-red-700 mb-4 overflow-hidden shadow-inner border-2 border-white shrink-0">
-                                                            {arch.user?.pic ? (
-                                                                <img src={`/storage/${arch.user.pic}`} alt={arch.nama} className="w-full h-full object-cover" />
-                                                            ) : (
-                                                                <div className="w-full h-full flex items-center justify-center text-white font-bold text-xl">{arch.nama?.charAt(0)?.toUpperCase() || 'A'}</div>
-                                                            )}
-                                                        </div>
-                                                        <h4 className="text-lg font-bold text-gray-900">{arch.nama}</h4>
-                                                        <p className="text-sm text-gray-500 mt-1 line-clamp-2">{arch.spesialisasi || 'Arsitek Umum'}</p>
-                                                        <div className="mt-4 pt-4 border-t border-gray-100 w-full flex justify-between items-center mt-auto">
-                                                            <span className="text-sm font-semibold text-[#FF2D20]">{formatCurrency(arch.rate_harga)}</span>
-                                                            <button onClick={() => setSelectedProfessional({ type: 'architect', data: arch })} className="text-sm font-semibold text-gray-900 hover:underline">View Profile</button>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </>
+                                        <ExploreArchitects 
+                                            architects={architects as any} 
+                                            isLoading={isLoadingData} 
+                                            onSelectArchitect={(arch) => setSelectedProfessional({ type: 'architect', data: arch })} 
+                                        />
                                     )}
                                 </motion.div>
                             )}
 
+
                             {/* CONSTRUCTORS TAB */}
                             {activeTab === 'constructors' && (
-                                <motion.div key="constructors" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-6">
-                                    <h3 className="text-2xl font-bold text-gray-900">Hire a Constructor</h3>
-                                    
+                                <motion.div key="constructors" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="w-full">
                                     {selectedProfessional?.type === 'constructor' ? (
                                         <ProfessionalProfileView 
                                             type="constructor" 
-                                            data={selectedProfessional.data} 
+                                            data={selectedProfessional.data}
+                                            projects={relevantProjects}
                                             onClose={() => setSelectedProfessional(null)} 
+                                            onOpenChat={(prof) => setActiveChat(prof)}
                                         />
                                     ) : (
-                                        <>
-                                            <p className="text-gray-500">Browse highly-rated constructor teams to execute your blueprint.</p>
-                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                                {isLoadingData ? <p>Loading constructors...</p> : constructors.map(cons => (
-                                                    <div key={cons.id} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 flex flex-col items-start hover:shadow-md transition-shadow">
-                                                        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-600 to-blue-800 mb-4 overflow-hidden shadow-inner border-2 border-white shrink-0">
-                                                            {cons.user?.pic ? (
-                                                                <img src={`/storage/${cons.user.pic}`} alt={cons.nama_perusahaan} className="w-full h-full object-cover" />
-                                                            ) : (
-                                                                <div className="w-full h-full flex items-center justify-center text-white font-bold text-xl">{(cons.nama_perusahaan || cons.nama)?.charAt(0)?.toUpperCase() || 'K'}</div>
-                                                            )}
-                                                        </div>
-                                                        <h4 className="text-lg font-bold text-gray-900">{cons.nama_perusahaan}</h4>
-                                                        <p className="text-sm text-gray-500 mt-1 line-clamp-2">{cons.nama_perusahaan || 'Kontraktor Independen'}</p>
-                                                        <div className="mt-4 pt-4 border-t border-gray-100 w-full flex justify-between items-center mt-auto">
-                                                            <span className="text-xs font-semibold text-gray-600 bg-gray-100 px-2 py-1 rounded-md">{cons.jenis || 'Umum'}</span>
-                                                            <button onClick={() => setSelectedProfessional({ type: 'constructor', data: cons })} className="text-sm font-semibold text-gray-900 hover:underline">View Profile</button>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </>
+                                        <ExploreConstructors 
+                                            constructors={constructors as any} 
+                                            isLoading={isLoadingData} 
+                                            onSelectConstructor={(cons) => setSelectedProfessional({ type: 'constructor', data: cons })} 
+                                        />
                                     )}
                                 </motion.div>
                             )}
@@ -503,6 +499,11 @@ export default function Dashboard() {
                 </div>
             </main>
         </div>
+
+        {/* Global Chat Widget */}
+        <AnimatePresence>
+            {activeChat && <ChatWidget professional={activeChat} onClose={() => setActiveChat(null)} />}
+        </AnimatePresence>
 
         {/* Rating Modal - shown when dropping project to Completed */}
         <AnimatePresence>

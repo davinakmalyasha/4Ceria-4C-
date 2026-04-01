@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import type { House } from '../../types/explore';
 import { formatCurrency } from '../../types/explore';
+import ScheduleVisitModal from './ScheduleVisitModal';
 
 const ManualSlider = ({ images, altText }: { images?: { dir: string }[]; altText: string }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
@@ -43,6 +44,7 @@ interface Props {
 }
 
 export default function HouseDetailsModal({ house, allHouses, wishlist, onClose, onToggleWishlist, onSelectHouse }: Props) {
+    const [showSchedule, setShowSchedule] = useState(false);
     const area = (house.dimensions?.width || 0) * (house.dimensions?.length || 0);
     const pricePerM2 = area > 0 ? house.price / area : 0;
     const ownerPhone = house.owner?.phones?.[0];
@@ -151,10 +153,15 @@ export default function HouseDetailsModal({ house, allHouses, wishlist, onClose,
                         {waLink ? (
                             <a href={waLink} target="_blank" rel="noopener noreferrer" className="flex-1 sm:flex-none bg-green-600 hover:bg-green-700 text-white px-6 py-3.5 rounded-xl font-bold transition-all duration-300 flex items-center justify-center gap-2 shadow-md"><MessageCircle size={18} /> Contact via WhatsApp</a>
                         ) : (
-                            <button className="flex-1 sm:flex-none bg-[#FF2D20] hover:bg-black text-white px-8 py-3.5 rounded-xl font-bold transition-all duration-300 flex items-center justify-center gap-2 shadow-[0_4px_14px_0_rgb(255,45,32,0.39)] hover:shadow-none hover:-translate-y-0.5"><User size={18} /> Schedule Viewing</button>
+                            <button onClick={() => setShowSchedule(true)} className="flex-1 sm:flex-none bg-[#FF2D20] hover:bg-black text-white px-8 py-3.5 rounded-xl font-bold transition-all duration-300 flex items-center justify-center gap-2 shadow-[0_4px_14px_0_rgb(255,45,32,0.39)] hover:shadow-none hover:-translate-y-0.5"><User size={18} /> Schedule Viewing</button>
                         )}
                     </div>
                 </div>
+
+                {/* Schedule Visit Modal */}
+                <AnimatePresence>
+                    {showSchedule && <ScheduleVisitModal house={house} onClose={() => setShowSchedule(false)} />}
+                </AnimatePresence>
             </motion.div>
         </motion.div>
     );

@@ -1,156 +1,150 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Camera, MapPin, Calendar, Briefcase, Coins, CheckCircle, ChevronRight, ChevronLeft, Image as ImageIcon, X } from 'lucide-react';
 
-interface PostProjectFormProps {
-    onCancel: () => void;
-    onSuccess: () => void;
-}
+interface PostProjectFormProps { onCancel: () => void; onSuccess: () => void; }
 
 export default function PostProjectForm({ onCancel, onSuccess }: PostProjectFormProps) {
-    const [title, setTitle] = useState('');
-    const [description, setDescription] = useState('');
-    const [budget, setBudget] = useState('');
-    const [lokasi, setLokasi] = useState('');
-    const [jenisProyek, setJenisProyek] = useState('umum');
-    const [targetRole, setTargetRole] = useState('both');
-    const [deadline, setDeadline] = useState('');
-    const [images, setImages] = useState<File[]>([]);
-    
+    const [step, setStep] = useState(1);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
 
+    const [f, setF] = useState({ title: '', desc: '', budget: '', loc: '', type: 'umum', target: 'both', deadline: '' });
+    const [images, setImages] = useState<File[]>([]);
+    const update = (k: keyof typeof f) => (e: any) => setF({ ...f, [k]: e.target.value });
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setIsLoading(true);
-        setError('');
-
+        if (step < 3) return setStep(step + 1);
+        setIsLoading(true); setError('');
         const formData = new FormData();
-        formData.append('title', title);
-        formData.append('description', description);
-        formData.append('budget', budget);
-        formData.append('lokasi', lokasi);
-        formData.append('jenis_proyek', jenisProyek);
-        formData.append('target_role', targetRole);
-        formData.append('deadline', deadline);
-        images.forEach((img, i) => {
-            formData.append(`images[${i}]`, img);
-        });
+        formData.append('title', f.title); formData.append('description', f.desc);
+        formData.append('budget', f.budget); formData.append('lokasi', f.loc);
+        formData.append('jenis_proyek', f.type); formData.append('target_role', f.target);
+        formData.append('deadline', f.deadline);
+        images.forEach((img, i) => formData.append(`images[${i}]`, img));
 
-        try {
-            await axios.post('/projects', formData);
-            onSuccess();
-        } catch (err: any) {
-            setError(err.response?.data?.message || err.message || 'Failed to post project');
-        } finally {
-            setIsLoading(false);
-        }
+        try { await axios.post('/projects', formData); onSuccess(); }
+        catch (err: any) { setError(err.response?.data?.message || 'Failed to post project'); setIsLoading(false); }
+    };
+
+    const handleImg = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = Array.from(e.target.files || []);
+        setImages(prev => [...prev, ...files].slice(0, 3));
+        e.target.value = '';
+    };
+
+    const steps = [
+        { id: 1, title: 'Visi Proyek', desc: 'Ceritakan apa yang ingin Anda bangun atau renovasi.' },
+        { id: 2, title: 'Logistik', desc: 'Lokasi dan timeline pengerjaan proyek Anda.' },
+        { id: 3, title: 'Budget & Pekerja', desc: 'Atur anggaran dan pilih jenis profesional.' }
+    ];
+
+    const canAdvance = () => {
+        if (step === 1) return f.title.trim() && f.desc.trim();
+        if (step === 2) return f.loc.trim() && f.deadline;
+        return f.budget.trim();
     };
 
     return (
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="max-w-2xl mx-auto bg-white p-8 rounded-2xl shadow-sm border border-gray-200">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">📋 Tambah Proyek Baru</h2>
-            
-            {error && (
-                <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-xl text-sm border border-red-200">
-                    {error}
-                </div>
-            )}
-
-            <form onSubmit={handleSubmit} className="space-y-5">
+        <div className="max-w-2xl mx-auto bg-white rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100/60 overflow-hidden">
+            <div className="bg-gray-900 px-8 py-6 flex items-center justify-between">
                 <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">Foto Proyek <span className="text-gray-400 font-normal">(Opsional, Maks. 3 Gambar)</span></label>
-                    <input 
-                        type="file" 
-                        accept="image/*" 
-                        multiple 
-                        onChange={e => {
-                            const files = Array.from(e.target.files || []);
-                            setImages(prev => {
-                                const combined = [...prev, ...files].slice(0, 3);
-                                return combined;
-                            });
-                            e.target.value = '';
-                        }} 
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-red-600 hover:file:bg-red-100 transition-colors" 
-                    />
-                    <p className="text-xs text-gray-400 mt-1">{images.length}/3 gambar dipilih</p>
-                    {images.length > 0 && (
-                        <div className="flex gap-3 mt-3">
-                            {images.map((img, i) => (
-                                <div key={i} className="relative w-24 h-24 rounded-xl overflow-hidden border border-gray-200 shadow-sm group">
-                                    <img src={URL.createObjectURL(img)} alt={`preview-${i}`} className="w-full h-full object-cover" />
-                                    <button 
-                                        type="button" 
-                                        onClick={() => setImages(prev => prev.filter((_, idx) => idx !== i))} 
-                                        className="absolute top-1 right-1 bg-black/60 text-white w-5 h-5 rounded-full flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
-                                    >
-                                        ✕
-                                    </button>
+                    <h2 className="text-2xl font-black text-white">Post Proyek Baru</h2>
+                    <p className="text-gray-400 text-sm mt-1">{steps[step-1].title} - {steps[step-1].desc}</p>
+                </div>
+                <div className="flex gap-2">
+                    {[1, 2, 3].map(i => (
+                        <div key={i} className={`w-3 h-3 rounded-full transition-colors ${step >= i ? 'bg-[#FF2D20]' : 'bg-gray-700'}`} />
+                    ))}
+                </div>
+            </div>
+
+            <form onSubmit={handleSubmit} className="p-8">
+                {error && <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-xl text-sm font-semibold border border-red-200">{error}</div>}
+
+                <div className="min-h-[340px]">
+                    <AnimatePresence mode="wait">
+                        {step === 1 && (
+                            <motion.div key="step1" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-5">
+                                <div className="relative border-2 border-dashed border-gray-300 rounded-2xl p-6 text-center hover:bg-gray-50 transition-colors group">
+                                    <input type="file" accept="image/*" multiple onChange={handleImg} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                                    <ImageIcon className="mx-auto h-10 w-10 text-gray-400 group-hover:text-[#FF2D20] transition-colors mb-2" />
+                                    <p className="text-sm font-semibold text-gray-700">Klik untuk unggah foto (Maks. 3)</p>
+                                    <p className="text-xs text-gray-500 mt-1">{images.length}/3 gambar dipilih</p>
                                 </div>
-                            ))}
-                        </div>
+                                {images.length > 0 && (
+                                    <div className="flex gap-3">
+                                        {images.map((img, i) => (
+                                            <div key={i} className="relative w-20 h-20 rounded-xl overflow-hidden group">
+                                                <img src={URL.createObjectURL(img)} className="w-full h-full object-cover" />
+                                                <button type="button" onClick={() => setImages(images.filter((_, idx) => idx !== i))} className="absolute top-1 right-1 bg-black/60 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"><X size={12} /></button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-900 mb-2">Judul Proyek</label>
+                                    <input value={f.title} onChange={update('title')} required className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-[#FF2D20] focus:ring-4 focus:ring-red-100 outline-none transition-all" placeholder="Cth: Renovasi Atap Rumah Minimalis" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-900 mb-2">Deskripsi Detail</label>
+                                    <textarea value={f.desc} onChange={update('desc')} required rows={4} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-[#FF2D20] focus:ring-4 focus:ring-red-100 outline-none transition-all resize-none" placeholder="Jelaskan spesifikasi, material, dan ekspektasi Anda..." />
+                                </div>
+                            </motion.div>
+                        )}
+
+                        {step === 2 && (
+                            <motion.div key="step2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-900 mb-2 flex items-center gap-2"><MapPin size={16} className="text-[#FF2D20]" /> Lokasi Proyek</label>
+                                    <input value={f.loc} onChange={update('loc')} required className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-[#FF2D20] focus:ring-4 focus:ring-red-100 outline-none transition-all" placeholder="Provinsi, Kota, Kecamatan" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-900 mb-2 flex items-center gap-2"><Calendar size={16} className="text-[#FF2D20]" /> Target Selesai (Deadline)</label>
+                                    <input type="date" value={f.deadline} onChange={update('deadline')} required className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-[#FF2D20] focus:ring-4 focus:ring-red-100 outline-none transition-all" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-900 mb-2 flex items-center gap-2"><Briefcase size={16} className="text-[#FF2D20]" /> Kategori Pekerjaan</label>
+                                    <select value={f.type} onChange={update('type')} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-[#FF2D20]">
+                                        {['umum', 'fondasi', 'struktur', 'dinding', 'atap', 'lantai', 'ventilasi', 'listrik', 'plumbing'].map(opt => <option key={opt} value={opt} className="capitalize">{opt}</option>)}
+                                    </select>
+                                </div>
+                            </motion.div>
+                        )}
+
+                        {step === 3 && (
+                            <motion.div key="step3" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-900 mb-2 flex items-center gap-2"><Coins size={16} className="text-[#FF2D20]" /> Anggaran Bersih (Budget Rp)</label>
+                                    <input type="number" value={f.budget} onChange={update('budget')} required className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-[#FF2D20] focus:ring-4 focus:ring-red-100 outline-none transition-all text-xl font-bold text-gray-900" placeholder="Rp 0" />
+                                    <p className="text-sm font-semibold text-[#FF2D20] mt-2">Format: {Number(f.budget || 0).toLocaleString('id-ID', { style: 'currency', currency: 'IDR' })}</p>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-900 mb-2 flex items-center gap-2"><Briefcase size={16} className="text-[#FF2D20]" /> Target Profesional</label>
+                                    <select value={f.target} onChange={update('target')} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-[#FF2D20]">
+                                        <option value="both">Keduanya (Arsitek & Kontraktor)</option>
+                                        <option value="arsitek">Khusus Arsitek (Desain)</option>
+                                        <option value="kontraktor">Khusus Kontraktor (Pembangunan)</option>
+                                    </select>
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </div>
+
+                <div className="mt-8 flex items-center justify-between border-t border-gray-100 pt-6">
+                    {step > 1 ? (
+                        <button type="button" onClick={() => setStep(step - 1)} className="px-5 py-3 rounded-xl font-bold text-gray-600 hover:bg-gray-100 transition-colors flex items-center gap-2"><ChevronLeft size={18} /> Kembali</button>
+                    ) : (
+                        <button type="button" onClick={onCancel} className="px-5 py-3 rounded-xl font-bold text-gray-500 hover:text-gray-900 transition-colors">Batal</button>
                     )}
-                </div>
-
-                <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">Judul Proyek</label>
-                    <input type="text" value={title} onChange={e => setTitle(e.target.value)} required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF2D20]/50 outline-none transition-shadow" placeholder="Cth: Renovasi Atap Rumah" />
-                </div>
-
-                <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">Deskripsi</label>
-                    <textarea value={description} onChange={e => setDescription(e.target.value)} required rows={4} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF2D20]/50 outline-none transition-shadow" placeholder="Jelaskan detail renovasi secara lengkap..."></textarea>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-1">Budget (Rp)</label>
-                        <input type="number" value={budget} onChange={e => setBudget(e.target.value)} required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF2D20]/50 outline-none transition-shadow" placeholder="5000000" />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-1">Lokasi</label>
-                        <input type="text" value={lokasi} onChange={e => setLokasi(e.target.value)} required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF2D20]/50 outline-none transition-shadow" placeholder="Cth: Bandung Barat" />
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                    <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-1">Kategori Renovasi</label>
-                        <select value={jenisProyek} onChange={e => setJenisProyek(e.target.value)} required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF2D20]/50 outline-none transition-shadow bg-white">
-                            <option value="umum">Umum</option>
-                            <option value="fondasi">Fondasi</option>
-                            <option value="struktur">Struktur</option>
-                            <option value="dinding">Dinding</option>
-                            <option value="atap">Atap</option>
-                            <option value="lantai">Lantai</option>
-                            <option value="ventilasi">Ventilasi</option>
-                            <option value="listrik">Listrik (Electricity)</option>
-                            <option value="plumbing">Plumbing (Pipa Air)</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-1">Target Pekerja</label>
-                        <select value={targetRole} onChange={e => setTargetRole(e.target.value)} required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF2D20]/50 outline-none transition-shadow bg-white">
-                            <option value="both">Arsitek & Kontraktor</option>
-                            <option value="arsitek">Hanya Arsitek</option>
-                            <option value="kontraktor">Hanya Kontraktor</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-1">Deadline Proyek</label>
-                        <input type="date" value={deadline} onChange={e => setDeadline(e.target.value)} required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF2D20]/50 outline-none transition-shadow" />
-                    </div>
-                </div>
-
-
-                <div className="pt-4 flex items-center justify-end gap-3">
-                    <button type="button" onClick={onCancel} className="px-5 py-2.5 rounded-lg font-semibold text-gray-600 hover:bg-gray-100 transition-colors">Batal</button>
-                    <button type="submit" disabled={isLoading} className="px-5 py-2.5 rounded-lg font-semibold text-white bg-[#FF2D20] hover:bg-red-700 transition-colors disabled:opacity-50">
-                        {isLoading ? 'Menyimpan...' : '🚀 Tambah Proyek'}
+                    <button type="submit" disabled={!canAdvance() || isLoading} className="px-8 py-3 rounded-xl font-bold text-white bg-gray-900 hover:bg-[#FF2D20] disabled:bg-gray-200 disabled:text-gray-400 transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 flex items-center gap-2">
+                        {isLoading ? 'Memproses...' : step === 3 ? <><CheckCircle size={18} /> Publikasikan</> : <>Lanjut <ChevronRight size={18} /></>}
                     </button>
                 </div>
             </form>
-        </motion.div>
+        </div>
     );
 }
