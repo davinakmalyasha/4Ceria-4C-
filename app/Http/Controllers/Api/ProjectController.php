@@ -10,17 +10,65 @@ use App\Http\Resources\ProjectResource;
 use App\Http\Requests\StoreProjectRequest;
 use App\Http\Requests\UpdateProjectRequest;
 use Illuminate\Support\Facades\Auth;
+use App\Models\Notification;
 
 class ProjectController extends Controller
 {
     public function index()
     {
-        $projects = Project::with('images')
-            ->withCount(['bidsArsitek', 'bidsKontraktor'])
-            ->latest()
-            ->paginate(50);
-            
-        return ProjectResource::collection($projects);
+        $user = Auth::guard('sanctum')->user();
+        
+        $query = Project::with('images')
+            ->withCount(['bidsArsitek', 'bidsKontraktor']);
+
+        if (!$user) {
+            // Public failsafe: only show open projects tagged for 'both' (or just don't show any)
+            // But since Bidding Board requires auth, we can just return empty or open projects
+            $query->where('status', 'open');
+            return ProjectResource::collection($query->paginate(50));
+        }
+
+        if ($user->role_type === 'user') {
+            // Client only sees their own projects
+            $query->where('user_id', $user->id);
+            // Default sort for user
+            $query->latest();
+        } elseif ($user->role_type === 'arsitek') {
+            $arsitek = \App\Models\Arsitek::where('user_id', $user->id)->first();
+            $query->where(function ($q) use ($arsitek) {
+                // Return 'open' or 'accepted_kontraktor' where target_role includes arsitek
+                $q->where(function($subQ) {
+                    $subQ->whereIn('status', ['open', 'accepted_kontraktor', 'accepted_arsitek', 'in_progress', 'completed'])
+                         ->whereIn('target_role', ['both', 'arsitek']);
+                });
+                
+                // OR if the arsitek is explicitly hired to the project already
+                if ($arsitek) {
+                    $q->orWhere('selected_arsitek_id', $arsitek->id);
+                }
+            });
+            $query->latest();
+        } elseif ($user->role_type === 'kontraktor') {
+            $kontraktor = \App\Models\Kontraktor::where('user_id', $user->id)->first();
+            $query->where(function ($q) use ($kontraktor) {
+                $q->where(function($subQ) {
+                    $subQ->whereIn('status', ['open', 'accepted_arsitek', 'accepted_kontraktor', 'in_progress', 'completed'])
+                         ->whereIn('target_role', ['both', 'kontraktor']);
+                });
+                
+                if ($kontraktor) {
+                    $q->orWhere('selected_kontraktor_id', $kontraktor->id);
+                }
+            });
+            $query->latest();
+        } else {
+            // Failsafe backend restriction
+            $query->where('id', '<', 0);
+        }
+
+        $query->with(['images', 'user']);
+        
+        return ProjectResource::collection($query->latest()->paginate(50));
     }
 
     public function store(StoreProjectRequest $request)
@@ -89,6 +137,10 @@ class ProjectController extends Controller
         if ($user->role_type === 'arsitek') {
             $profile = \App\Models\Arsitek::where('user_id', $user->id)->firstOrFail();
 
+            if ($profile->verification_status !== 'verified') {
+                return response()->json(['message' => 'Your account is pending verification. You can only bid once verified.'], 403);
+            }
+
             // Prevent duplicate bids
             $existing = \App\Models\BidArsitek::where('project_id', $project->id)
                 ->where('arsitek_id', $profile->id)->first();
@@ -106,6 +158,10 @@ class ProjectController extends Controller
         } else {
             $profile = \App\Models\Kontraktor::where('user_id', $user->id)->firstOrFail();
 
+            if ($profile->verification_status !== 'verified') {
+                return response()->json(['message' => 'Your account is pending verification. You can only bid once verified.'], 403);
+            }
+
             $existing = \App\Models\BidKontraktor::where('project_id', $project->id)
                 ->where('kontraktor_id', $profile->id)->first();
             if ($existing) {
@@ -120,6 +176,15 @@ class ProjectController extends Controller
                 'status' => 'pending',
             ]);
         }
+
+        // Notify Project Owner
+        Notification::create([
+            'user_id' => $project->user_id,
+            'type' => 'bid_received',
+            'title' => 'New Bid Received!',
+            'body' => "A professional has submitted a bid for your project: \"{$project->title}\".",
+            'data' => ['project_id' => $project->id, 'bidder_name' => $user->name]
+        ]);
 
         $project->load(['bidsArsitek.arsitek.user', 'bidsKontraktor.kontraktor.user', 'images', 'user']);
         return new ProjectResource($project);
@@ -141,12 +206,42 @@ class ProjectController extends Controller
             $bid->update(['status' => 'accepted']);
             // Decline all other arsitek bids
             \App\Models\BidArsitek::where('project_id', $project->id)->where('id', '!=', $bid->id)->update(['status' => 'rejected']);
-            $project->update(['selected_arsitek_id' => $bid->arsitek_id]);
+            
+            // Advance Status
+            if ($project->target_role === 'arsitek' || $project->status === 'accepted_kontraktor') {
+                $project->update(['selected_arsitek_id' => $bid->arsitek_id, 'status' => 'in_progress']);
+            } else {
+                $project->update(['selected_arsitek_id' => $bid->arsitek_id, 'status' => 'accepted_arsitek']);
+            }
         } else {
             $bid = \App\Models\BidKontraktor::where('id', $request->bid_id)->where('project_id', $project->id)->firstOrFail();
             $bid->update(['status' => 'accepted']);
             \App\Models\BidKontraktor::where('project_id', $project->id)->where('id', '!=', $bid->id)->update(['status' => 'rejected']);
-            $project->update(['selected_kontraktor_id' => $bid->kontraktor_id]);
+            
+            // Advance Status
+            if ($project->target_role === 'kontraktor' || $project->status === 'accepted_arsitek') {
+                $project->update(['selected_kontraktor_id' => $bid->kontraktor_id, 'status' => 'in_progress']);
+            } else {
+                $project->update(['selected_kontraktor_id' => $bid->kontraktor_id, 'status' => 'accepted_kontraktor']);
+            }
+        }
+
+        // Notify the Winning Professional
+        $bidderUserId = ($request->bid_type === 'arsitek') ? $bid->arsitek->user_id : $bid->kontraktor->user_id;
+        Notification::create([
+            'user_id' => $bidderUserId,
+            'type' => 'bid_accepted',
+            'title' => 'Congratulations! Your Bid was Accepted',
+            'body' => "Your proposal for project \"{$project->title}\" has been accepted. You can now start communicating with the client.",
+            'data' => ['project_id' => $project->id]
+        ]);
+
+        // Auto-generate kickoff milestone if shifted fully active
+        if ($project->status === 'in_progress') {
+            \App\Models\ProjectMilestone::firstOrCreate(
+                ['project_id' => $project->id, 'title' => 'Project Kickoff'],
+                ['description' => 'Contract executed. The project is ready to begin.', 'status' => 'pending']
+            );
         }
 
         ProjectActivityLog::create([
@@ -156,7 +251,8 @@ class ProjectController extends Controller
             'details' => "Accepted {$request->bid_type} bid",
         ]);
 
-        $project->load(['bidsArsitek.arsitek.user', 'bidsKontraktor.kontraktor.user', 'user']);
+        $project->load(['bidsArsitek.arsitek.user', 'bidsKontraktor.kontraktor.user', 'user', 'images']);
+        $project->loadCount(['bidsArsitek', 'bidsKontraktor']);
         return new ProjectResource($project);
     }
 
@@ -179,7 +275,18 @@ class ProjectController extends Controller
             $bid->update(['status' => 'rejected']);
         }
 
-        $project->load(['bidsArsitek.arsitek.user', 'bidsKontraktor.kontraktor.user', 'user']);
+        // Notify the rejected professional
+        $bidderUserId = ($request->bid_type === 'arsitek') ? $bid->arsitek->user_id : $bid->kontraktor->user_id;
+        Notification::create([
+            'user_id' => $bidderUserId,
+            'type' => 'bid_rejected',
+            'title' => 'Proposal Update',
+            'body' => "Your proposal for project \"{$project->title}\" was not selected this time.",
+            'data' => ['project_id' => $project->id]
+        ]);
+
+        $project->load(['bidsArsitek.arsitek.user', 'bidsKontraktor.kontraktor.user', 'user', 'images']);
+        $project->loadCount(['bidsArsitek', 'bidsKontraktor']);
         return new ProjectResource($project);
     }
 

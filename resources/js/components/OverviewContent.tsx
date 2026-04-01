@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, Variants } from 'framer-motion';
-import { Home, Compass, MessageSquare, PlusCircle, ArrowRight, TrendingUp, Sparkles, Building, Briefcase, MapPin } from 'lucide-react';
+import { Home, Compass, MessageSquare, PlusCircle, ArrowRight, TrendingUp, Sparkles, Building, Briefcase, MapPin, CheckCircle, User as UserIcon } from 'lucide-react';
 
 interface Props {
     user: any;
@@ -9,11 +9,15 @@ interface Props {
     isLoadingData: boolean;
     setActiveTab: (tab: string) => void;
     formatCurrency: (amount: number) => string;
+    onViewActiveBids?: () => void;
+    onEditProfile?: () => void;
 }
 
-export default function OverviewContent({ user, houses, relevantProjects, isLoadingData, setActiveTab, formatCurrency }: Props) {
+export default function OverviewContent({ user, houses, relevantProjects, isLoadingData, setActiveTab, formatCurrency, onViewActiveBids, onEditProfile }: Props) {
     const isUser = user?.role_type === 'user';
     const activeProjectsCount = relevantProjects.length;
+    const activeBidsCount = relevantProjects.reduce((acc, p) => acc + (p.bids_arsitek_count || 0) + (p.bids_kontraktor_count || 0), 0);
+
 
     // Greeting logic
     const hour = new Date().getHours();
@@ -32,7 +36,7 @@ export default function OverviewContent({ user, houses, relevantProjects, isLoad
     return (
         <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-8 pb-10">
             {/* Header Section */}
-            <motion.div variants={itemVariants} className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#FF2D20] to-red-800 shadow-2xl shadow-red-500/20 p-8 sm:p-10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
+            <motion.div variants={itemVariants} className={`relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#FF2D20] to-red-800 shadow-2xl shadow-red-500/20 ${isUser ? 'p-8 sm:p-10' : 'p-4 sm:p-6'} flex flex-col sm:flex-row justify-between items-start sm:items-center ${isUser ? 'gap-6' : 'gap-4'}`}>
                 <div className="absolute inset-0 z-0">
                     <div className="absolute -top-24 -right-24 w-96 h-96 bg-white/20 rounded-full blur-3xl mix-blend-screen animate-pulse" />
                     <div className="absolute bottom-0 left-1/4 w-64 h-64 bg-orange-400/20 rounded-full blur-3xl mix-blend-screen" />
@@ -40,13 +44,13 @@ export default function OverviewContent({ user, houses, relevantProjects, isLoad
                 </div>
                 
                 <div className="relative z-10">
-                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-md text-white border border-white/20 text-xs font-bold uppercase tracking-wider mb-4 shadow-sm">
+                    <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-md text-white border border-white/20 text-xs font-bold uppercase tracking-wider ${isUser ? 'mb-4' : 'mb-1'} shadow-sm`}>
                         <Sparkles size={14} /> {greeting}
                     </div>
-                    <h2 className="text-4xl sm:text-5xl font-extrabold text-white tracking-tight leading-tight delay-100 drop-shadow-md">
+                    <h2 className={`${isUser ? 'text-4xl sm:text-5xl' : 'text-2xl sm:text-3xl'} font-extrabold text-white tracking-tight leading-tight delay-100 drop-shadow-md`}>
                         Welcome back, <span className="text-white">{user?.name.split(' ')[0]}</span>
                     </h2>
-                    <p className="mt-2 text-red-50 text-lg max-w-xl">
+                    <p className={`mt-1 text-red-50 ${isUser ? 'text-lg' : 'text-sm'} max-w-xl`}>
                         {isUser ? "Check out the newest listings or manage your ongoing building projects." : "Browse open tenders and track your proposals to win new clients."}
                     </p>
                 </div>
@@ -54,7 +58,7 @@ export default function OverviewContent({ user, houses, relevantProjects, isLoad
                 <div className="relative z-10 w-full sm:w-auto flex shrink-0">
                     <button 
                         onClick={() => setActiveTab(isUser ? 'post-project' : 'my-bids')}
-                        className="w-full sm:w-auto bg-white hover:bg-gray-50 text-gray-900 px-6 py-4 rounded-2xl font-bold text-sm shadow-[0_8px_30px_rgb(255,45,32,0.2)] hover:shadow-[0_8px_30px_rgb(255,45,32,0.4)] transition-all active:scale-95 flex items-center justify-center gap-3 group"
+                        className={`w-full sm:w-auto bg-white hover:bg-gray-50 text-gray-900 ${isUser ? 'px-6 py-4' : 'px-5 py-3'} rounded-2xl font-bold text-sm shadow-[0_8px_30px_rgb(255,45,32,0.2)] hover:shadow-[0_8px_30px_rgb(255,45,32,0.4)] transition-all active:scale-95 flex items-center justify-center gap-3 group`}
                     >
                         {isUser ? (
                             <><PlusCircle size={20} className="text-[#FF2D20] group-hover:rotate-90 transition-transform duration-500" /> Start New Project</>
@@ -65,8 +69,54 @@ export default function OverviewContent({ user, houses, relevantProjects, isLoad
                 </div>
             </motion.div>
 
+            {/* Professional Onboarding Section */}
+            {!isUser && (user?.role_type === 'arsitek' || user?.role_type === 'kontraktor') && (
+                <motion.div variants={itemVariants} className="bg-red-50/50 border border-red-100 rounded-3xl p-6 sm:p-8">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                        <div className="space-y-1">
+                            <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                                <CheckCircle className="text-[#FF2D20]" size={20} /> 
+                                Complete Your Professional Setup
+                            </h3>
+                            <p className="text-gray-600">Finish these steps to start bidding on projects and growing your business.</p>
+                        </div>
+                        <div className="flex flex-wrap gap-3">
+                            {/* Profile Check */}
+                            {((user?.arsitek?.rate_harga === 0 || !user?.arsitek?.lokasi) && user?.role_type === 'arsitek') || 
+                             ((user?.kontraktor?.rate_harga === 0 || !user?.kontraktor?.alamat) && user?.role_type === 'kontraktor') ? (
+                                <button 
+                                    onClick={() => { setActiveTab('profile'); onEditProfile?.(); }}
+                                    className="bg-white hover:bg-gray-50 text-[#FF2D20] border border-red-200 px-4 py-2 rounded-xl text-sm font-bold shadow-sm transition-all flex items-center gap-2 group"
+                                >
+                                    <UserIcon size={16} /> Fill Profile <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+                                </button>
+                            ) : (
+                                <div className="bg-green-100 text-green-700 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2">
+                                    <CheckCircle size={16} /> Profile Ready
+                                </div>
+                            )}
+
+                            {/* Verification Check */}
+                            {(user?.arsitek?.verification_status !== 'verified' && user?.role_type === 'arsitek') || 
+                             (user?.kontraktor?.verification_status !== 'verified' && user?.role_type === 'kontraktor') ? (
+                                <button 
+                                    onClick={() => { setActiveTab('profile'); onEditProfile?.(); }}
+                                    className="bg-[#FF2D20] hover:bg-red-700 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-md transition-all flex items-center gap-2 group"
+                                >
+                                    <Building size={16} /> Get Verified <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+                                </button>
+                            ) : (
+                                <div className="bg-green-100 text-green-700 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2">
+                                    <CheckCircle size={16} /> Verified
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </motion.div>
+            )}
+
             {/* Stats Grid */}
-            <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <motion.div variants={itemVariants} className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-${isUser ? '4' : '3'} gap-6`}>
                 <div className="bg-white/80 backdrop-blur-xl p-6 rounded-3xl border border-gray-100 shadow-sm hover:shadow-xl hover:border-red-100 transition-all group flex flex-col justify-between h-48 relative overflow-hidden">
                     <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity"><MessageSquare size={80} /></div>
                     <div>
@@ -78,6 +128,25 @@ export default function OverviewContent({ user, houses, relevantProjects, isLoad
                         <button onClick={() => setActiveTab('projects')} className="text-[#FF2D20] hover:text-red-700 p-2"><ArrowRight size={20} className="group-hover:translate-x-1 transition-transform"/></button>
                     </div>
                 </div>
+
+                {isUser && (
+                    <div 
+                        onClick={activeBidsCount > 0 ? onViewActiveBids : undefined}
+                        className={`bg-white/80 backdrop-blur-xl p-6 rounded-3xl border border-gray-100 shadow-sm transition-all group flex flex-col justify-between h-48 relative overflow-hidden ${activeBidsCount > 0 ? 'cursor-pointer hover:shadow-xl hover:border-orange-100' : ''}`}
+                    >
+                        <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity"><Sparkles size={80} /></div>
+                        <div>
+                            <div className="w-12 h-12 bg-orange-50 text-orange-600 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform"><Sparkles size={24} /></div>
+                            <p className="text-gray-500 font-semibold text-sm">Active Bids</p>
+                        </div>
+                        <div className="flex items-end justify-between">
+                            <h4 className="text-5xl font-extrabold text-gray-900 tracking-tighter">{activeBidsCount}</h4>
+                            {activeBidsCount > 0 && (
+                                <div className="text-orange-600 p-2"><ArrowRight size={20} className="group-hover:translate-x-1 transition-transform"/></div>
+                            )}
+                        </div>
+                    </div>
+                )}
 
                 <div className="bg-white/80 backdrop-blur-xl p-6 rounded-3xl border border-gray-100 shadow-sm hover:shadow-xl hover:border-blue-100 transition-all group flex flex-col justify-between h-48 relative overflow-hidden">
                     <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity"><Home size={80} /></div>
@@ -92,15 +161,15 @@ export default function OverviewContent({ user, houses, relevantProjects, isLoad
                 </div>
 
                 {isUser && (
-                    <div className="bg-white/80 backdrop-blur-xl p-6 rounded-3xl border border-gray-100 shadow-sm hover:shadow-xl hover:border-orange-100 transition-all group flex flex-col justify-between h-48 relative overflow-hidden">
+                    <div className="bg-white/80 backdrop-blur-xl p-6 rounded-3xl border border-gray-100 shadow-sm hover:shadow-xl hover:border-emerald-100 transition-all group flex flex-col justify-between h-48 relative overflow-hidden">
                         <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity"><Building size={80} /></div>
                         <div>
-                            <div className="w-12 h-12 bg-orange-50 text-orange-600 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform"><Building size={24} /></div>
+                            <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform"><Building size={24} /></div>
                             <p className="text-gray-500 font-semibold text-sm">Properties You Sell</p>
                         </div>
                         <div className="flex items-end justify-between">
                             <h4 className="text-5xl font-extrabold text-gray-900 tracking-tighter">{houses.filter(h => h.user_id === user?.id).length}</h4>
-                            <button onClick={() => setActiveTab('my-houses')} className="text-orange-600 hover:text-orange-800 p-2"><ArrowRight size={20} className="group-hover:translate-x-1 transition-transform"/></button>
+                            <button onClick={() => setActiveTab('my-houses')} className="text-emerald-600 hover:text-emerald-800 p-2"><ArrowRight size={20} className="group-hover:translate-x-1 transition-transform"/></button>
                         </div>
                     </div>
                 )}

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
-import { Info, CheckSquare, MessageCircle, FileText, History, ShieldCheck } from 'lucide-react';
+import { Info, CheckSquare, MessageCircle, FileText, History, ShieldCheck, ArrowRight } from 'lucide-react';
 import ProjectMilestones from './Projects/ProjectMilestones';
 import ProjectComments from './Projects/ProjectComments';
 import ProjectVault from './Projects/ProjectVault';
@@ -51,10 +51,13 @@ interface ProjectDetail {
 interface ProjectDetailModalProps {
     project: { id: number; title: string; description: string; budget: number; status: string };
     onClose: () => void;
-    formatCurrency: (val: number) => string;
+    formatCurrency: (amount: number) => string;
+    onViewProfile: (type: 'architect' | 'constructor', bidderId: number) => void;
+    onProjectUpdated?: (updated: Project) => void;
+    isManagementView?: boolean;
 }
 
-export default function ProjectDetailModal({ project, onClose, formatCurrency }: ProjectDetailModalProps) {
+export default function ProjectDetailModal({ project, onClose, formatCurrency, onViewProfile, onProjectUpdated, isManagementView }: ProjectDetailModalProps) {
     const { user } = useAuth();
     const [detail, setDetail] = useState<ProjectDetail | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -91,6 +94,9 @@ export default function ProjectDetailModal({ project, onClose, formatCurrency }:
         await executeBidAction(bidId, bidType, action);
     };
 
+    const [isSuccess, setIsSuccess] = useState(false);
+    const [hiredName, setHiredName] = useState('');
+
     const executeBidAction = async (bidId: number, bidType: 'arsitek' | 'kontraktor', action: 'accept' | 'decline') => {
         setActionLoading(bidId);
         try {
@@ -99,7 +105,18 @@ export default function ProjectDetailModal({ project, onClose, formatCurrency }:
                 bid_id: bidId,
                 bid_type: bidType,
             });
-            setDetail(res.data.data);
+            const updatedProject = res.data.data;
+            setDetail(updatedProject);
+            
+            if (action === 'accept') {
+                const bid = allBids.find(b => b.id === bidId && b.type === bidType);
+                setHiredName(bid?.bidder?.name || 'Professional');
+                setIsSuccess(true);
+            }
+
+            if (onProjectUpdated) {
+                onProjectUpdated(updatedProject);
+            }
         } catch (err) {
             console.error('Bid action failed:', err);
         } finally {
@@ -140,6 +157,11 @@ export default function ProjectDetailModal({ project, onClose, formatCurrency }:
         ...(detail?.bids_arsitek || []).map(b => ({ ...b, type: 'arsitek' as const })),
         ...(detail?.bids_kontraktor || []).map(b => ({ ...b, type: 'kontraktor' as const })),
     ];
+
+    const hasAlreadyBid = allBids.some(bid => 
+        (user?.role_type === 'arsitek' && bid.type === 'arsitek' && bid.bidder?.id === user?.arsitek?.id) ||
+        (user?.role_type === 'kontraktor' && bid.type === 'kontraktor' && bid.bidder?.id === user?.kontraktor?.id)
+    );
 
     return (
         <motion.div
@@ -186,18 +208,27 @@ export default function ProjectDetailModal({ project, onClose, formatCurrency }:
                                 <button onClick={() => setActiveTab('details')} className={`flex items-center gap-2 pb-3 px-4 font-bold text-sm border-b-2 transition-colors whitespace-nowrap ${activeTab === 'details' ? 'border-[#FF2D20] text-[#FF2D20]' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
                                     <Info className="w-4 h-4" /> Details & Bids
                                 </button>
-                                <button onClick={() => setActiveTab('milestones')} className={`flex items-center gap-2 pb-3 px-4 font-bold text-sm border-b-2 transition-colors whitespace-nowrap ${activeTab === 'milestones' ? 'border-[#FF2D20] text-[#FF2D20]' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
-                                    <CheckSquare className="w-4 h-4" /> Milestones
-                                </button>
+                                
+                                {isManagementView && (
+                                    <button onClick={() => setActiveTab('milestones')} className={`flex items-center gap-2 pb-3 px-4 font-bold text-sm border-b-2 transition-colors whitespace-nowrap ${activeTab === 'milestones' ? 'border-[#FF2D20] text-[#FF2D20]' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+                                        <CheckSquare className="w-4 h-4" /> Milestones
+                                    </button>
+                                )}
+
                                 <button onClick={() => setActiveTab('qa')} className={`flex items-center gap-2 pb-3 px-4 font-bold text-sm border-b-2 transition-colors whitespace-nowrap ${activeTab === 'qa' ? 'border-[#FF2D20] text-[#FF2D20]' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
                                     <MessageCircle className="w-4 h-4" /> Q&A Chat
                                 </button>
-                                <button onClick={() => setActiveTab('vault')} className={`flex items-center gap-2 pb-3 px-4 font-bold text-sm border-b-2 transition-colors whitespace-nowrap ${activeTab === 'vault' ? 'border-[#FF2D20] text-[#FF2D20]' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
-                                    <FileText className="w-4 h-4" /> Vault
-                                </button>
-                                <button onClick={() => setActiveTab('activity')} className={`flex items-center gap-2 pb-3 px-4 font-bold text-sm border-b-2 transition-colors whitespace-nowrap ${activeTab === 'activity' ? 'border-[#FF2D20] text-[#FF2D20]' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
-                                    <History className="w-4 h-4" /> Activity
-                                </button>
+
+                                {isManagementView && (
+                                    <>
+                                        <button onClick={() => setActiveTab('vault')} className={`flex items-center gap-2 pb-3 px-4 font-bold text-sm border-b-2 transition-colors whitespace-nowrap ${activeTab === 'vault' ? 'border-[#FF2D20] text-[#FF2D20]' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+                                            <FileText className="w-4 h-4" /> Vault
+                                        </button>
+                                        <button onClick={() => setActiveTab('activity')} className={`flex items-center gap-2 pb-3 px-4 font-bold text-sm border-b-2 transition-colors whitespace-nowrap ${activeTab === 'activity' ? 'border-[#FF2D20] text-[#FF2D20]' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+                                            <History className="w-4 h-4" /> Activity
+                                        </button>
+                                    </>
+                                )}
                             </div>
 
                             <AnimatePresence mode="wait">
@@ -283,7 +314,20 @@ export default function ProjectDetailModal({ project, onClose, formatCurrency }:
                                                             </div>
                                                         </div>
                                                     </div>
+                                                    
                                                     <div className="flex items-center gap-2">
+                                                        {onViewProfile && bid.bidder && bid.bidder.id && (
+                                                            <button 
+                                                                onClick={() => onViewProfile(
+                                                                    bid.type === 'arsitek' ? 'architect' : 'constructor', 
+                                                                    bid.bidder!.id
+                                                                )}
+                                                                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-xl font-bold text-[11px] uppercase tracking-wider hover:bg-blue-100 hover:text-blue-700 transition-all border border-blue-100/50 shadow-sm group"
+                                                            >
+                                                                <span>View Profile</span>
+                                                                <ArrowRight size={12} className="group-hover:translate-x-0.5 transition-transform" />
+                                                            </button>
+                                                        )}
                                                         <span className={`text-xs px-3 py-1 rounded-full uppercase tracking-wider font-bold border shrink-0 ${getStatusColor(bid.status)}`}>
                                                             {bid.status}
                                                         </span>
@@ -344,53 +388,65 @@ export default function ProjectDetailModal({ project, onClose, formatCurrency }:
                             {/* Bid Submission Form for Professionals */}
                             {isProfessional && detail?.status === 'open' && (
                                 <div className="border-t border-gray-100 pt-6">
-                                    <h4 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                                        🚀 Submit Your Bid
-                                    </h4>
-
-                                    {bidMessage && (
-                                        <div className={`mb-4 p-3 rounded-xl text-sm font-medium border ${
-                                            bidMessage.type === 'success' 
-                                                ? 'bg-green-50 text-green-800 border-green-200' 
-                                                : 'bg-red-50 text-red-800 border-red-200'
-                                        }`}>
-                                            {bidMessage.text}
+                                    {hasAlreadyBid ? (
+                                        <div className="bg-blue-50 border border-blue-100 rounded-2xl p-6 text-center">
+                                            <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-3 text-xl">
+                                                📝
+                                            </div>
+                                            <h4 className="text-lg font-bold text-blue-900 mb-1">Bid Already Submitted</h4>
+                                            <p className="text-blue-600 text-sm font-medium">You have already submitted a proposal for this project. Please wait for the client to review it.</p>
                                         </div>
+                                    ) : (
+                                        <>
+                                            <h4 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                                                🚀 Submit Your Bid
+                                            </h4>
+
+                                            {bidMessage && (
+                                                <div className={`mb-4 p-3 rounded-xl text-sm font-medium border ${
+                                                    bidMessage.type === 'success' 
+                                                        ? 'bg-green-50 text-green-800 border-green-200' 
+                                                        : 'bg-red-50 text-red-800 border-red-200'
+                                                }`}>
+                                                    {bidMessage.text}
+                                                </div>
+                                            )}
+
+                                            <form onSubmit={handleSubmitBid} className="space-y-4">
+                                                <div>
+                                                    <label className="block text-sm font-semibold text-gray-700 mb-1">Your Price (IDR)</label>
+                                                    <input
+                                                        type="number"
+                                                        value={bidPrice}
+                                                        onChange={e => setBidPrice(e.target.value)}
+                                                        required
+                                                        min="0"
+                                                        placeholder="e.g. 50000000"
+                                                        className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#FF2D20] focus:ring-2 focus:ring-red-100 outline-none text-sm transition-all"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-semibold text-gray-700 mb-1">Proposal</label>
+                                                    <textarea
+                                                        value={bidProposal}
+                                                        onChange={e => setBidProposal(e.target.value)}
+                                                        required
+                                                        maxLength={2000}
+                                                        rows={4}
+                                                        placeholder="Describe your approach, timeline, and why you're the best fit..."
+                                                        className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#FF2D20] focus:ring-2 focus:ring-red-100 outline-none text-sm transition-all resize-none"
+                                                    />
+                                                </div>
+                                                <button
+                                                    type="submit"
+                                                    disabled={bidSubmitting}
+                                                    className="w-full bg-[#FF2D20] hover:bg-red-700 text-white py-3 rounded-xl font-bold transition-all disabled:opacity-50 shadow-sm"
+                                                >
+                                                    {bidSubmitting ? 'Submitting...' : 'Submit Bid Proposal'}
+                                                </button>
+                                            </form>
+                                        </>
                                     )}
-
-                                    <form onSubmit={handleSubmitBid} className="space-y-4">
-                                        <div>
-                                            <label className="block text-sm font-semibold text-gray-700 mb-1">Your Price (IDR)</label>
-                                            <input
-                                                type="number"
-                                                value={bidPrice}
-                                                onChange={e => setBidPrice(e.target.value)}
-                                                required
-                                                min="0"
-                                                placeholder="e.g. 50000000"
-                                                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#FF2D20] focus:ring-2 focus:ring-red-100 outline-none text-sm transition-all"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-semibold text-gray-700 mb-1">Proposal</label>
-                                            <textarea
-                                                value={bidProposal}
-                                                onChange={e => setBidProposal(e.target.value)}
-                                                required
-                                                maxLength={2000}
-                                                rows={4}
-                                                placeholder="Describe your approach, timeline, and why you're the best fit..."
-                                                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#FF2D20] focus:ring-2 focus:ring-red-100 outline-none text-sm transition-all resize-none"
-                                            />
-                                        </div>
-                                        <button
-                                            type="submit"
-                                            disabled={bidSubmitting}
-                                            className="w-full bg-[#FF2D20] hover:bg-red-700 text-white py-3 rounded-xl font-bold transition-all disabled:opacity-50 shadow-sm"
-                                        >
-                                            {bidSubmitting ? 'Submitting...' : 'Submit Bid Proposal'}
-                                        </button>
-                                    </form>
                                 </div>
                             )}
                                     </motion.div>
@@ -401,7 +457,11 @@ export default function ProjectDetailModal({ project, onClose, formatCurrency }:
                                         {detail && (
                                             <ProjectMilestones 
                                                 project={detail as unknown as Project} 
-                                                isOwnerOrWorker={user?.id === detail.owner_id || user?.id === detail.selected_architect_id || user?.id === detail.selected_contractor_id}
+                                            isOwnerOrWorker={
+                                                user?.id === detail.owner_id || 
+                                                (user?.role_type === 'arsitek' && user?.arsitek?.id === detail.selected_architect_id) || 
+                                                (user?.role_type === 'kontraktor' && user?.kontraktor?.id === detail.selected_contractor_id)
+                                            }
                                             />
                                         )}
                                     </motion.div>

@@ -8,10 +8,13 @@ interface StatsProps {
     activeBids: number;
     completed: number;
     userRole?: string;
+    onViewMyBids?: () => void;
+    onViewActiveBids?: () => void;
 }
 
-export default function ProjectStatsDashboard({ totalBudget, activeBids, completed, userRole }: StatsProps) {
+export default function ProjectStatsDashboard({ totalBudget, activeBids, completed, userRole, onViewMyBids, onViewActiveBids }: StatsProps) {
     const isUser = userRole === 'user';
+    const isClickable = (isUser && activeBids > 0 && onViewActiveBids) || (!isUser && onViewMyBids);
     
     return (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-2">
@@ -36,25 +39,35 @@ export default function ProjectStatsDashboard({ totalBudget, activeBids, complet
 
             <motion.div 
                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-                className="bg-white rounded-[1.5rem] p-5 lg:p-6 border border-gray-100 shadow-sm relative overflow-hidden flex flex-col justify-between"
+                onClick={isUser ? onViewActiveBids : onViewMyBids}
+                className={`bg-white rounded-[1.5rem] p-5 lg:p-6 border border-gray-100 shadow-sm relative overflow-hidden flex flex-col justify-between ${isClickable ? 'cursor-pointer hover:shadow-md hover:border-blue-200 transition-all group' : ''}`}
             >
                 <div>
                     <div className="flex items-center gap-2 text-gray-500 mb-2">
-                        <div className="p-1.5 bg-blue-50 text-blue-600 rounded-lg">
+                        <div className={`p-1.5 rounded-lg ${isUser ? 'bg-orange-50 text-orange-600' : 'bg-blue-50 text-blue-600'}`}>
                             <MessageSquare size={16} />
                         </div>
-                        <h4 className="font-semibold text-sm uppercase tracking-wider">Active Bids</h4>
+                        <h4 className="font-semibold text-sm uppercase tracking-wider">
+                            {isUser ? 'Active Bids' : 'My Active Proposals'}
+                        </h4>
                     </div>
-                    <p className="text-3xl lg:text-4xl font-black text-gray-900 tracking-tight">
+                    <p className={`text-3xl lg:text-4xl font-black text-gray-900 tracking-tight ${isClickable ? (isUser ? 'group-hover:text-orange-600' : 'group-hover:text-blue-600') : ''} transition-colors`}>
                         {activeBids}
                     </p>
                 </div>
-                <div className="mt-4 flex items-center gap-2">
-                    <span className="relative flex h-2.5 w-2.5">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-500"></span>
-                    </span>
-                    <p className="text-xs text-gray-500 font-medium">Proposals awaiting action</p>
+                <div className="mt-4 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <span className="relative flex h-2.5 w-2.5">
+                            <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${isUser ? 'bg-orange-400' : 'bg-blue-400'}`}></span>
+                            <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${isUser ? 'bg-orange-500' : 'bg-blue-500'}`}></span>
+                        </span>
+                        <p className="text-xs text-gray-500 font-medium">Proposals awaiting action</p>
+                    </div>
+                    {isClickable && (
+                        <div className={`text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 ${isUser ? 'text-orange-600' : 'text-blue-600'}`}>
+                            View Bids &rarr;
+                        </div>
+                    )}
                 </div>
             </motion.div>
 

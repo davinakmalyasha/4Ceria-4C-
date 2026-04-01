@@ -10,6 +10,34 @@ interface User {
     role_type: string;
     username: string;
     phone_number?: { id: number; contact: string }[];
+    arsitek?: { 
+        id: number;
+        rate_harga: string, 
+        pengalaman_tahun: string, 
+        lokasi: string, 
+        deskripsi: string, 
+        spesialisasi: string, 
+        file_portofolio: string, 
+        file_sertifikat: string, 
+        pendidikan: string, 
+        alasan_hire: string,
+        verification_status: string,
+        rejection_reason?: string 
+    };
+    kontraktor?: { 
+        id: number;
+        nama_perusahaan: string, 
+        alamat: string, 
+        jenis: string, 
+        pengalaman: string, 
+        rate_harga: string, 
+        npwp: string, 
+        siup: string, 
+        pendidikan: string, 
+        alasan_hire: string,
+        verification_status: string,
+        rejection_reason?: string 
+    };
 }
 
 interface AuthContextType {

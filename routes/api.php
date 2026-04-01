@@ -6,6 +6,8 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\HouseController;
 use App\Http\Controllers\Api\ProjectController;
 use App\Http\Controllers\Api\ProjectFeatureController;
+use App\Http\Controllers\Api\ProfileController;
+use App\Http\Controllers\Api\NotificationController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -13,8 +15,6 @@ Route::post('/login', [AuthController::class, 'login']);
 // Public API endpoints
 Route::get('/houses', [HouseController::class, 'index']);
 Route::get('/houses/{house}', [HouseController::class, 'show']);
-Route::get('/projects', [ProjectController::class, 'index']);
-Route::get('/projects/{project}', [ProjectController::class, 'show']);
 
 Route::get('/arsitek', function () {
     return response()->json(['data' => \App\Models\Arsitek::with(['user', 'ratings'])->get()]);
@@ -24,10 +24,13 @@ Route::get('/kontraktor', function () {
 });
 
 Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/projects', [ProjectController::class, 'index']);
+    Route::get('/projects/{project}', [ProjectController::class, 'show']);
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', function (Request $request) {
-        return $request->user()->load('phoneNumber');
+        return $request->user()->load(['phoneNumber', 'arsitek', 'kontraktor']);
     });
+    Route::post('/me/professional', [ProfileController::class, 'updateProfessional']);
     Route::put('/me', function (Request $request) {
         $user = $request->user();
         $validated = $request->validate([
@@ -87,4 +90,17 @@ Route::middleware('auth:sanctum')->group(function () {
     // Ratings & Activity Log
     Route::post('/projects/{project}/rate', [ProjectFeatureController::class, 'rateProject']);
     Route::get('/projects/{project}/activity', [ProjectFeatureController::class, 'getActivity']);
+
+    // Notifications
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::post('/notifications/{notification}/read', [NotificationController::class, 'markAsRead']);
+    Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
+    // Admin Routes
+    Route::middleware('admin')->prefix('admin')->group(function () {
+        Route::get('/stats', [\App\Http\Controllers\Api\Admin\AdminDashboardController::class, 'stats']);
+        Route::get('/professionals', [\App\Http\Controllers\Api\Admin\VerificationController::class, 'index']);
+        Route::patch('/professionals/{type}/{id}/status', [\App\Http\Controllers\Api\Admin\VerificationController::class, 'updateStatus']);
+        Route::get('/houses', [\App\Http\Controllers\Api\Admin\AdminDashboardController::class, 'houses']);
+        Route::get('/projects', [\App\Http\Controllers\Api\Admin\AdminDashboardController::class, 'projects']);
+    });
 });

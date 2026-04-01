@@ -9,6 +9,8 @@ use App\Models\Arsitek;
 use App\Models\Kontraktor;
 use App\Models\Admin;
 
+use App\Models\Notification;
+
 class AuthController extends Controller
 {
     //
@@ -52,8 +54,40 @@ class AuthController extends Controller
         
         if ($request->role_type === 'arsitek') {
             Arsitek::create([ 'user_id' => $user->id, 'nama' => $user->name, 'rate_harga' => 0, 'pengalaman_tahun' => 0 ]);
+            
+            Notification::create([
+                'user_id' => $user->id,
+                'type' => 'onboarding',
+                'title' => 'Complete Your Architect Profile',
+                'body' => 'Your profile is almost ready! Add your skills, rate, and location to attract more clients.',
+                'data' => ['tab' => 'profile', 'action' => 'edit_profile']
+            ]);
+
+            Notification::create([
+                'user_id' => $user->id,
+                'type' => 'onboarding',
+                'title' => 'Get Verified to Start Bidding',
+                'body' => 'Verified architects are more trusted. Upload your certifications now.',
+                'data' => ['tab' => 'profile', 'action' => 'verify']
+            ]);
         } elseif ($request->role_type === 'kontraktor') {
             Kontraktor::create([ 'user_id' => $user->id, 'nama' => $user->name ]);
+
+            Notification::create([
+                'user_id' => $user->id,
+                'type' => 'onboarding',
+                'title' => 'Complete Your Constructor Profile',
+                'body' => 'Your profile is almost ready! Add your skills, rate, and company background to attract more clients.',
+                'data' => ['tab' => 'profile', 'action' => 'edit_profile']
+            ]);
+
+            Notification::create([
+                'user_id' => $user->id,
+                'type' => 'onboarding',
+                'title' => 'Get Verified to Start Bidding',
+                'body' => 'Verified constructors are more trusted. Upload your business permits and NPWP now.',
+                'data' => ['tab' => 'profile', 'action' => 'verify']
+            ]);
         } elseif ($request->role_type === 'admin') {
             Admin::create([ 'user_id' => $user->id, 'nama' => $user->name ]);
         }

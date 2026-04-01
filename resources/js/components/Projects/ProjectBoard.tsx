@@ -17,10 +17,13 @@ interface ProjectBoardProps {
     onEditProject?: (project: Project) => void;
     onDeleteProject?: (project: Project) => void;
     onStatusChange?: (projectId: number, newStatus: string) => void;
+    myBidsCount?: number;
+    onViewMyBids?: () => void;
+    onViewActiveBids?: () => void;
 }
 
 export default function ProjectBoard({ 
-    projects, isLoading, userRole, onViewProject, onPostProject, onEditProject, onDeleteProject, onStatusChange 
+    projects, isLoading, userRole, onViewProject, onPostProject, onEditProject, onDeleteProject, onStatusChange, myBidsCount, onViewMyBids, onViewActiveBids
 }: ProjectBoardProps) {
     
     const {
@@ -53,9 +56,11 @@ export default function ProjectBoard({
 
             <ProjectStatsDashboard 
                 totalBudget={stats.totalBudget}
-                activeBids={stats.activeBids}
+                activeBids={userRole !== 'user' && myBidsCount !== undefined ? myBidsCount : stats.activeBids}
                 completed={stats.completed}
                 userRole={userRole}
+                onViewMyBids={onViewMyBids}
+                onViewActiveBids={onViewActiveBids}
             />
 
             <ProjectToolbar 
@@ -79,6 +84,7 @@ export default function ProjectBoard({
                         hasQuery={hasQuery} 
                         onClearFilters={() => { setSearch(''); setStatusFilter('all'); }}
                         onPostProject={userRole === 'user' ? onPostProject : undefined}
+                        userRole={userRole}
                     />
                 ) : viewMode === 'board' && onStatusChange ? (
                     <ProjectKanban 

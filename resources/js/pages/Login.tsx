@@ -105,6 +105,12 @@ export default function Login() {
                         </div>
                     </form>
                 </motion.div>
+                
+                <div className="mt-8 text-center text-sm">
+                    <Link to="/pro/login" className="text-neutral-500 hover:text-neutral-900 transition-colors">
+                        Are you a professional partner? Access your portal →
+                    </Link>
+                </div>
             </div>
         </div>
     );

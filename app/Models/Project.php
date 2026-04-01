@@ -22,7 +22,8 @@ class Project extends Model
         'selected_arsitek_id',
         'selected_kontraktor_id',
         'deadline',         
-        'attachment',      
+        'attachment',   
+        'target_role',   
     ];
     
 

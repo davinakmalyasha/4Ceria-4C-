@@ -1,42 +1,83 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bell, CheckCircle, Briefcase, MessageSquare, Star, X } from 'lucide-react';
+import { Bell, CheckCircle, Briefcase, MessageSquare, Star, X, Info } from 'lucide-react';
+import axios from 'axios';
 
 interface Notification {
     id: number;
-    icon: React.ReactNode;
+    type: string;
     title: string;
     body: string;
-    time: string;
-    read: boolean;
+    read_at: string | null;
+    created_at: string;
+    data?: any;
 }
-
-const MOCK_NOTIFICATIONS: Notification[] = [
-    { id: 1, icon: <Briefcase size={16} className="text-blue-500" />, title: 'Bid Diterima!', body: 'Proyek "Renovasi Atap" menerima penawaran dari Arsitek Budi.', time: '2 menit lalu', read: false },
-    { id: 2, icon: <CheckCircle size={16} className="text-green-500" />, title: 'Milestone Disetujui', body: 'Milestone "Desain Awal" pada proyek Anda telah diverifikasi oleh Admin.', time: '1 jam lalu', read: false },
-    { id: 3, icon: <Star size={16} className="text-amber-500" />, title: 'Profesional Ter-Verifikasi', body: 'Kontraktor "PT. Karya Mandiri" telah diverifikasi oleh Admin 4C.', time: '3 jam lalu', read: true },
-    { id: 4, icon: <MessageSquare size={16} className="text-purple-500" />, title: 'Pesan Baru', body: 'Anda memiliki pesan baru dari Kontraktor Rina mengenai proyek Anda.', time: '5 jam lalu', read: true },
-];
 
 export default function NotificationsDropdown() {
     const [open, setOpen] = useState(false);
-    const [notifications, setNotifications] = useState(MOCK_NOTIFICATIONS);
+    const [notifications, setNotifications] = useState<Notification[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
     const ref = useRef<HTMLDivElement>(null);
 
-    const unreadCount = notifications.filter(n => !n.read).length;
+    const unreadCount = notifications.filter(n => !n.read_at).length;
+
+    const fetchNotifications = async () => {
+        setIsLoading(true);
+        try {
+            const res = await axios.get('/notifications');
+            setNotifications(res.data.data);
+        } catch (err) {
+            console.error('Failed to fetch notifications:', err);
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     useEffect(() => {
+        fetchNotifications();
+        
         const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
         document.addEventListener('mousedown', handler);
         return () => document.removeEventListener('mousedown', handler);
     }, []);
 
-    const markRead = (id: number) => {
-        setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+    const markRead = async (id: number) => {
+        try {
+            await axios.post(`/notifications/${id}/read`);
+            setNotifications(prev => prev.map(n => n.id === id ? { ...n, read_at: new Date().toISOString() } : n));
+        } catch (err) {
+            console.error('Failed to mark notification as read:', err);
+        }
     };
 
-    const markAllRead = () => {
-        setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    const markAllRead = async () => {
+        try {
+            await axios.post('/notifications/read-all');
+            setNotifications(prev => prev.map(n => ({ ...n, read_at: new Date().toISOString() })));
+        } catch (err) {
+            console.error('Failed to mark all notifications as read:', err);
+        }
+    };
+
+    const getIcon = (type: string) => {
+        switch (type) {
+            case 'bid_received': return <Briefcase size={16} className="text-blue-500" />;
+            case 'bid_accepted': return <CheckCircle size={16} className="text-green-500" />;
+            case 'milestone_updated': return <Star size={16} className="text-amber-500" />;
+            default: return <Info size={16} className="text-gray-500" />;
+        }
+    };
+
+    const formatTime = (dateStr: string) => {
+        const date = new Date(dateStr);
+        const now = new Date();
+        const diffMs = now.getTime() - date.getTime();
+        const diffMins = Math.floor(diffMs / 60000);
+        if (diffMins < 1) return 'Baru saja';
+        if (diffMins < 60) return `${diffMins}m lalu`;
+        const diffHours = Math.floor(diffMins / 60);
+        if (diffHours < 24) return `${diffHours}j lalu`;
+        return date.toLocaleDateString('id-ID');
     };
 
     return (
@@ -76,19 +117,19 @@ export default function NotificationsDropdown() {
                                 notifications.map(n => (
                                     <div
                                         key={n.id}
-                                        onClick={() => markRead(n.id)}
-                                        className={`flex items-start gap-3 px-5 py-4 border-b border-gray-50 cursor-pointer transition-colors hover:bg-gray-50 ${!n.read ? 'bg-red-50/40' : ''}`}
+                                        onClick={() => !n.read_at && markRead(n.id)}
+                                        className={`flex items-start gap-3 px-5 py-4 border-b border-gray-50 cursor-pointer transition-colors hover:bg-gray-50 ${!n.read_at ? 'bg-red-50/40' : ''}`}
                                     >
-                                        <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${!n.read ? 'bg-white shadow-sm border border-gray-100' : 'bg-gray-100'}`}>
-                                            {n.icon}
+                                        <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${!n.read_at ? 'bg-white shadow-sm border border-gray-100' : 'bg-gray-100'}`}>
+                                            {getIcon(n.type)}
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-2">
-                                                <p className={`text-sm font-bold leading-tight ${!n.read ? 'text-gray-900' : 'text-gray-600'}`}>{n.title}</p>
-                                                {!n.read && <span className="w-2 h-2 bg-[#FF2D20] rounded-full shrink-0" />}
+                                                <p className={`text-sm font-bold leading-tight ${!n.read_at ? 'text-gray-900' : 'text-gray-600'}`}>{n.title}</p>
+                                                {!n.read_at && <span className="w-2 h-2 bg-[#FF2D20] rounded-full shrink-0" />}
                                             </div>
                                             <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{n.body}</p>
-                                            <p className="text-[10px] text-gray-400 font-semibold mt-1">{n.time}</p>
+                                            <p className="text-[10px] text-gray-400 font-semibold mt-1">{formatTime(n.created_at)}</p>
                                         </div>
                                     </div>
                                 ))

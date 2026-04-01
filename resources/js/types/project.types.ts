@@ -39,6 +39,17 @@ export interface ProjectDocument {
     uploader?: { id: number; name: string };
 }
 
+export interface Bid {
+    id: number;
+    project_id: number;
+    arsitek_id?: number | null;
+    kontraktor_id?: number | null;
+    price: number;
+    proposal: string;
+    status: 'pending' | 'accepted' | 'rejected' | string;
+    created_at: string;
+}
+
 export interface Project {
     id: number;
     title: string;
@@ -57,6 +68,8 @@ export interface Project {
     images?: ProjectImage[];
     bids_arsitek_count?: number;
     bids_kontraktor_count?: number;
+    bids_arsitek?: Bid[];
+    bids_kontraktor?: Bid[];
     target_role?: string;
     milestones?: ProjectMilestone[];
     comments?: ProjectComment[];

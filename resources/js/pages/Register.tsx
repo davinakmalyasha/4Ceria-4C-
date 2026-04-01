@@ -109,8 +109,6 @@ export default function Register() {
                             <label className="block text-sm font-medium text-gray-700">Account Type</label>
                             <select name="role_type" value={formData.role_type} onChange={handleChange} className="mt-1 block w-full px-3 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:ring-[#FF2D20]/50 focus:border-[#FF2D20] sm:text-sm bg-white/50">
                                 <option value="user">User (Looking for Services)</option>
-                                <option value="arsitek">Arsitek (Provide Design)</option>
-                                <option value="kontraktor">Kontraktor (Provide Build)</option>
                             </select>
                         </div>
 
@@ -132,6 +130,12 @@ export default function Register() {
                         </div>
                     </form>
                 </motion.div>
+                
+                <div className="mt-8 text-center text-sm">
+                    <Link to="/pro/register" className="text-neutral-500 hover:text-neutral-900 transition-colors">
+                        Looking to provide services? Apply as a Partner →
+                    </Link>
+                </div>
             </div>
         </div>
     );

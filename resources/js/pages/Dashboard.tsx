@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Home, User as UserIcon, LogOut, Compass, MessageSquare, Menu, FileText, CheckCircle, ChevronRight, Play, Briefcase, Users, Star, Heart, Phone, PlusCircle, Building } from 'lucide-react';
+import { Home, User as UserIcon, LogOut, Compass, MessageSquare, Menu, FileText, CheckCircle, ChevronRight, Play, Briefcase, Users, Star, Heart, Phone, PlusCircle, Building, CheckSquare } from 'lucide-react';
 import axios from 'axios';
 import ExploreHouses from '../components/ExploreHouses';
 import PostProjectForm from '../components/PostProjectForm';
@@ -23,6 +23,9 @@ import ExploreConstructors from '../components/Constructors/ExploreConstructors'
 import SavedItemsDashboard from '../components/SavedItemsDashboard';
 import ChatWidget from '../components/ChatWidget';
 import NotificationsDropdown from '../components/NotificationsDropdown';
+import ProjectQuickSelectModal from '../components/Projects/ProjectQuickSelectModal';
+import ProfessionalProfileModal from '../components/ProfessionalProfileModal';
+import ProfessionalProjects from '../components/Projects/ProfessionalProjects';
 
 
 interface House {
@@ -57,6 +60,35 @@ export default function Dashboard() {
     const [isDeletingProject, setIsDeletingProject] = useState(false);
     const [projectToEdit, setProjectToEdit] = useState<Project | null>(null);
     const [ratingProject, setRatingProject] = useState<Project | null>(null);
+    const [profModalData, setProfModalData] = useState<{ type: 'architect' | 'constructor', data: any } | null>(null);
+    const [quickSelectProjects, setQuickSelectProjects] = useState<Project[]>([]);
+    const [isManagementMode, setIsManagementMode] = useState(false);
+
+    const handleViewActiveBids = () => {
+        setIsManagementMode(true);
+        const projectsWithBids = projects.filter(p => 
+            p.owner_id === user?.id && 
+            ((p.bids_arsitek_count || 0) + (p.bids_kontraktor_count || 0)) > 0
+        );
+
+        if (projectsWithBids.length === 1) {
+            setSelectedProject(projectsWithBids[0]);
+        } else if (projectsWithBids.length > 1) {
+            setQuickSelectProjects(projectsWithBids);
+        }
+    };
+
+    const handleViewBidderProfile = (type: 'architect' | 'constructor', bidderId: number) => {
+        const source = type === 'architect' ? architects : constructors;
+        const prof = source.find(p => p.id === bidderId);
+        if (prof) {
+            setProfModalData({ type, data: prof });
+        }
+    };
+
+    const handleProjectUpdated = (updated: Project) => {
+        setProjects(prev => prev.map(p => p.id === updated.id ? { ...p, ...updated } : p));
+    };
 
     const handleDeleteProjectConfirm = async () => {
         if (!projectToDelete) return;
@@ -114,9 +146,12 @@ export default function Dashboard() {
         }
     };
 
+    // Backend securely handles specific filtering now
     const relevantProjects = user?.role_type === 'user' 
         ? projects.filter(p => p.owner_id === user.id)
         : projects;
+
+    const filteredSourceProjects = projects;
 
     useEffect(() => {
         if (!user) return;
@@ -177,8 +212,8 @@ export default function Dashboard() {
         return [
             ...base,
             { id: 'projects', label: 'Bidding Board', icon: MessageSquare },
+            { id: 'management', label: 'Project Management', icon: CheckSquare },
             { id: 'my-bids', label: 'My Proposals', icon: FileText },
-            { id: 'houses', label: 'Explore Houses', icon: Compass },
             { id: 'profile', label: 'My Profile', icon: UserIcon },
         ];
     })();
@@ -219,7 +254,17 @@ export default function Dashboard() {
                         return (
                             <button 
                                 key={item.id}
-                                onClick={() => { setActiveTab(item.id); setSelectedProfessional(null); setIsEditingProfile(false); setSidebarOpen(false); }}
+                                onClick={() => { 
+                                    setActiveTab(item.id); 
+                                    setSelectedProfessional(null); 
+                                    setIsEditingProfile(false); 
+                                    setSidebarOpen(false); 
+                                    // Set management mode true for management-focused tabs
+                                    setIsManagementMode(
+                                        item.id === 'management' || 
+                                        (user?.role_type === 'user' && item.id === 'projects')
+                                    );
+                                }}
                                 className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[13.5px] font-medium transition-colors ${isActive ? 'bg-red-50 text-[#FF2D20]' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}
                             >
                                 <Icon className="w-5 h-5" />
@@ -258,10 +303,12 @@ export default function Dashboard() {
                                     <OverviewContent 
                                         user={user} 
                                         houses={houses} 
-                                        relevantProjects={relevantProjects} 
+                                        relevantProjects={filteredSourceProjects} 
                                         isLoadingData={isLoadingData} 
                                         setActiveTab={setActiveTab} 
                                         formatCurrency={formatCurrency} 
+                                        onViewActiveBids={handleViewActiveBids}
+                                        onEditProfile={() => setIsEditingProfile(true)}
                                     />
                                 </motion.div>
                             )}
@@ -290,11 +337,14 @@ export default function Dashboard() {
                                 </motion.div>
                             )}
 
-                            {/* PROJECTS TAB */}
+                            {/* PROJECTS TAB (Bidding Board for Pros) */}
                             {activeTab === 'projects' && (
                                 <motion.div key="projects" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-6 flex flex-col w-full">
                                     <ProjectBoard 
-                                        projects={relevantProjects as any} 
+                                        projects={(user?.role_type === 'user' 
+                                            ? filteredSourceProjects 
+                                            : projects.filter(p => p.status === 'open')
+                                        ) as any} 
                                         isLoading={isLoadingData} 
                                         userRole={user?.role_type}
                                         onPostProject={() => setActiveTab('post-project')}
@@ -302,34 +352,14 @@ export default function Dashboard() {
                                         onEditProject={setProjectToEdit}
                                         onDeleteProject={setProjectToDelete}
                                         onStatusChange={handleProjectStatusChange}
+                                        myBidsCount={myBids.length}
+                                        onViewMyBids={() => {
+                                            setActiveTab('my-bids');
+                                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                                        }}
                                     />
 
-                                    {/* Action Modals */}
-                                    <AnimatePresence>
-                                        {selectedProject && (
-                                            <ProjectDetailModal 
-                                                project={selectedProject as any}
-                                                onClose={() => setSelectedProject(null)}
-                                                formatCurrency={formatCurrency}
-                                            />
-                                        )}
-                                        {projectToEdit && (
-                                            <EditProjectModal 
-                                                project={projectToEdit}
-                                                onClose={() => setProjectToEdit(null)}
-                                                onSuccess={handleProjectEdited}
-                                            />
-                                        )}
-                                        {projectToDelete && (
-                                            <ConfirmDeleteModal 
-                                                title={projectToDelete.title}
-                                                description="This action cannot be undone and will remove all associated bids."
-                                                isDeleting={isDeletingProject}
-                                                onConfirm={handleDeleteProjectConfirm}
-                                                onCancel={() => setProjectToDelete(null)}
-                                            />
-                                        )}
-                                    </AnimatePresence>
+                                    {/* Action Modals moved to global scope */}
                                 </motion.div>
                             )}
 
@@ -424,6 +454,58 @@ export default function Dashboard() {
                                 </motion.div>
                             )}
 
+                            {/* PROFESSIONAL PROJECT MANAGEMENT TAB */}
+                            {activeTab === 'management' && (
+                                <motion.div key="management" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="w-full">
+                                        <div className="flex items-center gap-4">
+                                            <div className="flex flex-col gap-2">
+                                                <h3 className="text-2xl font-black text-gray-900 flex items-center gap-3">
+                                                    <span className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-lg shadow-sm border border-blue-100">🏗️</span> 
+                                                    Active Managed Projects
+                                                </h3>
+                                                <p className="text-gray-500 text-sm">Manage your accepted projects, coordinate with clients, and track milestones.</p>
+                                            </div>
+                                            <button 
+                                                onClick={() => {
+                                                    setIsLoadingData(true);
+                                                    axios.get('/projects?all=true').then(res => {
+                                                        setProjects(res.data.data);
+                                                        setIsLoadingData(false);
+                                                    });
+                                                }}
+                                                className="ml-auto p-3 bg-white border border-gray-200 text-gray-500 hover:text-blue-600 rounded-xl hover:shadow-md transition-all active:scale-95"
+                                                title="Refresh Projects"
+                                            >
+                                                <svg className={`w-5 h-5 ${isLoadingData ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                                            </button>
+                                        </div>
+                                    <ProfessionalProjects 
+                                        projects={projects.filter(p => {
+                                            const profId = user?.role_type === 'arsitek' ? user?.arsitek?.id : user?.kontraktor?.id;
+                                            
+                                            // 1. Direct ID match
+                                            const isDirectMatch = (user?.role_type === 'arsitek' && String(p.selected_architect_id) === String(profId)) ||
+                                                          (user?.role_type === 'kontraktor' && String(p.selected_contractor_id) === String(profId));
+                                            
+                                            // 2. Status match (if I'm the one who it says is accepted)
+                                            const isAcceptedStatus = (user?.role_type === 'arsitek' && p.status === 'accepted_arsitek') ||
+                                                                   (user?.role_type === 'kontraktor' && p.status === 'accepted_kontraktor') ||
+                                                                   (p.status === 'in_progress');
+                                            
+                                            // Log for debugging
+                                            if (p.status !== 'open') {
+                                                console.log(`Checking project ${p.id}: isDirectMatch=${isDirectMatch}, isAcceptedStatus=${isAcceptedStatus}`);
+                                            }
+                                            
+                                            return isDirectMatch || (isAcceptedStatus && isDirectMatch); // Keep it grounded to match for now, but ensure in_progress shows if ID matches
+                                        })}
+                                        isLoading={isLoadingData}
+                                        onViewProject={(p) => setSelectedProject(p)}
+                                        formatCurrency={formatCurrency}
+                                    />
+                                </motion.div>
+                            )}
+
                             {/* PROFILE TAB */}
                             {activeTab === 'profile' && (
                                 <motion.div key="profile" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-6">
@@ -455,7 +537,39 @@ export default function Dashboard() {
                                                     </div>
                                                 </div>
 
-                                                <div>
+                                                {/* Role Specific Read-Only Data */}
+                                                {user?.role_type === 'arsitek' && (
+                                                    <div className="space-y-4 pt-4 border-t border-gray-100">
+                                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                                            <div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Rate (Hourly)</label><div className="text-gray-900 font-semibold text-lg">{user?.arsitek?.rate_harga ? `Rp ${user.arsitek.rate_harga}` : '-'}</div></div>
+                                                            <div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Experience</label><div className="text-gray-900 font-semibold text-lg">{user?.arsitek?.pengalaman_tahun ? `${user.arsitek.pengalaman_tahun} Years` : '-'}</div></div>
+                                                            <div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Location</label><div className="text-gray-900 font-semibold text-lg">{user?.arsitek?.lokasi || '-'}</div></div>
+                                                        </div>
+                                                        {user?.arsitek?.pendidikan && (
+                                                            <div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Study Experience</label><div className="text-gray-900 text-sm bg-gray-50 p-3 rounded-xl border border-gray-100">{user.arsitek.pendidikan}</div></div>
+                                                        )}
+                                                        {user?.arsitek?.alasan_hire && (
+                                                            <div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Why Hire Me</label><div className="text-gray-900 text-sm bg-gray-50 p-3 rounded-xl border border-gray-100 italic">"{user.arsitek.alasan_hire}"</div></div>
+                                                        )}
+                                                    </div>
+                                                )}
+
+                                                {user?.role_type === 'kontraktor' && (
+                                                    <div className="space-y-4 pt-4 border-t border-gray-100">
+                                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                                            <div className="col-span-1 md:col-span-2"><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Company</label><div className="text-gray-900 font-semibold text-lg">{user?.kontraktor?.nama_perusahaan || '-'}</div></div>
+                                                            <div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Est. Rate</label><div className="text-gray-900 font-semibold text-lg">{user?.kontraktor?.rate_harga ? `Rp ${user.kontraktor.rate_harga}` : '-'}</div></div>
+                                                        </div>
+                                                        {user?.kontraktor?.pendidikan && (
+                                                            <div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Company Background</label><div className="text-gray-900 text-sm bg-gray-50 p-3 rounded-xl border border-gray-100">{user.kontraktor.pendidikan}</div></div>
+                                                        )}
+                                                        {user?.kontraktor?.alasan_hire && (
+                                                            <div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Value Prop</label><div className="text-gray-900 text-sm bg-gray-50 p-3 rounded-xl border border-gray-100 italic">"{user.kontraktor.alasan_hire}"</div></div>
+                                                        )}
+                                                    </div>
+                                                )}
+
+                                                <div className="pt-4 border-t border-gray-100">
                                                     <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Verified Phone Numbers</label>
                                                     <div className="space-y-2">
                                                         {user?.phone_number && user.phone_number.length > 0 ? (
@@ -484,29 +598,79 @@ export default function Dashboard() {
                                 </motion.div>
                             )}
                         </AnimatePresence>
-                    </div>
-                </div>
-            </main>
+            </div>
         </div>
+    </main>
+</div>
 
-        {/* Global Chat Widget */}
-        <AnimatePresence>
-            {activeChat && <ChatWidget professional={activeChat} onClose={() => setActiveChat(null)} />}
-        </AnimatePresence>
+{/* Global Project Modals */}
+<AnimatePresence>
+    {selectedProject && (
+        <ProjectDetailModal 
+            project={selectedProject as any}
+            onClose={() => setSelectedProject(null)}
+            formatCurrency={formatCurrency}
+            onViewProfile={handleViewBidderProfile}
+            onProjectUpdated={handleProjectUpdated}
+            isManagementView={isManagementMode}
+        />
+    )}
+    {projectToEdit && (
+        <EditProjectModal 
+            project={projectToEdit}
+            onClose={() => setProjectToEdit(null)}
+            onSuccess={handleProjectEdited}
+        />
+    )}
+    {projectToDelete && (
+        <ConfirmDeleteModal 
+            title={projectToDelete.title}
+            description="This action cannot be undone and will remove all associated bids."
+            isDeleting={isDeletingProject}
+            onConfirm={handleDeleteProjectConfirm}
+            onCancel={() => setProjectToDelete(null)}
+        />
+    )}
+</AnimatePresence>
 
-        {/* Rating Modal - shown when dropping project to Completed */}
-        <AnimatePresence>
-            {ratingProject && (
-                <RatingModal
-                    projectId={ratingProject.id}
-                    projectTitle={ratingProject.title}
-                    hasArsitek={!!ratingProject.selected_architect_id}
-                    hasKontraktor={!!ratingProject.selected_contractor_id}
-                    onClose={() => setRatingProject(null)}
-                    onRated={() => setRatingProject(null)}
-                />
-            )}
-        </AnimatePresence>
-        </>
+{/* Global Chat Widget */}
+<AnimatePresence>
+    {activeChat && <ChatWidget professional={activeChat} onClose={() => setActiveChat(null)} />}
+</AnimatePresence>
+
+{/* Rating Modal - shown when dropping project to Completed */}
+<AnimatePresence>
+    {ratingProject && (
+        <RatingModal
+            projectId={ratingProject.id}
+            projectTitle={ratingProject.title}
+            hasArsitek={!!ratingProject.selected_architect_id}
+            hasKontraktor={!!ratingProject.selected_contractor_id}
+            onClose={() => setRatingProject(null)}
+            onRated={() => setRatingProject(null)}
+        />
+    )}
+    {quickSelectProjects.length > 0 && (
+        <ProjectQuickSelectModal
+            projects={quickSelectProjects}
+            onSelect={setSelectedProject}
+            onClose={() => setQuickSelectProjects([])}
+            formatCurrency={formatCurrency}
+        />
+    )}
+    {profModalData && (
+        <ProfessionalProfileModal
+            type={profModalData.type}
+            data={profModalData.data}
+            projects={relevantProjects}
+            onClose={() => setProfModalData(null)}
+            onOpenChat={(prof) => {
+                setProfModalData(null);
+                setActiveChat(prof);
+            }}
+        />
+    )}
+</AnimatePresence>
+</>
     );
 }

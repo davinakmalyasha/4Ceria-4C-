@@ -16,6 +16,7 @@ class ProjectResource extends JsonResource
             'budget' => $this->budget,
             'location' => $this->lokasi,
             'type' => $this->jenis_proyek,
+            'target_role' => $this->target_role,
             'status' => $this->status,
             'deadline' => $this->deadline,
             'attachment' => $this->attachment,
@@ -43,16 +44,16 @@ class ProjectResource extends JsonResource
                         'created_at' => $bid->created_at,
                         'bidder' => $bid->arsitek ? [
                             'id' => $bid->arsitek->id,
-                            'name' => $bid->arsitek->nama,
-                            'phone' => $bid->arsitek->no_telp,
+                            'name' => $bid->arsitek->nama ?? $bid->arsitek->user->name,
+                            'phone' => $bid->arsitek->no_telp ?? $bid->arsitek->user->phoneNumber->first()?->contact,
                             'specialization' => $bid->arsitek->spesialisasi,
                             'experience_years' => $bid->arsitek->pengalaman_tahun,
                             'rate' => $bid->arsitek->rate_harga,
                             'location' => $bid->arsitek->lokasi,
-                            'user' => $bid->arsitek->user ? [
+                            'user' => [
                                 'name' => $bid->arsitek->user->name,
                                 'email' => $bid->arsitek->user->email,
-                            ] : null,
+                            ],
                         ] : null,
                     ];
                 });
@@ -67,13 +68,13 @@ class ProjectResource extends JsonResource
                         'created_at' => $bid->created_at,
                         'bidder' => $bid->kontraktor ? [
                             'id' => $bid->kontraktor->id,
-                            'name' => $bid->kontraktor->nama,
-                            'phone' => $bid->kontraktor->no_telp,
+                            'name' => $bid->kontraktor->nama ?? $bid->kontraktor->user->name,
+                            'phone' => $bid->kontraktor->no_telp ?? $bid->kontraktor->user->phoneNumber->first()?->contact,
                             'location' => $bid->kontraktor->lokasi,
-                            'user' => $bid->kontraktor->user ? [
+                            'user' => [
                                 'name' => $bid->kontraktor->user->name,
                                 'email' => $bid->kontraktor->user->email,
-                            ] : null,
+                            ],
                         ] : null,
                     ];
                 });

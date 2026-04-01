@@ -12,7 +12,7 @@ class Kontraktor extends Model
     protected $table = 'kontraktors'; 
 
     protected $fillable = [
-         'user_id', 'nama', 'no_telepon', 'alamat', 'jenis', 'nama_perusahaan', 'npwp', 'siup', 'pengalaman', 'spesialisasi',
+         'user_id', 'nama', 'no_telepon', 'alamat', 'jenis', 'nama_perusahaan', 'npwp', 'siup', 'pengalaman', 'spesialisasi', 'rate_harga', 'pendidikan', 'alasan_hire', 'verification_status', 'rejection_reason'
     ];
 
     

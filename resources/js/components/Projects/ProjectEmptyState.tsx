@@ -6,9 +6,10 @@ interface Props {
     hasQuery: boolean;
     onClearFilters: () => void;
     onPostProject?: () => void;
+    userRole?: string;
 }
 
-export default function ProjectEmptyState({ hasQuery, onClearFilters, onPostProject }: Props) {
+export default function ProjectEmptyState({ hasQuery, onClearFilters, onPostProject, userRole }: Props) {
     return (
         <motion.div 
             initial={{ opacity: 0, y: 10 }} 
@@ -26,7 +27,9 @@ export default function ProjectEmptyState({ hasQuery, onClearFilters, onPostProj
             <p className="text-gray-500 max-w-sm mx-auto mb-8 leading-relaxed">
                 {hasQuery 
                     ? "We couldn't find any projects matching your current filters or search query." 
-                    : "Your project history is empty. Start by posting a new project to get bids from professionals."}
+                    : userRole === 'user'
+                        ? "Your project history is empty. Start by posting a new project to get bids from professionals."
+                        : "There are currently no open projects available for bidding in your category. Check back later!"}
             </p>
 
             {hasQuery ? (
