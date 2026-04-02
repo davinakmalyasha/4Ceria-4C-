@@ -55,9 +55,10 @@ interface ProjectDetailModalProps {
     onViewProfile: (type: 'architect' | 'constructor', bidderId: number) => void;
     onProjectUpdated?: (updated: Project) => void;
     isManagementView?: boolean;
+    onNavigate?: (tab: string) => void;
 }
 
-export default function ProjectDetailModal({ project, onClose, formatCurrency, onViewProfile, onProjectUpdated, isManagementView }: ProjectDetailModalProps) {
+export default function ProjectDetailModal({ project, onClose, formatCurrency, onViewProfile, onProjectUpdated, isManagementView, onNavigate }: ProjectDetailModalProps) {
     const { user } = useAuth();
     const [detail, setDetail] = useState<ProjectDetail | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -197,7 +198,43 @@ export default function ProjectDetailModal({ project, onClose, formatCurrency, o
 
                 {/* Scrollable Body */}
                 <div className="p-6 sm:p-8 overflow-y-auto flex-1">
-                    {isLoading ? (
+                    {isSuccess ? (
+                        <motion.div 
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            className="flex flex-col items-center justify-center py-12 px-6 text-center h-full"
+                        >
+                            <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-6 shadow-sm border border-green-200">
+                                <ShieldCheck size={40} strokeWidth={2.5} />
+                            </div>
+                            <h3 className="text-3xl font-black text-gray-900 mb-3 tracking-tight">Hired Successfully!</h3>
+                            <p className="text-gray-600 mb-8 max-w-sm text-lg leading-relaxed">
+                                You have officially hired <span className="font-bold text-gray-900">{hiredName}</span> for <span className="font-bold text-gray-900">{detail?.title || project.title}</span>.
+                            </p>
+                            
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-md">
+                                <button 
+                                    onClick={() => {
+                                        onClose();
+                                        if (onNavigate) onNavigate('projects');
+                                    }}
+                                    className="flex items-center justify-center gap-2 bg-[#FF2D20] hover:bg-red-700 text-white py-4 px-6 rounded-2xl font-bold transition-all shadow-lg shadow-red-200 active:scale-95 group"
+                                >
+                                    <FileText size={18} /> Manage Project <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+                                </button>
+                                <button 
+                                    onClick={onClose}
+                                    className="flex items-center justify-center gap-2 bg-gray-50 hover:bg-gray-100 text-gray-700 py-4 px-6 rounded-2xl font-bold transition-all border border-gray-200 active:scale-95"
+                                >
+                                    Return to Board
+                                </button>
+                            </div>
+                            
+                            <p className="mt-8 text-sm text-gray-400">
+                                You can now track milestones, communicate with the team, and manage documents from the management board.
+                            </p>
+                        </motion.div>
+                    ) : isLoading ? (
                         <div className="flex justify-center py-12">
                             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#FF2D20]"></div>
                         </div>
@@ -214,6 +251,7 @@ export default function ProjectDetailModal({ project, onClose, formatCurrency, o
                                         <CheckSquare className="w-4 h-4" /> Milestones
                                     </button>
                                 )}
+                                {/* ... [Rest of the scrollable body content] ... */}
 
                                 <button onClick={() => setActiveTab('qa')} className={`flex items-center gap-2 pb-3 px-4 font-bold text-sm border-b-2 transition-colors whitespace-nowrap ${activeTab === 'qa' ? 'border-[#FF2D20] text-[#FF2D20]' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
                                     <MessageCircle className="w-4 h-4" /> Q&A Chat

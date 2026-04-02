@@ -41,7 +41,7 @@ export default function ProjectMilestones({ project, isOwnerOrWorker }: Props) {
         setMilestones(prev => prev.map(m => m.id === milestone.id ? { ...m, is_completed: newStatus } : m));
 
         try {
-            await axios.put(`/milestones/${milestone.id}`, { is_completed: newStatus });
+            await axios.put(`/projects/${project.id}/milestones/${milestone.id}`, { is_completed: newStatus });
         } catch (err) {
             console.error('Failed to update milestone', err);
             // Revert

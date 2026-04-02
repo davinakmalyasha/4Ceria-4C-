@@ -79,6 +79,16 @@ class ProjectResource extends JsonResource
                     ];
                 });
             }),
+            'milestones' => $this->whenLoaded('milestones', function () {
+                return $this->milestones->map(function ($milestone) {
+                    return [
+                        'id' => $milestone->id,
+                        'title' => $milestone->title,
+                        'is_completed' => (bool)$milestone->is_completed,
+                        'created_at' => $milestone->created_at,
+                    ];
+                });
+            }),
         ];
     }
 }

@@ -77,7 +77,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Project Features (Milestones, Comments, Documents)
     Route::get('/projects/{project}/milestones', [ProjectFeatureController::class, 'getMilestones']);
     Route::post('/projects/{project}/milestones', [ProjectFeatureController::class, 'storeMilestone']);
-    Route::put('/milestones/{milestone}', [ProjectFeatureController::class, 'updateMilestone']);
+    Route::put('/projects/{project}/milestones/{milestone}', [ProjectFeatureController::class, 'updateMilestone']);
     Route::delete('/projects/{project}/milestones/{milestone}', [ProjectFeatureController::class, 'deleteMilestone']);
 
     Route::get('/projects/{project}/comments', [ProjectFeatureController::class, 'getComments']);

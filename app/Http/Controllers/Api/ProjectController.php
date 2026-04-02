@@ -14,11 +14,11 @@ use App\Models\Notification;
 
 class ProjectController extends Controller
 {
-    public function index()
+    public function index(\Illuminate\Http\Request $request)
     {
         $user = Auth::guard('sanctum')->user();
         
-        $query = Project::with('images')
+        $query = Project::with(['images', 'milestones'])
             ->withCount(['bidsArsitek', 'bidsKontraktor']);
 
         if (!$user) {
@@ -68,6 +68,10 @@ class ProjectController extends Controller
 
         $query->with(['images', 'user']);
         
+        if ($request->query('all') === 'true') {
+             return ProjectResource::collection($query->latest()->get());
+        }
+        
         return ProjectResource::collection($query->latest()->paginate(50));
     }
 
@@ -112,6 +116,7 @@ class ProjectController extends Controller
             'bidsArsitek.arsitek.user',
             'bidsKontraktor.kontraktor.user',
             'images',
+            'milestones',
             'user'
         ]);
         return new ProjectResource($project);
@@ -206,6 +211,8 @@ class ProjectController extends Controller
             $bid->update(['status' => 'accepted']);
             // Decline all other arsitek bids
             \App\Models\BidArsitek::where('project_id', $project->id)->where('id', '!=', $bid->id)->update(['status' => 'rejected']);
+            
+            $project->load('milestones'); // Ensure milestones are loaded for the status change logic if needed or just for the resource
             
             // Advance Status
             if ($project->target_role === 'arsitek' || $project->status === 'accepted_kontraktor') {

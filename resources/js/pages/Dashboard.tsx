@@ -160,7 +160,7 @@ export default function Dashboard() {
             try {
                 const [houseRes, projectRes, archRes, constrRes] = await Promise.all([
                     axios.get('/houses'),
-                    axios.get('/projects'),
+                    axios.get('/projects?all=true'), // Fetch all so assigned projects are guaranteed
                     axios.get('/arsitek'),
                     axios.get('/kontraktor')
                 ]);
@@ -460,7 +460,7 @@ export default function Dashboard() {
                                         <div className="flex items-center gap-4">
                                             <div className="flex flex-col gap-2">
                                                 <h3 className="text-2xl font-black text-gray-900 flex items-center gap-3">
-                                                    <span className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-lg shadow-sm border border-blue-100">🏗️</span> 
+                                                    <span className="w-10 h-10 rounded-xl bg-red-50 text-red-600 flex items-center justify-center text-lg shadow-sm border-red-100">🏗️</span> 
                                                     Active Managed Projects
                                                 </h3>
                                                 <p className="text-gray-500 text-sm">Manage your accepted projects, coordinate with clients, and track milestones.</p>
@@ -473,7 +473,7 @@ export default function Dashboard() {
                                                         setIsLoadingData(false);
                                                     });
                                                 }}
-                                                className="ml-auto p-3 bg-white border border-gray-200 text-gray-500 hover:text-blue-600 rounded-xl hover:shadow-md transition-all active:scale-95"
+                                                className="ml-auto p-3 bg-white border border-gray-200 text-gray-500 hover:text-red-600 rounded-xl hover:shadow-md transition-all active:scale-95"
                                                 title="Refresh Projects"
                                             >
                                                 <svg className={`w-5 h-5 ${isLoadingData ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
@@ -613,6 +613,7 @@ export default function Dashboard() {
             onViewProfile={handleViewBidderProfile}
             onProjectUpdated={handleProjectUpdated}
             isManagementView={isManagementMode}
+            onNavigate={(tab) => setActiveTab(tab)}
         />
     )}
     {projectToEdit && (
