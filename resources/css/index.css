@@ -1,70 +1,89 @@
 * {
-    font-family: "Plus Jakarta Sans";
+    font-family: "Plus Jakarta Sans", sans-serif;
     margin: 0;
     padding: 0;
     box-sizing: border-box;
     scroll-behavior: smooth;
 }
-body {
-    background-color: #ffffff;
-    max-width: 100%;
+
+:root {
+    --primary: #FD1D1D;
+    --primary-hover: #e01a1a;
+    --background: #f9fafb;
+    --surface: #f3f4f6;
+    --text-main: #0f172a;
+    --text-muted: #64748b;
+    --border: #f1f5f9;
+    --navbar-height: 64px;
+    --radius-lg: 24px;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
 }
-.navbar {
+
+body {
+    background-color: var(--background);
+    color: var(--text-main);
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+.custom-navbar-container {
     background-color: white;
     display: flex;
     align-items: center;
     position: sticky;
     top: 0;
     justify-content: space-between;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.25) ;
+    border-bottom: 1px solid var(--border);
     z-index: 1000;
-}
-.navbar .logoss {
-    margin-left: 12px;
-    margin-right: 42px;
-}
-.navbar img {
-    width: auto;
-    width: 50px;
-    height: 50px;
-}
-.fotoAtas img {
-    border-radius: 20px;
-}
-.kiriNavbar {
-    display: flex;
-}
-.kiriNavbar ul {
-    display: flex;
-    align-items: center;
-    gap: 30px;
-}
-.kiriNavbar ul li {
-    list-style: none;
-    
-}
-.kiriNavbar ul li:first-child {
-    list-style: none;
-    border-bottom: 3px solid #fd1d1d;
-    
+    transition: transform 0.3s ease-in-out;
+    width: 100%;
+    height: var(--navbar-height);
+    padding: 0 2rem;
 }
 
-.kiriNavbar ul li a {
-    text-decoration: none;
-    color: #0f172a;
-    font-size: 14px;
-    transition: 0.3s ease;
-    border-radius: 10px;
-   
+.custom-navbar-container.hidden-nav {
+    transform: translateY(-100%);
 }
-.kiriNavbar ul li:hover a{
-    color: white;
-    background-color: #fd1d1d;
-    padding: 4px 6px;
-    border-radius: 10px;
+
+.custom-navbar-container .logoss {
+    height: 40px;
+    width: auto;
+    display: flex;
+    align-items: center;
 }
-.kiriNavbar ul li:hover{
-   border: none;
+
+.kiriNavbar { 
+    display: flex; 
+    align-items: center;
+    gap: 2rem;
+}
+
+.kiriNavbar ul { 
+    display: flex; 
+    align-items: center; 
+    gap: 1.5rem; 
+    margin: 0; 
+    padding: 0; 
+}
+
+.kiriNavbar ul li { 
+    list-style: none; 
+}
+
+.kiriNavbar ul li a { 
+    text-decoration: none; 
+    color: var(--text-main); 
+    font-size: 14px; 
+    transition: all 0.2s ease; 
+    padding: 0.5rem 1rem;
+    border-radius: 12px;
+    font-weight: 600;
+}
+
+.kiriNavbar ul li:hover a { 
+    color: var(--primary);
+    background-color: #fef2f2;
 }
 .kiriNavbar ul li:last-child a {
     margin: 0;
@@ -73,152 +92,25 @@ body {
 .dalem {
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    align-items: center;
     background-color: white;
 }
 .header {
    width: 100%;
-   height: 95vh;
-   background: linear-gradient(to right, #fd1d1d, #ffffff);
-   background-size: 400% 400%;
-   animation: background 30s infinite ease-in-out;
-   align-items: center;
-   justify-content: center;
+   min-height: 85vh;
+   background: white;
    display: flex;
    flex-direction: column;
+   align-items: center;
+   justify-content: center;
    position: relative;
    overflow: hidden;
+   padding: 0;
 }
-.header:before {
-    content: "";
-    position: absolute;
-    bottom: -10%;
-    left: 0;
-    width: 100%;
-    height: 20%;
-    background: white;
-    border-radius: 50% 50% 0 0 / 40% 40% 0 0;
-}
-@keyframes background {
-    0% {
-        background-position: 0 50%;
-    }
-    44% {
-        background-position: 0 50%;
-    }
-    50% {
-        background-position: 100% 50%;
-    }
-    94% {
-        background-position: 100% 50%;
-    }
-    100% {
-        background-position: 0 50%;
-    }
-}
-.kalimat h2:nth-child(1) {
-    color: #fff;
-    animation: text-color 30s infinite ease-in-out;
-    animation-delay: 0s;
-}
-.kalimat h1 {
-    color: #fff;
-    animation: text-color 30s infinite ease-in-out;
-    animation-delay: 0s;
-}
-.kalimat span {
-    color: #fff;
-    animation: text-color 30s infinite ease-in-out;
-    animation-delay: 0s;
-}
-.kalimat p {
-    color: #fff;
-    max-width: 600px;
-    flex-wrap: wrap;
-    margin-top: 2%;
-    line-height: 1.9;
-    letter-spacing: 0.5px;
-    font-size: 15px;
-    animation: text-color 30s infinite ease-in-out;
-    animation-delay: 0s;
-}
-.card.aos-transition {
-    transition: opacity 0.3s ease; /* atau transisi lainnya yang Anda inginkan */
-  }
   
-  .card.aos-transition:hover {
-    opacity: 0.8;
-  }
-  
+
 .kalimat {
-    color: #9F2A2A;
     text-align: center;
     z-index: 2;
-    line-height: 1.4;
-}
-.kalimat h2 {
-    font-size: 34px;
-}
-.kalimat h1 {
-  font-size: 45px;
-}
-.kalimat h2 span {
-    color: red;
-   font-size: 49px;
-   text-shadow: 0 0 10px white;
-}
-
-@keyframes bg-color {
-    0% {
-        background-color: white;
-    }
-    44% {
-        background-color: white;
-    }
-    50% {
-        background-color: #9F2A2A;
-    }
-    94% {
-        background-color: #9F2A2A;
-    }
-100% {
-       background-color: white;
-    }
-}
-@keyframes teks-color {
-    0% {
-        color: #fd1d1d;
-    }
-    44% {
-        color: #fd1d1d;
-    }
-    50% {
-        color: white;
-    }
-    94% {
-        color: white;
-    }
-100% {
-        color: #fd1d1d;
-    }
-}
-@keyframes text-color {
-    0% {
-        color: white;
-    }
-    44% {
-        color: white;
-    }
-    50% {
-        color: #9F2A2A;
-    }
-    94% {
-        color: #9F2A2A;
-    }
-100% {
-        color: #fff;
-    }
 }
 
 
@@ -641,95 +533,187 @@ body {
 }
 footer {
     width: 100%;
-    background: linear-gradient(to right, #9F2A2A, red);
-    color: #fff;
-    padding: 100px 0 30px;
-    border-top-left-radius: 125px;
-    font-size: 10px; 
-    background-color: white;
-   
-}
-.row {
-    width: 85%;
-    margin: auto;
+    min-height: 360px;
+    background-color: #1e1e1e;
     display: flex;
-    flex-wrap: wrap;
-    align-items: flex-start;
+    flex-direction: column;
     justify-content: space-between;
+    padding: 60px 4% 30px 4%;
+    color: white;
 }
-.col {
-    flex-basis: 25%;
-    padding: 10px;
+
+.atasFooter {
+    display: flex;
+    gap: 5%;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
 }
-.col:nth-child(2), .col:nth-child(3) {
-    flex-basis: 15%;
+
+.footerStart {
+    display: flex;
+    flex-direction: column;
 }
-.logo {
-    width: 40px;
-    margin-bottom: 10px;
+
+.footerStart h2 {
+    font-size: 64px;
+    font-weight: 800;
+    color: white;
+    margin-bottom: 8px;
+    letter-spacing: -2px;
 }
-.col h3 {
-    width: fit-content;
-    margin-bottom: 20px;
-    position: relative;
+
+.footerStart h3 {
+    font-size: 14px;
+    font-weight: 400;
+    color: #94a3b8;
+    max-width: 200px;
 }
-.email-id {
-    width: fit-content;
-    border-bottom: 1px solid white;
-    margin: 20px 0;
+
+.footerList {
+    display: flex;
+    gap: 80px;
 }
-.col ul li {
+
+.isiFooterList ul {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
     list-style: none;
+    padding: 0;
+}
+
+.isiFooterList li {
+    font-size: 14px;
+    color: #94a3b8;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.isiFooterList li:hover {
+    color: white;
+}
+
+.isiFooterList li:first-child {
+    font-weight: 700;
+    color: white;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-size: 12px;
+}
+
+.footerEnd {
+    display: flex;
+    flex-direction: column;
+    width: 300px;
+}
+
+.footerEnd h2 {
+    font-weight: 700;
+    font-size: 18px;
+    margin-bottom: 20px;
+}
+
+.kirimPesan {
+    width: 100%;
     margin-bottom: 12px;
 }
-.col ul li a {
-    text-decoration: none;
-    color: #fff;
-}
-form {
-    padding-bottom: 15px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    border-bottom: 1px solid white;
-    margin-bottom: 50px;
-    gap: 5px;
-}
-form .email {
-    font-size: 18px;
-    margin-right: 5px;
-}
-form input {
-    width: 80%;
-    height: 35px;
-    border-radius: 8px;
-    background: white;
-    color: #9F2A2A;
-    border: 0;
-    outline: none;
-    padding: 0 20px;
-}
-form button {
-    background: transparent;
-    border: 0;
-    outline: none;
-    cursor: pointer;
-}
-form button .panah {
-    color: white;
 
+.footerEnd input {
+    width: 100%;
+    background: #2d2d30;
+    padding: 16px;
+    border-radius: 12px;
+    border: 1px solid #3f3f46;
+    color: white;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
 }
-.socialIcon .fa-brands, .fa-solid {
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    text-align: center;
-    line-height: 40px;
-    font-size: 20px;
-    color: #000;
-    background: #fff;
-    margin-right: px;
+
+.footerEnd input:focus {
+    border-color: #FD1D1D;
+}
+
+.footerEnd button {
+    width: 100%;
+    padding: 14px;
+    background-color: #FD1D1D;
+    color: white;
+    border-radius: 12px;
+    border: none;
+    font-weight: 700;
+    font-size: 14px;
     cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.footerEnd button:hover {
+    background-color: #e01a1a;
+}
+
+.bawahFooter {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid #ffffff15;
+    padding-top: 30px;
+    margin-top: 40px;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.bawahFooter ul {
+    display: flex;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.term {
+    display: flex;
+    gap: 24px;
+}
+
+.term li {
+    font-size: 13px;
+    color: #64748b;
+    cursor: pointer;
+}
+
+.logoSosmed {
+    gap: 20px;
+    display: flex;
+}
+
+.logoSosmed li a img {
+    opacity: 0.6;
+    transition: all 0.3s;
+    filter: invert(1);
+}
+
+.logoSosmed li a:hover img {
+    opacity: 1;
+    transform: translateY(-2px);
+}
+
+@media screen and (max-width: 900px) {
+    .atasFooter {
+        flex-direction: column;
+        gap: 40px;
+    }
+    .footerList {
+        gap: 40px;
+        width: 100%;
+        justify-content: space-between;
+    }
+    .footerEnd {
+        width: 100%;
+    }
+    .footerStart h2 {
+        font-size: 48px;
+    }
 }
 hr {
     width: 90%;
@@ -781,20 +765,29 @@ transition: 0.3s ease;
     width: auto;
 }
 .logossponsor {
-   
     white-space: nowrap;
     position: relative;
+    display: flex;
+    overflow: hidden;
+    padding: 3rem 0;
+    mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
+    -webkit-mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
 }
-.logossponsor::before {
-position: absolute;
-top: 0;
-left: 0;
-width: 250px;
-height: 100%;
-background: linear-gradient(rgba (255,255,255,0), blue);
-content: "";
-z-index: 30;
-
+.sponsorslide {
+    display: flex;
+    align-items: center;
+    animation: sponsorslide 40s linear infinite;
+}
+.sponsorslide img {
+    height: 35px;
+    width: auto;
+    margin: 0 3rem;
+    filter: grayscale(1) opacity(0.5);
+    transition: all 0.3s ease;
+}
+.sponsorslide img:hover {
+    filter: grayscale(0) opacity(1);
+    transform: scale(1.1);
 }
 .sponsorslide:hover .sponsorslide{
     animation-play-state: paused;
@@ -820,681 +813,24 @@ z-index: 30;
 }
 
 
+
+
+
 @media screen and (max-width: 768px) {
-    /* .header h2, .header h1, .header .kalimat span {
-       font-size: 45px;
-    } */
     .header {
-        height: 85vh;
-    }
-    .navbar {
-        height: 60px;
-    }
-    .navbar img {
-        width: 50px;
-        height: 50px;
+        min-height: 70vh;
     }
     .plan__container {
         margin-top: 20%;
-        max-width: 60%;
+        max-width: 90%;
     }
-    .plan__container .subheader {
-        margin-bottom: 30px;
-        text-align: center;
-        font-weight: 600;
-        font-size: 20px;
-        letter-spacing: 5px;
-      }
-      .plan__container .section__header {
-        text-align: center;
-        font-size: 35px;
-        line-height: 1.3;
-        margin-bottom: 30px;
-      }
-      .plan__container .description {
-        text-align: center;
-        color: var(--text-light);
-        font-size: 15px;
-      }
-      .plan__grid {
+    .plan__grid {
         flex-direction: column-reverse;
-        margin-top: 4rem;
-        display: flex;
-        max-width: 100%;
-        justify-content: center;
-        align-items: center;
-      }
-      .plan__content {
-        max-width: 100%;
-        margin-top: 50px;
-      }
-      .plan__content .number {
-        font-size: 15px;
-        display: inline-block;
-        padding: 8px 20px;
-        margin-bottom: 50px;
-        font-weight: 600;
-        color: var(--white);
-        background-color: var(--primary-color);
-        border-radius: 2rem;
-      }
-      .plan__content .number:nth-child(1) {
-        background-color: #9F2A2A;
-        color: white;
-      }
-      .plan__content .number:nth-child(4) {
-        background-color: #e98b6d;
-        color: white;
-      }
-      .plan__content .number:nth-child(7) {
-        background-color: red;
-        color: white;
-      }
-      .plan__content h4 {
-        font-size: 28px;
-        font-weight: 600;
-        margin-bottom: 30px;
-      }
-      .plan__content p {
-        font-size: 18px;
-        margin-bottom: 80px;
-      }
-      .plan__grid img {
+    }
+    .skill {
         width: 100%;
-        border-radius: 30px;
-      }
-      .skill {
-        margin: 0;
-        width: 80%;
-        position: relative;
-        height: auto;
-        border-radius: 40px;
-        z-index: 3;
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: center;
-        align-items: center;
-        gap: 20px;
-        padding-top: 9%;
-        padding-bottom: 14%;
     }
-    .skill h1 {
-        width: 100%;
-        color:#0f172a;
-        top: 0;
-        z-index: 3;
-        font-family: "Plus Jakarta Sans";
-        letter-spacing: 3px;
-        text-align: center;
-        margin-bottom: 20px;
-        font-size: 30px;
-    }
-    .skill .card {
-        margin-right: 0;
-            margin: 30px;
-            height: 500px;
-    }
-    .card {
-        position: relative;
-        z-index: 1;
-        width: 700px;
-        height: 600px;
-        /* border: 0.5px solid grey; */
-        border-radius: 25px;
-        overflow: hidden;
-        transition: 1s;
-        cursor: pointer;
-        margin-right: 50px;
-        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.25) ;
-    }
-    .card:hover {
-        width: 280px;
-        max-width: 850px;
-        height: 440px;
-        background-color: red;
-        border: none;
-        color: white;
-        filter: grayscale(0%);
-        box-shadow: 5px 5px 300px rgba(255, 0, 0, 0.6) ;
-    }
-    .card:hover .card-text h2,
-    .card:hover .card-text p {
-        color: white;
-    }
-    .card img {
-        object-fit: cover;
-        width: 100%;
-        height: 50%;
-    }
-    .card-text {
-        height: 50%;
-        color: #0f172a;
-        padding: 20px;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        text-align: center;
-        font-size: 10px;
-        transition: 0.5s;
-    }
-    .card-text * {
-        transition: color 0.5s;
-    }
-    .card-text h2 {
-        font-size: 30px;
-        letter-spacing: 5px;
-        margin-bottom: 15px;
-        margin-top: 5px;
-        color: #0f172a;
-    }
-    .card-text p {
-        font-size: 16px;
-       color: black;
-       margin-top: 20px;
-       letter-spacing: 3px;
-     
-    }.content {
-        width: 75%;
-        max-width: 80%;
-        margin-bottom: 50px;
-    }
-    .JR, .RK {
-        margin-bottom: 12%;
-    }
-    .JR .detail, .RK .detail {
-        margin-top: 28px;
-        justify-content: center;
-        align-items: center;
-        text-align: center;
-        font-size: 20px;
-        letter-spacing: 1px;
-        padding: 2px 4px;
-    }
-    .JR .detail a, .RK .detail a {
-        text-decoration: none;
-        color: #9F2A2A;
-        transition: 0.4s ease-in-out;
-        border-radius: 8px;
-    }
-    .JR .detail a:hover, .RK .detail a:hover {
-        text-decoration: none;
-        color: white;
-        background-color: #9F2A2A;
-        padding: 8px 16px;
-        font-size: 32px;
-        letter-spacing: 3px;
-    }
-    .JR h1, .RK h1 {
-        text-align: center;
-        font-size: 30px;
-        margin-bottom: 10%;
-        color: #0f172a;
-        letter-spacing: 3px;
-    }
-    .JR .pilihan, .RK .pilihan {
-        align-items: center;
-        line-height: 1.2;
-        display: flex;
-        height: 350px;
-        border-radius: 20px;
-    }
-    .RK .pilihan {
-        align-items: center;
-        line-height: 1;
-       display: flex;
-    }
-    .jejeran {
-        display: flex;
-        max-width: 40%;
-        gap: 14px;
-        margin-bottom: 2%;
-    }
-    .pilihan {
-        max-width: 100%;
-        background-color: #f1f1f1;
-        box-shadow: 10px 10px 15px rgba(0, 0, 0, 0.25) ;
-        transition: 0.5s ease-in-out;
-        cursor: pointer;
-    }
-    .pilihan:hover {
-        background-color: red;
-        box-shadow: 5px 5px 110px rgba(255, 0, 0, 0.6) ;
-    }
-    .pilihan:hover .isipilihan, .pilihan:hover h2 {
-        color: white;
-    }
-    .pilihan .logox i {
-        background-color: grey;
-        color: white;
-        transition: 0.5s ease-in-out;
-       text-align: center;
-    }
-    .logox i {
-        background-color: grey;
-        color: white;
-        transition: 0.5s ease-in-out;
-        text-align: center;
-        display: inline-block;
-    }
-    .pilihan:hover .logox i {
-        background-color: white;
-        color: black;
-    } 
-    .pilihan img {
-        width: 45%;
-        height: 100%;
-        object-fit: cover;
-        border-radius: 20px;
-    }
-    .isipilihan {
-       top: 50%;
-       transition: 0.5s ease-in-out;
-    }
-    .isipilihan .logox .ruang {
-       display: flex;
-       align-items: center;
-       gap: 5px;
-    }
-    .isipilihan ul li {
-       list-style: none;
-       font-size: 15px;
-       letter-spacing: 0.8px;
-    }
-    .isipilihan h2 {
-        font-size: 27px;
-        color: #0f172a;
-        letter-spacing: 0.8px;
-        transition: 0.5s ease-in-out;
-        margin-bottom: 40px;
-    }
-    .jejeran {
-        display: flex;
-        flex-direction: column;
-        max-width: 100%;
-    }
-    .navbar ul li a {
-        font-size: 14px;
-        
-        transition: 0.3s ease;
-        border-radius: 10px;
-    }
-    .loginOrRegis {
-        padding: 12px 20px;
-        font-size: 16px;
-    }
-    .kalimat h1 {
-        font-size: 35px;
-     }
-     .kalimat h2 {
-         font-size: 21px;
-     }
-     .kalimat h2 span {
-         font-size: 28px;
-     }
-     .kalimat p {
-         font-size: 12px;
-         margin-left: 4%;
-         margin-right: 4%;
-     }
-    .getStarted {
-        font-size: 20px;
-        padding: 8px 12px;
-        margin-top: 6%;
-    }
-    footer {
-        bottom: unset;
-    }
-    .col {
-        flex-basis: 100%;   
-    }
-    .col p, h4, ul li {
-        font-size: 15px;
-    }
-    .row h3 {
-        font-size: 20px;
-    }
-    .col:nth-child(2), .col:nth-child(3) {
-        flex-basis: 100%;
-    }
-    .copyright {
-        font-size: 15px;
-    }
-}
-@media (width > 768px) and (max-width: 900px) {
-    .header {
-        height: 85vh;
-    }
-    .navbar {
-        height: 60px;
-    }
-    .navbar img {
-        width: 50px;
-        height: 50px;
-    }
-    .plan__container {
-        margin-top: 20%;
-        max-width: 60%;
-    }
-    .plan__container .subheader {
-        margin-bottom: 30px;
-        text-align: center;
-        font-weight: 600;
-        font-size: 20px;
-        letter-spacing: 5px;
-      }
-      .plan__container .section__header {
-        text-align: center;
-        font-size: 35px;
-        line-height: 1.3;
-        margin-bottom: 30px;
-      }
-      .plan__container .description {
-        text-align: center;
-        color: var(--text-light);
-        font-size: 15px;
-      }
-      .plan__grid {
-        flex-direction: column-reverse;
-        margin-top: 4rem;
-        display: flex;
-        max-width: 100%;
-        justify-content: center;
-        align-items: center;
-      }
-      .plan__content {
-        max-width: 100%;
-        margin-top: 50px;
-      }
-      .plan__content .number {
-        font-size: 15px;
-        display: inline-block;
-        padding: 8px 20px;
-        margin-bottom: 50px;
-        font-weight: 600;
-        color: var(--white);
-        background-color: var(--primary-color);
-        border-radius: 2rem;
-      }
-      .plan__content .number:nth-child(1) {
-        background-color: #9F2A2A;
-        color: white;
-      }
-      .plan__content .number:nth-child(4) {
-        background-color: #e98b6d;
-        color: white;
-      }
-      .plan__content .number:nth-child(7) {
-        background-color: red;
-        color: white;
-      }
-      .plan__content h4 {
-        font-size: 28px;
-        font-weight: 600;
-        margin-bottom: 30px;
-      }
-      
-      .plan__content p {
-        font-size: 18px;
-        margin-bottom: 80px;
-      }
-      .plan__grid img {
-        width: 100%;
-        border-radius: 30px;
-      }
-      .skill {
-        margin: 0;
-        width: 80%;
-        position: relative;
-        height: auto;
-        border-radius: 40px;
-        z-index: 3;
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: center;
-        align-items: center;
-        gap: 20px;
-        padding-top: 9%;
-        padding-bottom: 14%;
-    }
-    .skill h1 {
-        width: 100%;
-        color:#0f172a;
-        top: 0;
-        z-index: 3;
-        font-family: "Plus Jakarta Sans";
-        letter-spacing: 3px;
-        text-align: center;
-        margin-bottom: 20px;
-        font-size: 30px;
-    }
-    .skill .card {
-        margin-right: 0;
-            margin: 30px;
-            height: 500px;
-       }
-    .card {
-        position: relative;
-        z-index: 1;
-        width: 700px;
-        height: 600px;
-        /* border: 0.5px solid grey; */
-        border-radius: 25px;
-        overflow: hidden;
-        transition: 1s;
-        cursor: pointer;
-        margin-right: 50px;
-        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.25) ;
-    }
-    .card:hover {
-        width: 280px;
-        max-width: 850px;
-        height: 440px;
-        background-color: red;
-        border: none;
-        color: white;
-        filter: grayscale(0%);
-        box-shadow: 5px 5px 300px rgba(255, 0, 0, 0.6) ;
-    }
-    .card:hover .card-text h2,
-    .card:hover .card-text p {
-        color: white;
-    }
-    .card img {
-        object-fit: cover;
-        width: 100%;
-        height: 50%;
-    }
-    .card-text {
-        height: 50%;
-        color: #0f172a;
-        padding: 20px;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        text-align: center;
-        font-size: 10px;
-        transition: 0.5s;
-    }
-    .card-text * {
-        transition: color 0.5s;
-    }
-    .card-text h2 {
-        font-size: 30px;
-        letter-spacing: 5px;
-        margin-bottom: 15px;
-        margin-top: 5px;
-        color: #0f172a;
-    }
-    .card-text p {
-        font-size: 16px;
-       color: black;
-       margin-top: 20px;
-       letter-spacing: 3px;
-    }.content {
-        width: 75%;
-        max-width: 80%;
-        margin-bottom: 50px;
-    }
-    .JR, .RK {
-        margin-bottom: 12%;
-    }
-    .JR .detail, .RK .detail {
-        margin-top: 28px;
-        justify-content: center;
-        align-items: center;
-        text-align: center;
-        font-size: 20px;
-        letter-spacing: 1px;
-        padding: 2px 4px;
-    }
-    .JR .detail a, .RK .detail a {
-        text-decoration: none;
-        color: #9F2A2A;
-        transition: 0.4s ease-in-out;
-        border-radius: 8px;
-    }
-    .JR .detail a:hover, .RK .detail a:hover {
-        text-decoration: none;
-        color: white;
-        background-color: #9F2A2A;
-        padding: 8px 16px;
-        font-size: 32px;
-        letter-spacing: 3px;
-    }
-    .JR h1, .RK h1 {
-        text-align: center;
-        font-size: 30px;
-        margin-bottom: 10%;
-        color: #0f172a;
-        letter-spacing: 3px;
-    }
-    .JR .pilihan, .RK .pilihan {
-        align-items: center;
-        line-height: 1.2;
-        display: flex;
-        height: 350px;
-        border-radius: 20px;
-    }
-    .RK .pilihan {
-        align-items: center;
-        line-height: 1;
-       display: flex;
-    }
-    .jejeran {
-        display: flex;
-        max-width: 40%;
-        gap: 14px;
-        margin-bottom: 2%;
-    }
-    .pilihan {
-        max-width: 100%;
-        background-color: #f1f1f1;
-        box-shadow: 10px 10px 15px rgba(0, 0, 0, 0.25) ;
-        transition: 0.5s ease-in-out;
-        cursor: pointer;
-    }
-    .pilihan:hover {
-        background-color: red;
-        box-shadow: 5px 5px 110px rgba(255, 0, 0, 0.6) ;
-    }
-    .pilihan:hover .isipilihan, .pilihan:hover h2 {
-        color: white;
-    }
-    .pilihan .logox i {
-        background-color: grey;
-        color: white;
-        transition: 0.5s ease-in-out;
-       text-align: center;
-    }
-    .logox i {
-        background-color: grey;
-        color: white;
-        transition: 0.5s ease-in-out;
-        text-align: center;
-        display: inline-block;
-    }
-    .pilihan:hover .logox i {
-        background-color: white;
-        color: black;
-    } 
-    .pilihan img {
-        width: 45%;
-        height: 100%;
-        object-fit: cover;
-        border-radius: 20px;
-    }
-    .isipilihan {
-       top: 50%;
-       transition: 0.5s ease-in-out;
-    }
-    .isipilihan .logox .ruang {
-       display: flex;
-       align-items: center;
-       gap: 5px;
-    }
-    .isipilihan ul li {
-       list-style: none;
-       font-size: 15px;
-       letter-spacing: 0.8px;
-    }
-    .isipilihan h2 {
-        font-size: 27px;
-        color: #0f172a;
-        letter-spacing: 0.8px;
-        transition: 0.5s ease-in-out;
-        margin-bottom: 40px;
-    }
-    .jejeran {
-        display: flex;
-        flex-direction: column;
-        max-width: 100%;
-    }
-    .navbar ul li a {
-        font-size: 14px;
-        transition: 0.3s ease;
-        border-radius: 10px;
-    }
-    .loginOrRegis {
-        padding: 12px 20px;
-        font-size: 16px;
-    }
-    .kalimat h1 {
-        font-size: 35px;
-     }
-     .kalimat h2 {
-         font-size: 21px;
-     }
-     .kalimat h2 span {
-         font-size: 28px;
-     }
-     .kalimat p {
-         font-size: 12px;
-         margin-left: 4%;
-         margin-right: 4%;
-     }
-    .getStarted {
-        font-size: 20px;
-        padding: 8px 12px;
-        margin-top: 6%;
-    }
-    footer {
-        bottom: unset;
-    }
-    .col {
-        flex-basis: 100%;   
-    }
-    .col p, h4, ul li {
-        font-size: 15px;
-    }
-    .row h3 {
-        font-size: 20px;
-    }
-    .col:nth-child(2), .col:nth-child(3) {
-        flex-basis: 100%;
-    }
-    .copyright {
-        font-size: 15px;
+    .navbar ul {
+        display: none; /* Mobile menu can be added later */
     }
 }

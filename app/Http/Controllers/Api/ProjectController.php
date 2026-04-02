@@ -117,7 +117,9 @@ class ProjectController extends Controller
             'bidsKontraktor.kontraktor.user',
             'images',
             'milestones',
-            'user'
+            'user',
+            'ratings',
+            'kontraktorRating'
         ]);
         return new ProjectResource($project);
     }
@@ -137,7 +139,23 @@ class ProjectController extends Controller
         $request->validate([
             'price' => 'required|numeric|min:0',
             'proposal' => 'required|string|max:2000',
+            'estimated_duration' => 'nullable|integer|min:1',
+            'duration_unit' => 'nullable|string|in:days,weeks,months',
+            'attachment_1' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
+            'attachment_2' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
+            'attachment_3' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
         ]);
+
+        $attachments = [];
+        for ($i = 1; $i <= 3; $i++) {
+            $key = "attachment_$i";
+            if ($request->hasFile($key)) {
+                $path = $request->file($key)->store('bid_attachments', 'public');
+                $attachments[$key] = $path;
+            } else {
+                $attachments[$key] = null;
+            }
+        }
 
         if ($user->role_type === 'arsitek') {
             $profile = \App\Models\Arsitek::where('user_id', $user->id)->firstOrFail();
@@ -158,6 +176,11 @@ class ProjectController extends Controller
                 'arsitek_id' => $profile->id,
                 'price' => $request->price,
                 'proposal' => $request->proposal,
+                'estimated_duration' => $request->estimated_duration,
+                'duration_unit' => $request->duration_unit,
+                'attachment_1' => $attachments['attachment_1'],
+                'attachment_2' => $attachments['attachment_2'],
+                'attachment_3' => $attachments['attachment_3'],
                 'status' => 'pending',
             ]);
         } else {
@@ -178,6 +201,11 @@ class ProjectController extends Controller
                 'kontraktor_id' => $profile->id,
                 'price' => $request->price,
                 'proposal' => $request->proposal,
+                'estimated_duration' => $request->estimated_duration,
+                'duration_unit' => $request->duration_unit,
+                'attachment_1' => $attachments['attachment_1'],
+                'attachment_2' => $attachments['attachment_2'],
+                'attachment_3' => $attachments['attachment_3'],
                 'status' => 'pending',
             ]);
         }
@@ -191,7 +219,7 @@ class ProjectController extends Controller
             'data' => ['project_id' => $project->id, 'bidder_name' => $user->name]
         ]);
 
-        $project->load(['bidsArsitek.arsitek.user', 'bidsKontraktor.kontraktor.user', 'images', 'user']);
+        $project->load(['bidsArsitek.arsitek.user', 'bidsKontraktor.kontraktor.user', 'images', 'user', 'ratings', 'kontraktorRating']);
         return new ProjectResource($project);
     }
 
@@ -258,7 +286,7 @@ class ProjectController extends Controller
             'details' => "Accepted {$request->bid_type} bid",
         ]);
 
-        $project->load(['bidsArsitek.arsitek.user', 'bidsKontraktor.kontraktor.user', 'user', 'images']);
+        $project->load(['bidsArsitek.arsitek.user', 'bidsKontraktor.kontraktor.user', 'user', 'images', 'ratings', 'kontraktorRating']);
         $project->loadCount(['bidsArsitek', 'bidsKontraktor']);
         return new ProjectResource($project);
     }
@@ -292,7 +320,7 @@ class ProjectController extends Controller
             'data' => ['project_id' => $project->id]
         ]);
 
-        $project->load(['bidsArsitek.arsitek.user', 'bidsKontraktor.kontraktor.user', 'user', 'images']);
+        $project->load(['bidsArsitek.arsitek.user', 'bidsKontraktor.kontraktor.user', 'user', 'images', 'ratings', 'kontraktorRating']);
         $project->loadCount(['bidsArsitek', 'bidsKontraktor']);
         return new ProjectResource($project);
     }

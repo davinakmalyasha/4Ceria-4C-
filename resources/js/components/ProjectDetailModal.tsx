@@ -19,6 +19,8 @@ interface Bidder {
     rate?: number;
     location?: string;
     user?: { name: string; email: string } | null;
+    average_rating?: number;
+    review_count?: number;
 }
 
 interface Bid {
@@ -26,8 +28,12 @@ interface Bid {
     price: number;
     proposal: string;
     status: string;
+    estimated_duration?: number;
+    duration_unit?: string;
+    attachments?: string[];
     created_at: string;
     bidder: Bidder | null;
+    type: 'arsitek' | 'kontraktor';
 }
 
 interface ProjectDetail {
@@ -46,6 +52,8 @@ interface ProjectDetail {
     bids_arsitek?: Bid[];
     bids_kontraktor?: Bid[];
     images?: { id: number; url: string; sort_order: number }[];
+    review_arsitek?: { rating: number; comment: string; created_at: string } | null;
+    review_kontraktor?: { rating: number; comment: string; created_at: string } | null;
 }
 
 interface ProjectDetailModalProps {
@@ -66,12 +74,18 @@ export default function ProjectDetailModal({ project, onClose, formatCurrency, o
     const [lightboxImg, setLightboxImg] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<'details' | 'milestones' | 'qa' | 'vault' | 'activity'>('details');
 
-    // Bid form state
-    const [bidPrice, setBidPrice] = useState('');
-    const [bidProposal, setBidProposal] = useState('');
+    const [bidDuration, setBidDuration] = useState('');
+    const [bidDurationUnit, setBidDurationUnit] = useState('weeks');
+    const [bidFiles, setBidFiles] = useState<File[]>([]);
     const [bidSubmitting, setBidSubmitting] = useState(false);
     const [bidMessage, setBidMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
     const [pendingContract, setPendingContract] = useState<{ bidId: number; bidType: 'arsitek' | 'kontraktor'; bidderName: string; bidPrice: number } | null>(null);
+    
+    // Review state
+    const [reviewRating, setReviewRating] = useState(0);
+    const [reviewComment, setReviewComment] = useState('');
+    const [reviewSubmitting, setReviewSubmitting] = useState(false);
+    const [reviewMessage, setReviewMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
     const isProfessional = user?.role_type === 'arsitek' || user?.role_type === 'kontraktor';
 
     const fetchDetail = () => {
@@ -125,24 +139,79 @@ export default function ProjectDetailModal({ project, onClose, formatCurrency, o
         }
     };
 
+    const allBids: Bid[] = [
+        ...(detail?.bids_arsitek?.map(b => ({ ...b, type: 'arsitek' as const })) || []),
+        ...(detail?.bids_kontraktor?.map(b => ({ ...b, type: 'kontraktor' as const })) || [])
+    ];
+
+    // --- Smart Badges Logic ---
+    const lowestPrice = allBids.length > 0 ? Math.min(...allBids.map(b => b.price)) : 0;
+    const maxExperience = allBids.length > 0 ? Math.max(...allBids.map(b => b.bidder?.experience_years || 0)) : 0;
+
+    const hasAlreadyBid = allBids.some(bid => 
+        (user?.role_type === 'arsitek' && bid.type === 'arsitek' && bid.bidder?.id === user?.arsitek?.id) ||
+        (user?.role_type === 'kontraktor' && bid.type === 'kontraktor' && bid.bidder?.id === user?.kontraktor?.id)
+    );
+
     const handleSubmitBid = async (e: React.FormEvent) => {
         e.preventDefault();
         setBidSubmitting(true);
         setBidMessage(null);
+
+        const formData = new FormData();
+        formData.append('price', bidPrice);
+        formData.append('proposal', bidProposal);
+        if (bidDuration) {
+            formData.append('estimated_duration', bidDuration);
+            formData.append('duration_unit', bidDurationUnit);
+        }
+        bidFiles.forEach((file, index) => {
+            formData.append(`attachment_${index + 1}`, file);
+        });
+
         try {
-            await axios.post(`/projects/${project.id}/bids`, {
-                price: parseFloat(bidPrice),
-                proposal: bidProposal,
+            await axios.post(`/projects/${project.id}/bid`, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
             });
             setBidMessage({ type: 'success', text: 'Bid submitted successfully!' });
             setBidPrice('');
             setBidProposal('');
-            fetchDetail(); // Refresh to show new bid
-        } catch (err: unknown) {
-            const error = err as { response?: { data?: { message?: string } } };
-            setBidMessage({ type: 'error', text: error.response?.data?.message || 'Failed to submit bid.' });
+            setBidDuration('');
+            setBidFiles([]);
+            fetchDetail(); // Refresh to show the new bid
+        } catch (err: any) {
+            setBidMessage({ 
+                type: 'error', 
+                text: err.response?.data?.message || 'Failed to submit bid. Please check your data.' 
+            });
         } finally {
             setBidSubmitting(false);
+        }
+    };
+
+    const handleSubmitReview = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (reviewRating === 0) {
+            setReviewMessage({ type: 'error', text: 'Please select a star rating.' });
+            return;
+        }
+        setReviewSubmitting(true);
+        setReviewMessage(null);
+
+        try {
+            await axios.post(`/projects/${project.id}/review`, {
+                rating: reviewRating,
+                comment: reviewComment
+            });
+            setReviewMessage({ type: 'success', text: 'Thank you for your feedback!' });
+            fetchDetail();
+        } catch (err: any) {
+            setReviewMessage({ 
+                type: 'error', 
+                text: err.response?.data?.message || 'Failed to submit review.' 
+            });
+        } finally {
+            setReviewSubmitting(false);
         }
     };
 
@@ -154,15 +223,7 @@ export default function ProjectDetailModal({ project, onClose, formatCurrency, o
         }
     };
 
-    const allBids: (Bid & { type: 'arsitek' | 'kontraktor' })[] = [
-        ...(detail?.bids_arsitek || []).map(b => ({ ...b, type: 'arsitek' as const })),
-        ...(detail?.bids_kontraktor || []).map(b => ({ ...b, type: 'kontraktor' as const })),
-    ];
 
-    const hasAlreadyBid = allBids.some(bid => 
-        (user?.role_type === 'arsitek' && bid.type === 'arsitek' && bid.bidder?.id === user?.arsitek?.id) ||
-        (user?.role_type === 'kontraktor' && bid.type === 'kontraktor' && bid.bidder?.id === user?.kontraktor?.id)
-    );
 
     return (
         <motion.div
@@ -344,11 +405,30 @@ export default function ProjectDetailModal({ project, onClose, formatCurrency, o
                                                             {bid.bidder?.name?.charAt(0)?.toUpperCase() || '?'}
                                                         </div>
                                                         <div>
-                                                            <p className="font-bold text-gray-900">{bid.bidder?.name || 'Unknown'}</p>
+                                                            <div className="flex items-center gap-2">
+                                                                <p className="font-bold text-gray-900">{bid.bidder?.name || 'Unknown'}</p>
+                                                                {bid.bidder?.average_rating !== undefined && (
+                                                                    <div className="flex items-center gap-1 bg-yellow-50 px-2 py-0.5 rounded-lg border border-yellow-100">
+                                                                        <span className="text-yellow-500 text-xs text-center">★</span>
+                                                                        <span className="text-[11px] font-bold text-yellow-700">{bid.bidder.average_rating}</span>
+                                                                        <span className="text-[10px] text-yellow-600/70 font-medium">({bid.bidder.review_count})</span>
+                                                                    </div>
+                                                                )}
+                                                                {/* Smart Badges */}
+                                                                {bid.price === lowestPrice && allBids.length > 1 && (
+                                                                    <span className="bg-green-100 text-green-700 text-[10px] px-2 py-0.5 rounded-full font-bold border border-green-200">LOWEST BID</span>
+                                                                )}
+                                                                {bid.bidder?.experience_years === maxExperience && maxExperience > 0 && allBids.length > 1 && (
+                                                                    <span className="bg-orange-100 text-orange-700 text-[10px] px-2 py-0.5 rounded-full font-bold border border-orange-200">MOST EXPERIENCED</span>
+                                                                )}
+                                                            </div>
                                                             <div className="flex items-center gap-2 flex-wrap">
                                                                 <span className="text-xs text-gray-500 capitalize">{bid.type === 'arsitek' ? '🏛️ Architect' : '🏗️ Contractor'}</span>
                                                                 {bid.bidder?.location && <span className="text-xs text-gray-400">• {bid.bidder.location}</span>}
                                                                 {bid.bidder?.experience_years && <span className="text-xs text-gray-400">• {bid.bidder.experience_years}yr exp</span>}
+                                                                {bid.estimated_duration && (
+                                                                    <span className="text-xs text-red-600 font-bold">• ⏱️ {bid.estimated_duration} {bid.duration_unit}</span>
+                                                                )}
                                                             </div>
                                                         </div>
                                                     </div>
@@ -389,6 +469,22 @@ export default function ProjectDetailModal({ project, onClose, formatCurrency, o
                                                 <div className="bg-gray-50 rounded-xl p-3 mb-4 border border-gray-100">
                                                     <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Proposal</p>
                                                     <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{bid.proposal}</p>
+                                                    
+                                                    {bid.attachments && bid.attachments.length > 0 && (
+                                                        <div className="mt-3 flex flex-wrap gap-2 pt-3 border-t border-gray-200">
+                                                            {bid.attachments.map((url, i) => (
+                                                                <a 
+                                                                    key={i}
+                                                                    href={url} 
+                                                                    target="_blank" 
+                                                                    rel="noopener noreferrer"
+                                                                    className="flex items-center gap-1.5 px-2 py-1 bg-white border border-gray-200 rounded-lg text-[10px] font-bold text-gray-500 hover:text-[#FF2D20] hover:border-red-200 transition-all shadow-xs"
+                                                                >
+                                                                    <FileText size={12} /> Ref {i + 1}
+                                                                </a>
+                                                            ))}
+                                                        </div>
+                                                    )}
                                                 </div>
 
                                                 {/* Price + Actions */}
@@ -423,6 +519,88 @@ export default function ProjectDetailModal({ project, onClose, formatCurrency, o
                                 )}
                             </div>
 
+                            {/* Reviews & Ratings Section */}
+                            {(detail?.selected_architect_id || detail?.selected_contractor_id) && (
+                                <div className="border-t border-gray-100 pt-6 mb-8">
+                                    <h4 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                                        ⭐ Professional Review
+                                    </h4>
+
+                                    {/* Existing Review Display */}
+                                    {(detail.review_arsitek || detail.review_kontraktor) ? (
+                                        <div className="bg-yellow-50 border border-yellow-100 rounded-2xl p-5 shadow-sm">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <div className="flex text-yellow-500">
+                                                    {[...Array(5)].map((_, i) => (
+                                                        <span key={i} className="text-lg">
+                                                            {i < (detail.review_arsitek?.rating || detail.review_kontraktor?.rating || 0) ? '★' : '☆'}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                                <span className="text-xs text-yellow-700 font-bold bg-yellow-100 px-2 py-0.5 rounded-full">
+                                                    {detail.review_arsitek?.rating || detail.review_kontraktor?.rating}/5
+                                                </span>
+                                            </div>
+                                            <p className="text-gray-700 text-sm italic font-medium leading-relaxed">
+                                                "{detail.review_arsitek?.comment || detail.review_kontraktor?.comment || 'No comment provided.'}"
+                                            </p>
+                                            <p className="text-[10px] text-yellow-600 mt-2 font-medium">
+                                                Reviewed on {new Date(detail.review_arsitek?.created_at || detail.review_kontraktor?.created_at || '').toLocaleDateString()}
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        /* Review Submission Form (Only for Owner) */
+                                        detail.owner_id === user?.id && (
+                                            <div className="bg-gray-50 border border-gray-200 rounded-2xl p-6">
+                                                <h5 className="font-bold text-gray-900 mb-2">Rate your experience</h5>
+                                                <p className="text-xs text-gray-500 mb-4">How was the professional's performance and communication?</p>
+                                                
+                                                {reviewMessage && (
+                                                    <div className={`mb-4 p-3 rounded-xl text-sm font-medium border ${
+                                                        reviewMessage.type === 'success' 
+                                                            ? 'bg-green-50 text-green-800 border-green-200' 
+                                                            : 'bg-red-50 text-red-800 border-red-200'
+                                                    }`}>
+                                                        {reviewMessage.text}
+                                                    </div>
+                                                )}
+
+                                                <form onSubmit={handleSubmitReview} className="space-y-4">
+                                                    <div className="flex gap-2">
+                                                        {[1, 2, 3, 4, 5].map((star) => (
+                                                            <button
+                                                                key={star}
+                                                                type="button"
+                                                                onClick={() => setReviewRating(star)}
+                                                                className={`text-3xl transition-all ${
+                                                                    star <= reviewRating ? 'text-yellow-400 scale-110' : 'text-gray-300 hover:text-yellow-200'
+                                                                }`}
+                                                            >
+                                                                ★
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                    <textarea
+                                                        value={reviewComment}
+                                                        onChange={e => setReviewComment(e.target.value)}
+                                                        placeholder="Write a brief feedback about their work quality, punctuality, etc..."
+                                                        className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-yellow-400 focus:ring-2 focus:ring-yellow-100 outline-none text-sm transition-all resize-none bg-white"
+                                                        rows={3}
+                                                    />
+                                                    <button
+                                                        type="submit"
+                                                        disabled={reviewSubmitting}
+                                                        className="w-full bg-yellow-500 hover:bg-yellow-600 text-white py-3 rounded-xl font-bold transition-all disabled:opacity-50 shadow-md shadow-yellow-100 active:scale-[0.98]"
+                                                    >
+                                                        {reviewSubmitting ? 'Posting Review...' : 'Post Review'}
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        )
+                                    )}
+                                </div>
+                            )}
+
                             {/* Bid Submission Form for Professionals */}
                             {isProfessional && detail?.status === 'open' && (
                                 <div className="border-t border-gray-100 pt-6">
@@ -451,20 +629,70 @@ export default function ProjectDetailModal({ project, onClose, formatCurrency, o
                                             )}
 
                                             <form onSubmit={handleSubmitBid} className="space-y-4">
-                                                <div>
-                                                    <label className="block text-sm font-semibold text-gray-700 mb-1">Your Price (IDR)</label>
-                                                    <input
-                                                        type="number"
-                                                        value={bidPrice}
-                                                        onChange={e => setBidPrice(e.target.value)}
-                                                        required
-                                                        min="0"
-                                                        placeholder="e.g. 50000000"
-                                                        className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#FF2D20] focus:ring-2 focus:ring-red-100 outline-none text-sm transition-all"
-                                                    />
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                    <div>
+                                                        <label className="block text-sm font-semibold text-gray-700 mb-1">Your Price (IDR)</label>
+                                                        <input
+                                                            type="number"
+                                                            value={bidPrice}
+                                                            onChange={e => setBidPrice(e.target.value)}
+                                                            required
+                                                            min="0"
+                                                            placeholder="e.g. 50000000"
+                                                            className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#FF2D20] focus:ring-2 focus:ring-red-100 outline-none text-sm transition-all shadow-xs"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-sm font-semibold text-gray-700 mb-1">Est. Duration</label>
+                                                        <div className="flex gap-2">
+                                                            <input
+                                                                type="number"
+                                                                value={bidDuration}
+                                                                onChange={e => setBidDuration(e.target.value)}
+                                                                min="1"
+                                                                placeholder="e.g. 2"
+                                                                className="flex-1 px-4 py-3 rounded-xl border border-gray-200 focus:border-[#FF2D20] focus:ring-2 focus:ring-red-100 outline-none text-sm transition-all shadow-xs"
+                                                            />
+                                                            <select 
+                                                                value={bidDurationUnit}
+                                                                onChange={e => setBidDurationUnit(e.target.value)}
+                                                                className="px-3 py-3 rounded-xl border border-gray-200 focus:border-[#FF2D20] outline-none text-sm bg-gray-50"
+                                                            >
+                                                                <option value="days">Days</option>
+                                                                <option value="weeks">Weeks</option>
+                                                                <option value="months">Months</option>
+                                                            </select>
+                                                        </div>
+                                                    </div>
                                                 </div>
+
                                                 <div>
-                                                    <label className="block text-sm font-semibold text-gray-700 mb-1">Proposal</label>
+                                                    <label className="block text-sm font-semibold text-gray-700 mb-1">Reference Files (Max 3 Images/PDF)</label>
+                                                    <input 
+                                                        type="file" 
+                                                        multiple
+                                                        onChange={e => {
+                                                            if (e.target.files) {
+                                                                const files = Array.from(e.target.files).slice(0, 3);
+                                                                setBidFiles(files);
+                                                            }
+                                                        }}
+                                                        accept=".jpg,.jpeg,.png,.pdf"
+                                                        className="w-full text-xs text-gray-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 cursor-pointer"
+                                                    />
+                                                    {bidFiles.length > 0 && (
+                                                        <div className="mt-2 flex gap-2">
+                                                            {bidFiles.map((f, i) => (
+                                                                <span key={i} className="text-[10px] bg-red-50 text-[#FF2D20] px-2 py-0.5 rounded-full border border-red-100 font-medium">
+                                                                    {f.name.length > 15 ? f.name.substring(0, 15) + '...' : f.name}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                <div>
+                                                    <label className="block text-sm font-semibold text-gray-700 mb-1">Proposal Proposal</label>
                                                     <textarea
                                                         value={bidProposal}
                                                         onChange={e => setBidProposal(e.target.value)}
@@ -472,15 +700,15 @@ export default function ProjectDetailModal({ project, onClose, formatCurrency, o
                                                         maxLength={2000}
                                                         rows={4}
                                                         placeholder="Describe your approach, timeline, and why you're the best fit..."
-                                                        className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#FF2D20] focus:ring-2 focus:ring-red-100 outline-none text-sm transition-all resize-none"
+                                                        className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#FF2D20] focus:ring-2 focus:ring-red-100 outline-none text-sm transition-all resize-none shadow-xs"
                                                     />
                                                 </div>
                                                 <button
                                                     type="submit"
                                                     disabled={bidSubmitting}
-                                                    className="w-full bg-[#FF2D20] hover:bg-red-700 text-white py-3 rounded-xl font-bold transition-all disabled:opacity-50 shadow-sm"
+                                                    className="w-full bg-neutral-900 hover:bg-black text-white py-4 rounded-xl font-bold transition-all disabled:opacity-50 shadow-lg shadow-black/5 active:scale-[0.98]"
                                                 >
-                                                    {bidSubmitting ? 'Submitting...' : 'Submit Bid Proposal'}
+                                                    {bidSubmitting ? 'Sending Proposal...' : '🚀 Submit Professional Bid'}
                                                 </button>
                                             </form>
                                         </>

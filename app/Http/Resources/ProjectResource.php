@@ -41,6 +41,13 @@ class ProjectResource extends JsonResource
                         'price' => $bid->price,
                         'proposal' => $bid->proposal,
                         'status' => $bid->status,
+                        'estimated_duration' => $bid->estimated_duration,
+                        'duration_unit' => $bid->duration_unit,
+                        'attachments' => array_filter([
+                            $bid->attachment_1 ? asset('storage/' . $bid->attachment_1) : null,
+                            $bid->attachment_2 ? asset('storage/' . $bid->attachment_2) : null,
+                            $bid->attachment_3 ? asset('storage/' . $bid->attachment_3) : null,
+                        ]),
                         'created_at' => $bid->created_at,
                         'bidder' => $bid->arsitek ? [
                             'id' => $bid->arsitek->id,
@@ -50,6 +57,8 @@ class ProjectResource extends JsonResource
                             'experience_years' => $bid->arsitek->pengalaman_tahun,
                             'rate' => $bid->arsitek->rate_harga,
                             'location' => $bid->arsitek->lokasi,
+                            'average_rating' => $bid->arsitek->average_rating,
+                            'review_count' => $bid->arsitek->review_count,
                             'user' => [
                                 'name' => $bid->arsitek->user->name,
                                 'email' => $bid->arsitek->user->email,
@@ -65,12 +74,21 @@ class ProjectResource extends JsonResource
                         'price' => $bid->price,
                         'proposal' => $bid->proposal,
                         'status' => $bid->status,
+                        'estimated_duration' => $bid->estimated_duration,
+                        'duration_unit' => $bid->duration_unit,
+                        'attachments' => array_filter([
+                            $bid->attachment_1 ? asset('storage/' . $bid->attachment_1) : null,
+                            $bid->attachment_2 ? asset('storage/' . $bid->attachment_2) : null,
+                            $bid->attachment_3 ? asset('storage/' . $bid->attachment_3) : null,
+                        ]),
                         'created_at' => $bid->created_at,
                         'bidder' => $bid->kontraktor ? [
                             'id' => $bid->kontraktor->id,
                             'name' => $bid->kontraktor->nama ?? $bid->kontraktor->user->name,
                             'phone' => $bid->kontraktor->no_telp ?? $bid->kontraktor->user->phoneNumber->first()?->contact,
                             'location' => $bid->kontraktor->lokasi,
+                            'average_rating' => $bid->kontraktor->average_rating,
+                            'review_count' => $bid->kontraktor->review_count,
                             'user' => [
                                 'name' => $bid->kontraktor->user->name,
                                 'email' => $bid->kontraktor->user->email,
@@ -88,6 +106,21 @@ class ProjectResource extends JsonResource
                         'created_at' => $milestone->created_at,
                     ];
                 });
+            }),
+            'review_arsitek' => $this->whenLoaded('ratings', function () {
+                $rating = $this->ratings->first();
+                return $rating ? [
+                    'rating' => $rating->rating,
+                    'comment' => $rating->komentar,
+                    'created_at' => $rating->created_at,
+                ] : null;
+            }),
+            'review_kontraktor' => $this->whenLoaded('kontraktorRating', function () {
+                return $this->kontraktorRating ? [
+                    'rating' => $this->kontraktorRating->rating,
+                    'comment' => $this->kontraktorRating->komentar,
+                    'created_at' => $this->kontraktorRating->created_at,
+                ] : null;
             }),
         ];
     }

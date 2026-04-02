@@ -136,7 +136,7 @@ export default function ProfessionalRegister() {
                         <h1 className="text-3xl font-extrabold text-neutral-900 tracking-tight">Create your business profile</h1>
                         <p className="mt-2 text-neutral-500">
                             Already a partner?{' '}
-                            <Link to="/pro/login" className="font-semibold text-[#FF2D20] hover:text-red-700 transition">Log in</Link>
+                            <Link to="/login" className="font-semibold text-[#FF2D20] hover:text-red-700 transition">Log in</Link>
                         </p>
                     </div>
 
@@ -222,7 +222,10 @@ export default function ProfessionalRegister() {
                         </div>
                     </form>
 
-                    <div className="mt-8 pt-6 border-t border-neutral-100 text-center">
+                    <div className="mt-8 pt-6 border-t border-neutral-100 text-center flex flex-col gap-3">
+                        <Link to="/login" className="text-sm text-[#FF2D20] hover:text-red-700 font-semibold transition">
+                            ← Back to Login
+                        </Link>
                         <Link to="/register" className="text-sm text-neutral-500 hover:text-neutral-800 transition">
                             Looking to buy or hire instead? Create a user account →
                         </Link>

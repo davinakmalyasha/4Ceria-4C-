@@ -82,6 +82,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/projects/{project}/comments', [ProjectFeatureController::class, 'getComments']);
     Route::post('/projects/{project}/comments', [ProjectFeatureController::class, 'storeComment']);
+    Route::put('/projects/{project}/comments/{comment}', [ProjectFeatureController::class, 'updateComment']);
+    Route::delete('/projects/{project}/comments/{comment}', [ProjectFeatureController::class, 'deleteComment']);
+    
+    // Reviews
+    Route::post('/projects/{project}/review', [\App\Http\Controllers\Api\ReviewController::class, 'store']);
 
     Route::get('/projects/{project}/documents', [ProjectFeatureController::class, 'getDocuments']);
     Route::post('/projects/{project}/documents', [ProjectFeatureController::class, 'storeDocument']);

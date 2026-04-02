@@ -131,7 +131,10 @@ export default function Register() {
                     </form>
                 </motion.div>
                 
-                <div className="mt-8 text-center text-sm">
+                <div className="mt-8 text-center text-sm flex flex-col gap-3">
+                    <Link to="/login" className="text-sm text-[#FF2D20] hover:text-red-700 font-semibold transition">
+                        ← Back to Login
+                    </Link>
                     <Link to="/pro/register" className="text-neutral-500 hover:text-neutral-900 transition-colors">
                         Looking to provide services? Apply as a Partner →
                     </Link>

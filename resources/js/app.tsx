@@ -1,3 +1,5 @@
+import '../css/app.css';
+import '../css/index.css';
 import './bootstrap';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
@@ -28,7 +30,7 @@ function App() {
                 <Route path="/" element={<LandingPage />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
-                <Route path="/pro/login" element={<ProfessionalLogin />} />
+                <Route path="/pro/login" element={<Navigate to="/login" replace />} />
                 <Route path="/pro/register" element={<ProfessionalRegister />} />
                 <Route path="/dashboard" element={<Dashboard />} />
                 

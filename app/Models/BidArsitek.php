@@ -11,7 +11,8 @@ class BidArsitek extends Model
     use HasFactory;
 
     protected $fillable = [
-        'project_id', 'arsitek_id', 'price', 'proposal', 'status'
+        'project_id', 'arsitek_id', 'price', 'proposal', 'status', 
+        'estimated_duration', 'duration_unit', 'attachment_1', 'attachment_2', 'attachment_3'
     ];
 
     public function project()

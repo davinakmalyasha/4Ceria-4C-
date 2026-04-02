@@ -16,6 +16,18 @@ class Arsitek extends Model
          'user_id', 'nama', 'no_telp', 'rate_harga', 'spesialisasi', 'deskripsi', 'lokasi', 'pengalaman_tahun', 'file_portofolio', 'file_sertifikat', 'pendidikan', 'alasan_hire', 'verification_status', 'rejection_reason'
     ];
 
+    protected $appends = ['average_rating', 'review_count'];
+
+    public function getAverageRatingAttribute()
+    {
+        return round($this->ratings()->avg('rating') ?: 0, 1);
+    }
+
+    public function getReviewCountAttribute()
+    {
+        return $this->ratings()->count();
+    }
+
     public function user()
     {
         return $this->belongsTo(User::class, 'user_id', 'id');

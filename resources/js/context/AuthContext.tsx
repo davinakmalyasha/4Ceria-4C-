@@ -78,13 +78,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
 
     const logout = () => {
-        axios.post('/logout').finally(() => {
-            setToken(null);
-            setUser(null);
-            localStorage.removeItem('auth_token');
-            delete axios.defaults.headers.common['Authorization'];
-            window.location.href = '/login';
-        });
+        localStorage.removeItem('auth_token');
+        axios.post('/logout').catch(() => {});
+        window.location.href = '/login';
     };
 
     return (

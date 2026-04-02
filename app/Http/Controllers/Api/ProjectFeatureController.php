@@ -66,6 +66,29 @@ class ProjectFeatureController extends Controller
         return response()->json(['data' => $comment]);
     }
 
+    public function updateComment(Request $request, Project $project, ProjectComment $comment)
+    {
+        if ($comment->user_id !== Auth::id()) {
+            return response()->json(['message' => 'Unauthorized. You can only edit your own messages.'], 403);
+        }
+
+        $request->validate(['message' => 'required|string|max:1000']);
+        $comment->update(['message' => $request->message]);
+        
+        return response()->json(['data' => $comment]);
+    }
+
+    public function deleteComment(Project $project, ProjectComment $comment)
+    {
+        // Only author or project owner can delete
+        if ($comment->user_id !== Auth::id() && $project->user_id !== Auth::id()) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        $comment->delete();
+        return response()->json(['message' => 'Comment deleted']);
+    }
+
     // --- DOCUMENTS ---
     public function getDocuments(Project $project)
     {

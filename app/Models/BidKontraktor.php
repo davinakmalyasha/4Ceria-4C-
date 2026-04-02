@@ -11,7 +11,8 @@ class BidKontraktor extends Model
     use HasFactory;
 
     protected $fillable = [
-        'project_id', 'kontraktor_id', 'price', 'proposal', 'status'
+        'project_id', 'kontraktor_id', 'price', 'proposal', 'status', 
+        'estimated_duration', 'duration_unit', 'attachment_1', 'attachment_2', 'attachment_3'
     ];
 
     public function project()

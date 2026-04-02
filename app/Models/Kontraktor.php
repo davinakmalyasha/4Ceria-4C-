@@ -15,6 +15,18 @@ class Kontraktor extends Model
          'user_id', 'nama', 'no_telepon', 'alamat', 'jenis', 'nama_perusahaan', 'npwp', 'siup', 'pengalaman', 'spesialisasi', 'rate_harga', 'pendidikan', 'alasan_hire', 'verification_status', 'rejection_reason'
     ];
 
+    protected $appends = ['average_rating', 'review_count'];
+
+    public function getAverageRatingAttribute()
+    {
+        return round($this->ratings()->avg('rating') ?: 0, 1);
+    }
+
+    public function getReviewCountAttribute()
+    {
+        return $this->ratings()->count();
+    }
+
     
     public function user()
     {
