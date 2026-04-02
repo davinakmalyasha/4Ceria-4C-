@@ -1,6 +1,15 @@
 import { useState } from 'react';
 import axios from 'axios';
 
+export interface RoomEntry {
+    name: string;
+    type: string;
+    width: string;
+    length: string;
+    desc: string;
+    pics: File[] | null;
+}
+
 export interface HouseFormData {
     name: string;
     price: string;
@@ -19,6 +28,7 @@ export interface HouseFormData {
     lat: string;
     lng: string;
     house_pic: File[] | null;
+    rooms: RoomEntry[];
 }
 
 export function useSellHouse(onSuccess: () => void) {
@@ -28,7 +38,8 @@ export function useSellHouse(onSuccess: () => void) {
     const initialData: HouseFormData = {
         name: '', price: '', house_desc: '', width: '', length: '', ba: '', br: '', floors: '1',
         street_name: '', kelurahan: '', kecamatan: '', kab_kota: '', province: '', postal_code: '',
-        lat: '-6.2088', lng: '106.8456', house_pic: null
+        lat: '-6.2088', lng: '106.8456', house_pic: null,
+        rooms: []
     };
 
     const [formData, setFormData] = useState<HouseFormData>(initialData);
@@ -43,14 +54,29 @@ export function useSellHouse(onSuccess: () => void) {
         setError(null);
         try {
             const payload = new FormData();
+            
+            // Handle regular fields
             Object.entries(formData).forEach(([key, value]) => {
-                if (key === 'house_pic' && value) {
-                    Array.from(value as File[]).forEach((file, index) => {
-                        payload.append(`house_pic[${index}]`, file);
+                if (key === 'house_pic') {
+                    if (value) {
+                        (value as File[]).forEach((file, index) => {
+                            payload.append(`house_pic[${index}]`, file);
+                        });
+                    }
+                } else if (key === 'rooms') {
+                    (value as RoomEntry[]).forEach((room, index) => {
+                        payload.append(`rooms[${index}][name]`, room.name);
+                        payload.append(`rooms[${index}][type]`, room.type);
+                        payload.append(`rooms[${index}][width]`, room.width);
+                        payload.append(`rooms[${index}][length]`, room.length);
+                        payload.append(`rooms[${index}][desc]`, room.desc || '');
+                        if (room.pics && room.pics.length > 0) {
+                            room.pics.forEach((file, picIndex) => {
+                                payload.append(`rooms[${index}][pics][${picIndex}]`, file);
+                            });
+                        }
                     });
                 } else if (value !== null && value !== '') {
-                    // price needs dots stripped based on API, but let's send exactly
-                    // The backend says: 'price' => 'required|numeric'
                     const finalVal = key === 'price' ? String(value).replace(/\D/g, '') : value;
                     payload.append(key, finalVal as string);
                 }
@@ -67,5 +93,5 @@ export function useSellHouse(onSuccess: () => void) {
         }
     };
 
-    return { formData, handleChange, submit, isLoading, error };
+    return { formData, handleChange, setFormData, submit, isLoading, error };
 }

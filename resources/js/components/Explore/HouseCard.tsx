@@ -4,46 +4,9 @@ import {
     Home, Heart, Share2, Copy, Check, MapPin, BedDouble, Bath, Maximize,
     GitCompareArrows, Flame, Eye, Star,
 } from 'lucide-react';
+import AutoHoverSlider from '../UI/AutoHoverSlider';
 import type { House, ViewMode, SortOption } from '../../types/explore';
 import { formatCurrency, getHouseBadge, getDistance, BADGE_CONFIG } from '../../types/explore';
-
-// ─── Auto Hover Slider ─────────────────────────────────────────
-const AutoHoverSlider = ({ images, altText }: { images?: { dir: string }[]; altText: string }) => {
-    const [currentIndex, setCurrentIndex] = useState(0);
-    const [isHovered, setIsHovered] = useState(false);
-
-    useEffect(() => {
-        if (!isHovered || !images || images.length <= 1) return;
-        const interval = setInterval(() => setCurrentIndex((p) => (p + 1) % images.length), 1500);
-        return () => clearInterval(interval);
-    }, [isHovered, images]);
-
-    if (!images || images.length === 0) {
-        return (
-            <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 bg-gradient-to-br from-gray-50 to-gray-200">
-                <Home size={32} className="mb-2 opacity-50" />
-                <span className="text-[10px] font-bold tracking-widest uppercase">No Image</span>
-            </div>
-        );
-    }
-
-    return (
-        <div className="w-full h-full relative" onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => { setIsHovered(false); setCurrentIndex(0); }}>
-            <AnimatePresence mode="popLayout" initial={false}>
-                <motion.img key={currentIndex} src={`/storage/${images[currentIndex].dir}`} alt={`${altText} ${currentIndex + 1}`}
-                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.6 }}
-                    className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out" />
-            </AnimatePresence>
-            {images.length > 1 && (
-                <div className="absolute bottom-[20px] left-0 right-0 flex justify-center gap-1.5 z-10 pointer-events-none">
-                    {images.map((_, idx) => (
-                        <div key={idx} className={`h-1.5 rounded-full bg-white transition-all duration-300 shadow-[0_1px_3px_rgb(0,0,0,0.5)] ${idx === currentIndex ? 'w-4 opacity-100' : 'w-1.5 opacity-50'}`} />
-                    ))}
-                </div>
-            )}
-        </div>
-    );
-};
 
 // ─── Share Popup ────────────────────────────────────────────────
 const ShareButton = ({ house }: { house: House }) => {
@@ -115,6 +78,7 @@ interface HouseCardProps {
     processedHouses: House[];
     sortBy: SortOption;
     userLocation: { latitude: number; longitude: number } | null;
+    currentUser: any;
     onToggleWishlist: (e: React.MouseEvent, id: number) => void;
     onToggleCompare: (e: React.MouseEvent, id: number) => void;
     onSelect: (id: number) => void;
@@ -122,7 +86,7 @@ interface HouseCardProps {
 
 export default function HouseCard({
     house, viewMode, wishlist, compareIds, processedHouses,
-    sortBy, userLocation, onToggleWishlist, onToggleCompare, onSelect,
+    sortBy, userLocation, currentUser, onToggleWishlist, onToggleCompare, onSelect,
 }: HouseCardProps) {
     const badge = useMemo(() => getHouseBadge(house, processedHouses), [house, processedHouses]);
     const distance = useMemo(() => getDistance(house, userLocation), [house, userLocation]);
@@ -134,7 +98,7 @@ export default function HouseCard({
             {/* Image Section */}
             <div className={`relative overflow-hidden bg-gray-100 ${viewMode === 'list' ? 'w-80 min-h-[220px] rounded-l-[1.5rem]' : 'p-3 w-full h-[240px]'}`}>
                 <div className={`relative w-full h-full overflow-hidden ${viewMode === 'list' ? '' : 'rounded-2xl border border-gray-100'}`}>
-                    <AutoHoverSlider images={house.housePic} altText={house.name} />
+                    <AutoHoverSlider images={house.housePic} altText={house.name} className={`absolute inset-0 w-full h-full object-cover`} />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent opacity-80 group-hover:opacity-90 transition-opacity duration-500 pointer-events-none" />
 
                     {/* Badges */}
@@ -152,14 +116,18 @@ export default function HouseCard({
 
                     {/* Action Buttons */}
                     <div className="absolute top-3 right-3 flex flex-col gap-2 z-20">
-                        <button onClick={(e) => onToggleWishlist(e, house.id)}
-                            className={`p-2 rounded-full shadow-md backdrop-blur-sm transition-all hover:scale-110 ${wishlist.has(house.id) ? 'bg-[#FF2D20] text-white' : 'bg-white/90 text-gray-600 hover:bg-white hover:text-[#FF2D20]'}`}>
-                            <Heart size={14} fill={wishlist.has(house.id) ? 'currentColor' : 'none'} />
-                        </button>
-                        <button onClick={(e) => onToggleCompare(e, house.id)} title="Compare"
-                            className={`p-2 rounded-full shadow-md backdrop-blur-sm transition-all hover:scale-110 ${compareIds.includes(house.id) ? 'bg-gray-900 text-white' : 'bg-white/90 text-gray-600 hover:bg-white hover:text-gray-900'}`}>
-                            <GitCompareArrows size={14} />
-                        </button>
+                        {house.user_id !== currentUser?.id && (
+                            <>
+                                <button onClick={(e) => onToggleWishlist(e, house.id)}
+                                    className={`p-2 rounded-full shadow-md backdrop-blur-sm transition-all hover:scale-110 ${wishlist.has(house.id) ? 'bg-[#FF2D20] text-white' : 'bg-white/90 text-gray-600 hover:bg-white hover:text-[#FF2D20]'}`}>
+                                    <Heart size={14} fill={wishlist.has(house.id) ? 'currentColor' : 'none'} />
+                                </button>
+                                <button onClick={(e) => onToggleCompare(e, house.id)} title="Compare"
+                                    className={`p-2 rounded-full shadow-md backdrop-blur-sm transition-all hover:scale-110 ${compareIds.includes(house.id) ? 'bg-gray-900 text-white' : 'bg-white/90 text-gray-600 hover:bg-white hover:text-gray-900'}`}>
+                                    <GitCompareArrows size={14} />
+                                </button>
+                            </>
+                        )}
                         <ShareButton house={house} />
                     </div>
 

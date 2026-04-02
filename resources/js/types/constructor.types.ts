@@ -13,6 +13,7 @@ export interface ConstructorData {
     user?: {
         pic?: string | null;
     };
+    average_rating?: number | string;
 }
 
 export type ConstructorSortOption = 'recommended' | 'experience_desc' | 'experience_asc';

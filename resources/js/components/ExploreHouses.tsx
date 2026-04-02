@@ -1,4 +1,5 @@
 import React from 'react';
+import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Home, Search, Clock, BarChart3, BedDouble, Star,
@@ -21,6 +22,7 @@ interface ExploreHousesProps {
 }
 
 export default function ExploreHouses({ houses = [], isLoading = false, onSelectHouse }: ExploreHousesProps) {
+    const { user } = useAuth();
     const s = useExploreHouses({ houses, onSelectHouse });
 
     return (
@@ -141,7 +143,7 @@ export default function ExploreHouses({ houses = [], isLoading = false, onSelect
                     <div className={`${s.viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 gap-8' : 'flex flex-col gap-6'}`}>
                         {s.paginatedHouses.map(house => (
                             <HouseCard key={house.id} house={house} viewMode={s.viewMode} wishlist={s.wishlist} compareIds={s.compareIds}
-                                processedHouses={s.processedHouses} sortBy={s.sortBy} userLocation={s.userLocation}
+                                processedHouses={s.processedHouses} sortBy={s.sortBy} userLocation={s.userLocation} currentUser={user}
                                 onToggleWishlist={s.toggleWishlist} onToggleCompare={s.toggleCompare} onSelect={s.fetchHouseDetails} />
                         ))}
                     </div>
@@ -168,7 +170,7 @@ export default function ExploreHouses({ houses = [], isLoading = false, onSelect
             {/* Details Modal */}
             <AnimatePresence>
                 {s.selectedHouseId && s.expandedHouse && (
-                    <HouseDetailsModal house={s.expandedHouse} allHouses={houses} wishlist={s.wishlist}
+                    <HouseDetailsModal house={s.expandedHouse} allHouses={houses} wishlist={s.wishlist} currentUser={user}
                         onClose={() => s.setSelectedHouseId(null)} onToggleWishlist={s.toggleWishlist} onSelectHouse={s.fetchHouseDetails} />
                 )}
             </AnimatePresence>

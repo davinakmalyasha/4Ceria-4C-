@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\ProjectController;
 use App\Http\Controllers\Api\ProjectFeatureController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\RoomController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -17,10 +18,10 @@ Route::get('/houses', [HouseController::class, 'index']);
 Route::get('/houses/{house}', [HouseController::class, 'show']);
 
 Route::get('/arsitek', function () {
-    return response()->json(['data' => \App\Models\Arsitek::with(['user', 'ratings'])->get()]);
+    return response()->json(['data' => \App\Models\Arsitek::with(['user.phoneNumber', 'ratings', 'projects'])->get()]);
 });
 Route::get('/kontraktor', function () {
-    return response()->json(['data' => \App\Models\Kontraktor::with(['user', 'ratings', 'spesialisasis'])->get()]);
+    return response()->json(['data' => \App\Models\Kontraktor::with(['user.phoneNumber', 'ratings', 'spesialisasis', 'projects'])->get()]);
 });
 
 Route::middleware('auth:sanctum')->group(function () {
@@ -66,8 +67,14 @@ Route::middleware('auth:sanctum')->group(function () {
         ]);
     });
     
-    // Protected API endpoints
+    // House Management
     Route::apiResource('houses', HouseController::class)->except(['index', 'show']);
+    
+    // Room Management
+    Route::post('houses/{house}/rooms', [RoomController::class, 'store']);
+    Route::delete('rooms/{room}', [RoomController::class, 'destroy']);
+
+    // Protected API endpoints
     Route::apiResource('projects', ProjectController::class)->except(['index', 'show']);
     Route::post('/projects/{project}/bids', [ProjectController::class, 'submitBid']);
     Route::post('/projects/{project}/accept-bid', [ProjectController::class, 'acceptBid']);

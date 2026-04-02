@@ -217,9 +217,12 @@ export default function ProjectDetailModal({ project, onClose, formatCurrency, o
 
     const getStatusColor = (status: string) => {
         switch (status) {
-            case 'accepted': return 'bg-green-100 text-green-800 border-green-200';
-            case 'rejected': return 'bg-red-100 text-red-800 border-red-200';
-            default: return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+            case 'open': return 'bg-gray-900 text-white border-transparent';
+            case 'in_progress': return 'bg-gray-100 text-gray-900 border-gray-200';
+            case 'completed': return 'bg-gray-100 text-gray-900 border-gray-200';
+            case 'accepted': return 'bg-gray-900 text-white border-transparent';
+            case 'rejected': return 'bg-red-50 text-[#FF2D20] border-red-100';
+            default: return 'bg-gray-50 text-gray-600 border-gray-200';
         }
     };
 
@@ -304,27 +307,26 @@ export default function ProjectDetailModal({ project, onClose, formatCurrency, o
                             {/* Tabs Navigation */}
                             <div className="flex border-b border-gray-200 mb-6 overflow-x-auto scrollbar-none">
                                 <button onClick={() => setActiveTab('details')} className={`flex items-center gap-2 pb-3 px-4 font-bold text-sm border-b-2 transition-colors whitespace-nowrap ${activeTab === 'details' ? 'border-[#FF2D20] text-[#FF2D20]' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
-                                    <Info className="w-4 h-4" /> Details & Bids
+                                    Details & Bids
                                 </button>
                                 
                                 {isManagementView && (
                                     <button onClick={() => setActiveTab('milestones')} className={`flex items-center gap-2 pb-3 px-4 font-bold text-sm border-b-2 transition-colors whitespace-nowrap ${activeTab === 'milestones' ? 'border-[#FF2D20] text-[#FF2D20]' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
-                                        <CheckSquare className="w-4 h-4" /> Milestones
+                                        Milestones
                                     </button>
                                 )}
-                                {/* ... [Rest of the scrollable body content] ... */}
 
                                 <button onClick={() => setActiveTab('qa')} className={`flex items-center gap-2 pb-3 px-4 font-bold text-sm border-b-2 transition-colors whitespace-nowrap ${activeTab === 'qa' ? 'border-[#FF2D20] text-[#FF2D20]' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
-                                    <MessageCircle className="w-4 h-4" /> Q&A Chat
+                                    Q&A Chat
                                 </button>
 
                                 {isManagementView && (
                                     <>
                                         <button onClick={() => setActiveTab('vault')} className={`flex items-center gap-2 pb-3 px-4 font-bold text-sm border-b-2 transition-colors whitespace-nowrap ${activeTab === 'vault' ? 'border-[#FF2D20] text-[#FF2D20]' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
-                                            <FileText className="w-4 h-4" /> Vault
+                                            Vault
                                         </button>
                                         <button onClick={() => setActiveTab('activity')} className={`flex items-center gap-2 pb-3 px-4 font-bold text-sm border-b-2 transition-colors whitespace-nowrap ${activeTab === 'activity' ? 'border-[#FF2D20] text-[#FF2D20]' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
-                                            <History className="w-4 h-4" /> Activity
+                                            Activity
                                         </button>
                                     </>
                                 )}
@@ -336,15 +338,15 @@ export default function ProjectDetailModal({ project, onClose, formatCurrency, o
                                         <h3 className="text-2xl font-extrabold text-gray-900 leading-tight mb-2">{detail?.title || project.title}</h3>
 
                                         <div className="flex flex-wrap gap-3 mb-6">
-                                {detail?.location && (
-                                    <span className="text-xs bg-gray-100 text-gray-700 px-3 py-1 rounded-full font-medium">📍 {detail.location}</span>
-                                )}
-                                {detail?.type && (
-                                    <span className="text-xs bg-blue-50 text-blue-700 px-3 py-1 rounded-full font-medium capitalize">🔧 {detail.type}</span>
-                                )}
-                                {detail?.deadline && (
-                                    <span className="text-xs bg-orange-50 text-orange-700 px-3 py-1 rounded-full font-medium">📅 {new Date(detail.deadline).toLocaleDateString('id-ID')}</span>
-                                )}
+                                        {detail?.location && (
+                                            <span className="text-xs bg-gray-50 text-gray-600 px-3 py-1.5 rounded-full font-bold border border-gray-100">{detail.location}</span>
+                                        )}
+                                        {detail?.type && (
+                                            <span className="text-xs bg-gray-50 text-gray-600 px-3 py-1.5 rounded-full font-bold border border-gray-100 capitalize">{detail.type}</span>
+                                        )}
+                                        {detail?.deadline && (
+                                            <span className="text-xs bg-gray-50 text-gray-600 px-3 py-1.5 rounded-full font-bold border border-gray-100">{new Date(detail.deadline).toLocaleDateString('id-ID')}</span>
+                                        )}
                             </div>
 
                             <div className="bg-gray-50 rounded-2xl p-5 border border-gray-100 mb-6">
@@ -383,7 +385,7 @@ export default function ProjectDetailModal({ project, onClose, formatCurrency, o
                             {/* Bidding Progress */}
                             <div className="border-t border-gray-100 pt-6">
                                 <h4 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                                    📋 Bidding Progress
+                                    Bidding Progress
                                     <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full font-medium">
                                         {allBids.length} bid{allBids.length !== 1 ? 's' : ''}
                                     </span>
@@ -408,26 +410,26 @@ export default function ProjectDetailModal({ project, onClose, formatCurrency, o
                                                             <div className="flex items-center gap-2">
                                                                 <p className="font-bold text-gray-900">{bid.bidder?.name || 'Unknown'}</p>
                                                                 {bid.bidder?.average_rating !== undefined && (
-                                                                    <div className="flex items-center gap-1 bg-yellow-50 px-2 py-0.5 rounded-lg border border-yellow-100">
-                                                                        <span className="text-yellow-500 text-xs text-center">★</span>
-                                                                        <span className="text-[11px] font-bold text-yellow-700">{bid.bidder.average_rating}</span>
-                                                                        <span className="text-[10px] text-yellow-600/70 font-medium">({bid.bidder.review_count})</span>
+                                                                    <div className="flex items-center gap-1 bg-red-50 px-2 py-0.5 rounded-lg border border-red-100">
+                                                                        <span className="text-[#FF2D20] text-xs text-center">★</span>
+                                                                        <span className="text-[11px] font-bold text-[#FF2D20]">{bid.bidder.average_rating}</span>
+                                                                        <span className="text-[10px] text-red-600/70 font-medium">({bid.bidder.review_count})</span>
                                                                     </div>
                                                                 )}
                                                                 {/* Smart Badges */}
                                                                 {bid.price === lowestPrice && allBids.length > 1 && (
-                                                                    <span className="bg-green-100 text-green-700 text-[10px] px-2 py-0.5 rounded-full font-bold border border-green-200">LOWEST BID</span>
+                                                                    <span className="bg-red-50 text-[#FF2D20] text-[10px] px-2 py-0.5 rounded-full font-bold border border-red-100">LOWEST BID</span>
                                                                 )}
                                                                 {bid.bidder?.experience_years === maxExperience && maxExperience > 0 && allBids.length > 1 && (
-                                                                    <span className="bg-orange-100 text-orange-700 text-[10px] px-2 py-0.5 rounded-full font-bold border border-orange-200">MOST EXPERIENCED</span>
+                                                                    <span className="bg-gray-900 text-white text-[10px] px-2 py-0.5 rounded-full font-bold">MOST EXPERIENCED</span>
                                                                 )}
                                                             </div>
                                                             <div className="flex items-center gap-2 flex-wrap">
-                                                                <span className="text-xs text-gray-500 capitalize">{bid.type === 'arsitek' ? '🏛️ Architect' : '🏗️ Contractor'}</span>
+                                                                <span className="text-xs text-gray-500 capitalize">{bid.type === 'arsitek' ? 'Architect' : 'Contractor'}</span>
                                                                 {bid.bidder?.location && <span className="text-xs text-gray-400">• {bid.bidder.location}</span>}
                                                                 {bid.bidder?.experience_years && <span className="text-xs text-gray-400">• {bid.bidder.experience_years}yr exp</span>}
                                                                 {bid.estimated_duration && (
-                                                                    <span className="text-xs text-red-600 font-bold">• ⏱️ {bid.estimated_duration} {bid.duration_unit}</span>
+                                                                    <span className="text-xs text-[#FF2D20] font-bold">• {bid.estimated_duration} {bid.duration_unit}</span>
                                                                 )}
                                                             </div>
                                                         </div>
@@ -440,10 +442,9 @@ export default function ProjectDetailModal({ project, onClose, formatCurrency, o
                                                                     bid.type === 'arsitek' ? 'architect' : 'constructor', 
                                                                     bid.bidder!.id
                                                                 )}
-                                                                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-xl font-bold text-[11px] uppercase tracking-wider hover:bg-blue-100 hover:text-blue-700 transition-all border border-blue-100/50 shadow-sm group"
+                                                                className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 text-gray-900 rounded-xl font-bold text-[11px] uppercase tracking-wider hover:bg-gray-200 transition-all border border-gray-200 shadow-sm group"
                                                             >
                                                                 <span>View Profile</span>
-                                                                <ArrowRight size={12} className="group-hover:translate-x-0.5 transition-transform" />
                                                             </button>
                                                         )}
                                                         <span className={`text-xs px-3 py-1 rounded-full uppercase tracking-wider font-bold border shrink-0 ${getStatusColor(bid.status)}`}>
@@ -455,13 +456,13 @@ export default function ProjectDetailModal({ project, onClose, formatCurrency, o
                                                 {/* Bidder Details */}
                                                 <div className="flex flex-wrap gap-2 mb-3 text-xs">
                                                     {bid.bidder?.user?.email && (
-                                                        <span className="bg-gray-50 text-gray-600 px-2 py-1 rounded-lg border border-gray-100">✉️ {bid.bidder.user.email}</span>
+                                                        <span className="bg-gray-50 text-gray-600 px-2 py-1 rounded-lg border border-gray-100">{bid.bidder.user.email}</span>
                                                     )}
                                                     {bid.bidder?.phone && (
-                                                        <span className="bg-gray-50 text-gray-600 px-2 py-1 rounded-lg border border-gray-100">📱 {bid.bidder.phone}</span>
+                                                        <span className="bg-gray-50 text-gray-600 px-2 py-1 rounded-lg border border-gray-100">{bid.bidder.phone}</span>
                                                     )}
                                                     {bid.bidder?.specialization && (
-                                                        <span className="bg-blue-50 text-blue-700 px-2 py-1 rounded-lg border border-blue-100">🔧 {bid.bidder.specialization}</span>
+                                                        <span className="bg-gray-50 text-gray-600 px-2 py-1 rounded-lg border border-gray-100">{bid.bidder.specialization}</span>
                                                     )}
                                                 </div>
 
@@ -491,7 +492,7 @@ export default function ProjectDetailModal({ project, onClose, formatCurrency, o
                                                 <div className="flex items-center justify-between">
                                                     <div>
                                                         <p className="text-xs text-gray-500 font-medium">Bid Amount</p>
-                                                        <p className="text-xl font-extrabold text-green-600">{formatCurrency(bid.price)}</p>
+                                                        <p className="text-xl font-extrabold text-gray-900">{formatCurrency(bid.price)}</p>
                                                     </div>
 
                                                     {bid.status === 'pending' && detail?.owner_id === user?.id && (
@@ -499,16 +500,16 @@ export default function ProjectDetailModal({ project, onClose, formatCurrency, o
                                                             <button
                                                                 disabled={actionLoading === bid.id}
                                                                 onClick={() => handleBidAction(bid.id, bid.type, 'accept')}
-                                                                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition-colors disabled:opacity-50 shadow-sm"
+                                                                className="bg-gray-900 hover:bg-black text-white px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition-colors disabled:opacity-50 shadow-sm"
                                                             >
-                                                                {actionLoading === bid.id ? '...' : '✓ Accept'}
+                                                                {actionLoading === bid.id ? '...' : 'Accept'}
                                                             </button>
                                                             <button
                                                                 disabled={actionLoading === bid.id}
                                                                 onClick={() => handleBidAction(bid.id, bid.type, 'decline')}
-                                                                className="bg-white hover:bg-red-50 text-red-600 px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-wider border border-red-200 transition-colors disabled:opacity-50"
+                                                                className="bg-white hover:bg-red-50 text-[#FF2D20] px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-wider border border-red-100 transition-colors disabled:opacity-50"
                                                             >
-                                                                {actionLoading === bid.id ? '...' : '✕ Decline'}
+                                                                {actionLoading === bid.id ? '...' : 'Decline'}
                                                             </button>
                                                         </div>
                                                     )}
@@ -523,28 +524,28 @@ export default function ProjectDetailModal({ project, onClose, formatCurrency, o
                             {(detail?.selected_architect_id || detail?.selected_contractor_id) && (
                                 <div className="border-t border-gray-100 pt-6 mb-8">
                                     <h4 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                                        ⭐ Professional Review
+                                        Professional Review
                                     </h4>
 
                                     {/* Existing Review Display */}
                                     {(detail.review_arsitek || detail.review_kontraktor) ? (
-                                        <div className="bg-yellow-50 border border-yellow-100 rounded-2xl p-5 shadow-sm">
+                                        <div className="bg-red-50 border border-red-100 rounded-2xl p-5 shadow-sm">
                                             <div className="flex items-center gap-2 mb-2">
-                                                <div className="flex text-yellow-500">
+                                                <div className="flex text-[#FF2D20]">
                                                     {[...Array(5)].map((_, i) => (
                                                         <span key={i} className="text-lg">
                                                             {i < (detail.review_arsitek?.rating || detail.review_kontraktor?.rating || 0) ? '★' : '☆'}
                                                         </span>
                                                     ))}
                                                 </div>
-                                                <span className="text-xs text-yellow-700 font-bold bg-yellow-100 px-2 py-0.5 rounded-full">
+                                                <span className="text-xs text-[#FF2D20] font-bold bg-white px-2 py-0.5 rounded-full border border-red-100">
                                                     {detail.review_arsitek?.rating || detail.review_kontraktor?.rating}/5
                                                 </span>
                                             </div>
                                             <p className="text-gray-700 text-sm italic font-medium leading-relaxed">
                                                 "{detail.review_arsitek?.comment || detail.review_kontraktor?.comment || 'No comment provided.'}"
                                             </p>
-                                            <p className="text-[10px] text-yellow-600 mt-2 font-medium">
+                                            <p className="text-[10px] text-red-600/80 mt-2 font-medium">
                                                 Reviewed on {new Date(detail.review_arsitek?.created_at || detail.review_kontraktor?.created_at || '').toLocaleDateString()}
                                             </p>
                                         </div>
@@ -573,7 +574,7 @@ export default function ProjectDetailModal({ project, onClose, formatCurrency, o
                                                                 type="button"
                                                                 onClick={() => setReviewRating(star)}
                                                                 className={`text-3xl transition-all ${
-                                                                    star <= reviewRating ? 'text-yellow-400 scale-110' : 'text-gray-300 hover:text-yellow-200'
+                                                                    star <= reviewRating ? 'text-[#FF2D20] scale-110' : 'text-gray-300 hover:text-red-200'
                                                                 }`}
                                                             >
                                                                 ★
@@ -584,13 +585,13 @@ export default function ProjectDetailModal({ project, onClose, formatCurrency, o
                                                         value={reviewComment}
                                                         onChange={e => setReviewComment(e.target.value)}
                                                         placeholder="Write a brief feedback about their work quality, punctuality, etc..."
-                                                        className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-yellow-400 focus:ring-2 focus:ring-yellow-100 outline-none text-sm transition-all resize-none bg-white"
+                                                        className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#FF2D20] focus:ring-2 focus:ring-red-100 outline-none text-sm transition-all resize-none bg-white"
                                                         rows={3}
                                                     />
                                                     <button
                                                         type="submit"
                                                         disabled={reviewSubmitting}
-                                                        className="w-full bg-yellow-500 hover:bg-yellow-600 text-white py-3 rounded-xl font-bold transition-all disabled:opacity-50 shadow-md shadow-yellow-100 active:scale-[0.98]"
+                                                        className="w-full bg-[#FF2D20] hover:bg-red-700 text-white py-3 rounded-xl font-bold transition-all disabled:opacity-50 shadow-md shadow-red-100 active:scale-[0.98]"
                                                     >
                                                         {reviewSubmitting ? 'Posting Review...' : 'Post Review'}
                                                     </button>
@@ -605,17 +606,14 @@ export default function ProjectDetailModal({ project, onClose, formatCurrency, o
                             {isProfessional && detail?.status === 'open' && (
                                 <div className="border-t border-gray-100 pt-6">
                                     {hasAlreadyBid ? (
-                                        <div className="bg-blue-50 border border-blue-100 rounded-2xl p-6 text-center">
-                                            <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-3 text-xl">
-                                                📝
-                                            </div>
-                                            <h4 className="text-lg font-bold text-blue-900 mb-1">Bid Already Submitted</h4>
-                                            <p className="text-blue-600 text-sm font-medium">You have already submitted a proposal for this project. Please wait for the client to review it.</p>
+                                        <div className="bg-gray-50 border border-gray-100 rounded-2xl p-6 text-center">
+                                            <h4 className="text-lg font-bold text-gray-900 mb-1">Bid Already Submitted</h4>
+                                            <p className="text-gray-500 text-sm font-medium">You have already submitted a proposal for this project. Please wait for the client to review it.</p>
                                         </div>
                                     ) : (
                                         <>
                                             <h4 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                                                🚀 Submit Your Bid
+                                                Submit Your Bid
                                             </h4>
 
                                             {bidMessage && (
@@ -708,7 +706,7 @@ export default function ProjectDetailModal({ project, onClose, formatCurrency, o
                                                     disabled={bidSubmitting}
                                                     className="w-full bg-neutral-900 hover:bg-black text-white py-4 rounded-xl font-bold transition-all disabled:opacity-50 shadow-lg shadow-black/5 active:scale-[0.98]"
                                                 >
-                                                    {bidSubmitting ? 'Sending Proposal...' : '🚀 Submit Professional Bid'}
+                                                    {bidSubmitting ? 'Sending Proposal...' : 'Submit Professional Bid'}
                                                 </button>
                                             </form>
                                         </>

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Camera, MapPin, Calendar, Briefcase, Coins, CheckCircle, ChevronRight, ChevronLeft, Image as ImageIcon, X } from 'lucide-react';
+import LocationPickerMap from './LocationPickerMap';
 
 interface PostProjectFormProps { onCancel: () => void; onSuccess: () => void; }
 
@@ -10,7 +11,10 @@ export default function PostProjectForm({ onCancel, onSuccess }: PostProjectForm
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
 
-    const [f, setF] = useState({ title: '', desc: '', budget: '', loc: '', type: 'umum', target: 'both', deadline: '' });
+    const [f, setF] = useState({ 
+        title: '', desc: '', budget: '', loc: '', type: 'umum', target: 'both', deadline: '',
+        lat: '-6.200000', lng: '106.816666', province: '', city: '', kecamatan: '', kelurahan: '', postal_code: '', street_name: ''
+    });
     const [images, setImages] = useState<File[]>([]);
     const update = (k: keyof typeof f) => (e: any) => setF({ ...f, [k]: e.target.value });
 
@@ -23,6 +27,10 @@ export default function PostProjectForm({ onCancel, onSuccess }: PostProjectForm
         formData.append('budget', f.budget); formData.append('lokasi', f.loc);
         formData.append('jenis_proyek', f.type); formData.append('target_role', f.target);
         formData.append('deadline', f.deadline);
+        formData.append('latitude', f.lat); formData.append('longitude', f.lng);
+        formData.append('province', f.province); formData.append('city', f.city);
+        formData.append('kecamatan', f.kecamatan); formData.append('kelurahan', f.kelurahan);
+        formData.append('postal_code', f.postal_code); formData.append('street_name', f.street_name);
         images.forEach((img, i) => formData.append(`images[${i}]`, img));
 
         try { await axios.post('/projects', formData); onSuccess(); }
@@ -98,18 +106,43 @@ export default function PostProjectForm({ onCancel, onSuccess }: PostProjectForm
                         {step === 2 && (
                             <motion.div key="step2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
                                 <div>
-                                    <label className="block text-sm font-bold text-gray-900 mb-2 flex items-center gap-2"><MapPin size={16} className="text-[#FF2D20]" /> Lokasi Proyek</label>
-                                    <input value={f.loc} onChange={update('loc')} required className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-[#FF2D20] focus:ring-4 focus:ring-red-100 outline-none transition-all" placeholder="Provinsi, Kota, Kecamatan" />
+                                    <label className="block text-sm font-bold text-gray-900 mb-2 flex items-center gap-2"><MapPin size={16} className="text-[#FF2D20]" /> Lokasi Proyek (Peta)</label>
+                                    <LocationPickerMap 
+                                        latitude={parseFloat(f.lat)} 
+                                        longitude={parseFloat(f.lng)} 
+                                        onChange={(lat, lng, address) => {
+                                            setF(prev => ({ ...prev, lat: lat.toString(), lng: lng.toString() }));
+                                            if (address && (address.city || address.province)) {
+                                                const locString = [address.street_name, address.kecamatan, address.city, address.province].filter(Boolean).join(', ');
+                                                setF(prev => ({
+                                                    ...prev,
+                                                    loc: locString,
+                                                    province: address.province,
+                                                    city: address.city,
+                                                    kecamatan: address.kecamatan,
+                                                    kelurahan: address.kelurahan,
+                                                    postal_code: address.postal_code,
+                                                    street_name: address.street_name
+                                                }));
+                                            }
+                                        }} 
+                                    />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-bold text-gray-900 mb-2 flex items-center gap-2"><Calendar size={16} className="text-[#FF2D20]" /> Target Selesai (Deadline)</label>
-                                    <input type="date" value={f.deadline} onChange={update('deadline')} required className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-[#FF2D20] focus:ring-4 focus:ring-red-100 outline-none transition-all" />
+                                    <label className="block text-sm font-bold text-gray-900 mb-2">Detail Lokasi Singkat</label>
+                                    <input value={f.loc} onChange={update('loc')} required className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-[#FF2D20] focus:ring-4 focus:ring-red-100 outline-none transition-all" placeholder="Provinsi, Kota, Kecamatan..." />
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-bold text-gray-900 mb-2 flex items-center gap-2"><Briefcase size={16} className="text-[#FF2D20]" /> Kategori Pekerjaan</label>
-                                    <select value={f.type} onChange={update('type')} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-[#FF2D20]">
-                                        {['umum', 'fondasi', 'struktur', 'dinding', 'atap', 'lantai', 'ventilasi', 'listrik', 'plumbing'].map(opt => <option key={opt} value={opt} className="capitalize">{opt}</option>)}
-                                    </select>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-bold text-gray-900 mb-2 flex items-center gap-2"><Calendar size={16} className="text-[#FF2D20]" /> Target Selesai</label>
+                                        <input type="date" value={f.deadline} onChange={update('deadline')} required className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-[#FF2D20] focus:ring-4 focus:ring-red-100 outline-none transition-all" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-bold text-gray-900 mb-2 flex items-center gap-2"><Briefcase size={16} className="text-[#FF2D20]" /> Pekerjaan</label>
+                                        <select value={f.type} onChange={update('type')} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-[#FF2D20]">
+                                            {['umum', 'fondasi', 'struktur', 'dinding', 'atap', 'lantai', 'ventilasi', 'listrik', 'plumbing'].map(opt => <option key={opt} value={opt} className="capitalize">{opt}</option>)}
+                                        </select>
+                                    </div>
                                 </div>
                             </motion.div>
                         )}

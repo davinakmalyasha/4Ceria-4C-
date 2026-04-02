@@ -6,6 +6,7 @@ export interface House {
     price: number;
     description: string;
     coordinate?: string;
+    user_id?: number;
     views?: number;
     created_at?: string;
     address?: {

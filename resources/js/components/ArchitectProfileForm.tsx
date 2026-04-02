@@ -22,6 +22,7 @@ export default function ArchitectProfileForm({ onCancel }: EditProfileFormProps)
     const [phoneNumbers, setPhoneNumbers] = useState<string[]>(user?.phone_number?.map(p => p.contact) || []);
     const [filePorto, setFilePorto] = useState<File | null>(null);
     const [fileSertif, setFileSertif] = useState<File | null>(null);
+    const [fileFoto, setFileFoto] = useState<File | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState(false);
@@ -43,6 +44,7 @@ export default function ArchitectProfileForm({ onCancel }: EditProfileFormProps)
             data.append('phone_numbers', JSON.stringify(phoneNumbers.filter(p => p.trim() !== '')));
             if (filePorto) data.append('file_portofolio', filePorto);
             if (fileSertif) data.append('file_sertifikat', fileSertif);
+            if (fileFoto) data.append('foto', fileFoto);
 
             await axios.post('/me/professional', data, { headers: { 'Content-Type': 'multipart/form-data' } });
             setSuccess(true); setTimeout(() => window.location.reload(), 1000);
@@ -110,16 +112,21 @@ export default function ArchitectProfileForm({ onCancel }: EditProfileFormProps)
             </div>
 
             <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100 space-y-4">
-                <h3 className="font-bold text-blue-900 border-b border-blue-100 pb-2">Documents (PDF/JPG)</h3>
-                <div className="grid grid-cols-2 gap-4">
+                <h3 className="font-bold text-blue-900 border-b border-blue-100 pb-2">Documents & Gallery</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                        <label className="block text-xs font-bold text-blue-700 uppercase mb-2">Portfolio Upload</label>
-                        <input type="file" onChange={(e) => handleFile(e, setFilePorto)} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
-                        {user?.arsitek?.file_portofolio && !filePorto && <span className="text-xs text-blue-500 mt-1 block">✓ Current file saved</span>}
+                        <label className="block text-xs font-bold text-blue-700 uppercase mb-2">Main Portfolio Image</label>
+                        <input type="file" accept="image/*" onChange={(e) => handleFile(e, setFileFoto)} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+                        {user?.arsitek?.foto && !fileFoto && <span className="text-xs text-blue-500 mt-1 block">✓ Current image saved</span>}
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-blue-700 uppercase mb-2">Portfolio PDF Details</label>
+                        <input type="file" accept=".pdf,.zip" onChange={(e) => handleFile(e, setFilePorto)} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+                        {user?.arsitek?.file_portofolio && !filePorto && <span className="text-xs text-blue-500 mt-1 block">✓ Current PDF saved</span>}
                     </div>
                     <div>
                         <label className="block text-xs font-bold text-blue-700 uppercase mb-2">Certificate</label>
-                        <input type="file" onChange={(e) => handleFile(e, setFileSertif)} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+                        <input type="file" accept=".pdf,.jpg,.png" onChange={(e) => handleFile(e, setFileSertif)} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
                         {user?.arsitek?.file_sertifikat && !fileSertif && <span className="text-xs text-blue-500 mt-1 block">✓ Current file saved</span>}
                     </div>
                 </div>

@@ -37,18 +37,20 @@ class HouseResource extends JsonResource
             'views' => $this->views,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
-            'housePic' => $this->whenLoaded('housePic'),
+            'housePic' => $this->whenLoaded('housePic', fn() => $this->housePic->values()),
             'owner' => $this->whenLoaded('user', fn () => [
                 'name' => $this->user->name,
                 'email' => $this->user->email,
                 'phones' => $this->user->phoneNumber->pluck('contact')->toArray(),
             ]),
-            'roomList' => $this->whenLoaded('room', fn () => $this->room->map(fn ($r) => [
+            'roomList' => $this->whenLoaded('room', fn () => $this->room->values()->map(fn ($r) => [
+                'id' => $r->id,
                 'name' => $r->name,
+                'type' => $r->type,
                 'width' => $r->width,
                 'length' => $r->length,
                 'description' => $r->desc,
-                'pics' => $r->roomPic->map(fn ($p) => ['dir' => $p->dir]),
+                'pics' => $r->roomPic->values()->map(fn ($p) => ['dir' => $p->dir]),
             ])),
         ];
     }

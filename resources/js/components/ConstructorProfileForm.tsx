@@ -22,6 +22,7 @@ export default function ConstructorProfileForm({ onCancel }: EditProfileFormProp
     const [phoneNumbers, setPhoneNumbers] = useState<string[]>(user?.phone_number?.map(p => p.contact) || []);
     const [fileNpwp, setFileNpwp] = useState<File | null>(null);
     const [fileSiup, setFileSiup] = useState<File | null>(null);
+    const [fileFoto, setFileFoto] = useState<File | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState(false);
@@ -43,6 +44,7 @@ export default function ConstructorProfileForm({ onCancel }: EditProfileFormProp
             data.append('phone_numbers', JSON.stringify(phoneNumbers.filter(p => p.trim() !== '')));
             if (fileNpwp) data.append('npwp', fileNpwp);
             if (fileSiup) data.append('siup', fileSiup);
+            if (fileFoto) data.append('foto', fileFoto);
 
             await axios.post('/me/professional', data, { headers: { 'Content-Type': 'multipart/form-data' } });
             setSuccess(true); setTimeout(() => window.location.reload(), 1000);
@@ -106,16 +108,21 @@ export default function ConstructorProfileForm({ onCancel }: EditProfileFormProp
             </div>
 
             <div className="bg-orange-50/50 p-4 rounded-xl border border-orange-100 space-y-4">
-                <h3 className="font-bold text-orange-900 border-b border-orange-100 pb-2">Legal Documents (JPG/PDF)</h3>
-                <div className="grid grid-cols-2 gap-4">
+                <h3 className="font-bold text-orange-900 border-b border-orange-100 pb-2">Documents & Gallery (JPG/PDF)</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label className="block text-xs font-bold text-orange-700 uppercase mb-2">Main Portfolio Image</label>
+                        <input type="file" accept="image/*" onChange={(e) => handleFile(e, setFileFoto)} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100" />
+                        {user?.kontraktor?.foto && !fileFoto && <span className="text-xs text-orange-500 mt-1 block">✓ Current image saved</span>}
+                    </div>
                     <div>
                         <label className="block text-xs font-bold text-orange-700 uppercase mb-2">NPWP Document</label>
-                        <input type="file" onChange={(e) => handleFile(e, setFileNpwp)} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100" />
+                        <input type="file" accept=".pdf,.jpg,.png" onChange={(e) => handleFile(e, setFileNpwp)} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100" />
                         {user?.kontraktor?.npwp && !fileNpwp && <span className="text-xs text-orange-500 mt-1 block">✓ NPWP previously uploaded</span>}
                     </div>
                     <div>
                         <label className="block text-xs font-bold text-orange-700 uppercase mb-2">SIUP Document</label>
-                        <input type="file" onChange={(e) => handleFile(e, setFileSiup)} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100" />
+                        <input type="file" accept=".pdf,.jpg,.png" onChange={(e) => handleFile(e, setFileSiup)} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100" />
                         {user?.kontraktor?.siup && !fileSiup && <span className="text-xs text-orange-500 mt-1 block">✓ SIUP previously uploaded</span>}
                     </div>
                 </div>

@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { Architect, ArchitectSortOption, ArchitectViewMode, ARCHITECT_SPECS } from '../../types/architect.types';
 import { useArchitects } from '../../hooks/useArchitects';
 import { useFavorites } from '../../hooks/useFavorites';
+import CustomDropdown from '../UI/CustomDropdown';
 
 const formatIdr = (val: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(val);
 
@@ -11,8 +12,6 @@ const ArchitectCard = ({ arch, viewMode, onSelect, isFav, onToggleFav }: { arch:
     const isGrid = viewMode === 'grid';
     const expertBadge = (arch?.pengalaman_tahun || 0) > 5;
     const popularBadge = (arch?.rate_harga || 0) < 500000 && (arch?.pengalaman_tahun || 0) > 2;
-    const mockRating = (((arch?.id || 1) % 5) * 0.1 + 4.5).toFixed(1);
-    const mockReviews = ((arch?.id || 1) * 7) % 120 + 10;
     const isVerified = (arch as any)?.is_verified ?? expertBadge;
 
     return (
@@ -29,8 +28,8 @@ const ArchitectCard = ({ arch, viewMode, onSelect, isFav, onToggleFav }: { arch:
                     {arch?.user?.pic ? <img src={`/storage/${arch.user.pic}`} alt={arch?.nama || 'Architect'} className="w-full h-full object-cover" /> : (arch?.nama || 'A').charAt(0).toUpperCase()}
                     {!arch?.user?.pic && <div className="absolute inset-0 bg-gradient-to-br from-red-600/20 to-transparent" />}
                 </div>
-                <button onClick={(e) => onToggleFav(e, arch.id)} className={`absolute top-4 right-4 z-20 p-2 rounded-full backdrop-blur-md bg-white/80 hover:bg-red-600 hover:text-white transition-all shadow-sm border border-zinc-100`}>
-                    <Heart className={`w-4 h-4 ${isFav ? 'fill-current text-white' : 'text-zinc-600'}`} />
+                <button onClick={(e) => onToggleFav(e, arch.id)} className={`absolute top-4 right-4 z-20 p-2 rounded-full backdrop-blur-md transition-all shadow-sm border ${isFav ? 'bg-red-50 border-red-200 text-red-600' : 'bg-white/80 border-zinc-100 text-zinc-400 hover:bg-red-50 hover:text-red-600 hover:border-red-100'}`}>
+                    <Heart className={`w-4 h-4 ${isFav ? 'fill-current' : ''}`} />
                 </button>
             </div>
 
@@ -44,7 +43,7 @@ const ArchitectCard = ({ arch, viewMode, onSelect, isFav, onToggleFav }: { arch:
                     <p className="text-xs font-bold uppercase tracking-wider text-red-600">{arch?.spesialisasi || 'Arsitek Umum'}</p>
                     <span className="text-zinc-300">|</span>
                     <div className="flex items-center gap-1 text-sm font-black text-zinc-900">
-                        <Star className="w-3.5 h-3.5 fill-red-600 text-red-600" /> {mockRating}
+                        <Star className="w-3.5 h-3.5 fill-red-600 text-red-600" /> {arch?.average_rating ? Number(arch.average_rating).toFixed(1) : "Baru"}
                     </div>
                 </div>
 
@@ -83,26 +82,32 @@ export default function ExploreArchitects({ architects, isLoading, onSelectArchi
             </div>
 
             {/* Premium Control Bar */}
-            <div className="bg-white p-4 rounded-2xl shadow-xl shadow-zinc-200/50 border border-zinc-100 flex flex-col md:flex-row gap-4 items-center justify-between mb-8">
+            <div className="bg-white p-4 rounded-2xl shadow-xl shadow-zinc-200/50 border border-zinc-100 flex flex-col md:flex-row gap-4 items-center justify-between mb-8 relative z-50">
                 <div className="relative w-full md:w-96">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400" />
                     <input type="text" placeholder="Search by name or style..." value={filters.query} onChange={(e) => setFilters(p => ({ ...p, query: e.target.value }))} className="w-full pl-11 pr-4 py-3 bg-zinc-50 border-zinc-100 focus:bg-white focus:border-red-600 focus:ring-4 focus:ring-red-600/5 rounded-xl transition-all font-medium text-zinc-900" />
                 </div>
                 
-                <div className="flex w-full md:w-auto gap-3 items-center overflow-x-auto no-scrollbar pb-1 md:pb-0">
-                    <div className="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-xl">
-                        <Filter className="w-4 h-4 text-gray-400" />
-                        <select value={filters.specialization} onChange={(e) => setFilters(p => ({ ...p, specialization: e.target.value }))} className="bg-transparent border-none text-sm font-medium text-gray-700 focus:ring-0 cursor-pointer">
-                            {ARCHITECT_SPECS.map(s => <option key={s} value={s}>{s}</option>)}
-                        </select>
-                    </div>
+                <div className="flex w-full md:w-auto gap-3 items-center flex-wrap md:flex-nowrap">
+                    <CustomDropdown 
+                        options={ARCHITECT_SPECS.map(s => ({ label: s, value: s }))}
+                        value={filters.specialization}
+                        onChange={(v) => setFilters(p => ({ ...p, specialization: v }))}
+                        icon={<Filter className="w-4 h-4" />}
+                        className="w-48 shrink-0"
+                    />
 
-                    <select value={filters.sort} onChange={(e) => setFilters(p => ({ ...p, sort: e.target.value as ArchitectSortOption }))} className="bg-zinc-50 px-4 py-3 border-zinc-100 rounded-xl text-sm font-bold text-zinc-700 cursor-pointer focus:ring-4 focus:ring-red-600/5 focus:bg-white transition-all">
-                        <option value="recommended">Best Match</option>
-                        <option value="price_asc">Price: Low to High</option>
-                        <option value="price_desc">Price: High to Low</option>
-                        <option value="experience_desc">Most Experienced</option>
-                    </select>
+                    <CustomDropdown 
+                        options={[
+                            { label: 'Best Match', value: 'recommended' },
+                            { label: 'Price: Low to High', value: 'price_asc' },
+                            { label: 'Price: High to Low', value: 'price_desc' },
+                            { label: 'Most Experienced', value: 'experience_desc' }
+                        ]}
+                        value={filters.sort}
+                        onChange={(v) => setFilters(p => ({ ...p, sort: v as ArchitectSortOption }))}
+                        className="w-48 shrink-0"
+                    />
 
                     <div className="flex bg-gray-100 p-1 rounded-xl">
                         {[{ id: 'grid', icon: Grid }, { id: 'list', icon: List }].map(m => (

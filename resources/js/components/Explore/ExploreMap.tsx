@@ -49,7 +49,7 @@ export default function ExploreMap({
     const popupCoords = popupInfo ? getCoords(popupInfo) : null;
 
     return (
-        <div className="h-[400px] w-full rounded-2xl overflow-hidden shadow-lg border border-gray-200 relative">
+        <div className="h-[320px] w-full rounded-2xl overflow-hidden shadow-lg border border-gray-200 relative">
             <Map ref={mapRef}
                 initialViewState={{ longitude: userLocation?.longitude ?? 106.8271, latitude: userLocation?.latitude ?? -6.1751, zoom: 11 }}
                 style={{ width: '100%', height: '100%' }}

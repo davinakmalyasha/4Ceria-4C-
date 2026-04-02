@@ -49,6 +49,7 @@ class ProfileController extends Controller
                 'deskripsi' => 'nullable|string',
                 'pendidikan' => 'nullable|string',
                 'alasan_hire' => 'nullable|string',
+                'foto' => 'nullable|file|mimes:jpg,png,jpeg|max:5120',
                 'file_portofolio' => 'nullable|file|mimes:pdf,zip,jpg,png|max:10240',
                 'file_sertifikat' => 'nullable|file|mimes:pdf,jpg,png|max:5120',
             ]);
@@ -75,6 +76,15 @@ class ProfileController extends Controller
             } else {
                  unset($validatedArsitek['file_sertifikat']);
             }
+            
+            if ($request->hasFile('foto')) {
+                if ($arsitek->foto) {
+                    Storage::disk('public')->delete($arsitek->foto);
+                }
+                $validatedArsitek['foto'] = $request->file('foto')->store('portfolios/photos', 'public');
+            } else {
+                 unset($validatedArsitek['foto']);
+            }
 
             $arsitek->update($validatedArsitek);
         }
@@ -88,6 +98,7 @@ class ProfileController extends Controller
                 'jenis' => 'nullable|string',
                 'pendidikan' => 'nullable|string',
                 'alasan_hire' => 'nullable|string',
+                'foto' => 'nullable|file|mimes:jpg,png,jpeg|max:5120',
                 'npwp' => 'nullable|file|mimes:pdf,jpg,png|max:5120',
                 'siup' => 'nullable|file|mimes:pdf,jpg,png|max:5120',
             ]);
@@ -113,6 +124,15 @@ class ProfileController extends Controller
                 $validatedKontraktor['siup'] = $request->file('siup')->store('documents', 'public');
             } else {
                  unset($validatedKontraktor['siup']);
+            }
+            
+            if ($request->hasFile('foto')) {
+                if ($kontraktor->foto) {
+                    Storage::disk('public')->delete($kontraktor->foto);
+                }
+                $validatedKontraktor['foto'] = $request->file('foto')->store('portfolios/photos', 'public');
+            } else {
+                 unset($validatedKontraktor['foto']);
             }
 
             $kontraktor->update($validatedKontraktor);

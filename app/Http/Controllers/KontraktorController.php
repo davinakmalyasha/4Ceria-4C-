@@ -52,7 +52,7 @@ class KontraktorController extends Controller
     
     public function show($id) 
     {
-        $kontraktor = Kontraktor::findOrFail($id);
+        $kontraktor = Kontraktor::with(['user', 'projects'])->findOrFail($id);
         return view('users-page.detailKontraktor', compact('kontraktor'));
     }  
     public function ajukanSpesialisasi(Request $request)

@@ -11,6 +11,7 @@ export interface Architect {
     user?: {
         pic?: string | null;
     };
+    average_rating?: number | string;
 }
 
 export type ArchitectSortOption = 'recommended' | 'price_asc' | 'price_desc' | 'experience_desc';

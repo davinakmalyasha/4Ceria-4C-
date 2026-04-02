@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { ConstructorData, ConstructorSortOption, ConstructorViewMode, CONSTRUCTOR_TYPES } from '../../types/constructor.types';
 import { useConstructors } from '../../hooks/useConstructors';
 import { useFavorites } from '../../hooks/useFavorites';
+import CustomDropdown from '../UI/CustomDropdown';
 
 const ConstructorCard = ({ cons, viewMode, onSelect, isFav, onToggleFav }: { cons: ConstructorData; viewMode: ConstructorViewMode; onSelect: (c: ConstructorData) => void; isFav: boolean; onToggleFav: (e: React.MouseEvent, id: number) => void; }) => {
     const isGrid = viewMode === 'grid';
@@ -11,8 +12,6 @@ const ConstructorCard = ({ cons, viewMode, onSelect, isFav, onToggleFav }: { con
     const verifiedBadge = (cons?.pengalaman || 0) > 3;
     const certifiedBadge = !!cons?.siup || !!cons?.npwp;
     const displayName = cons?.nama_perusahaan || cons?.nama || 'Constructor';
-    const mockRating = (((cons?.id || 1) % 5) * 0.1 + 4.5).toFixed(1);
-    const mockReviews = ((cons?.id || 1) * 7) % 120 + 10;
     const isVerified = (cons as any)?.is_verified ?? verifiedBadge;
 
     return (
@@ -29,8 +28,8 @@ const ConstructorCard = ({ cons, viewMode, onSelect, isFav, onToggleFav }: { con
                     {cons?.user?.pic ? <img src={`/storage/${cons.user.pic}`} alt={displayName} className="w-full h-full object-cover" /> : displayName.charAt(0).toUpperCase()}
                     {!cons?.user?.pic && <div className="absolute inset-0 bg-gradient-to-br from-red-600/20 to-transparent" />}
                 </div>
-                <button onClick={(e) => onToggleFav(e, cons.id)} className={`absolute top-4 right-4 z-20 p-2 rounded-full backdrop-blur-md bg-white/80 hover:bg-red-600 hover:text-white transition-all shadow-sm border border-zinc-100`}>
-                    <Heart className={`w-4 h-4 ${isFav ? 'fill-current text-white' : 'text-zinc-600'}`} />
+                <button onClick={(e) => onToggleFav(e, cons.id)} className={`absolute top-4 right-4 z-20 p-2 rounded-full backdrop-blur-md transition-all shadow-sm border ${isFav ? 'bg-red-50 border-red-200 text-red-600' : 'bg-white/80 border-zinc-100 text-zinc-400 hover:bg-red-50 hover:text-red-600 hover:border-red-100'}`}>
+                    <Heart className={`w-4 h-4 ${isFav ? 'fill-current' : ''}`} />
                 </button>
             </div>
 
@@ -44,7 +43,7 @@ const ConstructorCard = ({ cons, viewMode, onSelect, isFav, onToggleFav }: { con
                     <p className="text-xs font-bold uppercase tracking-wider text-red-600">{cons?.jenis || 'Kontraktor Umum'}</p>
                     <span className="text-zinc-300">|</span>
                     <div className="flex items-center gap-1 text-sm font-black text-zinc-900">
-                        <Star className="w-3.5 h-3.5 fill-red-600 text-red-600" /> {mockRating}
+                        <Star className="w-3.5 h-3.5 fill-red-600 text-red-600" /> {cons?.average_rating ? Number(cons.average_rating).toFixed(1) : "Baru"}
                     </div>
                 </div>
 
@@ -83,25 +82,31 @@ export default function ExploreConstructors({ constructors, isLoading, onSelectC
             </div>
 
             {/* Premium Control Bar */}
-            <div className="bg-white p-4 rounded-2xl shadow-xl shadow-zinc-200/50 border border-zinc-100 flex flex-col md:flex-row gap-4 items-center justify-between mb-8">
+            <div className="bg-white p-4 rounded-2xl shadow-xl shadow-zinc-200/50 border border-zinc-100 flex flex-col md:flex-row gap-4 items-center justify-between mb-8 relative z-50">
                 <div className="relative w-full md:w-96">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400" />
                     <input type="text" placeholder="Search constructors..." value={filters.query} onChange={(e) => setFilters(p => ({ ...p, query: e.target.value }))} className="w-full pl-11 pr-4 py-3 bg-zinc-50 border-zinc-100 focus:bg-white focus:border-red-600 focus:ring-4 focus:ring-red-600/5 rounded-xl transition-all font-medium text-zinc-900" />
                 </div>
                 
-                <div className="flex w-full md:w-auto gap-3 items-center overflow-x-auto no-scrollbar pb-1 md:pb-0">
-                    <div className="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-xl">
-                        <Filter className="w-4 h-4 text-gray-400" />
-                        <select value={filters.jenis} onChange={(e) => setFilters(p => ({ ...p, jenis: e.target.value }))} className="bg-transparent border-none text-sm font-medium text-gray-700 focus:ring-0 cursor-pointer">
-                            {CONSTRUCTOR_TYPES.map(s => <option key={s} value={s}>{s}</option>)}
-                        </select>
-                    </div>
+                <div className="flex w-full md:w-auto gap-3 items-center flex-wrap md:flex-nowrap">
+                    <CustomDropdown 
+                        options={CONSTRUCTOR_TYPES.map(s => ({ label: s, value: s }))}
+                        value={filters.jenis}
+                        onChange={(v) => setFilters(p => ({ ...p, jenis: v }))}
+                        icon={<Filter className="w-4 h-4" />}
+                        className="w-48 shrink-0"
+                    />
 
-                    <select value={filters.sort} onChange={(e) => setFilters(p => ({ ...p, sort: e.target.value as ConstructorSortOption }))} className="bg-zinc-50 px-4 py-3 border-zinc-100 rounded-xl text-sm font-bold text-zinc-700 cursor-pointer focus:ring-4 focus:ring-red-600/5 focus:bg-white transition-all">
-                        <option value="recommended">Best Match</option>
-                        <option value="experience_desc">Most Experienced</option>
-                        <option value="experience_asc">Newest</option>
-                    </select>
+                    <CustomDropdown 
+                        options={[
+                            { label: 'Best Match', value: 'recommended' },
+                            { label: 'Most Experienced', value: 'experience_desc' },
+                            { label: 'Newest', value: 'experience_asc' }
+                        ]}
+                        value={filters.sort}
+                        onChange={(v) => setFilters(p => ({ ...p, sort: v as ConstructorSortOption }))}
+                        className="w-48 shrink-0"
+                    />
 
                     <div className="flex bg-gray-100 p-1 rounded-xl">
                         {[{ id: 'grid', icon: Grid }, { id: 'list', icon: List }].map(m => (

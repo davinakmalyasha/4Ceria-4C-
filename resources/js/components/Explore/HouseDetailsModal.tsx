@@ -38,12 +38,14 @@ interface Props {
     house: House;
     allHouses: House[];
     wishlist: Set<number>;
+    currentUser: any;
     onClose: () => void;
     onToggleWishlist: (e: React.MouseEvent, id: number) => void;
     onSelectHouse: (id: number) => void;
 }
 
-export default function HouseDetailsModal({ house, allHouses, wishlist, onClose, onToggleWishlist, onSelectHouse }: Props) {
+export default function HouseDetailsModal({ house, allHouses, wishlist, currentUser, onClose, onToggleWishlist, onSelectHouse }: Props) {
+    const isOwner = house.user_id === currentUser?.id;
     const [showSchedule, setShowSchedule] = useState(false);
     const area = (house.dimensions?.width || 0) * (house.dimensions?.length || 0);
     const pricePerM2 = area > 0 ? house.price / area : 0;
@@ -129,7 +131,7 @@ export default function HouseDetailsModal({ house, allHouses, wishlist, onClose,
                                     </div>
                                 </div>
 
-                                {house.owner && (
+                                {house.owner && !isOwner && (
                                     <div className="bg-gray-900 rounded-[2rem] p-8 text-white space-y-6 shadow-2xl relative overflow-hidden">
                                         <div className="absolute top-0 right-0 w-32 h-32 bg-[#FF2D20] rounded-full blur-[60px] opacity-20 -mr-16 -mt-16" />
                                         <p className="text-xs font-black text-gray-400 uppercase tracking-widest relative z-10">Listing Agent</p>
@@ -174,11 +176,20 @@ export default function HouseDetailsModal({ house, allHouses, wishlist, onClose,
                         <p className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight">{formatCurrency(house.price)}</p>
                     </div>
                     <div className="flex gap-3 w-full sm:w-auto">
-                        <button onClick={(e) => onToggleWishlist(e, house.id)} className={`p-3.5 rounded-xl font-bold transition-all border ${wishlist.has(house.id) ? 'bg-[#FF2D20] text-white border-[#FF2D20]' : 'bg-white text-gray-600 border-gray-200 hover:text-[#FF2D20]'}`}><Heart size={18} fill={wishlist.has(house.id) ? 'currentColor' : 'none'} /></button>
-                        {waLink ? (
-                            <a href={waLink} target="_blank" rel="noopener noreferrer" className="flex-1 sm:flex-none bg-green-600 hover:bg-green-700 text-white px-6 py-3.5 rounded-xl font-bold transition-all duration-300 flex items-center justify-center gap-2 shadow-md"><MessageCircle size={18} /> Contact via WhatsApp</a>
-                        ) : (
-                            <button onClick={() => setShowSchedule(true)} className="flex-1 sm:flex-none bg-[#FF2D20] hover:bg-black text-white px-8 py-3.5 rounded-xl font-bold transition-all duration-300 flex items-center justify-center gap-2 shadow-[0_4px_14px_0_rgb(255,45,32,0.39)] hover:shadow-none hover:-translate-y-0.5"><User size={18} /> Schedule Viewing</button>
+                        {!isOwner && (
+                            <>
+                                <button onClick={(e) => onToggleWishlist(e, house.id)} className={`p-3.5 rounded-xl font-bold transition-all border ${wishlist.has(house.id) ? 'bg-[#FF2D20] text-white border-[#FF2D20]' : 'bg-white text-gray-600 border-gray-200 hover:text-[#FF2D20]'}`}><Heart size={18} fill={wishlist.has(house.id) ? 'currentColor' : 'none'} /></button>
+                                {waLink ? (
+                                    <a href={waLink} target="_blank" rel="noopener noreferrer" className="flex-1 sm:flex-none bg-green-600 hover:bg-green-700 text-white px-6 py-3.5 rounded-xl font-bold transition-all duration-300 flex items-center justify-center gap-2 shadow-md"><MessageCircle size={18} /> Contact via WhatsApp</a>
+                                ) : (
+                                    <button onClick={() => setShowSchedule(true)} className="flex-1 sm:flex-none bg-[#FF2D20] hover:bg-black text-white px-8 py-3.5 rounded-xl font-bold transition-all duration-300 flex items-center justify-center gap-2 shadow-[0_4px_14px_0_rgb(255,45,32,0.39)] hover:shadow-none hover:-translate-y-0.5"><User size={18} /> Schedule Viewing</button>
+                                )}
+                            </>
+                        )}
+                        {isOwner && (
+                            <div className="px-6 py-3.5 rounded-xl bg-gray-100 text-gray-500 font-bold text-sm italic">
+                                This is your listed property
+                            </div>
                         )}
                     </div>
                 </div>

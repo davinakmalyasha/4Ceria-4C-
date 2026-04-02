@@ -8,14 +8,13 @@ use App\Models\Arsitek;
 
 class ArsitekController extends Controller
 {
-   public function index(Request $request)
-{
-    $arsiteks = Arsitek::all(); 
-    $query = Arsitek::with('user');
+    public function index(Request $request)
+    {
+        $query = Arsitek::with(['user', 'projects', 'arsitekPic']);
 
-    if ($request->lokasi) {
-        $query->where('lokasi', 'like', '%' . $request->lokasi . '%');
-    }
+        if ($request->lokasi) {
+            $query->where('lokasi', 'like', '%' . $request->lokasi . '%');
+        }
 
     if ($request->spesialisasi) {
         $query->where('spesialisasi', 'like', '%' . $request->spesialisasi . '%');

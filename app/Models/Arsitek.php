@@ -13,7 +13,7 @@ class Arsitek extends Model
     protected $table = 'arsiteks'; 
 
     protected $fillable = [
-         'user_id', 'nama', 'no_telp', 'rate_harga', 'spesialisasi', 'deskripsi', 'lokasi', 'pengalaman_tahun', 'file_portofolio', 'file_sertifikat', 'pendidikan', 'alasan_hire', 'verification_status', 'rejection_reason'
+         'user_id', 'nama', 'no_telp', 'rate_harga', 'spesialisasi', 'deskripsi', 'lokasi', 'pengalaman_tahun', 'file_portofolio', 'file_sertifikat', 'pendidikan', 'alasan_hire', 'verification_status', 'rejection_reason', 'foto'
     ];
 
     protected $appends = ['average_rating', 'review_count'];

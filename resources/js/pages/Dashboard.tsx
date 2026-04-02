@@ -234,6 +234,10 @@ export default function Dashboard() {
         ];
     })();
 
+    const handleHouseUpdated = (updated: any) => {
+        setHouses(prev => prev.map(h => h.id === updated.id ? updated : h));
+    };
+
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount);
     };
@@ -416,9 +420,7 @@ export default function Dashboard() {
                                         onAddProperty={() => setActiveTab('post-house')} 
                                         onBack={() => setActiveTab('overview')}
                                         onHouseDeleted={(houseId) => setHouses(prev => prev.filter(h => h.id !== houseId))}
-                                        onHouseUpdated={(updated) => {
-                                            setHouses(prev => prev.map(h => h.id === updated.id ? { ...h, ...updated } : h));
-                                        }}
+                                        onHouseUpdated={handleHouseUpdated}
                                     />
                                 </motion.div>
                             )}
