@@ -56,6 +56,14 @@ export interface Project {
     description: string;
     budget: number;
     location?: string;
+    latitude?: string | null;
+    longitude?: string | null;
+    province?: string | null;
+    city?: string | null;
+    kecamatan?: string | null;
+    kelurahan?: string | null;
+    postal_code?: string | null;
+    street_name?: string | null;
     type?: string;
     status: 'open' | 'in_progress' | 'completed' | 'cancelled' | string;
     deadline?: string;

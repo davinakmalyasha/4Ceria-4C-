@@ -361,7 +361,25 @@ class ProjectController extends Controller
             $data['attachment'] = $request->file('attachment')->store('project_attachments', 'public');
         }
 
+        // Handle deleted images
+        if ($request->has('deleted_images')) {
+            $project->images()->whereIn('id', $request->deleted_images)->delete();
+        }
+
+        // Save multiple new images
+        if ($request->hasFile('images')) {
+            $maxSortOrder = $project->images()->max('sort_order') ?? -1;
+            foreach ($request->file('images') as $i => $image) {
+                $path = $image->store('project_images', 'public');
+                $project->images()->create([
+                    'image_path' => $path,
+                    'sort_order' => $maxSortOrder + $i + 1,
+                ]);
+            }
+        }
+
         $project->update($data);
+        $project->load('images');
 
         if (isset($data['status'])) {
             ProjectActivityLog::create([

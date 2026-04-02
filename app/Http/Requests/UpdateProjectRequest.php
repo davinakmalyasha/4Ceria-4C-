@@ -26,7 +26,20 @@ class UpdateProjectRequest extends FormRequest
             'description' => 'sometimes|string',
             'budget' => 'sometimes|numeric|min:0',
             'lokasi' => 'sometimes|string|max:255',
+            'latitude' => 'nullable|string',
+            'longitude' => 'nullable|string',
+            'province' => 'nullable|string',
+            'city' => 'nullable|string',
+            'kecamatan' => 'nullable|string',
+            'kelurahan' => 'nullable|string',
+            'postal_code' => 'nullable|string',
+            'street_name' => 'nullable|string',
             'status' => 'sometimes|string|in:open,in_progress,completed,cancelled',
+            'target_role' => 'sometimes|string|in:both,arsitek,kontraktor',
+            'deadline' => 'sometimes|date',
+            'images.*' => 'sometimes|file|mimes:jpg,jpeg,png|max:5120',
+            'deleted_images' => 'sometimes|array',
+            'deleted_images.*' => 'integer',
         ];
     }
 }

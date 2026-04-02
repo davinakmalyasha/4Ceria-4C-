@@ -23,7 +23,15 @@ class Project extends Model
         'selected_kontraktor_id',
         'deadline',         
         'attachment',   
-        'target_role',   
+        'target_role',
+        'latitude',
+        'longitude',
+        'province',
+        'city',
+        'kecamatan',
+        'kelurahan',
+        'postal_code',
+        'street_name',
     ];
     
 

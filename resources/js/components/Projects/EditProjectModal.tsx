@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
-import { X, Save, AlertCircle } from 'lucide-react';
+import { X, Save, AlertCircle, Image as ImageIcon } from 'lucide-react';
 import { Project } from '../../types/project.types';
+import LocationPickerMap from '../LocationPickerMap';
 
 interface Props {
     project: Project;
@@ -15,22 +16,78 @@ export default function EditProjectModal({ project, onClose, onSuccess }: Props)
     const [description, setDescription] = useState(project.description);
     const [budget, setBudget] = useState(project.budget.toString());
     const [lokasi, setLokasi] = useState(project.location || '');
+    const [lat, setLat] = useState(project.latitude || '-6.200000');
+    const [lng, setLng] = useState(project.longitude || '106.816666');
+    const [province, setProvince] = useState(project.province || '');
+    const [city, setCity] = useState(project.city || '');
+    const [kecamatan, setKecamatan] = useState(project.kecamatan || '');
+    const [kelurahan, setKelurahan] = useState(project.kelurahan || '');
+    const [postalCode, setPostalCode] = useState(project.postal_code || '');
+    const [streetName, setStreetName] = useState(project.street_name || '');
     
+    const [targetRole, setTargetRole] = useState(project.target_role || 'both');
+    const [deadline, setDeadline] = useState(project.deadline ? project.deadline.split('T')[0] : '');
+    
+    const [existingImages, setExistingImages] = useState(project.images || []);
+    const [deletedImageIds, setDeletedImageIds] = useState<number[]>([]);
+    const [newImages, setNewImages] = useState<File[]>([]);
+
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
+
+    const handleImg = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = Array.from(e.target.files || []);
+        const totalImages = existingImages.length + newImages.length + files.length;
+        if (totalImages > 3) {
+            setError('Maximum 3 images allowed.');
+            return;
+        }
+        setNewImages(prev => [...prev, ...files].slice(0, 3 - existingImages.length));
+        e.target.value = '';
+    };
+
+    const removeExistingImage = (id: number) => {
+        setExistingImages(prev => prev.filter(img => img.id !== id));
+        setDeletedImageIds(prev => [...prev, id]);
+    };
+
+    const removeNewImage = (idx: number) => {
+        setNewImages(prev => prev.filter((_, i) => i !== idx));
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
         setError('');
 
+        const formData = new FormData();
+        formData.append('_method', 'PUT'); // Required for Laravel to handle multipart/form-data on updates
+        formData.append('title', title);
+        formData.append('description', description);
+        formData.append('budget', budget);
+        formData.append('lokasi', lokasi);
+        formData.append('target_role', targetRole);
+        formData.append('deadline', deadline);
+        formData.append('latitude', lat);
+        formData.append('longitude', lng);
+        formData.append('province', province);
+        formData.append('city', city);
+        formData.append('kecamatan', kecamatan);
+        formData.append('kelurahan', kelurahan);
+        formData.append('postal_code', postalCode);
+        formData.append('street_name', streetName);
+
+        deletedImageIds.forEach((id, index) => {
+            formData.append(`deleted_images[${index}]`, id.toString());
+        });
+
+        newImages.forEach((img, index) => {
+            formData.append(`images[${index}]`, img);
+        });
+
         try {
-            // Laravel usually accepts PUT/PATCH for updates, but with FormData it's safer to use _method=PUT via POST or just standard PUT if JSON
-            const res = await axios.put(`/projects/${project.id}`, {
-                title,
-                description,
-                budget: Number(budget),
-                lokasi, 
+            const res = await axios.post(`/projects/${project.id}`, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
             });
             onSuccess(res.data.data || res.data);
         } catch (err: any) {
@@ -66,6 +123,34 @@ export default function EditProjectModal({ project, onClose, onSuccess }: Props)
                     )}
                     
                     <form id="editForm" onSubmit={handleSubmit} className="space-y-4">
+                        {/* Image Upload Section */}
+                        <div className="mb-4">
+                            <label className="block text-sm font-bold text-gray-700 mb-2">Project Photos (Max 3)</label>
+                            
+                            <div className="flex flex-wrap gap-3 mb-3">
+                                {existingImages.map((img) => (
+                                    <div key={img.id} className="relative w-20 h-20 rounded-xl overflow-hidden group border border-gray-200">
+                                        <img src={img.url} alt="Project" className="w-full h-full object-cover" />
+                                        <button type="button" onClick={() => removeExistingImage(img.id)} className="absolute top-1 right-1 bg-black/60 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"><X size={12} /></button>
+                                    </div>
+                                ))}
+                                {newImages.map((img, i) => (
+                                    <div key={i} className="relative w-20 h-20 rounded-xl overflow-hidden group border border-gray-200">
+                                        <img src={URL.createObjectURL(img)} alt="New upload" className="w-full h-full object-cover" />
+                                        <button type="button" onClick={() => removeNewImage(i)} className="absolute top-1 right-1 bg-black/60 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"><X size={12} /></button>
+                                    </div>
+                                ))}
+                            </div>
+                            
+                            {(existingImages.length + newImages.length) < 3 && (
+                                <div className="relative border-2 border-dashed border-gray-300 rounded-xl p-4 text-center hover:bg-gray-50 transition-colors group">
+                                    <input type="file" accept="image/*" multiple onChange={handleImg} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                                    <ImageIcon className="mx-auto h-6 w-6 text-gray-400 group-hover:text-[#FF2D20] transition-colors mb-1" />
+                                    <p className="text-xs font-semibold text-gray-700">Click to upload photo</p>
+                                </div>
+                            )}
+                        </div>
+
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-1">Project Title</label>
                             <input type="text" value={title} onChange={e => setTitle(e.target.value)} required className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#FF2D20]/20 focus:border-[#FF2D20] outline-none transition-all placeholder:text-gray-400" placeholder="e.g. Total Roof Renovation" />
@@ -79,9 +164,44 @@ export default function EditProjectModal({ project, onClose, onSuccess }: Props)
                                 <label className="block text-sm font-bold text-gray-700 mb-1">Budget (Rp)</label>
                                 <input type="number" value={budget} onChange={e => setBudget(e.target.value)} required min="100000" className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#FF2D20]/20 focus:border-[#FF2D20] outline-none transition-all" />
                             </div>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Project Location (Map)</label>
+                            <LocationPickerMap 
+                                latitude={parseFloat(lat)} 
+                                longitude={parseFloat(lng)} 
+                                onChange={(newLat, newLng, address) => {
+                                    setLat(newLat.toString());
+                                    setLng(newLng.toString());
+                                    if (address && (address.city || address.province)) {
+                                        const locString = [address.street_name, address.kecamatan, address.city, address.province].filter(Boolean).join(', ');
+                                        setLokasi(locString);
+                                        setProvince(address.province);
+                                        setCity(address.city);
+                                        setKecamatan(address.kecamatan);
+                                        setKelurahan(address.kelurahan);
+                                        setPostalCode(address.postal_code);
+                                        setStreetName(address.street_name);
+                                    }
+                                }} 
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Short Location Text</label>
+                            <input type="text" value={lokasi} onChange={e => setLokasi(e.target.value)} required className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#FF2D20]/20 focus:border-[#FF2D20] outline-none transition-all" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">Location</label>
-                                <input type="text" value={lokasi} onChange={e => setLokasi(e.target.value)} required className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#FF2D20]/20 focus:border-[#FF2D20] outline-none transition-all" />
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Target Professional</label>
+                                <select value={targetRole} onChange={e => setTargetRole(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#FF2D20]/20 focus:border-[#FF2D20] outline-none transition-all">
+                                    <option value="both">Both (Arch & Cont)</option>
+                                    <option value="arsitek">Architect Only</option>
+                                    <option value="kontraktor">Constructor Only</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Deadline</label>
+                                <input type="date" value={deadline} onChange={e => setDeadline(e.target.value)} required className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#FF2D20]/20 focus:border-[#FF2D20] outline-none transition-all" />
                             </div>
                         </div>
                     </form>

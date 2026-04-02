@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MapPin, Calendar, Clock, MessageSquare, Briefcase, Eye, Wallet, MoreHorizontal, Edit2, Copy, Share2, Trash2 } from 'lucide-react';
+import { MapPin, Calendar, Clock, MessageSquare, Briefcase, Eye, Wallet, MoreHorizontal, Edit2, Copy, Share2, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Project, getStatusConfig, getProjectTypeConfig, formatCurrency } from '../../types/project.types';
 
 export const ProjectCardSkeleton = () => (
@@ -24,7 +24,20 @@ interface ProjectCardProps {
 }
 
 export default function ProjectCard({ project, onClick, userRole, viewMode = 'grid', onEdit, onDelete }: ProjectCardProps) {
+    const [activeImageIndex, setActiveImageIndex] = useState(0);
     
+    const images = project.images || [];
+
+    const nextImage = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setActiveImageIndex(prev => (prev + 1) % images.length);
+    };
+
+    const prevImage = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setActiveImageIndex(prev => (prev - 1 + images.length) % images.length);
+    };
+
     const statusCfg = getStatusConfig(project.status);
     const StatusIcon = statusCfg.icon;
     const typeCfg = getProjectTypeConfig(project.type);
@@ -60,13 +73,52 @@ export default function ProjectCard({ project, onClick, userRole, viewMode = 'gr
             <div className={`absolute left-0 top-0 ${isList ? 'bottom-0 w-1 rounded-l-[1.5rem]' : 'right-0 h-1 rounded-t-[1.5rem]'} ${statusCfg.bg} opacity-50 group-hover:opacity-100 transition-opacity`} />
 
             {/* Thumbnail Area */}
-            <div className={`shrink-0 relative overflow-hidden bg-zinc-50 border border-zinc-100 ${
+            <div className={`shrink-0 relative overflow-hidden bg-zinc-50 border border-zinc-100 group/thumb ${
                 isList ? 'w-full lg:w-48 h-48 lg:h-40 rounded-[1rem]' : 'w-full h-48 sm:h-56 rounded-xl'
             }`}>
-                {project.images && project.images.length > 0 ? (
-                    <img src={project.images[0].url} alt={project.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                {images.length > 0 ? (
+                    <>
+                        <AnimatePresence mode="wait">
+                            <motion.img 
+                                key={activeImageIndex}
+                                src={images[activeImageIndex].url} 
+                                alt={project.title} 
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 0.3 }}
+                                className="w-full h-full object-cover group-hover/thumb:scale-110 transition-transform duration-700" 
+                            />
+                        </AnimatePresence>
+
+                        {images.length > 1 && (
+                            <>
+                                <button 
+                                    onClick={prevImage}
+                                    className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 bg-white/80 backdrop-blur-md rounded-full shadow-lg opacity-0 group-hover/thumb:opacity-100 transition-opacity hover:bg-white text-zinc-800 z-10"
+                                >
+                                    <ChevronLeft size={16} />
+                                </button>
+                                <button 
+                                    onClick={nextImage}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-white/80 backdrop-blur-md rounded-full shadow-lg opacity-0 group-hover/thumb:opacity-100 transition-opacity hover:bg-white text-zinc-800 z-10"
+                                >
+                                    <ChevronRight size={16} />
+                                </button>
+                                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 px-2.5 py-1.5 bg-black/20 backdrop-blur-md rounded-full z-10">
+                                    {images.map((_, i) => (
+                                        <button
+                                            key={i}
+                                            onClick={(e) => { e.stopPropagation(); setActiveImageIndex(i); }}
+                                            className={`h-1.5 rounded-full transition-all ${i === activeImageIndex ? 'w-4 bg-white' : 'w-1.5 bg-white/50 hover:bg-white/80'}`}
+                                        />
+                                    ))}
+                                </div>
+                            </>
+                        )}
+                    </>
                 ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center text-zinc-300 gap-3 group-hover:text-red-200 transition-colors">
+                    <div className="w-full h-full flex flex-col items-center justify-center text-zinc-300 gap-3 group-hover/thumb:text-red-200 transition-colors">
                         <TypeIcon size={48} strokeWidth={1.5} />
                     </div>
                 )}
