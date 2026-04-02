@@ -31,7 +31,15 @@ class StoreHouseRequest extends FormRequest
             'lat' => 'required|numeric',
             'lng' => 'required|numeric',
             'house_pic' => 'nullable|array',
-            'house_pic.*' => 'image|mimes:jpeg,png,jpg|max:2048'
+            'house_pic.*' => 'image|mimes:jpeg,png,jpg|max:2048',
+            'rooms' => 'nullable|array',
+            'rooms.*.name' => 'required|string|max:255',
+            'rooms.*.type' => 'required|string|in:room,bedroom,bathroom,others',
+            'rooms.*.width' => 'required|numeric|min:0',
+            'rooms.*.length' => 'required|numeric|min:0',
+            'rooms.*.desc' => 'nullable|string',
+            'rooms.*.pics' => 'nullable|array',
+            'rooms.*.pics.*' => 'image|mimes:jpeg,png,jpg|max:2048'
         ];
     }
 }

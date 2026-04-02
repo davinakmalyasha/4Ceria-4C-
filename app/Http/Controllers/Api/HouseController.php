@@ -5,8 +5,11 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\House;
 use App\Models\HousePic;
+use App\Models\RoomPic;
 use App\Models\Provinces;
 use App\Models\Regions;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\File;
 use Illuminate\Http\Request;
 use App\Http\Resources\HouseResource;
 use App\Http\Requests\StoreHouseRequest;
@@ -46,6 +49,35 @@ class HouseController extends Controller
 
         $house = House::create($validated);
 
+        // Handle initial rooms and their photos if provided
+        if ($request->has('rooms')) {
+            foreach ($request->input('rooms') as $index => $roomData) {
+                $room = $house->room()->create([
+                    'name' => $roomData['name'],
+                    'type' => $roomData['type'],
+                    'width' => $roomData['width'],
+                    'length' => $roomData['length'],
+                    'desc' => $roomData['desc'] ?? '',
+                ]);
+
+                // Handle room photos if any
+                if ($request->hasFile("rooms.{$index}.pics")) {
+                    foreach ($request->file("rooms.{$index}.pics") as $roomPic) {
+                        if ($roomPic->isValid()) {
+                            $roomFolder = 'uploads/house/house_' . $house->id . '/rooms/room_' . $room->id;
+                            $path = $roomPic->store($roomFolder, 'public');
+                            RoomPic::create([
+                                'file_name' => $roomPic->getClientOriginalName(),
+                                'dir' => $path,
+                                'size' => $roomPic->getSize(),
+                                'id_room' => $room->id,
+                            ]);
+                        }
+                    }
+                }
+            }
+        }
+
         // Handle house_pic file uploads
         if ($request->hasFile('house_pic')) {
             foreach ($request->file('house_pic') as $pic) {
@@ -62,13 +94,13 @@ class HouseController extends Controller
             }
         }
 
-        return new HouseResource($house->load('housePic'));
+        return new HouseResource($house->load(['housePic', 'room', 'room.roomPic']));
     }
 
     public function show(House $house)
     {
         $house->increment('views');
-        $house->load(['housePic', 'room', 'user']);
+        $house->load(['housePic', 'room.roomPic', 'user']);
         return new HouseResource($house);
     }
 
@@ -78,9 +110,91 @@ class HouseController extends Controller
             return response()->json(['message' => 'Unauthorized action. You do not own this house.'], 403);
         }
 
-        $house->update($request->validated());
+        $validated = $request->validated();
         
-        return new HouseResource($house);
+        if (isset($validated['lat']) && isset($validated['lng'])) {
+            $validated['coordinate'] = $validated['lat'].", ".$validated['lng'];
+        }
+
+        if (isset($validated['price'])) {
+            $validated['price'] = str_replace('.', '', $validated['price']);
+        }
+
+        $house->update($validated);
+
+        // Handle rooms during update
+        if ($request->has('rooms')) {
+            foreach ($request->input('rooms') as $index => $roomData) {
+                // Determine if we're updating or creating
+                if (isset($roomData['id'])) {
+                    $room = $house->room()->find($roomData['id']);
+                    if ($room) {
+                        $room->update([
+                            'name' => $roomData['name'],
+                            'type' => $roomData['type'],
+                            'width' => $roomData['width'],
+                            'length' => $roomData['length'],
+                            'desc' => $roomData['desc'] ?? '',
+                        ]);
+                    }
+                } else {
+                    $room = $house->room()->create([
+                        'name' => $roomData['name'],
+                        'type' => $roomData['type'],
+                        'width' => $roomData['width'],
+                        'length' => $roomData['length'],
+                        'desc' => $roomData['desc'] ?? '',
+                    ]);
+                }
+
+                // Handle room photos if any (new uploads)
+                if ($room && $request->hasFile("rooms.{$index}.pics")) {
+                    foreach ($request->file("rooms.{$index}.pics") as $roomPic) {
+                        if ($roomPic->isValid()) {
+                            $roomFolder = 'uploads/house/house_' . $house->id . '/rooms/room_' . $room->id;
+                            $path = $roomPic->store($roomFolder, 'public');
+                            RoomPic::create([
+                                'file_name' => $roomPic->getClientOriginalName(),
+                                'dir' => $path,
+                                'size' => $roomPic->getSize(),
+                                'id_room' => $room->id,
+                            ]);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Handle House Photos Gallery
+        if ($request->has('deleted_house_pics')) {
+            foreach ($request->input('deleted_house_pics') as $picId) {
+                $pic = HousePic::where('id', $picId)->where('id_house', $house->id)->first();
+                if ($pic) {
+                    // Delete physical file
+                    if (Storage::disk('public')->exists($pic->dir)) {
+                        Storage::disk('public')->delete($pic->dir);
+                    }
+                    $pic->delete();
+                }
+            }
+        }
+
+        if ($request->hasFile('house_pics')) {
+            $houseFolder = 'uploads/house/house_' . $house->id;
+            foreach ($request->file('house_pics') as $pic) {
+                if ($pic->isValid()) {
+                    $path = $pic->store($houseFolder, 'public');
+                    HousePic::create([
+                        'file_name' => $pic->getClientOriginalName(),
+                        'dir' => $path,
+                        'size' => $pic->getSize(),
+                        'id_house' => $house->id,
+                    ]);
+                }
+            }
+        }
+        
+        return new HouseResource($house->load(['housePic', 'room', 'room.roomPic']));
     }
 
     public function destroy(House $house)

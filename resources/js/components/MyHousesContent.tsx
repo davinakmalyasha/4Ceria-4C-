@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { PlusCircle, Home, MapPin, Search, ChevronLeft, Edit3, Trash2, Eye, Info } from 'lucide-react';
+import { PlusCircle, Home, MapPin, Search, ChevronLeft, Edit3, Trash2, Eye, Info, Bed, Bath, Maximize } from 'lucide-react';
 import axios from 'axios';
+import AutoHoverSlider from './UI/AutoHoverSlider';
 import PropertyDetailModal from './PropertyDetailModal';
 import EditPropertyModal from './EditPropertyModal';
 
@@ -86,41 +87,38 @@ export default function MyHousesContent({ houses, onAddProperty, onBack, onHouse
                                 className="bg-white rounded-3xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-2xl transition-all group flex flex-col cursor-pointer relative"
                             >
                                 <div className="h-56 bg-gray-200 relative overflow-hidden">
+
+
+                                    <AutoHoverSlider 
+                                        images={house.housePic} 
+                                        altText={house.name} 
+                                        className="absolute inset-0 w-full h-full object-cover" 
+                                    />
+
                                     {/* Action Buttons Overlay */}
-                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3 z-10 backdrop-blur-[2px]">
+                                    <div className="absolute inset-x-0 bottom-0 p-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-all z-30 translate-y-10 group-hover:translate-y-0">
                                         <button 
                                             onClick={(e) => { e.stopPropagation(); setSelectedHouse(house); }} 
-                                            className="p-3 bg-white hover:bg-red-50 rounded-2xl text-gray-700 hover:text-[#FF2D20] shadow-xl hover:scale-110 transition-all font-bold flex items-center gap-2"
+                                            className="px-3 py-2.5 bg-white text-gray-900 rounded-xl shadow-xl hover:scale-110 transition-all font-bold flex items-center gap-1.5 border border-gray-100"
                                         >
-                                            <Eye size={18} /> <span className="text-xs">View</span>
+                                            <Eye size={16} /> <span className="text-[10px] uppercase">Details</span>
                                         </button>
                                         <button 
                                             onClick={(e) => { e.stopPropagation(); setEditingHouse(house); }} 
-                                            className="p-3 bg-white hover:bg-blue-50 rounded-2xl text-gray-700 hover:text-blue-600 shadow-xl hover:scale-110 transition-all font-bold flex items-center gap-2"
+                                            className="px-3 py-2.5 bg-[#FF2D20] text-white rounded-xl shadow-xl hover:scale-110 transition-all font-bold flex items-center gap-1.5"
                                         >
-                                            <Edit3 size={18} /> <span className="text-xs">Edit</span>
+                                            <Edit3 size={16} /> <span className="text-[10px] uppercase">Edit</span>
                                         </button>
                                         <button 
                                             onClick={(e) => { e.stopPropagation(); handleDelete(house.id); }} 
                                             disabled={isDeleting === house.id}
-                                            className="p-3 bg-white hover:bg-red-50 rounded-2xl text-gray-700 hover:text-red-600 shadow-xl hover:scale-110 transition-all font-bold flex items-center gap-2 disabled:opacity-50"
+                                            className="p-2.5 bg-white hover:bg-red-50 rounded-xl text-gray-400 hover:text-red-600 shadow-xl hover:scale-110 transition-all disabled:opacity-50 border border-gray-100"
                                         >
-                                            <Trash2 size={18} /> <span className="text-xs">Delete</span>
+                                            <Trash2 size={16} />
                                         </button>
                                     </div>
 
-                                    {house.housePic && house.housePic.length > 0 ? (
-                                        <img 
-                                            src={`/storage/${house.housePic[0].dir}`} 
-                                            alt={house.name} 
-                                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
-                                        />
-                                    ) : (
-                                        <div className="w-full h-full flex items-center justify-center text-gray-400 bg-gray-100 italic text-xs flex-col gap-2">
-                                            <Home size={32} />
-                                            No Images Available
-                                        </div>
-                                    )}
+                                    <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors pointer-events-none z-10" />
                                     <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-2xl text-[10px] font-bold text-gray-900 shadow-sm border border-white/20 uppercase tracking-wider">
                                         For Sale
                                     </div>
@@ -131,11 +129,11 @@ export default function MyHousesContent({ houses, onAddProperty, onBack, onHouse
                                     )}
                                 </div>
                                 <div className="p-6 flex-1 flex flex-col">
-                                    <h4 className="font-extrabold text-xl text-gray-900 group-hover:text-[#FF2D20] transition-colors line-clamp-1">{house.name}</h4>
-                                    <p className="flex items-start gap-1 text-sm text-gray-500 mt-2 mb-4 bg-gray-50 p-2 rounded-xl border border-gray-100">
-                                        <MapPin size={14} className="mt-0.5 shrink-0 text-[#FF2D20]" />
-                                        <span className="truncate">{house.address?.city || house.kab_kota}, {house.address?.province || house.province}</span>
-                                    </p>
+                                    <div className="mt-2 mb-4 flex items-center gap-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                                        <div className="flex items-center gap-1.5"><Bed size={14} className="text-gray-300" /> {house.br || 0} Beds</div>
+                                        <div className="flex items-center gap-1.5"><Bath size={14} className="text-gray-300" /> {house.ba || 0} Baths</div>
+                                        <div className="flex items-center gap-1.5"><Maximize size={14} className="text-gray-300" /> {house.width * house.length} m²</div>
+                                    </div>
                                     <div className="mt-auto pt-4 border-t border-gray-100 flex justify-between items-center">
                                         <span className="text-2xl font-black text-[#FF2D20] tracking-tight">{formatCurrency(house.price)}</span>
                                         <span className="text-[10px] bg-gray-100 text-gray-500 px-2 py-1 rounded-lg font-bold">ID: #{house.id}</span>
@@ -155,6 +153,10 @@ export default function MyHousesContent({ houses, onAddProperty, onBack, onHouse
                         onClose={() => setSelectedHouse(null)}
                         onEdit={(h) => { setSelectedHouse(null); setEditingHouse(h); }}
                         onDelete={handleDelete}
+                        onHouseUpdated={(updated) => {
+                            onHouseUpdated?.(updated);
+                            setSelectedHouse(updated);
+                        }}
                         formatCurrency={formatCurrency}
                     />
                 )}
@@ -165,6 +167,10 @@ export default function MyHousesContent({ houses, onAddProperty, onBack, onHouse
                         onSuccess={(updated) => {
                             setEditingHouse(null);
                             onHouseUpdated?.(updated);
+                        }}
+                        onDelete={(id) => {
+                            setEditingHouse(null);
+                            handleDelete(id);
                         }}
                     />
                 )}

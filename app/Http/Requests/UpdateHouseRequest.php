@@ -29,7 +29,20 @@ class UpdateHouseRequest extends FormRequest
             'province' => 'sometimes|string|max:255',
             'postal_code' => 'sometimes|numeric',
             'lat' => 'sometimes|numeric',
-            'lng' => 'sometimes|numeric'
+            'lng' => 'sometimes|numeric',
+            'rooms' => 'nullable|array',
+            'rooms.*.id' => 'nullable|numeric|exists:rooms,id',
+            'rooms.*.name' => 'required_with:rooms|string|max:255',
+            'rooms.*.type' => 'required_with:rooms|string|in:room,bedroom,bathroom,others',
+            'rooms.*.width' => 'required_with:rooms|numeric|min:0',
+            'rooms.*.length' => 'required_with:rooms|numeric|min:0',
+            'rooms.*.desc' => 'nullable|string',
+            'rooms.*.pics' => 'nullable|array',
+            'rooms.*.pics.*' => 'image|mimes:jpeg,png,jpg|max:2048',
+            'house_pics' => 'nullable|array',
+            'house_pics.*' => 'image|mimes:jpeg,png,jpg|max:2048',
+            'deleted_house_pics' => 'nullable|array',
+            'deleted_house_pics.*' => 'numeric|exists:house_pic,id'
         ];
     }
 }
