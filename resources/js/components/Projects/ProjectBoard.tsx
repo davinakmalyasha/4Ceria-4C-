@@ -125,7 +125,7 @@ export default function ProjectBoard({
                             <div className="flex justify-center mt-6">
                                 <button 
                                     onClick={loadMore}
-                                    className="px-6 py-3 bg-white border border-gray-200 text-gray-700 font-bold rounded-xl shadow-sm hover:bg-gray-50 hover:text-[#FF2D20] transition-colors"
+                                    className="px-8 py-3 bg-zinc-900 border border-zinc-800 text-white font-black rounded-xl shadow-xl shadow-black/10 hover:bg-black hover:-translate-y-0.5 transition-all active:scale-95 uppercase tracking-widest text-xs"
                                 >
                                     Load More Projects
                                 </button>

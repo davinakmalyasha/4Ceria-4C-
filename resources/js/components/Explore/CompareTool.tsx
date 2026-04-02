@@ -26,7 +26,7 @@ export default function CompareTool({
                     <motion.div initial={{ y: 100, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 100, opacity: 0 }}
                         className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-white rounded-2xl shadow-[0_12px_40px_rgb(0,0,0,0.2)] border border-gray-200 p-4 z-50 flex items-center gap-6 min-w-[320px]">
                         <div className="flex items-center gap-3">
-                            <div className="bg-blue-100 p-2.5 rounded-xl text-blue-600"><GitCompareArrows size={20} /></div>
+                            <div className="bg-gray-100 p-2.5 rounded-xl text-gray-900"><GitCompareArrows size={20} /></div>
                             <div>
                                 <p className="text-sm font-bold text-gray-900">{compareIds.length} properties selected</p>
                                 <p className="text-[11px] text-gray-500">Max {MAX_COMPARE} properties to compare</p>

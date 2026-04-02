@@ -13,51 +13,56 @@ const ConstructorCard = ({ cons, viewMode, onSelect, isFav, onToggleFav }: { con
     const displayName = cons?.nama_perusahaan || cons?.nama || 'Constructor';
     const mockRating = (((cons?.id || 1) % 5) * 0.1 + 4.5).toFixed(1);
     const mockReviews = ((cons?.id || 1) * 7) % 120 + 10;
-    const isVerified = (cons as any)?.is_verified ?? verifiedBadge; // Fallback: experienced show as verified
-
+    const isVerified = (cons as any)?.is_verified ?? verifiedBadge;
 
     return (
-        <div 
-            className={`bg-white rounded-2xl hover:shadow-xl hover:shadow-blue-500/10 transition-all border border-gray-100 overflow-hidden cursor-pointer ${isGrid ? 'flex flex-col' : 'flex flex-row items-center p-4'}`}
+        <motion.div 
+            whileHover={{ y: -4 }}
+            className={`bg-white rounded-2xl hover:shadow-2xl hover:shadow-red-600/10 transition-all border border-zinc-100 overflow-hidden cursor-pointer group ${isGrid ? 'flex flex-col' : 'flex flex-row items-center p-4'}`}
             onClick={() => onSelect(cons)}
         >
-            <div className={`relative ${isGrid ? 'w-full h-32 bg-gray-50 flex items-center justify-center p-4' : 'w-24 h-24 shrink-0 rounded-xl overflow-hidden'}`}>
-                <div className={`${isGrid ? 'w-20 h-20 -mb-12 shadow-lg z-10' : 'w-full h-full'} rounded-full bg-gradient-to-br from-blue-600 to-blue-900 flex items-center justify-center text-white font-bold text-2xl border-4 border-white overflow-hidden`}>
+            <div className={`relative ${isGrid ? 'w-full h-32 bg-zinc-50 flex items-center justify-center p-4' : 'w-24 h-24 shrink-0 rounded-xl overflow-hidden'}`}>
+                {/* Red Accent Bar */}
+                {isGrid && <div className="absolute top-0 left-0 w-full h-1.5 bg-red-600" />}
+                
+                <div className={`${isGrid ? 'w-20 h-20 -mb-12 shadow-xl z-10 scale-100 group-hover:scale-105 transition-transform duration-500' : 'w-full h-full'} rounded-full bg-zinc-900 flex items-center justify-center text-white font-bold text-2xl border-4 border-white overflow-hidden`}>
                     {cons?.user?.pic ? <img src={`/storage/${cons.user.pic}`} alt={displayName} className="w-full h-full object-cover" /> : displayName.charAt(0).toUpperCase()}
+                    {!cons?.user?.pic && <div className="absolute inset-0 bg-gradient-to-br from-red-600/20 to-transparent" />}
                 </div>
-                <button onClick={(e) => onToggleFav(e, cons.id)} className={`absolute top-4 right-4 z-20 p-2 rounded-full backdrop-blur-md bg-white/70 hover:bg-white transition-colors shadow-sm`}>
-                    <Heart className={`w-5 h-5 ${isFav ? 'fill-red-500 text-red-500' : 'text-gray-400'}`} />
+                <button onClick={(e) => onToggleFav(e, cons.id)} className={`absolute top-4 right-4 z-20 p-2 rounded-full backdrop-blur-md bg-white/80 hover:bg-red-600 hover:text-white transition-all shadow-sm border border-zinc-100`}>
+                    <Heart className={`w-4 h-4 ${isFav ? 'fill-current text-white' : 'text-zinc-600'}`} />
                 </button>
             </div>
 
             <div className={`p-6 ${isGrid ? 'pt-10 flex flex-col items-center text-center' : 'flex-1 pl-6 flex flex-col justify-center'}`}>
-                <div className="flex items-center gap-2 mb-1">
-                    <h4 className="text-lg font-extrabold text-gray-900 line-clamp-1">{displayName}</h4>
-                    {isVerified && <ShieldCheck className="w-5 h-5 text-green-500 shrink-0" />}
+                <div className="flex items-center gap-1.5 mb-1 justify-center">
+                    <h4 className="text-lg font-black text-zinc-900 line-clamp-1 decoration-red-600 group-hover:underline underline-offset-4 decoration-2">{displayName}</h4>
+                    {isVerified && <ShieldCheck className="w-4 h-4 text-red-600 shrink-0" />}
                 </div>
 
-                <div className="flex items-center gap-2 mb-3">
-                    <p className="text-sm font-medium text-blue-600">{cons?.jenis || 'Kontraktor Umum'}</p>
-                    <span className="text-gray-300">•</span>
-                    <div className="flex items-center gap-1 text-sm font-bold text-gray-900">
-                        <Star className="w-3.5 h-3.5 fill-yellow-400 text-yellow-400" /> {mockRating} <span className="text-gray-400 font-medium">({mockReviews})</span>
+                <div className="flex items-center gap-2 mb-4 justify-center">
+                    <p className="text-xs font-bold uppercase tracking-wider text-red-600">{cons?.jenis || 'Kontraktor Umum'}</p>
+                    <span className="text-zinc-300">|</span>
+                    <div className="flex items-center gap-1 text-sm font-black text-zinc-900">
+                        <Star className="w-3.5 h-3.5 fill-red-600 text-red-600" /> {mockRating}
                     </div>
                 </div>
 
-                <div className={`flex gap-2 ${isGrid ? 'justify-center w-full mt-2' : ''} mb-4 flex-wrap`}>
-                    {isVerified && <span className="bg-green-100 text-green-800 text-xs font-bold px-2.5 py-1 rounded-full flex items-center gap-1"><ShieldCheck className="w-3 h-3" /> Verified</span>}
-                    {certifiedBadge && <span className="bg-emerald-100 text-emerald-800 text-xs font-bold px-2.5 py-1 rounded-full flex items-center gap-1"><ShieldCheck className="w-3 h-3" /> Certified</span>}
-                    {isCompany && <span className="bg-purple-100 text-purple-800 text-xs font-bold px-2.5 py-1 rounded-full flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> Corporate</span>}
-                    <span className="bg-gray-100 text-gray-700 text-xs font-bold px-2.5 py-1 rounded-full">{cons?.pengalaman || 0} Yrs Exp</span>
+                <div className={`flex gap-1.5 ${isGrid ? 'justify-center w-full mt-1' : ''} mb-5 flex-wrap`}>
+                    {isVerified && <span className="bg-red-50 text-red-700 text-[10px] font-black uppercase tracking-tighter px-2 py-0.5 rounded border border-red-100 flex items-center gap-1">Verified</span>}
+                    {certifiedBadge && <span className="bg-zinc-900 text-white text-[10px] font-black uppercase tracking-tighter px-2 py-0.5 rounded flex items-center gap-1"><ShieldCheck className="w-2.5 h-2.5" /> Certified</span>}
+                    {isCompany && <span className="bg-red-600 text-white text-[10px] font-black uppercase tracking-tighter px-2 py-0.5 rounded flex items-center gap-1">Corporate</span>}
+                    <span className="bg-zinc-100 text-zinc-600 text-[10px] font-black uppercase tracking-tighter px-2 py-0.5 rounded border border-zinc-200">{cons?.pengalaman || 0} Yrs</span>
                 </div>
 
-                <div className={`mt-auto pt-4 border-t border-gray-50 w-full flex items-center ${isGrid ? 'justify-center' : 'justify-between'}`}>
+                <div className={`mt-auto pt-4 border-t border-zinc-50 w-full flex items-center ${isGrid ? 'justify-center' : 'justify-between'}`}>
                     <div className="text-center w-full">
-                        <span className="text-sm text-gray-500 block">Based in {cons?.alamat || 'Indonesia'}</span>
+                        <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest block mb-0.5 whitespace-nowrap">Location</span>
+                        <span className="text-sm font-black text-zinc-900 line-clamp-1">{cons?.alamat || 'Indonesia'}</span>
                     </div>
                 </div>
             </div>
-        </div>
+        </motion.div>
     );
 };
 
@@ -78,10 +83,10 @@ export default function ExploreConstructors({ constructors, isLoading, onSelectC
             </div>
 
             {/* Premium Control Bar */}
-            <div className="bg-white p-4 rounded-2xl shadow-md border border-gray-100 flex flex-col md:flex-row gap-4 items-center justify-between mb-8">
+            <div className="bg-white p-4 rounded-2xl shadow-xl shadow-zinc-200/50 border border-zinc-100 flex flex-col md:flex-row gap-4 items-center justify-between mb-8">
                 <div className="relative w-full md:w-96">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <input type="text" placeholder="Search constructors..." value={filters.query} onChange={(e) => setFilters(p => ({ ...p, query: e.target.value }))} className="w-full pl-11 pr-4 py-3 bg-gray-50 border-transparent focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-xl transition-all" />
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400" />
+                    <input type="text" placeholder="Search constructors..." value={filters.query} onChange={(e) => setFilters(p => ({ ...p, query: e.target.value }))} className="w-full pl-11 pr-4 py-3 bg-zinc-50 border-zinc-100 focus:bg-white focus:border-red-600 focus:ring-4 focus:ring-red-600/5 rounded-xl transition-all font-medium text-zinc-900" />
                 </div>
                 
                 <div className="flex w-full md:w-auto gap-3 items-center overflow-x-auto no-scrollbar pb-1 md:pb-0">
@@ -92,7 +97,7 @@ export default function ExploreConstructors({ constructors, isLoading, onSelectC
                         </select>
                     </div>
 
-                    <select value={filters.sort} onChange={(e) => setFilters(p => ({ ...p, sort: e.target.value as ConstructorSortOption }))} className="bg-gray-50 px-4 py-3 border-none rounded-xl text-sm font-medium text-gray-700 cursor-pointer focus:ring-2 focus:ring-blue-200 focus:bg-white">
+                    <select value={filters.sort} onChange={(e) => setFilters(p => ({ ...p, sort: e.target.value as ConstructorSortOption }))} className="bg-zinc-50 px-4 py-3 border-zinc-100 rounded-xl text-sm font-bold text-zinc-700 cursor-pointer focus:ring-4 focus:ring-red-600/5 focus:bg-white transition-all">
                         <option value="recommended">Best Match</option>
                         <option value="experience_desc">Most Experienced</option>
                         <option value="experience_asc">Newest</option>
@@ -125,7 +130,7 @@ export default function ExploreConstructors({ constructors, isLoading, onSelectC
                     </div>
                     {hasMore && (
                         <div className="mt-10 text-center">
-                            <button onClick={loadMore} className="bg-white border-2 border-gray-200 hover:border-blue-500 text-gray-700 hover:text-blue-500 font-bold py-3 px-8 rounded-full transition-all shadow-sm">
+                            <button onClick={loadMore} className="bg-zinc-900 hover:bg-red-600 text-white font-black py-4 px-10 rounded-full transition-all shadow-lg hover:shadow-red-600/20 active:scale-95 uppercase tracking-widest text-xs">
                                 Load More Professionals &darr;
                             </button>
                         </div>

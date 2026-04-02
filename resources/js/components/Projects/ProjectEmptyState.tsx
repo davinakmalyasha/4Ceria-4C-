@@ -35,16 +35,16 @@ export default function ProjectEmptyState({ hasQuery, onClearFilters, onPostProj
             {hasQuery ? (
                 <button 
                     onClick={onClearFilters}
-                    className="px-6 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition-colors"
+                    className="px-6 py-2.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 font-semibold rounded-xl transition-all active:scale-95"
                 >
                     Clear Filters
                 </button>
             ) : onPostProject ? (
                 <button 
                     onClick={onPostProject}
-                    className="px-6 py-2.5 bg-[#FF2D20] hover:bg-red-700 text-white font-bold rounded-xl shadow-sm transition-colors hover:shadow-md"
+                    className="px-8 py-2.5 bg-zinc-900 text-white font-extrabold rounded-xl shadow-xl shadow-black/10 hover:bg-black hover:-translate-y-0.5 transition-all text-sm uppercase tracking-widest"
                 >
-                    + Post First Project
+                    Post First Project
                 </button>
             ) : null}
         </motion.div>

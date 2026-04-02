@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\House;
+use App\Models\HousePic;
 use App\Models\Provinces;
 use App\Models\Regions;
 use Illuminate\Http\Request;
@@ -45,7 +46,23 @@ class HouseController extends Controller
 
         $house = House::create($validated);
 
-        return new HouseResource($house);
+        // Handle house_pic file uploads
+        if ($request->hasFile('house_pic')) {
+            foreach ($request->file('house_pic') as $pic) {
+                if ($pic->isValid()) {
+                    $saveFolder = 'uploads/house/house_' . Auth::id();
+                    $path = $pic->store($saveFolder, 'public');
+                    HousePic::create([
+                        'file_name' => $pic->getClientOriginalName(),
+                        'dir' => $path,
+                        'size' => $pic->getSize(),
+                        'id_house' => $house->id,
+                    ]);
+                }
+            }
+        }
+
+        return new HouseResource($house->load('housePic'));
     }
 
     public function show(House $house)

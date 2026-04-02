@@ -73,7 +73,7 @@ const ShareButton = ({ house }: { house: House }) => {
                     <motion.div initial={{ opacity: 0, scale: 0.9, y: -4 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9 }}
                         className="absolute top-full right-0 mt-2 bg-white rounded-xl shadow-[0_12px_40px_rgb(0,0,0,0.15)] border border-gray-100 p-2 z-[60] min-w-[180px]" onClick={(e) => e.stopPropagation()}>
                         <button onClick={copyLink} className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
-                            {copied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+                            {copied ? <Check size={14} className="text-[#FF2D20]" /> : <Copy size={14} />}
                             {copied ? 'Copied!' : 'Copy Link'}
                         </button>
                         <a href={`https://wa.me/?text=${encodeURIComponent(text + ' ' + url)}`} target="_blank" rel="noopener noreferrer"
@@ -144,7 +144,7 @@ export default function HouseCard({
                             {badge && (() => { const conf = BADGE_CONFIG[badge]; const Icon = conf.icon; return (<div className={`px-2.5 py-1 rounded-full text-[10px] font-bold shadow-md flex items-center gap-1 ${conf.colors}`}><Icon size={10} /> {conf.label}</div>); })()}
                         </div>
                         {sortBy === 'nearest' && userLocation && distance !== null && (
-                            <div className="bg-blue-600/90 backdrop-blur-md px-2.5 py-1 rounded-full text-[10px] font-bold text-white shadow-md">
+                            <div className="bg-gray-900/90 backdrop-blur-md px-2.5 py-1 rounded-full text-[10px] font-bold text-white shadow-md">
                                 {distance < 1 ? `${(distance * 1000).toFixed(0)}m` : `${distance.toFixed(1)}km`}
                             </div>
                         )}
@@ -157,7 +157,7 @@ export default function HouseCard({
                             <Heart size={14} fill={wishlist.has(house.id) ? 'currentColor' : 'none'} />
                         </button>
                         <button onClick={(e) => onToggleCompare(e, house.id)} title="Compare"
-                            className={`p-2 rounded-full shadow-md backdrop-blur-sm transition-all hover:scale-110 ${compareIds.includes(house.id) ? 'bg-blue-600 text-white' : 'bg-white/90 text-gray-600 hover:bg-white hover:text-blue-600'}`}>
+                            className={`p-2 rounded-full shadow-md backdrop-blur-sm transition-all hover:scale-110 ${compareIds.includes(house.id) ? 'bg-gray-900 text-white' : 'bg-white/90 text-gray-600 hover:bg-white hover:text-gray-900'}`}>
                             <GitCompareArrows size={14} />
                         </button>
                         <ShareButton house={house} />

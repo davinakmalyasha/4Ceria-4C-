@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import type { MapRef } from 'react-map-gl/maplibre';
 import type { House } from '../types/explore';
-import { SortOption, ViewMode, ITEMS_PER_PAGE, MAX_COMPARE, getDistance } from '../types/explore';
+import { SortOption, ViewMode, ITEMS_PER_PAGE, MAX_COMPARE, getDistance, getCoords } from '../types/explore';
 
 interface UseExploreHousesProps {
     houses: House[];
@@ -80,7 +80,8 @@ export function useExploreHouses({ houses, onSelectHouse }: UseExploreHousesProp
 
     const fetchHouseDetails = (id: number) => {
         setRecentlyViewed(prev => { const next = prev.filter(x => x !== id); next.unshift(id); return next.slice(0, 5); });
-        onSelectHouse ? onSelectHouse(id) : setSelectedHouseId(id);
+        onSelectHouse?.(id);
+        setSelectedHouseId(id);
     };
 
     const toggleWishlist = (e: React.MouseEvent, id: number) => {
@@ -143,6 +144,33 @@ export function useExploreHouses({ houses, onSelectHouse }: UseExploreHousesProp
     );
 
     useEffect(() => { setCurrentPage(1); }, [searchQuery, selectedCity, priceRange, minBedrooms, minBathrooms, minArea, sortBy]);
+
+    // Auto-focus map on search results
+    useEffect(() => {
+        if (!mapRef.current || processedHouses.length === 0 || !searchQuery) return;
+
+        const timer = setTimeout(() => {
+            if (processedHouses.length === 1) {
+                const c = getCoords(processedHouses[0]);
+                if (c) mapRef.current?.flyTo({ center: [c.longitude, c.latitude], zoom: 13, duration: 1200 });
+            } else if (processedHouses.length > 1) {
+                const coords = processedHouses.map(h => getCoords(h)).filter(Boolean) as { latitude: number; longitude: number }[];
+                if (coords.length > 0) {
+                    const minLat = Math.min(...coords.map(c => c.latitude));
+                    const maxLat = Math.max(...coords.map(c => c.latitude));
+                    const minLng = Math.min(...coords.map(c => c.longitude));
+                    const maxLng = Math.max(...coords.map(c => c.longitude));
+                    
+                    mapRef.current?.fitBounds(
+                        [[minLng, minLat], [maxLng, maxLat]],
+                        { padding: 80, duration: 1000 }
+                    );
+                }
+            }
+        }, 800); // Wait for user to stop typing
+
+        return () => clearTimeout(timer);
+    }, [processedHouses.length, searchQuery]);
 
     const activeFilterCount = [selectedCity !== 'all', minBedrooms > 0, minBathrooms > 0, minArea > 0, priceRange[0] > priceBounds.min || priceRange[1] < priceBounds.max].filter(Boolean).length;
 

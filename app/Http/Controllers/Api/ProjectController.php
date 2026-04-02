@@ -18,18 +18,28 @@ class ProjectController extends Controller
     {
         $user = Auth::guard('sanctum')->user();
         
-        $query = Project::with(['images', 'milestones'])
+        $query = Project::with(['images', 'milestones', 'user'])
             ->withCount(['bidsArsitek', 'bidsKontraktor']);
+
+        if ($request->query('with_bids') === 'true') {
+            $query->with(['bidsArsitek.arsitek.user', 'bidsKontraktor.kontraktor.user']);
+        }
 
         if (!$user) {
             // Public failsafe: only show open projects tagged for 'both' (or just don't show any)
-            // But since Bidding Board requires auth, we can just return empty or open projects
             $query->where('status', 'open');
             return ProjectResource::collection($query->paginate(50));
         }
 
+        // Support platform-wide project feed if requested
+        if ($request->query('feed') === 'true') {
+            $query->where('status', 'open')
+                  ->where('user_id', '!=', $user->id); // Exclude own projects from feed
+            return ProjectResource::collection($query->latest()->get());
+        }
+
         if ($user->role_type === 'user') {
-            // Client only sees their own projects
+            // Client only sees their own projects by default
             $query->where('user_id', $user->id);
             // Default sort for user
             $query->latest();
@@ -66,8 +76,6 @@ class ProjectController extends Controller
             $query->where('id', '<', 0);
         }
 
-        $query->with(['images', 'user']);
-        
         if ($request->query('all') === 'true') {
              return ProjectResource::collection($query->latest()->get());
         }

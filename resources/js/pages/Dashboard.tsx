@@ -63,6 +63,8 @@ export default function Dashboard() {
     const [profModalData, setProfModalData] = useState<{ type: 'architect' | 'constructor', data: any } | null>(null);
     const [quickSelectProjects, setQuickSelectProjects] = useState<Project[]>([]);
     const [isManagementMode, setIsManagementMode] = useState(false);
+    const [projectFeed, setProjectFeed] = useState<Project[]>([]);
+    const [latestBids, setLatestBids] = useState<any[]>([]);
 
     const handleViewActiveBids = () => {
         setIsManagementMode(true);
@@ -158,20 +160,34 @@ export default function Dashboard() {
         
         const fetchData = async () => {
             try {
-                const [houseRes, projectRes, archRes, constrRes] = await Promise.all([
+                const [houseRes, projectRes, archRes, constrRes, feedRes] = await Promise.all([
                     axios.get('/houses'),
-                    axios.get('/projects?all=true'), // Fetch all so assigned projects are guaranteed
+                    axios.get('/projects?all=true&with_bids=true'), // Fetch with bids for user projects
                     axios.get('/arsitek'),
-                    axios.get('/kontraktor')
+                    axios.get('/kontraktor'),
+                    axios.get('/projects?feed=true') // Fetch platform-wide open projects
                 ]);
                 setHouses(houseRes.data.data);
                 setProjects(projectRes.data.data);
                 setArchitects(archRes.data.data);
                 setConstructors(constrRes.data.data);
+                setProjectFeed(feedRes.data.data);
+
+                // Extract latest bids for homeowners
+                if (user.role_type === 'user') {
+                    const allBids: any[] = [];
+                    projectRes.data.data.forEach((p: Project) => {
+                        if (p.bids_arsitek) allBids.push(...p.bids_arsitek.map(b => ({ ...b, project_title: p.title })));
+                        if (p.bids_kontraktor) allBids.push(...p.bids_kontraktor.map(b => ({ ...b, project_title: p.title })));
+                    });
+                    setLatestBids(allBids.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
+                }
 
                 if (user.role_type === 'arsitek' || user.role_type === 'kontraktor') {
                     const bidsRes = await axios.get('/my-bids');
                     setMyBids(bidsRes.data.data || []);
+                    // For professionals, their "latest bids" are the ones they sent
+                    setLatestBids(bidsRes.data.data || []);
                 }
             } catch (err) {
                 console.error('Failed to fetch dashboard data', err);
@@ -304,6 +320,8 @@ export default function Dashboard() {
                                         user={user} 
                                         houses={houses} 
                                         relevantProjects={filteredSourceProjects} 
+                                        projectFeed={projectFeed}
+                                        latestBids={latestBids}
                                         isLoadingData={isLoadingData} 
                                         setActiveTab={setActiveTab} 
                                         formatCurrency={formatCurrency} 
@@ -397,6 +415,10 @@ export default function Dashboard() {
                                         houses={houses.filter((h: any) => h.user_id === user?.id)} 
                                         onAddProperty={() => setActiveTab('post-house')} 
                                         onBack={() => setActiveTab('overview')}
+                                        onHouseDeleted={(houseId) => setHouses(prev => prev.filter(h => h.id !== houseId))}
+                                        onHouseUpdated={(updated) => {
+                                            setHouses(prev => prev.map(h => h.id === updated.id ? { ...h, ...updated } : h));
+                                        }}
                                     />
                                 </motion.div>
                             )}

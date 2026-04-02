@@ -38,9 +38,9 @@ export const ITEMS_PER_PAGE = 8;
 export const MAX_COMPARE = 3;
 
 export const BADGE_CONFIG: Record<string, { label: string; icon: typeof Flame; colors: string }> = {
-    new: { label: 'New', icon: Star, colors: 'bg-emerald-500/90 text-white' },
-    popular: { label: 'Popular', icon: Eye, colors: 'bg-amber-500/90 text-white' },
-    hot_deal: { label: 'Hot Deal', icon: Flame, colors: 'bg-rose-500/90 text-white' },
+    new: { label: 'New', icon: Star, colors: 'bg-gray-900 text-white' },
+    popular: { label: 'Popular', icon: Eye, colors: 'bg-gray-100 text-gray-700 border border-gray-200' },
+    hot_deal: { label: 'Hot Deal', icon: Flame, colors: 'bg-[#FF2D20] text-white' },
 };
 
 export const getHouseBadge = (house: House, allHouses: House[]): HouseBadge => {

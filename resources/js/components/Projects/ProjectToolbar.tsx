@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, SlidersHorizontal, ArrowDownAZ, LayoutGrid, List, KanbanSquare } from 'lucide-react';
+import { Search, SlidersHorizontal, ArrowDownAZ, LayoutGrid, List, KanbanSquare, Plus } from 'lucide-react';
 
 interface Props {
     search: string;
@@ -88,9 +88,9 @@ export default function ProjectToolbar({
                     {showPostButton && onPostProject && (
                         <button 
                             onClick={onPostProject} 
-                            className="bg-[#FF2D20] text-white px-5 py-2.5 rounded-xl font-bold hover:bg-red-700 transition-all shadow-[0_4px_14px_0_rgba(255,45,32,0.2)] hover:shadow-[0_6px_20px_rgba(255,45,32,0.3)] hover:-translate-y-0.5"
+                            className="bg-zinc-900 text-white px-8 py-2.5 rounded-xl font-extrabold text-xs lg:text-sm uppercase tracking-widest hover:bg-black hover:shadow-[0_8px_25px_-5px_rgba(0,0,0,0.3)] hover:-translate-y-0.5 transition-all active:scale-95 shadow-lg shadow-black/10"
                         >
-                            + Post Project
+                            Post Project
                         </button>
                     )}
                 </div>

@@ -51,7 +51,7 @@ export function useSellHouse(onSuccess: () => void) {
                 } else if (value !== null && value !== '') {
                     // price needs dots stripped based on API, but let's send exactly
                     // The backend says: 'price' => 'required|numeric'
-                    const finalVal = key === 'price' ? String(value).replace(/\./g, '') : value;
+                    const finalVal = key === 'price' ? String(value).replace(/\D/g, '') : value;
                     payload.append(key, finalVal as string);
                 }
             });

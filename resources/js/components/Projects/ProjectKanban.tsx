@@ -4,9 +4,9 @@ import { Project, STATUS_CONFIG } from '../../types/project.types';
 import ProjectCard from './ProjectCard';
 
 const COLUMNS = [
-    { id: 'open', title: 'Open For Bidding', color: 'bg-emerald-500', bg: 'bg-emerald-50/50', border: 'border-emerald-200' },
-    { id: 'in_progress', title: 'In Progress', color: 'bg-amber-500', bg: 'bg-amber-50/50', border: 'border-amber-200' },
-    { id: 'completed', title: 'Completed', color: 'bg-blue-500', bg: 'bg-blue-50/50', border: 'border-blue-200' },
+    { id: 'open', title: 'Open For Bidding', color: 'bg-red-500', bg: 'bg-red-50/50', border: 'border-red-200' },
+    { id: 'in_progress', title: 'In Progress', color: 'bg-zinc-500', bg: 'bg-zinc-50/50', border: 'border-zinc-200' },
+    { id: 'completed', title: 'Completed', color: 'bg-zinc-900', bg: 'bg-zinc-100/50', border: 'border-zinc-300' },
 ];
 
 interface KanbanProps {

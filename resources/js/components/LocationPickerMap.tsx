@@ -1,24 +1,66 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useState } from 'react';
 import Map, { Marker, NavigationControl, FullscreenControl } from 'react-map-gl/maplibre';
 import type { MapRef } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { Locate, MapPin } from 'lucide-react';
+import { Locate, MapPin, Loader2 } from 'lucide-react';
+
+export interface ReverseGeoData {
+    province: string;
+    city: string;
+    kecamatan: string;
+    kelurahan: string;
+    postal_code: string;
+    street_name: string;
+}
 
 interface LocationPickerMapProps {
     latitude: number;
     longitude: number;
-    onChange: (lat: number, lng: number) => void;
+    onChange: (lat: number, lng: number, geoData?: ReverseGeoData) => void;
+}
+
+async function reverseGeocode(lat: number, lng: number): Promise<ReverseGeoData> {
+    try {
+        const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1&accept-language=id`,
+            { headers: { 'User-Agent': '4Ceria-App' } }
+        );
+        const data = await res.json();
+        const addr = data.address || {};
+
+        return {
+            province: addr.state || addr.province || '',
+            city: addr.city || addr.county || addr.town || addr.city_district || '',
+            kecamatan: addr.suburb || addr.district || addr.city_district || '',
+            kelurahan: addr.village || addr.neighbourhood || addr.hamlet || '',
+            postal_code: addr.postcode || '',
+            street_name: addr.road || addr.pedestrian || addr.footway || '',
+        };
+    } catch {
+        return { province: '', city: '', kecamatan: '', kelurahan: '', postal_code: '', street_name: '' };
+    }
 }
 
 export default function LocationPickerMap({ latitude, longitude, onChange }: LocationPickerMapProps) {
     const mapRef = useRef<MapRef>(null);
+    const [isGeocoding, setIsGeocoding] = useState(false);
 
-    // Initial default or provided coords
     const lat = latitude || -6.1751;
     const lng = longitude || 106.8271;
 
+    const handleGeoLookup = async (newLat: number, newLng: number) => {
+        setIsGeocoding(true);
+        const geoData = await reverseGeocode(newLat, newLng);
+        onChange(newLat, newLng, geoData);
+        setIsGeocoding(false);
+    };
+
     const handleMapClick = (e: any) => {
-        onChange(e.lngLat.lat, e.lngLat.lng);
+        handleGeoLookup(e.lngLat.lat, e.lngLat.lng);
+    };
+
+    const handleMarkerDragEnd = (e: any) => {
+        handleGeoLookup(e.lngLat.lat, e.lngLat.lng);
     };
 
     const handleLocateMe = () => {
@@ -26,8 +68,8 @@ export default function LocationPickerMap({ latitude, longitude, onChange }: Loc
             navigator.geolocation.getCurrentPosition((position) => {
                 const newLat = position.coords.latitude;
                 const newLng = position.coords.longitude;
-                onChange(newLat, newLng);
                 mapRef.current?.flyTo({ center: [newLng, newLat], zoom: 15, duration: 1200 });
+                handleGeoLookup(newLat, newLng);
             });
         }
     };
@@ -56,7 +98,7 @@ export default function LocationPickerMap({ latitude, longitude, onChange }: Loc
                 <FullscreenControl position="top-right" />
                 <NavigationControl position="top-right" />
 
-                <Marker longitude={lng} latitude={lat} anchor="bottom" draggable onDragEnd={(e) => onChange(e.lngLat.lat, e.lngLat.lng)}>
+                <Marker longitude={lng} latitude={lat} anchor="bottom" draggable onDragEnd={handleMarkerDragEnd}>
                     <div className="text-[#FF2D20] drop-shadow-md cursor-pointer hover:scale-110 transition-transform">
                         <MapPin size={32} strokeWidth={2.5} fill="currentColor" />
                     </div>
@@ -73,7 +115,11 @@ export default function LocationPickerMap({ latitude, longitude, onChange }: Loc
 
             <div className="absolute top-4 left-4 right-14 bg-white/90 backdrop-blur-md px-4 py-2.5 rounded-xl border border-gray-100 shadow-sm text-xs font-bold text-gray-700 z-10 flex items-center justify-between pointer-events-none">
                 <span>Click anywhere on the map to set property location</span>
-                <span className="opacity-50 hidden sm:block">Or drag the pin</span>
+                {isGeocoding ? (
+                    <span className="flex items-center gap-1 text-red-500"><Loader2 size={12} className="animate-spin" /> Detecting...</span>
+                ) : (
+                    <span className="opacity-50 hidden sm:block">Or drag the pin</span>
+                )}
             </div>
         </div>
     );

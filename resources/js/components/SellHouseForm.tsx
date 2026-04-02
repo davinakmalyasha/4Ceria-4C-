@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Home, MapPin, CheckCircle, UploadCloud, X, DollarSign, Maximize, Layers, ChevronLeft } from 'lucide-react';
 import { useSellHouse, HouseFormData } from '../hooks/useSellHouse';
-import LocationPickerMap from './LocationPickerMap';
+import LocationPickerMap, { ReverseGeoData } from './LocationPickerMap';
 
 interface Props {
     onCancel: () => void;
@@ -12,13 +12,34 @@ interface Props {
 export default function SellHouseForm({ onCancel, onSuccess }: Props) {
     const { formData, handleChange, submit, isLoading, error } = useSellHouse(onSuccess);
 
+    const formatNumber = (val: string) => {
+        if (!val) return '';
+        const num = val.replace(/\D/g, '');
+        return new Intl.NumberFormat('en-US').format(parseInt(num));
+    };
+
+    const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const rawValue = e.target.value.replace(/\D/g, '');
+        handleChange('price', rawValue);
+    };
+
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files) handleChange('house_pic', Array.from(e.target.files));
     };
 
     return (
         <div className="max-w-4xl mx-auto bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="bg-gradient-to-r from-gray-900 to-gray-800 p-8 text-white relative flex justify-between items-center">
+            <style>{`
+                input::-webkit-outer-spin-button,
+                input::-webkit-inner-spin-button {
+                    -webkit-appearance: none;
+                    margin: 0;
+                }
+                input[type=number] {
+                    -moz-appearance: textfield;
+                }
+            `}</style>
+            <div className="bg-gradient-to-r from-red-700 via-red-600 to-[#FF2D20] p-8 text-white relative flex justify-between items-center">
                 <div className="flex items-center gap-4">
                     <button type="button" onClick={onCancel} className="p-2 bg-white/10 rounded-xl hover:bg-white/20 transition-colors flex items-center gap-2 text-sm font-bold">
                         <ChevronLeft size={18} /> Back
@@ -48,7 +69,14 @@ export default function SellHouseForm({ onCancel, onSuccess }: Props) {
                             <label className="block text-xs font-bold text-gray-500 uppercase">Price (IDR)</label>
                             <div className="relative">
                                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">Rp</span>
-                                <input required type="number" min="0" className="w-full mt-1 p-3 pl-10 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:outline-none transition-all" value={formData.price} onChange={e => handleChange('price', e.target.value)} placeholder="500000000" />
+                                <input 
+                                    required 
+                                    type="text" 
+                                    className="w-full mt-1 p-3 pl-10 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:outline-none transition-all" 
+                                    value={formatNumber(formData.price)} 
+                                    onChange={handlePriceChange} 
+                                    placeholder="50,000,000" 
+                                />
                             </div>
                         </div>
                         <div>
@@ -85,7 +113,18 @@ export default function SellHouseForm({ onCancel, onSuccess }: Props) {
                             <LocationPickerMap 
                                 latitude={parseFloat(formData.lat)} 
                                 longitude={parseFloat(formData.lng)} 
-                                onChange={(lat, lng) => { handleChange('lat', lat.toString()); handleChange('lng', lng.toString()); }} 
+                                onChange={(lat, lng, geoData) => { 
+                                    handleChange('lat', lat.toString()); 
+                                    handleChange('lng', lng.toString()); 
+                                    if (geoData) {
+                                        handleChange('province', geoData.province);
+                                        handleChange('kab_kota', geoData.city);
+                                        handleChange('kecamatan', geoData.kecamatan);
+                                        handleChange('kelurahan', geoData.kelurahan);
+                                        handleChange('postal_code', geoData.postal_code);
+                                        handleChange('street_name', geoData.street_name);
+                                    }
+                                }} 
                             />
                         </div>
 
@@ -126,7 +165,25 @@ export default function SellHouseForm({ onCancel, onSuccess }: Props) {
                                 <span className="text-sm font-medium text-gray-600 group-hover:text-red-600">Click to upload images</span>
                                 <input type="file" multiple accept="image/*" className="hidden" onChange={handleFileChange} />
                             </label>
-                            {formData.house_pic && <p className="text-xs text-gray-500 mt-2 font-medium">{formData.house_pic.length} files selected</p>}
+                            {formData.house_pic && formData.house_pic.length > 0 && (
+                                <div className="flex gap-3 mt-3 flex-wrap">
+                                    {formData.house_pic.map((file, i) => (
+                                        <div key={i} className="relative w-20 h-20 rounded-xl overflow-hidden group/thumb border border-gray-200 shadow-sm transition-all hover:scale-105">
+                                            <img src={URL.createObjectURL(file)} alt={`Preview ${i + 1}`} className="w-full h-full object-cover" />
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const newFiles = formData.house_pic!.filter((_, idx) => idx !== i);
+                                                    handleChange('house_pic', newFiles.length > 0 ? newFiles : null);
+                                                }}
+                                                className="absolute top-1 right-1 bg-black/60 text-white p-1 rounded-full opacity-0 group-hover/thumb:opacity-100 transition-opacity backdrop-blur-sm"
+                                            >
+                                                <X size={12} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

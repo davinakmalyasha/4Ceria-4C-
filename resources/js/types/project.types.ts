@@ -85,10 +85,10 @@ export interface ProjectFilter {
 }
 
 export const STATUS_CONFIG: Record<string, { label: string; icon: any; colors: string; bg: string }> = {
-    open: { label: 'Open', icon: AlertCircle, colors: 'text-emerald-700 border-emerald-200', bg: 'bg-emerald-50' },
-    in_progress: { label: 'In Progress', icon: Clock, colors: 'text-amber-700 border-amber-200', bg: 'bg-amber-50' },
-    completed: { label: 'Completed', icon: CheckCircle, colors: 'text-blue-700 border-blue-200', bg: 'bg-blue-50' },
-    cancelled: { label: 'Cancelled', icon: FileText, colors: 'text-gray-700 border-gray-200', bg: 'bg-gray-50' },
+    open: { label: 'Open', icon: AlertCircle, colors: 'text-red-600 border-red-100', bg: 'bg-red-50' },
+    in_progress: { label: 'In Progress', icon: Clock, colors: 'text-zinc-600 border-zinc-200', bg: 'bg-zinc-50' },
+    completed: { label: 'Completed', icon: CheckCircle, colors: 'text-white border-zinc-900', bg: 'bg-zinc-900' },
+    cancelled: { label: 'Cancelled', icon: FileText, colors: 'text-zinc-400 border-zinc-100', bg: 'bg-gray-50' },
 };
 
 export const getStatusConfig = (status: string) => {

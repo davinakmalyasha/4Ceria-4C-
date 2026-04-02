@@ -55,7 +55,7 @@ export default function ScheduleVisitModal({ house, onClose }: Props) {
                     <AnimatePresence mode="wait">
                         {showSuccess ? (
                             <motion.div key="success" initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} className="flex flex-col items-center justify-center py-10 text-center">
-                                <div className="w-20 h-20 rounded-full bg-green-100 text-green-500 flex items-center justify-center mb-6"><CheckCircle size={40} /></div>
+                                <div className="w-20 h-20 rounded-full bg-red-50 text-[#FF2D20] flex items-center justify-center mb-6"><CheckCircle size={40} /></div>
                                 <h3 className="text-2xl font-black text-gray-900 mb-2">{mode === 'visit' ? 'Kunjungan Dijadwalkan!' : 'Penawaran Terkirim!'}</h3>
                                 <p className="text-gray-500 font-medium max-w-xs">Admin kami akan segera menghubungi Anda untuk mengonfirmasi {mode === 'visit' ? 'jadwal kunjungan' : 'penawaran harga'} properti ini.</p>
                                 <button onClick={onClose} className="mt-6 px-6 py-3 bg-gray-900 text-white rounded-xl font-bold hover:bg-gray-800 transition-colors">Tutup</button>

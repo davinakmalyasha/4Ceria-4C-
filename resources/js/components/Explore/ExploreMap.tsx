@@ -49,7 +49,7 @@ export default function ExploreMap({
     const popupCoords = popupInfo ? getCoords(popupInfo) : null;
 
     return (
-        <div className="h-[500px] w-full rounded-2xl overflow-hidden shadow-lg border border-gray-200 relative">
+        <div className="h-[400px] w-full rounded-2xl overflow-hidden shadow-lg border border-gray-200 relative">
             <Map ref={mapRef}
                 initialViewState={{ longitude: userLocation?.longitude ?? 106.8271, latitude: userLocation?.latitude ?? -6.1751, zoom: 11 }}
                 style={{ width: '100%', height: '100%' }}
@@ -60,9 +60,9 @@ export default function ExploreMap({
                 {userLocation && (
                     <Marker longitude={userLocation.longitude} latitude={userLocation.latitude} anchor="center">
                         <div className="relative flex items-center justify-center">
-                            <div className="absolute w-10 h-10 rounded-full bg-blue-500/20 animate-ping" />
-                            <div className="absolute w-6 h-6 rounded-full bg-blue-500/30" />
-                            <div className="w-3.5 h-3.5 rounded-full bg-blue-600 border-2 border-white shadow-lg z-10" />
+                            <div className="absolute w-10 h-10 rounded-full bg-red-500/20 animate-ping" />
+                            <div className="absolute w-6 h-6 rounded-full bg-red-500/30" />
+                            <div className="w-3.5 h-3.5 rounded-full bg-[#FF2D20] border-2 border-white shadow-lg z-10" />
                         </div>
                     </Marker>
                 )}
@@ -82,18 +82,11 @@ export default function ExploreMap({
                 )}
             </Map>
 
-            {/* Map Overlay Controls */}
-            <div className="absolute top-4 left-4 right-16 flex gap-3 z-10">
-                <div className="flex-1 relative">
-                    <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                    <input type="text" placeholder="Search houses by name, street, or city..."
-                        value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-10 pr-4 py-3 bg-white/95 backdrop-blur-xl rounded-xl border border-white/50 shadow-[0_4px_20px_rgb(0,0,0,0.1)] text-sm font-medium text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#FF2D20]/30 focus:border-[#FF2D20]/50 transition-all" />
-                    {searchQuery && <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"><X size={14} /></button>}
-                </div>
+            {/* Map Overlay Controls - Only City Dropdown remains */}
+            <div className="absolute top-4 left-4 right-16 flex justify-end gap-3 z-10">
                 <div ref={dropdownRef} className="relative">
                     <button onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                        className="h-full px-4 bg-white/95 backdrop-blur-xl rounded-xl border border-white/50 shadow-[0_4px_20px_rgb(0,0,0,0.1)] text-sm font-semibold text-gray-700 flex items-center gap-2 hover:bg-white transition-all min-w-[160px] justify-between">
+                        className="h-full px-4 py-3 bg-white/95 backdrop-blur-xl rounded-xl border border-white/50 shadow-[0_4px_20px_rgb(0,0,0,0.1)] text-sm font-semibold text-gray-700 flex items-center gap-2 hover:bg-white transition-all min-w-[160px] justify-between">
                         <div className="flex items-center gap-2 truncate"><MapPin size={14} className="text-[#FF2D20] shrink-0" /><span className="truncate">{selectedCity === 'all' ? 'All Cities' : selectedCity}</span></div>
                         <ChevronDown size={14} className={`shrink-0 text-gray-400 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} />
                     </button>
@@ -117,7 +110,7 @@ export default function ExploreMap({
             </div>
 
             {userLocation && (
-                <button onClick={onFlyToUser} className="absolute bottom-4 left-4 bg-white/95 backdrop-blur-xl p-3 rounded-xl border border-white/50 shadow-[0_4px_20px_rgb(0,0,0,0.1)] text-blue-600 hover:text-blue-800 hover:bg-white transition-all z-10 group" title="Go to my location">
+                <button onClick={onFlyToUser} className="absolute bottom-4 left-4 bg-white/95 backdrop-blur-xl p-3 rounded-xl border border-white/50 shadow-[0_4px_20px_rgb(0,0,0,0.1)] text-[#FF2D20] hover:text-red-700 hover:bg-white transition-all z-10 group" title="Go to my location">
                     <Locate size={18} className="group-hover:scale-110 transition-transform" />
                 </button>
             )}
