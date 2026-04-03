@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\ProjectFeatureController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\RoomController;
+use App\Http\Controllers\Api\ChatController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -76,6 +77,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Protected API endpoints
     Route::apiResource('projects', ProjectController::class)->except(['index', 'show']);
+    Route::post('/projects/{project}/update', [ProjectController::class, 'update']);
     Route::post('/projects/{project}/bids', [ProjectController::class, 'submitBid']);
     Route::post('/projects/{project}/accept-bid', [ProjectController::class, 'acceptBid']);
     Route::post('/projects/{project}/decline-bid', [ProjectController::class, 'declineBid']);
@@ -107,6 +109,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/notifications', [NotificationController::class, 'index']);
     Route::post('/notifications/{notification}/read', [NotificationController::class, 'markAsRead']);
     Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
+
+    // Chat
+    Route::get('/conversations', [ChatController::class, 'index']);
+    Route::post('/conversations', [ChatController::class, 'store']);
+    Route::get('/conversations/{conversation}', [ChatController::class, 'show']);
+    Route::post('/conversations/{conversation}/messages', [ChatController::class, 'sendMessage']);
+
     // Admin Routes
     Route::middleware('admin')->prefix('admin')->group(function () {
         Route::get('/stats', [\App\Http\Controllers\Api\Admin\AdminDashboardController::class, 'stats']);

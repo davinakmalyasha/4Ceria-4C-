@@ -22,22 +22,15 @@ import ExploreArchitects from '../components/Architects/ExploreArchitects';
 import ExploreConstructors from '../components/Constructors/ExploreConstructors';
 import SavedItemsDashboard from '../components/SavedItemsDashboard';
 import ChatWidget from '../components/ChatWidget';
+import ChatTab from '../components/Chat/ChatTab';
 import NotificationsDropdown from '../components/NotificationsDropdown';
 import ProjectQuickSelectModal from '../components/Projects/ProjectQuickSelectModal';
 import ProfessionalProfileModal from '../components/ProfessionalProfileModal';
 import ProfessionalProjects from '../components/Projects/ProfessionalProjects';
+import HouseDetailsModal from '../components/Explore/HouseDetailsModal';
+import type { House } from '../types/explore';
 
 
-interface House {
-    id: number;
-    name: string;
-    price: number;
-    description: string;
-    address?: { street?: string; kelurahan?: string; kecamatan?: string; city: string; province: string; postal_code?: string; coordinates?: string; };
-    dimensions?: { width: number; length: number; floors: number };
-    rooms?: { bedrooms: number; bathrooms: number };
-    housePic?: { dir: string }[];
-}
 
 
 export default function Dashboard() {
@@ -54,7 +47,50 @@ export default function Dashboard() {
     const [isEditingProfile, setIsEditingProfile] = useState(false);
     const [selectedProfessional, setSelectedProfessional] = useState<{ type: 'architect' | 'constructor', data: any } | null>(null);
     const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-    const [activeChat, setActiveChat] = useState<any | null>(null);
+    const [startingChatUserId, setStartingChatUserId] = useState<number | null>(null);
+
+    const [selectedHouse, setSelectedHouse] = useState<House | null>(null);
+
+    const handleOpenChat = (profOrId: any) => {
+        const targetId = typeof profOrId === 'number' || typeof profOrId === 'string' ? Number(profOrId) : (profOrId.user_id || profOrId.id);
+        setStartingChatUserId(targetId);
+        setActiveTab('chat');
+        setProfModalData(null);
+        setSelectedHouse(null);
+    };
+    useEffect(() => {
+        const handleOpenHouse = (e: any) => {
+            const hId = e.detail;
+            const h = houses.find(x => x.id === hId);
+            if (h) setSelectedHouse(h);
+        };
+        const handleStartChat = (e: any) => {
+            handleOpenChat(e.detail);
+        };
+        window.addEventListener('openHouseDetails', handleOpenHouse);
+        window.addEventListener('start_chat', handleStartChat);
+        return () => {
+            window.removeEventListener('openHouseDetails', handleOpenHouse);
+            window.removeEventListener('start_chat', handleStartChat);
+        };
+    }, [houses]);
+
+    const [houseWishlist, setHouseWishlist] = useState<Set<number>>(() => {
+        try { return new Set(JSON.parse(localStorage.getItem('house_wishlist') || '[]')); } catch { return new Set(); }
+    });
+
+    useEffect(() => {
+        localStorage.setItem('house_wishlist', JSON.stringify([...houseWishlist]));
+    }, [houseWishlist]);
+
+    const handleToggleWishlist = (e: React.MouseEvent, id: number) => {
+        e.stopPropagation();
+        setHouseWishlist(prev => {
+            const next = new Set(prev);
+            next.has(id) ? next.delete(id) : next.add(id);
+            return next;
+        });
+    };
 
     const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
     const [isDeletingProject, setIsDeletingProject] = useState(false);
@@ -149,11 +185,26 @@ export default function Dashboard() {
     };
 
     // Backend securely handles specific filtering now
-    const relevantProjects = user?.role_type === 'user' 
+    const myBidsProjects = user?.role_type === 'user' 
         ? projects.filter(p => p.owner_id === user.id)
-        : projects;
+        : projects.filter(p => {
+            const isArsitek = user?.role_type === 'arsitek';
+            const profId = isArsitek ? user?.arsitek?.id : user?.kontraktor?.id;
+            const bids = isArsitek ? p.bids_arsitek : p.bids_kontraktor;
+            return bids?.some((b: any) => (isArsitek ? b.arsitek_id : b.kontraktor_id) === profId);
+        });
 
-    const filteredSourceProjects = projects;
+    const hiredProjects = user?.role_type === 'user'
+        ? projects.filter(p => p.owner_id === user.id && (p.selected_architect_id || p.selected_contractor_id))
+        : projects.filter(p => {
+            const profId = user?.role_type === 'arsitek' ? user?.arsitek?.id : user?.kontraktor?.id;
+            const isDirectMatch = (user?.role_type === 'arsitek' && String(p.selected_architect_id) === String(profId)) ||
+                                (user?.role_type === 'kontraktor' && String(p.selected_contractor_id) === String(profId));
+            return isDirectMatch;
+        });
+
+    const relevantProjects = user?.role_type === 'user' ? myBidsProjects : hiredProjects;
+    const filteredSourceProjects = relevantProjects;
 
     useEffect(() => {
         if (!user) return;
@@ -221,6 +272,7 @@ export default function Dashboard() {
                 { id: 'architects', label: 'Hire Architect', icon: Users },
                 { id: 'constructors', label: 'Hire Constructor', icon: Briefcase },
                 { id: 'saved', label: 'Saved Items', icon: Heart },
+                { id: 'chat', label: 'Direct Chat', icon: MessageSquare },
                 { id: 'profile', label: 'My Profile', icon: UserIcon },
             ];
         }
@@ -228,8 +280,9 @@ export default function Dashboard() {
         return [
             ...base,
             { id: 'projects', label: 'Bidding Board', icon: MessageSquare },
-            { id: 'management', label: 'Project Management', icon: CheckSquare },
+            { id: 'management', label: 'My Projects', icon: CheckSquare },
             { id: 'my-bids', label: 'My Proposals', icon: FileText },
+            { id: 'chat', label: 'Messages', icon: MessageSquare },
             { id: 'profile', label: 'My Profile', icon: UserIcon },
         ];
     })();
@@ -246,14 +299,14 @@ export default function Dashboard() {
         <>
         <div className="min-h-screen bg-neutral-100 flex overflow-hidden font-sans">
             {sidebarOpen && (
-                <div className="fixed inset-0 bg-black/50 z-40 md:hidden" onClick={() => setSidebarOpen(false)} />
+                <div className="fixed inset-0 bg-black/50 z-[115] md:hidden" onClick={() => setSidebarOpen(false)} />
             )}
 
             {/* Sidebar */}
             <motion.aside 
                 initial={{ x: -300 }}
                 animate={{ x: sidebarOpen ? 0 : (window.innerWidth >= 768 ? 0 : -300) }}
-                className={`fixed md:relative inset-y-0 left-0 w-52 bg-white shadow-xl shadow-black/5 z-50 transform transition-transform duration-300 flex flex-col`}
+                className={`fixed md:relative inset-y-0 left-0 w-52 bg-white shadow-xl shadow-black/5 z-[120] transform transition-transform duration-300 flex flex-col`}
             >
 
 
@@ -285,7 +338,11 @@ export default function Dashboard() {
                                         (user?.role_type === 'user' && item.id === 'projects')
                                     );
                                 }}
-                                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[13.5px] font-medium transition-colors ${isActive ? 'bg-red-50 text-[#FF2D20]' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}
+                                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[13.5px] font-medium transition-colors ${
+                                    isActive 
+                                        ? (item.id === 'my-bids' ? 'bg-zinc-100 text-zinc-600' : 'bg-red-50 text-[#FF2D20]') 
+                                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                                }`}
                             >
                                 <Icon className="w-5 h-5" />
                                 {item.label}
@@ -304,17 +361,17 @@ export default function Dashboard() {
 
             {/* Main Content Area */}
             <main className="flex-1 flex flex-col h-screen overflow-hidden">
-                <header className="h-14 bg-white/80 backdrop-blur-md border-b border-gray-100 flex items-center justify-between px-6 z-30 shrink-0">
+                <header className="h-14 bg-white/80 backdrop-blur-md border-b border-gray-100 flex items-center justify-between px-6 z-[100] shrink-0">
                     <button className="p-2 -ml-2 rounded-lg text-gray-600 hover:bg-gray-100 md:hidden" onClick={() => setSidebarOpen(true)}>
                         <Menu className="w-6 h-6" />
                     </button>
-                    <div className="hidden md:block text-sm font-semibold text-gray-500 capitalize">{activeTab.replace('-', ' ')}</div>
+                    <div className="hidden md:block text-sm font-semibold text-gray-500 capitalize">{activeTab === 'profile' ? 'My Profile' : activeTab.replace('-', ' ')}</div>
                     <div className="flex items-center gap-2">
                         <NotificationsDropdown />
                     </div>
                 </header>
 
-                <div className="flex-1 overflow-y-auto p-4 sm:p-8 scrollbar-thin">
+                <div className="flex-1 overflow-y-auto p-4 sm:p-8 scrollbar-thin relative z-0">
                     <div className="max-w-7xl mx-auto">
                         <AnimatePresence mode="wait">
                             {/* OVERVIEW TAB */}
@@ -323,7 +380,7 @@ export default function Dashboard() {
                                     <OverviewContent 
                                         user={user} 
                                         houses={houses} 
-                                        relevantProjects={filteredSourceProjects} 
+                                        relevantProjects={myBidsProjects} 
                                         projectFeed={projectFeed}
                                         latestBids={latestBids}
                                         isLoadingData={isLoadingData} 
@@ -331,6 +388,10 @@ export default function Dashboard() {
                                         formatCurrency={formatCurrency} 
                                         onViewActiveBids={handleViewActiveBids}
                                         onEditProfile={() => setIsEditingProfile(true)}
+                                        // Specific counts for pros
+                                        openTendersCount={projectFeed.length}
+                                        myBidsCount={myBids.length}
+                                        myProjectsCount={hiredProjects.length}
                                     />
                                 </motion.div>
                             )}
@@ -338,10 +399,14 @@ export default function Dashboard() {
                             {/* HOUSES TAB */}
                             {activeTab === 'houses' && (
                                 <motion.div key="houses" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="w-full">
-                                    <ExploreHouses houses={houses} isLoading={isLoadingData} onSelectHouse={(id) => {
-                                        const h = houses.find(x => x.id === id);
-                                        // Usually ExploreHouses has its own modal, it passes internal ID
-                                    }} />
+                                    <ExploreHouses 
+                                        houses={houses} 
+                                        isLoading={isLoadingData} 
+                                        onSelectHouse={(id) => {
+                                            const h = houses.find(x => x.id === id);
+                                            if (h) setSelectedHouse(h);
+                                        }} 
+                                    />
                                 </motion.div>
                             )}
 
@@ -389,8 +454,11 @@ export default function Dashboard() {
                             {activeTab === 'my-bids' && (
                                 <motion.div key="my-bids" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-6">
                                     <div className="flex flex-col gap-2 mb-6">
-                                        <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                                            <FileText className="w-6 h-6 text-[#FF2D20]" /> My Proposals Pipeline
+                                        <h3 className="text-2xl font-black text-gray-900 flex items-center gap-3">
+                                            <span className="w-10 h-10 rounded-xl bg-zinc-100 text-zinc-500 flex items-center justify-center text-lg shadow-sm border border-zinc-200">
+                                                <FileText size={20} />
+                                            </span>
+                                            My Proposals Pipeline
                                         </h3>
                                         <p className="text-gray-500 text-sm">Track the status of all your submitted project bids and connect with homeowners.</p>
                                     </div>
@@ -444,7 +512,7 @@ export default function Dashboard() {
                                             data={selectedProfessional.data}
                                             projects={relevantProjects}
                                             onClose={() => setSelectedProfessional(null)} 
-                                            onOpenChat={(prof) => setActiveChat(prof)}
+                                            onOpenChat={handleOpenChat}
                                         />
                                     ) : (
                                         <ExploreArchitects 
@@ -466,7 +534,7 @@ export default function Dashboard() {
                                             data={selectedProfessional.data}
                                             projects={relevantProjects}
                                             onClose={() => setSelectedProfessional(null)} 
-                                            onOpenChat={(prof) => setActiveChat(prof)}
+                                            onOpenChat={handleOpenChat}
                                         />
                                     ) : (
                                         <ExploreConstructors 
@@ -484,10 +552,12 @@ export default function Dashboard() {
                                         <div className="flex items-center gap-4">
                                             <div className="flex flex-col gap-2">
                                                 <h3 className="text-2xl font-black text-gray-900 flex items-center gap-3">
-                                                    <span className="w-10 h-10 rounded-xl bg-red-50 text-red-600 flex items-center justify-center text-lg shadow-sm border-red-100">🏗️</span> 
-                                                    Active Managed Projects
+                                                    <span className="w-10 h-10 rounded-xl bg-zinc-100 text-zinc-500 flex items-center justify-center text-lg shadow-sm border-zinc-200">
+                                                        <Briefcase size={20} />
+                                                    </span> 
+                                                    My Projects
                                                 </h3>
-                                                <p className="text-gray-500 text-sm">Manage your accepted projects, coordinate with clients, and track milestones.</p>
+                                                <p className="text-gray-500 text-sm opacity-80">Manage your accepted projects, coordinate with clients, and track milestones.</p>
                                             </div>
                                             <button 
                                                 onClick={() => {
@@ -503,7 +573,8 @@ export default function Dashboard() {
                                                 <svg className={`w-5 h-5 ${isLoadingData ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
                                             </button>
                                         </div>
-                                    <ProfessionalProjects 
+                                    <div className="mt-10">
+                                        <ProfessionalProjects 
                                         projects={projects.filter(p => {
                                             const profId = user?.role_type === 'arsitek' ? user?.arsitek?.id : user?.kontraktor?.id;
                                             
@@ -527,13 +598,13 @@ export default function Dashboard() {
                                         onViewProject={(p) => setSelectedProject(p)}
                                         formatCurrency={formatCurrency}
                                     />
+                                    </div>
                                 </motion.div>
                             )}
 
                             {/* PROFILE TAB */}
                             {activeTab === 'profile' && (
                                 <motion.div key="profile" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-6">
-                                    <h3 className="text-2xl font-bold text-gray-900">My Profile</h3>
                                     <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-200 max-w-3xl">
                                         <div className="flex items-center gap-6">
                                             <div className="w-24 h-24 rounded-full bg-red-100 flex items-center justify-center text-red-600 font-extrabold text-4xl">
@@ -550,7 +621,7 @@ export default function Dashboard() {
                                             <EditProfileForm onCancel={() => setIsEditingProfile(false)} />
                                         ) : (
                                             <div className="space-y-6">
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                                     <div>
                                                         <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Username</label>
                                                         <div className="text-gray-900 font-semibold text-lg">{user?.username}</div>
@@ -559,14 +630,27 @@ export default function Dashboard() {
                                                         <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Email Address</label>
                                                         <div className="text-gray-900 font-semibold text-lg">{user?.email}</div>
                                                     </div>
+                                                    <div>
+                                                        <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Phone Number</label>
+                                                        <div className="text-gray-900 font-semibold text-lg flex items-center gap-2">
+                                                            <Phone size={14} className="text-[#FF2D20]" />
+                                                            {user?.phone_number && user.phone_number.length > 0 
+                                                                ? user.phone_number.map(p => p.contact).join(', ') 
+                                                                : '-'}
+                                                        </div>
+                                                    </div>
                                                 </div>
 
                                                 {/* Role Specific Read-Only Data */}
                                                 {user?.role_type === 'arsitek' && (
                                                     <div className="space-y-4 pt-4 border-t border-gray-100">
-                                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                                                             <div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Rate (Hourly)</label><div className="text-gray-900 font-semibold text-lg">{user?.arsitek?.rate_harga ? `Rp ${user.arsitek.rate_harga}` : '-'}</div></div>
                                                             <div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Experience</label><div className="text-gray-900 font-semibold text-lg">{user?.arsitek?.pengalaman_tahun ? `${user.arsitek.pengalaman_tahun} Years` : '-'}</div></div>
+                                                            <div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">WhatsApp</label><div className="text-gray-900 font-semibold text-lg flex items-center gap-2">
+                                                                <Phone size={14} className="text-[#FF2D20]" />
+                                                                {user?.arsitek?.no_telp || '-'}
+                                                            </div></div>
                                                             <div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Location</label><div className="text-gray-900 font-semibold text-lg">{user?.arsitek?.lokasi || '-'}</div></div>
                                                         </div>
                                                         {user?.arsitek?.pendidikan && (
@@ -580,8 +664,12 @@ export default function Dashboard() {
 
                                                 {user?.role_type === 'kontraktor' && (
                                                     <div className="space-y-4 pt-4 border-t border-gray-100">
-                                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                                                             <div className="col-span-1 md:col-span-2"><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Company</label><div className="text-gray-900 font-semibold text-lg">{user?.kontraktor?.nama_perusahaan || '-'}</div></div>
+                                                            <div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">WhatsApp</label><div className="text-gray-900 font-semibold text-lg flex items-center gap-2">
+                                                                <Phone size={14} className="text-[#FF2D20]" />
+                                                                {user?.kontraktor?.no_telepon || '-'}
+                                                            </div></div>
                                                             <div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Est. Rate</label><div className="text-gray-900 font-semibold text-lg">{user?.kontraktor?.rate_harga ? `Rp ${user.kontraktor.rate_harga}` : '-'}</div></div>
                                                         </div>
                                                         {user?.kontraktor?.pendidikan && (
@@ -593,23 +681,6 @@ export default function Dashboard() {
                                                     </div>
                                                 )}
 
-                                                <div className="pt-4 border-t border-gray-100">
-                                                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Verified Phone Numbers</label>
-                                                    <div className="space-y-2">
-                                                        {user?.phone_number && user.phone_number.length > 0 ? (
-                                                            user.phone_number.map((phone) => (
-                                                                <div key={phone.id} className="flex items-center gap-3 bg-gray-50 border border-gray-100 p-3 rounded-xl">
-                                                                    <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-[#FF2D20] shadow-sm">
-                                                                        <Phone size={14} />
-                                                                    </div>
-                                                                    <span className="font-bold text-gray-700">{phone.contact}</span>
-                                                                </div>
-                                                            ))
-                                                        ) : (
-                                                            <p className="text-sm text-gray-400 italic">No phone numbers added.</p>
-                                                        )}
-                                                    </div>
-                                                </div>
 
                                                 <div className="pt-4 border-t border-gray-100">
                                                     <button onClick={() => setIsEditingProfile(true)} className="px-6 py-2 bg-[#FF2D20]/5 text-[#FF2D20] font-bold rounded-xl hover:bg-[#FF2D20]/10 transition-colors">
@@ -619,6 +690,13 @@ export default function Dashboard() {
                                             </div>
                                         )}
                                     </div>
+                                </motion.div>
+                            )}
+
+                            {/* CHAT TAB */}
+                            {activeTab === 'chat' && (
+                                <motion.div key="chat" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }} className="w-full h-full">
+                                    <ChatTab key={startingChatUserId ? 'new-chat-' + startingChatUserId : 'chat-home'} initialUserId={startingChatUserId} onClearInitialUser={() => setStartingChatUserId(null)} />
                                 </motion.div>
                             )}
                         </AnimatePresence>
@@ -658,10 +736,7 @@ export default function Dashboard() {
     )}
 </AnimatePresence>
 
-{/* Global Chat Widget */}
-<AnimatePresence>
-    {activeChat && <ChatWidget professional={activeChat} onClose={() => setActiveChat(null)} />}
-</AnimatePresence>
+{/* Global Chat Widget - Removed in favor of ChatTab */}
 
 {/* Rating Modal - shown when dropping project to Completed */}
 <AnimatePresence>
@@ -689,10 +764,22 @@ export default function Dashboard() {
             data={profModalData.data}
             projects={relevantProjects}
             onClose={() => setProfModalData(null)}
-            onOpenChat={(prof) => {
-                setProfModalData(null);
-                setActiveChat(prof);
-            }}
+            onOpenChat={handleOpenChat}
+        />
+    )}
+    {selectedHouse && (
+        <HouseDetailsModal 
+            house={selectedHouse} 
+            allHouses={houses} 
+            wishlist={houseWishlist} 
+            currentUser={user}
+            onClose={() => setSelectedHouse(null)} 
+            onToggleWishlist={handleToggleWishlist} 
+            onSelectHouse={(id) => {
+                const h = houses.find(x => x.id === id);
+                if (h) setSelectedHouse(h);
+            }} 
+            onOpenChat={handleOpenChat}
         />
     )}
 </AnimatePresence>

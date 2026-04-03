@@ -12,6 +12,8 @@ interface User {
     phone_number?: { id: number; contact: string }[];
     arsitek?: { 
         id: number;
+        no_telp: string,
+        foto: string,
         rate_harga: string, 
         pengalaman_tahun: string, 
         lokasi: string, 
@@ -26,6 +28,8 @@ interface User {
     };
     kontraktor?: { 
         id: number;
+        no_telepon: string,
+        foto: string,
         nama_perusahaan: string, 
         alamat: string, 
         jenis: string, 
@@ -45,6 +49,7 @@ interface AuthContextType {
     token: string | null;
     login: (token: string, user: User) => void;
     logout: () => void;
+    refreshUser: () => Promise<void>;
     isLoading: boolean;
 }
 
@@ -82,9 +87,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         axios.post('/logout').catch(() => {});
         window.location.href = '/login';
     };
+    
+    const refreshUser = async () => {
+        try {
+            const res = await axios.get('/me');
+            setUser(res.data);
+        } catch (err) {
+            console.error("Failed to refresh user data", err);
+        }
+    };
 
     return (
-        <AuthContext.Provider value={{ user, token, login, logout, isLoading }}>
+        <AuthContext.Provider value={{ user, token, login, logout, refreshUser, isLoading }}>
             {children}
         </AuthContext.Provider>
     );
