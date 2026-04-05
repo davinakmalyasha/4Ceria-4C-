@@ -13,21 +13,23 @@ const TrackingTimeline: React.FC<TrackingTimelineProps> = ({ order }) => {
     if (order.delivery_method === 'Customer Pickup') {
         stages = [
             { key: 'pending', label: 'Ordered', time: order.created_at },
-            { key: 'ready_for_pickup', label: 'Ready', time: order.status === 'ready_for_pickup' || order.status === 'delivered' || order.status === 'completed' ? new Date().toISOString() : null },
-            { key: 'delivered', label: 'Picked Up', time: order.status === 'delivered' || order.status === 'completed' ? new Date().toISOString() : null }
+            { key: 'ready_for_pickup', label: 'Ready', time: order.ready_for_pickup_at },
+            { key: 'delivered', label: 'Picked Up', time: order.delivered_at }
         ];
-        if (order.status === 'ready_for_pickup') currentStepNum = 2;
-        if (order.status === 'delivered' || order.status === 'completed') currentStepNum = 3;
+        if (order.ready_for_pickup_at || order.status === 'ready_for_pickup') currentStepNum = 2;
+        if (order.delivered_at || order.status === 'delivered' || order.status === 'completed') currentStepNum = 3;
     } else {
+        const job = order.delivery_job;
         stages = [
             { key: 'pending', label: 'Ordered', time: order.created_at },
-            { key: 'processing', label: 'Packed', time: order.status === 'processing' || order.status === 'shipping' || order.status === 'delivered' || order.status === 'completed' ? new Date().toISOString() : null },
-            { key: 'shipping', label: 'Shipping', time: order.status === 'shipping' || order.status === 'delivered' || order.status === 'completed' ? new Date().toISOString() : null },
-            { key: 'delivered', label: 'Arrived', time: order.status === 'delivered' || order.status === 'completed' ? new Date().toISOString() : null }
+            { key: 'packed', label: 'Packed', time: order.ready_for_pickup_at },
+            { key: 'shipping', label: 'Shipping', time: order.shipped_at || (job && job.status !== 'pending' ? job.updated_at : null) },
+            { key: 'delivered', label: 'Arrived', time: order.delivered_at || (job && job.status === 'delivered' ? job.updated_at : null) }
         ];
-        if (order.status === 'processing') currentStepNum = 2;
-        if (order.status === 'shipping') currentStepNum = 3;
-        if (order.status === 'delivered' || order.status === 'completed') currentStepNum = 4;
+        
+        if (order.ready_for_pickup_at || order.status === 'ready_for_pickup' || (job && job.status === 'accepted')) currentStepNum = 2;
+        if (order.shipped_at || order.status === 'shipping' || (job && job.status === 'picked_up')) currentStepNum = 3;
+        if (order.delivered_at || order.status === 'delivered' || order.status === 'completed' || (job && job.status === 'delivered')) currentStepNum = 4;
     }
 
     return (
