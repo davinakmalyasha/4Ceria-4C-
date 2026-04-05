@@ -10,6 +10,10 @@ use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\RoomController;
 use App\Http\Controllers\Api\ChatController;
+use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\MaterialController;
+use App\Http\Controllers\MaterialQuoteController;
+use App\Http\Controllers\MaterialOrderController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -24,6 +28,11 @@ Route::get('/arsitek', function () {
 Route::get('/kontraktor', function () {
     return response()->json(['data' => \App\Models\Kontraktor::with(['user.phoneNumber', 'ratings', 'spesialisasis', 'projects'])->get()]);
 });
+
+// Materials Marketplace Public Routes
+Route::get('/marketplace/suppliers', [SupplierController::class, 'index']);
+Route::get('/marketplace/suppliers/{id}', [SupplierController::class, 'show']);
+Route::get('/marketplace/materials', [MaterialController::class, 'index']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/projects', [ProjectController::class, 'index']);
@@ -116,6 +125,41 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/conversations/{conversation}', [ChatController::class, 'show']);
     Route::post('/conversations/{conversation}/messages', [ChatController::class, 'sendMessage']);
 
+    // Supplier & Merchant Management
+    Route::prefix('merchant')->group(function () {
+        Route::get('/profile', [SupplierController::class, 'getProfile']);
+        Route::put('/profile', [SupplierController::class, 'updateProfile']);
+        Route::get('/materials', [MaterialController::class, 'merchantIndex']);
+        Route::apiResource('materials', MaterialController::class)->except(['index']);
+    });
+
+    // Logistics & Courier Management
+    Route::prefix('logistics')->group(function () {
+        Route::get('/dashboard-stats', [\App\Http\Controllers\LogisticsJobController::class, 'dashboardStats']);
+        Route::get('/available-jobs', [\App\Http\Controllers\LogisticsJobController::class, 'availableJobs']);
+        Route::get('/my-jobs', [\App\Http\Controllers\LogisticsJobController::class, 'myJobs']);
+        Route::post('/jobs/{id}/accept', [\App\Http\Controllers\LogisticsJobController::class, 'acceptJob']);
+        Route::put('/jobs/{id}/status', [\App\Http\Controllers\LogisticsJobController::class, 'updateStatus']);
+    });
+
+    // Material Quotes / Procurement Flow
+    Route::get('/material-quotes', [MaterialQuoteController::class, 'index']);
+    Route::post('/material-quotes', [MaterialQuoteController::class, 'store']);
+    Route::put('/material-quotes/{quote}/request-payment', [MaterialQuoteController::class, 'requestPayment']);
+    Route::put('/material-quotes/{quote}/mark-paid', [MaterialQuoteController::class, 'markAsPaid']);
+    Route::post('/material-quotes/{quote}/post-delivery-job', [MaterialQuoteController::class, 'postDeliveryJob']);
+    Route::get('/delivery-jobs', [MaterialQuoteController::class, 'getDeliveryJobs']);
+    Route::post('/material-quotes/{quote}/approve', [MaterialQuoteController::class, 'approve']);
+
+    // Material Orders / Fulfillment Flow
+    Route::apiResource('material-orders', MaterialOrderController::class)->only(['index', 'show', 'update']);
+
+    // Material Order Review Routes
+    Route::post('/material-order-reviews', [\App\Http\Controllers\MaterialOrderReviewController::class, 'store']);
+    Route::put('/material-order-reviews/{material_order_review}', [\App\Http\Controllers\MaterialOrderReviewController::class, 'update']);
+    Route::delete('/material-order-reviews/{material_order_review}', [\App\Http\Controllers\MaterialOrderReviewController::class, 'destroy']);
+    Route::get('/suppliers/{supplier}/reviews', [\App\Http\Controllers\MaterialOrderReviewController::class, 'getBySupplier']);
+
     // Admin Routes
     Route::middleware('admin')->prefix('admin')->group(function () {
         Route::get('/stats', [\App\Http\Controllers\Api\Admin\AdminDashboardController::class, 'stats']);
@@ -123,5 +167,15 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::patch('/professionals/{type}/{id}/status', [\App\Http\Controllers\Api\Admin\VerificationController::class, 'updateStatus']);
         Route::get('/houses', [\App\Http\Controllers\Api\Admin\AdminDashboardController::class, 'houses']);
         Route::get('/projects', [\App\Http\Controllers\Api\Admin\AdminDashboardController::class, 'projects']);
+        
+        // Supplier Verification
+        Route::get('/suppliers', function() {
+            return response()->json(['data' => \App\Models\Supplier::with('user')->get()]);
+        });
+        Route::patch('/suppliers/{id}/status', function(Request $request, $id) {
+            $supplier = \App\Models\Supplier::findOrFail($id);
+            $supplier->update($request->only(['verification_status', 'rejection_reason']));
+            return response()->json(['message' => 'Status updated']);
+        });
     });
 });

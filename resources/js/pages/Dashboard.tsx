@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Home, User as UserIcon, LogOut, Compass, MessageSquare, Menu, FileText, CheckCircle, ChevronRight, Play, Briefcase, Users, Star, Heart, Phone, PlusCircle, Building, CheckSquare } from 'lucide-react';
+import { Home, User as UserIcon, LogOut, Compass, MessageSquare, Menu, FileText, CheckCircle, ChevronRight, Play, Briefcase, Users, Star, Heart, Phone, PlusCircle, Building, CheckSquare, ShoppingCart, Package, Search, Truck } from 'lucide-react';
 import axios from 'axios';
 import ExploreHouses from '../components/ExploreHouses';
 import PostProjectForm from '../components/PostProjectForm';
@@ -24,19 +24,51 @@ import SavedItemsDashboard from '../components/SavedItemsDashboard';
 import ChatWidget from '../components/ChatWidget';
 import ChatTab from '../components/Chat/ChatTab';
 import NotificationsDropdown from '../components/NotificationsDropdown';
+import SupplierProfileForm from '../components/SupplierProfileForm';
+import MerchantInventory from '../components/MerchantInventory';
 import ProjectQuickSelectModal from '../components/Projects/ProjectQuickSelectModal';
+import MarketplaceTab from '../components/Marketplace/MarketplaceTab';
+import StoreDetailView from '../components/Marketplace/StoreDetailView';
+import CheckoutDrawer from '../components/Marketplace/CheckoutDrawer';
+import { CartProvider, useCart } from '../context/CartContext';
 import ProfessionalProfileModal from '../components/ProfessionalProfileModal';
 import ProfessionalProjects from '../components/Projects/ProfessionalProjects';
 import HouseDetailsModal from '../components/Explore/HouseDetailsModal';
+import MaterialDetailsModal from '../components/Marketplace/MaterialDetailsModal';
 import type { House } from '../types/explore';
+import QuoteHistoryTab from '../components/Marketplace/QuoteHistoryTab';
+import DeliveryJobsTab from '../components/Marketplace/DeliveryJobsTab';
+import MaterialOrdersTab from '../components/Marketplace/MaterialOrdersTab';
+import JobRadarTab from '../components/Logistics/JobRadarTab';
+import MyDeliveriesTab from '../components/Logistics/MyDeliveriesTab';
+import LogisticsOverview from '../components/Logistics/LogisticsOverview';
 
 
 
 
 export default function Dashboard() {
-    const { user, logout, isLoading: isAuthLoading } = useAuth();
+    return (
+        <CartProvider>
+            <DashboardContent />
+        </CartProvider>
+    );
+}
+
+function DashboardContent() {
+    const { user, login } = useAuth();
+    const { itemCount } = useCart();
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [activeTab, setActiveTab] = useState('overview');
+    const [searchParams] = useSearchParams();
+
+    useEffect(() => {
+        const tab = searchParams.get('tab');
+        if (tab) {
+            setActiveTab(tab);
+        }
+    }, [searchParams]);
+
+    const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
     
     const [houses, setHouses] = useState<House[]>([]);
     const [projects, setProjects] = useState<Project[]>([]);
@@ -48,8 +80,10 @@ export default function Dashboard() {
     const [selectedProfessional, setSelectedProfessional] = useState<{ type: 'architect' | 'constructor', data: any } | null>(null);
     const [selectedProject, setSelectedProject] = useState<Project | null>(null);
     const [startingChatUserId, setStartingChatUserId] = useState<number | null>(null);
+    const [selectedStoreId, setSelectedStoreId] = useState<number | null>(null);
 
     const [selectedHouse, setSelectedHouse] = useState<House | null>(null);
+    const [selectedMaterial, setSelectedMaterial] = useState<any | null>(null);
 
     const handleOpenChat = (profOrId: any) => {
         const targetId = typeof profOrId === 'number' || typeof profOrId === 'string' ? Number(profOrId) : (profOrId.user_id || profOrId.id);
@@ -57,6 +91,7 @@ export default function Dashboard() {
         setActiveTab('chat');
         setProfModalData(null);
         setSelectedHouse(null);
+        setSelectedMaterial(null);
     };
     useEffect(() => {
         const handleOpenHouse = (e: any) => {
@@ -67,11 +102,16 @@ export default function Dashboard() {
         const handleStartChat = (e: any) => {
             handleOpenChat(e.detail);
         };
+        const handleSwitchTab = (e: any) => {
+            setActiveTab(e.detail);
+        };
         window.addEventListener('openHouseDetails', handleOpenHouse);
         window.addEventListener('start_chat', handleStartChat);
+        window.addEventListener('switchDashboardTab', handleSwitchTab);
         return () => {
             window.removeEventListener('openHouseDetails', handleOpenHouse);
             window.removeEventListener('start_chat', handleStartChat);
+            window.removeEventListener('switchDashboardTab', handleSwitchTab);
         };
     }, [houses]);
 
@@ -250,6 +290,7 @@ export default function Dashboard() {
         fetchData();
     }, [user]);
 
+    const { logout, isLoading: isAuthLoading } = useAuth();
     if (!isAuthLoading && !user) return <Navigate to="/login" replace />;
 
     if (isAuthLoading) {
@@ -261,7 +302,10 @@ export default function Dashboard() {
     }
 
     const navItems = (() => {
-        const base = [{ id: 'overview', label: 'Overview', icon: Home }];
+        const base = [
+            { id: 'overview', label: 'Overview', icon: Home },
+            { id: 'marketplace', label: 'Marketplace', icon: ShoppingCart },
+        ];
         
         if (user?.role_type === 'user') {
             return [
@@ -269,6 +313,8 @@ export default function Dashboard() {
                 { id: 'houses', label: 'Explore Houses', icon: Compass },
                 { id: 'my-houses', label: 'My Properties', icon: Building },
                 { id: 'projects', label: 'My Projects', icon: MessageSquare },
+                { id: 'material-orders', label: 'My Orders', icon: Truck },
+                { id: 'quotes', label: 'Quotes History', icon: FileText },
                 { id: 'architects', label: 'Hire Architect', icon: Users },
                 { id: 'constructors', label: 'Hire Constructor', icon: Briefcase },
                 { id: 'saved', label: 'Saved Items', icon: Heart },
@@ -276,11 +322,34 @@ export default function Dashboard() {
                 { id: 'profile', label: 'My Profile', icon: UserIcon },
             ];
         }
-        // Architect & Contractor see bidding-focused nav
+        // Supplier see merchant-focused nav
+        if (user?.role_type === 'supplier') {
+            return [
+                ...base,
+                { id: 'store', label: 'My Store', icon: Building },
+                { id: 'inventory', label: 'Inventory', icon: FileText },
+                { id: 'quotes', label: 'Supplied Quotes', icon: FileText },
+                { id: 'orders', label: 'Material Orders', icon: Truck },
+                { id: 'delivery-jobs', label: 'Delivery Jobs', icon: Truck },
+                { id: 'chat', label: 'Messages', icon: MessageSquare },
+            ];
+        }
+
+        if (user?.role_type === 'logistics') {
+            return [
+                { id: 'overview', label: 'Overview', icon: Home },
+                { id: 'job-radar', label: 'Job Radar', icon: Search },
+                { id: 'my-deliveries', label: 'My Deliveries', icon: Truck },
+                { id: 'profile', label: 'My Profile', icon: UserIcon },
+            ];
+        }
+
+        // Professional see bidding-focused nav
         return [
             ...base,
-            { id: 'projects', label: 'Bidding Board', icon: MessageSquare },
+            { id: 'projects', label: 'Bidding Board', icon: Search },
             { id: 'management', label: 'My Projects', icon: CheckSquare },
+            { id: 'quotes', label: 'Quote History', icon: FileText },
             { id: 'my-bids', label: 'My Proposals', icon: FileText },
             { id: 'chat', label: 'Messages', icon: MessageSquare },
             { id: 'profile', label: 'My Profile', icon: UserIcon },
@@ -377,6 +446,9 @@ export default function Dashboard() {
                             {/* OVERVIEW TAB */}
                             {activeTab === 'overview' && (
                                 <motion.div key="overview" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="w-full">
+                                    {user?.role_type === 'logistics' ? (
+                                        <LogisticsOverview user={user} setActiveTab={setActiveTab} />
+                                    ) : (
                                     <OverviewContent 
                                         user={user} 
                                         houses={houses} 
@@ -393,6 +465,7 @@ export default function Dashboard() {
                                         myBidsCount={myBids.length}
                                         myProjectsCount={hiredProjects.length}
                                     />
+                                    )}
                                 </motion.div>
                             )}
 
@@ -502,6 +575,55 @@ export default function Dashboard() {
                                     }} />
                                 </motion.div>
                             )}
+
+                                {activeTab === 'marketplace' && (
+                                    selectedStoreId ? (
+                                        <StoreDetailView 
+                                            storeId={selectedStoreId} 
+                                            onBack={() => setSelectedStoreId(null)} 
+                                            onOpenChat={handleOpenChat}
+                                            onOpenDetails={setSelectedMaterial}
+                                        />
+                                    ) : (
+                                        <MarketplaceTab 
+                                            onOpenChat={handleOpenChat} 
+                                            onOpenDetails={setSelectedMaterial}
+                                            onOpenCart={() => setIsCheckoutOpen(true)}
+                                            onOpenStore={setSelectedStoreId}
+                                        />
+                                    )
+                                )}
+
+                            {/* QUOTES HISTORY TAB */}
+                            {activeTab === 'quotes' && (
+                                <motion.div key="quotes" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="w-full">
+                                    <QuoteHistoryTab user={user} />
+                                </motion.div>
+                            )}
+
+                            {activeTab === 'delivery-jobs' && (
+                                <motion.div key="delivery-jobs" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="w-full">
+                                    <DeliveryJobsTab />
+                                </motion.div>
+                            )}
+
+                            {activeTab === 'job-radar' && (
+                                <motion.div key="job-radar" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="w-full">
+                                    <JobRadarTab />
+                                </motion.div>
+                            )}
+
+                            {activeTab === 'my-deliveries' && (
+                                <motion.div key="my-deliveries" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="w-full">
+                                    <MyDeliveriesTab />
+                                </motion.div>
+                            )}
+
+                             {activeTab === 'orders' || (activeTab === 'material-orders' && user?.role_type === 'user') ? (
+                                <motion.div key="orders" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="w-full">
+                                    <MaterialOrdersTab />
+                                </motion.div>
+                            ) : null}
 
                             {/* ARCHITECTS TAB */}
                             {activeTab === 'architects' && (
@@ -618,10 +740,14 @@ export default function Dashboard() {
                                         <hr className="my-8 border-gray-100" />
                                         
                                         {isEditingProfile ? (
-                                            <EditProfileForm onCancel={() => setIsEditingProfile(false)} />
+                                            user?.role_type === 'supplier' ? (
+                                                <SupplierProfileForm onCancel={() => setIsEditingProfile(false)} onSuccess={() => { setIsEditingProfile(false); }} />
+                                            ) : (
+                                                <EditProfileForm onCancel={() => setIsEditingProfile(false)} />
+                                            )
                                         ) : (
                                             <div className="space-y-6">
-                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                                <div className={`grid grid-cols-1 ${user?.role_type === 'user' ? 'md:grid-cols-3' : 'md:grid-cols-2'} gap-6`}>
                                                     <div>
                                                         <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Username</label>
                                                         <div className="text-gray-900 font-semibold text-lg">{user?.username}</div>
@@ -630,15 +756,17 @@ export default function Dashboard() {
                                                         <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Email Address</label>
                                                         <div className="text-gray-900 font-semibold text-lg">{user?.email}</div>
                                                     </div>
-                                                    <div>
-                                                        <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Phone Number</label>
-                                                        <div className="text-gray-900 font-semibold text-lg flex items-center gap-2">
-                                                            <Phone size={14} className="text-[#FF2D20]" />
-                                                            {user?.phone_number && user.phone_number.length > 0 
-                                                                ? user.phone_number.map(p => p.contact).join(', ') 
-                                                                : '-'}
+                                                    {user?.role_type === 'user' && (
+                                                        <div>
+                                                            <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Phone Number</label>
+                                                            <div className="text-gray-900 font-semibold text-lg flex items-center gap-2">
+                                                                <Phone size={14} className="text-[#FF2D20]" />
+                                                                {user?.phone_number && user.phone_number.length > 0 
+                                                                    ? user.phone_number.map(p => p.contact).join(', ') 
+                                                                    : '-'}
+                                                            </div>
                                                         </div>
-                                                    </div>
+                                                    )}
                                                 </div>
 
                                                 {/* Role Specific Read-Only Data */}
@@ -681,6 +809,40 @@ export default function Dashboard() {
                                                     </div>
                                                 )}
 
+                                                {user?.role_type === 'supplier' && (
+                                                    <div className="space-y-4 pt-4 border-t border-gray-100">
+                                                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                                                            <div className="col-span-1 md:col-span-2">
+                                                                <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Store Name</label>
+                                                                <div className="text-gray-900 font-bold text-xl">{user?.supplier?.store_name || '-'}</div>
+                                                                <div className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">{user?.supplier?.category || 'General Store'}</div>
+                                                            </div>
+                                                            <div>
+                                                                <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">WhatsApp</label>
+                                                                <div className="text-gray-900 font-semibold text-lg flex items-center gap-2">
+                                                                    <Phone size={14} className="text-[#FF2D20]" />
+                                                                    {user?.supplier?.no_telp || '-'}
+                                                                </div>
+                                                            </div>
+                                                            <div>
+                                                                <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Status</label>
+                                                                <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest mt-1 shadow-sm ${
+                                                                    user?.supplier?.verification_status === 'verified' ? 'bg-green-50 text-green-600' : 'bg-blue-50 text-blue-600'
+                                                                }`}>
+                                                                    {user?.supplier?.verification_status || 'Pending'}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                        {user?.supplier?.address && (
+                                                            <div>
+                                                                <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Store Address</label>
+                                                                <div className="text-gray-700 text-sm bg-gray-50 p-4 rounded-xl border border-gray-100 leading-relaxed font-medium">
+                                                                    {user.supplier.address}
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
 
                                                 <div className="pt-4 border-t border-gray-100">
                                                     <button onClick={() => setIsEditingProfile(true)} className="px-6 py-2 bg-[#FF2D20]/5 text-[#FF2D20] font-bold rounded-xl hover:bg-[#FF2D20]/10 transition-colors">
@@ -693,6 +855,67 @@ export default function Dashboard() {
                                 </motion.div>
                             )}
 
+                            {/* SUPPLIER STORE TAB - Unified Store & Profile */}
+                            {activeTab === 'store' && (
+                                <motion.div key="store" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="w-full space-y-8">
+                                    <div className="flex flex-col gap-2">
+                                        <h3 className="text-3xl font-black text-gray-900 tracking-tight flex items-center gap-3">
+                                            <Building size={28} className="text-red-500" />
+                                            My Store & Profile
+                                        </h3>
+                                        <p className="text-gray-500 font-medium">Manage your personal account and business storefront in one place.</p>
+                                    </div>
+
+                                    {/* User Account Summary */}
+                                    <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm flex flex-col md:flex-row items-center gap-8">
+                                        <div className="w-24 h-24 rounded-full bg-red-100 flex items-center justify-center text-red-600 font-extrabold text-4xl shadow-inner">
+                                            {user?.name.charAt(0).toUpperCase()}
+                                        </div>
+                                        <div className="flex-1 text-center md:text-left">
+                                            <h4 className="text-2xl font-bold text-gray-900">{user?.name}</h4>
+                                            <p className="text-gray-500 mb-4">{user?.email} • @{user?.username}</p>
+                                            <div className="flex flex-wrap justify-center md:justify-start gap-2">
+                                                <span className="px-3 py-1 bg-gray-100 text-gray-600 text-[10px] font-bold uppercase tracking-widest rounded-full">Merchant Account</span>
+                                                <span className={`px-3 py-1 text-[10px] font-bold uppercase tracking-widest rounded-full ${user?.supplier?.verification_status === 'verified' ? 'bg-green-50 text-green-600' : 'bg-blue-50 text-blue-600'}`}>
+                                                    {user?.supplier?.verification_status || 'Pending'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <button 
+                                            onClick={() => setIsEditingProfile(true)}
+                                            className="px-6 py-3 bg-gray-50 text-gray-700 font-bold rounded-2xl hover:bg-gray-100 transition-all border border-gray-100 shadow-sm"
+                                        >
+                                            Edit Account Details
+                                        </button>
+                                    </div>
+
+                                    <div className="bg-white p-10 rounded-[2.5rem] border border-gray-100 shadow-sm relative overflow-hidden">
+                                        <div className="absolute top-0 right-0 p-8 opacity-[0.03] pointer-events-none">
+                                            <Building size={160} />
+                                        </div>
+                                        {isEditingProfile ? (
+                                            <EditProfileForm onCancel={() => setIsEditingProfile(false)} />
+                                        ) : (
+                                            <SupplierProfileForm onCancel={() => setActiveTab('overview')} onSuccess={() => { setActiveTab('overview'); }} />
+                                        )}
+                                    </div>
+                                </motion.div>
+                            )}
+
+                            {/* SUPPLIER INVENTORY TAB */}
+                            {activeTab === 'inventory' && (
+                                <motion.div key="inventory" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="w-full">
+                                    <div className="flex flex-col gap-2 mb-8">
+                                        <h3 className="text-3xl font-black text-gray-900 tracking-tight flex items-center gap-3">
+                                            <Package size={28} className="text-red-500" />
+                                            Inventory Explorer
+                                        </h3>
+                                        <p className="text-gray-500 font-medium">Add, manage and track your store stock levels and marketplace visibility.</p>
+                                    </div>
+                                    <MerchantInventory />
+                                </motion.div>
+                            )}
+
                             {/* CHAT TAB */}
                             {activeTab === 'chat' && (
                                 <motion.div key="chat" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }} className="w-full h-full">
@@ -700,89 +923,119 @@ export default function Dashboard() {
                                 </motion.div>
                             )}
                         </AnimatePresence>
-            </div>
+                    </div>
+                </div>
+            </main>
         </div>
-    </main>
-</div>
 
-{/* Global Project Modals */}
-<AnimatePresence>
-    {selectedProject && (
-        <ProjectDetailModal 
-            project={selectedProject as any}
-            onClose={() => setSelectedProject(null)}
-            formatCurrency={formatCurrency}
-            onViewProfile={handleViewBidderProfile}
-            onProjectUpdated={handleProjectUpdated}
-            isManagementView={isManagementMode}
-            onNavigate={(tab) => setActiveTab(tab)}
-        />
-    )}
-    {projectToEdit && (
-        <EditProjectModal 
-            project={projectToEdit}
-            onClose={() => setProjectToEdit(null)}
-            onSuccess={handleProjectEdited}
-        />
-    )}
-    {projectToDelete && (
-        <ConfirmDeleteModal 
-            title={projectToDelete.title}
-            description="This action cannot be undone and will remove all associated bids."
-            isDeleting={isDeletingProject}
-            onConfirm={handleDeleteProjectConfirm}
-            onCancel={() => setProjectToDelete(null)}
-        />
-    )}
-</AnimatePresence>
+        {/* Global Project Modals */}
+        <AnimatePresence>
+            {selectedProject && (
+                <ProjectDetailModal 
+                    project={selectedProject as any}
+                    onClose={() => setSelectedProject(null)}
+                    formatCurrency={formatCurrency}
+                    onViewProfile={handleViewBidderProfile}
+                    onProjectUpdated={handleProjectUpdated}
+                    isManagementView={isManagementMode}
+                    onNavigate={(tab) => setActiveTab(tab)}
+                />
+            )}
+            {projectToEdit && (
+                <EditProjectModal 
+                    project={projectToEdit}
+                    onClose={() => setProjectToEdit(null)}
+                    onSuccess={handleProjectEdited}
+                />
+            )}
+            {projectToDelete && (
+                <ConfirmDeleteModal 
+                    title={projectToDelete.title}
+                    description="This action cannot be undone and will remove all associated bids."
+                    isDeleting={isDeletingProject}
+                    onConfirm={handleDeleteProjectConfirm}
+                    onCancel={() => setProjectToDelete(null)}
+                />
+            )}
+        </AnimatePresence>
 
-{/* Global Chat Widget - Removed in favor of ChatTab */}
+        {/* Rating & Secondary Modals */}
+        <AnimatePresence>
+            {ratingProject && (
+                <RatingModal
+                    projectId={ratingProject.id}
+                    projectTitle={ratingProject.title}
+                    hasArsitek={!!ratingProject.selected_architect_id}
+                    hasKontraktor={!!ratingProject.selected_contractor_id}
+                    onClose={() => setRatingProject(null)}
+                    onRated={() => setRatingProject(null)}
+                />
+            )}
+            {quickSelectProjects.length > 0 && (
+                <ProjectQuickSelectModal
+                    projects={quickSelectProjects}
+                    onSelect={setSelectedProject}
+                    onClose={() => setQuickSelectProjects([])}
+                    formatCurrency={formatCurrency}
+                />
+            )}
+            {profModalData && (
+                <ProfessionalProfileModal
+                    type={profModalData.type}
+                    data={profModalData.data}
+                    projects={relevantProjects}
+                    onClose={() => setProfModalData(null)}
+                    onOpenChat={handleOpenChat}
+                />
+            )}
+            {selectedHouse && (
+                <HouseDetailsModal 
+                    house={selectedHouse} 
+                    allHouses={houses} 
+                    wishlist={houseWishlist} 
+                    currentUser={user}
+                    onClose={() => setSelectedHouse(null)} 
+                    onToggleWishlist={handleToggleWishlist} 
+                    onSelectHouse={(id) => {
+                        const h = houses.find(x => x.id === id);
+                        if (h) setSelectedHouse(h);
+                    }} 
+                    onOpenChat={handleOpenChat}
+                />
+            )}
+            {selectedMaterial && (
+                <MaterialDetailsModal
+                    material={selectedMaterial}
+                    onClose={() => setSelectedMaterial(null)}
+                    onOpenChat={handleOpenChat}
+                />
+            )}
+        </AnimatePresence>
 
-{/* Rating Modal - shown when dropping project to Completed */}
-<AnimatePresence>
-    {ratingProject && (
-        <RatingModal
-            projectId={ratingProject.id}
-            projectTitle={ratingProject.title}
-            hasArsitek={!!ratingProject.selected_architect_id}
-            hasKontraktor={!!ratingProject.selected_contractor_id}
-            onClose={() => setRatingProject(null)}
-            onRated={() => setRatingProject(null)}
+        {/* Floating Cart for Marketplace */}
+        {itemCount > 0 && (
+            <motion.button 
+                initial={{ scale: 0, y: 100 }}
+                animate={{ scale: 1, y: 0 }}
+                onClick={() => setIsCheckoutOpen(true)}
+                className="fixed bottom-8 right-8 z-[300] p-5 bg-[#FF2D20] text-white rounded-full shadow-2xl shadow-red-500/40 hover:scale-110 active:scale-95 transition-transform flex items-center gap-3 overflow-hidden group"
+            >
+                <div className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 font-sans"></div>
+                <div className="relative flex items-center gap-2 px-1 text-white">
+                    <ShoppingCart size={24} />
+                    <span className="font-black text-sm uppercase tracking-widest">{itemCount} items</span>
+                </div>
+            </motion.button>
+        )}
+
+        <CheckoutDrawer 
+            isOpen={isCheckoutOpen} 
+            onClose={() => setIsCheckoutOpen(false)} 
+            onViewQuotes={() => {
+                setActiveTab('quotes');
+                setIsCheckoutOpen(false);
+            }}
         />
-    )}
-    {quickSelectProjects.length > 0 && (
-        <ProjectQuickSelectModal
-            projects={quickSelectProjects}
-            onSelect={setSelectedProject}
-            onClose={() => setQuickSelectProjects([])}
-            formatCurrency={formatCurrency}
-        />
-    )}
-    {profModalData && (
-        <ProfessionalProfileModal
-            type={profModalData.type}
-            data={profModalData.data}
-            projects={relevantProjects}
-            onClose={() => setProfModalData(null)}
-            onOpenChat={handleOpenChat}
-        />
-    )}
-    {selectedHouse && (
-        <HouseDetailsModal 
-            house={selectedHouse} 
-            allHouses={houses} 
-            wishlist={houseWishlist} 
-            currentUser={user}
-            onClose={() => setSelectedHouse(null)} 
-            onToggleWishlist={handleToggleWishlist} 
-            onSelectHouse={(id) => {
-                const h = houses.find(x => x.id === id);
-                if (h) setSelectedHouse(h);
-            }} 
-            onOpenChat={handleOpenChat}
-        />
-    )}
-</AnimatePresence>
-</>
+        </>
     );
 }
