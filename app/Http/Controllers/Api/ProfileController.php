@@ -46,6 +46,7 @@ class ProfileController extends Controller
                 'pengalaman_tahun' => 'nullable|numeric',
                 'spesialisasi' => 'nullable|string',
                 'lokasi' => 'nullable|string',
+                'no_telp' => 'nullable|string',
                 'deskripsi' => 'nullable|string',
                 'pendidikan' => 'nullable|string',
                 'alasan_hire' => 'nullable|string',
@@ -93,6 +94,7 @@ class ProfileController extends Controller
             $validatedKontraktor = $request->validate([
                 'nama_perusahaan' => 'nullable|string',
                 'alamat' => 'nullable|string',
+                'no_telepon' => 'nullable|string',
                 'rate_harga' => 'nullable|numeric',
                 'pengalaman' => 'nullable|string',
                 'jenis' => 'nullable|string',
