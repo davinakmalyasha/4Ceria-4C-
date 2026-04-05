@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { Project, ProjectComment } from '../../types/project.types';
-import { Send, User as UserIcon, Pencil, Trash2, X, Check } from 'lucide-react';
+import { Send, User as UserIcon, Pencil, Trash2, X, Check, Reply } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 interface Props {
@@ -15,6 +15,7 @@ export default function ProjectComments({ project }: Props) {
     const [isLoading, setIsLoading] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
     const [editValue, setEditValue] = useState('');
+    const [replyingTo, setReplyingTo] = useState<ProjectComment | null>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -41,9 +42,11 @@ export default function ProjectComments({ project }: Props) {
 
         setIsLoading(true);
         try {
-            const res = await axios.post(`/projects/${project.id}/comments`, { message: newMessage });
+            const payload = { message: newMessage, parent_id: replyingTo?.id || null };
+            const res = await axios.post(`/projects/${project.id}/comments`, payload);
             setComments([...comments, res.data.data]);
             setNewMessage('');
+            setReplyingTo(null);
         } catch (err) {
             console.error('Failed to send comment', err);
         } finally {
@@ -81,7 +84,7 @@ export default function ProjectComments({ project }: Props) {
     };
 
     return (
-        <div className="flex flex-col h-[500px] bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
+        <div className="flex flex-col h-[380px] bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
             <div className="p-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
                 <div>
                     <h3 className="font-bold text-gray-900">Project Q&A</h3>
@@ -114,16 +117,21 @@ export default function ProjectComments({ project }: Props) {
                                         <span className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">
                                             {isMe ? 'You' : c.user?.name} &bull; {new Date(c.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                         </span>
-                                        {!isEditing && (isMe || canDelete) && (
+                                        {!isEditing && (isMe || canDelete || !isMe) && (
                                             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button onClick={() => setReplyingTo(c)} className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-[#FF2D20] transition-colors" title="Reply">
+                                                    <Reply size={10} />
+                                                </button>
                                                 {isMe && (
-                                                    <button onClick={() => startEdit(c)} className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-red-500 transition-colors">
+                                                    <button onClick={() => startEdit(c)} className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-[#FF2D20] transition-colors">
                                                         <Pencil size={10} />
                                                     </button>
                                                 )}
-                                                <button onClick={() => handleDelete(c.id)} className="p-1 hover:bg-red-50 rounded text-gray-400 hover:text-red-500 transition-colors">
-                                                    <Trash2 size={10} />
-                                                </button>
+                                                {canDelete && (
+                                                    <button onClick={() => handleDelete(c.id)} className="p-1 hover:bg-red-50 rounded text-gray-400 hover:text-red-500 transition-colors">
+                                                        <Trash2 size={10} />
+                                                    </button>
+                                                )}
                                             </div>
                                         )}
                                     </div>
@@ -160,6 +168,12 @@ export default function ProjectComments({ project }: Props) {
                                                 ? 'bg-[#FF2D20] text-white rounded-tr-sm border-red-600' 
                                                 : 'bg-white text-gray-800 rounded-tl-sm border-gray-100'
                                         }`}>
+                                            {c.parent && (
+                                                <div className={`mb-2 pl-3 py-1 border-l-2 text-xs opacity-90 rounded-r-md ${isMe ? 'border-red-400 bg-red-600/30' : 'border-gray-300 bg-gray-50'}`}>
+                                                    <p className="font-bold mb-0.5">{c.parent.user?.name || 'User'}</p>
+                                                    <p className="line-clamp-2 italic">{c.parent.message}</p>
+                                                </div>
+                                            )}
                                             {c.message}
                                         </div>
                                     )}
@@ -170,12 +184,24 @@ export default function ProjectComments({ project }: Props) {
                 )}
             </div>
 
+            {replyingTo && (
+                <div className="bg-gray-50 px-4 py-2 border-t border-gray-100 flex items-center justify-between shadow-[0_-2px_10px_rgba(0,0,0,0.02)]">
+                    <div className="flex-1 overflow-hidden">
+                        <p className="text-[10px] font-bold text-[#FF2D20] uppercase tracking-wide">Replying to {replyingTo.user?.name}</p>
+                        <p className="text-xs text-gray-500 truncate">{replyingTo.message}</p>
+                    </div>
+                    <button onClick={() => setReplyingTo(null)} className="p-1 hover:bg-gray-200 rounded-full text-gray-400 hover:text-gray-600 transition-colors shrink-0 ml-2">
+                        <X size={14} />
+                    </button>
+                </div>
+            )}
+
             <form onSubmit={handleSend} className="p-3 bg-white border-t border-gray-100 flex gap-2">
                 <input 
                     type="text" 
                     value={newMessage}
                     onChange={e => setNewMessage(e.target.value)}
-                    placeholder="Type your message here..."
+                    placeholder={replyingTo ? "Write your reply..." : "Type your message here..."}
                     className="flex-1 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-full focus:bg-white focus:ring-2 focus:ring-[#FF2D20]/50 outline-none text-[13.5px]"
                 />
                 <button 
