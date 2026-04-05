@@ -139,7 +139,7 @@ export default function QuoteHistoryTab({ user }: { user?: any }) {
     };
 
     const renderModalActions = (quote: any) => {
-        if (deliveryMethod === 'Supplier Fleet' || deliveryMethod === 'Self Order Logistics') {
+        if (['Supplier Fleet', 'Self Order Logistics', 'Hire Platform Courier'].includes(deliveryMethod)) {
             if (quote.status === 'pending') {
                 return (
                     <button 
@@ -153,7 +153,7 @@ export default function QuoteHistoryTab({ user }: { user?: any }) {
             if (quote.status === 'awaiting_payment') {
                 const hasChanged = 
                     (totalWeight !== (quote.total_weight || '')) ||
-                    (parseFloat(shippingCost) !== parseFloat(quote.shipping_cost || '0')) ||
+                    (parseFloat(shippingCost || '0') !== parseFloat(quote.shipping_cost || '0')) ||
                     (deliveryMethod !== quote.delivery_method);
 
                 if (hasChanged) {
@@ -205,20 +205,6 @@ export default function QuoteHistoryTab({ user }: { user?: any }) {
                 );
             }
         }
-
-        if (deliveryMethod === 'Hire Platform Courier') {
-            if (quote.status === 'pending') {
-                return (
-                    <button 
-                        onClick={() => handlePostDeliveryJob(quote.id)}
-                        className="flex-1 py-3 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-md hover:shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 px-6"
-                    >
-                        <Truck size={14} /> Confirm & Post Delivery Job
-                    </button>
-                );
-            }
-        }
-
         return null;
     };
 
@@ -253,19 +239,21 @@ export default function QuoteHistoryTab({ user }: { user?: any }) {
             <AnimatePresence>
                 {notification && (
                     <motion.div 
-                        initial={{ opacity: 0, y: -20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -20 }}
-                        className={`sticky top-0 left-0 right-0 z-[999] mx-auto max-w-xl px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 backdrop-blur-md border ${
+                        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                        className={`fixed bottom-8 left-1/2 -translate-x-1/2 z-[9999] px-5 py-3 rounded-full shadow-2xl flex items-center justify-between gap-3 text-[10px] font-black uppercase tracking-widest min-w-[300px] border ${
                             notification.type === 'success' 
-                            ? 'bg-emerald-500/90 text-white border-emerald-400' 
-                            : 'bg-red-500/90 text-white border-red-400'
+                            ? 'bg-emerald-500 text-white border-emerald-400' 
+                            : 'bg-red-500 text-white border-red-400'
                         }`}
                     >
-                        {notification.type === 'success' ? <CheckCircle size={18} /> : <AlertCircle size={18} />}
-                        <span className="text-xs font-black uppercase tracking-widest">{notification.message}</span>
-                        <button onClick={() => setNotification(null)} className="ml-4 opacity-50 hover:opacity-100 transition-opacity">
-                            <Plus size={16} className="rotate-45" />
+                        <div className="flex items-center gap-2">
+                            {notification.type === 'success' ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
+                            <span>{notification.message}</span>
+                        </div>
+                        <button onClick={() => setNotification(null)} className="opacity-60 hover:opacity-100 hover:rotate-90 transition-all p-1">
+                            <Plus size={14} className="rotate-45" />
                         </button>
                     </motion.div>
                 )}
@@ -437,7 +425,7 @@ export default function QuoteHistoryTab({ user }: { user?: any }) {
                                                          </div>
                                                      </div>
  
-                                                     {(deliveryMethod === 'Supplier Fleet' || deliveryMethod === 'Hire Platform Courier') && (
+                                                     {deliveryMethod === 'Supplier Fleet' && (
                                                           <div className="space-y-1.5">
                                                               <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Shipping Cost (Rp)</label>
                                                               <div className="flex items-center gap-2 bg-white border border-red-200 rounded-xl px-3 py-1.5 shadow-sm focus-within:ring-2 ring-red-500/20 transition-all text-xs">
@@ -449,6 +437,17 @@ export default function QuoteHistoryTab({ user }: { user?: any }) {
                                                                       onChange={(e) => { setShippingCost(e.target.value); setShowReceipt(false); }}
                                                                       className="bg-transparent border-none outline-none font-bold text-gray-900 w-full disabled:opacity-50 text-xs"
                                                                   />
+                                                              </div>
+                                                          </div>
+                                                     )}
+                                                     
+                                                     {deliveryMethod === 'Hire Platform Courier' && (
+                                                          <div className="space-y-1.5">
+                                                              <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Shipping Cost (Rp)</label>
+                                                              <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-xl">
+                                                                  <p className="text-[10px] font-bold text-indigo-500 italic leading-snug">
+                                                                      The exact shipping fee will be automatically calculated by the System via GPS Distance Matrix when approved.
+                                                                  </p>
                                                               </div>
                                                           </div>
                                                      )}
@@ -479,7 +478,7 @@ export default function QuoteHistoryTab({ user }: { user?: any }) {
  
                                                  {/* Right Column: Receipt Preview */}
                                                  <div className="relative">
-                                                     {showReceipt && (deliveryMethod === 'Supplier Fleet' || deliveryMethod === 'Self Order Logistics') ? (
+                                                     {showReceipt ? (
                                                         <div className="animate-in slide-in-from-right duration-300">
                                                             {/* Ref Target for HTML2Canvas */}
                                                             <div ref={receiptRef} className="bg-white border text-gray-900 border-gray-100 rounded-xl p-4 md:p-6 relative shadow-sm overflow-hidden h-fit">
@@ -531,18 +530,18 @@ export default function QuoteHistoryTab({ user }: { user?: any }) {
                                                                         <span className="font-mono">Rp {new Intl.NumberFormat('id-ID').format(quote.total_amount)}</span>
                                                                     </div>
                                                                     <div className="flex justify-between text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-                                                                        <span>{deliveryMethod === 'Self Order Logistics' ? 'Biaya Kirim (Self-Managed)' : 'Ongkos Kirim Armada'}</span>
+                                                                        <span>{deliveryMethod === 'Supplier Fleet' ? 'Ongkos Kirim Armada' : 'Biaya Kirim (oleh Pembeli)'}</span>
                                                                         <span className="font-mono">
-                                                                            {deliveryMethod === 'Self Order Logistics' 
-                                                                                ? <span className="text-emerald-600">DITANGGUNG PEMBELI</span>
-                                                                                : `Rp ${new Intl.NumberFormat('id-ID').format(parseFloat(shippingCost))}`
+                                                                            {(deliveryMethod === 'Self Order Logistics' || deliveryMethod === 'Hire Platform Courier') 
+                                                                                ? <span className="text-emerald-600">DIBAYAR KE KURIR</span>
+                                                                                : `Rp ${new Intl.NumberFormat('id-ID').format(parseFloat(shippingCost || '0'))}`
                                                                             }
                                                                         </span>
                                                                     </div>
                                                                     <div className="flex justify-between items-center py-2 border-t border-b border-gray-900 mt-2">
                                                                         <span className="text-xs font-black text-gray-900 uppercase tracking-widest">Grand Total</span>
                                                                         <span className="text-xl font-black text-indigo-700 tracking-tighter font-mono">
-                                                                            Rp {new Intl.NumberFormat('id-ID').format(Number(quote.total_amount) + (deliveryMethod === 'Self Order Logistics' ? 0 : parseFloat(shippingCost)))}
+                                                                            Rp {new Intl.NumberFormat('id-ID').format(Number(quote.total_amount) + ((deliveryMethod === 'Self Order Logistics' || deliveryMethod === 'Hire Platform Courier') ? 0 : parseFloat(shippingCost || '0')))}
                                                                         </span>
                                                                     </div>
                                                                 </div>

@@ -25,6 +25,10 @@ export default function CheckoutDrawer({ isOpen, onClose, onViewQuotes }: Checko
     const [orderNote, setOrderNote] = useState('');
     const [deliveryMethod, setDeliveryMethod] = useState('Supplier Fleet');
     const [isSuccess, setIsSuccess] = useState(false);
+    
+    // Stage 2: Inventory Sync State
+    const [projectRequirements, setProjectRequirements] = useState<any[]>([]);
+    const [itemRequirements, setItemRequirements] = useState<Record<number, string>>({}); // material_id -> requirement_id
 
     useEffect(() => {
         if (!isOpen) {
@@ -38,6 +42,24 @@ export default function CheckoutDrawer({ isOpen, onClose, onViewQuotes }: Checko
             fetchProjects();
         }
     }, [isOpen, checkoutMode]);
+
+    useEffect(() => {
+        if (selectedProjectId) {
+            fetchProjectRequirements(selectedProjectId);
+        } else {
+            setProjectRequirements([]);
+            setItemRequirements({});
+        }
+    }, [selectedProjectId]);
+
+    const fetchProjectRequirements = async (id: string) => {
+        try {
+            const res = await axios.get(`/projects/${id}/requirements`);
+            setProjectRequirements(res.data.data || []);
+        } catch (err) {
+            console.error('Failed to fetch requirements', err);
+        }
+    };
 
     const fetchProjects = async () => {
         setIsLoadingProjects(true);
@@ -123,7 +145,8 @@ export default function CheckoutDrawer({ isOpen, onClose, onViewQuotes }: Checko
                     name: item.name,
                     price_at_quote: item.price,
                     qty: item.qty,
-                    unit: item.unit
+                    unit: item.unit,
+                    requirement_id: itemRequirements[item.material_id] || null
                 })),
                 delivery_address: deliveryAddress,
                 address_detail: addressDetail,
@@ -307,6 +330,29 @@ export default function CheckoutDrawer({ isOpen, onClose, onViewQuotes }: Checko
                                                         </div>
                                                         <button onClick={() => removeItem(item.material_id)} className="text-[10px] font-black text-red-500 uppercase tracking-widest hover:text-red-600 transition-colors">Remove</button>
                                                     </div>
+
+                                                    {/* Stage 2: Link Requirement Dropdown */}
+                                                    {checkoutMode === 'project' && selectedProjectId && projectRequirements.length > 0 && (
+                                                        <div className="mt-4 pt-4 border-t border-white/50">
+                                                            <div className="flex items-center gap-2 mb-2">
+                                                                <LinkIcon size={10} className="text-red-400" />
+                                                                <span className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">Link to Requirement</span>
+                                                            </div>
+                                                            <select 
+                                                                value={itemRequirements[item.material_id] || ''}
+                                                                onChange={(e) => setItemRequirements({
+                                                                    ...itemRequirements,
+                                                                    [item.material_id]: e.target.value
+                                                                })}
+                                                                className="w-full px-3 py-2 bg-white border border-gray-100 rounded-xl text-[10px] font-black tracking-tight text-gray-900 outline-none focus:ring-2 focus:ring-red-500/20"
+                                                            >
+                                                                <option value="">-- Generic Purchase --</option>
+                                                                {projectRequirements.map(req => (
+                                                                    <option key={req.id} value={req.id}>{req.name} ({req.quantity_required} {req.unit})</option>
+                                                                ))}
+                                                            </select>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                         ))}
