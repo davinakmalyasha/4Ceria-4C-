@@ -97,4 +97,14 @@ public function activityLogs()
     return $this->hasMany(ProjectActivityLog::class)->orderBy('created_at', 'desc');
 }
 
+public function requirements()
+{
+    return $this->hasMany(ProjectRequirement::class);
+}
+
+public function materialOrders()
+{
+    return $this->hasMany(MaterialOrder::class);
+}
+
 }

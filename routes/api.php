@@ -139,7 +139,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/available-jobs', [\App\Http\Controllers\LogisticsJobController::class, 'availableJobs']);
         Route::get('/my-jobs', [\App\Http\Controllers\LogisticsJobController::class, 'myJobs']);
         Route::post('/jobs/{id}/accept', [\App\Http\Controllers\LogisticsJobController::class, 'acceptJob']);
-        Route::put('/jobs/{id}/status', [\App\Http\Controllers\LogisticsJobController::class, 'updateStatus']);
+        Route::post('/jobs/{id}/status', [\App\Http\Controllers\LogisticsJobController::class, 'updateStatus']);
     });
 
     // Material Quotes / Procurement Flow

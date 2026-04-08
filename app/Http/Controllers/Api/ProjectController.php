@@ -33,8 +33,26 @@ class ProjectController extends Controller
 
         // Support platform-wide project feed if requested
         if ($request->query('feed') === 'true') {
-            $query->where('status', 'open')
-                  ->where('user_id', '!=', $user->id); // Exclude own projects from feed
+            $query->where('user_id', '!=', $user->id); // Exclude own projects
+
+            if ($user->role_type === 'arsitek') {
+                $arsitekId = optional($user->arsitek)->id;
+                $query->whereIn('target_role', ['both', 'arsitek'])
+                      ->whereIn('status', ['open', 'accepted_kontraktor'])
+                      ->whereDoesntHave('bidsArsitek', function($q) use ($arsitekId) {
+                          $q->where('arsitek_id', $arsitekId);
+                      });
+            } elseif ($user->role_type === 'kontraktor') {
+                $kontraktorId = optional($user->kontraktor)->id;
+                $query->whereIn('target_role', ['both', 'kontraktor'])
+                      ->whereIn('status', ['open', 'accepted_arsitek'])
+                      ->whereDoesntHave('bidsKontraktor', function($q) use ($kontraktorId) {
+                          $q->where('kontraktor_id', $kontraktorId);
+                      });
+            } else {
+                $query->where('status', 'open');
+            }
+
             return ProjectResource::collection($query->latest()->get());
         }
 
@@ -121,14 +139,19 @@ class ProjectController extends Controller
     public function show(Project $project)
     {
         $project->load([
-            'bidsArsitek.arsitek.user',
-            'bidsKontraktor.kontraktor.user',
+            'arsitek.user.phoneNumber',
+            'kontraktor.user.phoneNumber',
+            'bidsArsitek.arsitek.user.phoneNumber',
+            'bidsKontraktor.kontraktor.user.phoneNumber',
             'images',
             'milestones',
             'user',
             'ratings',
-            'kontraktorRating'
-        ]);
+            'kontraktorRating',
+            'materialOrders.deliveryJob',
+            'requirements'
+        ])->loadCount(['bidsArsitek', 'bidsKontraktor']);
+        
         return new ProjectResource($project);
     }
 
@@ -140,8 +163,22 @@ class ProjectController extends Controller
             return response()->json(['message' => 'Only architects and contractors can submit bids.'], 403);
         }
 
-        if ($project->status !== 'open') {
+        $allowedStatuses = ['open', 'accepted_arsitek', 'accepted_kontraktor'];
+        if (!in_array($project->status, $allowedStatuses)) {
             return response()->json(['message' => 'This project is no longer accepting bids.'], 422);
+        }
+
+        // Role-specific vacancy check
+        if ($user->role_type === 'arsitek' && $project->selected_architect_id) {
+            return response()->json(['message' => 'An architect has already been hired for this project.'], 422);
+        }
+        if ($user->role_type === 'kontraktor' && $project->selected_contractor_id) {
+            return response()->json(['message' => 'A contractor has already been hired for this project.'], 422);
+        }
+
+        // Project target role check
+        if ($project->target_role !== 'both' && $project->target_role !== $user->role_type) {
+            return response()->json(['message' => "This project is not seeking a {$user->role_type}."], 422);
         }
 
         $request->validate([
