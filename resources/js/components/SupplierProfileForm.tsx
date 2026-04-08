@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
-import { Building, MapPin, Phone, FileText, UploadCloud, AlertCircle, CheckCircle } from 'lucide-react';
+import { Building, MapPin, Phone, FileText, UploadCloud, AlertCircle, CheckCircle, RefreshCcw, Info } from 'lucide-react';
+import LocationPickerMap, { ReverseGeoData } from './LocationPickerMap';
 
 interface SupplierProfileFormProps { 
     onCancel: () => void; 
@@ -18,6 +19,7 @@ export default function SupplierProfileForm({ onCancel, onSuccess }: SupplierPro
     const [formData, setFormData] = useState({
         store_name: '',
         address: '',
+        detail_location: '',
         latitude: '',
         longitude: '',
         no_telp: '',
@@ -27,9 +29,7 @@ export default function SupplierProfileForm({ onCancel, onSuccess }: SupplierPro
     
     const [fileFoto, setFileFoto] = useState<File | null>(null);
     const [verificationStatus, setVerificationStatus] = useState('pending');
-    const mapRef = useRef<HTMLDivElement>(null);
-    const mapInstanceRef = useRef<any>(null);
-    const markerRef = useRef<any>(null);
+    const [suggestedAddress, setSuggestedAddress] = useState<string>('');
 
     useEffect(() => {
         const fetchProfile = async () => {
@@ -40,6 +40,7 @@ export default function SupplierProfileForm({ onCancel, onSuccess }: SupplierPro
                     setFormData({
                         store_name: profile.store_name || '',
                         address: profile.address || '',
+                        detail_location: profile.detail_location || '',
                         latitude: profile.latitude || '',
                         longitude: profile.longitude || '',
                         no_telp: profile.no_telp || '',
@@ -58,64 +59,40 @@ export default function SupplierProfileForm({ onCancel, onSuccess }: SupplierPro
         fetchProfile();
     }, []);
 
-    // Initialize Leaflet map
-    useEffect(() => {
-        if (isFetching || !mapRef.current) return;
-
-        const initMap = async () => {
-            const L = await import('leaflet');
-            await import('leaflet/dist/leaflet.css');
-
-            const defaultLat = formData.latitude ? parseFloat(formData.latitude) : -6.2;
-            const defaultLng = formData.longitude ? parseFloat(formData.longitude) : 106.816;
-
-            if (mapInstanceRef.current) {
-                mapInstanceRef.current.remove();
-            }
-
-            const map = L.map(mapRef.current!, { scrollWheelZoom: true }).setView([defaultLat, defaultLng], 15);
-            mapInstanceRef.current = map;
-
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; OpenStreetMap'
-            }).addTo(map);
-
-            const customIcon = L.divIcon({
-                html: `<div style="background: #FF2D20; width: 32px; height: 32px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); border: 3px solid white; box-shadow: 0 4px 12px rgba(0,0,0,0.3);"></div>`,
-                iconSize: [32, 32],
-                iconAnchor: [16, 32],
-                className: ''
-            });
-
-            const marker = L.marker([defaultLat, defaultLng], { draggable: true, icon: customIcon }).addTo(map);
-            markerRef.current = marker;
-
-            marker.on('dragend', () => {
-                const pos = marker.getLatLng();
-                setFormData(prev => ({ ...prev, latitude: pos.lat.toFixed(7), longitude: pos.lng.toFixed(7) }));
-            });
-
-            map.on('click', (e: any) => {
-                marker.setLatLng(e.latlng);
-                setFormData(prev => ({ ...prev, latitude: e.latlng.lat.toFixed(7), longitude: e.latlng.lng.toFixed(7) }));
-            });
-
-            // Fix map rendering in hidden containers
-            setTimeout(() => map.invalidateSize(), 200);
-        };
-
-        initMap();
-
-        return () => {
-            if (mapInstanceRef.current) {
-                mapInstanceRef.current.remove();
-                mapInstanceRef.current = null;
-            }
-        };
-    }, [isFetching]);
-
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
+
+    const handleLocationChange = (lat: number, lng: number, geoData?: ReverseGeoData) => {
+        setFormData(prev => ({ 
+            ...prev, 
+            latitude: lat.toFixed(7), 
+            longitude: lng.toFixed(7) 
+        }));
+
+        if (geoData) {
+            const detailed = [
+                geoData.street_name,
+                geoData.kelurahan,
+                geoData.kecamatan,
+                geoData.city,
+                geoData.province,
+                geoData.postal_code
+            ].filter(Boolean).join(', ');
+            
+            setSuggestedAddress(detailed);
+            
+            // Auto-fill address ONLY if it's currently empty to avoid overwriting user's manual entry
+            if (!formData.address) {
+                setFormData(prev => ({ ...prev, address: detailed }));
+            }
+        }
+    };
+
+    const syncAddress = () => {
+        if (suggestedAddress) {
+            setFormData(prev => ({ ...prev, address: suggestedAddress }));
+        }
     };
 
     const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -256,30 +233,71 @@ export default function SupplierProfileForm({ onCancel, onSuccess }: SupplierPro
 
             {/* Store Location Map - Full Width */}
             <div className="bg-gray-50 p-6 rounded-3xl border border-gray-100 space-y-4">
-                <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-2">
-                    <MapPin size={18} className="text-red-500" /> Store Location <span className="text-red-500 text-xs">(Required for deliveries)</span>
-                </h3>
-                <div>
-                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Physical Address</label>
-                    <div className="relative">
-                        <MapPin size={16} className="absolute left-4 top-4 text-gray-400" />
-                        <textarea name="address" value={formData.address} onChange={handleChange} rows={2} className="w-full pl-11 pr-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500/20 outline-none resize-none" placeholder="Jl. Raya Bangunan No. 123..."></textarea>
-                    </div>
+                <div className="flex items-center justify-between gap-2 mb-2">
+                    <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                        <MapPin size={18} className="text-red-500" /> Store Pickup Location
+                    </h3>
+                    {suggestedAddress && suggestedAddress !== formData.address && (
+                        <button 
+                            type="button" 
+                            onClick={syncAddress}
+                            className="text-[10px] font-black uppercase tracking-widest text-indigo-600 hover:text-indigo-700 flex items-center gap-1 bg-indigo-50 px-3 py-1.5 rounded-lg transition-all active:scale-95"
+                        >
+                            <RefreshCcw size={12} /> Sync map address
+                        </button>
+                    )}
                 </div>
-                <div className="relative rounded-2xl overflow-hidden border border-gray-200">
-                    <div ref={mapRef} className="w-full h-[300px] bg-gray-200 z-0" />
-                    <div className="absolute bottom-3 left-3 bg-white/90 backdrop-blur-md rounded-xl px-3 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-widest shadow-lg border border-gray-100 z-[1000]">
-                        📍 Click map or drag pin to set location
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="md:col-span-2 relative">
+                        <LocationPickerMap 
+                            latitude={parseFloat(formData.latitude) || -6.2} 
+                            longitude={parseFloat(formData.longitude) || 106.816} 
+                            onChange={handleLocationChange} 
+                            label="Search for your building or pin your exact store location"
+                        />
                     </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                    <div>
-                        <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Latitude</label>
-                        <input type="text" name="latitude" value={formData.latitude} onChange={handleChange} className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500/20 outline-none text-sm font-mono" placeholder="-6.2000000" readOnly />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Longitude</label>
-                        <input type="text" name="longitude" value={formData.longitude} onChange={handleChange} className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500/20 outline-none text-sm font-mono" placeholder="106.8160000" readOnly />
+                    <div className="space-y-4">
+                        <div className="p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100/50">
+                            <h4 className="text-[10px] font-black text-indigo-600 uppercase tracking-[2px] mb-3 flex items-center gap-2">
+                                <Info size={12} /> Courier Guide
+                            </h4>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-[10px] font-bold text-gray-500 uppercase mb-2">1. Map Location (General)</label>
+                                    <textarea 
+                                        name="address" 
+                                        value={formData.address} 
+                                        onChange={handleChange} 
+                                        rows={2} 
+                                        className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl outline-none text-xs leading-relaxed opacity-80" 
+                                        placeholder="Jakarta Selatan, Indonesia..."
+                                    ></textarea>
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-bold text-gray-500 uppercase mb-2">2. Detail Landmark (Specific)</label>
+                                    <textarea 
+                                        name="detail_location" 
+                                        value={formData.detail_location} 
+                                        onChange={handleChange} 
+                                        rows={3} 
+                                        className="w-full px-4 py-3 bg-white border border-indigo-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none text-sm leading-relaxed" 
+                                        placeholder="e.g. Gedung Sinar Jaya, Lantai 2, sebelah Toko Bunga"
+                                    ></textarea>
+                                    <p className="text-[9px] text-indigo-400 mt-2 italic font-medium">Add building name, floor, or specific pickup point instructions.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3 opacity-50">
+                            <div>
+                                <label className="block text-[9px] font-bold text-gray-400 uppercase mb-1">Lat</label>
+                                <input type="text" value={formData.latitude} className="w-full px-3 py-2 bg-gray-100 border-none rounded-lg text-[9px] font-mono" readOnly />
+                            </div>
+                            <div>
+                                <label className="block text-[9px] font-bold text-gray-400 uppercase mb-1">Lng</label>
+                                <input type="text" value={formData.longitude} className="w-full px-3 py-2 bg-gray-100 border-none rounded-lg text-[9px] font-mono" readOnly />
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

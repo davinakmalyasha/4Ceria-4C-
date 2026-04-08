@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import type { MapRef } from 'react-map-gl/maplibre';
 import { Project, ProjectFilter } from '../types/project.types';
 
 export function useProjectFilters(projects: Project[]) {
@@ -8,11 +9,57 @@ export function useProjectFilters(projects: Project[]) {
     const [viewMode, setViewMode] = useState<'grid' | 'list' | 'board'>('grid');
     const [visibleCount, setVisibleCount] = useState(8);
 
+    // Map specific state
+    const mapRef = useRef<MapRef>(null);
+    const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+    const [selectedCity, setSelectedCity] = useState<string>('all');
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
+    const [popupInfo, setPopupInfo] = useState<Project | null>(null);
+
+    // Geolocation
+    useEffect(() => {
+        if (!navigator.geolocation) return;
+        const watchId = navigator.geolocation.watchPosition(
+            (pos) => setUserLocation({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+            () => { /* silently fail */ },
+            { enableHighAccuracy: true, maximumAge: 10000 },
+        );
+        return () => navigator.geolocation.clearWatch(watchId);
+    }, []);
+
+    // Dropdown handler
+    useEffect(() => {
+        const handler = (e: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) setIsDropdownOpen(false);
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, []);
+
+    const cities = useMemo(() => {
+        const s = new Set<string>();
+        projects.forEach(p => { if (p.city) s.add(p.city); });
+        return Array.from(s).sort();
+    }, [projects]);
+
+    const flyToUser = useCallback(() => {
+        if (userLocation && mapRef.current) mapRef.current.flyTo({ center: [userLocation.longitude, userLocation.latitude], zoom: 14, duration: 1500 });
+    }, [userLocation]);
+
     const filteredProjects = useMemo(() => {
         let result = [...projects];
 
         if (statusFilter !== 'all') {
-            result = result.filter(p => p.status === statusFilter);
+            if (statusFilter === 'open') {
+                result = result.filter(p => ['open', 'accepted_arsitek', 'accepted_kontraktor'].includes(p.status));
+            } else {
+                result = result.filter(p => p.status === statusFilter);
+            }
+        }
+
+        if (selectedCity !== 'all') {
+            result = result.filter(p => p.city === selectedCity);
         }
 
         if (search.trim() !== '') {
@@ -41,7 +88,7 @@ export function useProjectFilters(projects: Project[]) {
         });
 
         return result;
-    }, [projects, search, statusFilter, sortBy]);
+    }, [projects, search, statusFilter, sortBy, selectedCity]);
 
     const totalCount = filteredProjects.length;
     const paginatedProjects = filteredProjects.slice(0, visibleCount);
@@ -52,7 +99,7 @@ export function useProjectFilters(projects: Project[]) {
     };
 
     const stats = useMemo(() => {
-        const openProjects = projects.filter(p => p.status === 'open');
+        const openProjects = projects.filter(p => ['open', 'accepted_arsitek', 'accepted_kontraktor'].includes(p.status));
         const activeBids = openProjects.reduce((acc, p) => acc + (p.bids_arsitek_count || 0) + (p.bids_kontraktor_count || 0), 0);
         const totalBudget = openProjects.reduce((acc, p) => acc + p.budget, 0);
 
@@ -74,7 +121,10 @@ export function useProjectFilters(projects: Project[]) {
         visibleCount, setVisibleCount,
         hasMore, loadMore,
         filteredProjects: paginatedProjects,
+        allFilteredProjects: filteredProjects, // Added this for map markers
         totalCount,
-        stats
+        stats,
+        // Map specific
+        mapRef, userLocation, selectedCity, setSelectedCity, isDropdownOpen, setIsDropdownOpen, dropdownRef, popupInfo, setPopupInfo, flyToUser, cities
     };
 }

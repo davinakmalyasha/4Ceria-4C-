@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { Conversation, ChatMessage } from '../types/chat.types';
+import { useToast } from '../context/ToastContext';
+
 
 export function useChat() {
     const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -10,7 +12,9 @@ export function useChat() {
     const [isLoadingMessages, setIsLoadingMessages] = useState(false);
     const [isSending, setIsSending] = useState(false);
     
+    const { showToast } = useToast();
     const pollingInterval = useRef<any>(null);
+
 
     const fetchConversations = useCallback(async () => {
         setIsLoadingConv(true);
@@ -64,8 +68,9 @@ export function useChat() {
             
         } catch (err) {
             console.error('Failed to send message', err);
-            alert('Failed to send message. Please try again.');
+            showToast('Failed to send message. Please try again.', 'error');
         } finally {
+
             setIsSending(false);
         }
     };

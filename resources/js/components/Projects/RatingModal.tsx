@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
-import { Star, X, Award } from 'lucide-react';
+import { Star, X, Award, Trophy, Building, Briefcase } from 'lucide-react';
+import { useToast } from '../../context/ToastContext';
+
 
 interface RatingModalProps {
     projectId: number;
@@ -19,6 +21,8 @@ export default function RatingModal({ projectId, projectTitle, hasArsitek, hasKo
     const [targetType, setTargetType] = useState<'arsitek' | 'kontraktor'>(hasArsitek ? 'arsitek' : 'kontraktor');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitted, setSubmitted] = useState(false);
+    const { showToast } = useToast();
+
 
     const handleSubmit = async () => {
         if (rating === 0 || isSubmitting) return;
@@ -29,11 +33,12 @@ export default function RatingModal({ projectId, projectTitle, hasArsitek, hasKo
                 komentar,
                 target_type: targetType,
             });
-            setSubmitted(true);
+            showToast('Review published successfully', 'success');
             setTimeout(() => onRated(), 1500);
         } catch (err: any) {
-            alert(err.response?.data?.message || 'Failed to submit rating.');
+            showToast(err.response?.data?.message || 'Failed to submit rating.', 'error');
         } finally {
+
             setIsSubmitting(false);
         }
     };
@@ -65,10 +70,10 @@ export default function RatingModal({ projectId, projectTitle, hasArsitek, hasKo
                         animate={{ scale: 1 }}
                         className="text-center py-8"
                     >
-                        <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <Award className="w-10 h-10 text-emerald-600" />
+                        <div className="w-20 h-20 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-100">
+                            <Trophy className="w-10 h-10" />
                         </div>
-                        <h3 className="text-xl font-extrabold text-gray-900">Thank You! 🎉</h3>
+                        <h3 className="text-xl font-extrabold text-gray-900">Thank You!</h3>
                         <p className="text-gray-500 mt-2 text-sm">Your review has been published.</p>
                     </motion.div>
                 ) : (
@@ -89,13 +94,13 @@ export default function RatingModal({ projectId, projectTitle, hasArsitek, hasKo
                                     onClick={() => setTargetType('arsitek')}
                                     className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${targetType === 'arsitek' ? 'bg-gray-900 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
                                 >
-                                    🏛️ Architect
+                                    <Building size={16} /> Architect
                                 </button>
                                 <button
                                     onClick={() => setTargetType('kontraktor')}
                                     className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${targetType === 'kontraktor' ? 'bg-gray-900 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
                                 >
-                                    🏗️ Contractor
+                                    <Briefcase size={16} /> Contractor
                                 </button>
                             </div>
                         )}

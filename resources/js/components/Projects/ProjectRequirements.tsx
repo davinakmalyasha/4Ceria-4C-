@@ -7,6 +7,8 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import { Project, ProjectRequirement, formatCurrency } from '../../types/project.types';
+import { useToast } from '../../context/ToastContext';
+
 
 interface ProjectRequirementsProps {
     project: Project;
@@ -19,6 +21,8 @@ export default function ProjectRequirements({ project, onUpdate }: ProjectRequir
     const [error, setError] = useState<string | null>(null);
     const [usageModal, setUsageModal] = useState<ProjectRequirement | null>(null);
     const [usageQty, setUsageQty] = useState('');
+    const { showToast } = useToast();
+
 
     const [newRequirement, setNewRequirement] = useState({
         name: '',
@@ -35,7 +39,9 @@ export default function ProjectRequirements({ project, onUpdate }: ProjectRequir
             await axios.post(`/projects/${project.id}/requirements`, newRequirement);
             setIsAdding(false);
             setNewRequirement({ name: '', quantity_required: '', unit: 'Pcs', notes: '' });
+            showToast('Requirement added successfully', 'success');
             onUpdate();
+
         } catch (err: any) {
             setError(err.response?.data?.message || 'Failed to add requirement');
         } finally {
@@ -44,10 +50,11 @@ export default function ProjectRequirements({ project, onUpdate }: ProjectRequir
     };
 
     const handleDelete = async (id: number) => {
-        if (!confirm('Are you sure you want to remove this requirement?')) return;
         try {
             await axios.delete(`/projects/${project.id}/requirements/${id}`);
+            showToast('Requirement removed', 'success');
             onUpdate();
+
         } catch (err) {
             console.error('Delete failed', err);
         }
@@ -62,10 +69,12 @@ export default function ProjectRequirements({ project, onUpdate }: ProjectRequir
             });
             setUsageModal(null);
             setUsageQty('');
+            showToast('Usage logged successfully', 'success');
             onUpdate();
         } catch (err: any) {
-            alert(err.response?.data?.message || 'Failed to log usage');
+            showToast(err.response?.data?.message || 'Failed to log usage', 'error');
         } finally {
+
             setIsLoading(false);
         }
     };

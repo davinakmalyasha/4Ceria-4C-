@@ -7,11 +7,12 @@ import ProjectRoadmapGantt from './ProjectRoadmapGantt';
 
 interface Props {
     project: Project;
+    user: any;
     isOwnerOrWorker: boolean;
     onUpdate?: () => void;
 }
 
-export default function ProjectMilestones({ project, isOwnerOrWorker, onUpdate }: Props) {
+export default function ProjectMilestones({ project, user, isOwnerOrWorker, onUpdate }: Props) {
     const [milestones, setMilestones] = useState<ProjectMilestone[]>(project.milestones || []);
     const [view, setView] = useState<'list' | 'roadmap'>('list');
     const [isLoading, setIsLoading] = useState(false);
@@ -53,7 +54,10 @@ export default function ProjectMilestones({ project, isOwnerOrWorker, onUpdate }
     };
 
     const toggleStatus = async (milestone: ProjectMilestone) => {
-        if (!isOwnerOrWorker) return;
+        const canManage = (user?.role_type === 'arsitek' && milestone.arsitek_id === user.arsitek?.id) || 
+                         (user?.role_type === 'kontraktor' && milestone.kontraktor_id === user.kontraktor?.id);
+        
+        if (!canManage) return;
         const newStatus = !milestone.is_completed;
         
         // Optimistic UI update
@@ -70,7 +74,11 @@ export default function ProjectMilestones({ project, isOwnerOrWorker, onUpdate }
     };
 
     const deleteMilestone = async (id: number) => {
-        if (!isOwnerOrWorker) return;
+        const m = milestones.find(ms => ms.id === id);
+        const canManage = (user?.role_type === 'arsitek' && m?.arsitek_id === user.arsitek?.id) || 
+                         (user?.role_type === 'kontraktor' && m?.kontraktor_id === user.kontraktor?.id);
+        
+        if (!canManage) return;
         try {
             await axios.delete(`/projects/${project.id}/milestones/${id}`);
             setMilestones(prev => prev.filter(m => m.id !== id));
@@ -80,57 +88,63 @@ export default function ProjectMilestones({ project, isOwnerOrWorker, onUpdate }
         }
     };
 
-    const completedCount = milestones.filter(m => m.is_completed).length;
-    const progressPerc = milestones.length > 0 ? Math.round((completedCount / milestones.length) * 100) : 0;
+    const archMilestones = milestones.filter(m => m.arsitek_id);
+    const contractorMilestones = milestones.filter(m => m.kontraktor_id);
+    const generalMilestones = milestones.filter(m => !m.arsitek_id && !m.kontraktor_id);
+
+    const getProgress = (list: ProjectMilestone[]) => {
+        if (list.length === 0) return 0;
+        return Math.round((list.filter(m => m.is_completed).length / list.length) * 100);
+    };
 
     return (
         <div className="space-y-6 pb-12">
             {/* Header & Controls */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-2 p-1 bg-gray-100 rounded-2xl w-fit">
+                <div className="flex items-center gap-2 p-1 bg-gray-100/50 backdrop-blur-sm rounded-2xl w-fit">
                     <button 
                         onClick={() => setView('list')}
                         className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${view === 'list' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                     >
-                        <List size={14} /> List View
+                        <List size={14} /> Side-by-Side View
                     </button>
                     <button 
                         onClick={() => setView('roadmap')}
                         className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${view === 'roadmap' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                     >
-                        <LayoutGrid size={14} /> Visual Roadmap
+                        <LayoutGrid size={14} /> Full Roadmap
                     </button>
                 </div>
 
-                {isOwnerOrWorker && (
+                {user?.role_type !== 'user' && (
                     <button 
                         onClick={() => setShowAddForm(!showAddForm)}
                         className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest transition-all ${showAddForm ? 'bg-white border border-gray-200 text-gray-400' : 'bg-gray-900 text-white hover:bg-black shadow-lg shadow-gray-200 active:scale-95'}`}
                     >
-                        {showAddForm ? 'Cancel' : <><Plus size={16} strokeWidth={3} /> Add Milestone</>}
+                        {showAddForm ? 'Cancel' : <><Plus size={16} strokeWidth={3} /> New Phase</>}
                     </button>
                 )}
             </div>
 
-            {/* Progress Card */}
-            <div className="bg-white p-6 rounded-3xl border-2 border-gray-100 shadow-sm">
-                <div className="flex justify-between items-end mb-4">
-                    <div>
-                        <h4 className="font-black text-gray-900 text-xl tracking-tight">Project Momentum</h4>
-                        <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mt-1">
-                            {completedCount} of {milestones.length} phases completed
-                        </p>
+            {/* Compact Progress Summary */}
+            <div className="flex flex-wrap gap-4">
+                <div className="flex-1 min-w-[200px] bg-slate-50/50 p-4 rounded-2xl border border-slate-100">
+                    <div className="flex justify-between items-center mb-1.5">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-indigo-400">Architecture</span>
+                        <span className="text-xs font-black text-indigo-600">{getProgress(archMilestones)}%</span>
                     </div>
-                    <div className="text-right">
-                        <span className="text-3xl font-black text-red-600 tracking-tighter">{progressPerc}%</span>
+                    <div className="h-1.5 bg-indigo-100/50 rounded-full overflow-hidden">
+                        <motion.div initial={{width:0}} animate={{width: `${getProgress(archMilestones)}%`}} className="h-full bg-indigo-500 rounded-full shadow-[0_0_8px_rgba(99,102,241,0.4)]" />
                     </div>
                 </div>
-                <div className="w-full h-4 bg-gray-100 rounded-full overflow-hidden p-1 border border-gray-50">
-                    <motion.div 
-                        initial={{ width: 0 }} 
-                        animate={{ width: `${progressPerc}%` }} 
-                        className="h-full bg-gradient-to-r from-red-500 to-red-600 rounded-full shadow-[0_0_10px_rgba(239,68,68,0.3)]"
-                    />
+                <div className="flex-1 min-w-[200px] bg-slate-50/50 p-4 rounded-2xl border border-slate-100">
+                    <div className="flex justify-between items-center mb-1.5">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-red-400">Construction</span>
+                        <span className="text-xs font-black text-red-600">{getProgress(contractorMilestones)}%</span>
+                    </div>
+                    <div className="h-1.5 bg-red-100/50 rounded-full overflow-hidden">
+                        <motion.div initial={{width:0}} animate={{width: `${getProgress(contractorMilestones)}%`}} className="h-full bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.4)]" />
+                    </div>
                 </div>
             </div>
 
@@ -143,15 +157,15 @@ export default function ProjectMilestones({ project, isOwnerOrWorker, onUpdate }
                         exit={{ height: 0, opacity: 0 }}
                         className="overflow-hidden"
                     >
-                        <form onSubmit={addMilestone} className="bg-white border-2 border-red-100 rounded-3xl p-6 space-y-4 shadow-xl shadow-red-50/50">
+                        <form onSubmit={addMilestone} className="bg-white border-2 border-gray-100 rounded-3xl p-6 space-y-4 shadow-xl mb-8">
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Milestone Title</label>
                                 <input 
                                     type="text" 
                                     value={title} 
                                     onChange={e => setTitle(e.target.value)}
-                                    placeholder="Phase name (e.g. Foundation Pouring)" 
-                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl focus:ring-4 focus:ring-red-500/10 focus:border-red-500 outline-none transition-all font-bold text-gray-900"
+                                    placeholder="Enter Phase Title..." 
+                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl focus:border-gray-900 outline-none transition-all font-bold text-gray-900"
                                     required
                                 />
                             </div>
@@ -159,126 +173,196 @@ export default function ProjectMilestones({ project, isOwnerOrWorker, onUpdate }
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-1.5">
-                                        <Calendar size={10} /> Planned Start
+                                        <Calendar size={10} /> Start Date
                                     </label>
                                     <input 
                                         type="date" 
                                         value={startDate} 
                                         onChange={e => setStartDate(e.target.value)}
-                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl focus:border-red-500 outline-none transition-all font-bold text-gray-700 text-sm"
+                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl outline-none font-bold text-gray-700 text-sm"
                                     />
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-1.5">
-                                        <Calendar size={10} /> Expected Completion
+                                        <Calendar size={10} /> Due Date
                                     </label>
                                     <input 
                                         type="date" 
                                         value={dueDate} 
                                         onChange={e => setDueDate(e.target.value)}
-                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl focus:border-red-500 outline-none transition-all font-bold text-gray-700 text-sm"
+                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl outline-none font-bold text-gray-700 text-sm"
                                     />
                                 </div>
                             </div>
 
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Description (Optional)</label>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Details</label>
                                 <textarea 
                                     value={description} 
                                     onChange={e => setDescription(e.target.value)}
-                                    placeholder="What exactly will be done in this phase?" 
+                                    placeholder="Description of the phase..." 
                                     rows={2}
-                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl focus:border-red-500 outline-none transition-all font-medium text-gray-600 text-sm resize-none"
+                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl outline-none font-medium text-gray-600 text-sm resize-none"
                                 />
                             </div>
 
                             <button 
                                 type="submit" 
                                 disabled={!title.trim() || isLoading}
-                                className="w-full px-6 py-4 bg-red-600 hover:bg-red-700 text-white font-black text-xs uppercase tracking-widest rounded-2xl disabled:opacity-50 flex items-center justify-center gap-2 transition-all shadow-lg shadow-red-100"
+                                className="w-full px-6 py-4 bg-gray-900 hover:bg-black text-white font-black text-xs uppercase tracking-widest rounded-2xl disabled:opacity-50 transition-all shadow-lg"
                             >
-                                {isLoading ? 'Creating Milestone...' : <><Plus size={16} strokeWidth={3} /> Create Detailed Milestone</>}
+                                {isLoading ? 'Saving...' : 'Add Phase'}
                             </button>
                         </form>
                     </motion.div>
                 )}
             </AnimatePresence>
 
-            {/* Views */}
-            <div className="min-h-[300px]">
-                {view === 'roadmap' ? (
-                    <ProjectRoadmapGantt 
-                        project={project} 
-                        milestones={milestones}
-                        materialOrders={project.material_orders || []}
-                    />
-                ) : (
+            {/* Side-by-Side Milestone Columns */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-6">
+                
+                {/* ARCHITECTURE COLUMN */}
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between px-2">
+                        <h4 className="font-black text-indigo-900 text-lg flex items-center gap-2">
+                            <div className="w-2 h-6 bg-indigo-500 rounded-full"></div>
+                            Architecture
+                        </h4>
+                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{archMilestones.length} Phases</span>
+                    </div>
+
                     <div className="space-y-3">
-                        {milestones.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center py-16 px-4 text-center bg-white border-2 border-dashed border-gray-100 rounded-3xl">
-                                <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">
-                                    <List className="text-gray-300" size={32} />
-                                </div>
-                                <h5 className="font-black text-gray-900 tracking-tight">No milestones yet</h5>
-                                <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-1">Break your project down into actionable phases.</p>
+                        {archMilestones.length === 0 ? (
+                            <div className="py-12 border-2 border-dashed border-indigo-50 rounded-3xl flex flex-col items-center justify-center text-center px-4">
+                                <p className="text-xs font-bold text-indigo-300 uppercase tracking-widest">No architecture milestones</p>
                             </div>
                         ) : (
-                            milestones.map((m, idx) => (
-                                <motion.div 
+                            archMilestones.map((m, idx) => (
+                                <MilestoneCard 
                                     key={m.id} 
-                                    initial={{ opacity: 0, x: -20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    transition={{ delay: idx * 0.05 }}
-                                    className="group relative bg-white border border-gray-200 rounded-2xl p-5 hover:border-red-500 hover:shadow-xl hover:shadow-red-500/5 transition-all overflow-hidden"
-                                >
-                                    <div className="flex items-start justify-between gap-4">
-                                        <div className="flex items-start gap-4 cursor-pointer flex-1" onClick={() => toggleStatus(m)}>
-                                            <button className={`mt-1 flex-shrink-0 transition-all transform hover:scale-110 ${m.is_completed ? 'text-emerald-500' : 'text-gray-200 group-hover:text-red-300'}`}>
-                                                {m.is_completed ? <CheckCircle2 className="w-7 h-7" /> : <Circle className="w-7 h-7" />}
-                                            </button>
-                                            <div className="flex-1">
-                                                <h5 className={`font-black tracking-tight text-lg ${m.is_completed ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
-                                                    {m.title}
-                                                </h5>
-                                                {(m.start_date || m.due_date) && (
-                                                    <div className="flex items-center gap-3 mt-1 text-[10px] font-black uppercase tracking-widest text-gray-400">
-                                                        {m.start_date && <span>Start: {new Date(m.start_date).toLocaleDateString()}</span>}
-                                                        {m.due_date && <span className="text-red-500/60">• Due: {new Date(m.due_date).toLocaleDateString()}</span>}
-                                                    </div>
-                                                )}
-                                                {m.description && (
-                                                    <p className="text-sm text-gray-500 mt-2 font-medium leading-relaxed opacity-80 group-hover:opacity-100 transition-opacity">
-                                                        {m.description}
-                                                    </p>
-                                                )}
-                                            </div>
-                                        </div>
-                                        {isOwnerOrWorker && (
-                                            <button 
-                                                onClick={(e) => { e.stopPropagation(); deleteMilestone(m.id); }}
-                                                className="p-3 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all opacity-0 group-hover:opacity-100 active:scale-90"
-                                            >
-                                                <Trash2 size={16} />
-                                            </button>
-                                        )}
-                                    </div>
-                                    
-                                    {/* Completion Glow Bar */}
-                                    {m.is_completed && <div className="absolute left-0 top-0 bottom-0 w-1 bg-emerald-500"></div>}
-                                </motion.div>
+                                    milestone={m} 
+                                    color="indigo" 
+                                    onToggle={() => toggleStatus(m)} 
+                                    onDelete={() => deleteMilestone(m.id)}
+                                    canManage={(user?.role_type === 'arsitek' && m.arsitek_id === user.arsitek?.id)}
+                                />
                             ))
                         )}
                     </div>
+                </div>
+
+                {/* CONSTRUCTION COLUMN */}
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between px-2">
+                        <h4 className="font-black text-red-900 text-lg flex items-center gap-2">
+                            <div className="w-2 h-6 bg-red-500 rounded-full"></div>
+                            Construction
+                        </h4>
+                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{contractorMilestones.length} Phases</span>
+                    </div>
+
+                    <div className="space-y-3">
+                        {contractorMilestones.length === 0 ? (
+                            <div className="py-12 border-2 border-dashed border-red-50 rounded-3xl flex flex-col items-center justify-center text-center px-4">
+                                <p className="text-xs font-bold text-red-300 uppercase tracking-widest">No construction milestones</p>
+                            </div>
+                        ) : (
+                            contractorMilestones.map((m, idx) => (
+                                <MilestoneCard 
+                                    key={m.id} 
+                                    milestone={m} 
+                                    color="red" 
+                                    onToggle={() => toggleStatus(m)} 
+                                    onDelete={() => deleteMilestone(m.id)}
+                                    canManage={(user?.role_type === 'kontraktor' && m.kontraktor_id === user.kontraktor?.id)}
+                                />
+                            ))
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            {/* General/Legacy Milestones (if any) */}
+            {generalMilestones.length > 0 && (
+                <div className="pt-6 border-t border-gray-100/50 mt-2">
+                    <h5 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-4 text-center">Unassigned Milestones</h5>
+                    <div className="max-w-2xl mx-auto space-y-3">
+                        {generalMilestones.map(m => (
+                            <MilestoneCard 
+                                key={m.id} 
+                                milestone={m} 
+                                color="gray" 
+                                onToggle={() => toggleStatus(m)} 
+                                onDelete={() => deleteMilestone(m.id)}
+                                canManage={false} // Unassigned milestones cannot be managed by professionals yet
+                            />
+                        ))}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+// Sub-component for individual Milestone Card
+function MilestoneCard({ milestone, color, onToggle, onDelete, canManage }: { 
+    milestone: ProjectMilestone; 
+    color: 'indigo' | 'red' | 'gray'; 
+    onToggle: () => void; 
+    onDelete: () => void;
+    canManage: boolean;
+}) {
+    const colorClasses = {
+        indigo: 'hover:border-indigo-500 hover:shadow-indigo-500/5 text-indigo-500',
+        red: 'hover:border-red-500 hover:shadow-red-500/5 text-red-500',
+        gray: 'hover:border-gray-500 hover:shadow-gray-500/5 text-gray-500'
+    };
+
+    return (
+        <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={`group bg-white border border-gray-100 p-4 rounded-2xl shadow-sm transition-all ${colorClasses[color]}`}
+        >
+            <div className="flex items-start gap-3">
+                <button 
+                    onClick={onToggle}
+                    disabled={!canManage}
+                    title={!canManage ? "Managed by Professional" : ""}
+                    className={`mt-1 transition-transform active:scale-90 ${milestone.is_completed ? 'text-emerald-500' : 'text-gray-200 group-hover:text-gray-400'} ${!canManage ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
+                >
+                    {milestone.is_completed ? <CheckCircle2 size={24} /> : <Circle size={24} />}
+                </button>
+                <div className="flex-1 min-w-0">
+                    <h5 className={`font-black text-sm tracking-tight leading-tight ${milestone.is_completed ? 'text-gray-300 line-through' : 'text-gray-800'}`}>
+                        {milestone.title}
+                    </h5>
+                    <div className="flex items-center gap-2 mt-1">
+                        {milestone.due_date && (
+                            <span className="text-[9px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-1">
+                                <Calendar size={10} /> {new Date(milestone.due_date).toLocaleDateString()}
+                            </span>
+                        )}
+                        {milestone.is_completed && (
+                            <span className="text-[9px] font-black uppercase tracking-widest text-emerald-500">Completed</span>
+                        )}
+                    </div>
+                    {milestone.description && (
+                        <p className="mt-2 text-xs text-gray-500 line-clamp-2 font-medium opacity-70 group-hover:opacity-100 transition-opacity">
+                            {milestone.description}
+                        </p>
+                    )}
+                </div>
+                {canManage && (
+                    <button 
+                        onClick={onDelete}
+                        className="opacity-0 group-hover:opacity-100 p-2 text-gray-300 hover:text-red-500 bg-gray-50 rounded-lg transition-all"
+                    >
+                        <Trash2 size={12} />
+                    </button>
                 )}
             </div>
-            
-            {/* Legend / Tips */}
-            <div className="mt-8 flex items-center justify-center gap-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-300">
-                <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-red-500"></div> Construction</div>
-                <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-indigo-500"></div> Logistics</div>
-                <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-emerald-500"></div> Done</div>
-            </div>
-        </div>
+        </motion.div>
     );
 }
 

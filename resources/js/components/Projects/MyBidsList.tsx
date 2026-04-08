@@ -98,7 +98,7 @@ export default function MyBidsList({ bids, isLoading, onViewProject }: Props) {
                             <div className="flex flex-col justify-between items-end md:w-48 shrink-0 border-t md:border-t-0 md:border-l border-gray-100 pt-4 md:pt-0 md:pl-6">
                                 <div className="text-right w-full mb-4 md:mb-0">
                                     <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 flex items-center justify-end gap-1"><DollarSign className="w-3 h-3"/> Offered Price</div>
-                                    <div className="text-xl font-extrabold text-[#FF2D20]">{formatCurrency(bid.price)}</div>
+                                    <div className="text-xl font-extrabold text-zinc-900">{formatCurrency(bid.price)}</div>
                                 </div>
                                 
                                 {bid.project && (

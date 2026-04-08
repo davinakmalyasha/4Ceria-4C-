@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
-import { X, Save, AlertCircle, Image as ImageIcon } from 'lucide-react';
+import { X, Save, AlertCircle, Image as ImageIcon, MapPin } from 'lucide-react';
 import { Project } from '../../types/project.types';
 import LocationPickerMap from '../LocationPickerMap';
 
@@ -189,6 +189,19 @@ export default function EditProjectModal({ project, onClose, onSuccess }: Props)
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-1">Short Location Text</label>
                             <input type="text" value={lokasi} onChange={e => setLokasi(e.target.value)} required className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#FF2D20]/20 focus:border-[#FF2D20] outline-none transition-all" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1 flex items-center gap-2">
+                                <MapPin size={14} className="text-blue-500" /> Alamat Lengkap / Nama Jalan
+                            </label>
+                            <input 
+                                type="text" 
+                                value={streetName} 
+                                onChange={e => setStreetName(e.target.value)} 
+                                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#FF2D20]/20 focus:border-[#FF2D20] outline-none transition-all placeholder:text-gray-400" 
+                                placeholder="e.g. Jl. Merdeka No. 45, RT 03/RW 02" 
+                            />
+                            <p className="text-[10px] text-gray-400 mt-1 italic">Updated automatically from map, but feel free to add more details.</p>
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div>

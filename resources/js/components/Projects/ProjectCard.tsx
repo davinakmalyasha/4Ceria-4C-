@@ -44,6 +44,11 @@ export default function ProjectCard({ project, onClick, userRole, viewMode = 'gr
     const TypeIcon = typeCfg.icon;
     
     const bidCount = (project.bids_arsitek_count || 0) + (project.bids_kontraktor_count || 0);
+    
+    // Progress calculation
+    const milestones = project.milestones || [];
+    const completedCount = milestones.filter(m => m.is_completed).length;
+    const progressPerc = milestones.length > 0 ? Math.round((completedCount / milestones.length) * 100) : 0;
 
     // Calc days remaining or if overdue
     const deadlineRender = () => {
@@ -159,6 +164,26 @@ export default function ProjectCard({ project, onClick, userRole, viewMode = 'gr
                             </div>
                         </div>
                         <p className={`text-sm text-zinc-500 leading-relaxed md:pr-4 break-words mt-2 ${isList ? 'line-clamp-2 md:line-clamp-1' : 'line-clamp-2'}`}>{project.description}</p>
+                        
+                        {/* Milestone Progress Bar */}
+                        {milestones.length > 0 && (
+                            <div className="mt-4 space-y-1.5">
+                                <div className="flex justify-between items-center text-[10px] uppercase tracking-widest font-black">
+                                    <span className="text-zinc-400">Project Progress</span>
+                                    <span className={progressPerc === 100 ? 'text-emerald-600' : 'text-[#FF2D20]'}>
+                                        {completedCount}/{milestones.length} Milestones • {progressPerc}%
+                                    </span>
+                                </div>
+                                <div className="h-1.5 w-full bg-zinc-100 rounded-full overflow-hidden border border-zinc-50 shadow-inner">
+                                    <motion.div 
+                                        initial={{ width: 0 }}
+                                        animate={{ width: `${progressPerc}%` }}
+                                        transition={{ duration: 0.8, ease: "easeOut" }}
+                                        className={`h-full rounded-full ${progressPerc === 100 ? 'bg-emerald-500' : 'bg-gradient-to-r from-[#FF2D20] to-red-500'}`}
+                                    />
+                                </div>
+                            </div>
+                        )}
                     </div>
                     {/* Budget Section right aligned */}
                     <div className={`text-right shrink-0 bg-zinc-50 rounded-2xl border border-zinc-100/50 group-hover:bg-zinc-100 group-hover:border-zinc-200 transition-colors hidden sm:block p-3 ${isList ? 'w-auto' : 'w-auto min-w-[140px]'}`}>

@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronLeft, ChevronRight, Edit3, Trash2, Home, MapPin, Maximize, Bed, Bath, Layers, Info, Calendar, User, Plus, Layout } from 'lucide-react';
 import axios from 'axios';
 import AddRoomModal from './AddRoomModal';
+import { useToast } from '../context/ToastContext';
+
 
 interface Props {
     house: any;
@@ -50,6 +52,8 @@ const RoomCarousel = ({ images }: { images: any[] }) => {
 export default function PropertyDetailModal({ house, onClose, onEdit, onDelete, onHouseUpdated, formatCurrency }: Props) {
     const [activeImageIndex, setActiveImageIndex] = useState(0);
     const [showAddRoom, setShowAddRoom] = useState(false);
+    const { showToast } = useToast();
+
     const images = house.housePic || [];
     const rooms = house.roomList || [];
 
@@ -65,14 +69,15 @@ export default function PropertyDetailModal({ house, onClose, onEdit, onDelete, 
     const prevImage = () => setActiveImageIndex(prev => (prev - 1 + images.length) % images.length);
 
     const handleDeleteRoom = async (roomId: number) => {
-        if (!confirm('Are you sure you want to delete this room?')) return;
         try {
             const response = await axios.delete(`/rooms/${roomId}`);
             onHouseUpdated(response.data.house);
+            showToast('Room deleted successfully', 'success');
         } catch (err) {
-            alert('Failed to delete room');
+            showToast('Failed to delete room', 'error');
         }
     };
+
 
     const getRoomIcon = (type: string) => {
         switch (type) {

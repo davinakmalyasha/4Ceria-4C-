@@ -3,6 +3,8 @@ import axios from 'axios';
 import { Project, ProjectDocument } from '../../types/project.types';
 import { useAuth } from '../../context/AuthContext';
 import { UploadCloud, File, Trash2, Download, ExternalLink } from 'lucide-react';
+import { useToast } from '../../context/ToastContext';
+
 
 interface Props {
     project: Project;
@@ -12,6 +14,8 @@ export default function ProjectVault({ project }: Props) {
     const { user } = useAuth();
     const [documents, setDocuments] = useState<ProjectDocument[]>([]);
     const [isUploading, setIsUploading] = useState(false);
+    const { showToast } = useToast();
+
 
     useEffect(() => {
         const fetchDocs = async () => {
@@ -37,11 +41,13 @@ export default function ProjectVault({ project }: Props) {
             const res = await axios.post(`/projects/${project.id}/documents`, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
+            showToast('Document uploaded successfully', 'success');
             setDocuments([res.data.data, ...documents]);
         } catch (err) {
             console.error('Upload failed', err);
-            alert('Upload failed. Ensure file is pdf, doc, docx, jpg, or png under 10MB.');
+            showToast('Upload failed. Ensure file is pdf, doc, docx, jpg, or png under 10MB.', 'error');
         } finally {
+
             setIsUploading(false);
             e.target.value = '';
         }
@@ -52,10 +58,13 @@ export default function ProjectVault({ project }: Props) {
         try {
             await axios.delete(`/projects/${project.id}/documents/${docId}`);
             setDocuments(prev => prev.filter(d => d.id !== docId));
+            showToast('Document removed', 'success');
         } catch (err) {
             console.error('Delete failed', err);
+            showToast('Failed to delete document', 'error');
         }
     };
+
 
     return (
         <div className="space-y-6">

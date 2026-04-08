@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileSearch } from 'lucide-react';
+import { FileSearch, Sparkles, PlusCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface Props {
@@ -12,41 +12,62 @@ interface Props {
 export default function ProjectEmptyState({ hasQuery, onClearFilters, onPostProject, userRole }: Props) {
     return (
         <motion.div 
-            initial={{ opacity: 0, y: 10 }} 
-            animate={{ opacity: 1, y: 0 }} 
-            className="w-full flex flex-col items-center justify-center p-12 text-center bg-white rounded-3xl border border-gray-100 border-dashed shadow-sm min-h-[400px]"
+            initial={{ opacity: 0, scale: 0.98 }} 
+            animate={{ opacity: 1, scale: 1 }} 
+            className="w-full flex flex-col items-center justify-center p-12 text-center bg-gradient-to-b from-white to-zinc-50/50 rounded-[2.5rem] border-2 border-dashed border-zinc-100 shadow-xl shadow-zinc-100/20 min-h-[450px] relative overflow-hidden"
         >
-            <div className="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center mb-6">
-                <FileSearch className="w-12 h-12 text-gray-400" />
+            {/* Background Accent */}
+            <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 w-64 h-64 bg-red-50/30 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute bottom-0 left-0 translate-y-1/2 -translate-x-1/2 w-64 h-64 bg-zinc-100/50 rounded-full blur-3xl pointer-events-none" />
+
+            <div className="relative mb-8">
+                <div className="w-28 h-28 bg-white rounded-3xl shadow-2xl shadow-red-100/50 flex items-center justify-center ring-1 ring-zinc-50 group">
+                    <FileSearch className="w-12 h-12 text-zinc-900 group-hover:scale-110 transition-transform duration-500" />
+                </div>
+                <motion.div 
+                    animate={{ y: [0, -4, 0] }}
+                    transition={{ repeat: Infinity, duration: 2 }}
+                    className="absolute -top-3 -right-3 w-10 h-10 bg-red-600 rounded-2xl shadow-xl flex items-center justify-center text-white"
+                >
+                    <Sparkles size={18} />
+                </motion.div>
             </div>
             
-            <h3 className="text-xl font-bold text-gray-900 mb-2">
-                {hasQuery ? "No matching projects found" : "No projects yet"}
+            <h3 className="text-3xl font-black text-zinc-900 mb-3 tracking-tight">
+                {hasQuery ? "No Results Found" : "Starting Fresh?"}
             </h3>
             
-            <p className="text-gray-500 max-w-sm mx-auto mb-8 leading-relaxed">
+            <p className="text-zinc-500 max-w-sm mx-auto mb-10 leading-relaxed font-medium">
                 {hasQuery 
-                    ? "We couldn't find any projects matching your current filters or search query." 
+                    ? "We couldn't find any projects matching your current filters. Try broadening your search parameters." 
                     : userRole === 'user'
-                        ? "Your project history is empty. Start by posting a new project to get bids from professionals."
-                        : "There are currently no open projects available for bidding in your category. Check back later!"}
+                        ? "Your project pipeline is currently empty. Ready to bring your architectural vision to life?"
+                        : "The bidding board is quiet right now. Check back soon for new high-value opportunities."}
             </p>
 
-            {hasQuery ? (
-                <button 
-                    onClick={onClearFilters}
-                    className="px-6 py-2.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 font-semibold rounded-xl transition-all active:scale-95"
-                >
-                    Clear Filters
-                </button>
-            ) : onPostProject ? (
-                <button 
-                    onClick={onPostProject}
-                    className="px-8 py-2.5 bg-zinc-900 text-white font-extrabold rounded-xl shadow-xl shadow-black/10 hover:bg-black hover:-translate-y-0.5 transition-all text-sm uppercase tracking-widest"
-                >
-                    Post First Project
-                </button>
-            ) : null}
+            <div className="flex flex-col sm:flex-row gap-3">
+                {hasQuery ? (
+                    <button 
+                        onClick={onClearFilters}
+                        className="px-10 py-4 bg-zinc-900 hover:bg-black text-white font-black rounded-2xl transition-all active:scale-95 shadow-xl shadow-zinc-200 text-xs uppercase tracking-[0.2em]"
+                    >
+                        Reset Filters
+                    </button>
+                ) : onPostProject ? (
+                    <button 
+                        onClick={onPostProject}
+                        className="group flex items-center gap-3 px-10 py-4 bg-red-600 hover:bg-black text-white font-black rounded-2xl shadow-2xl shadow-red-100 transition-all hover:-translate-y-1 active:scale-95 text-xs uppercase tracking-[0.3em]"
+                    >
+                        <PlusCircle size={18} className="group-hover:rotate-90 transition-transform" />
+                        Create New Project
+                    </button>
+                ) : (
+                    <div className="px-8 py-3 bg-zinc-200/50 text-zinc-400 font-black rounded-2xl text-[10px] uppercase tracking-widest">
+                        Standing By for Projects
+                    </div>
+                )}
+            </div>
         </motion.div>
     );
 }
+

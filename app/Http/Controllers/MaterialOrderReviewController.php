@@ -23,23 +23,33 @@ class MaterialOrderReviewController extends Controller
             'order_id' => 'required|exists:material_orders,id',
             'rating' => 'required|integer|min:1|max:5',
             'comment' => 'nullable|string|max:1000',
-            'images' => 'nullable|array|max:3',
-            'images.*' => 'image|max:5120',
+            'delivery_rating' => 'nullable|integer|min:1|max:5',
+            'delivery_comment' => 'nullable|string|max:1000',
+            'shop_images' => 'nullable|array|max:3',
+            'shop_images.*' => 'image|max:5120',
+            'delivery_images' => 'nullable|array|max:3',
+            'delivery_images.*' => 'image|max:5120',
         ]);
 
         if ($validator->fails()) {
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        $order = MaterialOrder::findOrFail($request->order_id);
+        $order = MaterialOrder::with('deliveryJob')->findOrFail($request->order_id);
 
         // Security & Business Rules
         if ($order->user_id !== $user->id) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        if ($order->status !== 'completed') {
-            return response()->json(['message' => 'Only completed orders can be reviewed.'], 400);
+        $deliveryCompleted = $order->deliveryJob && in_array($order->deliveryJob->status, ['delivered', 'completed']);
+        if (!in_array($order->status, ['delivered', 'completed']) && !$deliveryCompleted) {
+            return response()->json(['message' => 'Only arrived or completed orders can be reviewed.'], 400);
+        }
+
+        // Auto-sync order status if delivery job is done but order status is stale
+        if ($deliveryCompleted && !in_array($order->status, ['delivered', 'completed'])) {
+            $order->update(['status' => 'delivered', 'delivered_at' => now()]);
         }
 
         // Check if already reviewed
@@ -49,10 +59,17 @@ class MaterialOrderReviewController extends Controller
         }
 
         return DB::transaction(function () use ($request, $order, $user) {
-            $imagePaths = [];
-            if ($request->hasFile('images')) {
-                foreach ($request->file('images') as $file) {
-                    $imagePaths[] = $file->store('reviews/materials', 'public');
+            $shopImagePaths = [];
+            if ($request->hasFile('shop_images')) {
+                foreach ($request->file('shop_images') as $file) {
+                    $shopImagePaths[] = $file->store('reviews/shop', 'public');
+                }
+            }
+
+            $deliveryImagePaths = [];
+            if ($request->hasFile('delivery_images')) {
+                foreach ($request->file('delivery_images') as $file) {
+                    $deliveryImagePaths[] = $file->store('reviews/delivery', 'public');
                 }
             }
 
@@ -62,7 +79,11 @@ class MaterialOrderReviewController extends Controller
                 'order_id' => $order->id,
                 'rating' => $request->rating,
                 'comment' => $request->comment,
-                'image_paths' => $imagePaths,
+                'delivery_rating' => $request->delivery_rating,
+                'delivery_comment' => $request->delivery_comment,
+                'delivery_user_id' => $order->deliveryJob?->logistics_id,
+                'image_paths' => $shopImagePaths,
+                'delivery_image_paths' => $deliveryImagePaths,
             ]);
 
             return response()->json([

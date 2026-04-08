@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Project } from '../../types/project.types';
 import { useProjectFilters } from '../../hooks/useProjectFilters';
@@ -7,6 +7,7 @@ import ProjectCard, { ProjectCardSkeleton } from './ProjectCard';
 import ProjectEmptyState from './ProjectEmptyState';
 import ProjectStatsDashboard from './ProjectStatsDashboard';
 import ProjectKanban from './ProjectKanban';
+import ProjectMap from './ProjectMap';
 
 interface ProjectBoardProps {
     projects: Project[];
@@ -34,25 +35,92 @@ export default function ProjectBoard({
         visibleCount, setVisibleCount,
         hasMore, loadMore,
         filteredProjects,
+        allFilteredProjects,
         totalCount,
-        stats
+        stats,
+        // Map related
+        mapRef, userLocation, selectedCity, setSelectedCity, isDropdownOpen, setIsDropdownOpen, 
+        dropdownRef, popupInfo, setPopupInfo, flyToUser, cities
     } = useProjectFilters(projects);
 
-    const hasQuery = search.trim() !== '' || statusFilter !== 'all';
+    const hasQuery = search.trim() !== '' || statusFilter !== 'all' || selectedCity !== 'all';
+
+    // Auto-focus map on search results or city selection
+    useEffect(() => {
+        if (!mapRef.current || allFilteredProjects.length === 0 || (!search && selectedCity === 'all')) return;
+
+        const timer = setTimeout(() => {
+            if (allFilteredProjects.length === 1) {
+                const p = allFilteredProjects[0];
+                if (p.latitude && p.longitude) {
+                    mapRef.current?.flyTo({ 
+                        center: [parseFloat(p.longitude), parseFloat(p.latitude)], 
+                        zoom: 13, 
+                        duration: 1200 
+                    });
+                }
+            } else {
+                const coords = allFilteredProjects
+                    .filter(p => p.latitude && p.longitude)
+                    .map(p => [parseFloat(p.longitude!), parseFloat(p.latitude!)]);
+                
+                if (coords.length > 0) {
+                    const lons = coords.map(c => c[0]);
+                    const lats = coords.map(c => c[1]);
+                    const minLat = Math.min(...lats);
+                    const maxLat = Math.max(...lats);
+                    const minLng = Math.min(...lons);
+                    const maxLng = Math.max(...lons);
+                    
+                    mapRef.current?.fitBounds(
+                        [[minLng, minLat], [maxLng, maxLat]],
+                        { padding: 50, duration: 1000 }
+                    );
+                }
+            }
+        }, 800);
+
+        return () => clearTimeout(timer);
+    }, [allFilteredProjects, search, selectedCity, mapRef]);
     
     return (
         <div className="w-full flex flex-col space-y-6">
             {/* Header Area */}
             <div className="flex flex-col gap-2">
-                <h3 className="text-2xl font-bold text-gray-900">
+                <h2 className="text-3xl font-black text-gray-900 tracking-tight">
                     {userRole === 'user' ? 'My Project History' : 'Project Bidding Board'}
-                </h3>
-                <p className="text-gray-500 text-sm">
+                </h2>
+                <p className="text-gray-500 text-sm font-medium">
                     {userRole === 'user' 
                         ? 'Manage your renovation projects, review bids, and track progress.'
                         : 'Browse available projects, submit proposals, and grow your business.'}
                 </p>
             </div>
+
+            {/* Map Integration for Professionals */}
+            {userRole !== 'user' && projects.length > 0 && (
+                <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                >
+                    <ProjectMap 
+                        processedProjects={allFilteredProjects}
+                        allProjects={projects}
+                        mapRef={mapRef}
+                        userLocation={userLocation}
+                        selectedCity={selectedCity}
+                        setSelectedCity={setSelectedCity}
+                        isDropdownOpen={isDropdownOpen}
+                        setIsDropdownOpen={setIsDropdownOpen}
+                        dropdownRef={dropdownRef}
+                        cities={cities}
+                        popupInfo={popupInfo}
+                        setPopupInfo={setPopupInfo}
+                        onFlyToUser={flyToUser}
+                        onSelectProject={onViewProject}
+                    />
+                </motion.div>
+            )}
 
             <ProjectStatsDashboard 
                 totalBudget={stats.totalBudget}
@@ -82,7 +150,7 @@ export default function ProjectBoard({
                 ) : filteredProjects.length === 0 ? (
                     <ProjectEmptyState 
                         hasQuery={hasQuery} 
-                        onClearFilters={() => { setSearch(''); setStatusFilter('all'); }}
+                        onClearFilters={() => { setSearch(''); setStatusFilter('all'); setSelectedCity('all'); }}
                         onPostProject={userRole === 'user' ? onPostProject : undefined}
                         userRole={userRole}
                     />

@@ -9,6 +9,8 @@ import {
     AlertCircle,
     User
 } from 'lucide-react';
+import { useToast } from '../../context/ToastContext';
+
 
 interface Professional {
     id: number;
@@ -29,6 +31,8 @@ const AdminVerification: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'arsitek' | 'kontraktor'>('arsitek');
     const [rejectionModal, setRejectionModal] = useState<{id: number, type: string} | null>(null);
     const [rejectionReason, setRejectionReason] = useState('');
+    const { showToast } = useToast();
+
 
     const fetchProfessionals = () => {
         setLoading(true);
@@ -48,9 +52,11 @@ const AdminVerification: React.FC = () => {
                 fetchProfessionals();
                 setRejectionModal(null);
                 setRejectionReason('');
+                showToast('Status updated successfully', 'success');
             })
-            .catch(err => alert(err.response?.data?.message || 'Error updating status'));
+            .catch(err => showToast(err.response?.data?.message || 'Error updating status', 'error'));
     };
+
 
     const currentList = activeTab === 'arsitek' ? professionals.arsiteks : professionals.kontraktors;
 
