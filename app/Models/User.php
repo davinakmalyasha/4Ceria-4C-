@@ -72,5 +72,24 @@ public function admin()
     return $this->hasOne(Admin::class);
 }
 
+public function supplier()
+{
+    return $this->hasOne(Supplier::class, 'user_id');
+}
 
+public function conversations()
+{
+    return Conversation::where('user_one_id', $this->id)
+        ->orWhere('user_two_id', $this->id);
+}
+
+public function chatMessages()
+{
+    return $this->hasMany(ChatMessage::class, 'sender_id');
+}
+
+public function courierProfile()
+{
+    return $this->hasOne(CourierProfile::class, 'user_id');
+}
 }

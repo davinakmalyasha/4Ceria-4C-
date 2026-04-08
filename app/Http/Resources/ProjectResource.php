@@ -110,7 +110,12 @@ class ProjectResource extends JsonResource
                     return [
                         'id' => $milestone->id,
                         'title' => $milestone->title,
+                        'description' => $milestone->description,
+                        'start_date' => $milestone->start_date,
+                        'due_date' => $milestone->due_date,
                         'is_completed' => (bool)$milestone->is_completed,
+                        'arsitek_id' => $milestone->arsitek_id,
+                        'kontraktor_id' => $milestone->kontraktor_id,
                         'created_at' => $milestone->created_at,
                     ];
                 });
@@ -129,6 +134,32 @@ class ProjectResource extends JsonResource
                     'comment' => $this->kontraktorRating->komentar,
                     'created_at' => $this->kontraktorRating->created_at,
                 ] : null;
+            }),
+            'arsitek' => $this->whenLoaded('arsitek', function () {
+                return [
+                    'id' => $this->arsitek->id,
+                    'verification_status' => $this->arsitek->verification_status,
+                    'experience_years' => $this->arsitek->pengalaman_tahun,
+                    'rating' => $this->arsitek->average_rating,
+                    'user' => [
+                        'name' => $this->arsitek->user->name,
+                        'email' => $this->arsitek->user->email,
+                        'phone_number' => $this->arsitek->user->phoneNumber->first(),
+                    ]
+                ];
+            }),
+            'kontraktor' => $this->whenLoaded('kontraktor', function () {
+                return [
+                    'id' => $this->kontraktor->id,
+                    'verification_status' => $this->kontraktor->verification_status,
+                    'experience_years' => $this->kontraktor->pengalaman_tahun ?? 0,
+                    'rating' => $this->kontraktor->average_rating,
+                    'user' => [
+                        'name' => $this->kontraktor->user->name,
+                        'email' => $this->kontraktor->user->email,
+                        'phone_number' => $this->kontraktor->user->phoneNumber->first(),
+                    ]
+                ];
             }),
         ];
     }
