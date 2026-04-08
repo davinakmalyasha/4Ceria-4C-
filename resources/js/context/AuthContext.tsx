@@ -42,6 +42,16 @@ interface User {
         verification_status: string,
         rejection_reason?: string 
     };
+    supplier?: {
+        id: number;
+        store_name: string;
+        address: string;
+        no_telp: string;
+        category: string;
+        bio: string;
+        foto: string;
+        verification_status: string;
+    };
 }
 
 interface AuthContextType {

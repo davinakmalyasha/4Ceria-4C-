@@ -14,18 +14,41 @@ export interface ProjectImage {
 export interface ProjectMilestone {
     id: number;
     project_id: number;
+    arsitek_id?: number | null;
+    kontraktor_id?: number | null;
     title: string;
+    description?: string | null;
+    start_date?: string | null;
+    due_date?: string | null;
     is_completed: boolean;
     created_at: string;
+}
+
+export interface MaterialOrder {
+    id: number;
+    project_id: number;
+    supplier_id: number;
+    status: string;
+    total_price: number;
+    delivered_at?: string | null;
+    created_at: string;
+    delivery_job?: {
+        id: number;
+        status: string;
+        pickup_time?: string | null;
+        delivery_time?: string | null;
+    } | null;
 }
 
 export interface ProjectComment {
     id: number;
     project_id: number;
     user_id: number;
+    parent_id?: number | null;
     message: string;
     created_at: string;
     user?: { id: number; name: string };
+    parent?: { id: number; message: string; user?: { id: number; name: string } };
 }
 
 export interface ProjectDocument {
@@ -47,6 +70,18 @@ export interface Bid {
     price: number;
     proposal: string;
     status: 'pending' | 'accepted' | 'rejected' | string;
+    created_at: string;
+}
+
+export interface ProjectRequirement {
+    id: number;
+    project_id: number;
+    name: string;
+    quantity_required: number;
+    quantity_on_site: number;
+    quantity_used: number;
+    unit: string;
+    notes?: string | null;
     created_at: string;
 }
 
@@ -82,6 +117,8 @@ export interface Project {
     milestones?: ProjectMilestone[];
     comments?: ProjectComment[];
     documents?: ProjectDocument[];
+    material_orders?: MaterialOrder[];
+    requirements?: ProjectRequirement[];
 }
 
 export type ProjectStatus = Project['status'];

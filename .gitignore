@@ -29,3 +29,6 @@ ehthumbs.db
 # Vite
 .vite/
 dist/
+
+# Mobile PA Project
+/mobile/
