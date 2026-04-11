@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\Hash;
 use App\Models\Arsitek;
 use App\Models\Kontraktor;
 use App\Models\Admin;
+use App\Models\NotarisProfile;
+use App\Models\InteriorProfile;
 
 use App\Models\Notification;
 
@@ -41,7 +43,7 @@ class AuthController extends Controller
             'username' => 'required|string|max:255|unique:users',
             'email' => 'required|string|lowercase|email|max:255|unique:users',
             'password' => 'required|string|min:6',
-            'role_type' => 'required|in:user,arsitek,kontraktor,admin',
+            'role_type' => 'required|in:user,arsitek,kontraktor,admin,notaris,interior',
         ]);
         
         $user = User::create([
@@ -90,6 +92,26 @@ class AuthController extends Controller
             ]);
         } elseif ($request->role_type === 'admin') {
             Admin::create([ 'user_id' => $user->id, 'nama' => $user->name ]);
+        } elseif ($request->role_type === 'notaris') {
+            NotarisProfile::create([ 'user_id' => $user->id, 'nama' => $user->name, 'rate_harga' => 0, 'pengalaman_tahun' => 0 ]);
+
+            Notification::create([
+                'user_id' => $user->id,
+                'type' => 'onboarding',
+                'title' => 'Complete Your Notaris Profile',
+                'body' => 'Add your license number, work region, and specialization to start receiving clients.',
+                'data' => ['tab' => 'profile', 'action' => 'edit_profile']
+            ]);
+        } elseif ($request->role_type === 'interior') {
+            InteriorProfile::create([ 'user_id' => $user->id, 'nama' => $user->name, 'rate_harga' => 0, 'pengalaman_tahun' => 0 ]);
+
+            Notification::create([
+                'user_id' => $user->id,
+                'type' => 'onboarding',
+                'title' => 'Complete Your Interior Profile',
+                'body' => 'Upload your portfolio and certifications to attract homeowners looking for interior designers.',
+                'data' => ['tab' => 'profile', 'action' => 'edit_profile']
+            ]);
         }
         
         if ($request->role_type === 'arsitek') {
@@ -98,6 +120,10 @@ class AuthController extends Controller
             $user->assignRole('kontraktor');
         } elseif ($request->role_type === 'admin') {
             $user->assignRole('admin');
+        } elseif ($request->role_type === 'notaris') {
+            $user->assignRole('notaris');
+        } elseif ($request->role_type === 'interior') {
+            $user->assignRole('interior');
         } else {
             $user->assignRole('user');
         }

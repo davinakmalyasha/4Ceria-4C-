@@ -21,9 +21,12 @@ class Project extends Model
         'status',
         'selected_arsitek_id',
         'selected_kontraktor_id',
+        'selected_notaris_id',
+        'selected_interior_id',
         'deadline',         
         'attachment',   
         'target_role',
+        'needed_phases',
         'latitude',
         'longitude',
         'province',
@@ -32,6 +35,10 @@ class Project extends Model
         'kelurahan',
         'postal_code',
         'street_name',
+    ];
+
+    protected $casts = [
+        'needed_phases' => 'array',
     ];
     
 
@@ -105,6 +112,26 @@ public function requirements()
 public function materialOrders()
 {
     return $this->hasMany(MaterialOrder::class);
+}
+
+public function notaris()
+{
+    return $this->belongsTo(NotarisProfile::class, 'selected_notaris_id');
+}
+
+public function interior()
+{
+    return $this->belongsTo(InteriorProfile::class, 'selected_interior_id');
+}
+
+public function bidsNotaris()
+{
+    return $this->hasMany(BidNotaris::class, 'project_id');
+}
+
+public function bidsInterior()
+{
+    return $this->hasMany(BidInterior::class, 'project_id');
 }
 
 }

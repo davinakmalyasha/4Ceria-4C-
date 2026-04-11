@@ -8,6 +8,8 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
 use App\Models\Arsitek;
+use App\Models\NotarisProfile;
+use App\Models\InteriorProfile;
 use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
@@ -91,5 +93,15 @@ public function chatMessages()
 public function courierProfile()
 {
     return $this->hasOne(CourierProfile::class, 'user_id');
+}
+
+public function notarisProfile()
+{
+    return $this->hasOne(NotarisProfile::class, 'user_id');
+}
+
+public function interiorProfile()
+{
+    return $this->hasOne(InteriorProfile::class, 'user_id');
 }
 }

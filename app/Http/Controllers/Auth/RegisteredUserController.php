@@ -14,6 +14,8 @@ use Illuminate\View\View;
 use App\Models\Arsitek;
 use App\Models\Kontraktor;
 use App\Models\Admin;
+use App\Models\NotarisProfile;
+use App\Models\InteriorProfile;
 
 class RegisteredUserController extends Controller
 {
@@ -37,7 +39,7 @@ class RegisteredUserController extends Controller
             'username' => ['required', 'string', 'max:255', 'unique:users'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:users'],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
-            'role_type' => ['required', 'in:user,arsitek,kontraktor,admin'], 
+            'role_type' => ['required', 'in:user,arsitek,kontraktor,admin,notaris,interior'], 
         ]);
 
         $user = User::create([
@@ -89,6 +91,38 @@ class RegisteredUserController extends Controller
             ]);
         }
 
+        if ($request->role_type === 'notaris') {
+            NotarisProfile::create([
+                'user_id' => $user->id,
+                'nama' => $user->name,
+                'no_telp' => null,
+                'foto' => null,
+                'nomor_sk' => null,
+                'wilayah_kerja' => null,
+                'spesialisasi' => null,
+                'deskripsi' => null,
+                'lokasi' => null,
+                'pengalaman_tahun' => 0,
+                'rate_harga' => 0,
+            ]);
+        }
+
+        if ($request->role_type === 'interior') {
+            InteriorProfile::create([
+                'user_id' => $user->id,
+                'nama' => $user->name,
+                'no_telp' => null,
+                'foto' => null,
+                'file_portofolio' => null,
+                'file_sertifikat' => null,
+                'spesialisasi' => null,
+                'deskripsi' => null,
+                'lokasi' => null,
+                'pengalaman_tahun' => 0,
+                'rate_harga' => 0,
+            ]);
+        }
+
         switch ($request->role_type) {
             case 'arsitek':
                 $user->assignRole('arsitek');
@@ -98,6 +132,12 @@ class RegisteredUserController extends Controller
                 break;
             case 'admin':
                 $user->assignRole('admin');
+                break;
+            case 'notaris':
+                $user->assignRole('notaris');
+                break;
+            case 'interior':
+                $user->assignRole('interior');
                 break;
             default:
                 $user->assignRole('user');
@@ -114,6 +154,8 @@ class RegisteredUserController extends Controller
             'arsitek' => redirect()->route('users-page.adminArsitek'),
             'kontraktor' => redirect()->route('users-page.adminKontraktor'),
             'admin' => redirect()->route('users-page.admin'),
+            'notaris' => redirect()->route('index'),
+            'interior' => redirect()->route('index'),
             default => redirect()->route('index'),
         };
     }    
