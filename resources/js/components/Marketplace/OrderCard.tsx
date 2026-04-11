@@ -2,12 +2,12 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
     Box, MapPin, Truck, CheckCircle2, MessageCircle, 
-    Smartphone, Package, Star, User, Building2, Upload, Camera, X, Image as ImageIcon, Eye, Loader2, MessageSquare
+    Smartphone, Package, User, Building2, Upload, X, Image as ImageIcon, Eye
 } from 'lucide-react';
-import axios from 'axios';
 import TrackingTimeline from './TrackingTimeline';
+import { OrderReviewForm } from './OrderReviewForm';
+import { SupplierActions, BuyerActions } from './OrderActions';
 
-// Helper Icons & Configuration
 const ClockIcon = ({size}:any) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>;
 const AlertCircleIcon = ({size}:any) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>;
 
@@ -22,257 +22,6 @@ const getStatusConfig = (status: string) => {
         case 'cancelled': return { label: 'Dibatalkan', color: 'bg-red-100 text-red-600', icon: AlertCircleIcon };
         default: return { label: status, color: 'bg-gray-100 text-gray-600', icon: Box };
     }
-};
-
-const ImageUploadSection = ({ title, images, onUpload, onRemove, themeColor = 'amber' }: { title: string, images: File[], onUpload: (f: FileList | null) => void, onRemove: (i: number) => void, themeColor?: string }) => (
-    <div className="space-y-4 px-2">
-        <div className="flex items-center justify-between px-2">
-            <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] flex items-center gap-2">
-                <Camera size={14} className={`text-${themeColor}-400`} /> {title}
-            </span>
-            <span className={`text-[10px] font-black text-${themeColor}-500 bg-${themeColor}-50 px-3 py-1 rounded-full border border-${themeColor}-100`}>
-                {images.length}/3 FOTO
-            </span>
-        </div>
-        <div className="flex flex-wrap gap-4">
-            {images.map((img: any, idx: number) => (
-                <div key={idx} className="relative w-24 h-24 rounded-[1.5rem] overflow-hidden border border-gray-100 group shadow-md animate-in fade-in zoom-in duration-300">
-                    <img src={URL.createObjectURL(img)} className="w-full h-full object-cover" />
-                    <button 
-                        onClick={() => onRemove(idx)}
-                        className="absolute inset-0 bg-black/70 text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-all backdrop-blur-sm"
-                    >
-                        <X size={20} strokeWidth={3} />
-                        <span className="text-[8px] font-black mt-1 uppercase tracking-widest">Hapus</span>
-                    </button>
-                </div>
-            ))}
-            {images.length < 3 && (
-                <label className={`w-24 h-24 rounded-[1.5rem] border-2 border-dashed border-gray-200 flex flex-col items-center justify-center text-gray-400 hover:border-${themeColor}-300 hover:bg-${themeColor}-50/30 transition-all cursor-pointer group`}>
-                    <Upload size={20} className="mb-1 group-hover:-translate-y-1 transition-transform" />
-                    <span className="text-[8px] font-black uppercase tracking-widest">Tambah</span>
-                    <input type="file" className="hidden" accept="image/*" multiple onChange={(e) => onUpload(e.target.files)} />
-                </label>
-            )}
-        </div>
-    </div>
-);
-
-const MaterialOrderReviewForm = ({ order }: { order: any }) => {
-    const [rating, setRating] = useState(5);
-    const [deliveryRating, setDeliveryRating] = useState(5);
-    const [comment, setComment] = useState('');
-    const [deliveryComment, setDeliveryComment] = useState('');
-    const [shopImages, setShopImages] = useState<File[]>([]);
-    const [deliveryImages, setDeliveryImages] = useState<File[]>([]);
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [success, setSuccess] = useState(false);
-
-    const handleImageChange = (files: FileList | null, type: 'shop' | 'delivery') => {
-        if (files) {
-            const newFiles = Array.from(files);
-            const currentImages = type === 'shop' ? shopImages : deliveryImages;
-            if (newFiles.length + currentImages.length > 3) {
-                alert('Maksimal 3 foto per bagian');
-                return;
-            }
-            if (type === 'shop') {
-                setShopImages(prev => [...prev, ...newFiles].slice(0, 3));
-            } else {
-                setDeliveryImages(prev => [...prev, ...newFiles].slice(0, 3));
-            }
-        }
-    };
-
-    const removeImage = (index: number, type: 'shop' | 'delivery') => {
-        if (type === 'shop') {
-            setShopImages(prev => prev.filter((_, i) => i !== index));
-        } else {
-            setDeliveryImages(prev => prev.filter((_, i) => i !== index));
-        }
-    };
-
-    const handleSubmit = async () => {
-        setIsSubmitting(true);
-        try {
-            const formData = new FormData();
-            formData.append('order_id', order.id);
-            formData.append('rating', rating.toString());
-            formData.append('comment', comment);
-
-            shopImages.forEach((img) => {
-                formData.append('shop_images[]', img);
-            });
-            
-            if (order.delivery_job) {
-                formData.append('delivery_rating', deliveryRating.toString());
-                formData.append('delivery_comment', deliveryComment);
-                deliveryImages.forEach((img) => {
-                    formData.append('delivery_images[]', img);
-                });
-            }
-            
-            await axios.post('/material-order-reviews', formData);
-            setSuccess(true);
-            window.dispatchEvent(new CustomEvent('switchDashboardTab', { detail: 'my_orders' }));
-        } catch (err: any) {
-            console.error('Failed to submit review', err);
-            if (err.response?.data?.errors) {
-                const msgs = Object.values(err.response.data.errors).flat().join('\n');
-                alert('Terdapat kesalahan:\n' + msgs);
-            } else if (err.response?.data?.message) {
-                alert('Error: ' + err.response.data.message);
-            } else {
-                alert('Gagal mengirim ulasan. Silakan coba lagi. ' + err.message);
-            }
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
-
-    if (success) {
-        return (
-            <div className="bg-emerald-50 rounded-[2.5rem] p-10 border border-emerald-100 text-center space-y-6 animate-in fade-in zoom-in duration-500">
-                <div className="w-20 h-20 bg-emerald-500 rounded-full flex items-center justify-center text-white mx-auto shadow-2xl shadow-emerald-200 animate-bounce">
-                    <CheckCircle2 size={40} strokeWidth={3} />
-                </div>
-                <div className="space-y-2">
-                    <h5 className="text-xl font-black text-emerald-900 uppercase tracking-tight">Ulasan Berhasil Terkirim!</h5>
-                    <p className="text-sm text-emerald-700 font-bold leading-relaxed max-w-xs mx-auto">Terima kasih atas feedback Anda. Ulasan Anda sangat berarti bagi kami.</p>
-                </div>
-            </div>
-        );
-    }
-
-    return (
-        <div className="bg-white rounded-[2.5rem] p-8 md:p-10 border border-gray-100 shadow-2xl shadow-gray-200/50 space-y-12 animate-in fade-in slide-in-from-bottom-8 duration-1000">
-            <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                    <h5 className="text-xl font-black text-gray-900 uppercase tracking-tight flex items-center gap-3">
-                         BERI FEEDBACK PESANAN
-                    </h5>
-                    <p className="text-[10px] text-indigo-500 font-black uppercase tracking-[0.2em]">Pesanan #{order.whatsapp_order_id || order.id}</p>
-                </div>
-                <div className="hidden sm:flex items-center gap-1.5 px-4 py-2 bg-gray-50 rounded-2xl border border-gray-100">
-                    <Star size={14} className="text-amber-500 fill-amber-500" />
-                    <span className="text-[10px] font-black text-gray-900 uppercase tracking-widest">Premium Review</span>
-                </div>
-            </div>
-
-            <div className="space-y-16">
-                {/* Store Review Section - Vertically Stacked */}
-                <section className="space-y-8">
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-amber-50 flex items-center justify-center text-amber-500 shadow-sm border border-amber-100/50">
-                            <Building2 size={24} />
-                        </div>
-                        <div>
-                            <h4 className="text-sm font-black text-gray-900 uppercase tracking-widest">Kualitas Produk & Toko</h4>
-                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Bagaimana kualitas barang & keaslian produk?</p>
-                        </div>
-                    </div>
-
-                    <div className="flex flex-col items-center py-8 bg-amber-50/20 rounded-[2.5rem] border border-amber-100/30">
-                        <div className="flex gap-3">
-                            {[1, 2, 3, 4, 5].map((s) => (
-                                <button key={s} onClick={() => setRating(s)} className="transition-all hover:scale-110 active:scale-90">
-                                    <Star 
-                                        size={36} 
-                                        className={s <= rating ? 'text-amber-500 fill-amber-500' : 'text-gray-200'} 
-                                        strokeWidth={s <= rating ? 2 : 1.5}
-                                    />
-                                </button>
-                            ))}
-                        </div>
-                        <span className="text-[10px] font-black text-amber-600 uppercase tracking-[0.2em] mt-5 px-4 py-1.5 bg-white rounded-full shadow-sm border border-amber-100">
-                            {['Sangat Buruk', 'Buruk', 'Biasa Saja', 'Bagus', 'Sangat Bagus'][rating - 1]}
-                        </span>
-                    </div>
-
-                    <div className="space-y-4">
-                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.1em] ml-4 flex items-center gap-2">
-                            <MessageSquare size={12} /> Detail Ulasan Toko
-                        </label>
-                        <textarea 
-                            placeholder="Ceritakan detail produk, kecepatan respon toko, atau packing barang..."
-                            className="w-full p-6 bg-gray-50 border-0 rounded-[2rem] text-sm font-bold text-gray-900 placeholder:text-gray-300 outline-none focus:ring-4 focus:ring-amber-50 transition-all min-h-[140px] shadow-inner"
-                            value={comment}
-                            onChange={(e) => setComment(e.target.value)}
-                        />
-                    </div>
-                    
-                    <ImageUploadSection 
-                        title="Foto Produk Anda"
-                        images={shopImages}
-                        onUpload={(files) => handleImageChange(files, 'shop')}
-                        onRemove={(idx) => removeImage(idx, 'shop')}
-                        themeColor="amber"
-                    />
-                </section>
-
-                {/* Delivery Review Section - Vertically Stacked */}
-                {order.delivery_job && (
-                    <section className="space-y-8 pt-12 border-t border-gray-50">
-                        <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-500 shadow-sm border border-indigo-100/50">
-                                <Truck size={24} />
-                            </div>
-                            <div>
-                                <h4 className="text-sm font-black text-gray-900 uppercase tracking-widest">Pelayanan Pengiriman</h4>
-                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Bagaimana kecepatan antar & sikap kurir?</p>
-                            </div>
-                        </div>
-
-                        <div className="flex flex-col items-center py-8 bg-indigo-50/20 rounded-[2.5rem] border border-indigo-100/30">
-                            <div className="flex gap-3">
-                                {[1, 2, 3, 4, 5].map((s) => (
-                                    <button key={s} onClick={() => setDeliveryRating(s)} className="transition-all hover:scale-110 active:scale-90">
-                                        <Star 
-                                            size={36} 
-                                            className={s <= deliveryRating ? 'text-indigo-500 fill-indigo-500' : 'text-gray-200'} 
-                                            strokeWidth={s <= deliveryRating ? 2 : 1.5}
-                                        />
-                                    </button>
-                                ))}
-                            </div>
-                            <span className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] mt-5 px-4 py-1.5 bg-white rounded-full shadow-sm border border-indigo-100">
-                                {['Sangat Buruk', 'Buruk', 'Biasa Saja', 'Bagus', 'Sangat Bagus'][deliveryRating - 1]}
-                            </span>
-                        </div>
-
-                        <div className="space-y-4">
-                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.1em] ml-4 flex items-center gap-2">
-                                <MessageSquare size={12} /> Detail Ulasan Pengiriman
-                            </label>
-                            <textarea 
-                                placeholder="Bagaimana kondisi paket saat diterima? Apakah kurir ramah?"
-                                className="w-full p-6 bg-gray-50 border-0 rounded-[2rem] text-sm font-bold text-gray-900 placeholder:text-gray-300 outline-none focus:ring-4 focus:ring-indigo-50 transition-all min-h-[140px] shadow-inner"
-                                value={deliveryComment}
-                                onChange={(e) => setDeliveryComment(e.target.value)}
-                            />
-                        </div>
-
-                        <ImageUploadSection 
-                            title="Foto Driver / Paket"
-                            images={deliveryImages}
-                            onUpload={(files) => handleImageChange(files, 'delivery')}
-                            onRemove={(idx) => removeImage(idx, 'delivery')}
-                            themeColor="indigo"
-                        />
-                    </section>
-                )}
-            </div>
-
-            <button 
-                onClick={handleSubmit}
-                disabled={isSubmitting}
-                className="w-full py-6 bg-gray-900 text-white rounded-[2rem] text-xs font-black uppercase tracking-[0.3em] shadow-2xl shadow-gray-300 hover:bg-black hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-4 mt-8 group"
-            >
-                {isSubmitting ? <Loader2 className="w-6 h-6 animate-spin" /> : <Package size={20} className="group-hover:rotate-12 transition-transform" />}
-                KIRIM FEEDBACK SEKARANG
-            </button>
-        </div>
-    );
 };
 
 interface OrderCardProps {
@@ -312,7 +61,6 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, isSupplier, isUpdating, up
             className={`group bg-white rounded-[2.5rem] p-8 shadow-sm hover:shadow-xl transition-all border border-gray-100/50 ${order.status === 'cancelled' ? 'opacity-75 grayscale-[0.5]' : ''}`}
         >
             <div className="grid grid-cols-12 gap-6 items-start">
-                {/* Column 1: Material & Buyer Info */}
                 <div className="col-span-12 xl:col-span-3 space-y-6 min-w-0">
                     <div className="flex items-center gap-4">
                         <div className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-2 border ${config.color}`}>
@@ -346,7 +94,6 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, isSupplier, isUpdating, up
                     </div>
                 </div>
 
-                {/* Column 2: Logistics Sidebar */}
                 {isSupplier && (order.delivery_method === 'Supplier Fleet' || order.delivery_method === 'Supplier Delivery') && (
                     <div className="col-span-12 xl:col-span-5 flex flex-col md:flex-row items-center gap-5 bg-gray-50/80 rounded-[2rem] p-5 border border-gray-100 shadow-inner overflow-hidden min-w-0 mb-4 xl:mb-0">
                         {order.latitude && (
@@ -380,15 +127,13 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, isSupplier, isUpdating, up
                     </div>
                 )}
 
-                {/* Column 3: Status / Timeline */}
                 <div className={`${(isSupplier && order.delivery_method === 'Supplier Fleet' && order.latitude) ? 'xl:col-span-4' : 'xl:col-span-9'} col-span-12 space-y-4`}>
                     <TrackingTimeline order={order} />
 
-                    {/* Buyer Notification for Courier Logistics / Review Box */}
                     {!isSupplier && order.delivery_method === 'Hire Platform Courier' && (
                         derivedStatus === 'delivered' || order.status === 'completed' ? (
                             !order.review && (
-                                <MaterialOrderReviewForm order={order} />
+                                <OrderReviewForm order={order} />
                             )
                         ) : (
                             ['ready_for_pickup', 'shipping'].includes(order.status) && (
@@ -415,7 +160,6 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, isSupplier, isUpdating, up
                                                 </p>
                                                 
                                                 <div className="flex flex-wrap gap-2 mt-4">
-                                                    {/* Internal Chat Button */}
                                                     <button 
                                                         onClick={() => window.dispatchEvent(new CustomEvent('start_chat', { detail: order.delivery_job?.logistics_id }))}
                                                         className="inline-flex items-center gap-2 bg-indigo-600 text-white px-5 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-md active:scale-95 group"
@@ -424,7 +168,6 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, isSupplier, isUpdating, up
                                                         Internal Chat
                                                     </button>
 
-                                                    {/* WhatsApp Button */}
                                                     {(order.delivery_job?.logistics?.phone || order.delivery_job?.driver_phone || order.delivery_job?.logistics?.phone_number?.[0]?.contact) && (
                                                         <a 
                                                             href={`https://wa.me/${order.delivery_job?.logistics?.phone || order.delivery_job?.driver_phone || order.delivery_job?.logistics?.phone_number?.[0]?.contact}?text=Halo%20Kurir%204Ceria,%20saya%20pembeli%20pesanan%20${order.whatsapp_order_id}`}
@@ -444,12 +187,11 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, isSupplier, isUpdating, up
                         )
                     )}
                     
-                    {/* Actions */}
                     <div className="flex flex-col gap-3">
                         {isSupplier && order.status === 'processing' && (
                             <div className="bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100/50 space-y-3">
                                 <span className="text-[9px] font-black text-indigo-500 uppercase tracking-widest flex items-center gap-2 px-1">
-                                    <Camera size={12} /> Dispatch Documentation (Optional)
+                                    <ImageIcon size={12} /> Dispatch Documentation (Optional)
                                 </span>
                                 <div className="flex items-center gap-3">
                                     {docPreview ? (
@@ -506,7 +248,6 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, isSupplier, isUpdating, up
                 </div>
             )}
 
-            {/* Evidence Wall */}
             {(order.delivery_documentation_path || order.delivery_job) && (
                 <div className="mt-8 pt-8 border-t border-gray-100 space-y-8">
                     <div className="flex items-center justify-between">
@@ -516,7 +257,6 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, isSupplier, isUpdating, up
                     </div>
 
                     <div className="flex flex-col gap-10 w-full max-w-3xl">
-                        {/* Supplier Documentation */}
                         {order.delivery_documentation_path && (
                             <div className="space-y-3">
                                 <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest px-1">Supplier Packaging Proof</span>
@@ -550,10 +290,8 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, isSupplier, isUpdating, up
 
                         {(order.delivery_job?.pickup_photos || order.delivery_job?.delivery_photos) && (
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 w-full relative">
-                                {/* Vertical Connecting Line (Mobile mostly) */}
                                 <div className="absolute left-6 top-8 bottom-8 w-px bg-gray-100 sm:hidden"></div>
                                 
-                                {/* Courier Pickup Photos */}
                                 {order.delivery_job?.pickup_photos && (
                                     <div className="space-y-3 z-10 relative">
                                         <span className="text-[9px] font-black text-indigo-500 uppercase tracking-widest px-1">Courier Pickup Evidence</span>
@@ -585,7 +323,6 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, isSupplier, isUpdating, up
                                     </div>
                                 )}
 
-                                {/* Courier Delivery Photos */}
                                 {order.delivery_job?.delivery_photos && (
                                     <div className="space-y-3 z-10 relative">
                                         <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest px-1">Final Delivery Evidence</span>
@@ -622,7 +359,6 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, isSupplier, isUpdating, up
                 </div>
             )}
 
-            {/* Documentation Modal */}
             <AnimatePresence>
                 {showFullDoc && (
                     <motion.div 
@@ -647,47 +383,5 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, isSupplier, isUpdating, up
         </motion.div>
     );
 };
-
-const SupplierActions = ({ order, isUpdating, updateOrderStatus, onReview, docFile }: any) => {
-    if (order.status === 'pending') return <ActionButton icon={<Box size={14} />} label="Start Packing" onClick={() => updateOrderStatus(order.id, 'processing')} isUpdating={isUpdating} color="bg-gray-900" />;
-    
-    if (order.status === 'processing') {
-        const isPlatform = order.delivery_method === 'Hire Platform Courier';
-        return (
-            <ActionButton 
-                icon={<Truck size={14} />} 
-                label={isPlatform ? "Complete Preparation" : "Dispatch Armada"} 
-                onClick={() => updateOrderStatus(order.id, isPlatform ? 'ready_for_pickup' : 'shipping', docFile)} 
-                isUpdating={isUpdating} 
-                color="bg-indigo-600" 
-            />
-        );
-    }
-
-    if (order.status === 'shipping' && order.delivery_method !== 'Hire Platform Courier') {
-        return <ActionButton icon={<CheckCircle2 size={14} />} label="Confirm Delivered" onClick={() => updateOrderStatus(order.id, 'delivered')} isUpdating={isUpdating} color="bg-green-600" />;
-    }
-
-    if (order.review) return <ActionButton icon={<Star size={14} className="fill-amber-400 text-amber-400" />} label={`Ulasan Pembeli (${order.review.rating} ⭐)`} onClick={() => onReview(order)} isUpdating={false} color="bg-indigo-600" />;
-    return null;
-};
-
-const BuyerActions = ({ order, isUpdating, updateOrderStatus, onReview }: any) => {
-    if (order.status === 'delivered') return <ActionButton icon={<CheckCircle2 size={14} />} label="Pesanan Diterima & Selesai" onClick={() => updateOrderStatus(order.id, 'completed')} isUpdating={isUpdating} color="bg-green-600" />;
-    if (order.status === 'completed' && !order.review) return <ActionButton icon={<Star size={14} className="fill-white" />} label="Beri Ulasan Toko" onClick={() => onReview(order)} isUpdating={false} color="bg-indigo-600" />;
-    if (order.review) return <ActionButton icon={<Star size={14} className="fill-amber-400 text-amber-400" />} label={`Lihat Ulasan (${order.review.rating} ⭐)`} onClick={() => onReview(order)} isUpdating={false} color="bg-gray-900" />;
-    return null;
-};
-
-const ActionButton = ({ icon, label, onClick, isUpdating, color }: any) => (
-    <button 
-        disabled={isUpdating}
-        onClick={(e) => { e.stopPropagation(); onClick(); }}
-        className={`w-full py-4 ${color} text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] hover:shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2`}
-    >
-        {icon} {label}
-    </button>
-);
-
 
 export default OrderCard;

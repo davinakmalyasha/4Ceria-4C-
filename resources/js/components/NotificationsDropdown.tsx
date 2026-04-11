@@ -41,6 +41,12 @@ export default function NotificationsDropdown() {
         return () => document.removeEventListener('mousedown', handler);
     }, []);
 
+    useEffect(() => {
+        if (open && unreadCount > 0) {
+            markAllRead();
+        }
+    }, [open, unreadCount]);
+
     const markRead = async (id: number) => {
         try {
             await axios.post(`/notifications/${id}/read`);
@@ -95,7 +101,7 @@ export default function NotificationsDropdown() {
                 {open && (
                     <motion.div
                         initial={{ opacity: 0, y: -8, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -8, scale: 0.95 }}
-                        className="absolute right-0 top-full mt-2 w-[380px] bg-white rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.15)] border border-gray-100 z-[70] overflow-hidden"
+                        className="absolute right-0 top-full mt-2 w-[380px] bg-white rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.15)] border border-gray-100 z-[110] overflow-hidden"
                     >
                         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
                             <h4 className="font-black text-gray-900">Notifikasi</h4>

@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
     Home, Search, Clock, BarChart3, BedDouble, Star,
     SlidersHorizontal, ArrowUpDown, LayoutGrid, List,
@@ -12,7 +12,6 @@ import { useExploreHouses } from '../hooks/useExploreHouses';
 import ExploreMap from './Explore/ExploreMap';
 import FilterPanel from './Explore/FilterPanel';
 import HouseCard, { SkeletonCard } from './Explore/HouseCard';
-import HouseDetailsModal from './Explore/HouseDetailsModal';
 import CompareTool from './Explore/CompareTool';
 
 interface ExploreHousesProps {
@@ -167,13 +166,7 @@ export default function ExploreHouses({ houses = [], isLoading = false, onSelect
                 )}
             </div>
 
-            {/* Details Modal */}
-            <AnimatePresence>
-                {s.selectedHouseId && s.expandedHouse && (
-                    <HouseDetailsModal house={s.expandedHouse} allHouses={houses} wishlist={s.wishlist} currentUser={user}
-                        onClose={() => s.setSelectedHouseId(null)} onToggleWishlist={s.toggleWishlist} onSelectHouse={s.fetchHouseDetails} />
-                )}
-            </AnimatePresence>
+            {/* Details Modal - Handled globally in Dashboard */}
 
             {/* Compare Tool */}
             <CompareTool compareIds={s.compareIds} setCompareIds={s.setCompareIds} compareHouses={s.compareHouses}

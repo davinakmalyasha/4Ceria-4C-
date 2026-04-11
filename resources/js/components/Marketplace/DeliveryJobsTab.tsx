@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Truck, MapPin, Package, Clock, CheckCircle } from 'lucide-react';
+import { Truck, MapPin, Package, Clock, CheckCircle, Phone, MessageSquare } from 'lucide-react';
 
 interface DeliveryJob {
     id: number;
@@ -13,6 +13,8 @@ interface DeliveryJob {
     status: 'pending' | 'accepted' | 'picked_up' | 'delivered';
     created_at: string;
     driver_name?: string;
+    driver_user_id?: number;
+    driver_phone?: string;
     vehicle_type?: string;
     license_plate?: string;
 }
@@ -176,13 +178,44 @@ function DeliveryJobCard({ job }: { job: DeliveryJob }) {
                             <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Status</p>
                             <p className="text-sm font-semibold text-gray-800 flex items-center gap-1.5 capitalize">
                                 {job.status === 'pending' ? <Clock size={14} className="text-amber-500" /> : <CheckCircle size={14} className="text-emerald-500" />}
-                                {job.status.replace('_', ' ')}
                             </p>
                         </div>
                     </div>
+
+                    {job.status !== 'pending' && job.driver_user_id && (
+                        <div className="pt-4 flex gap-2 border-t border-gray-100 mt-2">
+                            <button 
+                                onClick={() => handleChat(job.driver_user_id!)}
+                                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-indigo-50 text-indigo-600 font-bold text-xs hover:bg-indigo-100 transition-all border border-indigo-100 active:scale-95"
+                            >
+                                <MessageSquare size={14} />
+                                Chat Internally
+                            </button>
+                            <button 
+                                onClick={() => handleWhatsApp(job.driver_phone || '')}
+                                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-50 text-emerald-600 font-bold text-xs hover:bg-emerald-100 transition-all border border-emerald-100 active:scale-95"
+                            >
+                                <Phone size={14} />
+                                WhatsApp
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
         </motion.div>
     );
 }
+
+const handleChat = (userId: number) => {
+    window.dispatchEvent(new CustomEvent('start_chat', { detail: userId }));
+};
+
+const handleWhatsApp = (phone: string) => {
+    if (!phone) {
+        alert('Driver phone number not available.');
+        return;
+    }
+    const cleanPhone = phone.replace(/\D/g, '');
+    window.open(`https://wa.me/${cleanPhone}`, '_blank');
+};
 

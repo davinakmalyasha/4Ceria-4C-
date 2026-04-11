@@ -135,7 +135,7 @@ export default function LandingPage() {
                                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
                                 <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
                             </span>
-                            All In One Architecture Platform
+                            All In One Construction Platform
                         </motion.span>
 
                         <motion.h1 
@@ -150,7 +150,7 @@ export default function LandingPage() {
                             variants={fadeInUp}
                             className="text-lg md:text-xl text-neutral-500 max-w-2xl mx-auto mb-10 leading-relaxed"
                         >
-                            The most complete platform to buy houses, hire elite architects, and manage building projects seamlessly in one place.
+                            The complete platform to legalize, design, build, furnish, and manage your dream home — all in one place.
                         </motion.p>
 
                         <motion.div 

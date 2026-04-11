@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { useNavigate, Link, Navigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
-import { Briefcase, Building2, HardHat, CheckCircle2 } from 'lucide-react';
+import { Briefcase, Building2, HardHat, CheckCircle2, Shield, Armchair } from 'lucide-react';
 
 export default function ProfessionalRegister() {
     const [formData, setFormData] = useState({
@@ -20,7 +20,7 @@ export default function ProfessionalRegister() {
     const navigate = useNavigate();
 
     if (!isAuthLoading && user) {
-        if (user.role_type === 'arsitek' || user.role_type === 'kontraktor') {
+        if (user.role_type === 'arsitek' || user.role_type === 'kontraktor' || user.role_type === 'notaris' || user.role_type === 'interior') {
             return <Navigate to="/dashboard" replace />;
         }
         return (
@@ -50,7 +50,7 @@ export default function ProfessionalRegister() {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
-    const handleRoleSelect = (role: 'arsitek' | 'kontraktor') => {
+    const handleRoleSelect = (role: 'arsitek' | 'kontraktor' | 'notaris' | 'interior') => {
         setFormData({ ...formData, role_type: role });
     };
 
@@ -167,40 +167,33 @@ export default function ProfessionalRegister() {
                         {/* Role Selection */}
                         <div>
                             <label className="block text-sm font-semibold text-neutral-700 mb-2">I am signing up as</label>
-                            <div className="grid grid-cols-2 gap-4">
-                                <label 
-                                    className={`relative cursor-pointer rounded-xl border-2 p-4 flex flex-col items-center gap-3 transition-all ${
-                                        formData.role_type === 'arsitek' 
-                                            ? 'border-[#FF2D20] bg-red-50/50 shadow-sm' 
-                                            : 'border-neutral-200 bg-white hover:border-neutral-300 hover:bg-neutral-50'
-                                    }`}
-                                >
-                                    <div className={`p-3 rounded-full ${formData.role_type === 'arsitek' ? 'bg-[#FF2D20] text-white' : 'bg-neutral-100 text-neutral-500'}`}>
-                                        <Building2 className="w-6 h-6" />
-                                    </div>
-                                    <div className="text-center">
-                                        <div className={`font-bold ${formData.role_type === 'arsitek' ? 'text-[#FF2D20]' : 'text-neutral-700'}`}>Architect</div>
-                                        <div className="text-xs text-neutral-500 mt-1 leading-snug">Design homes & submit visual plans</div>
-                                    </div>
-                                    <input type="radio" name="role_type" value="arsitek" checked={formData.role_type === 'arsitek'} onChange={() => handleRoleSelect('arsitek')} className="sr-only" />
-                                </label>
-
-                                <label 
-                                    className={`relative cursor-pointer rounded-xl border-2 p-4 flex flex-col items-center gap-3 transition-all ${
-                                        formData.role_type === 'kontraktor' 
-                                            ? 'border-[#FF2D20] bg-red-50/50 shadow-sm' 
-                                            : 'border-neutral-200 bg-white hover:border-neutral-300 hover:bg-neutral-50'
-                                    }`}
-                                >
-                                    <div className={`p-3 rounded-full ${formData.role_type === 'kontraktor' ? 'bg-[#FF2D20] text-white' : 'bg-neutral-100 text-neutral-500'}`}>
-                                        <HardHat className="w-6 h-6" />
-                                    </div>
-                                    <div className="text-center">
-                                        <div className={`font-bold ${formData.role_type === 'kontraktor' ? 'text-[#FF2D20]' : 'text-neutral-700'}`}>Constructor</div>
-                                        <div className="text-xs text-neutral-500 mt-1 leading-snug">Quote & execute physical builds</div>
-                                    </div>
-                                    <input type="radio" name="role_type" value="kontraktor" checked={formData.role_type === 'kontraktor'} onChange={() => handleRoleSelect('kontraktor')} className="sr-only" />
-                                </label>
+                            <div className="grid grid-cols-2 gap-3">
+                                {[
+                                    { id: 'arsitek' as const, label: 'Architect', desc: 'Design homes & submit visual plans', icon: Building2 },
+                                    { id: 'kontraktor' as const, label: 'Constructor', desc: 'Quote & execute physical builds', icon: HardHat },
+                                    { id: 'notaris' as const, label: 'Notaris', desc: 'Land certificates & building permits', icon: Shield },
+                                    { id: 'interior' as const, label: 'Interior Designer', desc: 'Kitchen sets, furniture & finishing', icon: Armchair },
+                                ].map(role => {
+                                    const Icon = role.icon;
+                                    const isSelected = formData.role_type === role.id;
+                                    return (
+                                        <label
+                                            key={role.id}
+                                            className={`relative cursor-pointer rounded-xl border-2 p-3.5 flex flex-col items-center gap-2 transition-all ${
+                                                isSelected ? 'border-[#FF2D20] bg-red-50/50 shadow-sm' : 'border-neutral-200 bg-white hover:border-neutral-300 hover:bg-neutral-50'
+                                            }`}
+                                        >
+                                            <div className={`p-2.5 rounded-full ${isSelected ? 'bg-[#FF2D20] text-white' : 'bg-neutral-100 text-neutral-500'}`}>
+                                                <Icon className="w-5 h-5" />
+                                            </div>
+                                            <div className="text-center">
+                                                <div className={`font-bold text-sm ${isSelected ? 'text-[#FF2D20]' : 'text-neutral-700'}`}>{role.label}</div>
+                                                <div className="text-[10px] text-neutral-500 mt-0.5 leading-snug">{role.desc}</div>
+                                            </div>
+                                            <input type="radio" name="role_type" value={role.id} checked={isSelected} onChange={() => handleRoleSelect(role.id)} className="sr-only" />
+                                        </label>
+                                    );
+                                })}
                             </div>
                         </div>
 

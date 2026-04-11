@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
     Home, Heart, Share2, Copy, Check, MapPin, BedDouble, Bath, Maximize,
-    GitCompareArrows, Flame, Eye, Star,
+    GitCompareArrows, Flame, Eye, Star, MessageCircle, Twitter
 } from 'lucide-react';
 import AutoHoverSlider from '../UI/AutoHoverSlider';
 import type { House, ViewMode, SortOption } from '../../types/explore';
@@ -41,11 +41,11 @@ const ShareButton = ({ house }: { house: House }) => {
                         </button>
                         <a href={`https://wa.me/?text=${encodeURIComponent(text + ' ' + url)}`} target="_blank" rel="noopener noreferrer"
                             className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
-                            <span className="text-base">💬</span> WhatsApp
+                            <MessageCircle size={14} className="text-emerald-500" /> WhatsApp
                         </a>
                         <a href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`} target="_blank" rel="noopener noreferrer"
                             className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
-                            <span className="text-base">𝕏</span> Twitter / X
+                            <Twitter size={14} className="fill-current" /> Twitter / X
                         </a>
                     </motion.div>
                 )}

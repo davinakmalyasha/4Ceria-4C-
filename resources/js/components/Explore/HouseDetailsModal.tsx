@@ -42,15 +42,14 @@ interface Props {
     onClose: () => void;
     onToggleWishlist: (e: React.MouseEvent, id: number) => void;
     onSelectHouse: (id: number) => void;
+    onOpenChat: (ownerId: number) => void;
 }
 
-export default function HouseDetailsModal({ house, allHouses, wishlist, currentUser, onClose, onToggleWishlist, onSelectHouse }: Props) {
+export default function HouseDetailsModal({ house, allHouses, wishlist, currentUser, onClose, onToggleWishlist, onSelectHouse, onOpenChat }: Props) {
     const isOwner = house.user_id === currentUser?.id;
     const [showSchedule, setShowSchedule] = useState(false);
     const area = (house.dimensions?.width || 0) * (house.dimensions?.length || 0);
     const pricePerM2 = area > 0 ? house.price / area : 0;
-    const ownerPhone = house.owner?.phones?.[0];
-    const waLink = ownerPhone ? `https://wa.me/${ownerPhone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hi, I'm interested in "${house.name}" listed at ${formatCurrency(house.price)}. Is it still available?`)}` : null;
     const similarHouses = allHouses.filter(h => h.id !== house.id && (h.address?.city === house.address?.city || (h.price >= house.price * 0.7 && h.price <= house.price * 1.3))).slice(0, 3);
     const stats = [
         { icon: BedDouble, label: 'Beds', value: house.rooms?.bedrooms || 0 },
@@ -62,24 +61,24 @@ export default function HouseDetailsModal({ house, allHouses, wishlist, currentU
     ];
 
     return (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[200] flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-sm" onClick={onClose}>
             <motion.div initial={{ y: 50, opacity: 0, scale: 0.95 }} animate={{ y: 0, opacity: 1, scale: 1 }} exit={{ y: 20, opacity: 0, scale: 0.95 }} transition={{ type: 'spring', duration: 0.5, bounce: 0.3 }}
                 className="bg-white rounded-[2.5rem] overflow-hidden shadow-2xl w-full max-w-6xl max-h-[92vh] flex flex-col relative" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
                 <button onClick={onClose} className="absolute top-5 right-5 bg-black/20 hover:bg-black/40 backdrop-blur-md text-white p-2.5 rounded-full transition-all z-20"><X size={20} strokeWidth={2.5} /></button>
-                <div className="overflow-y-auto w-full flex-1 pb-32 relative scrollbar-thin bg-white">
+                <div className="overflow-y-auto w-full flex-1 pb-44 relative scrollbar-thin bg-white">
                     {/* Hero Section with Padding */}
-                    <div className="p-4 sm:p-8 lg:p-10">
-                        <div className="w-full h-80 sm:h-[480px] relative bg-gray-100 rounded-[2.5rem] overflow-hidden shadow-xl">
+                    <div className="p-4 sm:p-6 lg:p-8">
+                        <div className="w-full h-80 sm:h-[450px] lg:h-[500px] relative bg-gray-100 rounded-[2.5rem] overflow-hidden shadow-xl">
                             <ManualSlider images={house.housePic} altText={house.name} />
-                            <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none z-10" />
-                            <div className="absolute bottom-8 left-8 right-8 z-20 pointer-events-none">
+                            <div className="absolute inset-x-0 bottom-0 h-3/4 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none z-10" />
+                            <div className="absolute bottom-20 left-12 right-12 sm:bottom-32 sm:left-20 sm:right-20 z-20 pointer-events-none">
                                 <div className="flex items-center gap-2 mb-4">
                                     <span className="px-3 py-1 bg-[#FF2D20] text-white text-[10px] font-black rounded-full uppercase tracking-widest shadow-lg">For Sale</span>
                                     {house.created_at && (() => { const d = new Date(house.created_at); const w = new Date(); w.setDate(w.getDate()-7); return d > w ? <span className="px-3 py-1 bg-gray-900 text-white text-[10px] font-black rounded-full uppercase tracking-widest shadow-lg">New</span> : null; })()}
                                 </div>
-                                <h2 className="text-3xl sm:text-5xl font-black text-white leading-tight drop-shadow-2xl">{house.name}</h2>
-                                <div className="flex items-center gap-2 mt-3 text-white/90 font-medium sm:text-lg">
-                                    <MapPin size={18} className="text-[#FF2D20]" />
+                                <h2 className="text-2xl sm:text-4xl lg:text-5xl font-black text-white leading-tight drop-shadow-2xl">{house.name}</h2>
+                                <div className="flex items-center gap-2 mt-3 text-white/90 font-medium text-sm sm:text-lg">
+                                    <MapPin size={20} className="text-[#FF2D20]" />
                                     <span>{house.address?.street}, {house.address?.city}</span>
                                 </div>
                             </div>
@@ -142,9 +141,26 @@ export default function HouseDetailsModal({ house, allHouses, wishlist, currentU
                                                 <p className="text-gray-400 text-xs font-bold uppercase tracking-wider mt-0.5">Verified Partner</p>
                                             </div>
                                         </div>
-                                        <div className="space-y-3 relative z-10">
-                                            {waLink && <a href={waLink} target="_blank" rel="noopener noreferrer" className="w-full bg-green-600 hover:bg-green-700 text-white p-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg hover:translate-y-[-2px] active:translate-y-0"><MessageCircle size={18} /> WhatsApp Agent</a>}
-                                            {house.owner.email && <a href={`mailto:${house.owner.email}`} className="w-full bg-white/10 hover:bg-white/20 text-white p-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all backdrop-blur-md border border-white/10"><Mail size={18} /> Email Agent</a>}
+
+                                        <div className="grid grid-cols-2 gap-3 relative z-10 pt-2">
+                                            {house.owner.phones && house.owner.phones.length > 0 && (
+                                                <a
+                                                    href={`https://wa.me/${house.owner.phones[0].replace(/\D/g, '')}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="flex items-center justify-center gap-2 py-3 bg-[#25D366] hover:bg-[#128C7E] text-white rounded-xl font-bold text-xs transition-all shadow-lg shadow-green-500/20"
+                                                >
+                                                    <MessageCircle size={14} fill="currentColor" /> WhatsApp
+                                                </a>
+                                            )}
+                                            {house.owner.email && (
+                                                <a
+                                                    href={`mailto:${house.owner.email}`}
+                                                    className="flex items-center justify-center gap-2 py-3 bg-white/10 hover:bg-white/20 text-white rounded-xl font-bold text-xs transition-all border border-white/10"
+                                                >
+                                                    <Mail size={14} /> Email
+                                                </a>
+                                            )}
                                         </div>
                                     </div>
                                 )}
@@ -175,15 +191,22 @@ export default function HouseDetailsModal({ house, allHouses, wishlist, currentU
                         <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-0.5">Asking Price</p>
                         <p className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight">{formatCurrency(house.price)}</p>
                     </div>
-                    <div className="flex gap-3 w-full sm:w-auto">
+                    <div className="flex gap-3 w-full sm:w-auto items-center">
                         {!isOwner && (
                             <>
                                 <button onClick={(e) => onToggleWishlist(e, house.id)} className={`p-3.5 rounded-xl font-bold transition-all border ${wishlist.has(house.id) ? 'bg-[#FF2D20] text-white border-[#FF2D20]' : 'bg-white text-gray-600 border-gray-200 hover:text-[#FF2D20]'}`}><Heart size={18} fill={wishlist.has(house.id) ? 'currentColor' : 'none'} /></button>
-                                {waLink ? (
-                                    <a href={waLink} target="_blank" rel="noopener noreferrer" className="flex-1 sm:flex-none bg-green-600 hover:bg-green-700 text-white px-6 py-3.5 rounded-xl font-bold transition-all duration-300 flex items-center justify-center gap-2 shadow-md"><MessageCircle size={18} /> Contact via WhatsApp</a>
-                                ) : (
-                                    <button onClick={() => setShowSchedule(true)} className="flex-1 sm:flex-none bg-[#FF2D20] hover:bg-black text-white px-8 py-3.5 rounded-xl font-bold transition-all duration-300 flex items-center justify-center gap-2 shadow-[0_4px_14px_0_rgb(255,45,32,0.39)] hover:shadow-none hover:-translate-y-0.5"><User size={18} /> Schedule Viewing</button>
+                                {house.owner?.phones && house.owner.phones.length > 0 && (
+                                    <a
+                                        href={`https://wa.me/${house.owner.phones[0].replace(/\D/g, '')}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="p-3.5 bg-[#25D366] hover:bg-[#128C7E] text-white rounded-xl font-bold transition-all shadow-lg shadow-green-500/20"
+                                        title="WhatsApp Agent"
+                                    >
+                                        <MessageCircle size={18} fill="currentColor" />
+                                    </a>
                                 )}
+                                <button onClick={() => setShowSchedule(true)} className="flex-1 sm:flex-none bg-[#FF2D20] hover:bg-black text-white px-8 py-3.5 rounded-xl font-bold transition-all duration-300 flex items-center justify-center gap-2 shadow-[0_4px_14px_0_rgb(255,45,32,0.39)] hover:shadow-none hover:-translate-y-0.5"><User size={18} /> Schedule Viewing</button>
                             </>
                         )}
                         {isOwner && (
@@ -196,7 +219,7 @@ export default function HouseDetailsModal({ house, allHouses, wishlist, currentU
 
                 {/* Schedule Visit Modal */}
                 <AnimatePresence>
-                    {showSchedule && <ScheduleVisitModal house={house} onClose={() => setShowSchedule(false)} />}
+                    {showSchedule && <ScheduleVisitModal house={house} onClose={() => setShowSchedule(false)} onOpenChat={onOpenChat} />}
                 </AnimatePresence>
             </motion.div>
         </motion.div>

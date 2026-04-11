@@ -3,13 +3,17 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Calendar, Clock, DollarSign, MessageSquare, CheckCircle, Home } from 'lucide-react';
 import { formatCurrency } from '../../types/explore';
 import type { House } from '../../types/explore';
+import axios from 'axios';
+import { useToast } from '../../context/ToastContext';
+
 
 interface Props {
     house: House;
     onClose: () => void;
+    onOpenChat: (ownerId: number) => void;
 }
 
-export default function ScheduleVisitModal({ house, onClose }: Props) {
+export default function ScheduleVisitModal({ house, onClose, onOpenChat }: Props) {
     const [mode, setMode] = useState<'visit' | 'offer'>('visit');
     const [date, setDate] = useState('');
     const [time, setTime] = useState('10:00');
@@ -17,14 +21,55 @@ export default function ScheduleVisitModal({ house, onClose }: Props) {
     const [message, setMessage] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
+    const { showToast } = useToast();
 
-    const handleSubmit = (e: React.FormEvent) => {
+
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        
+        if (!house.user_id) {
+            showToast('Cannot contact owner: Missing owner information.', 'error');
+            return;
+        }
+
+
         setIsSubmitting(true);
-        setTimeout(() => {
+        try {
+            // 1. Create or get conversation
+            const convRes = await axios.post('/conversations', { user_id: house.user_id });
+            const conversationId = convRes.data.data;
+
+            // 2. Format message as JSON for rich link previews
+            const contentObj = {
+                type: 'property_inquiry',
+                house: {
+                    id: house.id,
+                    name: house.name,
+                    price: house.price,
+                    image: house.housePic?.[0]?.dir || null,
+                    city: house.address?.city || ''
+                },
+                inquiry: {
+                    mode: mode,
+                    date: date,
+                    time: time,
+                    offerPrice: mode === 'offer' ? offerPrice : null,
+                    message: message
+                }
+            };
+            const content = JSON.stringify(contentObj);
+
+            // 3. Send message
+            await axios.post(`/conversations/${conversationId}/messages`, { content });
+
             setIsSubmitting(false);
             setShowSuccess(true);
-        }, 1500);
+        } catch (error) {
+            console.error('Failed to submit request:', error);
+            showToast('Failed to submit your request. Please try again later.', 'error');
+            setIsSubmitting(false);
+        }
+
     };
 
     return (
@@ -57,8 +102,8 @@ export default function ScheduleVisitModal({ house, onClose }: Props) {
                             <motion.div key="success" initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} className="flex flex-col items-center justify-center py-10 text-center">
                                 <div className="w-20 h-20 rounded-full bg-red-50 text-[#FF2D20] flex items-center justify-center mb-6"><CheckCircle size={40} /></div>
                                 <h3 className="text-2xl font-black text-gray-900 mb-2">{mode === 'visit' ? 'Kunjungan Dijadwalkan!' : 'Penawaran Terkirim!'}</h3>
-                                <p className="text-gray-500 font-medium max-w-xs">Admin kami akan segera menghubungi Anda untuk mengonfirmasi {mode === 'visit' ? 'jadwal kunjungan' : 'penawaran harga'} properti ini.</p>
-                                <button onClick={onClose} className="mt-6 px-6 py-3 bg-gray-900 text-white rounded-xl font-bold hover:bg-gray-800 transition-colors">Tutup</button>
+                                <p className="text-gray-500 font-medium max-w-xs">Pesan Anda telah dikirim ke pemilik properti melalui In-App Chat. Silakan lanjutkan komunikasi di sana.</p>
+                                <button onClick={() => { onClose(); if (house.user_id) onOpenChat(house.user_id); }} className="mt-6 px-6 py-3 bg-gray-900 text-white rounded-xl font-bold hover:bg-gray-800 transition-colors">Lihat Pesan di Chat</button>
                             </motion.div>
                         ) : (
                             <motion.form key="form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} onSubmit={handleSubmit} className="space-y-5">

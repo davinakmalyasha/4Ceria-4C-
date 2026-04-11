@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, ShoppingCart, MapPin, Building2, User, ChevronRight, MessageSquare, Trash2, Plus, Minus, Loader2, Link as LinkIcon, ExternalLink, Map as MapIcon, CheckCircle, FileText, Truck } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
 import LocationPickerMap, { ReverseGeoData } from '../LocationPickerMap';
+import { useToast } from '../../context/ToastContext';
+
 
 interface CheckoutDrawerProps {
     isOpen: boolean;
@@ -25,6 +27,8 @@ export default function CheckoutDrawer({ isOpen, onClose, onViewQuotes }: Checko
     const [orderNote, setOrderNote] = useState('');
     const [deliveryMethod, setDeliveryMethod] = useState('Supplier Fleet');
     const [isSuccess, setIsSuccess] = useState(false);
+    const { showToast } = useToast();
+
     
     // Stage 2: Inventory Sync State
     const [projectRequirements, setProjectRequirements] = useState<any[]>([]);
@@ -97,9 +101,10 @@ export default function CheckoutDrawer({ isOpen, onClose, onViewQuotes }: Checko
 
         if (checkoutMode === 'project') {
             if (!selectedProjectId) {
-                alert('Please select a project first.');
+                showToast('Please select a project first.', 'error');
                 return;
             }
+
             selectedProjectObj = projects.find(p => String(p.id) === String(selectedProjectId));
             const addressParts = [
                 selectedProjectObj?.street_name,
@@ -119,16 +124,18 @@ export default function CheckoutDrawer({ isOpen, onClose, onViewQuotes }: Checko
             contractorName = selectedProjectObj?.kontraktor?.user?.name || selectedProjectObj?.kontraktor?.nama || 'My Team';
         } else {
             if (!personalAddress) {
-                alert('Please enter a delivery address.');
+                showToast('Please enter a delivery address.', 'error');
                 return;
             }
+
             deliveryAddress = personalAddress;
         }
 
         if (!deliveryAddress.trim()) {
-            alert('Silakan isi alamat pengiriman terlebih dahulu.');
+            showToast('Silakan isi alamat pengiriman terlebih dahulu.', 'error');
             return;
         }
+
 
         setIsSubmitting(true);
         try {
@@ -227,8 +234,9 @@ export default function CheckoutDrawer({ isOpen, onClose, onViewQuotes }: Checko
             } else if (err.message) {
                 errorMsg = err.message;
             }
-            alert(`Checkout Error:\n${errorMsg}`);
+            showToast(`Checkout Error: ${errorMsg}`, 'error');
         } finally {
+
             setIsSubmitting(false);
         }
     };

@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
-import { Plus, X, Phone, UploadCloud, FileText } from 'lucide-react';
+import { Plus, X, Phone, UploadCloud, FileText, AlertCircle } from 'lucide-react';
 
 interface EditProfileFormProps { onCancel: () => void; }
 
 export default function ArchitectProfileForm({ onCancel }: EditProfileFormProps) {
-    const { user } = useAuth();
+    const { user, refreshUser } = useAuth();
     const [formData, setFormData] = useState({
         name: user?.name || '',
         email: user?.email || '',
@@ -18,6 +18,7 @@ export default function ArchitectProfileForm({ onCancel }: EditProfileFormProps)
         spesialisasi: user?.arsitek?.spesialisasi || '',
         pendidikan: user?.arsitek?.pendidikan || '',
         alasan_hire: user?.arsitek?.alasan_hire || '',
+        no_telp: user?.arsitek?.no_telp || '',
     });
     const [phoneNumbers, setPhoneNumbers] = useState<string[]>(user?.phone_number?.map(p => p.contact) || []);
     const [filePorto, setFilePorto] = useState<File | null>(null);
@@ -47,7 +48,9 @@ export default function ArchitectProfileForm({ onCancel }: EditProfileFormProps)
             if (fileFoto) data.append('foto', fileFoto);
 
             await axios.post('/me/professional', data, { headers: { 'Content-Type': 'multipart/form-data' } });
-            setSuccess(true); setTimeout(() => window.location.reload(), 1000);
+            setSuccess(true); 
+            await refreshUser();
+            setTimeout(() => onCancel(), 1000);
         } catch (err: any) {
             setError(err.response?.data?.message || 'Update failed');
         } finally {
@@ -58,7 +61,7 @@ export default function ArchitectProfileForm({ onCancel }: EditProfileFormProps)
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
             {error && <div className="p-3 bg-red-50 text-red-600 rounded-xl text-sm border border-red-100">{error}</div>}
-            {success && <div className="p-3 bg-green-50 text-green-600 rounded-xl text-sm border border-green-100">Profile updated! Refreshing...</div>}
+            {success && <div className="p-3 bg-green-50 text-green-600 rounded-xl text-sm border border-green-100">Profile updated successfully!</div>}
             
             <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -70,7 +73,10 @@ export default function ArchitectProfileForm({ onCancel }: EditProfileFormProps)
                     <input type="text" name="username" value={formData.username} onChange={handleChange} required className="w-full px-4 py-3 bg-gray-50 border rounded-xl focus:ring-2 focus:ring-[#FF2D20]/20 transition-all font-medium" />
                 </div>
                 <div className="col-span-2">
-                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Email</label>
+                    <label className="flex items-center gap-2 text-xs font-bold text-gray-500 uppercase mb-2">
+                        Email
+                        {!formData.email && <AlertCircle size={14} className="text-[#FF2D20] animate-pulse" />}
+                    </label>
                     <input type="email" name="email" value={formData.email} onChange={handleChange} required className="w-full px-4 py-3 bg-gray-50 border rounded-xl focus:ring-2 focus:ring-[#FF2D20]/20 transition-all font-medium" />
                 </div>
             </div>
@@ -79,7 +85,10 @@ export default function ArchitectProfileForm({ onCancel }: EditProfileFormProps)
                 <h3 className="font-bold text-gray-800 border-b pb-2">Professional Identity</h3>
                 <div className="grid grid-cols-2 gap-4">
                     <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Hourly Rate (IDR)</label>
+                        <label className="flex items-center gap-2 text-xs font-bold text-gray-500 uppercase mb-2">
+                            Hourly Rate (IDR)
+                            {!formData.rate_harga && <AlertCircle size={14} className="text-[#FF2D20] animate-pulse" />}
+                        </label>
                         <input type="number" name="rate_harga" value={formData.rate_harga} onChange={handleChange} className="w-full px-4 py-3 bg-white border rounded-xl focus:ring-[#FF2D20]/20" placeholder="e.g. 150000" />
                     </div>
                     <div>
@@ -93,6 +102,17 @@ export default function ArchitectProfileForm({ onCancel }: EditProfileFormProps)
                     <div>
                         <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Specialization</label>
                         <input type="text" name="spesialisasi" value={formData.spesialisasi} onChange={handleChange} className="w-full px-4 py-3 bg-white border rounded-xl focus:ring-[#FF2D20]/20" placeholder="Minimalist, Modern, etc." />
+                    </div>
+                    <div className="col-span-2">
+                        <label className="flex items-center gap-2 text-xs font-bold text-gray-500 uppercase mb-2">
+                            WhatsApp Number (Direct Link)
+                            {!formData.no_telp && <AlertCircle size={14} className="text-[#FF2D20] animate-pulse" />}
+                        </label>
+                        <div className="relative">
+                            <Phone size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                            <input type="tel" name="no_telp" value={formData.no_telp} onChange={handleChange} className="w-full pl-11 pr-4 py-3 bg-white border rounded-xl focus:ring-[#FF2D20]/20 font-medium" placeholder="e.g. 08123456789" />
+                        </div>
+                        <p className="text-[10px] text-gray-400 mt-1 font-medium italic">This number will be used for the direct WhatsApp chat button on your profile.</p>
                     </div>
                 </div>
                 <div>
@@ -111,23 +131,23 @@ export default function ArchitectProfileForm({ onCancel }: EditProfileFormProps)
                 </div>
             </div>
 
-            <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100 space-y-4">
-                <h3 className="font-bold text-blue-900 border-b border-blue-100 pb-2">Documents & Gallery</h3>
+            <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 space-y-4">
+                <h3 className="font-bold text-gray-800 border-b border-gray-200 pb-2">Documents & Gallery</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                        <label className="block text-xs font-bold text-blue-700 uppercase mb-2">Main Portfolio Image</label>
-                        <input type="file" accept="image/*" onChange={(e) => handleFile(e, setFileFoto)} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
-                        {user?.arsitek?.foto && !fileFoto && <span className="text-xs text-blue-500 mt-1 block">✓ Current image saved</span>}
+                        <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Main Portfolio Image</label>
+                        <input type="file" accept="image/*" onChange={(e) => handleFile(e, setFileFoto)} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200" />
+                        {user?.arsitek?.foto && !fileFoto && <span className="text-xs text-[#FF2D20] mt-1 block font-medium">✓ Current image saved</span>}
                     </div>
                     <div>
-                        <label className="block text-xs font-bold text-blue-700 uppercase mb-2">Portfolio PDF Details</label>
-                        <input type="file" accept=".pdf,.zip" onChange={(e) => handleFile(e, setFilePorto)} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
-                        {user?.arsitek?.file_portofolio && !filePorto && <span className="text-xs text-blue-500 mt-1 block">✓ Current PDF saved</span>}
+                        <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Portfolio PDF Details</label>
+                        <input type="file" accept=".pdf,.zip" onChange={(e) => handleFile(e, setFilePorto)} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200" />
+                        {user?.arsitek?.file_portofolio && !filePorto && <span className="text-xs text-[#FF2D20] mt-1 block font-medium">✓ Current PDF saved</span>}
                     </div>
                     <div>
-                        <label className="block text-xs font-bold text-blue-700 uppercase mb-2">Certificate</label>
-                        <input type="file" accept=".pdf,.jpg,.png" onChange={(e) => handleFile(e, setFileSertif)} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
-                        {user?.arsitek?.file_sertifikat && !fileSertif && <span className="text-xs text-blue-500 mt-1 block">✓ Current file saved</span>}
+                        <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Certificate</label>
+                        <input type="file" accept=".pdf,.jpg,.png" onChange={(e) => handleFile(e, setFileSertif)} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200" />
+                        {user?.arsitek?.file_sertifikat && !fileSertif && <span className="text-xs text-[#FF2D20] mt-1 block font-medium">✓ Current file saved</span>}
                     </div>
                 </div>
             </div>
