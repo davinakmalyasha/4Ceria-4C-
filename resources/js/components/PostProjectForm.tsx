@@ -132,6 +132,18 @@ export default function PostProjectForm({ onCancel, onSuccess }: PostProjectForm
                                     <label className="block text-sm font-bold text-gray-900 mb-2">Detail Lokasi Singkat</label>
                                     <input value={f.loc} onChange={update('loc')} required className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-[#FF2D20] focus:ring-4 focus:ring-red-100 outline-none transition-all" placeholder="Provinsi, Kota, Kecamatan..." />
                                 </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
+                                        <MapPin size={16} className="text-blue-500" /> Alamat Lengkap / Nama Jalan
+                                    </label>
+                                    <input 
+                                        value={f.street_name} 
+                                        onChange={update('street_name')} 
+                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-[#FF2D20] focus:ring-4 focus:ring-red-100 outline-none transition-all" 
+                                        placeholder="Cth: Jl. Merdeka No. 45, RT 03/RW 02, Kel. Sukamaju" 
+                                    />
+                                    <p className="text-xs text-gray-400 mt-1.5">Diisi otomatis dari peta, namun Anda bisa mengedit untuk detail yang lebih akurat.</p>
+                                </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-sm font-bold text-gray-900 mb-2 flex items-center gap-2"><Calendar size={16} className="text-[#FF2D20]" /> Target Selesai</label>
