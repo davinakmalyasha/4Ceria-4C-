@@ -39,9 +39,19 @@ public function formPostProject()
             'description' => 'required|string',
             'budget' => 'required|numeric|min:0',
             'lokasi' => 'required|string|max:255',
-            'jenis_proyek' => 'required|string|in:umum,fondasi,struktur,dinding,atap,lantai,ventilasi,listrik',
+            'jenis_proyek' => 'required|string|in:umum,fondasi,struktur,dinding,atap,lantai,ventilasi,listrik,plumbing',
             'deadline' => 'nullable|date',
             'attachment' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:2048',
+            'needed_phases' => 'nullable|string',
+            'target_role' => 'nullable|string',
+            'latitude' => 'nullable|string',
+            'longitude' => 'nullable|string',
+            'province' => 'nullable|string',
+            'city' => 'nullable|string',
+            'kecamatan' => 'nullable|string',
+            'kelurahan' => 'nullable|string',
+            'postal_code' => 'nullable|string',
+            'street_name' => 'nullable|string',
         ]);
      
         $data = [
@@ -53,17 +63,35 @@ public function formPostProject()
             'jenis_proyek' => $request->jenis_proyek,
             'deadline' => $request->deadline,
             'status' => 'open',
+            'target_role' => $request->target_role ?? 'both',
+            'latitude' => $request->latitude,
+            'longitude' => $request->longitude,
+            'province' => $request->province,
+            'city' => $request->city,
+            'kecamatan' => $request->kecamatan,
+            'kelurahan' => $request->kelurahan,
+            'postal_code' => $request->postal_code,
+            'street_name' => $request->street_name,
         ];
-    
+
+        if ($request->needed_phases) {
+            $data['needed_phases'] = json_decode($request->needed_phases, true);
+        }
     
         if ($request->hasFile('attachment')) {
             $path = $request->file('attachment')->store('project_attachments', 'public');
             $data['attachment'] = $path;
         }
-       
 
-    
-        Project::create($data);
+        $project = Project::create($data);
+
+        // Handle multi-image upload
+        if ($request->hasFile('images')) {
+            foreach ($request->file('images') as $image) {
+                $path = $image->store('project_images', 'public');
+                $project->images()->create(['image_path' => $path]);
+            }
+        }
     
         return back()->with('success', 'Proyek berhasil dibuat!');
     }

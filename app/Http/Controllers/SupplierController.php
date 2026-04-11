@@ -105,6 +105,7 @@ class SupplierController extends Controller
             'no_telp' => 'nullable|string|max:20',
             'category' => 'nullable|string|max:255',
             'bio' => 'nullable|string',
+            'detail_location' => 'nullable|string',
             'foto' => 'nullable|image|max:2048',
         ]);
 
@@ -112,7 +113,7 @@ class SupplierController extends Controller
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        $data = $request->only(['store_name', 'address', 'latitude', 'longitude', 'no_telp', 'category', 'bio']);
+        $data = $request->only(['store_name', 'address', 'latitude', 'longitude', 'no_telp', 'category', 'bio', 'detail_location']);
 
         if ($request->hasFile('foto')) {
             $data['foto'] = $request->file('foto')->store('suppliers', 'public');
