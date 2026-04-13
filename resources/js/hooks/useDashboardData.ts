@@ -15,6 +15,8 @@ export const useDashboardData = () => {
     const [myBids, setMyBids] = useState<any[]>([]);
     const [architects, setArchitects] = useState<any[]>([]);
     const [constructors, setConstructors] = useState<any[]>([]);
+    const [interiors, setInteriors] = useState<any[]>([]);
+    const [notaries, setNotaries] = useState<any[]>([]);
     const [projectFeed, setProjectFeed] = useState<Project[]>([]);
     const [latestBids, setLatestBids] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -23,30 +25,34 @@ export const useDashboardData = () => {
         if (!user) return;
         setIsLoading(true);
         try {
-            const [houseRes, projectRes, archRes, constrRes, feedRes] = await Promise.all([
+            const [housesRes, projectsRes, feedRes, archRes, constRes, interiorRes, notaryRes] = await Promise.all([
                 axios.get('/houses'),
                 axios.get('/projects?all=true&with_bids=true'),
+                axios.get('/projects?feed=true'),
                 axios.get('/arsitek'),
                 axios.get('/kontraktor'),
-                axios.get('/projects?feed=true')
+                axios.get('/interior'),
+                axios.get('/notaris')
             ]);
             
-            setHouses(houseRes.data.data);
-            setProjects(projectRes.data.data);
-            setArchitects(archRes.data.data);
-            setConstructors(constrRes.data.data);
-            setProjectFeed(feedRes.data.data);
+            setHouses(housesRes.data.data || []);
+            setProjects(projectsRes.data.data || []);
+            setProjectFeed(feedRes.data.data || []);
+            setArchitects(archRes.data.data || []);
+            setConstructors(constRes.data.data || []);
+            setInteriors(interiorRes.data.data || []);
+            setNotaries(notaryRes.data.data || []);
 
             if (user.role_type === 'user') {
                 const allBids: any[] = [];
-                projectRes.data.data.forEach((p: Project) => {
+                projectsRes.data.data.forEach((p: Project) => {
                     if (p.bids_arsitek) allBids.push(...p.bids_arsitek.map(b => ({ ...b, project_title: p.title })));
                     if (p.bids_kontraktor) allBids.push(...p.bids_kontraktor.map(b => ({ ...b, project_title: p.title })));
                 });
                 setLatestBids(allBids.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
             }
 
-            if (user.role_type === 'arsitek' || user.role_type === 'kontraktor') {
+            if (user.role_type === 'arsitek' || user.role_type === 'kontraktor' || user.role_type === 'interior' || user.role_type === 'notaris') {
                 const bidsRes = await axios.get('/my-bids');
                 const bidsData = bidsRes.data.data || [];
                 setMyBids(bidsData);
@@ -77,15 +83,7 @@ export const useDashboardData = () => {
     };
 
     return {
-        houses, setHouses,
-        projects, setProjects,
-        myBids, setMyBids,
-        architects, setArchitects,
-        constructors, setConstructors,
-        projectFeed, setProjectFeed,
-        latestBids, setLatestBids,
-        isLoading,
-        refreshProjects,
-        fetchData
+        houses, projects, projectFeed, latestBids, myBids, isLoading, 
+        architects, constructors, interiors, notaries, fetchData, refreshProjects
     };
 };

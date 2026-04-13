@@ -16,6 +16,8 @@ export interface ProjectMilestone {
     project_id: number;
     arsitek_id?: number | null;
     kontraktor_id?: number | null;
+    notaris_id?: number | null;
+    interior_id?: number | null;
     title: string;
     description?: string | null;
     start_date?: string | null;
@@ -58,6 +60,8 @@ export interface ProjectDocument {
     file_name: string;
     file_path: string;
     file_type: string;
+    category?: 'general' | 'legal' | 'interior' | 'technical';
+    status?: 'uploaded' | 'under_review' | 'awaiting_signature' | 'legally_binding';
     created_at: string;
     uploader?: { id: number; name: string };
 }
@@ -81,6 +85,7 @@ export interface ProjectRequirement {
     quantity_on_site: number;
     quantity_used: number;
     unit: string;
+    quality_level?: 'standard' | 'premium' | 'luxury';
     notes?: string | null;
     created_at: string;
 }
@@ -119,6 +124,7 @@ export interface Project {
     documents?: ProjectDocument[];
     material_orders?: MaterialOrder[];
     requirements?: ProjectRequirement[];
+    has_submitted_bid?: boolean;
 }
 
 export type ProjectStatus = Project['status'];
