@@ -1,19 +1,19 @@
 <?php
 
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\ChatController;
 use App\Http\Controllers\Api\HouseController;
+use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\ProjectController;
 use App\Http\Controllers\Api\ProjectFeatureController;
-use App\Http\Controllers\Api\ProfileController;
-use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\RoomController;
-use App\Http\Controllers\Api\ChatController;
-use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\MaterialController;
-use App\Http\Controllers\MaterialQuoteController;
 use App\Http\Controllers\MaterialOrderController;
+use App\Http\Controllers\MaterialQuoteController;
+use App\Http\Controllers\SupplierController;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -23,10 +23,16 @@ Route::get('/houses', [HouseController::class, 'index']);
 Route::get('/houses/{house}', [HouseController::class, 'show']);
 
 Route::get('/arsitek', function () {
-    return response()->json(['data' => \App\Models\Arsitek::with(['user.phoneNumber', 'ratings', 'projects'])->get()]);
+    return response()->json(['data' => \App\Models\Arsitek::with(['user.phoneNumber', 'ratings', 'projects.images'])->get()]);
 });
 Route::get('/kontraktor', function () {
-    return response()->json(['data' => \App\Models\Kontraktor::with(['user.phoneNumber', 'ratings', 'spesialisasis', 'projects'])->get()]);
+    return response()->json(['data' => \App\Models\Kontraktor::with(['user.phoneNumber', 'ratings', 'spesialisasis', 'projects.images'])->get()]);
+});
+Route::get('/interior', function () {
+    return response()->json(['data' => \App\Models\InteriorProfile::with(['user.phoneNumber', 'ratings', 'projects.images'])->get()]);
+});
+Route::get('/notaris', function () {
+    return response()->json(['data' => \App\Models\NotarisProfile::with(['user.phoneNumber', 'ratings', 'services'])->get()]);
 });
 
 // Materials Marketplace Public Routes
@@ -39,19 +45,19 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/projects/{project}', [ProjectController::class, 'show']);
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', function (Request $request) {
-        return $request->user()->load(['phoneNumber', 'arsitek', 'kontraktor']);
+        return $request->user()->load(['phoneNumber', 'arsitek', 'kontraktor', 'interiorProfile', 'notarisProfile']);
     });
     Route::post('/me/professional', [ProfileController::class, 'updateProfessional']);
     Route::put('/me', function (Request $request) {
         $user = $request->user();
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|email|max:255|unique:users,email,' . $user->id,
-            'username' => 'required|string|max:255|unique:users,username,' . $user->id,
+            'email' => 'required|email|max:255|unique:users,email,'.$user->id,
+            'username' => 'required|string|max:255|unique:users,username,'.$user->id,
             'phone_numbers' => 'nullable|array',
             'phone_numbers.*' => 'required|string|max:20',
         ]);
-        
+
         $user->update([
             'name' => $validated['name'],
             'email' => $validated['email'],
@@ -65,7 +71,7 @@ Route::middleware('auth:sanctum')->group(function () {
             // Add new numbers that are not already in the database
             $existingNumbers = $user->phoneNumber()->pluck('contact')->toArray();
             foreach ($validated['phone_numbers'] as $number) {
-                if (!in_array($number, $existingNumbers)) {
+                if (! in_array($number, $existingNumbers)) {
                     $user->phoneNumber()->create(['contact' => $number]);
                 }
             }
@@ -73,13 +79,13 @@ Route::middleware('auth:sanctum')->group(function () {
 
         return response()->json([
             'message' => 'Profile updated successfully',
-            'user' => $user->load('phoneNumber')
+            'user' => $user->load('phoneNumber'),
         ]);
     });
-    
+
     // House Management
     Route::apiResource('houses', HouseController::class)->except(['index', 'show']);
-    
+
     // Room Management
     Route::post('houses/{house}/rooms', [RoomController::class, 'store']);
     Route::delete('rooms/{room}', [RoomController::class, 'destroy']);
@@ -96,13 +102,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/projects/{project}/milestones', [ProjectFeatureController::class, 'getMilestones']);
     Route::post('/projects/{project}/milestones', [ProjectFeatureController::class, 'storeMilestone']);
     Route::put('/projects/{project}/milestones/{milestone}', [ProjectFeatureController::class, 'updateMilestone']);
+    Route::post('/projects/{project}/milestones/{milestone}/approve', [ProjectFeatureController::class, 'approveMilestone']);
+    Route::post('/projects/{project}/milestones/{milestone}/request-revision', [ProjectFeatureController::class, 'requestMilestoneRevision']);
     Route::delete('/projects/{project}/milestones/{milestone}', [ProjectFeatureController::class, 'deleteMilestone']);
 
     Route::get('/projects/{project}/comments', [ProjectFeatureController::class, 'getComments']);
     Route::post('/projects/{project}/comments', [ProjectFeatureController::class, 'storeComment']);
     Route::put('/projects/{project}/comments/{comment}', [ProjectFeatureController::class, 'updateComment']);
     Route::delete('/projects/{project}/comments/{comment}', [ProjectFeatureController::class, 'deleteComment']);
-    
+
     // Reviews
     Route::post('/projects/{project}/review', [\App\Http\Controllers\Api\ReviewController::class, 'store']);
 
@@ -167,15 +175,22 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::patch('/professionals/{type}/{id}/status', [\App\Http\Controllers\Api\Admin\VerificationController::class, 'updateStatus']);
         Route::get('/houses', [\App\Http\Controllers\Api\Admin\AdminDashboardController::class, 'houses']);
         Route::get('/projects', [\App\Http\Controllers\Api\Admin\AdminDashboardController::class, 'projects']);
-        
+
         // Supplier Verification
-        Route::get('/suppliers', function() {
+        Route::get('/suppliers', function () {
             return response()->json(['data' => \App\Models\Supplier::with('user')->get()]);
         });
-        Route::patch('/suppliers/{id}/status', function(Request $request, $id) {
+        Route::patch('/suppliers/{id}/status', function (Request $request, $id) {
             $supplier = \App\Models\Supplier::findOrFail($id);
             $supplier->update($request->only(['verification_status', 'rejection_reason']));
+
             return response()->json(['message' => 'Status updated']);
         });
     });
+
+    // Notary Consultations
+    Route::get('/consultations', [ConsultationController::class, 'index']);
+    Route::post('/consultations', [ConsultationController::class, 'store']);
+    Route::put('/consultations/{consultation}', [ConsultationController::class, 'update']);
+    Route::get('/notaris/services', [ProjectController::class, 'getNotarisServices']);
 });

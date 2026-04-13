@@ -15,6 +15,7 @@ class BidNotaris extends Model
         'project_id',
         'notaris_id',
         'price',
+        'tax_estimate',
         'proposal',
         'status',
         'estimated_duration',
