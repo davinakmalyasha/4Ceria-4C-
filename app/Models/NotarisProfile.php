@@ -28,7 +28,12 @@ class NotarisProfile extends Model
         'rejection_reason',
     ];
 
-    protected $appends = ['average_rating', 'review_count'];
+    protected $appends = ['average_rating', 'review_count', 'is_verified'];
+
+    public function getIsVerifiedAttribute(): bool
+    {
+        return $this->verification_status === 'verified';
+    }
 
     public function getAverageRatingAttribute(): float
     {
@@ -58,5 +63,15 @@ class NotarisProfile extends Model
     public function bids()
     {
         return $this->hasMany(BidNotaris::class, 'notaris_id');
+    }
+
+    public function services()
+    {
+        return $this->hasMany(NotarisService::class, 'notaris_id');
+    }
+
+    public function consultations()
+    {
+        return $this->hasMany(NotarisConsultation::class, 'notaris_id');
     }
 }
