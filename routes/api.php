@@ -40,12 +40,21 @@ Route::get('/marketplace/suppliers', [SupplierController::class, 'index']);
 Route::get('/marketplace/suppliers/{id}', [SupplierController::class, 'show']);
 Route::get('/marketplace/materials', [MaterialController::class, 'index']);
 
+// Public Construction Brief (no auth — accessed via share link)
+Route::get('/brief/{token}', [ProjectController::class, 'getPublicBrief']);
+
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/projects', [ProjectController::class, 'index']);
     Route::get('/projects/{project}', [ProjectController::class, 'show']);
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', function (Request $request) {
-        return $request->user()->load(['phoneNumber', 'arsitek', 'kontraktor', 'interiorProfile', 'notarisProfile']);
+        return new \App\Http\Resources\UserResource(
+            $request->user()->load([
+                'phoneNumber', 'arsitek', 'kontraktor', 
+                'notaris_profile', 'interior_profile', 'project_manager',
+                'structural_engineer', 'mep_engineer'
+            ])
+        );
     });
     Route::post('/me/professional', [ProfileController::class, 'updateProfessional']);
     Route::put('/me', function (Request $request) {
@@ -98,13 +107,40 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/projects/{project}/decline-bid', [ProjectController::class, 'declineBid']);
     Route::get('/my-bids', [ProjectController::class, 'myBids']);
 
+    // Project Manager Bidding
+    Route::post('/projects/{project}/pm-bids', [\App\Http\Controllers\Api\BidProjectManagerController::class, 'store']);
+    Route::post('/projects/{project}/pm-bids/{bid}/accept', [\App\Http\Controllers\Api\BidProjectManagerController::class, 'accept']);
+    Route::post('/projects/{project}/pm-bids/{bid}/decline', [\App\Http\Controllers\Api\BidProjectManagerController::class, 'decline']);
+
     // Project Features (Milestones, Comments, Documents)
     Route::get('/projects/{project}/milestones', [ProjectFeatureController::class, 'getMilestones']);
     Route::post('/projects/{project}/milestones', [ProjectFeatureController::class, 'storeMilestone']);
     Route::put('/projects/{project}/milestones/{milestone}', [ProjectFeatureController::class, 'updateMilestone']);
     Route::post('/projects/{project}/milestones/{milestone}/approve', [ProjectFeatureController::class, 'approveMilestone']);
     Route::post('/projects/{project}/milestones/{milestone}/request-revision', [ProjectFeatureController::class, 'requestMilestoneRevision']);
+    Route::post('/projects/{project}/seal-design', [ProjectFeatureController::class, 'sealDesign']);
     Route::delete('/projects/{project}/milestones/{milestone}', [ProjectFeatureController::class, 'deleteMilestone']);
+
+    // Construction Daily Logs
+    Route::get('/projects/{project}/daily-logs', [ProjectFeatureController::class, 'getDailyLogs']);
+    Route::post('/projects/{project}/daily-logs', [ProjectFeatureController::class, 'storeDailyLog']);
+    Route::delete('/projects/{project}/daily-logs/{dailyLog}', [ProjectFeatureController::class, 'deleteDailyLog']);
+
+    // Payment Termins
+    Route::get('/projects/{project}/payment-termins', [ProjectFeatureController::class, 'getPaymentTermins']);
+    Route::post('/projects/{project}/payment-termins', [ProjectFeatureController::class, 'storePaymentTermin']);
+    Route::put('/projects/{project}/payment-termins/{termin}', [ProjectFeatureController::class, 'updatePaymentTermin']);
+    Route::delete('/projects/{project}/payment-termins/{termin}', [ProjectFeatureController::class, 'deletePaymentTermin']);
+
+    Route::post('/projects/{project}/seal-construction', [ProjectFeatureController::class, 'sealConstruction']);
+    Route::post('/projects/{project}/seal-interior', [ProjectFeatureController::class, 'sealInterior']);
+
+    // Phase Brief Lock (Prepare → Lock → Execute lifecycle)
+    Route::post('/projects/{project}/lock-brief', [ProjectController::class, 'lockPhaseBrief']);
+
+    // Shareable Brief Link
+    Route::post('/projects/{project}/share-token', [ProjectController::class, 'generateShareToken']);
+    Route::delete('/projects/{project}/share-token', [ProjectController::class, 'revokeShareToken']);
 
     Route::get('/projects/{project}/comments', [ProjectFeatureController::class, 'getComments']);
     Route::post('/projects/{project}/comments', [ProjectFeatureController::class, 'storeComment']);
@@ -121,6 +157,25 @@ Route::middleware('auth:sanctum')->group(function () {
     // Ratings & Activity Log
     Route::post('/projects/{project}/rate', [ProjectFeatureController::class, 'rateProject']);
     Route::get('/projects/{project}/activity', [ProjectFeatureController::class, 'getActivity']);
+
+    // Material Requirements (Bill of Materials)
+    Route::get('/projects/{project}/requirements', [ProjectFeatureController::class, 'getRequirements']);
+    Route::post('/projects/{project}/requirements', [ProjectFeatureController::class, 'storeRequirement']);
+    Route::put('/projects/{project}/requirements/{requirement}', [ProjectFeatureController::class, 'updateRequirement']);
+    Route::delete('/projects/{project}/requirements/{requirement}', [ProjectFeatureController::class, 'deleteRequirement']);
+    Route::post('/projects/{project}/requirements/{requirement}/usage', [ProjectFeatureController::class, 'logRequirementUsage']);
+    Route::post('/projects/{project}/requirements/{requirement}/manual-procurement', [ProjectFeatureController::class, 'logExternalProcurement']);
+
+    // Project Budget & Finance Endpoints
+    Route::get('/projects/{project}/budget', [\App\Http\Controllers\Api\ProjectBudgetController::class, 'getDashboard']);
+    Route::post('/projects/{project}/budget/transactions', [\App\Http\Controllers\Api\ProjectBudgetController::class, 'addTransaction']);
+    Route::post('/projects/{project}/budget/mark-paid', [\App\Http\Controllers\Api\ProjectBudgetController::class, 'markPaid']);
+    Route::post('/projects/{project}/budget/sandbox', [\App\Http\Controllers\Api\ProjectBudgetController::class, 'addSandboxItem']);
+    Route::put('/projects/{project}/budget/sandbox/{id}', [\App\Http\Controllers\Api\ProjectBudgetController::class, 'toggleSandboxItem']);
+    Route::put('/projects/{project}/budget/sandbox/{id}/update', [\App\Http\Controllers\Api\ProjectBudgetController::class, 'updateSandboxItem']);
+    Route::delete('/projects/{project}/budget/sandbox/{id}', [\App\Http\Controllers\Api\ProjectBudgetController::class, 'deleteSandboxItem']);
+    Route::post('/projects/{project}/budget/addendums', [\App\Http\Controllers\Api\ProjectBudgetController::class, 'createAddendum']);
+    Route::put('/projects/{project}/budget/addendums/{id}', [\App\Http\Controllers\Api\ProjectBudgetController::class, 'handleAddendumStatus']);
 
     // Notifications
     Route::get('/notifications', [NotificationController::class, 'index']);
@@ -189,8 +244,8 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // Notary Consultations
-    Route::get('/consultations', [ConsultationController::class, 'index']);
-    Route::post('/consultations', [ConsultationController::class, 'store']);
-    Route::put('/consultations/{consultation}', [ConsultationController::class, 'update']);
+    // Route::get('/consultations', [ConsultationController::class, 'index']);
+    // Route::post('/consultations', [ConsultationController::class, 'store']);
+    // Route::put('/consultations/{consultation}', [ConsultationController::class, 'update']);
     Route::get('/notaris/services', [ProjectController::class, 'getNotarisServices']);
 });
