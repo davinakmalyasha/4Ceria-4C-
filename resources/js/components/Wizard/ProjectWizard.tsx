@@ -7,6 +7,8 @@ import WizardQuestion from './WizardQuestion';
 import WizardManualSelect from './WizardManualSelect';
 import WizardDetailsStep from './WizardDetailsStep';
 import WizardBudgetStep from './WizardBudgetStep';
+import WizardCategoryStep from './WizardCategoryStep';
+import WizardScaleStep from './WizardScaleStep';
 
 interface ProjectWizardProps { onCancel: () => void; onSuccess: () => void; }
 
@@ -15,8 +17,9 @@ export default function ProjectWizard({ onCancel, onSuccess }: ProjectWizardProp
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
     const isLastStep = w.step === w.totalSteps - 1;
-    const detailsStep = w.mode === 'easy' ? 4 : 1;
-    const budgetStep = w.mode === 'easy' ? 5 : 2;
+    const qLen = w.activeQuestions?.length || 0;
+    const detailsStep = w.mode === 'easy' ? 2 + qLen : 3;
+    const budgetStep = w.mode === 'easy' ? 3 + qLen : 4;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -30,8 +33,11 @@ export default function ProjectWizard({ onCancel, onSuccess }: ProjectWizardProp
         fd.append('province', w.form.province); fd.append('city', w.form.city);
         fd.append('kecamatan', w.form.kecamatan); fd.append('kelurahan', w.form.kelurahan);
         fd.append('postal_code', w.form.postal_code); fd.append('street_name', w.form.street_name);
+        fd.append('wants_project_manager', w.form.wants_project_manager ? '1' : '0');
         fd.append('needed_phases', JSON.stringify(w.neededPhases));
-        fd.append('target_role', 'both');
+        fd.append('project_category', w.form.project_category);
+        fd.append('project_dimensions', JSON.stringify(w.form.project_dimensions));
+        fd.append('target_role', w.form.project_category === 'maintenance' ? 'kontraktor' : 'both');
         w.images.forEach((img, i) => fd.append(`images[${i}]`, img));
 
         try { await axios.post('/projects', fd); onSuccess(); }
@@ -45,17 +51,30 @@ export default function ProjectWizard({ onCancel, onSuccess }: ProjectWizardProp
                 {error && <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-xl text-sm font-semibold border border-red-200">{error}</div>}
                 <div className="min-h-[360px]">
                     <AnimatePresence mode="wait">
-                        {w.mode === 'easy' && w.step <= 3 && (
-                            <WizardQuestion questionIndex={w.step} answers={w.answers} onAnswer={(key, val) => w.setAnswers({ ...w.answers, [key]: val })} />
+                        {w.step === 0 && (
+                            <WizardCategoryStep form={w.form} updateForm={w.updateForm} />
                         )}
-                        {w.mode === 'advanced' && w.step === 0 && (
+                        {w.step === 1 && (
+                            <WizardScaleStep form={w.form} updateDimensions={w.updateDimensions} />
+                        )}
+                        {w.mode === 'easy' && w.step >= 2 && w.step < 2 + (w.activeQuestions?.length || 0) && (
+                            <WizardQuestion questionKey={w.activeQuestions[w.step - 2]} answers={w.answers} onAnswer={(key, val) => w.setAnswers({ ...w.answers, [key]: val })} />
+                        )}
+                        {w.mode === 'advanced' && w.step === 2 && (
                             <WizardManualSelect selectedPhases={w.manualPhases} onToggle={w.toggleManualPhase} />
                         )}
                         {w.step === detailsStep && (
                             <WizardDetailsStep form={w.form} updateForm={w.updateForm} images={w.images} setImages={w.setImages} />
                         )}
                         {w.step === budgetStep && (
-                            <WizardBudgetStep budget={w.form.budget} onBudgetChange={v => w.updateForm('budget', v)} neededPhases={w.neededPhases} />
+                            <WizardBudgetStep 
+                                budget={w.form.budget} 
+                                onBudgetChange={v => w.updateForm('budget', v)} 
+                                wantsPM={w.form.wants_project_manager}
+                                onWantsPMChange={v => w.updateForm('wants_project_manager', v)}
+                                neededPhases={w.neededPhases} 
+                                form={w.form}
+                            />
                         )}
                     </AnimatePresence>
                 </div>
