@@ -1,12 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Plus, Pencil, Check, Image, Layers, X, Save, Trash2, FileText, ArrowUpRight } from 'lucide-react';
+import { Plus, Pencil, Check, Image, Layers, X, Save, Trash2, FileText, ArrowUpRight, Sparkles, ShieldCheck, Calendar, Banknote } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
 
 interface DesignProgressProps {
     project: any;
     currentUser: any;
     isArchitect: boolean;
+    isPM: boolean;
+}
+
+interface LinkedTermin {
+    id: number;
+    label: string;
+    percentage: number;
+    amount: number;
+    status: 'locked' | 'pending' | 'invoice_sent' | 'paid';
 }
 
 interface Milestone {
@@ -17,6 +26,9 @@ interface Milestone {
     type: 'generic' | 'schematic' | 'development' | 'construction';
     approval_status?: 'pending' | 'approved' | 'revision';
     revision_notes?: string;
+    start_date?: string | null;
+    due_date?: string | null;
+    linked_termin?: LinkedTermin | null;
     content?: {
         gallery?: string[];
         links?: { label: string; url: string }[];
@@ -24,17 +36,18 @@ interface Milestone {
         revision_history?: { note: string; date: string; version: number }[];
     };
     sort_order: number;
+    is_completed: boolean;
+    is_locked?: boolean;
     created_at: string;
 }
 
-export default function DesignProgress({ project, currentUser, isArchitect }: DesignProgressProps) {
+export default function DesignProgress({ project, currentUser, isArchitect, isPM }: DesignProgressProps) {
     const [milestones, setMilestones] = useState<Milestone[]>([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
     const { showToast } = useToast();
 
-    // Form state
     const [formTitle, setFormTitle] = useState('');
     const [formType, setFormType] = useState<Milestone['type']>('generic');
     const [formDesc, setFormDesc] = useState('');
@@ -43,14 +56,21 @@ export default function DesignProgress({ project, currentUser, isArchitect }: De
     const [formChecklist, setFormChecklist] = useState<{ label: string; checked: boolean }[]>([]);
     const [formLinks, setFormLinks] = useState<{ label: string; url: string }[]>([]);
     const [submitting, setSubmitting] = useState(false);
+    const [formStartDate, setFormStartDate] = useState('');
+    const [formDueDate, setFormDueDate] = useState('');
+    const [formLinkedTerminId, setFormLinkedTerminId] = useState<number | null>(null);
+    const [availableTermins, setAvailableTermins] = useState<LinkedTermin[]>([]);
+
+    const isOwner = currentUser?.id === project?.user_id;
 
     const fetchMilestones = async () => {
         if (!project?.id) return;
         try {
             const res = await axios.get(`/projects/${project.id}/milestones`);
-            const sorted = (res.data?.data || []).sort(
-                (a: Milestone, b: Milestone) => a.sort_order - b.sort_order
-            );
+            const allMilestones = res.data?.data || [];
+            const sorted = allMilestones
+                .filter((m: Milestone) => m.phase_context !== 'legal')
+                .sort((a: Milestone, b: Milestone) => a.sort_order - b.sort_order);
             setMilestones(sorted);
         } catch (error) {
             console.error('Failed to fetch milestones', error);
@@ -59,7 +79,15 @@ export default function DesignProgress({ project, currentUser, isArchitect }: De
         }
     };
 
-    useEffect(() => { fetchMilestones(); }, [project?.id]);
+    useEffect(() => { fetchMilestones(); fetchTermins(); }, [project?.id]);
+
+    const fetchTermins = async () => {
+        if (!project?.id) return;
+        try {
+            const res = await axios.get(`/projects/${project.id}/payment-termins`);
+            setAvailableTermins(res.data?.data || []);
+        } catch { /* silent — termins are optional context */ }
+    };
 
     const resetForm = () => {
         setFormTitle('');
@@ -69,6 +97,9 @@ export default function DesignProgress({ project, currentUser, isArchitect }: De
         setNewGalleryFiles([]);
         setFormChecklist([]);
         setFormLinks([]);
+        setFormStartDate('');
+        setFormDueDate('');
+        setFormLinkedTerminId(null);
         setEditingId(null);
         setShowForm(false);
     };
@@ -115,6 +146,8 @@ export default function DesignProgress({ project, currentUser, isArchitect }: De
         formData.append('type', formType);
         formData.append('description', formDesc);
         formData.append('sort_order', String(milestones.length));
+        if (formStartDate) formData.append('start_date', formStartDate);
+        if (formDueDate) formData.append('due_date', formDueDate);
         
         // Add content metadata
         formData.append('content', JSON.stringify({
@@ -134,6 +167,20 @@ export default function DesignProgress({ project, currentUser, isArchitect }: De
                     headers: { 'Content-Type': 'multipart/form-data' }
                 });
                 showToast('Phase updated', 'success');
+
+                // Link/unlink termin if changed
+                const currentMilestone = milestones.find(m => m.id === editingId);
+                const prevTerminId = currentMilestone?.linked_termin?.id ?? null;
+                if (formLinkedTerminId !== prevTerminId) {
+                    // Unlink old termin
+                    if (prevTerminId) {
+                        await axios.put(`/projects/${project.id}/payment-termins/${prevTerminId}`, { milestone_id: null });
+                    }
+                    // Link new termin
+                    if (formLinkedTerminId) {
+                        await axios.put(`/projects/${project.id}/payment-termins/${formLinkedTerminId}`, { milestone_id: editingId });
+                    }
+                }
             } else {
                 await axios.post(`/projects/${project.id}/milestones`, formData, {
                     headers: { 'Content-Type': 'multipart/form-data' }
@@ -142,6 +189,7 @@ export default function DesignProgress({ project, currentUser, isArchitect }: De
             }
             resetForm();
             fetchMilestones();
+            fetchTermins();
         } catch (error: any) {
             showToast(error.response?.data?.message || 'Failed to save phase', 'error');
         } finally {
@@ -150,12 +198,16 @@ export default function DesignProgress({ project, currentUser, isArchitect }: De
     };
 
     const handleEdit = (m: Milestone) => {
+        showToast('Opening editing form...', 'info');
         setEditingId(m.id);
         setFormTitle(m.title);
         setFormType(m.type || 'generic');
         setFormDesc(m.description || '');
         setFormChecklist(m.content?.checklist || []);
         setFormLinks(m.content?.links || []);
+        setFormStartDate(m.start_date ? m.start_date.split('T')[0] : '');
+        setFormDueDate(m.due_date ? m.due_date.split('T')[0] : '');
+        setFormLinkedTerminId(m.linked_termin?.id ?? null);
         
         const gallery = m.content?.gallery || [];
         if (!gallery.length && m.image) {
@@ -165,6 +217,24 @@ export default function DesignProgress({ project, currentUser, isArchitect }: De
         }
         setNewGalleryFiles([]);
         setShowForm(true);
+
+        // More reliable scrolling for dashboard layouts
+        setTimeout(() => {
+            const formTop = document.getElementById('design-form-header');
+            if (formTop) {
+                formTop.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } else {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        }, 100);
+    };
+
+    const handleAddDeliverableShortcut = (m: Milestone) => {
+        handleEdit(m);
+        // Automatically add one empty item if none exist
+        if (!m.content?.checklist || m.content.checklist.length === 0) {
+            setFormChecklist([{ label: '', checked: false }]);
+        }
     };
 
     const handleToggleComplete = async (m: Milestone) => {
@@ -203,6 +273,17 @@ export default function DesignProgress({ project, currentUser, isArchitect }: De
         }
     };
 
+    const handlePMVerify = async (m: Milestone) => {
+        if (!window.confirm('Verify this milestone? This will automatically unlock the linked payment terms for the Owner to pay.')) return;
+        try {
+            await axios.post(`/projects/${project.id}/milestones/${m.id}/verify-pm`);
+            showToast('Milestone verified and payment unlocked', 'success');
+            fetchMilestones();
+        } catch (error: any) {
+            showToast(error.response?.data?.message || 'Failed to verify milestone', 'error');
+        }
+    };
+
     const handleToggleChecklistItem = async (m: Milestone, idx: number) => {
         if (!isArchitect || !m.content?.checklist || (m.approval_status !== 'in_progress' && m.approval_status !== 'revision')) return;
         
@@ -225,7 +306,10 @@ export default function DesignProgress({ project, currentUser, isArchitect }: De
             await axios.put(`/projects/${project.id}/milestones/${m.id}`, {
                 approval_status: 'pending'
             });
-            showToast('Phase submitted for review', 'success');
+            const terminMsg = m.linked_termin
+                ? ` This will trigger ${m.linked_termin.label} (Rp ${m.linked_termin.amount.toLocaleString('id-ID')}) when approved.`
+                : '';
+            showToast(`Phase submitted for review!${terminMsg}`, 'success');
             fetchMilestones();
         } catch (error) {
             showToast('Failed to submit phase', 'error');
@@ -298,7 +382,7 @@ export default function DesignProgress({ project, currentUser, isArchitect }: De
 
             {/* Add/Edit Form (Architect only) */}
             {showForm && (
-                <form onSubmit={handleSubmit} className="bg-slate-900 rounded-[2rem] p-8 space-y-6 shadow-2xl">
+                <form id="design-form-header" onSubmit={handleSubmit} className="bg-slate-900 rounded-[2rem] p-8 space-y-6 shadow-2xl scroll-mt-20">
                     <div className="flex items-center justify-between mb-2">
                         <h5 className="text-white font-black text-sm uppercase tracking-widest">
                             {editingId ? 'Edit Phase' : 'New Design Phase'}
@@ -345,6 +429,51 @@ export default function DesignProgress({ project, currentUser, isArchitect }: De
                             required
                         />
                     </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                                <Calendar size={10} /> Start Date
+                            </label>
+                            <input
+                                type="date"
+                                value={formStartDate}
+                                onChange={(e) => setFormStartDate(e.target.value)}
+                                className="w-full px-5 py-3.5 bg-white/5 border-2 border-white/10 rounded-xl text-sm text-white font-medium focus:border-white outline-none transition-all"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                                <Calendar size={10} /> Due Date
+                            </label>
+                            <input
+                                type="date"
+                                value={formDueDate}
+                                onChange={(e) => setFormDueDate(e.target.value)}
+                                className="w-full px-5 py-3.5 bg-white/5 border-2 border-white/10 rounded-xl text-sm text-white font-medium focus:border-white outline-none transition-all"
+                            />
+                        </div>
+                    </div>
+
+                    {availableTermins.length > 0 && (
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                                <Banknote size={10} /> Link Payment Termin
+                            </label>
+                            <select
+                                value={formLinkedTerminId ?? ''}
+                                onChange={(e) => setFormLinkedTerminId(e.target.value ? Number(e.target.value) : null)}
+                                className="w-full px-5 py-3.5 bg-white/5 border-2 border-white/10 rounded-xl text-sm text-white font-medium focus:border-white outline-none transition-all"
+                            >
+                                <option value="">No Payment Link</option>
+                                {availableTermins.map(t => (
+                                    <option key={t.id} value={t.id}>
+                                        {t.label} — {t.percentage}% (Rp {t.amount.toLocaleString('id-ID')})
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
 
                     <div className="space-y-2 pb-4 border-b border-white/10">
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex justify-between">
@@ -573,6 +702,32 @@ export default function DesignProgress({ project, currentUser, isArchitect }: De
                                                     {m.description}
                                                 </p>
                                             )}
+                                            {(m.start_date || m.due_date) && (
+                                                <div className="flex items-center gap-2 mt-2">
+                                                    <Calendar size={12} className="text-slate-400" />
+                                                    <span className="text-[11px] font-bold text-slate-500">
+                                                        {m.start_date ? new Date(m.start_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
+                                                        {' → '}
+                                                        {m.due_date ? new Date(m.due_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
+                                                    </span>
+                                                </div>
+                                            )}
+                                            {m.linked_termin && (
+                                                <div className={`flex items-center gap-2 mt-1.5 px-3 py-1.5 rounded-lg w-fit text-[10px] font-black uppercase tracking-wider ${
+                                                    m.linked_termin.status === 'paid' ? 'bg-emerald-50 text-emerald-700' :
+                                                    m.linked_termin.status === 'pending' || m.linked_termin.status === 'invoice_sent' ? 'bg-amber-50 text-amber-700' :
+                                                    'bg-slate-100 text-slate-500'
+                                                }`}>
+                                                    <Banknote size={12} />
+                                                    <span>{m.linked_termin.label} · {m.linked_termin.percentage}% · Rp {m.linked_termin.amount.toLocaleString('id-ID')}</span>
+                                                    <span className="ml-1">
+                                                        {m.linked_termin.status === 'paid' ? '✅ Paid' :
+                                                         m.linked_termin.status === 'pending' ? '⏳ Awaiting' :
+                                                         m.linked_termin.status === 'invoice_sent' ? '📩 Invoiced' :
+                                                         '🔒 Locked'}
+                                                    </span>
+                                                </div>
+                                            )}
                                             <div className="flex items-center gap-3 mt-3">
                                                 <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
                                                     m.is_completed 
@@ -591,6 +746,18 @@ export default function DesignProgress({ project, currentUser, isArchitect }: De
                                                     }`}>
                                                         {m.type === 'schematic' ? 'SD' : 
                                                          m.type === 'development' ? 'DD' : 'CD'}
+                                                    </span>
+                                                )}
+                                                {m.content?.synced_from_brief && (
+                                                    <span className="px-3 py-1 bg-zinc-900 shadow-sm text-white rounded-full text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5 animate-pulse">
+                                                        <Sparkles size={8} />
+                                                        Synced from Brief
+                                                    </span>
+                                                )}
+                                                {m.pm_verified_at && (
+                                                    <span className="px-3 py-1 bg-amber-500 text-white rounded-full text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5">
+                                                        <ShieldCheck size={8} />
+                                                        PM Verified
                                                     </span>
                                                 )}
                                                 {m.approval_status === 'revision' && m.revision_notes && (
@@ -670,9 +837,16 @@ export default function DesignProgress({ project, currentUser, isArchitect }: De
                                                     </div>
                                                 ) : (
                                                     isArchitect && m.approval_status === 'in_progress' && (
-                                                        <div className="mt-4 p-3 border border-dashed border-slate-200 rounded-xl bg-slate-50">
-                                                            <p className="text-[10px] text-slate-500 text-center uppercase tracking-widest font-black">No Checklist Items Added</p>
-                                                            <p className="text-[10px] text-slate-400 text-center mt-1">Please click the Edit (pencil) icon to define deliverables for this phase.</p>
+                                                        <div className="mt-4 p-4 border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50/50 hover:bg-slate-50 transition-colors group cursor-pointer"
+                                                            onClick={() => handleAddDeliverableShortcut(m)}
+                                                        >
+                                                            <p className="text-[10px] text-slate-500 text-center uppercase tracking-widest font-black group-hover:text-slate-900 transition-colors">No Checklist Items Added</p>
+                                                            <button 
+                                                                type="button"
+                                                                className="mt-2 block w-full py-2 bg-white border border-slate-200 text-slate-900 text-[10px] uppercase font-black tracking-widest rounded-xl hover:shadow-md transition-all text-center"
+                                                            >
+                                                                + Add Your First Deliverable
+                                                            </button>
                                                         </div>
                                                     )
                                                 )}
@@ -698,7 +872,7 @@ export default function DesignProgress({ project, currentUser, isArchitect }: De
                                     </div>
 
                                     {isArchitect && (
-                                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <div className="flex items-center gap-1 transition-opacity">
                                             <div className="mr-2 flex items-center gap-1">
                                                 {m.type === 'schematic' && <Pencil size={12} className="text-blue-400" />}
                                                 {m.type === 'development' && <Layers size={12} className="text-amber-400" />}
@@ -751,6 +925,14 @@ export default function DesignProgress({ project, currentUser, isArchitect }: De
                                             </p>
                                             <div className="flex gap-2 justify-end">
                                                 <button 
+                                                    type="button"
+                                                    onClick={() => handleEdit(m)}
+                                                    className="px-4 py-2 border-2 border-slate-900 text-slate-900 text-[10px] uppercase font-black tracking-widest rounded-xl hover:bg-slate-50 transition-colors flex items-center gap-2"
+                                                >
+                                                    <Image size={14} /> Add Photos / Files
+                                                </button>
+                                                <button 
+                                                    type="submit"
                                                     onClick={() => handleSubmitPhase(m)}
                                                     className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-[10px] uppercase font-black tracking-widest rounded-xl shadow-md transition-colors flex items-center gap-2"
                                                 >
@@ -760,24 +942,50 @@ export default function DesignProgress({ project, currentUser, isArchitect }: De
                                         </div>
                                     )}
 
-                                    {m.type !== 'generic' && !isArchitect && m.approval_status === 'pending' && (
+                                    {m.type !== 'generic' && !isArchitect && m.approval_status === 'pending' && !m.pm_verified_at && (
                                         <div className="flex flex-col gap-2 w-full mt-4 lg:w-auto lg:mt-0 lg:ml-auto">
                                             <p className="text-[9px] font-black text-amber-500 uppercase tracking-widest text-right">
-                                                {m.revision_notes ? 'Review Updated Design' : 'Requires Your Sign-Off'}
+                                                {isPM ? 'Requires Technical Audit' : 'Awaiting PM Verification'}
                                             </p>
                                             <div className="flex gap-2 justify-end">
-                                                <button 
-                                                    onClick={() => handleRequestRevision(m)}
-                                                    className="px-4 py-2 border border-red-200 text-red-600 hover:bg-red-50 text-[10px] uppercase font-black tracking-widest rounded-xl transition-colors"
-                                                >
-                                                    Request Revision
-                                                </button>
-                                                <button 
-                                                    onClick={() => handleApprove(m)}
-                                                    className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] uppercase font-black tracking-widest rounded-xl shadow-md transition-colors"
-                                                >
-                                                    Approve Design
-                                                </button>
+                                                {isPM ? (
+                                                    <button 
+                                                        onClick={() => handlePMVerify(m)}
+                                                        className="px-4 py-2 bg-zinc-900 hover:bg-black text-white text-[10px] uppercase font-black tracking-widest rounded-xl shadow-md transition-colors flex items-center gap-2"
+                                                    >
+                                                        <ShieldCheck size={14} className="text-amber-500" /> Verify Progress
+                                                    </button>
+                                                ) : (
+                                                    <p className="text-[10px] text-zinc-400 italic">PM is currently auditing this deliverable...</p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {m.type !== 'generic' && !isArchitect && m.approval_status === 'pending' && m.pm_verified_at && (
+                                        <div className="flex flex-col gap-2 w-full mt-4 lg:w-auto lg:mt-0 lg:ml-auto">
+                                            <p className="text-[9px] font-black text-emerald-500 uppercase tracking-widest text-right">
+                                                Technical Audit Passed
+                                            </p>
+                                            <div className="flex gap-2 justify-end">
+                                                {isOwner ? (
+                                                    <>
+                                                        <button 
+                                                            onClick={() => handleRequestRevision(m)}
+                                                            className="px-4 py-2 border border-red-200 text-red-600 hover:bg-red-50 text-[10px] uppercase font-black tracking-widest rounded-xl transition-colors"
+                                                        >
+                                                            Request Revision
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => handleApprove(m)}
+                                                            className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] uppercase font-black tracking-widest rounded-xl shadow-md transition-colors"
+                                                        >
+                                                            Approve Design
+                                                        </button>
+                                                    </>
+                                                ) : (
+                                                    <p className="text-[10px] text-zinc-400 italic">Awaiting Owner Final Approval...</p>
+                                                )}
                                             </div>
                                         </div>
                                     )}
