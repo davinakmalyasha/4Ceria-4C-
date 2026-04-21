@@ -10,17 +10,24 @@ use App\Models\ProjectComment;
 use App\Models\ProjectDocument;
 use App\Models\ProjectMilestone;
 use App\Models\ProjectDailyLog;
+use App\Models\ProjectAddendum;
+use App\Models\BidNotaris;
+use App\Models\BidStructural;
+use App\Models\BidMep;
+use App\Models\ProjectBudgetTransaction;
 use App\Models\ProjectPaymentTermin;
+use App\Http\Resources\ProjectResource;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
 
 class ProjectFeatureController extends Controller
 {
     // --- MILESTONES ---
     public function getMilestones(Request $request, Project $project)
     {
-        $query = $project->milestones()->with(['arsitek.user', 'kontraktor.user', 'pm.user']);
+        $query = $project->milestones()->with(['arsitek.user', 'kontraktor.user', 'pm.user', 'linkedTermin']);
 
         // Filter by phase_context if provided (e.g. ?phase_context=interior)
         if ($request->has('phase_context')) {
@@ -40,8 +47,8 @@ class ProjectFeatureController extends Controller
             'start_date' => 'nullable|date',
             'due_date' => 'nullable|date',
             'description' => 'nullable|string',
-            'image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
-            'type' => 'nullable|string|in:generic,schematic,development,construction',
+            'image' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf|max:10240',
+            'type' => 'nullable|string|in:generic,schematic,development,construction,legal',
             'sort_order' => 'nullable|integer|min:0',
         ]);
 
@@ -69,7 +76,9 @@ class ProjectFeatureController extends Controller
             $gallery = $content['gallery'] ?? [];
             foreach ($request->file('gallery') as $file) {
                 if (count($gallery) >= 8) break;
-                $gallery[] = $file->store('milestone_images', 'public');
+                // Support both images and PDFs
+                $folder = $file->getClientOriginalExtension() === 'pdf' ? 'milestone_docs' : 'milestone_images';
+                $gallery[] = $file->store($folder, 'public');
             }
             $content['gallery'] = $gallery;
             $data['content'] = $content;
@@ -84,6 +93,12 @@ class ProjectFeatureController extends Controller
             $data['notaris_id'] = $user->id;
         } elseif ($user->role_type === 'project_manager' && $user->project_manager) {
             $data['pm_id'] = $user->project_manager->id;
+            
+            // Allow PM to specify a target pro role if provided
+            if ($request->has('target_notaris_id')) $data['notaris_id'] = $request->target_notaris_id;
+            if ($request->has('target_arsitek_id')) $data['arsitek_id'] = $request->target_arsitek_id;
+            if ($request->has('target_kontraktor_id')) $data['kontraktor_id'] = $request->target_kontraktor_id;
+            if ($request->has('target_interior_id')) $data['interior_id'] = $request->target_interior_id;
         } elseif ($user->role_type === 'interior') {
             $data['interior_id'] = $user->id;
         } else {
@@ -107,21 +122,31 @@ class ProjectFeatureController extends Controller
             return response()->json(['message' => 'Owners cannot modify milestones. This is managed by professionals.'], 403);
         }
 
-        // Security: Professional can only edit their own milestones
-        if ($user->role_type === 'arsitek' && ($milestone->arsitek_id !== $user->arsitek?->id)) {
-            return response()->json(['message' => 'Unauthorized. You can only edit architectural milestones.'], 403);
+        // Context-Aware Authorization: The project's hired professional for the active phase has access
+        $isProjectPM = ($user->role_type === 'project_manager' && $project->pm_id === $user->id);
+        $isProjectOwner = ($project->user_id === $user->id);
+        $isProjectNotary = ($user->role_type === 'notaris' && $project->selected_notaris_id === $user->notaris_profile?->id);
+        $isProjectArchitect = ($user->role_type === 'arsitek' && $project->selected_arsitek_id === $user->arsitek?->id);
+        $isProjectContractor = ($user->role_type === 'kontraktor' && $project->selected_kontraktor_id === $user->kontraktor?->id);
+
+        // Authorization Logic
+        $isAuthor = false;
+        if ($user->role_type === 'arsitek' && ($milestone->arsitek_id === $user->arsitek?->id || ($milestone->phase_context !== 'legal' && $isProjectArchitect))) $isAuthor = true;
+        if ($user->role_type === 'kontraktor' && ($milestone->kontraktor_id === $user->kontraktor?->id || ($milestone->phase_context !== 'legal' && $isProjectContractor))) $isAuthor = true;
+        if ($user->role_type === 'notaris' && ($milestone->notaris_id === $user->id || $isProjectNotary)) $isAuthor = true;
+        if ($user->role_type === 'interior' && $milestone->interior_id === $user->id) $isAuthor = true;
+        if ($user->role_type === 'project_manager' && ($milestone->pm_id === $user->project_manager?->id || $isProjectPM)) $isAuthor = true;
+
+        // Universal Legal Vault: Any hired professional for the project has access to legal phase milestones (e.g. SPK, Permits)
+        $hasUniversalAccess = ($milestone->phase_context === 'legal' && ($isProjectNotary || $isProjectArchitect || $isProjectContractor || $isProjectPM));
+
+        if (!$isAuthor && !$isProjectPM && !$isProjectOwner && !$hasUniversalAccess) {
+            return response()->json(['message' => 'Unauthorized. You do not have permission to update this milestone.'], 403);
         }
-        if ($user->role_type === 'kontraktor' && ($milestone->kontraktor_id !== $user->kontraktor?->id)) {
-            return response()->json(['message' => 'Unauthorized. You can only edit contractor milestones.'], 403);
-        }
-        if ($user->role_type === 'notaris' && $milestone->notaris_id !== $user->id) {
-            return response()->json(['message' => 'Unauthorized. You can only edit your own legal milestones.'], 403);
-        }
-        if ($user->role_type === 'interior' && $milestone->interior_id !== $user->id) {
-            return response()->json(['message' => 'Unauthorized. You can only edit your own interior milestones.'], 403);
-        }
-        if ($user->role_type === 'project_manager' && $milestone->pm_id !== $user->project_manager?->id) {
-            return response()->json(['message' => 'Unauthorized. You can only edit your own management milestones.'], 403);
+
+        // Restriction: Only Author or Universal Pro can change basic details; PM/Owner can only update status/notes
+        if (!$isAuthor && !$hasUniversalAccess && $request->hasAny(['title', 'description', 'sort_order', 'type'])) {
+            return response()->json(['message' => 'Unauthorized to modify milestone metadata. Only the assigned professional can change the title/description.'], 403);
         }
 
         $request->validate([
@@ -130,15 +155,15 @@ class ProjectFeatureController extends Controller
             'start_date' => 'nullable|date',
             'due_date' => 'nullable|date',
             'description' => 'nullable|string',
-            'image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
-            'type' => 'nullable|string|in:generic,schematic,development,construction',
+            'image' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf|max:10240',
+            'type' => 'nullable|string|in:generic,schematic,development,construction,legal',
             'sort_order' => 'nullable|integer|min:0',
             'approval_status' => 'nullable|string|in:in_progress,pending,approved,revision',
             'gallery' => 'nullable|array|max:8',
-            'gallery.*' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
+            'gallery.*' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf|max:10240',
         ]);
 
-        $updateData = $request->only(['is_completed', 'title', 'start_date', 'due_date', 'description', 'sort_order', 'type', 'approval_status']);
+        $updateData = $request->only(['is_completed', 'title', 'start_date', 'due_date', 'description', 'sort_order', 'type', 'approval_status', 'revision_notes']);
 
         if ($request->has('content')) {
             $updateData['content'] = is_string($request->content) ? json_decode($request->content, true) : $request->content;
@@ -170,7 +195,75 @@ class ProjectFeatureController extends Controller
             $updateData['content'] = $currentContent;
         }
 
+        // Auto-set PM verification timestamp if the status becomes approved by a PM
+        if (isset($isProjectPM) && $isProjectPM && isset($updateData['approval_status']) && $updateData['approval_status'] === 'approved') {
+            // Regulatory Sequence Enforcement (Indonesian Standard: SIMBG/IAI)
+            if ($milestone->phase_context === 'legal') {
+                if ($milestone->title === 'SLF Certification') {
+                    $asBuiltApproved = \App\Models\ProjectMilestone::where('project_id', $project->id)
+                        ->where('title', 'As-Built Drawings')
+                        ->where('approval_status', 'approved')
+                        ->exists();
+                    if (!$asBuiltApproved) {
+                        return response()->json(['message' => 'Regulatory Block: SLF Certification cannot be approved until As-Built Drawings are verified.'], 422);
+                    }
+                }
+
+                if ($milestone->title === 'As-Built Drawings') {
+                    $pbgApproved = \App\Models\ProjectMilestone::where('project_id', $project->id)
+                        ->where('title', 'PBG (IMB) Permit')
+                        ->where('approval_status', 'approved')
+                        ->exists();
+                    if (!$pbgApproved) {
+                        return response()->json(['message' => 'Regulatory Block: As-Built Drawings cannot be approved until the PBG (IMB) Permit is verified.'], 422);
+                    }
+                }
+                
+                if ($milestone->title === 'PBG (IMB) Permit') {
+                    $spkApproved = \App\Models\ProjectMilestone::where('project_id', $project->id)
+                        ->where('title', 'SPK (Surat Perintah Kerja)')
+                        ->where('approval_status', 'approved')
+                        ->exists();
+                    if (!$spkApproved) {
+                        return response()->json(['message' => 'Regulatory Block: PBG (IMB) Permit cannot be approved until the SPK Contract is verified.'], 422);
+                    }
+                }
+            }
+            
+            $updateData['pm_verified_at'] = now();
+        }
+
+        // Safety: If a professional (Author) updates an already approved milestone, reset status to pending
+        if ($isAuthor && $milestone->approval_status === 'approved' && !isset($updateData['approval_status'])) {
+            // Check if they actually changed content or files
+            if ($request->hasAny(['content', 'gallery', 'description'])) {
+                $updateData['approval_status'] = 'pending';
+                $updateData['pm_verified_at'] = null; // Clear old verification
+                $this->logActivity($project, 'legal_revision', "Professional updated an approved document. Status reset to pending for re-verification.");
+            }
+        }
+
         $milestone->update($updateData);
+
+        // Auto-Archive to Results & Files (Vault) if approved and has a file
+        if (isset($updateData['approval_status']) && $updateData['approval_status'] === 'approved' && !empty($milestone->content['gallery'])) {
+            $filePath = $milestone->content['gallery'][0];
+            $exists = \App\Models\ProjectDocument::where('project_id', $project->id)
+                ->where('file_path', $filePath)
+                ->exists();
+
+            if (!$exists) {
+                \App\Models\ProjectDocument::create([
+                    'project_id' => $project->id,
+                    'uploader_id' => $milestone->notaris_id ?? $milestone->arsitek_id ?? $milestone->kontraktor_id ?? $user->id,
+                    'file_name' => $milestone->title,
+                    'file_path' => $filePath,
+                    'file_type' => 'official_document',
+                    'category' => $milestone->phase_context === 'legal' ? 'legal' : (($milestone->phase_context === 'build' || $milestone->phase_context === 'structure' || $milestone->phase_context === 'mep') ? 'technical' : 'others'),
+                    'status' => 'verified'
+                 ]);
+            }
+        }
 
         if ($request->has('is_completed')) {
             $status = $request->is_completed ? 'completed' : 'reopened';
@@ -198,6 +291,34 @@ class ProjectFeatureController extends Controller
         $this->logActivity($project, "milestone_approved", "Milestone Approved: {$milestone->title}");
 
         return response()->json(['data' => $milestone->load(['arsitek.user', 'kontraktor.user'])]);
+    }
+
+    /**
+     * PM verifies the progress quality.
+     */
+    public function verifyMilestonePM(Project $project, ProjectMilestone $milestone)
+    {
+        // Only the assigned PM can verify
+        if ((int)$project->pm_id !== (int)Auth::id()) {
+            return response()->json(['message' => 'Only the assigned project manager can verify progress.'], 403);
+        }
+
+        if (!$milestone->is_completed && $milestone->approval_status !== 'pending') {
+            return response()->json(['message' => 'Milestone must be submitted for review or marked as completed first.'], 422);
+        }
+
+        return \DB::transaction(function () use ($project, $milestone) {
+            $milestone->update(['pm_verified_at' => now()]);
+
+            // Automatically unlock any linked payment termins
+            ProjectPaymentTermin::where('milestone_id', $milestone->id)
+                ->where('status', 'locked')
+                ->update(['status' => 'pending']);
+
+            $this->logActivity($project, "milestone_pm_verified", "PM Verified Progress: {$milestone->title}");
+
+            return response()->json(['data' => $milestone->load(['arsitek.user', 'kontraktor.user', 'pm.user'])]);
+        });
     }
 
     public function requestMilestoneRevision(Request $request, Project $project, ProjectMilestone $milestone)
@@ -345,9 +466,10 @@ class ProjectFeatureController extends Controller
     public function storeDocument(Request $request, Project $project)
     {
         $request->validate([
-            'file' => 'required|file|mimes:pdf,doc,docx,jpg,png|max:10240',
+            'file' => 'required|file|mimes:pdf,doc,docx,jpg,png,xlsx,xls,dwg,zip|max:20480',
             'category' => 'nullable|string|max:50',
             'status' => 'nullable|string|in:uploaded,under_review,awaiting_signature,legally_binding',
+            'target_role' => 'nullable|string|in:structural,mep,architect',
         ]);
 
         $file = $request->file('file');
@@ -360,6 +482,7 @@ class ProjectFeatureController extends Controller
             'file_type' => $file->extension(),
             'category' => $request->category ?? 'general',
             'status' => $request->status ?? 'uploaded',
+            'target_role' => $request->target_role,
         ]);
 
         $document->load('uploader');
@@ -472,9 +595,10 @@ class ProjectFeatureController extends Controller
         $isHiredArsitek = $user->role_type === 'arsitek' && $project->selected_arsitek_id === $user->arsitek?->id;
         $isHiredKontraktor = $user->role_type === 'kontraktor' && $project->selected_kontraktor_id === $user->kontraktor?->id;
         $isHiredMep = $user->role_type === 'mep' && $project->mep_id === $user->id;
+        $isHiredStructural = $user->role_type === 'structural' && $project->structural_id === $user->id;
         $isHiredPM = $user->role_type === 'project_manager' && $project->pm_id === $user->id;
 
-        if (!$isOwner && !$isHiredArsitek && !$isHiredKontraktor && !$isHiredMep && !$isHiredPM) {
+        if (!$isOwner && !$isHiredArsitek && !$isHiredKontraktor && !$isHiredMep && !$isHiredStructural && !$isHiredPM) {
             return response()->json(['message' => 'Unauthorized. Only the owner or hired professionals can manage requirements.'], 403);
         }
 
@@ -516,9 +640,11 @@ class ProjectFeatureController extends Controller
         $isHiredArsitek = $user->role_type === 'arsitek' && $project->selected_arsitek_id === $user->arsitek?->id;
         $isHiredKontraktor = $user->role_type === 'kontraktor' && $project->selected_kontraktor_id === $user->kontraktor?->id;
         $isHiredMep = $user->role_type === 'mep' && $project->mep_id === $user->id;
+        $isHiredStructural = $user->role_type === 'structural' && $project->structural_id === $user->id;
+        $isHiredPM = $user->role_type === 'project_manager' && $project->pm_id === $user->id;
 
-        if (!$isOwner && !$isHiredArsitek && !$isHiredKontraktor && !$isHiredMep) {
-            return response()->json(['message' => 'Unauthorized.'], 403);
+        if (!$isOwner && !$isHiredArsitek && !$isHiredKontraktor && !$isHiredMep && !$isHiredStructural && !$isHiredPM) {
+            return response()->json(['message' => 'Unauthorized. Only the owner or hired professionals can manage requirements.'], 403);
         }
 
         $request->validate([
@@ -543,9 +669,11 @@ class ProjectFeatureController extends Controller
         $isHiredArsitek = $user->role_type === 'arsitek' && $project->selected_arsitek_id === $user->arsitek?->id;
         $isHiredKontraktor = $user->role_type === 'kontraktor' && $project->selected_kontraktor_id === $user->kontraktor?->id;
         $isHiredMep = $user->role_type === 'mep' && $project->mep_id === $user->id;
+        $isHiredStructural = $user->role_type === 'structural' && $project->structural_id === $user->id;
+        $isHiredPM = $user->role_type === 'project_manager' && $project->pm_id === $user->id;
 
-        if (!$isOwner && !$isHiredArsitek && !$isHiredKontraktor && !$isHiredMep) {
-            return response()->json(['message' => 'Unauthorized.'], 403);
+        if (!$isOwner && !$isHiredArsitek && !$isHiredKontraktor && !$isHiredMep && !$isHiredStructural && !$isHiredPM) {
+            return response()->json(['message' => 'Unauthorized. Only the owner or hired professionals can manage requirements.'], 403);
         }
 
         $name = $requirement->name;
@@ -601,6 +729,82 @@ class ProjectFeatureController extends Controller
 
         return response()->json(['data' => $requirement]);
     }
+
+    /**
+     * Architect approves the structural/MEP engineer's deliverables.
+     */
+    public function approveEngineeringIntegration(Request $request, Project $project)
+    {
+        $user = Auth::user();
+
+        if ($user->role_type !== 'arsitek' || $project->selected_arsitek_id !== optional($user->arsitek)->id) {
+            return response()->json(['message' => 'Only the hired architect can approve engineering integration.'], 403);
+        }
+
+        $validated = $request->validate([
+            'role_type' => 'required|in:structural,mep',
+        ]);
+
+        $roleType = $validated['role_type'];
+
+        if ($roleType === 'structural' && !$project->structural_id) {
+            return response()->json(['message' => 'No structural engineer is assigned.'], 422);
+        }
+        if ($roleType === 'mep' && !$project->mep_id) {
+            return response()->json(['message' => 'No MEP engineer is assigned.'], 422);
+        }
+
+        $field = $roleType === 'structural' ? 'structural_approved_at' : 'mep_approved_at';
+
+        if ($project->{$field}) {
+            return response()->json(['message' => ucfirst($roleType) . ' integration already approved.'], 422);
+        }
+
+        \DB::beginTransaction();
+        try {
+            $project->update([$field => now()]);
+            $this->logActivity($project, 'engineering_approved', "Architect approved {$roleType} engineering integration.");
+            \DB::commit();
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            return response()->json(['message' => 'Failed to approve integration.'], 500);
+        }
+
+        return new ProjectResource($this->loadFullProject($project));
+    }
+
+    /**
+     * Architect requests revision from structural/MEP engineer.
+     */
+    public function requestEngineeringRevision(Request $request, Project $project)
+    {
+        $user = Auth::user();
+
+        if ($user->role_type !== 'arsitek' || $project->selected_arsitek_id !== optional($user->arsitek)->id) {
+            return response()->json(['message' => 'Only the hired architect can request revisions.'], 403);
+        }
+
+        $validated = $request->validate([
+            'role_type' => 'required|in:structural,mep',
+            'note' => 'required|string|max:1000',
+        ]);
+
+        $roleType = $validated['role_type'];
+
+        // Reset approval if previously approved
+        $field = $roleType === 'structural' ? 'structural_approved_at' : 'mep_approved_at';
+        $project->update([$field => null]);
+
+        // Mark all engineer documents as needing revision
+        $project->documents()
+            ->where('category', $roleType === 'structural' ? 'structural_calc' : 'mep_layout')
+            ->update(['status' => 'revision_requested']);
+
+        $this->logActivity($project, 'engineering_revision', "Architect requested {$roleType} revision: {$validated['note']}");
+
+        return new ProjectResource($this->loadFullProject($project));
+    }
+
     public function sealDesign(Project $project)
     {
         $user = Auth::user();
@@ -614,23 +818,81 @@ class ProjectFeatureController extends Controller
             return response()->json(['message' => 'A Structural Engineer is legally required but has not been hired yet.'], 422);
         }
 
-        // Optional: Check if all milestones are completed
-        $incomplete = $project->milestones()->where('is_completed', false)->exists();
-        if ($incomplete) {
-            return response()->json(['message' => 'All milestones must be completed and approved before sealing the design.'], 422);
+        // Gate: structural must be approved if hired
+        if ($project->structural_id && !$project->structural_approved_at) {
+            return response()->json(['message' => 'Structural engineering integration must be approved before sealing the design.'], 422);
         }
 
-        $project->update([
-            'design_completed_at' => now(),
-            'status' => 'procurement' // Transition to procurement phase
-        ]);
+        // Gate: MEP must be approved if hired
+        if ($project->mep_id && !$project->mep_approved_at) {
+            return response()->json(['message' => 'MEP engineering integration must be approved before sealing the design.'], 422);
+        }
 
-        $this->logActivity($project, 'design_sealed', "Architect formally sealed and handed over the design package.");
+        // Check if all technical design milestones are completed (ignoring legal/contracts vault)
+        $incomplete = $project->milestones()
+            ->where('phase_context', '!=', 'legal')
+            ->where('is_completed', false)
+            ->exists();
 
-        return response()->json([
-            'message' => 'Design package successfully sealed and handed over!',
-            'data' => $project
-        ]);
+        if ($incomplete) {
+            return response()->json(['message' => 'All technical design milestones must be completed and approved before sealing the design.'], 422);
+        }
+
+        \DB::beginTransaction();
+        try {
+            $completed = $project->completed_phases ?? [];
+            if (!in_array('design', $completed)) {
+                $completed[] = 'design';
+            }
+
+            $attributesToUpdate = [
+                'design_completed_at' => now(),
+                'completed_phases' => $completed,
+                'status' => 'procurement'
+            ];
+
+            if (in_array('build', $project->needed_phases ?? [])) {
+                $attributesToUpdate['target_role'] = 'both';
+            }
+
+            $project->update($attributesToUpdate);
+
+            $this->logActivity($project, 'design_sealed', "Architect formally sealed and handed over the design package.");
+            \DB::commit();
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            return response()->json(['message' => 'Failed to seal design.'], 500);
+        }
+
+        return new ProjectResource($this->loadFullProject($project));
+    }
+
+    private function loadFullProject(Project $project)
+    {
+        return $project->load([
+            'arsitek.user.phoneNumber',
+            'kontraktor.user.phoneNumber',
+            'notaris.user.phoneNumber',
+            'interior.user.phoneNumber',
+            'structuralEngineer.user.phoneNumber',
+            'mepEngineer.user.phoneNumber',
+            'bidsArsitek.arsitek.user.phoneNumber',
+            'bidsKontraktor.kontraktor.user.phoneNumber',
+            'bidsNotaris.notaris.user.phoneNumber',
+            'bidsInterior.interior.user.phoneNumber',
+            'bidsProjectManager.pm.user',
+            'bidsStructural.structuralEngineer.user',
+            'images',
+            'milestones',
+            'user',
+            'ratings',
+            'kontraktorRating',
+            'materialOrders.deliveryJob',
+            'requirements',
+            'projectManager.user',
+            'addendums',
+            'documents.uploader'
+        ])->loadCount(['bidsArsitek', 'bidsKontraktor', 'bidsNotaris', 'bidsInterior', 'bidsProjectManager', 'bidsStructural', 'bidsMep']);
     }
 
     // --- DAILY SITE LOGS ---
@@ -709,9 +971,9 @@ class ProjectFeatureController extends Controller
     {
         $user = Auth::user();
 
-        // Only hired contractor can create termins
-        if ($user->role_type !== 'kontraktor' || $project->selected_kontraktor_id !== $user->kontraktor?->id) {
-            return response()->json(['message' => 'Only the hired contractor can manage payment termins.'], 403);
+        // Professionals or PM can create termins
+        if ($user->role_type === 'user') {
+            return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
         $request->validate([
@@ -722,6 +984,7 @@ class ProjectFeatureController extends Controller
             'status' => 'nullable|string|in:locked,pending,invoice_sent,paid',
             'milestone_id' => 'nullable|exists:project_milestones,id',
             'notes' => 'nullable|string|max:1000',
+            'role_type' => 'nullable|string|in:arsitek,kontraktor,mep,interior,notaris',
         ]);
 
         $termin = $project->paymentTermins()->create([
@@ -732,7 +995,10 @@ class ProjectFeatureController extends Controller
             'status' => $request->status ?? 'locked',
             'milestone_id' => $request->milestone_id,
             'notes' => $request->notes,
+            'role_type' => $request->role_type ?? $user->role_type,
+            'recipient_id' => ($request->role_type && $request->role_type !== $user->role_type) ? null : $user->id,
         ]);
+        
 
         $this->logActivity($project, 'termin_added', "Payment termin added: {$request->label}");
 
@@ -742,10 +1008,11 @@ class ProjectFeatureController extends Controller
     public function updatePaymentTermin(Request $request, Project $project, ProjectPaymentTermin $termin)
     {
         $user = Auth::user();
-        $isContractor = $user->role_type === 'kontraktor' && $project->selected_kontraktor_id === $user->kontraktor?->id;
+        $isAuthor = $termin->recipient_id === $user->id;
         $isOwner = $project->user_id === $user->id;
+        $isPM = $user->role_type === 'project_manager' && $project->pm_id === $user->project_manager?->id;
 
-        if (!$isContractor && !$isOwner) {
+        if (!$isAuthor && !$isOwner && !$isPM) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
@@ -764,7 +1031,23 @@ class ProjectFeatureController extends Controller
         // If status changes to 'paid', record the timestamp
         if (isset($updateData['status']) && $updateData['status'] === 'paid' && $termin->status !== 'paid') {
             $updateData['paid_at'] = now();
+
+            // Record in budget ledger (Link professional verification to balance reduction)
+            \App\Models\ProjectBudgetTransaction::updateOrCreate(
+                [
+                    'project_id' => $project->id,
+                    'reference_model' => 'App\Models\ProjectPaymentTermin',
+                    'reference_id' => $termin->id,
+                ],
+                [
+                    'transaction_type' => 'payment',
+                    'amount' => $termin->amount,
+                    'title' => "Paid Termin: {$termin->label} (Verified by Recipient)",
+                    'transaction_date' => now(),
+                ]
+            );
         }
+        
 
         $termin->update($updateData);
 
@@ -792,6 +1075,7 @@ class ProjectFeatureController extends Controller
 
         // Check all contractor milestones are completed
         $incomplete = $project->milestones()
+            ->where('phase_context', 'construction')
             ->where('is_completed', false)
             ->exists();
 
@@ -799,24 +1083,34 @@ class ProjectFeatureController extends Controller
             return response()->json(['message' => 'All construction milestones must be completed before sealing.'], 422);
         }
 
-        $project->update([
-            'construction_completed_at' => now(),
-            'status' => 'construction'
-        ]);
+        \DB::beginTransaction();
+        try {
+            $completed = $project->completed_phases ?? [];
+            if (!in_array('build', $completed)) {
+                $completed[] = 'build';
+            }
 
-        $this->logActivity($project, 'construction_sealed', "Contractor formally sealed the construction package.");
+            $project->update([
+                'construction_completed_at' => now(),
+                'completed_phases' => $completed,
+                'status' => 'completed_build' 
+            ]);
 
-        return response()->json([
-            'message' => 'Construction sealed and handed over!',
-            'data' => $project
-        ]);
+            $this->logActivity($project, 'construction_sealed', "Contractor formally sealed and handed over the site.");
+            \DB::commit();
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            return response()->json(['message' => 'Failed to seal construction.'], 500);
+        }
+
+        return new ProjectResource($this->loadFullProject($project));
     }
 
     public function sealInterior(Project $project)
     {
         $user = Auth::user();
 
-        if ($user->role_type !== 'interior' || $project->selected_interior_id != $user->id) {
+        if ($user->role_type !== 'interior' || $project->selected_interior_id !== optional($user->interior_profile)->id) {
             return response()->json(['message' => 'Unauthorized. Only the hired interior designer can seal.'], 403);
         }
 
@@ -830,15 +1124,294 @@ class ProjectFeatureController extends Controller
             return response()->json(['message' => 'All interior design milestones must be completed and approved before sealing.'], 422);
         }
 
-        $project->update([
-            'interior_completed_at' => now(),
-        ]);
+        \DB::beginTransaction();
+        try {
+            $completed = $project->completed_phases ?? [];
+            if (!in_array('interior', $completed)) {
+                $completed[] = 'interior';
+            }
 
-        $this->logActivity($project, 'interior_sealed', "Interior designer formally sealed the interior design package.");
+            $project->update([
+                'interior_completed_at' => now(),
+                'completed_phases' => $completed,
+            ]);
+
+            $this->logActivity($project, 'interior_sealed', "Interior designer formally sealed the interior design package.");
+            \DB::commit();
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            return response()->json(['message' => 'Failed to seal interior.'], 500);
+        }
+
+        return new ProjectResource($this->loadFullProject($project));
+    }
+    public function sealLegal(Project $project)
+    {
+        $user = Auth::user();
+
+        $isOwner = $user->id === $project->user_id;
+        $isPM = $user->role_type === 'project_manager' && $project->pm_id === $user->id;
+        $isNotary = $user->role_type === 'notaris' && $project->selected_notaris_id === optional($user->notaris_profile)->id;
+        $isArchitect = $user->role_type === 'arsitek' && $project->selected_arsitek_id === optional($user->arsitek)->id;
+
+        if (!$isNotary && !$isOwner && !$isPM && !$isArchitect) {
+            return response()->json(['message' => 'Unauthorized. Only the hired notary, architect, Owner, or PM can seal the legal phase.'], 403);
+        }
+
+        // Optional: Check if all milestones are completed
+        $incomplete = $project->milestones()->where('phase_context', 'legal')->where('is_completed', false)->exists();
+        if ($incomplete) {
+            return response()->json(['message' => 'All legal milestones must be completed and approved before sealing.'], 422);
+        }
+
+        \DB::beginTransaction();
+        try {
+            $completed = $project->completed_phases ?? [];
+            if (!in_array('legal', $completed)) {
+                $completed[] = 'legal';
+            }
+
+            $project->update([
+                'legal_completed_at' => now(),
+                'completed_phases' => $completed,
+            ]);
+
+            $actor = $isNotary ? 'Notary' : ($isArchitect ? 'Architect' : ($isPM ? 'Project Manager' : 'Project Owner'));
+            $this->logActivity($project, 'legal_sealed', "{$actor} formally sealed and finalized the legal phase.");
+            \DB::commit();
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            return response()->json(['message' => 'Failed to seal legal phase.'], 500);
+        }
+
+        return new ProjectResource($this->loadFullProject($project));
+    }
+    // --- LEGAL FINANCIALS & LEDGER ---
+    public function getLegalFinancials(Project $project)
+    {
+        // Find the accepted notary bid to get the pre-allocated tax budget
+        $notaryBid = BidNotaris::where('project_id', $project->id)->where('status', 'accepted')->first();
+        
+        // Sum up all approved disbursements that are tagged as 'legal' or 'disbursement'
+        $disbursements = $project->addendums()
+            ->where('role_type', 'notaris')
+            ->get();
 
         return response()->json([
-            'message' => 'Interior design sealed and handed over!',
-            'data' => $project
+            'allocated_tax' => $notaryBid ? (float)$notaryBid->tax_estimate : 0,
+            'professional_fee' => $notaryBid ? (float)$notaryBid->price : 0,
+            'disbursements' => $disbursements,
+            'total_spent' => (float)$disbursements->where('status', 'paid')->sum('amount'),
+            'pending_approval' => (float)$disbursements->where('status', 'pending_approval')->sum('amount'),
         ]);
+    }
+
+    public function requestLegalDisbursement(Request $request, Project $project)
+    {
+        $user = Auth::user();
+        $request->validate([
+            'title' => 'required|string|max:255',
+            'amount' => 'required|numeric|min:0',
+            'description' => 'required|string',
+        ]);
+
+        if ($user->role_type !== 'notaris') {
+            return response()->json(['message' => 'Only the hired notary can request disbursements.'], 403);
+        }
+
+        $addendum = $project->addendums()->create([
+            'user_id' => $user->id,
+            'role_type' => 'notaris',
+            'title' => '[Legal Disbursement] ' . $request->title,
+            'description' => $request->description,
+            'amount' => $request->amount,
+            'status' => 'pending_approval'
+        ]);
+
+        $this->logActivity($project, 'legal_disbursement_requested', "Notary requested disbursement of Rp " . number_format($request->amount, 0, ',', '.') . " for: " . $request->title);
+
+        return response()->json(['data' => $addendum]);
+    }
+
+    public function verifyLegalDisbursement(Request $request, Project $project, ProjectAddendum $addendum)
+    {
+        $user = Auth::user();
+        $isOwner = $user->id === $project->user_id;
+        $isPM = $user->role_type === 'project_manager' && $project->pm_id === $user->id;
+
+        if (!$isOwner && !$isPM) {
+            return response()->json(['message' => 'Unauthorized. Only the Owner or PM can verify disbursements.'], 403);
+        }
+
+        $request->validate(['status' => 'required|in:paid,rejected']);
+
+        $addendum->update([
+            'status' => $request->status,
+            'paid_at' => $request->status === 'paid' ? now() : null
+        ]);
+
+        // If approved, create a real budget transaction to deduct from the master budget
+        if ($request->status === 'paid') {
+            $project->budgetTransactions()->create([
+                'transaction_type' => 'payment',
+                'amount' => $addendum->amount,
+                'title' => $addendum->title,
+                'reference_model' => 'ProjectAddendum',
+                'reference_id' => $addendum->id,
+                'transaction_date' => now(),
+            ]);
+        }
+
+        $this->logActivity($project, 'legal_disbursement_verified', "{$request->status} disbursement order '{$addendum->title}'");
+
+        return response()->json(['data' => $addendum]);
+    }
+
+    public function requestEngineeringRole(Request $request, Project $project)
+    {
+        $user = Auth::user();
+        $request->validate([
+            'role_type' => 'required|in:structural,mep',
+            'suggested_fee' => 'nullable|numeric|min:0',
+            'description' => 'required|string|max:1000',
+        ]);
+
+        $isArchitect = $user->role_type === 'arsitek' && $project->selected_arsitek_id === $user->arsitek?->id;
+        $isPM = $user->role_type === 'project_manager' && $project->pm_id === $user->id;
+
+        if (!$isArchitect && !$isPM) {
+            return response()->json(['message' => 'Unauthorized. Only the Architect or PM can request engineering roles.'], 403);
+        }
+
+        $addendum = $project->addendums()->create([
+            'user_id' => $user->id,
+            'role_type' => $request->role_type,
+            'title' => "[Role Request] " . strtoupper($request->role_type) . " Specialist",
+            'description' => $request->description,
+            'amount' => $request->suggested_fee ?? 0,
+            'status' => 'pending_approval'
+        ]);
+
+        $this->logActivity($project, 'engineering_requested', "Architect requested hiring of a " . strtoupper($request->role_type) . " specialist.");
+
+        return response()->json(['data' => $addendum]);
+    }
+
+    public function verifyEngineeringRequest(Request $request, Project $project, \App\Models\ProjectAddendum $addendum)
+    {
+        $user = Auth::user();
+        $isOwner = $user->id === $project->user_id;
+        $isPM = $user->role_type === 'project_manager' && $project->pm_id === $user->id;
+
+        if (!$isPM && !$isOwner) {
+            return response()->json(['message' => 'Unauthorized. Only the PM (or Owner as fallback) can authorize engineering roles.'], 403);
+        }
+
+        $request->validate(['status' => 'required|in:approved,rejected']);
+
+        $dbStatus = $request->status === 'approved' ? 'approved_unpaid' : 'rejected';
+        $addendum->update(['status' => $dbStatus]);
+
+        if ($request->status === 'approved') {
+            $roles = $project->published_bidding_roles ?? [];
+            if (!in_array($addendum->role_type, $roles)) {
+                $roles[] = $addendum->role_type;
+            }
+
+            $updateData = ['published_bidding_roles' => $roles];
+            if ($addendum->role_type === 'structural') $updateData['requires_structural'] = true;
+            if ($addendum->role_type === 'mep') $updateData['requires_mep'] = true;
+
+            $project->update($updateData);
+        }
+
+        $this->logActivity($project, 'engineering_request_verified', "{$request->status} hiring request for " . strtoupper($addendum->role_type));
+
+        return response()->json(['data' => $addendum]);
+    }
+
+    public function approveEngineeringHire(Request $request, Project $project, ProjectAddendum $addendum)
+    {
+        $user = Auth::user();
+        if ($user->id !== $project->user_id) {
+            return response()->json(['message' => 'Unauthorized. Only the Project Owner can authorize budget commitments.'], 403);
+        }
+
+        if ($addendum->status !== 'pending_approval') {
+            return response()->json(['message' => 'This request is not pending approval.'], 400);
+        }
+
+        return DB::transaction(function () use ($project, $addendum) {
+            $totalDeduction = $addendum->amount;
+
+            if ($project->budget < $totalDeduction) {
+                return response()->json(['message' => 'Insufficient project budget.'], 400);
+            }
+
+            // Hire the engineer based on the recommended bid
+            $bidType = $addendum->recommended_bid_type;
+            $bidId = $addendum->recommended_bid_id;
+
+            if ($bidType === 'structural') {
+                $bid = BidStructural::findOrFail($bidId);
+                $bid->update(['status' => 'accepted']);
+                BidStructural::where('project_id', $project->id)->where('id', '!=', $bid->id)->update(['status' => 'rejected']);
+                $project->update(['structural_id' => $bid->structural_id]);
+                $bidderUserId = $bid->structuralEngineer->user_id;
+            } elseif ($bidType === 'mep') {
+                $bid = BidMep::findOrFail($bidId);
+                $bid->update(['status' => 'accepted']);
+                BidMep::where('project_id', $project->id)->where('id', '!=', $bid->id)->update(['status' => 'rejected']);
+                $project->update(['mep_id' => $bid->mep_id]);
+                $bidderUserId = $bid->mepEngineer->user_id;
+            } else {
+                return response()->json(['message' => 'Invalid bid type in addendum.'], 400);
+            }
+
+            // Deduct budget
+            $project->update(['budget' => $project->budget - $totalDeduction]);
+
+            // Log Transaction
+            ProjectBudgetTransaction::create([
+                'project_id' => $project->id,
+                'transaction_type' => 'adjustment_down',
+                'amount' => $totalDeduction,
+                'title' => ucwords($bidType) . " Engineering Hire Authorization",
+                'reference_model' => "ProjectAddendum",
+                'reference_id' => $addendum->id,
+                'transaction_date' => now(),
+            ]);
+
+            $addendum->update(['status' => 'approved_unpaid']);
+
+            Notification::create([
+                'user_id' => $bidderUserId,
+                'type' => 'bid_accepted',
+                'title' => 'Engineering Bid Accepted!',
+                'body' => "Your bid for project \"{$project->title}\" has been authorized by the owner.",
+                'data' => ['project_id' => $project->id],
+            ]);
+
+            $this->logActivity($project, 'engineering_hired', "Owner authorized hiring of " . strtoupper($bidType) . " specialist.");
+
+            return response()->json(['data' => $addendum]);
+        });
+    }
+
+    public function rejectEngineeringHire(Request $request, Project $project, ProjectAddendum $addendum)
+    {
+        $user = Auth::user();
+        $isOwner = $user->id === $project->user_id;
+        $isPM = $user->role_type === 'project_manager' && $project->pm_id === $user->id;
+
+        if (!$isOwner && !$isPM) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        $addendum->update(['status' => 'rejected']);
+
+        $this->logActivity($project, 'engineering_hire_rejected', "Hiring request for " . strtoupper($addendum->role_type) . " was rejected.");
+
+        return response()->json(['data' => $addendum]);
     }
 }

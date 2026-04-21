@@ -13,14 +13,20 @@ class ProjectRequirement extends Model
         'project_id',
         'name',
         'quantity_required',
+        'quantity_procured_externally',
+        'external_cost',
         'quantity_on_site',
         'quantity_used',
         'unit',
+        'quality_level',
         'notes',
+        'image_path',
     ];
 
     protected $casts = [
         'quantity_required' => 'decimal:2',
+        'quantity_procured_externally' => 'decimal:2',
+        'external_cost' => 'decimal:2',
         'quantity_on_site' => 'decimal:2',
         'quantity_used' => 'decimal:2',
     ];
