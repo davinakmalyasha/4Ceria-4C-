@@ -12,6 +12,7 @@ use App\Http\Controllers\MaterialController;
 use App\Http\Controllers\MaterialOrderController;
 use App\Http\Controllers\MaterialQuoteController;
 use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\ProjectLegalController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -120,6 +121,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/projects/{project}/milestones/{milestone}/request-revision', [ProjectFeatureController::class, 'requestMilestoneRevision']);
     Route::post('/projects/{project}/seal-design', [ProjectFeatureController::class, 'sealDesign']);
     Route::delete('/projects/{project}/milestones/{milestone}', [ProjectFeatureController::class, 'deleteMilestone']);
+    Route::post('/projects/{project}/milestones/{milestone}/verify-pm', [ProjectFeatureController::class, 'verifyMilestonePM']);
+
 
     // Construction Daily Logs
     Route::get('/projects/{project}/daily-logs', [ProjectFeatureController::class, 'getDailyLogs']);
@@ -134,9 +137,36 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('/projects/{project}/seal-construction', [ProjectFeatureController::class, 'sealConstruction']);
     Route::post('/projects/{project}/seal-interior', [ProjectFeatureController::class, 'sealInterior']);
+    Route::post('/projects/{project}/seal-legal', [ProjectLegalController::class, 'sealLegal']);
+    Route::get('/projects/{project}/legal-financials', [ProjectLegalController::class, 'getFinancials']);
+    Route::post('/projects/{project}/legal-disbursements', [ProjectLegalController::class, 'storeDisbursement']);
+    Route::post('/projects/{project}/legal-disbursements/{id}/verify', [ProjectLegalController::class, 'verifyDisbursement']);
+
+    Route::post('/projects/{project}/milestones/{milestone}/furniture-addendum', [ProjectFeatureController::class, 'createFurnitureAddendum']);
+    Route::post('/projects/{project}/handover/approve', [ProjectFeatureController::class, 'approveHandover']);
+    Route::post('/projects/{project}/handover/reject', [ProjectFeatureController::class, 'requestHandoverRevision']);
+
+    // Technical Resourcing (Engineering)
+    Route::post('/projects/{project}/request-engineering', [ProjectFeatureController::class, 'requestEngineeringRole']);
+    Route::post('/projects/{project}/verify-engineering/{addendum}', [ProjectFeatureController::class, 'verifyEngineeringRequest']);
+    Route::post('/projects/{project}/approve-engineering-hire/{addendum}', [ProjectFeatureController::class, 'approveEngineeringHire']);
+    Route::post('/projects/{project}/reject-engineering-hire/{addendum}', [ProjectFeatureController::class, 'rejectEngineeringHire']);
+    Route::post('/projects/{project}/seal-design', [ProjectFeatureController::class, 'sealDesign']);
+    Route::post('/projects/{project}/approve-engineering', [ProjectFeatureController::class, 'approveEngineeringIntegration']);
+    Route::post('/projects/{project}/request-engineering-revision', [ProjectFeatureController::class, 'requestEngineeringRevision']);
 
     // Phase Brief Lock (Prepare → Lock → Execute lifecycle)
+    Route::post('/projects/{project}/submit-planning', [ProjectController::class, 'submitPlanning']);
+    Route::post('/projects/{project}/approve-planning', [ProjectController::class, 'approvePlanning']);
+    Route::post('/projects/{project}/verify-payment', [ProjectController::class, 'verifyDesignPayment']);
+    Route::post('/projects/{project}/update-planning-audit', [ProjectController::class, 'updatePlanningAudit']);
+    Route::post('/projects/{project}/verify-planning-pm', [ProjectController::class, 'verifyPlanningPM']);
+    Route::post('/projects/{project}/reject-planning', [ProjectController::class, 'rejectPlanning']);
     Route::post('/projects/{project}/lock-brief', [ProjectController::class, 'lockPhaseBrief']);
+    Route::post('/projects/{project}/approve-construction-brief', [ProjectController::class, 'approveConstructionBrief']);
+    Route::post('/projects/{project}/revise-construction-brief', [ProjectController::class, 'reviseConstructionBrief']);
+    Route::post('/projects/{project}/verify-pbg', [ProjectController::class, 'verifyPBG']);
+    Route::post('/projects/{project}/verify-slf', [ProjectController::class, 'verifySLF']);
 
     // Shareable Brief Link
     Route::post('/projects/{project}/share-token', [ProjectController::class, 'generateShareToken']);
@@ -146,6 +176,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/projects/{project}/comments', [ProjectFeatureController::class, 'storeComment']);
     Route::put('/projects/{project}/comments/{comment}', [ProjectFeatureController::class, 'updateComment']);
     Route::delete('/projects/{project}/comments/{comment}', [ProjectFeatureController::class, 'deleteComment']);
+
+    // Phase Gating & External Vendors
+    Route::post('/projects/{project}/broadcast-phase', [ProjectController::class, 'broadcastPhase']);
+    Route::post('/projects/{project}/import-external-vendor', [ProjectController::class, 'importExternalVendor']);
 
     // Reviews
     Route::post('/projects/{project}/review', [\App\Http\Controllers\Api\ReviewController::class, 'store']);
@@ -165,6 +199,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/projects/{project}/requirements/{requirement}', [ProjectFeatureController::class, 'deleteRequirement']);
     Route::post('/projects/{project}/requirements/{requirement}/usage', [ProjectFeatureController::class, 'logRequirementUsage']);
     Route::post('/projects/{project}/requirements/{requirement}/manual-procurement', [ProjectFeatureController::class, 'logExternalProcurement']);
+    Route::post('/projects/{project}/requirements/{requirement}/request-procurement', [ProjectFeatureController::class, 'requestProcurement']);
+    Route::get('/projects/{project}/procurement-requests', [ProjectFeatureController::class, 'getProcurementRequests']);
+    Route::post('/projects/{project}/procurement-requests/{procurementRequest}/verify', [ProjectFeatureController::class, 'pmVerifyProcurement']);
+    Route::post('/projects/{project}/procurement-requests/{procurementRequest}/reject', [ProjectFeatureController::class, 'pmRejectProcurement']);
 
     // Project Budget & Finance Endpoints
     Route::get('/projects/{project}/budget', [\App\Http\Controllers\Api\ProjectBudgetController::class, 'getDashboard']);
