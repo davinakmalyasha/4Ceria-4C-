@@ -16,6 +16,7 @@ use App\Models\BidStructural;
 use App\Models\BidMep;
 use App\Models\ProjectBudgetTransaction;
 use App\Models\ProjectPaymentTermin;
+use App\Models\ProjectProcurementRequest;
 use App\Http\Resources\ProjectResource;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -245,24 +246,8 @@ class ProjectFeatureController extends Controller
 
         $milestone->update($updateData);
 
-        // Auto-Archive to Results & Files (Vault) if approved and has a file
-        if (isset($updateData['approval_status']) && $updateData['approval_status'] === 'approved' && !empty($milestone->content['gallery'])) {
-            $filePath = $milestone->content['gallery'][0];
-            $exists = \App\Models\ProjectDocument::where('project_id', $project->id)
-                ->where('file_path', $filePath)
-                ->exists();
-
-            if (!$exists) {
-                \App\Models\ProjectDocument::create([
-                    'project_id' => $project->id,
-                    'uploader_id' => $milestone->notaris_id ?? $milestone->arsitek_id ?? $milestone->kontraktor_id ?? $user->id,
-                    'file_name' => $milestone->title,
-                    'file_path' => $filePath,
-                    'file_type' => 'official_document',
-                    'category' => $milestone->phase_context === 'legal' ? 'legal' : (($milestone->phase_context === 'build' || $milestone->phase_context === 'structure' || $milestone->phase_context === 'mep') ? 'technical' : 'others'),
-                    'status' => 'verified'
-                 ]);
-            }
+        if ($milestone->approval_status === 'approved') {
+            $this->archiveMilestoneToVault($project, $milestone);
         }
 
         if ($request->has('is_completed')) {
@@ -277,20 +262,60 @@ class ProjectFeatureController extends Controller
     {
         $user = Auth::user();
 
-        // Only owner can approve
-        if ($user->role_type !== 'user' || $project->user_id !== $user->id) {
-            return response()->json(['message' => 'Unauthorized. Only the owner can approve phases.'], 403);
+        $isOwner = ($user->role_type === 'user' && $project->user_id === $user->id);
+        $isHiredPM = ($user->role_type === 'project_manager' && (int)$project->pm_id === (int)$user->id);
+
+        if (!$isOwner && !$isHiredPM) {
+            return response()->json(['message' => 'Unauthorized. Only the owner or hired Project Manager can approve phases.'], 403);
         }
 
-        $milestone->update([
-            'is_completed' => true,
-            'approval_status' => 'approved',
-            'revision_notes' => null, // Clear old notes
-        ]);
+        return DB::transaction(function () use ($project, $milestone, $isHiredPM) {
+            $milestone->update([
+                'is_completed' => true,
+                'approval_status' => 'approved',
+                'revision_notes' => null,
+                'pm_verified_at' => $milestone->pm_verified_at ?? ($isHiredPM ? now() : null),
+            ]);
 
-        $this->logActivity($project, "milestone_approved", "Milestone Approved: {$milestone->title}");
+            // If PM approved or Owner approved, we ensure payment terms are unlocked if context allows
+            // Note: PM approval specifically triggers the verification logic for payments.
+            if ($isHiredPM) {
+                ProjectPaymentTermin::where('milestone_id', $milestone->id)
+                    ->where('status', 'locked')
+                    ->update(['status' => 'pending']);
+                
+                $this->logActivity($project, "milestone_pm_verified", "PM Approved & Verified: {$milestone->title}");
+            } else {
+                $this->logActivity($project, "milestone_approved", "Owner Approved: {$milestone->title}");
+            }
 
-        return response()->json(['data' => $milestone->load(['arsitek.user', 'kontraktor.user'])]);
+            // Auto-archive evidence to Vault
+            $this->archiveMilestoneToVault($project, $milestone);
+
+            return response()->json(['data' => $milestone->load(['arsitek.user', 'kontraktor.user'])]);
+        });
+    }
+
+    private function archiveMilestoneToVault(Project $project, ProjectMilestone $milestone): void
+    {
+        if (empty($milestone->content['gallery'])) return;
+
+        $filePath = $milestone->content['gallery'][0];
+        $exists = \App\Models\ProjectDocument::where('project_id', $project->id)
+            ->where('file_path', $filePath)
+            ->exists();
+
+        if (!$exists) {
+            \App\Models\ProjectDocument::create([
+                'project_id' => $project->id,
+                'uploader_id' => $milestone->notaris_id ?? $milestone->arsitek_id ?? $milestone->kontraktor_id ?? Auth::id(),
+                'file_name' => $milestone->title,
+                'file_path' => $filePath,
+                'file_type' => 'official_document',
+                'category' => $milestone->phase_context === 'legal' ? 'legal' : (($milestone->phase_context === 'build' || $milestone->phase_context === 'structure' || $milestone->phase_context === 'mep') ? 'technical' : 'others'),
+                'status' => 'verified'
+            ]);
+        }
     }
 
     /**
@@ -325,9 +350,11 @@ class ProjectFeatureController extends Controller
     {
         $user = Auth::user();
 
-        // Only owner can request revision
-        if ($user->role_type !== 'user' || $project->user_id !== $user->id) {
-            return response()->json(['message' => 'Unauthorized. Only the owner can request revisions.'], 403);
+        $isOwner = ($user->role_type === 'user' && $project->user_id === $user->id);
+        $isHiredPM = ($user->role_type === 'project_manager' && (int)$project->pm_id === (int)$user->id);
+
+        if (!$isOwner && !$isHiredPM) {
+            return response()->json(['message' => 'Unauthorized. Only the owner or hired Project Manager can request revisions.'], 403);
         }
 
         $request->validate([
@@ -731,6 +758,210 @@ class ProjectFeatureController extends Controller
     }
 
     /**
+     * Contractor requests procurement assistance from PM/Owner.
+     */
+    public function requestProcurement(Request $request, Project $project, \App\Models\ProjectRequirement $requirement)
+    {
+        $user = Auth::user();
+
+        $isHiredKontraktor = $user->role_type === 'kontraktor' && $project->selected_kontraktor_id === $user->kontraktor?->id;
+        $isHiredPM = $user->role_type === 'project_manager' && $project->pm_id === $user->id;
+
+        if (!$isHiredKontraktor && !$isHiredPM) {
+            return response()->json(['message' => 'Unauthorized. Only the hired contractor or PM can request procurement.'], 403);
+        }
+
+        $validated = $request->validate([
+            'quantity_needed' => 'required|numeric|min:0.01',
+            'message' => 'nullable|string|max:500',
+            'offer_to_buy' => 'nullable|boolean',
+        ]);
+
+        $qtyNeeded = $validated['quantity_needed'];
+        $message = $validated['message'] ?? '';
+        $offerToBuy = $validated['offer_to_buy'] ?? false;
+
+        \DB::beginTransaction();
+        try {
+            // 1. Create a persistent record
+            $procurementRequest = ProjectProcurementRequest::create([
+                'project_id' => $project->id,
+                'requirement_id' => $requirement->id,
+                'requested_by' => $user->id,
+                'quantity_needed' => $qtyNeeded,
+                'message' => $message,
+                'offer_to_buy' => $offerToBuy,
+                'status' => 'pending_pm', // Starts with PM gate
+            ]);
+
+            $shortage = max(0, $requirement->quantity_required - $requirement->quantity_on_site - $requirement->quantity_used);
+
+            $notifBody = $offerToBuy
+                ? "{$user->name} offers to procure {$qtyNeeded} {$requirement->unit} of \"{$requirement->name}\" on your behalf. {$message}"
+                : "{$user->name} reports that {$qtyNeeded} {$requirement->unit} of \"{$requirement->name}\" is needed on-site. Current shortage: {$shortage} {$requirement->unit}. {$message}";
+
+            // Notify PM (if exists)
+            if ($project->pm_id) {
+                \App\Models\Notification::create([
+                    'user_id' => $project->pm_id,
+                    'type' => 'procurement_request',
+                    'title' => $offerToBuy ? 'Contractor Offers to Procure Material' : 'Material Procurement Needed',
+                    'body' => $notifBody,
+                    'data' => [
+                        'project_id' => $project->id, 
+                        'requirement_id' => $requirement->id,
+                        'request_id' => $procurementRequest->id
+                    ],
+                ]);
+            }
+
+            // Always notify Owner
+            \App\Models\Notification::create([
+                'user_id' => $project->user_id,
+                'type' => 'procurement_request',
+                'title' => $offerToBuy ? 'Contractor Offers to Buy Material' : 'Material Shortage Alert',
+                'body' => $notifBody,
+                'data' => [
+                    'project_id' => $project->id, 
+                    'requirement_id' => $requirement->id,
+                    'request_id' => $procurementRequest->id
+                ],
+            ]);
+
+            $this->logActivity($project, 'procurement_requested', "{$user->name} requested procurement: {$qtyNeeded} {$requirement->unit} of {$requirement->name}" . ($offerToBuy ? ' (offered to buy)' : ''));
+
+            \DB::commit();
+
+            return response()->json([
+                'message' => 'Procurement request sent to ' . ($project->pm_id ? 'PM and Owner' : 'Owner') . '.',
+                'data' => $procurementRequest
+            ]);
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            return response()->json(['message' => 'Failed to record procurement request: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Get all pending procurement requests for a project.
+     */
+    public function getProcurementRequests(Request $request, Project $project)
+    {
+        $user = Auth::user();
+        $isOwner = $user->id === $project->user_id;
+        $isPM = $user->role_type === 'project_manager' && $project->pm_id === $user->id;
+
+        if (!$isOwner && !$isPM) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $requests = ProjectProcurementRequest::where('project_id', $project->id)
+            ->with(['requirement', 'requester'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json(['data' => $requests]);
+    }
+
+    /**
+     * Gate 2: PM verifies technical necessity and forwards to Owner with estimated cost.
+     */
+    public function pmVerifyProcurement(Request $request, Project $project, ProjectProcurementRequest $procurementRequest)
+    {
+        $user = Auth::user();
+
+        if ($user->role_type !== 'project_manager' || $project->pm_id !== $user->id) {
+            return response()->json(['message' => 'Unauthorized. Only the assigned PM can verify procurement requests.'], 403);
+        }
+
+        $request->validate([
+            'estimated_cost' => 'required|numeric|min:0',
+            'pm_note' => 'nullable|string|max:500',
+        ]);
+
+        if ($procurementRequest->status !== 'pending_pm') {
+            return response()->json(['message' => 'Request is not in a verifiable state'], 422);
+        }
+
+        \DB::beginTransaction();
+        try {
+            $procurementRequest->update([
+                'estimated_cost' => $request->estimated_cost,
+                'pm_note' => $request->pm_note,
+                'status' => 'pending_owner',
+            ]);
+
+            $requirement = $procurementRequest->requirement;
+
+            // Create a Budget Addendum for the Owner to approve
+            $addendum = ProjectAddendum::create([
+                'project_id' => $project->id,
+                'role_type' => 'pm_material',
+                'user_id' => $user->id,
+                'title' => "Material Procurement: {$requirement->name}",
+                'description' => "Request for {$procurementRequest->quantity_needed} {$requirement->unit} of {$requirement->name}. PM Note: " . ($request->pm_note ?? 'Verified by PM'),
+                'amount' => $request->estimated_cost,
+                'status' => 'pending_approval',
+                'procurement_request_id' => $procurementRequest->id,
+            ]);
+
+            // Notify Owner
+            \App\Models\Notification::create([
+                'user_id' => $project->user_id,
+                'type' => 'budget_approval_needed',
+                'title' => 'Budget Authorization Needed',
+                'body' => "PM has verified a procurement request for {$requirement->name}. Authorize Rp " . number_format($request->estimated_cost, 0, ',', '.') . " to proceed.",
+                'data' => [
+                    'project_id' => $project->id,
+                    'addendum_id' => $addendum->id,
+                    'request_id' => $procurementRequest->id
+                ],
+            ]);
+
+            $this->logActivity($project, 'procurement_verified', "PM verified procurement for {$requirement->name} with estimated cost Rp " . number_format($request->estimated_cost, 0, ',', '.'));
+
+            \DB::commit();
+
+            return response()->json(['message' => 'Request forwarded to Owner for budget approval.', 'data' => $procurementRequest]);
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            return response()->json(['message' => 'Verification failed: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * PM rejects the procurement request.
+     */
+    public function pmRejectProcurement(Request $request, Project $project, ProjectProcurementRequest $procurementRequest)
+    {
+        $user = Auth::user();
+
+        if ($user->role_type !== 'project_manager' || $project->pm_id !== $user->id) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $request->validate(['pm_note' => 'required|string|max:500']);
+
+        $procurementRequest->update([
+            'status' => 'rejected',
+            'pm_note' => $request->pm_note,
+        ]);
+
+        // Notify Contractor
+        \App\Models\Notification::create([
+            'user_id' => $procurementRequest->requested_by,
+            'type' => 'procurement_rejected',
+            'title' => 'Procurement Request Rejected',
+            'body' => "PM rejected your request for {$procurementRequest->requirement->name}. Note: {$request->pm_note}",
+            'data' => ['project_id' => $project->id],
+        ]);
+
+        $this->logActivity($project, 'procurement_rejected', "PM rejected procurement for {$procurementRequest->requirement->name}.");
+
+        return response()->json(['data' => $procurementRequest]);
+    }
+
+    /**
      * Architect approves the structural/MEP engineer's deliverables.
      */
     public function approveEngineeringIntegration(Request $request, Project $project)
@@ -840,28 +1071,16 @@ class ProjectFeatureController extends Controller
 
         \DB::beginTransaction();
         try {
-            $completed = $project->completed_phases ?? [];
-            if (!in_array('design', $completed)) {
-                $completed[] = 'design';
-            }
+            $project->update([
+                'design_handover_submitted_at' => now(),
+                'design_handover_notes' => null
+            ]);
 
-            $attributesToUpdate = [
-                'design_completed_at' => now(),
-                'completed_phases' => $completed,
-                'status' => 'procurement'
-            ];
-
-            if (in_array('build', $project->needed_phases ?? [])) {
-                $attributesToUpdate['target_role'] = 'both';
-            }
-
-            $project->update($attributesToUpdate);
-
-            $this->logActivity($project, 'design_sealed', "Architect formally sealed and handed over the design package.");
+            $this->logActivity($project, 'design_handover_submitted', "Architect submitted design package for PM verification.");
             \DB::commit();
         } catch (\Exception $e) {
             \DB::rollBack();
-            return response()->json(['message' => 'Failed to seal design.'], 500);
+            return response()->json(['message' => 'Failed to submit design handover.'], 500);
         }
 
         return new ProjectResource($this->loadFullProject($project));
@@ -1085,22 +1304,16 @@ class ProjectFeatureController extends Controller
 
         \DB::beginTransaction();
         try {
-            $completed = $project->completed_phases ?? [];
-            if (!in_array('build', $completed)) {
-                $completed[] = 'build';
-            }
-
             $project->update([
-                'construction_completed_at' => now(),
-                'completed_phases' => $completed,
-                'status' => 'completed_build' 
+                'construction_handover_submitted_at' => now(),
+                'construction_handover_notes' => null
             ]);
 
-            $this->logActivity($project, 'construction_sealed', "Contractor formally sealed and handed over the site.");
+            $this->logActivity($project, 'construction_handover_submitted', "Contractor submitted construction handover for PM verification.");
             \DB::commit();
         } catch (\Exception $e) {
             \DB::rollBack();
-            return response()->json(['message' => 'Failed to seal construction.'], 500);
+            return response()->json(['message' => 'Failed to submit construction handover.'], 500);
         }
 
         return new ProjectResource($this->loadFullProject($project));
@@ -1126,22 +1339,145 @@ class ProjectFeatureController extends Controller
 
         \DB::beginTransaction();
         try {
-            $completed = $project->completed_phases ?? [];
-            if (!in_array('interior', $completed)) {
-                $completed[] = 'interior';
-            }
-
             $project->update([
-                'interior_completed_at' => now(),
-                'completed_phases' => $completed,
+                'interior_handover_submitted_at' => now(),
+                'interior_handover_notes' => null
             ]);
 
-            $this->logActivity($project, 'interior_sealed', "Interior designer formally sealed the interior design package.");
+            $this->logActivity($project, 'interior_handover_submitted', "Interior designer submitted handover for PM verification.");
             \DB::commit();
         } catch (\Exception $e) {
             \DB::rollBack();
-            return response()->json(['message' => 'Failed to seal interior.'], 500);
+            return response()->json(['message' => 'Failed to submit interior handover.'], 500);
         }
+
+        return new ProjectResource($this->loadFullProject($project));
+    }
+
+    public function createFurnitureAddendum(Request $request, Project $project, ProjectMilestone $milestone)
+    {
+        $user = Auth::user();
+        // Validation: Only the hired interior designer can request furniture payment
+        if ($user->role_type !== 'interior' || $project->selected_interior_id !== optional($user->interior_profile)->id) {
+            return response()->json(['message' => 'Unauthorized. Only the hired interior designer can request furniture payment.'], 403);
+        }
+
+        $request->validate([
+            'furniture_item_id' => 'required',
+        ]);
+
+        $itemId = $request->furniture_item_id;
+        $content = $milestone->content ?? [];
+        $items = $content['furniture_items'] ?? [];
+        
+        $itemIndex = -1;
+        foreach($items as $index => $item) {
+            if ($item['id'] === $itemId) {
+                $itemIndex = $index;
+                break;
+            }
+        }
+
+        if ($itemIndex === -1) {
+            return response()->json(['message' => 'Furniture item not found in this room.'], 404);
+        }
+
+        $item = $items[$itemIndex];
+
+        if (isset($item['addendum_id'])) {
+            return response()->json(['message' => 'Payment request already exists for this item.'], 422);
+        }
+
+        return \DB::transaction(function () use ($project, $milestone, $content, $items, $itemIndex, $item) {
+            $addendum = ProjectAddendum::create([
+                'project_id' => $project->id,
+                'user_id' => Auth::id(),
+                'role_type' => 'interior',
+                'title' => "Furniture: " . $item['name'],
+                'description' => "Item Procurement for " . ($item['brand'] ?? $item['name']) . " in " . $milestone->title,
+                'amount' => $item['price'],
+                'status' => 'pending_approval'
+            ]);
+
+            $items[$itemIndex]['addendum_id'] = $addendum->id;
+            $newContent = $content;
+            $newContent['furniture_items'] = $items;
+            $milestone->update(['content' => $newContent]);
+
+            $this->logActivity($project, 'furniture_procurement_requested', "Interior Designer requested payment for: " . $item['name']);
+
+            return response()->json(['data' => $addendum]);
+        });
+    }
+
+    public function approveHandover(Request $request, Project $project)
+    {
+        $user = Auth::user();
+        if ($user->role_type !== 'project_manager' || $project->pm_id !== $user->id) {
+            return response()->json(['message' => 'Unauthorized. Only the assigned PM can approve handovers.'], 403);
+        }
+
+        $phase = $request->input('phase'); // design, build, interior
+        
+        \DB::beginTransaction();
+        try {
+            $completed = $project->completed_phases ?? [];
+            $attributes = [];
+
+            if ($phase === 'design') {
+                $attributes['design_completed_at'] = now();
+                $attributes['status'] = 'procurement';
+                if (in_array('build', $project->needed_phases ?? [])) {
+                    $attributes['target_role'] = 'both';
+                }
+                if (!in_array('design', $completed)) $completed[] = 'design';
+            } elseif ($phase === 'build') {
+                $attributes['construction_completed_at'] = now();
+                $attributes['status'] = 'completed_build';
+                if (!in_array('build', $completed)) $completed[] = 'build';
+            } elseif ($phase === 'interior') {
+                $attributes['interior_completed_at'] = now();
+                if (!in_array('interior', $completed)) $completed[] = 'interior';
+            }
+
+            $attributes['completed_phases'] = $completed;
+            $project->update($attributes);
+
+            $this->logActivity($project, "{$phase}_handover_approved", "PM approved the technical handover for {$phase} phase.");
+            \DB::commit();
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            return response()->json(['message' => 'Approval failed'], 500);
+        }
+
+        return new ProjectResource($this->loadFullProject($project));
+    }
+
+    public function requestHandoverRevision(Request $request, Project $project)
+    {
+        $user = Auth::user();
+        if ($user->role_type !== 'project_manager' || $project->pm_id !== $user->id) {
+             return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        $request->validate([
+            'phase' => 'required|string|in:design,build,interior',
+            'notes' => 'required|string|max:1000'
+        ]);
+
+        $phase = $request->phase;
+        $column = "{$phase}_handover_submitted_at";
+        $notesColumn = "{$phase}_handover_notes";
+
+        $project->update([
+            $column => null,
+            $notesColumn => $request->notes
+        ]);
+
+        $this->logActivity($project, "{$phase}_handover_revision", "PM requested revisions for {$phase} handover: {$request->notes}");
+
+        return new ProjectResource($this->loadFullProject($project));
+    }
 
         return new ProjectResource($this->loadFullProject($project));
     }
