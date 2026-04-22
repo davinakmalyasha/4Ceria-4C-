@@ -503,6 +503,132 @@ class ProjectController extends Controller
         return new ProjectResource($project);
     }
 
+    /**
+     * PBG Verification Gate. Unlocks physical construction.
+     */
+    public function verifyPBG(Project $project)
+    {
+        $user = Auth::user();
+        $isOwner = $project->user_id === $user->id;
+        $isPM = $project->pm_id && $user->role_type === 'project_manager' && $user->id === $project->pm_id;
+        
+        if (!$isOwner && !$isPM) {
+            return response()->json(['message' => 'Only the Project Owner or assigned Project Manager can verify PBG compliance.'], 403);
+        }
+
+        return DB::transaction(function () use ($project, $user) {
+            $project->update([
+                'pbg_verified_at' => now()
+            ]);
+
+            \App\Models\ProjectActivityLog::create([
+                'project_id' => $project->id,
+                'user_id' => $user->id,
+                'action' => 'pbg_verified',
+                'details' => "PBG (Building Permit) verified. The construction phase is now officially unlocked.",
+            ]);
+
+            return new ProjectResource($project);
+        });
+    }
+
+    /**
+     * SLF Verification Gate. Unlocks final handover.
+     */
+    public function verifySLF(Project $project)
+    {
+        $user = Auth::user();
+        $isOwner = $project->user_id === $user->id;
+        $isPM = $project->pm_id && $user->role_type === 'project_manager' && $user->id === $project->pm_id;
+        
+        if (!$isOwner && !$isPM) {
+            return response()->json(['message' => 'Only the Project Owner or assigned Project Manager can verify SLF compliance.'], 403);
+        }
+
+        return DB::transaction(function () use ($project, $user) {
+            $project->update([
+                'slf_verified_at' => now()
+            ]);
+
+            \App\Models\ProjectActivityLog::create([
+                'project_id' => $project->id,
+                'user_id' => $user->id,
+                'action' => 'slf_verified',
+                'details' => "SLF (Certificate of Occupancy) verified. Final completion is authorized.",
+            ]);
+
+            return new ProjectResource($project);
+        });
+    }
+
+    /**
+     * PM/Owner approves the construction brief and locks it.
+     */
+    public function approveConstructionBrief(Project $project)
+    {
+        $user = Auth::user();
+        $isOwner = $project->user_id === $user->id;
+        $isPM = $project->pm_id && $user->role_type === 'project_manager' && $user->id === $project->pm_id;
+
+        if (!$isOwner && !$isPM) {
+            return response()->json(['message' => 'Only the Project Owner or PM can approve the construction brief.'], 403);
+        }
+
+        if ($project->construction_brief_status !== 'pending_review') {
+            return response()->json(['message' => 'Brief is not pending review.'], 422);
+        }
+
+        return DB::transaction(function () use ($project, $user) {
+            $project->update([
+                'construction_brief_status' => 'approved',
+                'construction_locked_at' => now(),
+                'construction_brief_revision_notes' => null,
+            ]);
+
+            \App\Models\ProjectActivityLog::create([
+                'project_id' => $project->id,
+                'user_id' => $user->id,
+                'action' => 'construction_brief_approved',
+                'details' => 'Construction brief approved and locked. Contractor may proceed once PBG is verified.',
+            ]);
+
+            return new ProjectResource($project);
+        });
+    }
+
+    /**
+     * PM/Owner requests revision on the construction brief.
+     */
+    public function reviseConstructionBrief(Request $request, Project $project)
+    {
+        $user = Auth::user();
+        $isOwner = $project->user_id === $user->id;
+        $isPM = $project->pm_id && $user->role_type === 'project_manager' && $user->id === $project->pm_id;
+
+        if (!$isOwner && !$isPM) {
+            return response()->json(['message' => 'Only the Project Owner or PM can request revision.'], 403);
+        }
+
+        $request->validate([
+            'notes' => 'required|string|max:2000',
+        ]);
+
+        $project->update([
+            'construction_brief_status' => 'revision_requested',
+            'construction_brief_revision_notes' => $request->notes,
+            'construction_locked_at' => null,
+        ]);
+
+        \App\Models\ProjectActivityLog::create([
+            'project_id' => $project->id,
+            'user_id' => $user->id,
+            'action' => 'construction_brief_revision',
+            'details' => 'Revision requested: ' . $request->notes,
+        ]);
+
+        return new ProjectResource($project);
+    }
+
     public function lockPhaseBrief(Request $request, Project $project)
     {
         $request->validate([
@@ -524,11 +650,14 @@ class ProjectController extends Controller
         } elseif ($phase === 'build') {
             $proProfile = $user->kontraktor;
             if (!$proProfile || $project->selected_kontraktor_id !== $proProfile->id) {
-                return response()->json(['message' => 'Only the assigned contractor can lock the construction brief.'], 403);
+                return response()->json(['message' => 'Only the assigned contractor can submit the construction brief.'], 403);
             }
-            // If already locked, just return success
+            // Contractor submits for review — does NOT lock directly
             if (!$project->construction_locked_at) {
-                $project->update(['construction_locked_at' => now()]);
+                $project->update([
+                    'construction_brief_status' => 'pending_review',
+                    'construction_brief_revision_notes' => null,
+                ]);
             }
         }
 
@@ -552,200 +681,207 @@ class ProjectController extends Controller
     {
         return DB::transaction(function () use ($request, $project) {
             $user = Auth::user();
-        $isOwner = $project->user_id === $user->id;
-        $isPM = $project->pm_id && $user->role_type === 'project_manager' && $user->id === $project->pm_id;
-        
-        if (!$isOwner && !$isPM) {
-            return response()->json(['message' => 'Unauthorized. Must be project owner or the assigned Project Manager.'], 403);
-        }
+            $isOwner = $project->user_id === $user->id;
+            $isPM = $project->pm_id && $user->role_type === 'project_manager' && $user->id === $project->pm_id;
 
-        if ($isOwner && $project->wants_project_manager) {
-            return response()->json(['message' => 'This project is managed by a Project Manager. Only the Project Manager can hire professionals.'], 403);
-        }
-
-        $request->validate([
-            'bid_id' => 'required|integer',
-            'bid_type' => 'required|in:arsitek,kontraktor,notaris,interior,structural,mep',
-        ]);
-
-        if ($request->bid_type === 'arsitek') {
-            $bid = \App\Models\BidArsitek::where('id', $request->bid_id)->where('project_id', $project->id)->firstOrFail();
-            $bid->update(['status' => 'accepted']);
-            \App\Models\BidArsitek::where('project_id', $project->id)->where('id', '!=', $bid->id)->update(['status' => 'rejected']);
-
-            $totalDeduction = $bid->calculated_total ?? $bid->price;
-
-            if ($project->target_role === 'arsitek' || $project->status === 'accepted_kontraktor') {
-                $project->update(['selected_arsitek_id' => $bid->arsitek_id, 'status' => 'in_progress']);
-            } else {
-                $project->update(['selected_arsitek_id' => $bid->arsitek_id, 'status' => 'accepted_arsitek']);
+            if (!$isOwner && !$isPM) {
+                return response()->json(['message' => 'Unauthorized. Must be project owner or the assigned Project Manager.'], 403);
             }
-        } elseif ($request->bid_type === 'kontraktor') {
-            $bid = \App\Models\BidKontraktor::where('id', $request->bid_id)->where('project_id', $project->id)->firstOrFail();
-            $bid->update(['status' => 'accepted']);
-            \App\Models\BidKontraktor::where('project_id', $project->id)->where('id', '!=', $bid->id)->update(['status' => 'rejected']);
 
-            $totalDeduction = $bid->calculated_total ?? $bid->price;
-
-            if ($project->target_role === 'kontraktor' || $project->status === 'accepted_arsitek') {
-                $project->update(['selected_kontraktor_id' => $bid->kontraktor_id, 'status' => 'in_progress']);
-            } else {
-                $project->update(['selected_kontraktor_id' => $bid->kontraktor_id, 'status' => 'accepted_kontraktor']);
+            if ($isOwner && $project->wants_project_manager) {
+                return response()->json(['message' => 'This project is managed by a Project Manager. Only the Project Manager can hire professionals.'], 403);
             }
-        } elseif ($request->bid_type === 'notaris') {
-            $bid = \App\Models\BidNotaris::where('id', $request->bid_id)->where('project_id', $project->id)->firstOrFail();
-            $bid->update(['status' => 'accepted']);
-            \App\Models\BidNotaris::where('project_id', $project->id)->where('id', '!=', $bid->id)->update(['status' => 'rejected']);
-            
-            $professionalFee = $bid->calculated_total ?? $bid->price;
-            $taxEstimate = $bid->tax_estimate ?? 0;
-            $totalDeduction = $professionalFee + $taxEstimate;
 
-            $project->update(['selected_notaris_id' => $bid->notaris_id, 'status' => 'in_progress']);
+            $request->validate([
+                'bid_id' => 'required|integer',
+                'bid_type' => 'required|in:arsitek,kontraktor,notaris,interior,structural,mep',
+            ]);
 
-            // Seed Legal Milestones
-            $rawRequirements = is_array($project->legal_requirements) ? $project->legal_requirements : [];
-            if (empty($rawRequirements) && is_array($bid->selected_services)) {
-                $rawRequirements = $bid->selected_services;
+            $totalDeduction = 0;
+            $bidderName = 'Professional';
+            $bidderUserId = null;
+
+            if ($request->bid_type === 'arsitek') {
+                $bid = \App\Models\BidArsitek::where('id', $request->bid_id)->where('project_id', $project->id)->firstOrFail();
+                $bid->update(['status' => 'accepted']);
+                \App\Models\BidArsitek::where('project_id', $project->id)->where('id', '!=', $bid->id)->update(['status' => 'rejected']);
+
+                $totalDeduction = $bid->calculated_total ?? $bid->price;
+                $bidderName = $bid->arsitek->user->name ?? 'Architect';
+                $bidderUserId = $bid->arsitek->user_id;
+
+                if ($project->target_role === 'arsitek' || $project->status === 'accepted_kontraktor') {
+                    $project->update(['selected_arsitek_id' => $bid->arsitek_id, 'status' => 'in_progress']);
+                } else {
+                    $project->update(['selected_arsitek_id' => $bid->arsitek_id, 'status' => 'accepted_arsitek']);
+                }
+            } elseif ($request->bid_type === 'kontraktor') {
+                $bid = \App\Models\BidKontraktor::where('id', $request->bid_id)->where('project_id', $project->id)->firstOrFail();
+                $bid->update(['status' => 'accepted']);
+                \App\Models\BidKontraktor::where('project_id', $project->id)->where('id', '!=', $bid->id)->update(['status' => 'rejected']);
+
+                $totalDeduction = $bid->calculated_total ?? $bid->price;
+                $bidderName = $bid->kontraktor->user->name ?? 'Contractor';
+                $bidderUserId = $bid->kontraktor->user_id;
+
+                if ($project->target_role === 'kontraktor' || $project->status === 'accepted_arsitek') {
+                    $project->update(['selected_kontraktor_id' => $bid->kontraktor_id, 'status' => 'in_progress']);
+                } else {
+                    $project->update(['selected_kontraktor_id' => $bid->kontraktor_id, 'status' => 'accepted_kontraktor']);
+                }
+            } elseif ($request->bid_type === 'notaris') {
+                $bid = \App\Models\BidNotaris::where('id', $request->bid_id)->where('project_id', $project->id)->firstOrFail();
+                $bid->update(['status' => 'accepted']);
+                \App\Models\BidNotaris::where('project_id', $project->id)->where('id', '!=', $bid->id)->update(['status' => 'rejected']);
+
+                $professionalFee = $bid->calculated_total ?? $bid->price;
+                $taxEstimate = $bid->tax_estimate ?? 0;
+                $totalDeduction = $professionalFee + $taxEstimate;
+                $bidderName = $bid->notaris->user->name ?? 'Notary';
+                $bidderUserId = $bid->notaris->user_id;
+
+                $project->update(['selected_notaris_id' => $bid->notaris_id, 'status' => 'in_progress']);
+
+                // Seed Legal Milestones
+                $rawRequirements = is_array($project->legal_requirements) ? $project->legal_requirements : [];
+                if (empty($rawRequirements) && is_array($bid->selected_services)) {
+                    $rawRequirements = $bid->selected_services;
+                }
+                $requirements = array_unique(['spk_contract', ...$rawRequirements, 'as_built_drawings', 'misc_legal']);
+                $labels = [
+                    'spk_contract' => 'SPK (Owner-Pro Contract)',
+                    'land_verification' => 'AJB & Balik Nama (Title Due Diligence)',
+                    'pbg_permit' => 'PBG (Building & Planning Permit)',
+                    'as_built_drawings' => 'As-Built Drawings (Record Drawings)',
+                    'slf_certification' => 'SLF Certification (Certificate of Occupancy)',
+                    'misc_legal' => 'Field Reports (Misc Progress)'
+                ];
+
+                foreach ($requirements as $index => $req) {
+                    $title = $labels[$req] ?? ucwords(str_replace(['_', '-'], ' ', (string)$req));
+
+                    \App\Models\ProjectMilestone::firstOrCreate(
+                        ['project_id' => $project->id, 'title' => $title],
+                        [
+                            'notaris_id' => $bid->notaris->user_id,
+                            'description' => 'Final verified ' . $title . ' document and legal processing notes.',
+                            'type' => 'legal',
+                            'phase_context' => 'legal',
+                            'sort_order' => $index,
+                            'is_completed' => false,
+                            'approval_status' => 'in_progress',
+                        ]
+                    );
+                }
+            } elseif ($request->bid_type === 'interior') {
+                $bid = \App\Models\BidInterior::where('id', $request->bid_id)->where('project_id', $project->id)->firstOrFail();
+                $bid->update(['status' => 'accepted']);
+                \App\Models\BidInterior::where('project_id', $project->id)->where('id', '!=', $bid->id)->update(['status' => 'rejected']);
+
+                $totalDeduction = $bid->calculated_total ?? $bid->price;
+                $bidderName = $bid->interior->user->name ?? 'Interior Designer';
+                $bidderUserId = $bid->interior->user_id;
+                $project->update(['selected_interior_id' => $bid->interior_id]);
+            } elseif ($request->bid_type === 'structural') {
+                $bid = \App\Models\BidStructural::where('id', $request->bid_id)->where('project_id', $project->id)->firstOrFail();
+
+                // GLOBAL STANDARD: Create a Change Order (Addendum) for Owner approval instead of direct hire
+                $project->addendums()->create([
+                    'role_type' => 'structural',
+                    'user_id' => $user->id,
+                    'title' => 'Engineering Resource: Structural Engineer Selection',
+                    'description' => "Recommendation to hire " . ($bid->structuralEngineer->user->name ?? 'Specialist') . " for structural analysis.\nProposed Fee: Rp " . number_format($bid->price, 0, ',', '.'),
+                    'amount' => $bid->calculated_total ?? $bid->price,
+                    'status' => 'pending_approval',
+                    'recommended_bid_id' => $bid->id,
+                    'recommended_bid_type' => 'structural',
+                ]);
+
+                return response()->json(['message' => 'Structural engineering recommendation sent to project owner for budget authorization.']);
+            } elseif ($request->bid_type === 'mep') {
+                $bid = \App\Models\BidMep::where('id', $request->bid_id)->where('project_id', $project->id)->firstOrFail();
+
+                // GLOBAL STANDARD: Create a Change Order (Addendum) for Owner approval instead of direct hire
+                $project->addendums()->create([
+                    'role_type' => 'mep',
+                    'user_id' => $user->id,
+                    'title' => 'Engineering Resource: MEP Engineer Selection',
+                    'description' => "Recommendation to hire " . ($bid->mepEngineer->user->name ?? 'Specialist') . " for Mechanical, Electrical, and Plumbing design.\nProposed Fee: Rp " . number_format($bid->price, 0, ',', '.'),
+                    'amount' => $bid->calculated_total ?? $bid->price,
+                    'status' => 'pending_approval',
+                    'recommended_bid_id' => $bid->id,
+                    'recommended_bid_type' => 'mep',
+                ]);
+
+                return response()->json(['message' => 'MEP engineering recommendation sent to project owner for budget authorization.']);
             }
-            $requirements = array_unique(['spk_contract', ...$rawRequirements, 'as_built_drawings', 'misc_legal']);
-            $labels = [
-                'spk_contract' => 'SPK (Owner-Pro Contract)',
-                'land_verification' => 'AJB & Balik Nama (Title Due Diligence)',
-                'pbg_permit' => 'PBG (Building & Planning Permit)',
-                'as_built_drawings' => 'As-Built Drawings (Record Drawings)',
-                'slf_certification' => 'SLF Certification (Certificate of Occupancy)',
-                'misc_legal' => 'Field Reports (Misc Progress)'
-            ];
 
-            foreach ($requirements as $index => $req) {
-                $title = $labels[$req] ?? ucwords(str_replace(['_', '-'], ' ', (string)$req));
-                
+            // --- BUDGET AUTHORIZATION GATE (Indonesian Standard: Permen PUPR) ---
+            // Instead of immediately deducting the budget, create an addendum
+            // that requires explicit Owner approval before funds are allocated.
+            $project->addendums()->create([
+                'role_type' => $request->bid_type,
+                'user_id' => $user->id,
+                'title' => ucwords($request->bid_type) . ' Professional Fee Authorization',
+                'description' => "PM recommends hiring {$bidderName} for project \"{$project->title}\".\nProposed Fee: Rp " . number_format($totalDeduction, 0, ',', '.'),
+                'amount' => $totalDeduction,
+                'status' => 'pending_approval',
+                'recommended_bid_id' => $bid->id,
+                'recommended_bid_type' => $request->bid_type,
+            ]);
+
+            // Notify the Owner that a budget authorization is pending
+            Notification::create([
+                'user_id' => $project->user_id,
+                'type' => 'budget_authorization',
+                'title' => 'Budget Authorization Required',
+                'body' => "Your PM has hired {$bidderName} for project \"{$project->title}\". Please authorize the budget of Rp " . number_format($totalDeduction, 0, ',', '.') . ".",
+                'data' => ['project_id' => $project->id],
+            ]);
+
+            // Notify the hired professional
+            if ($bidderUserId) {
+                Notification::create([
+                    'user_id' => $bidderUserId,
+                    'type' => 'bid_accepted',
+                    'title' => 'Congratulations! Your Bid was Accepted',
+                    'body' => "Your proposal for project \"{$project->title}\" has been accepted. Awaiting owner budget authorization.",
+                    'data' => ['project_id' => $project->id],
+                ]);
+            }
+
+            if ($project->status === 'in_progress') {
                 \App\Models\ProjectMilestone::firstOrCreate(
-                    ['project_id' => $project->id, 'title' => $title],
-                    [
-                        'notaris_id' => $bid->notaris->user_id,
-                        'description' => 'Final verified ' . $title . ' document and legal processing notes.',
-                        'type' => 'legal',
-                        'phase_context' => 'legal',
-                        'sort_order' => $index,
-                        'is_completed' => false,
-                        'approval_status' => 'in_progress',
-                    ]
+                    ['project_id' => $project->id, 'title' => 'Project Kickoff'],
+                    ['description' => 'Contract executed. The project is ready to begin.', 'status' => 'pending']
                 );
             }
-        } elseif ($request->bid_type === 'interior') {
-            $bid = \App\Models\BidInterior::where('id', $request->bid_id)->where('project_id', $project->id)->firstOrFail();
-            $bid->update(['status' => 'accepted']);
-            \App\Models\BidInterior::where('project_id', $project->id)->where('id', '!=', $bid->id)->update(['status' => 'rejected']);
-            
-            $totalDeduction = $bid->calculated_total ?? $bid->price;
-            $project->update(['selected_interior_id' => $bid->interior_id]);
-        } elseif ($request->bid_type === 'structural') {
-            $bid = \App\Models\BidStructural::where('id', $request->bid_id)->where('project_id', $project->id)->firstOrFail();
-            
-            // GLOBAL STANDARD: Create a Change Order (Addendum) for Owner approval instead of direct hire
-            $project->addendums()->create([
-                'role_type' => 'structural',
-                'user_id' => $user->id, // PM or Owner who recommends
-                'title' => 'Engineering Resource: Structural Engineer Selection',
-                'description' => "Recommendation to hire " . ($bid->structuralEngineer->user->name ?? 'Specialist') . " for structural analysis.\nProposed Fee: Rp " . number_format($bid->price, 0, ',', '.'),
-                'amount' => $bid->calculated_total ?? $bid->price,
-                'status' => 'pending_approval',
-                'recommended_bid_id' => $bid->id,
-                'recommended_bid_type' => 'structural',
+
+            ProjectActivityLog::create([
+                'project_id' => $project->id,
+                'user_id' => Auth::id(),
+                'action' => 'bid_accepted',
+                'details' => "Accepted {$request->bid_type} bid. Budget authorization pending owner approval.",
             ]);
 
-            return response()->json(['message' => 'Structural engineering recommendation sent to project owner for budget authorization.']);
-        } elseif ($request->bid_type === 'mep') {
-            $bid = \App\Models\BidMep::where('id', $request->bid_id)->where('project_id', $project->id)->firstOrFail();
-            
-            // GLOBAL STANDARD: Create a Change Order (Addendum) for Owner approval instead of direct hire
-            $project->addendums()->create([
-                'role_type' => 'mep',
-                'user_id' => $user->id, // PM or Owner who recommends
-                'title' => 'Engineering Resource: MEP Engineer Selection',
-                'description' => "Recommendation to hire " . ($bid->mepEngineer->user->name ?? 'Specialist') . " for Mechanical, Electrical, and Plumbing design.\nProposed Fee: Rp " . number_format($bid->price, 0, ',', '.'),
-                'amount' => $bid->calculated_total ?? $bid->price,
-                'status' => 'pending_approval',
-                'recommended_bid_id' => $bid->id,
-                'recommended_bid_type' => 'mep',
-            ]);
+            $project->load([
+                'arsitek.user.phoneNumber',
+                'kontraktor.user.phoneNumber',
+                'notaris.user.phoneNumber',
+                'interior.user.phoneNumber',
+                'bidsArsitek.arsitek.user.phoneNumber',
+                'bidsKontraktor.kontraktor.user.phoneNumber',
+                'bidsNotaris.notaris.user.phoneNumber',
+                'bidsInterior.interior.user.phoneNumber',
+                'bidsProjectManager.pm.user',
+                'user',
+                'images',
+                'ratings',
+                'kontraktorRating',
+                'projectManager.user'
+            ])->loadCount(['bidsArsitek', 'bidsKontraktor', 'bidsNotaris', 'bidsInterior', 'bidsProjectManager']);
 
-            return response()->json(['message' => 'MEP engineering recommendation sent to project owner for budget authorization.']);
-        }
-
-        // Apply Budget Deduction & Enforce Safety
-        if ($project->budget < $totalDeduction) {
-            return response()->json([
-                'message' => 'Insufficient project budget. ' . 
-                             'Cost (Rp ' . number_format($totalDeduction, 0, ',', '.') . ') ' .
-                             'exceeds available budget (Rp ' . number_format($project->budget, 0, ',', '.') . ').'
-            ], 400);
-        }
-
-        $project->update(['budget' => $project->budget - $totalDeduction]);
-
-        // Log Financial Transaction
-        ProjectBudgetTransaction::create([
-            'project_id' => $project->id, 
-            'transaction_type' => 'adjustment_down',
-            'amount' => $totalDeduction,
-            'title' => ucwords($request->bid_type) . " Professional Fee Allocation",
-            'reference_model' => "Bid" . ucwords($request->bid_type),
-            'reference_id' => $bid->id,
-            'transaction_date' => now(),
-        ]);
-
-        $bidderUserId = match ($request->bid_type) {
-            'arsitek' => $bid->arsitek->user_id,
-            'kontraktor' => $bid->kontraktor->user_id,
-            'notaris' => $bid->notaris->user_id,
-            'interior' => $bid->interior->user_id,
-            'structural' => $bid->structuralEngineer->user_id,
-            'mep' => $bid->mepEngineer->user_id,
-        };
-        
-        Notification::create([
-            'user_id' => $bidderUserId,
-            'type' => 'bid_accepted',
-            'title' => 'Congratulations! Your Bid was Accepted',
-            'body' => "Your proposal for project \"{$project->title}\" has been accepted.",
-            'data' => ['project_id' => $project->id],
-        ]);
-
-        if ($project->status === 'in_progress') {
-            \App\Models\ProjectMilestone::firstOrCreate(
-                ['project_id' => $project->id, 'title' => 'Project Kickoff'],
-                ['description' => 'Contract executed. The project is ready to begin.', 'status' => 'pending']
-            );
-        }
-
-        ProjectActivityLog::create([
-            'project_id' => $project->id,
-            'user_id' => Auth::id(),
-            'action' => 'bid_accepted',
-            'details' => "Accepted {$request->bid_type} bid",
-        ]);
-
-        $project->load([
-            'arsitek.user.phoneNumber',
-            'kontraktor.user.phoneNumber',
-            'notaris.user.phoneNumber',
-            'interior.user.phoneNumber',
-            'bidsArsitek.arsitek.user.phoneNumber',
-            'bidsKontraktor.kontraktor.user.phoneNumber',
-            'bidsNotaris.notaris.user.phoneNumber',
-            'bidsInterior.interior.user.phoneNumber',
-            'bidsProjectManager.pm.user',
-            'user',
-            'images',
-            'ratings',
-            'kontraktorRating',
-            'projectManager.user'
-        ])->loadCount(['bidsArsitek', 'bidsKontraktor', 'bidsNotaris', 'bidsInterior', 'bidsProjectManager']);
-
-        return new ProjectResource($project);
+            return new ProjectResource($project);
         });
     }
 
