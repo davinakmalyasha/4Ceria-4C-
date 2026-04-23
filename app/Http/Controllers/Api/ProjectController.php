@@ -101,7 +101,7 @@ class ProjectController extends Controller
                         ->orWhere('needed_phases', '[]');
                 })
                     ->whereJsonContains('published_bidding_roles', 'interior')
-                    ->whereIn('status', ['open', 'accepted_arsitek', 'accepted_kontraktor', 'in_progress']);
+                    ->whereIn('status', ['open', 'accepted_arsitek', 'accepted_kontraktor', 'in_progress', 'completed_build']);
             } elseif ($user->role_type === 'project_manager') {
                 $pmId = optional($user->project_manager)->id;
                 $query->where('wants_project_manager', true)
@@ -295,7 +295,7 @@ class ProjectController extends Controller
             return response()->json(['message' => 'Only verified professionals can submit bids.'], 403);
         }
 
-        $allowedStatuses = ['open', 'accepted_arsitek', 'accepted_kontraktor', 'procurement', 'in_progress'];
+        $allowedStatuses = ['open', 'accepted_arsitek', 'accepted_kontraktor', 'procurement', 'in_progress', 'completed_build'];
         if (! in_array($project->status, $allowedStatuses)) {
             return response()->json(['message' => 'This project is no longer accepting bids.'], 422);
         }
@@ -387,6 +387,7 @@ class ProjectController extends Controller
                 'arsitek_id' => $profile->id,
                 'scopes' => is_string($request->scopes) ? json_decode($request->scopes, true) : $request->scopes,
                 'deliverables' => is_string($request->deliverables) ? json_decode($request->deliverables, true) : $request->deliverables,
+                'style' => $request->style,
             ]));
         } elseif ($user->role_type === 'kontraktor') {
             $profile = \App\Models\Kontraktor::where('user_id', $user->id)->firstOrFail();
@@ -445,8 +446,9 @@ class ProjectController extends Controller
 
             \App\Models\BidInterior::create(array_merge($baseData, [
                 'interior_id' => $profile->id,
-                'scopes' => $request->scopes,
-                'deliverables' => $request->deliverables,
+                'scopes' => is_string($request->scopes) ? json_decode($request->scopes, true) : $request->scopes,
+                'deliverables' => is_string($request->deliverables) ? json_decode($request->deliverables, true) : $request->deliverables,
+                'style' => $request->style,
             ]));
         } elseif ($user->role_type === 'structural') {
             $profile = \App\Models\StructuralEngineer::where('user_id', $user->id)->firstOrFail();
@@ -1307,6 +1309,11 @@ class ProjectController extends Controller
         } elseif ($user->role_type === 'kontraktor' && $project->selected_kontraktor_id) {
             $kontraktor = \App\Models\Kontraktor::where('user_id', $user->id)->first();
             if ($kontraktor && $kontraktor->id === $project->selected_kontraktor_id) {
+                $isWorker = true;
+            }
+        } elseif ($user->role_type === 'interior' && $project->selected_interior_id) {
+            $interior = \App\Models\InteriorProfile::where('user_id', $user->id)->first();
+            if ($interior && $interior->id === $project->selected_interior_id) {
                 $isWorker = true;
             }
         }

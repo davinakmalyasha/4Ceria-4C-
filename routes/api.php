@@ -122,6 +122,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/projects/{project}/seal-design', [ProjectFeatureController::class, 'sealDesign']);
     Route::delete('/projects/{project}/milestones/{milestone}', [ProjectFeatureController::class, 'deleteMilestone']);
     Route::post('/projects/{project}/milestones/{milestone}/verify-pm', [ProjectFeatureController::class, 'verifyMilestonePM']);
+    Route::post('/projects/{project}/milestones/{milestone}/material-request', [ProjectFeatureController::class, 'requestMaterialFromMilestone']);
 
 
     // Construction Daily Logs

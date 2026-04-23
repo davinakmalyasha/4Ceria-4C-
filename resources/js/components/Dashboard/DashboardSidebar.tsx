@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Home, FolderKanban, Compass, MessageSquare, User as UserIcon, LogOut, Search, CheckSquare, FileText, Building, Truck, Package, Users, ShoppingBag, Heart } from 'lucide-react';
+import { Home, FolderKanban, Compass, MessageSquare, User as UserIcon, LogOut, Search, CheckSquare, FileText, Building, Truck, Package, Users, ShoppingBag, Heart, Paintbrush, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 interface SidebarProps {
@@ -16,6 +16,8 @@ const USER_NAV = [
     { id: 'houses', label: 'Browse Houses', icon: Building },
     { id: 'architects', label: 'Hire Architect', icon: Users },
     { id: 'constructors', label: 'Hire Constructor', icon: Users },
+    { id: 'interior', label: 'Hire Interior', icon: Paintbrush },
+    { id: 'notaris', label: 'Legal & Notary', icon: ShieldCheck },
     { id: 'marketplace', label: 'Marketplace', icon: ShoppingBag },
     { id: 'material-orders', label: 'My Orders', icon: Package },
     { id: 'saved', label: 'Saved Items', icon: Heart },
@@ -24,8 +26,12 @@ const USER_NAV = [
 ];
 
 const PRO_NAV = (role: string) => {
-    const label = role === 'notaris' ? 'Legal' : role === 'interior' ? 'Interior' : role === 'arsitek' ? 'Architect' : 'Constructor';
-    return [
+    const label = role === 'notaris' ? 'Legal' : 
+                  role === 'interior' ? 'Interior' : 
+                  role === 'arsitek' ? 'Architect' : 
+                  role === 'project_manager' ? 'Project Manager' :
+                  'Constructor';
+    const nav = [
         { id: 'overview', label: 'Home', icon: Home },
         { id: 'projects', label: 'Bidding Board', icon: Search },
         { id: 'management', label: 'My Projects', icon: CheckSquare },
@@ -33,6 +39,16 @@ const PRO_NAV = (role: string) => {
         { id: 'chat', label: 'Inbox', icon: MessageSquare },
         { id: 'profile', label: `${label} Profile`, icon: UserIcon },
     ];
+
+    // Add marketplace for contractors
+    if (role === 'kontraktor') {
+        const marketplaceIndex = nav.findIndex(item => item.id === 'management');
+        if (marketplaceIndex !== -1) {
+            nav.splice(marketplaceIndex + 1, 0, { id: 'marketplace', label: 'Marketplace', icon: ShoppingBag });
+        }
+    }
+
+    return nav;
 };
 
 const SUPPLIER_NAV = [
@@ -53,10 +69,10 @@ const LOGISTICS_NAV = [
 ];
 
 function getNavItems(role?: string) {
-    if (role === 'user') return USER_NAV;
+    if (!role || role === 'user') return USER_NAV;
     if (role === 'supplier') return SUPPLIER_NAV;
     if (role === 'logistics') return LOGISTICS_NAV;
-    return PRO_NAV(role || 'arsitek');
+    return PRO_NAV(role);
 }
 
 export const DashboardSidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen, activeTab, setActiveTab }) => {
@@ -73,7 +89,7 @@ export const DashboardSidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSideb
             >
                 <div className="p-5 flex items-center gap-3 border-b border-gray-100">
                     <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center text-white font-black text-sm shadow-lg shadow-red-200">
-                        {user?.name.charAt(0).toUpperCase()}
+                        {user?.name?.charAt(0).toUpperCase()}
                     </div>
                     <div className="min-w-0">
                         <p className="text-sm font-bold text-gray-900 truncate">{user?.name}</p>
