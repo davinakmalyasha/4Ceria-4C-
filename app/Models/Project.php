@@ -85,6 +85,14 @@ class Project extends Model
         'interior_handover_notes',
         'legal_handover_submitted_at',
         'legal_handover_notes',
+        'final_walkthrough_at',
+        'owner_accepted_at',
+        'owner_acceptance_notes',
+        'owner_design_approved_at',
+        'owner_build_approved_at',
+        'owner_interior_approved_at',
+        'warranty_start_at',
+        'warranty_end_at',
     ];
 
     protected $casts = [
@@ -120,6 +128,13 @@ class Project extends Model
         'construction_handover_submitted_at' => 'datetime',
         'interior_handover_submitted_at' => 'datetime',
         'legal_handover_submitted_at' => 'datetime',
+        'final_walkthrough_at' => 'datetime',
+        'owner_accepted_at' => 'datetime',
+        'owner_design_approved_at' => 'datetime',
+        'owner_build_approved_at' => 'datetime',
+        'owner_interior_approved_at' => 'datetime',
+        'warranty_start_at' => 'datetime',
+        'warranty_end_at' => 'datetime',
     ];
 
     public function user()
@@ -275,5 +290,25 @@ class Project extends Model
     public function bidsMep()
     {
         return $this->hasMany(BidMep::class, 'project_id');
+    }
+
+    public function snagItems()
+    {
+        return $this->hasMany(ProjectSnagItem::class)->orderBy('created_at', 'desc');
+    }
+
+    public function changeOrders()
+    {
+        return $this->hasMany(ProjectChangeOrder::class)->orderBy('created_at', 'desc');
+    }
+
+    public function warrantyClaims()
+    {
+        return $this->hasMany(ProjectWarrantyClaim::class)->orderBy('created_at', 'desc');
+    }
+
+    public function timelineExtensions()
+    {
+        return $this->hasMany(ProjectTimelineExtension::class)->orderBy('created_at', 'desc');
     }
 }
