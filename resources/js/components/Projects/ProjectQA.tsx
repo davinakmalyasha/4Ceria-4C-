@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import axios from 'axios';
 import { MessageSquare, Send, User } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -18,20 +19,11 @@ export default function ProjectQA({ project, onRefresh }: ProjectQAProps) {
 
         setIsSubmitting(true);
         try {
-            const response = await fetch(`/api/projects/${project.id}/comments`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as any)?.content
-                },
-                body: JSON.stringify({ content: newComment })
+            await axios.post(`/projects/${project.id}/comments`, {
+                content: newComment
             });
-
-            if (response.ok) {
-                setNewComment('');
-                onRefresh();
-            }
+            setNewComment('');
+            onRefresh();
         } catch (error) {
             console.error('Failed to post comment:', error);
         } finally {
