@@ -1,10 +1,10 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Shield, Pencil, Hammer, Package, Armchair, KeyRound, Check } from 'lucide-react';
+import { Shield, Pencil, Hammer, Package, Armchair, KeyRound, Check, Users } from 'lucide-react';
 import { Phase, PhaseKey } from '../../types/phase.types';
 
 const ICON_MAP: Record<string, React.ElementType> = {
-    Shield, Pencil, Hammer, Package, Sofa: Armchair, Key: KeyRound,
+    Shield, Pencil, Hammer, Package, Sofa: Armchair, Key: KeyRound, Users
 };
 
 const PARALLEL_KEYS: PhaseKey[] = ['build', 'materials', 'interior'];
