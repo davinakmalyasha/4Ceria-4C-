@@ -61,6 +61,8 @@ class Project extends Model
         'planning_submitted_at',
         'planning_approved_at',
         'design_payment_verified_at',
+        'construction_payment_verified_at',
+        'interior_payment_verified_at',
         'pm_audit_notes',
         'pm_audit_attachments',
         'architect_notes',
@@ -91,8 +93,12 @@ class Project extends Model
         'owner_design_approved_at',
         'owner_build_approved_at',
         'owner_interior_approved_at',
+        'owner_legal_approved_at',
         'warranty_start_at',
         'warranty_end_at',
+        'legal_detail',
+        'wants_to_discuss_later',
+        'bidding_choices',
     ];
 
     protected $casts = [
@@ -104,9 +110,11 @@ class Project extends Model
         'project_dimensions' => 'array',
         'legal_requirements' => 'array',
         'published_bidding_roles' => 'array',
+        'bidding_choices' => 'array',
         'wants_project_manager' => 'boolean',
         'requires_structural' => 'boolean',
         'requires_mep' => 'boolean',
+        'wants_to_discuss_later' => 'boolean',
         'design_locked_at' => 'datetime',
         'construction_locked_at' => 'datetime',
         'interior_locked_at' => 'datetime',
@@ -133,6 +141,7 @@ class Project extends Model
         'owner_design_approved_at' => 'datetime',
         'owner_build_approved_at' => 'datetime',
         'owner_interior_approved_at' => 'datetime',
+        'owner_legal_approved_at' => 'datetime',
         'warranty_start_at' => 'datetime',
         'warranty_end_at' => 'datetime',
     ];
