@@ -12,6 +12,7 @@ use App\Models\Project;
 use App\Models\ProjectActivityLog;
 use App\Models\ProjectBudgetTransaction;
 use App\Models\ProjectMilestone;
+use App\Models\ProjectExternalVendor;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -19,6 +20,12 @@ use Illuminate\Support\Facades\Storage;
 
 class ProjectController extends Controller
 {
+    protected $lifecycleService;
+
+    public function __construct(\App\Services\ProjectLifecycleService $lifecycleService)
+    {
+        $this->lifecycleService = $lifecycleService;
+    }
     public function index(\Illuminate\Http\Request $request)
     {
         $user = Auth::guard('sanctum')->user();
@@ -75,7 +82,10 @@ class ProjectController extends Controller
                     $q->where('target_role', 'kontraktor')
                         ->orWhere(function ($sq) {
                             $sq->where('target_role', 'both')
-                                ->whereNotNull('design_completed_at');
+                                ->where(function ($inner) {
+                                    $inner->whereNotNull('design_completed_at')
+                                        ->orWhereJsonContains('published_bidding_roles', 'kontraktor');
+                                });
                         });
                 })
                     ->whereJsonContains('published_bidding_roles', 'kontraktor')
@@ -190,18 +200,24 @@ class ProjectController extends Controller
         $data['user_id'] = Auth::id();
         $data['status'] = 'open';
         $data['wants_project_manager'] = filter_var($request->wants_project_manager, FILTER_VALIDATE_BOOLEAN);
+        $data['wants_to_discuss_later'] = filter_var($request->wants_to_discuss_later, FILTER_VALIDATE_BOOLEAN);
         $data['project_dimensions'] = json_decode($request->project_dimensions, true);
+        $data['legal_detail'] = $request->legal_detail;
         
         $neededPhases = json_decode($request->needed_phases, true) ?? [];
         $data['needed_phases'] = $neededPhases;
 
+        $data['bidding_choices'] = json_decode($request->bidding_choices, true) ?? [];
+
+        $externalVendors = json_decode($request->external_vendors, true) ?? [];
+
         // Auto-publish the first non-management phase if PM is not wanted, 
         // or just management if PM is wanted.
+        // CRITICAL: Only publish if NOT handled by an external vendor.
         $published = [];
-        if ($data['wants_project_manager']) {
+        if ($data['wants_project_manager'] && !isset($externalVendors['project_manager'])) {
             $published[] = 'project_manager';
         } else {
-            // Find the first professional role needed
             $roleMap = [
                 'legal' => 'notaris',
                 'design' => 'arsitek',
@@ -209,8 +225,9 @@ class ProjectController extends Controller
                 'interior' => 'interior'
             ];
             foreach ($neededPhases as $phase) {
-                if (isset($roleMap[$phase])) {
-                    $published[] = $roleMap[$phase];
+                $role = $roleMap[$phase] ?? null;
+                if ($role && !isset($externalVendors[$role])) {
+                    $published[] = $role;
                     break;
                 }
             }
@@ -224,6 +241,19 @@ class ProjectController extends Controller
         DB::beginTransaction();
         try {
             $project = Project::create($data);
+
+            // Save External Vendors
+            foreach ($externalVendors as $role => $vendor) {
+                if (!empty($vendor['contact_person']) && !empty($vendor['phone_number'])) {
+                    ProjectExternalVendor::create([
+                        'project_id' => $project->id,
+                        'phase_role' => $role,
+                        'contact_person' => $vendor['contact_person'],
+                        'phone_number' => $vendor['phone_number'],
+                        'company_name' => $vendor['company_name'] ?? null,
+                    ]);
+                }
+            }
 
             // Save multiple images
             if ($request->hasFile('images')) {
@@ -291,7 +321,7 @@ class ProjectController extends Controller
     {
         $user = Auth::user();
 
-        if (! in_array($user->role_type, ['arsitek', 'kontraktor', 'notaris', 'interior', 'structural', 'mep'])) {
+        if (! in_array($user->role_type, ['arsitek', 'kontraktor', 'notaris', 'interior', 'structural', 'mep', 'project_manager'])) {
             return response()->json(['message' => 'Only verified professionals can submit bids.'], 403);
         }
 
@@ -319,6 +349,9 @@ class ProjectController extends Controller
         if ($user->role_type === 'mep' && $project->mep_id) {
             return response()->json(['message' => 'An MEP engineer has already been hired for this project.'], 422);
         }
+        if ($user->role_type === 'project_manager' && $project->pm_id) {
+            return response()->json(['message' => 'A Project Manager has already been hired for this project.'], 422);
+        }
 
         // Project target role check
         if ($project->target_role !== 'both' && $project->target_role !== $user->role_type) {
@@ -327,7 +360,10 @@ class ProjectController extends Controller
 
         // Sequential Bidding Constraint
         if ($user->role_type === 'kontraktor' && $project->target_role === 'both' && !$project->design_completed_at) {
-            return response()->json(['message' => 'Contractor bids are only accepted after the design package has been finalized and sealed by the Architect.'], 422);
+            // Allow if explicitly published
+            if (!collect($project->published_bidding_roles)->contains('kontraktor')) {
+                return response()->json(['message' => 'Contractor bids are only accepted after the design package has been finalized and sealed by the Architect.'], 422);
+            }
         }
 
         $request->validate([
@@ -477,6 +513,25 @@ class ProjectController extends Controller
                 'unit_price' => $request->unit_price,
                 'quantity' => $request->quantity,
                 'calculated_total' => $request->calculated_total,
+            ]));
+        } elseif ($user->role_type === 'project_manager') {
+            $profile = \App\Models\ProjectManager::where('user_id', $user->id)->firstOrFail();
+
+            if ($profile->verification_status !== 'verified') {
+                return response()->json(['message' => 'Your account is pending verification. You can only bid once verified.'], 403);
+            }
+
+            $existing = \App\Models\BidProjectManager::where('project_id', $project->id)
+                ->where('pm_id', $profile->id)->first();
+            if ($existing) {
+                return response()->json(['message' => 'You have already submitted a bid for this project.'], 422);
+            }
+
+            \App\Models\BidProjectManager::create(array_merge($baseData, [
+                'pm_id' => $profile->id,
+                'fee_type' => $request->fee_type ?? 'fixed',
+                'scopes' => is_string($request->scopes) ? json_decode($request->scopes, true) : $request->scopes,
+                'deliverables' => is_string($request->deliverables) ? json_decode($request->deliverables, true) : $request->deliverables,
             ]));
         }
 
@@ -731,6 +786,9 @@ class ProjectController extends Controller
                 } else {
                     $project->update(['selected_kontraktor_id' => $bid->kontraktor_id, 'status' => 'accepted_kontraktor']);
                 }
+
+                // IMPLICIT APPROVAL: Hiring a contractor automatically unblocks/verifies the Design phase
+                $this->lifecycleService->implicitVerify($project, 'design');
             } elseif ($request->bid_type === 'notaris') {
                 $bid = \App\Models\BidNotaris::where('id', $request->bid_id)->where('project_id', $project->id)->firstOrFail();
                 $bid->update(['status' => 'accepted']);
