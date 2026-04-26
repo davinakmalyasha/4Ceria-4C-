@@ -7,6 +7,7 @@ import {
     Edit3, Trash2, Save, X
 } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
+import ChangeOrderPanel from './Phases/ChangeOrderPanel';
 
 interface ProjectBudgetManagerProps {
     project: any;
@@ -265,7 +266,7 @@ export default function ProjectBudgetManager({ project, user }: ProjectBudgetMan
                                 <div>
                                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">{type} Base Fee</p>
                                     <h4 className="text-base font-black text-slate-900">{bid[type]?.user?.name || (type.charAt(0).toUpperCase() + type.slice(1))}</h4>
-                                    <p className="text-lg font-black text-slate-700 mt-1">Rp {Number(bid.price || 0).toLocaleString('id-ID')}</p>
+                                    <p className="text-lg font-black text-slate-700 mt-1">Rp {Number((type === 'notaris' && bid.price <= 1) ? (bid.calculated_total || bid.price) : (bid.price || 0)).toLocaleString('id-ID')}</p>
                                 </div>
                                 {bid.payment_status === 'paid' ? (
                                     <span className="px-4 py-2 bg-emerald-100 text-emerald-700 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-1">
@@ -517,6 +518,11 @@ export default function ProjectBudgetManager({ project, user }: ProjectBudgetMan
                         </div>
                     </div>
                 </div>
+            </div>
+
+            {/* CHANGE ORDERS — Scope Changes with Cost Impact */}
+            <div className="bg-white border border-slate-100 rounded-[2.5rem] p-8 shadow-sm">
+                <ChangeOrderPanel project={project} user={user} />
             </div>
         </div>
     );
