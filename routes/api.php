@@ -7,12 +7,25 @@ use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\ProjectController;
 use App\Http\Controllers\Api\ProjectFeatureController;
+use App\Http\Controllers\Api\ProjectPaymentTerminController;
+use App\Http\Controllers\Api\ProjectEngineeringController;
+use App\Http\Controllers\Api\ProjectAddendumController;
+use App\Http\Controllers\Api\ProjectPhaseController;
+use App\Http\Controllers\Api\ProjectActivityController;
 use App\Http\Controllers\Api\RoomController;
 use App\Http\Controllers\MaterialController;
 use App\Http\Controllers\MaterialOrderController;
 use App\Http\Controllers\MaterialQuoteController;
 use App\Http\Controllers\SupplierController;
-use App\Http\Controllers\ProjectLegalController;
+use App\Http\Controllers\Api\ProjectLegalController;
+use App\Http\Controllers\Api\ProjectExtensionController;
+use App\Http\Controllers\Api\ProjectWarrantyController;
+use App\Http\Controllers\Api\ProjectDailyLogController;
+use App\Http\Controllers\Api\ProjectRequirementController;
+use App\Http\Controllers\Api\ProjectDocumentController;
+use App\Http\Controllers\Api\ProjectCommentController;
+use App\Http\Controllers\Api\ProjectMilestoneController;
+use App\Http\Controllers\Api\ProjectHandoverController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -107,6 +120,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/projects/{project}/accept-bid', [ProjectController::class, 'acceptBid']);
     Route::post('/projects/{project}/decline-bid', [ProjectController::class, 'declineBid']);
     Route::get('/my-bids', [ProjectController::class, 'myBids']);
+    Route::get('/user/active-projects', [ProjectController::class, 'getActiveProjects']);
+    Route::post('/projects/{project}/invite', [ProjectController::class, 'inviteProfessional']);
+    Route::post('/projects/{project}/terminate', [\App\Http\Controllers\Api\ProjectTerminationController::class, 'fireProfessional']);
+    Route::post('/projects/{project}/resign', [\App\Http\Controllers\Api\ProjectTerminationController::class, 'resignFromProject']);
 
     // Project Manager Bidding
     Route::post('/projects/{project}/pm-bids', [\App\Http\Controllers\Api\BidProjectManagerController::class, 'store']);
@@ -114,47 +131,77 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/projects/{project}/pm-bids/{bid}/decline', [\App\Http\Controllers\Api\BidProjectManagerController::class, 'decline']);
 
     // Project Features (Milestones, Comments, Documents)
-    Route::get('/projects/{project}/milestones', [ProjectFeatureController::class, 'getMilestones']);
-    Route::post('/projects/{project}/milestones', [ProjectFeatureController::class, 'storeMilestone']);
-    Route::put('/projects/{project}/milestones/{milestone}', [ProjectFeatureController::class, 'updateMilestone']);
-    Route::post('/projects/{project}/milestones/{milestone}/approve', [ProjectFeatureController::class, 'approveMilestone']);
-    Route::post('/projects/{project}/milestones/{milestone}/request-revision', [ProjectFeatureController::class, 'requestMilestoneRevision']);
-    Route::post('/projects/{project}/seal-design', [ProjectFeatureController::class, 'sealDesign']);
-    Route::delete('/projects/{project}/milestones/{milestone}', [ProjectFeatureController::class, 'deleteMilestone']);
-    Route::post('/projects/{project}/milestones/{milestone}/verify-pm', [ProjectFeatureController::class, 'verifyMilestonePM']);
-    Route::post('/projects/{project}/milestones/{milestone}/material-request', [ProjectFeatureController::class, 'requestMaterialFromMilestone']);
+    Route::get('/projects/{project}/milestones', [ProjectMilestoneController::class, 'index']);
+    Route::post('/projects/{project}/milestones', [ProjectMilestoneController::class, 'store']);
+    Route::put('/projects/{project}/milestones/{milestone}', [ProjectMilestoneController::class, 'update']);
+    Route::post('/projects/{project}/milestones/{milestone}/approve', [ProjectMilestoneController::class, 'approve']);
+    Route::post('/projects/{project}/milestones/{milestone}/request-revision', [ProjectMilestoneController::class, 'requestRevision']);
+    Route::post('/projects/{project}/seal-design', [ProjectPhaseController::class, 'sealDesign']);
+    Route::delete('/projects/{project}/milestones/{milestone}', [ProjectMilestoneController::class, 'destroy']);
+    Route::post('/projects/{project}/milestones/{milestone}/verify-pm', [ProjectMilestoneController::class, 'verifyPM']);
 
 
     // Construction Daily Logs
-    Route::get('/projects/{project}/daily-logs', [ProjectFeatureController::class, 'getDailyLogs']);
-    Route::post('/projects/{project}/daily-logs', [ProjectFeatureController::class, 'storeDailyLog']);
-    Route::delete('/projects/{project}/daily-logs/{dailyLog}', [ProjectFeatureController::class, 'deleteDailyLog']);
+    Route::get('/projects/{project}/daily-logs', [ProjectDailyLogController::class, 'index']);
+    Route::post('/projects/{project}/daily-logs', [ProjectDailyLogController::class, 'store']);
+    Route::delete('/projects/{project}/daily-logs/{dailyLog}', [ProjectDailyLogController::class, 'destroy']);
 
     // Payment Termins
-    Route::get('/projects/{project}/payment-termins', [ProjectFeatureController::class, 'getPaymentTermins']);
-    Route::post('/projects/{project}/payment-termins', [ProjectFeatureController::class, 'storePaymentTermin']);
-    Route::put('/projects/{project}/payment-termins/{termin}', [ProjectFeatureController::class, 'updatePaymentTermin']);
-    Route::delete('/projects/{project}/payment-termins/{termin}', [ProjectFeatureController::class, 'deletePaymentTermin']);
+    Route::get('/projects/{project}/payment-termins', [ProjectPaymentTerminController::class, 'getPaymentTermins']);
+    Route::post('/projects/{project}/payment-termins', [ProjectPaymentTerminController::class, 'storePaymentTermin']);
+    Route::put('/projects/{project}/payment-termins/{termin}', [ProjectPaymentTerminController::class, 'updatePaymentTermin']);
+    Route::delete('/projects/{project}/payment-termins/{termin}', [ProjectPaymentTerminController::class, 'deletePaymentTermin']);
 
-    Route::post('/projects/{project}/seal-construction', [ProjectFeatureController::class, 'sealConstruction']);
-    Route::post('/projects/{project}/seal-interior', [ProjectFeatureController::class, 'sealInterior']);
-    Route::post('/projects/{project}/seal-legal', [ProjectLegalController::class, 'sealLegal']);
+    Route::post('/projects/{project}/seal-construction', [ProjectPhaseController::class, 'sealConstruction']);
+    Route::post('/projects/{project}/seal-interior', [ProjectPhaseController::class, 'sealInterior']);
+    Route::post('/projects/{project}/seal-legal', [ProjectPhaseController::class, 'sealLegal']);
+    Route::post('/projects/{project}/verify-design', [ProjectPhaseController::class, 'verifyDesign']);
+    Route::post('/projects/{project}/verify-construction', [ProjectPhaseController::class, 'verifyConstruction']);
+    Route::post('/projects/{project}/verify-interior', [ProjectPhaseController::class, 'verifyInterior']);
+    Route::post('/projects/{project}/verify-legal', [ProjectPhaseController::class, 'verifyLegal']);
     Route::get('/projects/{project}/legal-financials', [ProjectLegalController::class, 'getFinancials']);
     Route::post('/projects/{project}/legal-disbursements', [ProjectLegalController::class, 'storeDisbursement']);
     Route::post('/projects/{project}/legal-disbursements/{id}/verify', [ProjectLegalController::class, 'verifyDisbursement']);
 
-    Route::post('/projects/{project}/milestones/{milestone}/furniture-addendum', [ProjectFeatureController::class, 'createFurnitureAddendum']);
-    Route::post('/projects/{project}/handover/approve', [ProjectFeatureController::class, 'approveHandover']);
-    Route::post('/projects/{project}/handover/reject', [ProjectFeatureController::class, 'requestHandoverRevision']);
+    Route::post('/projects/{project}/milestones/{milestone}/furniture-addendum', [ProjectAddendumController::class, 'createFurnitureAddendum']);
+    Route::post('/projects/{project}/handover/approve', [ProjectHandoverController::class, 'approveHandover']);
+    Route::post('/projects/{project}/handover/reject', [ProjectHandoverController::class, 'requestHandoverRevision']);
+
+    // Owner Confirmation & Final Handover
+    Route::post('/projects/{project}/initiate-walkthrough', [ProjectHandoverController::class, 'initiateWalkthrough']);
+    Route::post('/projects/{project}/owner-accept', [ProjectHandoverController::class, 'ownerAcceptProject']);
+
+    // Snag Items (Defect Tracking)
+    Route::get('/projects/{project}/snag-items', [\App\Http\Controllers\Api\ProjectHandoverController::class, 'getSnagItems']);
+    Route::post('/projects/{project}/snag-items', [\App\Http\Controllers\Api\ProjectHandoverController::class, 'storeSnagItem']);
+    Route::put('/projects/{project}/snag-items/{snagItem}', [\App\Http\Controllers\Api\ProjectHandoverController::class, 'updateSnagItemStatus']);
+    Route::post('/projects/{project}/snag-items/{snagItem}/accept', [\App\Http\Controllers\Api\ProjectHandoverController::class, 'acceptSnagResolution']);
+
+    // Change Orders
+    Route::get('/projects/{project}/change-orders', [\App\Http\Controllers\Api\ProjectChangeOrderController::class, 'index']);
+    Route::post('/projects/{project}/change-orders', [\App\Http\Controllers\Api\ProjectChangeOrderController::class, 'store']);
+    Route::post('/projects/{project}/change-orders/{changeOrder}/pm-review', [\App\Http\Controllers\Api\ProjectChangeOrderController::class, 'pmReview']);
+    Route::post('/projects/{project}/change-orders/{changeOrder}/owner-decide', [\App\Http\Controllers\Api\ProjectChangeOrderController::class, 'ownerDecide']);
+    Route::get('/projects/{project}/bast', [ProjectHandoverController::class, 'getBASTData']);
+
+    // Timeline Extensions
+    Route::get('/projects/{project}/extensions', [ProjectExtensionController::class, 'index']);
+    Route::post('/projects/{project}/extensions', [ProjectExtensionController::class, 'store']);
+    Route::post('/projects/{project}/extensions/{extension}/pm-review', [ProjectExtensionController::class, 'pmReview']);
+    Route::post('/projects/{project}/extensions/{extension}/owner-decide', [ProjectExtensionController::class, 'ownerDecide']);
+
+    // Warranty Claims
+    Route::get('/projects/{project}/warranty-claims', [ProjectWarrantyController::class, 'index']);
+    Route::post('/projects/{project}/warranty-claims', [ProjectWarrantyController::class, 'store']);
+    Route::put('/projects/{project}/warranty-claims/{claim}/status', [ProjectWarrantyController::class, 'updateStatus']);
 
     // Technical Resourcing (Engineering)
-    Route::post('/projects/{project}/request-engineering', [ProjectFeatureController::class, 'requestEngineeringRole']);
-    Route::post('/projects/{project}/verify-engineering/{addendum}', [ProjectFeatureController::class, 'verifyEngineeringRequest']);
-    Route::post('/projects/{project}/approve-engineering-hire/{addendum}', [ProjectFeatureController::class, 'approveEngineeringHire']);
-    Route::post('/projects/{project}/reject-engineering-hire/{addendum}', [ProjectFeatureController::class, 'rejectEngineeringHire']);
-    Route::post('/projects/{project}/seal-design', [ProjectFeatureController::class, 'sealDesign']);
-    Route::post('/projects/{project}/approve-engineering', [ProjectFeatureController::class, 'approveEngineeringIntegration']);
-    Route::post('/projects/{project}/request-engineering-revision', [ProjectFeatureController::class, 'requestEngineeringRevision']);
+    Route::post('/projects/{project}/request-engineering', [ProjectEngineeringController::class, 'requestEngineeringRole']);
+    Route::post('/projects/{project}/verify-engineering/{addendum}', [ProjectEngineeringController::class, 'verifyEngineeringRequest']);
+    Route::post('/projects/{project}/approve-engineering-hire/{addendum}', [ProjectEngineeringController::class, 'approveEngineeringHire']);
+    Route::post('/projects/{project}/reject-engineering-hire/{addendum}', [ProjectEngineeringController::class, 'rejectEngineeringHire']);
+    Route::post('/projects/{project}/approve-engineering', [ProjectEngineeringController::class, 'approveEngineeringIntegration']);
+    Route::post('/projects/{project}/request-engineering-revision', [ProjectEngineeringController::class, 'requestEngineeringRevision']);
 
     // Phase Brief Lock (Prepare → Lock → Execute lifecycle)
     Route::post('/projects/{project}/submit-planning', [ProjectController::class, 'submitPlanning']);
@@ -168,15 +215,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/projects/{project}/revise-construction-brief', [ProjectController::class, 'reviseConstructionBrief']);
     Route::post('/projects/{project}/verify-pbg', [ProjectController::class, 'verifyPBG']);
     Route::post('/projects/{project}/verify-slf', [ProjectController::class, 'verifySLF']);
+    Route::post('/projects/{project}/finalize', [\App\Http\Controllers\Api\ProjectHandoverController::class, 'finalizeProject']);
 
     // Shareable Brief Link
     Route::post('/projects/{project}/share-token', [ProjectController::class, 'generateShareToken']);
     Route::delete('/projects/{project}/share-token', [ProjectController::class, 'revokeShareToken']);
 
-    Route::get('/projects/{project}/comments', [ProjectFeatureController::class, 'getComments']);
-    Route::post('/projects/{project}/comments', [ProjectFeatureController::class, 'storeComment']);
-    Route::put('/projects/{project}/comments/{comment}', [ProjectFeatureController::class, 'updateComment']);
-    Route::delete('/projects/{project}/comments/{comment}', [ProjectFeatureController::class, 'deleteComment']);
+    Route::get('/projects/{project}/comments', [ProjectCommentController::class, 'index']);
+    Route::post('/projects/{project}/comments', [ProjectCommentController::class, 'store']);
+    Route::put('/projects/{project}/comments/{comment}', [ProjectCommentController::class, 'update']);
+    Route::delete('/projects/{project}/comments/{comment}', [ProjectCommentController::class, 'destroy']);
 
     // Phase Gating & External Vendors
     Route::post('/projects/{project}/broadcast-phase', [ProjectController::class, 'broadcastPhase']);
@@ -185,25 +233,27 @@ Route::middleware('auth:sanctum')->group(function () {
     // Reviews
     Route::post('/projects/{project}/review', [\App\Http\Controllers\Api\ReviewController::class, 'store']);
 
-    Route::get('/projects/{project}/documents', [ProjectFeatureController::class, 'getDocuments']);
-    Route::post('/projects/{project}/documents', [ProjectFeatureController::class, 'storeDocument']);
-    Route::delete('/projects/{project}/documents/{document}', [ProjectFeatureController::class, 'deleteDocument']);
+    Route::get('/projects/{project}/documents', [ProjectDocumentController::class, 'index']);
+    Route::post('/projects/{project}/documents', [ProjectDocumentController::class, 'store']);
+    Route::delete('/projects/{project}/documents/{document}', [ProjectDocumentController::class, 'destroy']);
 
     // Ratings & Activity Log
-    Route::post('/projects/{project}/rate', [ProjectFeatureController::class, 'rateProject']);
-    Route::get('/projects/{project}/activity', [ProjectFeatureController::class, 'getActivity']);
+    Route::post('/projects/{project}/rate', [ProjectActivityController::class, 'rateProject']);
+    Route::get('/projects/{project}/activity', [ProjectActivityController::class, 'getActivity']);
+    Route::get('/projects/{project}/pending-actions', [ProjectActivityController::class, 'getPendingActions']);
 
     // Material Requirements (Bill of Materials)
-    Route::get('/projects/{project}/requirements', [ProjectFeatureController::class, 'getRequirements']);
-    Route::post('/projects/{project}/requirements', [ProjectFeatureController::class, 'storeRequirement']);
-    Route::put('/projects/{project}/requirements/{requirement}', [ProjectFeatureController::class, 'updateRequirement']);
-    Route::delete('/projects/{project}/requirements/{requirement}', [ProjectFeatureController::class, 'deleteRequirement']);
-    Route::post('/projects/{project}/requirements/{requirement}/usage', [ProjectFeatureController::class, 'logRequirementUsage']);
-    Route::post('/projects/{project}/requirements/{requirement}/manual-procurement', [ProjectFeatureController::class, 'logExternalProcurement']);
-    Route::post('/projects/{project}/requirements/{requirement}/request-procurement', [ProjectFeatureController::class, 'requestProcurement']);
-    Route::get('/projects/{project}/procurement-requests', [ProjectFeatureController::class, 'getProcurementRequests']);
-    Route::post('/projects/{project}/procurement-requests/{procurementRequest}/verify', [ProjectFeatureController::class, 'pmVerifyProcurement']);
-    Route::post('/projects/{project}/procurement-requests/{procurementRequest}/reject', [ProjectFeatureController::class, 'pmRejectProcurement']);
+    Route::get('/projects/{project}/requirements', [ProjectRequirementController::class, 'index']);
+    Route::post('/projects/{project}/requirements', [ProjectRequirementController::class, 'store']);
+    Route::put('/projects/{project}/requirements/{requirement}', [ProjectRequirementController::class, 'update']);
+    Route::delete('/projects/{project}/requirements/{requirement}', [ProjectRequirementController::class, 'destroy']);
+    Route::post('/projects/{project}/requirements/{requirement}/usage', [ProjectRequirementController::class, 'logUsage']);
+    Route::post('/projects/{project}/requirements/{requirement}/manual-procurement', [ProjectRequirementController::class, 'logExternalProcurement']);
+    Route::post('/projects/{project}/requirements/{requirement}/request-procurement', [ProjectRequirementController::class, 'requestProcurement']);
+    Route::get('/projects/{project}/procurement-requests', [ProjectRequirementController::class, 'getProcurementRequests']);
+    Route::post('/projects/{project}/procurement-requests/{procurementRequest}/reject', [ProjectRequirementController::class, 'pmRejectProcurement']);
+    Route::post('/projects/{project}/procurement-requests/{procurementRequest}/owner-approve', [ProjectRequirementController::class, 'ownerApproveProcurement']);
+    Route::post('/projects/{project}/procurement-requests/{procurementRequest}/owner-reject', [ProjectRequirementController::class, 'ownerRejectProcurement']);
 
     // Project Budget & Finance Endpoints
     Route::get('/projects/{project}/budget', [\App\Http\Controllers\Api\ProjectBudgetController::class, 'getDashboard']);
@@ -215,6 +265,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/projects/{project}/budget/sandbox/{id}', [\App\Http\Controllers\Api\ProjectBudgetController::class, 'deleteSandboxItem']);
     Route::post('/projects/{project}/budget/addendums', [\App\Http\Controllers\Api\ProjectBudgetController::class, 'createAddendum']);
     Route::put('/projects/{project}/budget/addendums/{id}', [\App\Http\Controllers\Api\ProjectBudgetController::class, 'handleAddendumStatus']);
+
+    // Generic Addendum Authorization
+    Route::post('/projects/{project}/addendums/{addendum}/approve', [ProjectAddendumController::class, 'approveAddendum']);
+    Route::post('/projects/{project}/addendums/{addendum}/reject', [ProjectAddendumController::class, 'rejectAddendum']);
 
     // Notifications
     Route::get('/notifications', [NotificationController::class, 'index']);
