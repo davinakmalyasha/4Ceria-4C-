@@ -40,7 +40,7 @@ export default function ProjectRequirements({ project, onUpdate }: ProjectRequir
             setIsAdding(false);
             setNewRequirement({ name: '', quantity_required: '', unit: 'Pcs', notes: '' });
             showToast('Requirement added successfully', 'success');
-            onUpdate();
+            onUpdate?.();
 
         } catch (err: any) {
             setError(err.response?.data?.message || 'Failed to add requirement');
@@ -53,7 +53,7 @@ export default function ProjectRequirements({ project, onUpdate }: ProjectRequir
         try {
             await axios.delete(`/projects/${project.id}/requirements/${id}`);
             showToast('Requirement removed', 'success');
-            onUpdate();
+            onUpdate?.();
 
         } catch (err) {
             console.error('Delete failed', err);
@@ -70,7 +70,7 @@ export default function ProjectRequirements({ project, onUpdate }: ProjectRequir
             setUsageModal(null);
             setUsageQty('');
             showToast('Usage logged successfully', 'success');
-            onUpdate();
+            onUpdate?.();
         } catch (err: any) {
             showToast(err.response?.data?.message || 'Failed to log usage', 'error');
         } finally {

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
-    ShieldCheck, FileText, Upload, CheckCircle2, 
-    X, Save, Download, Eye, AlertCircle, Clock, Plus, Loader2, Pencil
+    ShieldCheck, Plus, Clock, Save, FileText, CheckCircle2, 
+    Loader2, X, Download, Upload, Pencil, ImageIcon, RefreshCw, Wallet, ExternalLink 
 } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
 import { Project, ProjectMilestone } from '../../../types/project.types';
@@ -13,23 +13,44 @@ interface LegalProgressProps {
     currentUser: any;
     isNotaris: boolean;
     onUpdate?: () => void;
+    onGoToPayments?: () => void;
 }
 
-export default function LegalProgress({ project, currentUser, isNotaris, onUpdate }: LegalProgressProps) {
+export default function LegalProgress({ project, currentUser, isNotaris, onUpdate, onGoToPayments }: LegalProgressProps) {
     const [milestones, setMilestones] = useState<ProjectMilestone[]>([]);
     const [loading, setLoading] = useState(true);
     const [submittingId, setSubmittingId] = useState<number | null>(null);
     const [isAdding, setIsAdding] = useState(false);
     const [newTitle, setNewTitle] = useState('');
     const [newDesc, setNewDesc] = useState('');
+    const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
     const [isCreating, setIsCreating] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
     const [editTitle, setEditTitle] = useState('');
     const [editDesc, setEditDesc] = useState('');
+    const [termins, setTermins] = useState<any[]>([]);
     
     const { showToast } = useToast();
 
+    const getStatusStyles = (status?: string) => {
+        switch (status) {
+            case 'approved': return 'bg-emerald-50 text-emerald-600 border border-emerald-100';
+            case 'revision': return 'bg-red-50 text-red-600 border border-red-100';
+            default: return 'bg-zinc-100 text-zinc-600 border border-zinc-200';
+        }
+    };
+
     // Derived permissions
+    if (!project) {
+        return (
+            <div className="py-20 text-center animate-pulse">
+                <Clock size={40} className="mx-auto text-zinc-100 mb-4" />
+                <p className="text-[10px] text-zinc-400 font-black uppercase tracking-widest">Hydrating Progress...</p>
+            </div>
+        );
+    }
+
     const isOwner = currentUser?.id === project.user_id;
     const isPM = currentUser?.role_type === 'project_manager' && project.pm_id === currentUser?.id;
     const canApprove = isOwner || isPM;
@@ -37,9 +58,7 @@ export default function LegalProgress({ project, currentUser, isNotaris, onUpdat
     const fetchLegalMilestones = async () => {
         if (!project?.id) return;
         try {
-            const res = await axios.get(`/projects/${project.id}/milestones`, {
-                params: { phase_context: 'legal' }
-            });
+            const res = await axios.get(`/projects/${project.id}/milestones`);
             const data = res.data?.data || [];
             // Filter and sort by milestones specifically for legal or tagged as legal
             setMilestones(data.filter((m: any) => m.type === 'legal' || m.phase_context === 'legal')
@@ -51,8 +70,18 @@ export default function LegalProgress({ project, currentUser, isNotaris, onUpdat
         }
     };
 
+    const fetchTermins = async () => {
+        try {
+            const res = await axios.get(`/projects/${project.id}/payment-termins`);
+            setTermins(res.data.data);
+        } catch (error) {
+            console.error('Failed to fetch termins', error);
+        }
+    };
+
     useEffect(() => {
         fetchLegalMilestones();
+        fetchTermins();
     }, [project.id]);
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, milestoneId: number) => {
@@ -86,17 +115,26 @@ export default function LegalProgress({ project, currentUser, isNotaris, onUpdat
 
         setIsCreating(true);
         try {
-            await axios.post(`/projects/${project.id}/milestones`, {
-                title: newTitle,
-                description: newDesc,
-                type: 'legal',
-                phase_context: 'legal',
-                sort_order: milestones.length
+            const formData = new FormData();
+            formData.append('title', newTitle);
+            formData.append('description', newDesc);
+            formData.append('type', 'legal');
+            formData.append('phase_context', 'legal');
+            formData.append('sort_order', String(milestones.length));
+            
+            selectedFiles.forEach((file) => {
+                formData.append('gallery[]', file);
             });
+
+            await axios.post(`/projects/${project.id}/milestones`, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            
             showToast('New progress step added', 'success');
             setIsAdding(false);
             setNewTitle('');
             setNewDesc('');
+            setSelectedFiles([]);
             fetchLegalMilestones();
             if (onUpdate) onUpdate();
         } catch (error) {
@@ -171,6 +209,38 @@ export default function LegalProgress({ project, currentUser, isNotaris, onUpdat
         }
     };
 
+    const handleLinkTermin = async (milestoneId: number, terminId: number) => {
+        const selectedTermin = Array.isArray(termins) ? termins.find(t => t.id === terminId) : null;
+        if (!selectedTermin) return;
+
+        const confirmMsg = `Are you sure you want to link "${selectedTermin.label}" to this work phase?\n\n` + 
+                          (selectedTermin.status === 'paid' ? "⚠️ Note: This payment is already PAID." : "This will link the payment release to the completion of this phase.");
+        
+        if (!window.confirm(confirmMsg)) return;
+
+        try {
+            await axios.post(`/projects/${project.id}/payment-termins/${terminId}/link-milestone`, {
+                milestone_id: milestoneId
+            });
+            showToast('Payment linked to progress step', 'success');
+            fetchTermins();
+            fetchLegalMilestones();
+        } catch (error) {
+            showToast('Failed to link payment', 'error');
+        }
+    };
+
+    const handleUnlinkTermin = async (terminId: number) => {
+        try {
+            await axios.post(`/projects/${project.id}/payment-termins/${terminId}/unlink-milestone`);
+            showToast('Payment link removed', 'success');
+            fetchTermins();
+            fetchLegalMilestones();
+        } catch (error) {
+            showToast('Failed to unlink payment', 'error');
+        }
+    };
+
     const handleSealLegal = async () => {
         if (!window.confirm("Are you sure you want to officially seal and finalize the legal phase? This will hand over the deliverables and mark the phase as completed.")) return;
 
@@ -202,6 +272,48 @@ export default function LegalProgress({ project, currentUser, isNotaris, onUpdat
 
     return (
         <div className="space-y-6">
+            {/* Payment Notice Banner for Owner */}
+            {isOwner && !isNotaris && (() => {
+                const unpaidLinkedMilestone = milestones.find(m => 
+                    m.approval_status === 'approved' && 
+                    termins.some(t => t.milestone_id === m.id && t.status !== 'paid')
+                );
+                
+                if (unpaidLinkedMilestone) {
+                    const linkedTermin = termins.find(t => t.milestone_id === unpaidLinkedMilestone.id);
+                    if (!linkedTermin) return null;
+                    
+                    return (
+                        <motion.div 
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="p-6 bg-blue-600 text-white rounded-[2rem] shadow-xl shadow-blue-100 flex flex-col md:flex-row items-center justify-between gap-6"
+                        >
+                            <div className="flex items-center gap-4 text-center md:text-left">
+                                <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center shrink-0">
+                                    <Wallet size={24} />
+                                </div>
+                                <div>
+                                    <h4 className="text-sm font-black uppercase tracking-widest">Payment Ready</h4>
+                                    <p className="text-[10px] font-bold opacity-80 uppercase tracking-tight mt-1">
+                                        Your progress for "{unpaidLinkedMilestone.title}" has been approved. 
+                                        Please proceed with the {linkedTermin.label}.
+                                    </p>
+                                </div>
+                            </div>
+                            <button 
+                                onClick={onGoToPayments}
+                                className="px-8 py-3 bg-white text-blue-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-50 transition-all flex items-center gap-2 shrink-0 shadow-lg"
+                            >
+                                Go to Payments Tab
+                                <ExternalLink size={14} />
+                            </button>
+                        </motion.div>
+                    );
+                }
+                return null;
+            })()}
+
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-2">
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-2xl bg-zinc-900 text-white flex items-center justify-center shadow-lg">
@@ -222,15 +334,31 @@ export default function LegalProgress({ project, currentUser, isNotaris, onUpdat
                 <div className="flex items-center gap-3">
                     {isNotaris && !isLegalCompleted && (
                         <>
-                            <button 
-                                onClick={handleSealLegal}
-                                disabled={isCreating}
-                                className="flex items-center gap-2 px-6 py-2.5 bg-emerald-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 active:scale-95 transition-all shadow-xl shadow-emerald-100"
-                            >
-                                {isCreating ? <Loader2 size={14} className="animate-spin" /> : <ShieldCheck size={14} />}
-                                Seal & Finalize Legal Phase
-                            </button>
+                            {project.legal_handover_submitted_at ? (
+                                <div className="flex items-center gap-2 px-6 py-2.5 bg-emerald-50 text-emerald-600 rounded-xl border border-emerald-100 animate-in fade-in slide-in-from-right duration-500">
+                                    <Clock size={14} className="animate-pulse" />
+                                    <span className="text-[10px] font-black uppercase tracking-widest">PENDING PM REVIEW</span>
+                                </div>
+                            ) : (
+                                <button 
+                                    onClick={handleSealLegal}
+                                    disabled={isCreating}
+                                    className="flex items-center gap-2 px-6 py-2.5 bg-emerald-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 active:scale-95 transition-all shadow-xl shadow-emerald-100"
+                                >
+                                    {isCreating ? <Loader2 size={14} className="animate-spin" /> : <ShieldCheck size={14} />}
+                                    Seal & Finalize Legal Phase
+                                </button>
+                            )}
                         </>
+                    )}
+                    {isNotaris && !isLegalCompleted && (
+                        <button 
+                            onClick={() => setIsAdding(true)}
+                            className="flex items-center gap-2 px-6 py-2.5 bg-white border-2 border-zinc-900 text-zinc-900 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-900 hover:text-white transition-all shadow-sm"
+                        >
+                            <Plus size={14} />
+                            Add Progress Step
+                        </button>
                     )}
                 </div>
             </div>
@@ -253,26 +381,65 @@ export default function LegalProgress({ project, currentUser, isNotaris, onUpdat
                             
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Task Title</label>
+                                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Phase Title (e.g. AJB Process, Tax Filing)</label>
                                     <input 
                                         type="text" 
+                                        required
                                         value={newTitle}
                                         onChange={e => setNewTitle(e.target.value)}
-                                        placeholder="e.g. Scanning Land Documents"
+                                        placeholder="Enter the name of this legal phase"
                                         className="w-full px-5 py-4 bg-zinc-50 border-2 border-transparent focus:border-zinc-900 focus:bg-white rounded-2xl text-sm font-bold outline-none transition-all"
-                                        required
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Description (Optional)</label>
+                                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Plan Description / Scope</label>
                                     <input 
                                         type="text" 
                                         value={newDesc}
                                         onChange={e => setNewDesc(e.target.value)}
-                                        placeholder="Specific details about this step"
+                                        placeholder="What will be done in this phase?"
                                         className="w-full px-5 py-4 bg-zinc-50 border-2 border-transparent focus:border-zinc-900 focus:bg-white rounded-2xl text-sm font-bold outline-none transition-all"
                                     />
                                 </div>
+                            </div>
+                            
+                            <div className="space-y-2">
+                                <div className="flex items-center justify-between ml-1">
+                                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Initial Documentation (Optional)</label>
+                                    <span className="text-[9px] font-bold text-zinc-300 uppercase italic">Can be added later during work</span>
+                                </div>
+                                <div 
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="w-full p-8 border-2 border-dashed border-zinc-200 rounded-[2rem] flex flex-col items-center justify-center gap-3 cursor-pointer hover:border-zinc-300 hover:bg-zinc-50 transition-all group"
+                                >
+                                    <div className="w-12 h-12 rounded-2xl bg-zinc-100 flex items-center justify-center text-zinc-400 group-hover:text-zinc-600 transition-colors">
+                                        <Upload size={20} />
+                                    </div>
+                                    <div className="text-center">
+                                        <p className="text-xs font-black text-zinc-900">Add Initial Photos or Drafts</p>
+                                        <p className="text-[10px] text-zinc-400 font-bold mt-1">PNG, JPG or PDF (Max 10MB each)</p>
+                                    </div>
+                                    <input 
+                                        ref={fileInputRef}
+                                        type="file" 
+                                        multiple 
+                                        accept="image/*,.pdf"
+                                        className="hidden" 
+                                        onChange={(e) => setSelectedFiles(Array.from(e.target.files || []))}
+                                    />
+                                </div>
+                                
+                                {selectedFiles.length > 0 && (
+                                    <div className="flex flex-wrap gap-2 p-2">
+                                        {selectedFiles.map((file, i) => (
+                                            <div key={i} className="px-3 py-1.5 bg-zinc-100 rounded-lg flex items-center gap-2">
+                                                <ImageIcon size={12} className="text-zinc-500" />
+                                                <span className="text-[10px] text-zinc-700 font-bold max-w-[150px] truncate">{file.name}</span>
+                                                <button type="button" onClick={(e) => { e.stopPropagation(); setSelectedFiles(prev => prev.filter((_, idx) => idx !== i)); }} className="text-red-400 hover:text-red-600"><X size={12} /></button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
 
                             <div className="flex justify-end pt-4">
@@ -281,7 +448,7 @@ export default function LegalProgress({ project, currentUser, isNotaris, onUpdat
                                     disabled={isCreating}
                                     className="flex items-center gap-2 px-10 py-4 bg-zinc-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-black shadow-xl shadow-zinc-100 disabled:opacity-50 transition-all"
                                 >
-                                    {isCreating ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                                    {isCreating ? <RefreshCw size={16} className="animate-spin" /> : <Save size={16} />}
                                     {isCreating ? 'Creating Task...' : 'Create Legal Task'}
                                 </button>
                             </div>
@@ -357,50 +524,130 @@ export default function LegalProgress({ project, currentUser, isNotaris, onUpdat
                                     </div>
                                 </form>
                             ) : (
-                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                                <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
                                     <div className="flex items-start gap-4 flex-1">
                                         <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-sm ${
                                             m.approval_status === 'approved' ? 'bg-emerald-50 text-emerald-600' : 'bg-zinc-900 text-white'
                                         }`}>
                                             {m.approval_status === 'approved' ? <ShieldCheck size={28} /> : <FileText size={24} />}
                                         </div>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-3">
-                                                <h4 className="text-lg font-black text-zinc-900 truncate">{m.title}</h4>
-                                                {m.approval_status && (
-                                                    <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-tighter shrink-0 ${
-                                                        m.approval_status === 'approved' ? 'bg-emerald-100 text-emerald-600' :
-                                                        m.approval_status === 'pending' ? 'bg-amber-100 text-amber-600' :
-                                                        m.approval_status === 'revision' ? 'bg-red-100 text-red-600' : 'bg-zinc-100 text-zinc-400'
-                                                    }`}>
-                                                        {m.approval_status.replace('_', ' ')}
+                                        <div className="flex-1">
+                                            <div className="flex items-center gap-3 mb-2">
+                                                <h4 className="text-lg font-black text-zinc-900">{m.title}</h4>
+                                                <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-[0.2em] ${getStatusStyles(m.approval_status)}`}>
+                                                    {m.approval_status}
+                                                </span>
+                                                {(!m.content?.gallery || m.content.gallery.length === 0) && (
+                                                    <span className="px-3 py-1 bg-zinc-50 text-zinc-400 border border-zinc-100 rounded-full text-[9px] font-black uppercase tracking-[0.1em]">
+                                                        Planned Phase
                                                     </span>
                                                 )}
                                             </div>
-                                            <p className="text-xs text-zinc-500 font-bold mt-1 leading-relaxed">{m.description}</p>
+                                            <p className="text-sm text-zinc-500 font-medium">{m.description || 'No description provided.'}</p>
                                             
                                             {m.revision_notes && m.approval_status === 'revision' && (
                                                 <div className="mt-4 p-4 bg-red-50 border border-red-100 rounded-2xl">
                                                     <p className="text-[10px] text-red-600 font-bold italic tracking-wide">Note: {m.revision_notes}</p>
                                                 </div>
                                             )}
+
+                                            {/* Linked Payment Termin Indicator */}
+                                            {(() => {
+                                                const linkedTermin = Array.isArray(termins) ? termins.find(t => t.milestone_id === m.id) : null;
+                                                if (!linkedTermin) {
+                                                    // Show linking option if not linked and user is the Notary
+                                                    const allNotaryTermins = Array.isArray(termins) 
+                                                        ? termins.filter(t => t.role_type === 'notaris') 
+                                                        : [];
+                                                    if (isNotaris && allNotaryTermins.length > 0) {
+                                                        return (
+                                                            <div className="mt-3">
+                                                                <select 
+                                                                    onChange={(e) => handleLinkTermin(m.id, parseInt(e.target.value))}
+                                                                    className="text-[10px] font-black uppercase tracking-widest px-3 py-1.5 bg-zinc-50 border border-zinc-200 rounded-xl outline-none hover:bg-zinc-100 transition-all cursor-pointer text-zinc-500"
+                                                                    defaultValue=""
+                                                                >
+                                                                    <option value="" disabled>Link to Payment...</option>
+                                                                    {allNotaryTermins.map(t => (
+                                                                        <option 
+                                                                            key={t.id} 
+                                                                            value={t.id}
+                                                                            disabled={!!t.milestone_id}
+                                                                        >
+                                                                            {t.label} (Rp {Number(t.amount).toLocaleString('id-ID')}) 
+                                                                            {t.status === 'paid' ? ' — PAID' : ''}
+                                                                            {t.milestone_id ? ' — (Linked to another phase)' : ''}
+                                                                        </option>
+                                                                    ))}
+                                                                </select>
+                                                            </div>
+                                                        );
+                                                    }
+                                                    return null;
+                                                }
+                                                return (
+                                                    <div className="mt-3 flex items-center gap-2 group">
+                                                        <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50/50 border border-blue-100 text-blue-600 rounded-xl max-w-fit">
+                                                            <Wallet size={12} className="shrink-0" />
+                                                            <span className="text-[10px] font-bold uppercase tracking-widest">
+                                                                Linked to Payment: {linkedTermin.label} (Rp {Number(linkedTermin.amount).toLocaleString('id-ID')})
+                                                            </span>
+                                                        </div>
+                                                        {isNotaris && (
+                                                            <button 
+                                                                onClick={() => {
+                                                                    if (confirm('Are you sure you want to unlink this payment?')) {
+                                                                        handleUnlinkTermin(linkedTermin.id);
+                                                                    }
+                                                                }}
+                                                                className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                                                                title="Remove Link"
+                                                            >
+                                                                <X size={12} />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })()}
+
+                                            {/* Gallery Display */}
+                                            {m.content?.gallery && m.content.gallery.length > 0 && (
+                                                <div className="mt-6 flex flex-wrap gap-4">
+                                                    {m.content.gallery.map((img: string, i: number) => {
+                                                        const isPdf = img.toLowerCase().endsWith('.pdf');
+                                                        return (
+                                                            <a 
+                                                                key={i} 
+                                                                href={`/storage/${img}`} 
+                                                                target="_blank" 
+                                                                rel="noreferrer"
+                                                                className="relative group overflow-hidden rounded-2xl border-2 border-zinc-100 hover:border-zinc-300 hover:shadow-xl transition-all"
+                                                            >
+                                                                {isPdf ? (
+                                                                    <div className="w-32 h-32 bg-zinc-50 flex flex-col items-center justify-center gap-2 text-zinc-400 group-hover:text-zinc-600 group-hover:bg-zinc-100 transition-all">
+                                                                        <FileText size={24} />
+                                                                        <span className="text-[9px] font-black uppercase tracking-widest">PDF Doc</span>
+                                                                    </div>
+                                                                ) : (
+                                                                    <img 
+                                                                        src={`/storage/${img}`} 
+                                                                        alt="Progress" 
+                                                                        className="w-32 h-32 object-cover scale-100 group-hover:scale-110 transition-transform duration-500" 
+                                                                    />
+                                                                )}
+                                                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                                                                    <Download size={20} className="text-white drop-shadow-md" />
+                                                                </div>
+                                                            </a>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
 
                                     <div className="flex items-center gap-3 shrink-0">
-                                        {/* Download/View Output */}
-                                        {m.content?.gallery?.[0] && (
-                                            <a 
-                                                href={`/storage/${m.content.gallery[0]}`} 
-                                                target="_blank" 
-                                                rel="noreferrer"
-                                                className="flex items-center gap-2 px-5 py-3 bg-zinc-100 text-zinc-900 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-200 transition-colors"
-                                            >
-                                                <Download size={14} /> {m.approval_status === 'approved' ? 'View Certificate' : 'Review Draft'}
-                                            </a>
-                                        )}
-
-                                        {/* Notary Action: Upload */}
+                                        {/* Notary Action: Upload Additional */}
                                         {isNotaris && m.approval_status !== 'approved' && (
                                             <div className="flex items-center gap-2">
                                                 <div className="relative">
@@ -408,6 +655,7 @@ export default function LegalProgress({ project, currentUser, isNotaris, onUpdat
                                                         type="file" 
                                                         id={`upload-${m.id}`} 
                                                         className="hidden" 
+                                                        multiple
                                                         onChange={(e) => handleFileUpload(e, m.id)}
                                                         disabled={submittingId === m.id}
                                                         accept=".pdf,image/*"
@@ -416,12 +664,12 @@ export default function LegalProgress({ project, currentUser, isNotaris, onUpdat
                                                         whileHover={{ scale: 1.05 }}
                                                         whileTap={{ scale: 0.95 }}
                                                         htmlFor={`upload-${m.id}`}
-                                                        className={`flex items-center gap-2 px-6 py-3 bg-zinc-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest cursor-pointer shadow-lg shadow-zinc-200 ${submittingId === m.id ? 'opacity-50' : ''}`}
+                                                        className={`flex items-center gap-2 px-4 py-2.5 bg-zinc-100 text-zinc-600 rounded-xl text-[10px] font-black uppercase tracking-widest cursor-pointer hover:bg-zinc-200 hover:text-zinc-900 transition-colors ${submittingId === m.id ? 'opacity-50' : ''}`}
                                                     >
                                                         {submittingId === m.id ? (
-                                                            <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                                        ) : <Upload size={14} />}
-                                                        {m.content?.gallery?.[0] ? 'Replace' : 'Upload proof'}
+                                                            <div className="w-3 h-3 border-2 border-zinc-400 border-t-zinc-900 rounded-full animate-spin" />
+                                                        ) : <Plus size={14} />}
+                                                        Add Files
                                                     </motion.label>
                                                 </div>
 

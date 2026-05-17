@@ -69,10 +69,22 @@ class RestoreUsersSeeder extends Seeder
                 'role_type' => 'user',
             ],
             [
-                'name' => 'John PM',
-                'email' => 'pm@4c.id',
-                'username' => 'john_pm',
+                'name' => 'Aisha (PM)',
+                'email' => 'aisha@gmail.com',
+                'username' => 'aisha',
                 'role_type' => 'project_manager',
+            ],
+            [
+                'name' => 'Budi (Structural)',
+                'email' => 'budi_struc@gmail.com',
+                'username' => 'budi_struc',
+                'role_type' => 'structural',
+            ],
+            [
+                'name' => 'Andi (MEP)',
+                'email' => 'andi_mep@gmail.com',
+                'username' => 'andi_mep',
+                'role_type' => 'mep',
             ]
         ];
 

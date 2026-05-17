@@ -33,10 +33,20 @@ export default function ProjectWizard({ onCancel, onSuccess }: ProjectWizardProp
         fd.append('province', w.form.province); fd.append('city', w.form.city);
         fd.append('kecamatan', w.form.kecamatan); fd.append('kelurahan', w.form.kelurahan);
         fd.append('postal_code', w.form.postal_code); fd.append('street_name', w.form.street_name);
-        fd.append('wants_project_manager', w.form.wants_project_manager ? '1' : '0');
+        fd.append('wants_project_manager', w.answers.needsPM === 'find' ? '1' : '0');
         fd.append('needed_phases', JSON.stringify(w.neededPhases));
         fd.append('project_category', w.form.project_category);
         fd.append('project_dimensions', JSON.stringify(w.form.project_dimensions));
+        fd.append('legal_detail', (w.answers as any).legalDetail || '');
+        fd.append('wants_to_discuss_later', w.answers.discussLater ? '1' : '0');
+        fd.append('external_vendors', JSON.stringify(w.answers.externalVendors || {}));
+        fd.append('bidding_choices', JSON.stringify({
+            project_manager: w.answers.needsPM || 'none',
+            notaris: w.answers.hasLegal || 'none',
+            arsitek: w.answers.hasDesign || 'none',
+            kontraktor: w.answers.hasConstructor || 'none',
+            interior: w.answers.needsInterior || 'none',
+        }));
         fd.append('target_role', w.form.project_category === 'maintenance' ? 'kontraktor' : 'both');
         w.images.forEach((img, i) => fd.append(`images[${i}]`, img));
 
@@ -58,7 +68,7 @@ export default function ProjectWizard({ onCancel, onSuccess }: ProjectWizardProp
                             <WizardScaleStep form={w.form} updateDimensions={w.updateDimensions} />
                         )}
                         {w.mode === 'easy' && w.step >= 2 && w.step < 2 + (w.activeQuestions?.length || 0) && (
-                            <WizardQuestion questionKey={w.activeQuestions[w.step - 2]} answers={w.answers} onAnswer={(key, val) => w.setAnswers({ ...w.answers, [key]: val })} />
+                            <WizardQuestion questionKey={w.activeQuestions[w.step - 2]} answers={w.answers} onAnswer={(key, val) => w.setAnswers({ ...w.answers, [key]: val })} category={w.category} />
                         )}
                         {w.mode === 'advanced' && w.step === 2 && (
                             <WizardManualSelect selectedPhases={w.manualPhases} onToggle={w.toggleManualPhase} />
@@ -70,8 +80,6 @@ export default function ProjectWizard({ onCancel, onSuccess }: ProjectWizardProp
                             <WizardBudgetStep 
                                 budget={w.form.budget} 
                                 onBudgetChange={v => w.updateForm('budget', v)} 
-                                wantsPM={w.form.wants_project_manager}
-                                onWantsPMChange={v => w.updateForm('wants_project_manager', v)}
                                 neededPhases={w.neededPhases} 
                                 form={w.form}
                             />

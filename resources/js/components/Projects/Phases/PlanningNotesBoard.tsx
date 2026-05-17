@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { Plus, X, Image as ImageIcon, Trash2, StickyNote, Pencil } from 'lucide-react';
-import { Project, PlanningRequirement } from '../../../types/project.types';
+import React, { useState, useRef } from 'react';
+import { Plus, X, Image as ImageIcon, Trash2, StickyNote, Pencil, Loader2, MessageSquarePlus, Send, User } from 'lucide-react';
+import { Project, PlanningRequirement, PlanningRequirementFeedback } from '../../../types/project.types';
 import axios from 'axios';
 import { useToast } from '../../../context/ToastContext';
+import { useAuth } from '../../../context/AuthContext';
 
 interface PlanningNotesBoardProps {
     project: Project;
@@ -12,16 +13,62 @@ interface PlanningNotesBoardProps {
 
 const PlanningNotesBoard: React.FC<PlanningNotesBoardProps> = ({ project, isArchitect, onProjectUpdate }) => {
     const { showToast } = useToast();
+    const { user } = useAuth();
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const editFileInputRef = useRef<HTMLInputElement>(null);
+    
     const [isAdding, setIsAdding] = useState(false);
-    const [newNote, setNewNote] = useState({ title: '', description: '' });
+    const [newNote, setNewNote] = useState<{ title: string; description: string; image_url?: string }>({ 
+        title: '', 
+        description: '',
+        image_url: undefined
+    });
+    
     const [isSaving, setIsSaving] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
+    
     const [editingId, setEditingId] = useState<string | null>(null);
-    const [editForm, setEditForm] = useState({ title: '', description: '' });
+    const [editForm, setEditForm] = useState<{ title: string; description: string; image_url?: string }>({ 
+        title: '', 
+        description: '',
+        image_url: undefined
+    });
+
+    const [feedbackInputId, setFeedbackInputId] = useState<string | null>(null);
+    const [feedbackContent, setFeedbackContent] = useState('');
+
+    const isPM = user?.id === project.pm_id;
+    const isOwner = user?.id === project.user_id;
+    const canAddFeedback = isPM || isOwner;
 
     const isReadOnly = project.planning_status === 'proposed' || project.planning_status === 'approved';
     const canEdit = isArchitect && !isReadOnly;
 
     const requirements = project.design_details?.requirements || [];
+
+    const handleFileUpload = async (file: File, isEdit: boolean = false) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('folder', 'design_briefs');
+
+        setIsUploading(true);
+        try {
+            const response = await axios.post('/upload', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            
+            if (isEdit) {
+                setEditForm(prev => ({ ...prev, image_url: response.data.url }));
+            } else {
+                setNewNote(prev => ({ ...prev, image_url: response.data.url }));
+            }
+            showToast('Image uploaded', 'success');
+        } catch (error) {
+            showToast('Failed to upload image', 'error');
+        } finally {
+            setIsUploading(false);
+        }
+    };
 
     const handleAddNote = async () => {
         if (!newNote.title.trim()) {
@@ -31,7 +78,6 @@ const PlanningNotesBoard: React.FC<PlanningNotesBoardProps> = ({ project, isArch
 
         setIsSaving(true);
         
-        // Use crypto.randomUUID if available, otherwise fallback to simple timestamp-based ID
         const generatedId = (typeof crypto !== 'undefined' && crypto.randomUUID) 
             ? crypto.randomUUID() 
             : `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -40,11 +86,11 @@ const PlanningNotesBoard: React.FC<PlanningNotesBoardProps> = ({ project, isArch
             id: generatedId,
             title: newNote.title,
             description: newNote.description,
+            image_url: newNote.image_url,
+            feedback: []
         };
 
         const updatedRequirements = [...requirements, note];
-        
-        // Ensure design_details is an object, even if it comes back as [] from Laravel
         const currentDetails = (project.design_details && !Array.isArray(project.design_details)) 
             ? project.design_details 
             : {};
@@ -59,11 +105,10 @@ const PlanningNotesBoard: React.FC<PlanningNotesBoardProps> = ({ project, isArch
                 design_details: updatedDesignDetails
             });
             onProjectUpdate(response.data.data);
-            setNewNote({ title: '', description: '' });
+            setNewNote({ title: '', description: '', image_url: undefined });
             setIsAdding(false);
             showToast('Note added & saved', 'success');
         } catch (error: any) {
-            console.error('Save Note Error:', error);
             const msg = error.response?.data?.message || error.message || 'Failed to save note';
             showToast(msg, 'error');
         } finally {
@@ -97,7 +142,11 @@ const PlanningNotesBoard: React.FC<PlanningNotesBoardProps> = ({ project, isArch
 
     const handleStartEdit = (note: PlanningRequirement) => {
         setEditingId(note.id);
-        setEditForm({ title: note.title, description: note.description });
+        setEditForm({ 
+            title: note.title, 
+            description: note.description,
+            image_url: note.image_url 
+        });
     };
 
     const handleSaveEdit = async () => {
@@ -110,7 +159,7 @@ const PlanningNotesBoard: React.FC<PlanningNotesBoardProps> = ({ project, isArch
         setIsSaving(true);
         const updatedRequirements = requirements.map((n: PlanningRequirement) => 
             n.id === editingId 
-                ? { ...n, title: editForm.title, description: editForm.description, is_edited: true } 
+                ? { ...n, title: editForm.title, description: editForm.description, image_url: editForm.image_url, is_edited: true } 
                 : n
         );
 
@@ -131,9 +180,51 @@ const PlanningNotesBoard: React.FC<PlanningNotesBoardProps> = ({ project, isArch
             setEditingId(null);
             showToast('Note updated', 'success');
         } catch (error: any) {
-            console.error('Update Note Error:', error);
             const msg = error.response?.data?.message || error.message || 'Failed to update note';
             showToast(msg, 'error');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleAddFeedback = async (requirementId: string) => {
+        if (!feedbackContent.trim()) return;
+
+        setIsSaving(true);
+        const newFeedback: PlanningRequirementFeedback = {
+            id: Math.random().toString(36).substr(2, 9),
+            author_id: user?.id || 0,
+            author_name: user?.name || 'Anonymous',
+            author_role: user?.role_type || 'user',
+            content: feedbackContent,
+            created_at: new Date().toISOString()
+        };
+
+        const updatedRequirements = requirements.map(req => {
+            if (req.id === requirementId) {
+                return {
+                    ...req,
+                    feedback: [...(req.feedback || []), newFeedback]
+                };
+            }
+            return req;
+        });
+
+        const updatedDesignDetails = {
+            ...(project.design_details || {}),
+            requirements: updatedRequirements
+        };
+
+        try {
+            const response = await axios.post(`/projects/${project.id}/update`, {
+                design_details: updatedDesignDetails
+            });
+            onProjectUpdate(response.data.data);
+            setFeedbackContent('');
+            setFeedbackInputId(null);
+            showToast('Feedback added', 'success');
+        } catch (error: any) {
+            showToast('Failed to add feedback', 'error');
         } finally {
             setIsSaving(false);
         }
@@ -176,6 +267,35 @@ const PlanningNotesBoard: React.FC<PlanningNotesBoardProps> = ({ project, isArch
                             value={newNote.description}
                             onChange={(e) => setNewNote({ ...newNote, description: e.target.value })}
                         />
+
+                        {newNote.image_url ? (
+                            <div className="relative group/img rounded-xl overflow-hidden border border-amber-100 bg-white">
+                                <img src={newNote.image_url} alt="Preview" className="w-full h-32 object-cover" />
+                                <button 
+                                    onClick={() => setNewNote(prev => ({ ...prev, image_url: undefined }))}
+                                    className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full opacity-0 group-hover/img:opacity-100 transition-opacity"
+                                >
+                                    <X className="w-3 h-3" />
+                                </button>
+                            </div>
+                        ) : (
+                            <button 
+                                onClick={() => fileInputRef.current?.click()}
+                                disabled={isUploading}
+                                className="flex items-center justify-center gap-2 py-4 border-2 border-dashed border-amber-100 rounded-xl text-amber-600 hover:bg-white transition-colors text-xs font-medium"
+                            >
+                                {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImageIcon className="w-4 h-4" />}
+                                {isUploading ? 'Uploading...' : 'Add Image Reference'}
+                            </button>
+                        )}
+                        <input 
+                            type="file" 
+                            className="hidden" 
+                            ref={fileInputRef} 
+                            accept="image/*"
+                            onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0])}
+                        />
+
                         <div className="flex items-center justify-end gap-2 pt-2 border-t border-amber-100">
                             <button
                                 onClick={() => setIsAdding(false)}
@@ -185,7 +305,7 @@ const PlanningNotesBoard: React.FC<PlanningNotesBoardProps> = ({ project, isArch
                             </button>
                             <button
                                 onClick={handleAddNote}
-                                disabled={isSaving}
+                                disabled={isSaving || isUploading}
                                 className="px-4 py-1.5 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors text-xs font-semibold disabled:opacity-50"
                             >
                                 {isSaving ? 'Saving...' : 'Add Note'}
@@ -197,7 +317,7 @@ const PlanningNotesBoard: React.FC<PlanningNotesBoardProps> = ({ project, isArch
                 {requirements.map((note) => (
                     <div 
                         key={note.id} 
-                        className={`group p-5 rounded-2xl bg-white border ${editingId === note.id ? 'border-amber-400 ring-2 ring-amber-100' : 'border-zinc-200'} shadow-sm hover:shadow-md hover:border-amber-200 transition-all duration-300 relative overflow-hidden`}
+                        className={`group p-5 rounded-2xl bg-white border ${editingId === note.id ? 'border-amber-400 ring-2 ring-amber-100' : 'border-zinc-200'} shadow-sm hover:shadow-md hover:border-amber-200 transition-all duration-300 relative flex flex-col`}
                     >
                         {editingId === note.id ? (
                             <div className="flex flex-col gap-3 animate-in fade-in zoom-in-95">
@@ -212,6 +332,34 @@ const PlanningNotesBoard: React.FC<PlanningNotesBoardProps> = ({ project, isArch
                                     value={editForm.description}
                                     onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
                                 />
+
+                                {editForm.image_url ? (
+                                    <div className="relative group/img rounded-xl overflow-hidden border border-zinc-100 bg-zinc-50">
+                                        <img src={editForm.image_url} alt="Preview" className="w-full h-32 object-cover" />
+                                        <button 
+                                            onClick={() => setEditForm(prev => ({ ...prev, image_url: undefined }))}
+                                            className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full opacity-0 group-hover/img:opacity-100 transition-opacity"
+                                        >
+                                            <X className="w-3 h-3" />
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <button 
+                                        onClick={() => editFileInputRef.current?.click()}
+                                        className="flex items-center justify-center gap-2 py-4 border-2 border-dashed border-zinc-100 rounded-xl text-zinc-400 hover:text-amber-600 hover:border-amber-100 transition-colors text-xs font-medium"
+                                    >
+                                        <ImageIcon className="w-4 h-4" />
+                                        Add Image Reference
+                                    </button>
+                                )}
+                                <input 
+                                    type="file" 
+                                    className="hidden" 
+                                    ref={editFileInputRef} 
+                                    accept="image/*"
+                                    onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0], true)}
+                                />
+
                                 <div className="flex justify-end gap-2 pt-2 border-t border-zinc-100">
                                     <button 
                                         onClick={() => setEditingId(null)}
@@ -221,7 +369,7 @@ const PlanningNotesBoard: React.FC<PlanningNotesBoardProps> = ({ project, isArch
                                     </button>
                                     <button 
                                         onClick={handleSaveEdit}
-                                        disabled={isSaving}
+                                        disabled={isSaving || isUploading}
                                         className="px-4 py-1 bg-amber-500 text-white rounded-lg text-xs font-bold hover:bg-amber-600 disabled:opacity-50"
                                     >
                                         {isSaving ? 'Saving...' : 'Save Changes'}
@@ -243,35 +391,79 @@ const PlanningNotesBoard: React.FC<PlanningNotesBoardProps> = ({ project, isArch
                                             )}
                                         </h4>
                                     </div>
-                                    {canEdit && (
-                                        <div className="flex items-center gap-1">
+                                    <div className="flex items-center gap-1">
+                                        {canAddFeedback && (
                                             <button
-                                                onClick={() => handleStartEdit(note)}
-                                                className="p-1 opacity-0 group-hover:opacity-100 text-zinc-400 hover:text-amber-600 transition-all"
-                                                title="Edit Note"
+                                                onClick={() => setFeedbackInputId(feedbackInputId === note.id ? null : note.id)}
+                                                className={`p-1 transition-all ${feedbackInputId === note.id ? 'text-amber-600' : 'opacity-0 group-hover:opacity-100 text-zinc-400 hover:text-amber-600'}`}
+                                                title="Add Feedback"
                                             >
-                                                <Pencil className="w-3.5 h-3.5" />
+                                                <MessageSquarePlus className="w-4 h-4" />
                                             </button>
-                                            <button
-                                                onClick={() => handleDeleteNote(note.id)}
-                                                className="p-1 opacity-0 group-hover:opacity-100 text-zinc-400 hover:text-red-500 transition-all"
-                                                title="Delete Note"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    )}
+                                        )}
+                                        {canEdit && (
+                                            <>
+                                                <button
+                                                    onClick={() => handleStartEdit(note)}
+                                                    className="p-1 opacity-0 group-hover:opacity-100 text-zinc-400 hover:text-amber-600 transition-all"
+                                                    title="Edit Note"
+                                                >
+                                                    <Pencil className="w-3.5 h-3.5" />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDeleteNote(note.id)}
+                                                    className="p-1 opacity-0 group-hover:opacity-100 text-zinc-400 hover:text-red-500 transition-all"
+                                                    title="Delete Note"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </>
+                                        )}
+                                    </div>
                                 </div>
                                 
-                                <p className="text-sm text-zinc-600 leading-relaxed whitespace-pre-wrap">
+                                <p className="text-sm text-zinc-600 leading-relaxed whitespace-pre-wrap mb-4">
                                     {note.description}
                                 </p>
 
                                 {note.image_url && (
-                                    <div className="mt-4 rounded-lg overflow-hidden border border-zinc-100">
-                                        <img src={note.image_url} alt={note.title} className="w-full h-32 object-cover" />
+                                    <div className="mb-4 rounded-xl overflow-hidden border border-zinc-100 shadow-sm">
+                                        <img src={note.image_url} alt={note.title} className="w-full h-40 object-cover hover:scale-105 transition-transform duration-500 cursor-zoom-in" />
                                     </div>
                                 )}
+
+                                {/* Feedback Section */}
+                                <div className="mt-auto space-y-2">
+                                    {note.feedback?.map((f) => (
+                                        <div key={f.id} className={`p-3 rounded-xl text-xs flex flex-col gap-1 border ${f.author_role === 'project_manager' ? 'bg-zinc-900 text-white border-zinc-800' : 'bg-amber-50 text-amber-900 border-amber-100'}`}>
+                                            <div className="flex items-center gap-1.5 opacity-80 font-bold uppercase tracking-tighter">
+                                                <User className="w-3 h-3" />
+                                                {f.author_role.replace('_', ' ')}: {f.author_name}
+                                            </div>
+                                            <p className="leading-tight">{f.content}</p>
+                                        </div>
+                                    ))}
+
+                                    {feedbackInputId === note.id && (
+                                        <div className="flex gap-2 animate-in fade-in slide-in-from-bottom-2">
+                                            <input 
+                                                autoFocus
+                                                placeholder="Add audit note..."
+                                                className="flex-1 bg-zinc-100 border-none rounded-lg px-3 py-1.5 text-xs focus:ring-1 focus:ring-amber-500"
+                                                value={feedbackContent}
+                                                onChange={(e) => setFeedbackContent(e.target.value)}
+                                                onKeyDown={(e) => e.key === 'Enter' && handleAddFeedback(note.id)}
+                                            />
+                                            <button 
+                                                onClick={() => handleAddFeedback(note.id)}
+                                                disabled={isSaving || !feedbackContent.trim()}
+                                                className="p-1.5 bg-amber-500 text-white rounded-lg hover:bg-amber-600 disabled:opacity-50"
+                                            >
+                                                <Send className="w-3 h-3" />
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
                             </>
                         )}
                     </div>

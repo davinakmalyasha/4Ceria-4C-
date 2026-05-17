@@ -6,9 +6,9 @@ use App\Models\MaterialOrder;
 use App\Models\MaterialOrderReview;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
 
 class MaterialOrderReviewController extends Controller
 {
@@ -43,12 +43,12 @@ class MaterialOrderReviewController extends Controller
         }
 
         $deliveryCompleted = $order->deliveryJob && in_array($order->deliveryJob->status, ['delivered', 'completed']);
-        if (!in_array($order->status, ['delivered', 'completed']) && !$deliveryCompleted) {
+        if (! in_array($order->status, ['delivered', 'completed']) && ! $deliveryCompleted) {
             return response()->json(['message' => 'Only arrived or completed orders can be reviewed.'], 400);
         }
 
         // Auto-sync order status if delivery job is done but order status is stale
-        if ($deliveryCompleted && !in_array($order->status, ['delivered', 'completed'])) {
+        if ($deliveryCompleted && ! in_array($order->status, ['delivered', 'completed'])) {
             $order->update(['status' => 'delivered', 'delivered_at' => now()]);
         }
 
@@ -89,7 +89,7 @@ class MaterialOrderReviewController extends Controller
             return response()->json([
                 'status' => 'success',
                 'message' => 'Thank you for your feedback!',
-                'data' => $review
+                'data' => $review,
             ]);
         });
     }
@@ -125,7 +125,7 @@ class MaterialOrderReviewController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'data' => $reviews
+            'data' => $reviews,
         ]);
     }
 
@@ -165,7 +165,7 @@ class MaterialOrderReviewController extends Controller
                         Storage::disk('public')->delete($path);
                     }
                 }
-                
+
                 $imagePaths = [];
                 foreach ($request->file('images') as $file) {
                     $imagePaths[] = $file->store('reviews/materials', 'public');
@@ -178,7 +178,7 @@ class MaterialOrderReviewController extends Controller
             return response()->json([
                 'status' => 'success',
                 'message' => 'Review updated successfully!',
-                'data' => $materialOrderReview
+                'data' => $materialOrderReview,
             ]);
         });
     }
@@ -206,7 +206,7 @@ class MaterialOrderReviewController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Review deleted successfully.'
+            'message' => 'Review deleted successfully.',
         ]);
     }
 }

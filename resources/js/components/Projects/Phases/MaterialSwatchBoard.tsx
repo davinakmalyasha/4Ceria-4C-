@@ -3,7 +3,7 @@ import axios from 'axios';
 import { 
     Palette, Plus, Trash2, CheckCircle2, 
     AlertCircle, Image as ImageIcon, Filter,
-    Layers, Home, Droplets, Grid3X3
+    Layers, Home, Droplets, Grid3X3, ShieldCheck
 } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
 import { ProjectRequirement } from '../../../types/phase.types';

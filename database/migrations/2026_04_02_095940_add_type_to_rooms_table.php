@@ -11,8 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('rooms')) return;
+        if (Schema::hasColumn('rooms', 'type')) return;
         Schema::table('rooms', function (Blueprint $table) {
-            $table->string('type')->default('room')->after('name'); // room, bedroom, bathroom, others
+            $table->string('type')->default('room')->after('name');
         });
     }
 

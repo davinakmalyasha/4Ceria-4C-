@@ -25,6 +25,7 @@ function DashboardContent() {
     const { user, isLoading: isAuthLoading } = useAuth();
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [activeTab, setActiveTab] = useState('overview');
+    const [activeSubTab, setActiveSubTab] = useState<string | null>(null);
     
     // Custom Hook for all data fetching and state
     const data = useDashboardData();
@@ -40,6 +41,7 @@ function DashboardContent() {
     const [selectedMaterial, setSelectedMaterial] = useState<any>(null);
     const [selectedHouseId, setSelectedHouseId] = useState<number | null>(null);
     const [isEditingProfile, setIsEditingProfile] = useState(false);
+    const [chatUserId, setChatUserId] = useState<number | null>(null);
 
     // Wishlist logic for modal
     const [wishlist, setWishlist] = useState<Set<number>>(() => {
@@ -81,8 +83,23 @@ function DashboardContent() {
 
     useEffect(() => {
         const handleOpenHouse = (e: any) => setSelectedHouseId(e.detail);
+        const handleSwitchTab = (e: any) => {
+            if (typeof e.detail === 'object') {
+                setActiveTab(e.detail.tab);
+                if (e.detail.subTab) setActiveSubTab(e.detail.subTab);
+            } else {
+                setActiveTab(e.detail);
+                setActiveSubTab(null);
+            }
+        };
+        
         window.addEventListener('openHouseDetails', handleOpenHouse);
-        return () => window.removeEventListener('openHouseDetails', handleOpenHouse);
+        window.addEventListener('switchDashboardTab', handleSwitchTab);
+        
+        return () => {
+            window.removeEventListener('openHouseDetails', handleOpenHouse);
+            window.removeEventListener('switchDashboardTab', handleSwitchTab);
+        };
     }, []);
 
 
@@ -103,16 +120,22 @@ function DashboardContent() {
                     <div className="max-w-7xl mx-auto">
                         <DashboardTabs 
                             activeTab={activeTab} setActiveTab={setActiveTab}
+                            activeSubTab={activeSubTab} setActiveSubTab={setActiveSubTab}
                             user={user} houses={data.houses} projects={data.projects}
                             projectFeed={data.projectFeed} latestBids={data.latestBids}
                             myBids={data.myBids} isLoadingData={data.isLoading}
-                            architects={data.architects} constructors={data.constructors}
+                            hiredProfessionals={data.hiredProfessionals}
+                            architects={data.architects} constructors={data.constructors} interiors={data.interiors} notaries={data.notaries} projectManagers={data.projectManagers}
+                            structuralEngineers={data.structuralEngineers} mepEngineers={data.mepEngineers}
                             selectedProfessional={selectedProfessional} 
                             setSelectedProfessional={setSelectedProfessional}
                             selectedProject={selectedProject} setSelectedProject={setSelectedProject}
                             selectedStoreId={selectedStoreId} setSelectedStoreId={setSelectedStoreId}
                             selectedMaterial={selectedMaterial} setSelectedMaterial={setSelectedMaterial}
-                            handleOpenChat={(p: any) => {}} // Hook context or event
+                            handleOpenChat={(u: any) => {
+                                setChatUserId(u.id);
+                                setActiveTab('chat');
+                            }}
                             handleProjectStatusChange={(id: number, s: string) => {}} // data.handleStatusChange
                             setProjectToEdit={setProjectToEdit}
                             setProjectToDelete={setProjectToDelete}
@@ -120,6 +143,8 @@ function DashboardContent() {
                             setIsEditingProfile={setIsEditingProfile}
                             isEditingProfile={isEditingProfile}
                             onRefresh={data.fetchData}
+                            chatUserId={chatUserId}
+                            onClearChatUser={() => setChatUserId(null)}
                         />
                     </div>
                 </div>

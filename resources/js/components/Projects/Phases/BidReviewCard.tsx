@@ -1,33 +1,316 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
     Clock, DollarSign, Check, X, Loader2, 
     Shield, Users, Hammer, CreditCard, 
-    ChevronDown, ChevronUp, Construction, Info
+    ChevronDown, ChevronUp, Construction, Info, Activity, Star,
+    FileText, ExternalLink, Box, Layout, Zap, Grid, Eye, Sofa, CheckCircle2, ListChecks, MessageCircle, Smartphone, Upload, CheckCircle
 } from 'lucide-react';
+import { ARCHITECT_SERVICE_SCOPES, ARCHITECT_DELIVERABLES } from '../../../constants/ArchitectStandardPresets';
 import { CONSTRUCTION_METHODS, PAYMENT_SCHEDULE_OPTIONS } from '../../../constants/ContractorStandardPresets';
 import { PM_SERVICE_SCOPES, PM_DELIVERABLES, PM_FEE_TYPES, stripPMAutomatedProposal } from '../../../constants/ProjectManagerStandardPresets';
+import { NOTARY_SERVICE_SCOPES } from '../../../constants/NotaryStandardPresets';
+import { 
+    STRUCTURAL_SERVICE_SCOPES, STRUCTURAL_DELIVERABLES, 
+    MEP_SERVICE_SCOPES, MEP_DELIVERABLES 
+} from '../../../constants/EngineeringStandardPresets';
+import { useAuth } from '../../../context/AuthContext';
+import { useToast } from '../../../context/ToastContext';
+import axios from 'axios';
+import { ContractSignModal } from '../Contracts/ContractSignModal';
+import { PaymentProofModal } from '../Contracts/PaymentProofModal';
+import { ProfilePreviewCard } from '../../Shared/ProfilePreviewCard';
+import { NegotiationHistory } from './NegotiationHistory';
+import { ProposeFeeModal } from './ProposeFeeModal';
+import { PortfolioProject } from '../../../types/project.types';
 
 interface BidReviewCardProps {
     bid: any;
     phaseKey: string;
-    onAction: (bidId: number, action: 'accept' | 'decline') => void;
-    isActioning: boolean;
+    onAction?: (bidId: number, action: 'shortlist' | 'accept' | 'decline' | 'recommend') => void;
+    isActioning?: boolean;
     isPM?: boolean;
     readOnly?: boolean;
+    onOpenChat?: (user: any) => void;
+    onRefresh?: () => void;
+    projectId?: number;
+    project?: any;
+    bidType?: 'arsitek' | 'kontraktor' | 'notaris' | 'interior' | 'project_manager' | 'structural' | 'mep';
 }
 
-export const BidReviewCard: React.FC<BidReviewCardProps> = ({ bid, phaseKey, onAction, isActioning, isPM, readOnly }) => {
+export const BidReviewCard: React.FC<BidReviewCardProps> = ({ 
+    bid, phaseKey, onAction, isActioning, isPM, readOnly, onOpenChat, onRefresh, projectId, project: passedProject, bidType 
+}) => {
     const [isExpanded, setIsExpanded] = useState(false);
-    const isContractor = phaseKey === 'build';
+    const { user } = useAuth();
+    const { showToast } = useToast();
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [negotiatedFee, setNegotiatedFee] = useState<number>(0);
 
-    // Data normalization for different professional types
-    const proName = isPM ? (bid.pm?.nama || bid.pm?.user?.name) : (bid.bidder?.name || 'Professional');
+
+    // Sync state with props
+    useEffect(() => {
+        setNegotiatedFee(Number(bid.price) || 0);
+    }, [bid.price]);
+    
+    // Modal states
+    const [isSignModalOpen, setIsSignModalOpen] = useState(false);
+    const [isProofModalOpen, setIsProofModalOpen] = useState(false);
+    const [isProposeFeeModalOpen, setIsProposeFeeModalOpen] = useState(false);
+    const [selectedTermin, setSelectedTermin] = useState<any>(null);
+    const [isVerifyingProof, setIsVerifyingProof] = useState(false);
+    const [portfolios, setPortfolios] = useState<PortfolioProject[]>([]);
+    const [isLoadingPortfolios, setIsLoadingPortfolios] = useState(false);
+
+    const isContractor = phaseKey === 'build';
+    const hasHistory = bid.negotiation_logs && bid.negotiation_logs.length > 0;
+
+    // Status & Role identification
+    const activeProject = passedProject || bid.project;
+    const isOwner = user?.id === (activeProject?.user_id || activeProject?.owner_id || projectId);
+    const isPro = user?.role_type !== 'user';
+    
+    // Better pro identification (handling both flat and nested bidder objects)
+    const proId = bid.bidder?.id || bid.bidder_id || bid.arsitek_id || bid.kontraktor_id || bid.notaris_id || bid.interior_id || bid.pm_id || bid.structural_id || bid.mep_id;
+    const proUserId = bid.bidder?.user?.id || bid.bidder?.user_id || bid.user_id || bid.arsitek?.user_id || bid.kontraktor?.user_id || bid.notaris?.user_id || bid.interior?.user_id || bid.pm_id || bid.structural_engineer?.user_id || bid.mep_engineer?.user_id;
+    const proType = bidType || (
+        phaseKey === 'design' ? 'arsitek' : 
+        phaseKey === 'build' ? 'kontraktor' : 
+        phaseKey === 'legal' ? 'notaris' : 
+        phaseKey === 'management' ? 'project_manager' : 
+        phaseKey === 'engineering' ? (bid.structural_id || bid.structuralEngineer ? 'structural' : 'mep') : 'interior'
+    );
+    
+    // Check if the current user is the professional of THIS bid
+    const isThePro = !!proId && (
+        (proType === 'arsitek' && (user?.arsitek?.id === proId || user?.id === bid.arsitek?.user_id)) ||
+        (proType === 'kontraktor' && (user?.kontraktor?.id === proId || user?.id === bid.kontraktor?.user_id)) ||
+        (proType === 'notaris' && (user?.notaris_profile?.id === proId || user?.id === bid.notaris?.user_id)) ||
+        (proType === 'interior' && (user?.interior_profile?.id === proId || user?.id === bid.interior?.user_id)) ||
+        (proType === 'project_manager' && (user?.project_manager?.id === proId || user?.id === proId)) ||
+        (proType === 'structural' && (user?.structural_engineer?.id === proId || user?.id === proUserId)) ||
+        (proType === 'mep' && (user?.mep_engineer?.id === proId || user?.id === proUserId))
+    );
+
+    const isLeadArchitect = user?.role_type === 'arsitek' && (activeProject?.arsitek?.user?.id === user?.id || activeProject?.arsitek?.user_id === user?.id);
+    const isLeadContractor = user?.role_type === 'kontraktor' && (activeProject?.kontraktor?.user?.id === user?.id || activeProject?.kontraktor?.user_id === user?.id);
+    const isSpecialist = phaseKey === 'engineering';
+    const canRecommend = isSpecialist && (isLeadArchitect || isLeadContractor);
+    const isOwnerOrPM = user?.id === activeProject?.user_id || user?.id === activeProject?.pm_id;
+    const showFinancials = isThePro || (bid.status !== 'pending' && bid.status !== 'invited');
+
+    const resolveProName = () => {
+        if (isThePro) return `You (${proType.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')})`;
+        
+        // Phase-specific data resolution
+        const name = 
+            bid.arsitek?.nama || 
+            bid.kontraktor?.nama || 
+            bid.notaris?.nama || 
+            bid.interior?.nama || 
+            bid.pm?.nama || 
+            bid.structural?.nama || 
+            bid.mep?.nama || 
+            bid.bidder?.name || 
+            bid.user?.name || 
+            'Professional';
+            
+        return name;
+    };
+
+    const proName = resolveProName();
     const proInitial = proName?.charAt(0).toUpperCase() || 'P';
+
+    const professionalUser = bid.arsitek?.user || bid.kontraktor?.user || bid.notaris?.user || bid.interior?.user || bid.pm?.user || bid.structural?.user || bid.mep?.user || bid.bidder?.user || bid.user;
+
+    useEffect(() => {
+        if (isExpanded && professionalUser?.id && portfolios.length === 0 && !isLoadingPortfolios) {
+            setIsLoadingPortfolios(true);
+            axios.get(`/portfolios?user_id=${professionalUser.id}`)
+                .then(res => setPortfolios(res.data))
+                .catch(() => {})
+                .finally(() => setIsLoadingPortfolios(false));
+        }
+    }, [isExpanded, professionalUser?.id]);
+    
+    // Helper to calculate actual IDR value for percentage-based bids
+    const getDisplayPrice = (val: number) => {
+        if (bid.fee_type === 'percentage') {
+            const budget = Number(activeProject?.budget) || 0;
+            return (val / 100) * budget;
+        }
+        if (bid.fee_type === 'sqm') {
+            const area = Number(activeProject?.project_dimensions?.building_area) || Number(activeProject?.project_dimensions?.land_area) || 1;
+            return val * area;
+        }
+        return val;
+    };
+
+    const resolvedAgreedPrice = Number(bid.calculated_total) || getDisplayPrice(Number(bid.price)) || 0;
+
+    const formattedAgreedPrice = resolvedAgreedPrice.toLocaleString('id-ID');
+    const formattedNegotiatedPrice = Number(getDisplayPrice(negotiatedFee)).toLocaleString('id-ID');
+
+    useEffect(() => {
+        if (bid.status !== 'contract_pending' && isSignModalOpen) {
+            setIsSignModalOpen(false);
+        }
+    }, [bid.status, isSignModalOpen]);
+
+    const handleNegotiate = async (priceOverride?: number) => {
+        setIsSubmitting(true);
+        try {
+            await axios.post(`/projects/${projectId}/bids/${bid.id}/negotiate`, {
+                bid_type: proType,
+                price: priceOverride || negotiatedFee
+            });
+            showToast('Fee terms updated!', 'success');
+            onRefresh?.();
+        } catch (err: any) {
+            const errorMsg = err.response ? `[${err.response.status}] ${err.response.data?.message || err.response.statusText}` : err.message;
+            showToast(`Failed: ${errorMsg}`, 'error');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleConfirmFee = async () => {
+        if (!window.confirm("Are you sure you want to confirm this fee? This will finalize the agreed price.")) return;
+        setIsSubmitting(true);
+        try {
+            await axios.post(`/projects/${projectId}/bids/${bid.id}/confirm-fee`, {
+                bid_type: proType
+            });
+            showToast('Fee agreement confirmed! Awaiting final hiring from the owner.', 'success');
+            onRefresh?.();
+        } catch (err: any) {
+            const errorMsg = err.response ? `[${err.response.status}] ${err.response.data?.message || err.response.statusText}` : err.message;
+            showToast(`Failed: ${errorMsg}`, 'error');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleInviteResponse = async (action: 'accept' | 'reject') => {
+        setIsSubmitting(true);
+        try {
+            const bidTypeMap: any = {
+                design: 'arsitek', build: 'kontraktor', legal: 'notaris', interior: 'interior',
+                management: 'project_manager',
+                engineering: bid.structural_id ? 'structural' : 'mep'
+            };
+            const endpoint = action === 'accept' ? 'accept-invite' : 'reject-invite';
+            await axios.post(`/projects/${projectId}/bids/${bid.id}/${endpoint}`, {
+                bid_type: bidTypeMap[phaseKey]
+            });
+            showToast(`Invitation ${action}ed!`, 'success');
+            onRefresh?.();
+        } catch (err: any) {
+            showToast(err.response?.data?.message || 'Failed to respond', 'error');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
 
     // Helper to find labels
     const getMethodLabel = (id: string) => CONSTRUCTION_METHODS.find(m => m.id === id)?.label || id;
     const getPaymentLabel = (id: string) => PAYMENT_SCHEDULE_OPTIONS.find(p => p.id === id)?.label || id;
+
+    const getProPhone = () => {
+        // Collect all possible phone values from EVERY conceivable object on the bid
+        // We don't care if it's isPM or not, if there's a phone, we use it.
+        const possiblePhones = [
+            // Direct role objects
+            bid.pm?.phone_number,
+            bid.pm?.no_telp,
+            bid.pm?.phone,
+            bid.bidder?.phone,
+            bid.bidder?.phone_number,
+            bid.bidder?.no_telp,
+            bid.arsitek?.phone,
+            bid.arsitek?.no_telp,
+            bid.kontraktor?.phone,
+            bid.kontraktor?.no_telp,
+            bid.notaris?.phone,
+            bid.notaris?.no_telp,
+            bid.interior?.phone,
+            bid.interior?.no_telp,
+            bid.structural?.phone,
+            bid.structural?.no_telp,
+            bid.mep?.phone,
+            bid.mep?.no_telp,
+            
+            // Nested user objects
+            bid.pm?.user?.phone_number,
+            bid.pm?.user?.phone,
+            bid.pm?.user?.no_telp,
+            bid.bidder?.user?.phone_number,
+            bid.bidder?.user?.phone,
+            bid.bidder?.user?.no_telp,
+            bid.user?.phone_number,
+            bid.user?.phone,
+            bid.user?.no_telp,
+
+            // Relationship collections (arrays)
+            bid.pm?.user?.phoneNumber,
+            bid.bidder?.user?.phoneNumber,
+            bid.user?.phoneNumber,
+            bid.pm?.phoneNumber,
+            bid.bidder?.phoneNumber
+        ];
+
+        // Find the first truthy value that isn't just whitespace or "null" string
+        let phone = possiblePhones.find(p => {
+            if (!p) return false;
+            if (typeof p === 'string') {
+                const clean = p.trim().toLowerCase();
+                return clean.length > 0 && clean !== 'null' && clean !== 'undefined' && clean !== '-';
+            }
+            if (typeof p === 'number') return true;
+            if (Array.isArray(p)) return p.length > 0;
+            return false;
+        });
+
+        if (!phone) return null;
+
+        // Handle array of phone objects
+        if (Array.isArray(phone)) {
+            const first = phone[0];
+            if (!first) return null;
+            // Recursively check common fields in the first array element
+            return first.contact || first.phone_number || first.no_telp || first.phone || 
+                   (typeof first === 'string' ? first : null);
+        }
+
+        return phone;
+    };
+
+    const proPhone = getProPhone();
+    
+    // Format WhatsApp Message
+    const getWhatsAppMessage = (termin?: any) => {
+        const myName = user?.name || 'Professional';
+        const projectTitle = bid.project?.title || 'Project';
+        const roleLabel = proType.charAt(0).toUpperCase() + proType.slice(1).replace('_', ' ');
+        
+        if (termin) {
+            return `Hi, I'm ${myName} (${roleLabel}) from the 4Ceria platform regarding project "${projectTitle}". I've signed the contract and am awaiting payment for: ${termin.label} (Rp ${Number(termin.amount).toLocaleString()}). Please let me know when you've uploaded the proof. Thank you!`;
+        }
+        
+        return `Hi, I'm ${myName} (${roleLabel}) from the 4Ceria platform regarding project "${projectTitle}". I've finalized the contract terms. Looking forward to starting our collaboration!`;
+    };
+
+    const handleWhatsAppClick = (phoneNumber?: string, termin?: any) => {
+        if (!phoneNumber) {
+            showToast("Phone number not available", "error");
+            return;
+        }
+        // Clean phone number (remove non-digits)
+        const cleanPhone = phoneNumber.replace(/\D/g, '');
+        const message = encodeURIComponent(getWhatsAppMessage(termin));
+        window.open(`https://wa.me/${cleanPhone}?text=${message}`, '_blank');
+    };
+
 
     return (
         <div className="bg-white border border-gray-100 rounded-[1.5rem] p-5 hover:border-zinc-900 group transition-all shadow-sm">
@@ -44,27 +327,52 @@ export const BidReviewCard: React.FC<BidReviewCardProps> = ({ bid, phaseKey, onA
                                     {getMethodLabel(bid.construction_method)}
                                 </span>
                             )}
+                            {hasHistory && (
+                                <div className="flex items-center gap-1 bg-slate-900 text-white px-2 py-0.5 rounded-md shadow-sm">
+                                    <Clock size={10} className="text-slate-400" />
+                                    <span className="text-[8px] font-black uppercase tracking-widest">{bid.negotiation_logs.length} Rounds</span>
+                                </div>
+                            )}
                         </div>
-                        <div className="flex items-center gap-4 mt-1 text-[11px] font-bold text-gray-400">
-                            <span className="flex items-center gap-1.5 px-2 py-1 bg-gray-50 rounded-lg">
-                                <DollarSign size={13} className="text-emerald-500" />
-                                <span className="text-gray-900">Rp {Number(bid.price).toLocaleString('id-ID')}</span>
-                            </span>
-                            <span className="flex items-center gap-1.5 px-2 py-1 bg-gray-50 rounded-lg">
-                                <Clock size={13} className="text-blue-500" />
-                                <span className="text-gray-900">{bid.estimated_duration} {bid.duration_unit}</span>
-                            </span>
-                            {isContractor && bid.warranty_months && (
-                                <span className="flex items-center gap-1.5 px-2 py-1 bg-gray-50 rounded-lg">
-                                    <Shield size={13} className="text-amber-500" />
-                                    <span className="text-gray-900">{bid.warranty_months} Months</span>
+                        <div className="flex items-center gap-3 mt-1.5">
+                            <div className="flex flex-col">
+                                    <div className="flex items-center gap-1.5">
+                                        {showFinancials ? (
+                                            <div className={`px-3 py-1 rounded-full flex items-center gap-1.5 ${bid.fee_agreed_at ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-emerald-50 text-emerald-700'}`}>
+                                                <span className="text-xs font-black">
+                                                    Rp {formattedAgreedPrice}
+                                                </span>
+                                                {bid.fee_type === 'percentage' && (
+                                                    <span className="text-[8px] font-bold opacity-60">({Number(bid.price).toFixed(2)}%)</span>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <div className="px-3 py-1 bg-zinc-100 text-zinc-500 rounded-full border border-zinc-200 shadow-sm">
+                                                <span className="text-[10px] font-black uppercase tracking-tight">Fee to be negotiated</span>
+                                            </div>
+                                        )}
+                                        {bid.fee_agreed_at && (
+                                            <span className="text-[8px] font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">Finalized Fee</span>
+                                        )}
+                                    </div>
+                                </div>
+                            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-full border border-blue-100 shadow-sm animate-in fade-in slide-in-from-left-4 duration-700">
+                                <Clock size={14} className="opacity-70" />
+                                <span className="text-[11px] font-bold tracking-tight leading-none">
+                                    {bid.estimated_duration} {bid.duration_unit}
                                 </span>
+                            </div>
+                            {phaseKey === 'legal' && bid.tax_estimate && (
+                                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-700 rounded-full border border-amber-100 shadow-sm">
+                                    <Info size={13} className="text-amber-500" />
+                                    <span className="text-amber-900 font-black uppercase text-[9px]">Est. Tax: Rp {Number(bid.tax_estimate).toLocaleString('id-ID')}</span>
+                                </div>
                             )}
                         </div>
                     </div>
                 </div>
 
-                {!readOnly && (
+                {!readOnly && bid.status === 'pending' && (
                     <div className="flex flex-col gap-2">
                         <div className="flex gap-2">
                             <button 
@@ -76,27 +384,421 @@ export const BidReviewCard: React.FC<BidReviewCardProps> = ({ bid, phaseKey, onA
                                 <X size={18} />
                             </button>
                             <button 
-                                onClick={() => onAction(bid.id, 'accept')}
+                                onClick={() => onAction(bid.id, 'shortlist')}
                                 disabled={isActioning}
-                                className="px-6 py-2.5 bg-zinc-900 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-emerald-600 shadow-lg shadow-zinc-200 transition-all flex items-center gap-2 disabled:opacity-50"
+                                className="px-6 py-2.5 bg-blue-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all flex items-center gap-2 disabled:opacity-50"
                             >
-                                {isActioning ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
-                                Accept
+                                {isActioning ? <Loader2 size={16} className="animate-spin" /> : <ListChecks size={16} />}
+                                Shortlist
                             </button>
                         </div>
-                        {(isContractor || isPM) && (
-                            <button 
-                                onClick={() => setIsExpanded(!isExpanded)}
-                                className="flex items-center justify-center gap-1.5 text-[10px] font-black text-gray-400 uppercase tracking-widest hover:text-zinc-900 transition-all py-1"
-                            >
-                                {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                                {isExpanded ? 'Show Less' : 'Details'}
-                            </button>
+                        
+                        <div className="flex items-center gap-2 mt-2">
+                            {proPhone && (
+                                <a
+                                    href={`https://wa.me/${String(proPhone).replace(/[^0-9]/g, '')}?text=Halo%20${proName},%20saya%20pemilik%20proyek%20di%204Ceria.%20Ingin%20bertanya%20mengenai%20penawaran%20Anda.`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-[#25D366] text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-[#20bd5a] transition-all shadow-sm"
+                                >
+                                    <Smartphone size={12} />
+                                    WhatsApp
+                                </a>
+                            )}
+                                <button 
+                                    onClick={() => onOpenChat?.(professionalUser)}
+                                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-sm"
+                                >
+                                    <MessageCircle size={12} />
+                                    Chat
+                                </button>
+                        </div>
+
+                        <button 
+                            onClick={() => setIsExpanded(!isExpanded)}
+                            className="flex items-center justify-center gap-1.5 text-[10px] font-black text-gray-400 uppercase tracking-widest hover:text-zinc-900 transition-all py-1"
+                        >
+                            {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                            {isExpanded ? 'Show Less' : 'Details'}
+                        </button>
+                    </div>
+                )}
+
+                {!readOnly && bid.status === 'invited' && (
+                    <div className="flex flex-col gap-2">
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-full border border-blue-200 shadow-sm">
+                            <Clock size={13} className="animate-pulse" />
+                            <span className="text-[9px] font-black uppercase tracking-[0.15em]">Invited</span>
+                        </div>
+                        {isThePro ? (
+                            <div className="flex gap-2">
+                                <button 
+                                    onClick={() => handleInviteResponse('reject')}
+                                    disabled={isSubmitting}
+                                    className="p-3 bg-gray-50 text-gray-400 rounded-xl hover:bg-red-50 hover:text-red-600 transition-all disabled:opacity-50"
+                                >
+                                    <X size={18} />
+                                </button>
+                                <button 
+                                    onClick={() => handleInviteResponse('accept')}
+                                    disabled={isSubmitting}
+                                    className="px-6 py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-emerald-700 shadow-lg shadow-emerald-200 transition-all flex items-center gap-2 disabled:opacity-50"
+                                >
+                                    {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
+                                    Accept
+                                </button>
+                            </div>
+                        ) : (
+                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest text-center mt-2 italic">Waiting for professional</p>
                         )}
                     </div>
                 )}
 
-                {readOnly && (isContractor || isPM) && (
+                {!readOnly && bid.status === 'negotiating' && (
+                    <div className="flex flex-col gap-2 min-w-[220px]">
+                        <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 text-amber-700 rounded-full border border-amber-200 shadow-sm">
+                                <Activity size={13} />
+                                <span className="text-[9px] font-black uppercase tracking-[0.15em]">Negotiating</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-[8px] font-black px-2 py-1 bg-gray-100 text-gray-500 rounded-md border border-gray-200 uppercase">Round {Number(bid.negotiation_count ?? 0)}/5</span>
+                                {hasHistory && (
+                                    <button 
+                                        onClick={() => setIsExpanded(true)}
+                                        className="text-[8px] font-black text-blue-600 uppercase hover:underline"
+                                    >
+                                        View History
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        {bid.fee_agreed_at ? (
+                            <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 space-y-2">
+                                <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest text-center flex items-center justify-center gap-2">
+                                    <CheckCircle2 size={12} className="text-emerald-500" /> Agreement Confirmed
+                                </p>
+                                <p className="text-[9px] text-emerald-600 font-bold text-center uppercase tracking-tight">
+                                    {isThePro 
+                                        ? 'Awaiting Owner confirmation to finalize hiring' 
+                                        : 'Professional has accepted. You can now proceed to hire.'}
+                                </p>
+                                {isOwner && (
+                                    <button 
+                                        onClick={() => onAction?.(bid.id, 'accept')}
+                                        disabled={isActioning}
+                                        className="w-full mt-2 py-2.5 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 shadow-lg shadow-emerald-200 transition-all flex items-center justify-center gap-2"
+                                    >
+                                        <Check size={16} /> Confirm & Hire
+                                    </button>
+                                )}
+                            </div>
+                        ) : bid.offered_by_id == user?.id ? (
+                            <div className="bg-gray-50 border border-gray-100 rounded-2xl p-4 space-y-2">
+                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest text-center">Awaiting response from {isThePro ? 'Owner' : proName}</p>
+                                <p className="text-[8px] text-gray-300 text-center uppercase tracking-widest">The counter-party has been notified of your proposal</p>
+                            </div>
+                        ) : (
+                            <div className="bg-red-50/50 border border-red-100 rounded-2xl p-4 space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[10px] font-black text-red-600 uppercase tracking-widest animate-pulse">Your Turn</span>
+                                    <span className="text-xs font-black text-slate-900">Rp {resolvedAgreedPrice.toLocaleString('id-ID')}</span>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button 
+                                        onClick={() => setIsProposeFeeModalOpen(true)}
+                                        className="flex-1 py-2 bg-white border border-red-200 text-red-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-50 transition-all"
+                                    >
+                                        Counter
+                                    </button>
+                                    <button 
+                                        onClick={() => isThePro ? handleConfirmFee() : onAction?.(bid.id, 'accept')}
+                                        className="flex-[1.5] py-2 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 shadow-md shadow-emerald-200 transition-all flex items-center justify-center gap-2"
+                                    >
+                                        <Check size={14} /> {(user?.role_type === 'project_manager' && !isThePro) ? 'Approve Fee' : 'Accept'}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="flex items-center gap-2 mt-2">
+                            <button 
+                                onClick={() => onOpenChat?.(professionalUser)}
+                                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-sm"
+                            >
+                                <MessageCircle size={12} /> Chat
+                            </button>
+                            <a 
+                                href={`https://wa.me/${String(proPhone || '').replace(/[^0-9]/g, '')}?text=Halo%20${proName},%20saya%20pemilik%20proyek%20di%204Ceria.`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-[#25D366] text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-[#20bd5a] transition-all shadow-sm"
+                            >
+                                <Smartphone size={12} /> WhatsApp
+                            </a>
+                        </div>
+                    </div>
+                )}
+
+                {!readOnly && (bid.status === 'shortlisted' || bid.status === 'recommended') && (
+                    <div className="flex flex-col gap-2">
+                        <div className="flex flex-wrap gap-2">
+                            {bid.status !== 'recommended' && !bid.is_recommended && (
+                                <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 text-amber-700 rounded-full border border-amber-200 shadow-sm animate-pulse">
+                                    <Users size={13} />
+                                    <span className="text-[9px] font-black uppercase tracking-[0.15em]">Interviewing</span>
+                                </div>
+                            )}
+                            {bid.fee_agreed_at && (
+                                <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-full border border-emerald-200 shadow-sm">
+                                    <CheckCircle size={13} />
+                                    <span className="text-[9px] font-black uppercase tracking-[0.15em]">Fee Agreed</span>
+                                </div>
+                            )}
+                            {(bid.status === 'recommended' || bid.is_recommended) && (
+                                <div className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-full border border-indigo-200 shadow-sm">
+                                    <Star size={13} fill="currentColor" />
+                                    <span className="text-[9px] font-black uppercase tracking-[0.15em]">Recommended</span>
+                                </div>
+                            )}
+                        </div>
+                        {isThePro ? (
+                            <div className="space-y-2 mt-2">
+                                {(!bid.price || bid.price <= 0 || !bid.proposed_termins) ? (
+                                    <button 
+                                        onClick={() => setIsProposeFeeModalOpen(true)}
+                                        className="w-full py-3 bg-zinc-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all flex items-center justify-center gap-2 shadow-lg"
+                                    >
+                                        <DollarSign size={14} /> Propose Fee & Terms
+                                    </button>
+                                ) : (
+                                    <div className="bg-gray-50 border border-gray-100 rounded-xl p-3 text-center">
+                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Awaiting Hiring Decision</p>
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="flex flex-col gap-2 mt-2">
+                                <div className="flex gap-2">
+                                    <button 
+                                        onClick={() => onAction?.(bid.id, 'decline')}
+                                        disabled={isActioning}
+                                        className="p-3 bg-gray-50 text-gray-400 rounded-xl hover:bg-red-50 hover:text-red-600 transition-all disabled:opacity-50"
+                                    >
+                                        <X size={18} />
+                                    </button>
+                                    
+                                    {bid.fee_agreed_at ? (
+                                    <button 
+                                        onClick={() => onAction?.(bid.id, 'accept')}
+                                        disabled={isActioning}
+                                        className="flex-1 py-2.5 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 shadow-lg shadow-emerald-200 transition-all flex items-center justify-center gap-2"
+                                    >
+                                        <Check size={16} /> {(user?.role_type === 'project_manager' && !isThePro) ? (bid.fee_agreed_at ? 'Recommended' : 'Approve Fee') : 'Confirm & Hire'}
+                                    </button>
+                                    ) : (
+                                        <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 text-center">
+                                        <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest">
+                                            Awaiting Professional's Quote
+                                        </p>
+                                        <p className="text-[9px] text-amber-600 font-bold mt-1 uppercase tracking-tighter opacity-80">
+                                            The professional must propose fee & terms first
+                                        </p>
+                                    </div>
+                                )}
+                                </div>
+                            </div>
+                        )}
+                        
+                        <div className="flex items-center gap-2 mt-2">
+                            <button 
+                                onClick={() => onOpenChat?.(professionalUser)}
+                                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-sm"
+                            >
+                                <MessageCircle size={12} /> Chat
+                            </button>
+                            <a 
+                                href={`https://wa.me/${String(proPhone || '').replace(/[^0-9]/g, '')}?text=Halo%20${proName},%20saya%20pemilik%20proyek%20di%204Ceria.`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-[#25D366] text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-[#20bd5a] transition-all shadow-sm"
+                            >
+                                <Smartphone size={12} /> WhatsApp
+                            </a>
+                        </div>
+                    </div>
+                )}
+                        <button 
+                            onClick={() => setIsExpanded(!isExpanded)}
+                            className="flex items-center justify-center gap-1.5 text-[10px] font-black text-gray-400 uppercase tracking-widest hover:text-zinc-900 transition-all py-1"
+                        >
+                            {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                            {isExpanded ? 'Show Less' : 'Details'}
+                        </button>
+
+                {!readOnly && bid.status === 'accepted' && (
+                    <div className="flex flex-col gap-2">
+                        <div className="flex items-center gap-2 px-4 py-2 bg-emerald-100 text-emerald-700 rounded-xl border border-emerald-200 shadow-sm shadow-emerald-50">
+                            <CheckCircle2 size={16} strokeWidth={3} />
+                            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Hired & Active</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            {proPhone && (
+                                <a
+                                    href={`https://wa.me/${String(proPhone).replace(/[^0-9]/g, '')}?text=Halo%20${proName},%20saya%20pemilik%20proyek%20di%204Ceria.`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-[#25D366] text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-[#20bd5a] transition-all shadow-sm"
+                                >
+                                    <Smartphone size={12} />
+                                    WhatsApp
+                                </a>
+                            )}
+                                <button 
+                                    onClick={() => onOpenChat?.(professionalUser)}
+                                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-sm"
+                                >
+                                    <MessageCircle size={12} />
+                                    Chat
+                                </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* Status: Contract Pending (Awaiting Professional Sign) */}
+                {!readOnly && bid.status === 'contract_pending' && (
+                    <div className="flex flex-col gap-2">
+                        <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 text-amber-700 rounded-xl border border-amber-200 shadow-sm animate-pulse">
+                            <Clock size={16} />
+                            <span className="text-[9px] font-black uppercase tracking-[0.2em]">Contract Pending</span>
+                        </div>
+                        
+                        {isThePro ? (
+                            <div className="space-y-2">
+                                <button 
+                                    onClick={() => setIsSignModalOpen(true)}
+                                    className="w-full py-3 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-500 shadow-lg shadow-emerald-900/40 flex items-center justify-center gap-2 transition-all"
+                                >
+                                    <Shield size={14} />
+                                    Sign Contract & Define Termins
+                                </button>
+                                </div>
+                        ) : (
+                            <div className="space-y-2">
+                                <p className="text-[9px] font-bold text-zinc-400 uppercase text-center py-2">Awaiting professional signature...</p>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* Status: Awaiting Payment (Owner pays first termin) */}
+                {!readOnly && bid.status === 'awaiting_payment' && (
+                    <div className="flex flex-col gap-3">
+                        <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-xl border border-blue-200 shadow-sm">
+                            <CreditCard size={16} />
+                            <span className="text-[9px] font-black uppercase tracking-[0.2em]">Awaiting Payment</span>
+                        </div>
+
+                        {/* List Termins */}
+                        {bid.project?.payment_termins?.filter((t: any) => t.role_type === proType).map((termin: any) => (
+                            <div key={termin.id} className="bg-zinc-50 border border-zinc-100 rounded-2xl p-4 flex flex-col gap-3">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[10px] font-black text-zinc-900 uppercase tracking-widest">{termin.label}</span>
+                                    <span className="text-xs font-black text-zinc-900">Rp {Number(termin.amount).toLocaleString()}</span>
+                                </div>
+                                
+                                {termin.status === 'pending' && !isThePro && (
+                                    <div className="space-y-3">
+                                        <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-3">
+                                            <div className="flex items-start gap-2">
+                                                <Info size={14} className="text-blue-500 mt-0.5" />
+                                                <div className="flex-1">
+                                                    <p className="text-[10px] font-bold text-blue-900 uppercase tracking-tight">Payment Instructions</p>
+                                                    <p className="text-[9px] text-blue-700/80 font-medium leading-relaxed mt-1">
+                                                        {bid.project?.payment_instructions || 'Please contact the professional for bank details or pay via platform if integrated.'}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <button 
+                                            onClick={() => {
+                                                setSelectedTermin({ ...termin, type: 'termin' });
+                                                setIsProofModalOpen(true);
+                                                setIsVerifyingProof(false);
+                                            }}
+                                            className="w-full py-2.5 bg-blue-600 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-blue-500 shadow-md shadow-blue-200 flex items-center justify-center gap-2 transition-all"
+                                        >
+                                            <Upload size={14} />
+                                            Pay & Upload Proof
+                                        </button>
+
+                                        <button 
+                                            onClick={() => handleWhatsAppClick(bid.bidder?.phone, termin)}
+                                            className="w-full py-2.5 bg-emerald-600/10 text-emerald-600 border border-emerald-600/20 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-emerald-600/20 flex items-center justify-center gap-2 transition-all"
+                                        >
+                                            <MessageCircle size={14} />
+                                            Chat Pro on WhatsApp
+                                        </button>
+                                    </div>
+                                )}
+
+                                {termin.status === 'pending' && isThePro && (
+                                    <div className="space-y-3">
+                                        <div className="bg-zinc-900/5 border border-zinc-900/10 rounded-xl p-3">
+                                            <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest text-center italic">
+                                                Waiting for owner to fulfill this payment milestone.
+                                            </p>
+                                        </div>
+                                        <button 
+                                            onClick={() => handleWhatsAppClick(activeProject?.owner?.phone || activeProject?.owner_phone, termin)}
+                                            className="w-full py-2.5 bg-emerald-600 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-emerald-500 shadow-md shadow-emerald-900/10 flex items-center justify-center gap-2 transition-all"
+                                        >
+                                            <MessageCircle size={14} />
+                                            Remind Owner via WhatsApp
+                                        </button>
+                                    </div>
+                                )}
+
+                                {termin.status === 'verifying' && (
+                                    <div className="flex flex-col gap-2">
+                                        <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 text-amber-700 rounded-lg text-[8px] font-black uppercase tracking-widest">
+                                            <Loader2 size={10} className="animate-spin" /> Verifying...
+                                        </div>
+                                        {isThePro && (
+                                            <button 
+                                                onClick={() => {
+                                                    setSelectedTermin({ ...termin, type: 'termin' });
+                                                    setIsProofModalOpen(true);
+                                                    setIsVerifyingProof(true);
+                                                }}
+                                                className="w-full py-2 bg-emerald-600 text-white rounded-lg text-[8px] font-black uppercase tracking-widest hover:bg-emerald-500 transition-all"
+                                            >
+                                                Verify Payment
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
+
+                                {termin.status === 'paid' && (
+                                    <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg text-[8px] font-black uppercase tracking-widest">
+                                        <Check size={10} strokeWidth={3} /> Paid
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {!readOnly && bid.status === 'rejected' && (
+                    <div className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-400 rounded-xl border border-gray-200">
+                        <X size={16} strokeWidth={3} />
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em]">Declined</span>
+                    </div>
+                )}
+
+                {readOnly && (
                     <button 
                         onClick={() => setIsExpanded(!isExpanded)}
                         className="p-3 bg-gray-50 text-gray-400 rounded-xl hover:bg-zinc-100 hover:text-zinc-900 transition-all"
@@ -107,13 +809,221 @@ export const BidReviewCard: React.FC<BidReviewCardProps> = ({ bid, phaseKey, onA
                 )}
             </div>
 
-            {/* Proposal Snippet */}
-            {bid.proposal && (
-                <div className="mt-4 px-4 py-3 bg-zinc-50 rounded-xl border-l-4 border-zinc-200 italic text-[12px] text-gray-500 leading-relaxed font-medium">
-                    "{isPM ? stripPMAutomatedProposal(bid.proposal) : bid.proposal}"
+            {/* Proposal Snippet - Universally Cleaned */}
+            {bid.proposal && (phaseKey !== 'legal' || !Array.isArray(bid.selected_services) || bid.selected_services.length === 0) && (() => {
+                const hasStructuredData = (bid.scopes && bid.scopes.length > 0) || (bid.deliverables && bid.deliverables.length > 0);
+                
+                let cleanProposal = bid.proposal;
+                if (isPM) {
+                    cleanProposal = stripPMAutomatedProposal(bid.proposal);
+                } else {
+                    if (bid.proposal.includes('--- PROFESSIONAL MESSAGE ---')) {
+                        cleanProposal = bid.proposal.split('--- PROFESSIONAL MESSAGE ---')[1].split('---')[0].trim();
+                    } else if (bid.proposal.includes('=== ARCHITECTURAL PROPOSAL SUMMARY ===') || 
+                               bid.proposal.includes('=== CONTRACTOR PROPOSAL SUMMARY ===') ||
+                               bid.proposal.includes('=== INTERIOR DESIGN PROPOSAL ===')) {
+                        cleanProposal = bid.proposal.split('---').pop()?.trim() || bid.proposal;
+                    }
+                    if (!cleanProposal || cleanProposal.length < 5) cleanProposal = bid.proposal;
+                }
+
+                if (hasStructuredData && phaseKey === 'design') {
+                    let style = "Custom";
+                    let revisions = "As per agreement";
+                    let feeStructure = "Contractual";
+
+                    if (bid.proposal.includes('=== ARCHITECTURAL PROPOSAL SUMMARY ===')) {
+                        const styleMatch = bid.proposal.match(/• STYLE\/THEME: (.*)/);
+                        if (styleMatch) style = styleMatch[1].trim();
+
+                        const revisionMatch = bid.proposal.match(/• REVISION LIMIT: (.*)/);
+                        if (revisionMatch) revisions = revisionMatch[1].trim();
+
+                        const feeMatch = bid.proposal.match(/• FEE STRUCTURE: (.*)/);
+                        if (feeMatch) feeStructure = feeMatch[1].trim();
+                    }
+
+                    return (
+                        <div className="mt-4 px-5 py-5 bg-zinc-50 rounded-[1.5rem] border border-zinc-100 shadow-inner">
+                            <p className="text-[13px] text-zinc-800 font-medium leading-relaxed italic border-l-4 border-red-500/20 pl-4 py-1 mb-6 whitespace-pre-wrap">
+                                "{cleanProposal}"
+                            </p>
+
+                            {/* Deliverables Grid */}
+                            {bid.deliverables && bid.deliverables.length > 0 && (
+                                <div className="pt-4 border-t border-zinc-200/40">
+                                    <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                                        <CheckCircle2 size={12} className="text-emerald-500" /> Promised Deliverables
+                                    </p>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {bid.deliverables.map((id: string) => {
+                                            const del = ARCHITECT_DELIVERABLES.find(d => d.id === id);
+                                            if (!del) return null;
+                                            
+                                            const IconMap: Record<string, any> = { Box, Layout, Zap, Grid, Eye, Sofa };
+                                            const Icon = IconMap[del.icon as string] || FileText;
+
+                                            return (
+                                                <div key={id} className="flex items-center gap-2 px-3 py-2 bg-white rounded-xl border border-zinc-100 shadow-sm">
+                                                    <div className="w-6 h-6 rounded-md bg-zinc-50 flex items-center justify-center text-zinc-400">
+                                                        <Icon size={12} />
+                                                    </div>
+                                                    <span className="text-[9px] font-black text-zinc-900 leading-tight">{del.label}</span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Scopes Badges */}
+                            {bid.scopes && bid.scopes.length > 0 && (
+                                <div className="flex flex-wrap gap-1.5 mt-4">
+                                    {bid.scopes.map((id: string) => {
+                                        const scope = ARCHITECT_SERVICE_SCOPES.find(s => s.id === id);
+                                        return (
+                                            <span key={id} className="px-2 py-1 bg-zinc-900/5 text-zinc-500 text-[8px] font-black uppercase tracking-widest rounded-md border border-zinc-950/5">
+                                                {scope?.label || id}
+                                            </span>
+                                        );
+                                    })}
+                                </div>
+                            )}
+
+                            {/* Extracted Details */}
+                            {bid.proposal.includes('=== ARCHITECTURAL PROPOSAL SUMMARY ===') && (
+                                <div className="mt-5 pt-5 border-t border-zinc-200/50 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                    <div>
+                                        <p className="text-[8px] font-black text-zinc-400 uppercase tracking-widest mb-1">Proposed Style</p>
+                                        <p className="text-[11px] font-black text-zinc-900">{style}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-[8px] font-black text-zinc-400 uppercase tracking-widest mb-1">Revisions Allowed</p>
+                                        <p className="text-[11px] font-black text-zinc-900">{revisions.replace('Times', '')} Times</p>
+                                    </div>
+                                    {showFinancials && (
+                                        <div>
+                                            <p className="text-[8px] font-black text-zinc-400 uppercase tracking-widest mb-1 text-emerald-600/60">Professional Fee Info</p>
+                                            <p className="text-[11px] font-black text-zinc-900 flex items-baseline gap-1.5">
+                                                {feeStructure} 
+                                                <span className="text-emerald-600">(@ Rp {formattedAgreedPrice})</span>
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    );
+                }
+
+                // Legacy or non-design rendering
+                return (
+                    <div className="mt-4 px-4 py-3 bg-zinc-50 rounded-xl border-l-4 border-red-500/20 italic text-[12px] text-zinc-700 leading-relaxed font-medium whitespace-pre-wrap">
+                        "{cleanProposal}"
+                    </div>
+                );
+            })()}
+
+            {/* Legal Attachments Section - NEW */}
+            {phaseKey === 'legal' && Array.isArray(bid.attachments) && bid.attachments.length > 0 && (
+                <div className="mt-4 flex flex-wrap gap-2">
+                    {bid.attachments.map((url: string, index: number) => (
+                        <a 
+                            key={index}
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 px-3 py-2 bg-zinc-50 border border-zinc-100 rounded-xl hover:bg-zinc-100 hover:border-zinc-900 transition-all group/doc"
+                        >
+                            <div className="w-8 h-8 bg-zinc-900 text-white rounded-lg flex items-center justify-center shadow-lg shadow-zinc-200">
+                                <FileText size={14} />
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-[10px] font-black uppercase text-zinc-900 tracking-tight">Legal Document {index + 1}</span>
+                                <span className="text-[9px] font-bold text-gray-400 flex items-center gap-1">
+                                    View File <ExternalLink size={8} />
+                                </span>
+                            </div>
+                        </a>
+                    ))}
                 </div>
             )}
 
+            {/* Notary Selected Services & Scopes */}
+            {phaseKey === 'legal' && bid.selected_services && (
+                <div className="mt-6 space-y-6">
+                    {/* If using the old package structure (array of objects) */}
+                    {Array.isArray(bid.selected_services) && bid.selected_services.length > 0 && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                            {bid.selected_services.map((service: any, idx: number) => (
+                                <div key={idx} className="bg-white border-2 border-zinc-50 rounded-2xl p-4 flex flex-col gap-2 relative overflow-hidden group/item hover:border-zinc-900 transition-all shadow-sm">
+                                    <div className="flex flex-wrap items-center gap-3">
+                                        {hasHistory && (
+                                            <div className="flex items-center gap-1.5 px-3 py-1 bg-slate-900/5 border border-slate-900/10 rounded-full">
+                                                <Clock size={10} className="text-slate-600" />
+                                                <span className="text-[8px] font-black text-slate-600 uppercase tracking-widest">{bid.negotiation_logs.length} Rounds</span>
+                                            </div>
+                                        )}
+                                        <div className="w-6 h-6 bg-zinc-900 text-white rounded-lg flex items-center justify-center">
+                                            <Check size={12} />
+                                        </div>
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-zinc-900 truncate flex-1">
+                                            {service.title}
+                                        </span>
+                                    </div>
+                                    <p className="text-[10px] font-bold text-gray-400 line-clamp-3 leading-relaxed min-h-[3em]">
+                                        {service.description || 'No detailed description provided for this package.'}
+                                    </p>
+                                    <div className="mt-2 pt-3 flex items-center justify-between border-t border-zinc-100">
+                                        <span className="text-[9px] font-black text-zinc-300 uppercase tracking-tighter">Package Professional Fee</span>
+                                        <span className="text-[11px] font-black text-zinc-900">
+                                            {showFinancials ? `Rp ${Number(service.price).toLocaleString('id-ID')}` : 'TBN'}
+                                        </span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* New Structured Scopes (JSON object with scopes/deliverables) */}
+                    {typeof bid.selected_services === 'object' && !Array.isArray(bid.selected_services) && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 bg-zinc-50 rounded-[2rem] border border-zinc-100">
+                            <div className="space-y-4">
+                                <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest flex items-center gap-2">
+                                    <ListChecks size={12} className="text-zinc-400" /> Included Services
+                                </label>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {bid.selected_services.scopes?.map((sId: string) => {
+                                        const scope = NOTARY_SERVICE_SCOPES.find(s => s.id === sId);
+                                        return (
+                                            <span key={sId} className="px-3 py-1.5 bg-white border border-zinc-200 text-zinc-600 text-[9px] font-black uppercase tracking-wider rounded-lg shadow-sm">
+                                                {scope?.label || sId}
+                                            </span>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            <div className="space-y-4">
+                                <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest flex items-center gap-2">
+                                    <Shield size={12} className="text-zinc-400" /> Legal Deliverables
+                                </label>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {bid.selected_services.deliverables?.map((dId: string) => {
+                                        const delLabel = dId.replace(/_/g, ' ');
+                                        return (
+                                            <span key={dId} className="px-3 py-1.5 bg-zinc-900 text-white text-[9px] font-black uppercase tracking-wider rounded-lg shadow-lg shadow-zinc-200">
+                                                {delLabel}
+                                            </span>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+            
             {/* Always Visible PM Details */}
             {isPM && (
                 <div className="mt-6 pt-6 border-t border-gray-100 grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -157,18 +1067,162 @@ export const BidReviewCard: React.FC<BidReviewCardProps> = ({ bid, phaseKey, onA
                             </div>
                         </div>
 
-                        <div className="bg-zinc-100 p-4 rounded-2xl">
-                            <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-2">Fee Structure</label>
-                            <div className="flex items-center gap-2 text-zinc-900">
-                                <CreditCard size={16} />
-                                <span className="text-xs font-black uppercase tracking-tight">
-                                    {PM_FEE_TYPES.find(f => f.id === bid.fee_type)?.label || 'Professional Fee'}
-                                </span>
+                        {showFinancials && (
+                            <div className="bg-zinc-100 p-4 rounded-2xl">
+                                <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-2">Fee Structure</label>
+                                <div className="flex items-center gap-2 text-zinc-900">
+                                    <CreditCard size={16} />
+                                    <span className="text-xs font-black uppercase tracking-tight">
+                                        {PM_FEE_TYPES.find(f => f.id === bid.fee_type)?.label || 'Professional Fee'}
+                                    </span>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* PM Value Proposition Note */}
+                        <div className="bg-[#FF2D20]/5 border border-[#FF2D20]/10 p-5 rounded-[2rem] space-y-3">
+                            <div className="flex items-center gap-2">
+                                <Zap size={14} className="text-[#FF2D20]" />
+                                <span className="text-[10px] font-black text-[#FF2D20] uppercase tracking-widest">Why hire this PM?</span>
+                            </div>
+                            <div className="space-y-2">
+                                <div className="flex items-start gap-2">
+                                    <div className="mt-1"><CheckCircle2 size={10} className="text-[#FF2D20]" /></div>
+                                    <p className="text-[10px] font-bold text-gray-600 leading-tight">100% Budget & Financial Security</p>
+                                </div>
+                                <div className="flex items-start gap-2">
+                                    <div className="mt-1"><CheckCircle2 size={10} className="text-[#FF2D20]" /></div>
+                                    <p className="text-[10px] font-bold text-gray-600 leading-tight">Professional Quality & Site Inspector</p>
+                                </div>
+                                <div className="flex items-start gap-2">
+                                    <div className="mt-1"><CheckCircle2 size={10} className="text-[#FF2D20]" /></div>
+                                    <p className="text-[10px] font-bold text-gray-600 leading-tight">Single Point of Coordination Hub</p>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
             )}
+
+            {/* Engineering Specific Details */}
+            {phaseKey === 'engineering' && (
+                <div className="mt-6 pt-6 border-t border-gray-100 space-y-8 animate-in fade-in duration-500">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        {/* Technical Profile */}
+                        <div className="space-y-4">
+                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                                <Shield size={12} className="text-red-500" /> Engineering Credentials
+                            </label>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 shadow-sm">
+                                    <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">License (SIKA/PE)</p>
+                                    <p className="text-xs font-black text-gray-900 truncate">{bid.license_number || 'N/A'}</p>
+                                </div>
+                                <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 shadow-sm">
+                                    <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Professional Experience</p>
+                                    <p className="text-xs font-black text-gray-900">{bid.experience_years ? `${bid.experience_years} Years` : 'N/A'}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Technical Notes */}
+                        <div className="space-y-4">
+                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                                <FileText size={12} className="text-blue-500" /> Technical Assumptions
+                            </label>
+                            <div className="p-4 bg-slate-900 rounded-2xl text-white border border-slate-800 shadow-xl relative overflow-hidden min-h-[85px]">
+                                <div className="absolute top-0 right-0 w-16 h-16 bg-red-500/10 rounded-full blur-xl -mr-8 -mt-8" />
+                                <p className="text-[11px] font-medium leading-relaxed text-slate-300 italic relative z-10">
+                                    {bid.technical_notes ? `"${bid.technical_notes}"` : 'No specific technical notes provided.'}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        {/* Scope */}
+                        <div className="space-y-4">
+                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                                <Activity size={12} className="text-emerald-500" /> Analysis Scope
+                            </label>
+                            <div className="flex flex-wrap gap-2">
+                                {(bid.scopes || []).map((sId: string) => {
+                                    const scope = (bid.structural_id ? STRUCTURAL_SERVICE_SCOPES : MEP_SERVICE_SCOPES).find(x => x.id === sId);
+                                    return (
+                                        <span key={sId} className="px-3 py-1.5 bg-white border border-gray-100 text-gray-600 text-[9px] font-black uppercase tracking-wider rounded-lg shadow-sm">
+                                            {scope?.label || sId}
+                                        </span>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* Deliverables */}
+                        <div className="space-y-4">
+                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                                <Box size={12} className="text-zinc-900" /> Deliverables
+                            </label>
+                            <div className="flex flex-wrap gap-2">
+                                {(bid.deliverables || []).map((dId: string) => {
+                                    const del = (bid.structural_id ? STRUCTURAL_DELIVERABLES : MEP_DELIVERABLES).find(x => x.id === dId);
+                                    return (
+                                        <span key={dId} className="px-3 py-1.5 bg-zinc-900 text-white text-[9px] font-black uppercase tracking-wider rounded-lg shadow-lg shadow-zinc-200">
+                                            {del?.label || dId}
+                                        </span>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Negotiation History Section - Universal */}
+            <div className="mt-4">
+                <NegotiationHistory logs={bid.negotiation_logs} />
+            </div>
+
+            {/* Proposed Payment Phases & Milestones Display */}
+            {bid.proposed_termins && bid.proposed_termins.length > 0 && (
+                <div className="mt-4 p-4 bg-gradient-to-br from-slate-50 to-zinc-50 rounded-2xl border border-slate-100 space-y-4">
+                    <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Proposed Payment Phases</h5>
+                    <div className="space-y-2">
+                        {bid.proposed_termins.map((t: { trigger_description: string; percentage: number; milestone_index?: number }, i: number) => (
+                            <div key={i} className="flex items-center justify-between bg-white p-3 rounded-xl border border-slate-100">
+                                <div className="flex items-center gap-3">
+                                    <span className="w-6 h-6 bg-slate-900 text-white rounded-lg flex items-center justify-center text-[9px] font-black">{i + 1}</span>
+                                    <span className="text-xs font-bold text-slate-700">{t.trigger_description}</span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <span className="text-xs font-black text-slate-900">{t.percentage}%</span>
+                                    {resolvedAgreedPrice > 0 && showFinancials && (
+                                        <span className="text-[10px] font-bold text-slate-400">
+                                            Rp {((Number(resolvedAgreedPrice) * t.percentage) / 100).toLocaleString('id-ID')}
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    {bid.proposed_milestones && bid.proposed_milestones.length > 0 && (
+                        <div className="pt-3 border-t border-slate-100">
+                            <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Proposed Milestones</h5>
+                            <div className="space-y-2">
+                                {bid.proposed_milestones.map((m: { title: string; description?: string }, i: number) => (
+                                    <div key={i} className="flex items-start gap-2 bg-white p-3 rounded-xl border border-slate-100">
+                                        <div className="w-2 h-2 bg-emerald-400 rounded-full mt-1.5 flex-shrink-0" />
+                                        <div>
+                                            <p className="text-xs font-bold text-slate-700">{m.title}</p>
+                                            {m.description && <p className="text-[10px] text-slate-400 mt-0.5">{m.description}</p>}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+
 
             {/* Expandable Contractor Details */}
             <AnimatePresence>
@@ -179,9 +1233,67 @@ export const BidReviewCard: React.FC<BidReviewCardProps> = ({ bid, phaseKey, onA
                         exit={{ height: 0, opacity: 0 }}
                         className="overflow-hidden"
                     >
-                        <div className="mt-6 pt-6 border-t border-gray-100 grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {isContractor ? (
-                                <>
+                        <div className="mt-6 pt-6 border-t border-gray-100 space-y-8">
+                            {/* Professional Profile Section */}
+                            <div className="space-y-4">
+                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                                    <Shield size={14} className="text-zinc-900" /> Professional Credentials
+                                </label>
+                                {professionalUser ? (
+                                    <div className="space-y-6">
+                                        <div className="bg-gray-50/50 rounded-[2rem] p-1 border border-dashed border-gray-200">
+                                            <ProfilePreviewCard 
+                                                user={{
+                                                    ...professionalUser,
+                                                    role_type: professionalUser?.role_type || proType,
+                                                    // Explicitly map profile relations to ensure getProfile finds them
+                                                    // We prioritize the bid's direct profile object as it's more likely to be fully hydrated
+                                                    arsitek: bid.arsitek || professionalUser?.arsitek,
+                                                    kontraktor: bid.kontraktor || professionalUser?.kontraktor,
+                                                    notaris_profile: bid.notaris || professionalUser?.notaris_profile,
+                                                    interior_profile: bid.interior || professionalUser?.interior_profile,
+                                                    project_manager: bid.pm || professionalUser?.project_manager,
+                                                    structural_engineer: bid.structural || bid.structuralEngineer || professionalUser?.structural_engineer,
+                                                    mep_engineer: bid.mep || bid.mepEngineer || professionalUser?.mep_engineer
+                                                }} 
+                                                portfolios={portfolios} 
+                                            />
+                                        </div>
+
+                                        {/* Legal/Professional Attachments */}
+                                        {(bid.attachment_1 || bid.attachment_2 || bid.attachment_3 || (bid.attachments && bid.attachments.length > 0)) && (
+                                            <div className="space-y-3">
+                                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                                                    <FileText size={14} className="text-zinc-900" /> Supporting Documents
+                                                </label>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {[bid.attachment_1, bid.attachment_2, bid.attachment_3].filter(Boolean).map((url, i) => (
+                                                        <a key={i} href={`/storage/${url}`} target="_blank" rel="noopener noreferrer" 
+                                                            className="flex items-center gap-2 px-4 py-2 bg-zinc-50 border border-zinc-100 rounded-xl hover:bg-zinc-900 hover:text-white transition-all group">
+                                                            <FileText size={14} className="text-zinc-400 group-hover:text-white" />
+                                                            <span className="text-[10px] font-black uppercase">Document {i + 1}</span>
+                                                        </a>
+                                                    ))}
+                                                    {Array.isArray(bid.attachments) && bid.attachments.map((url, i) => (
+                                                        <a key={`extra-${i}`} href={url} target="_blank" rel="noopener noreferrer" 
+                                                            className="flex items-center gap-2 px-4 py-2 bg-zinc-50 border border-zinc-100 rounded-xl hover:bg-zinc-900 hover:text-white transition-all group">
+                                                            <FileText size={14} className="text-zinc-400 group-hover:text-white" />
+                                                            <span className="text-[10px] font-black uppercase">Extra Doc {i + 1}</span>
+                                                        </a>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <div className="p-10 bg-gray-50 rounded-[2rem] border border-dashed border-gray-200 text-center">
+                                        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Full profile data unavailable</p>
+                                    </div>
+                                )}
+                            </div>
+
+                            {isContractor && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-gray-100">
                                     {/* Cost Breakdown */}
                                     <div className="space-y-3">
                                         <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
@@ -233,13 +1345,50 @@ export const BidReviewCard: React.FC<BidReviewCardProps> = ({ bid, phaseKey, onA
                                             </div>
                                         </div>
                                     </div>
-                                </>
-                            ) : null}
-
+                                </div>
+                            )}
                         </div>
                     </motion.div>
                 )}
             </AnimatePresence>
+
+            {/* Modals - Outside of AnimatePresence & isExpanded to ensure they always render when triggered */}
+            {isSignModalOpen && (
+                <ContractSignModal 
+                    isOpen={isSignModalOpen}
+                    onClose={() => setIsSignModalOpen(false)}
+                    project={activeProject || { id: projectId, title: 'Project' }}
+                    bid={bid}
+                    bidType={proType}
+                    onSuccess={() => onRefresh?.()}
+                />
+            )}
+
+            {isProofModalOpen && selectedTermin && (
+                <PaymentProofModal 
+                    key={`${selectedTermin.type}-${selectedTermin.id}`}
+                    isOpen={isProofModalOpen}
+                    onClose={() => setIsProofModalOpen(false)}
+                    project={activeProject || { id: projectId, title: 'Project' }}
+                    termin={selectedTermin}
+                    isProfessional={isVerifyingProof}
+                    onSuccess={() => onRefresh?.()}
+                />
+            )}
+
+            {isProposeFeeModalOpen && (
+                <ProposeFeeModal
+                    bid={bid}
+                    project={activeProject}
+                    projectId={projectId || activeProject?.id}
+                    proType={proType}
+                    onClose={() => setIsProposeFeeModalOpen(false)}
+                    onSuccess={() => {
+                        setIsProposeFeeModalOpen(false);
+                        onRefresh?.();
+                    }}
+                />
+            )}
         </div>
     );
 };

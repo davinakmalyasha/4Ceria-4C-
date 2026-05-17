@@ -1,114 +1,73 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { Project } from '../../types/project.types';
-import { 
-    Clock, CheckCircle2, MessageCircle, FileUp, 
-    Trash2, Star, ArrowRightLeft, PlusCircle, Loader2 
-} from 'lucide-react';
+import React from 'react';
+import { Activity, Clock, ChevronRight } from 'lucide-react';
+import { motion } from 'framer-motion';
 
-interface ActivityEntry {
-    id: number;
-    action: string;
-    details: string;
-    created_at: string;
-    user?: { id: number; name: string };
+interface ProjectActivityProps {
+    project: any;
 }
 
-const ACTION_CONFIG: Record<string, { icon: any; color: string; bg: string }> = {
-    project_created:    { icon: PlusCircle,      color: 'text-emerald-600', bg: 'bg-emerald-100' },
-    status_changed:     { icon: ArrowRightLeft,  color: 'text-blue-600',    bg: 'bg-blue-100' },
-    bid_accepted:       { icon: CheckCircle2,    color: 'text-green-600',   bg: 'bg-green-100' },
-    milestone_added:    { icon: PlusCircle,      color: 'text-violet-600',  bg: 'bg-violet-100' },
-    milestone_completed:{ icon: CheckCircle2,     color: 'text-emerald-600', bg: 'bg-emerald-100' },
-    milestone_reopened: { icon: ArrowRightLeft,  color: 'text-amber-600',   bg: 'bg-amber-100' },
-    milestone_deleted:  { icon: Trash2,          color: 'text-red-600',     bg: 'bg-red-100' },
-    comment_posted:     { icon: MessageCircle,   color: 'text-sky-600',     bg: 'bg-sky-100' },
-    document_uploaded:  { icon: FileUp,          color: 'text-indigo-600',  bg: 'bg-indigo-100' },
-    document_deleted:   { icon: Trash2,          color: 'text-red-600',     bg: 'bg-red-100' },
-    rating_given:       { icon: Star,            color: 'text-amber-600',   bg: 'bg-amber-100' },
-};
-
-interface Props {
-    project: Project;
-}
-
-export default function ProjectActivity({ project }: Props) {
-    const [logs, setLogs] = useState<ActivityEntry[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-
-    useEffect(() => {
-        const fetch = async () => {
-            try {
-                const res = await axios.get(`/projects/${project.id}/activity`);
-                setLogs(res.data.data);
-            } catch (err) {
-                console.error('Failed to load activity logs');
-            } finally {
-                setIsLoading(false);
-            }
-        };
-        fetch();
-    }, [project.id]);
-
-    const getConfig = (action: string) => {
-        return ACTION_CONFIG[action] || { icon: Clock, color: 'text-gray-500', bg: 'bg-gray-100' };
-    };
-
-    if (isLoading) {
-        return (
-            <div className="flex justify-center py-12">
-                <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
-            </div>
-        );
-    }
-
-    if (logs.length === 0) {
-        return (
-            <div className="text-center py-12">
-                <Clock className="w-12 h-12 text-gray-200 mx-auto mb-3" />
-                <p className="text-gray-400 font-medium">No activity recorded yet.</p>
-                <p className="text-gray-300 text-sm mt-1">Events will appear here as the project progresses.</p>
-            </div>
-        );
-    }
+export default function ProjectActivity({ project }: ProjectActivityProps) {
+    const activities = project?.activity_logs || [];
 
     return (
-        <div className="relative">
-            {/* Vertical Line */}
-            <div className="absolute left-5 top-3 bottom-3 w-0.5 bg-gray-200" />
+        <div className="max-w-3xl mx-auto space-y-8 pb-12">
+            <div>
+                <h2 className="text-2xl font-black text-gray-900 tracking-tight">Activity Timeline</h2>
+                <p className="text-gray-500 text-xs font-bold uppercase tracking-widest mt-1">Full History of Project Events</p>
+            </div>
 
-            <div className="space-y-1">
-                {logs.map((log, idx) => {
-                    const cfg = getConfig(log.action);
-                    const Icon = cfg.icon;
-                    const date = new Date(log.created_at);
+            <div className="relative">
+                {/* Timeline Line */}
+                <div className="absolute left-[23px] top-4 bottom-4 w-0.5 bg-gray-100" />
 
-                    return (
-                        <div key={log.id} className="relative flex items-start gap-4 py-3 pl-1 group">
-                            {/* Icon Circle */}
-                            <div className={`relative z-10 w-10 h-10 rounded-full ${cfg.bg} flex items-center justify-center shrink-0 border-2 border-white shadow-sm`}>
-                                <Icon className={`w-4.5 h-4.5 ${cfg.color}`} />
-                            </div>
-
-                            {/* Content */}
-                            <div className="flex-1 min-w-0 pt-1">
-                                <p className="text-sm text-gray-800 font-semibold leading-snug">
-                                    {log.details}
-                                </p>
-                                <div className="flex items-center gap-2 mt-1">
-                                    <span className="text-[11px] text-gray-400 font-medium">
-                                        {log.user?.name || 'System'}
-                                    </span>
-                                    <span className="text-gray-300">•</span>
-                                    <span className="text-[11px] text-gray-400">
-                                        {date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} at {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                    </span>
-                                </div>
-                            </div>
+                <div className="space-y-8">
+                    {activities.length === 0 ? (
+                        <div className="bg-gray-50/50 rounded-[2.5rem] p-12 text-center border border-dashed border-gray-200 ml-12">
+                            <p className="text-gray-500 font-bold text-sm">No activity recorded yet.</p>
                         </div>
-                    );
-                })}
+                    ) : (
+                        activities.map((activity: any, idx: number) => (
+                            <motion.div
+                                key={activity.id}
+                                initial={{ opacity: 0, x: -10 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: idx * 0.05 }}
+                                className="relative flex gap-8 group"
+                            >
+                                {/* Timeline Dot */}
+                                <div className="relative z-10 w-12 h-12 rounded-2xl bg-white border-4 border-gray-50 shadow-sm flex items-center justify-center text-gray-400 group-hover:border-red-50 group-hover:text-red-500 transition-all">
+                                    <Activity size={18} />
+                                </div>
+
+                                <div className="flex-1 pt-1">
+                                    <div className="flex items-center gap-3 mb-1">
+                                        <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest flex items-center gap-1.5">
+                                            <Clock size={10} />
+                                            {formatDate(activity.created_at)}
+                                        </span>
+                                    </div>
+                                    <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+                                        <p className="text-sm font-bold text-gray-800 leading-relaxed">
+                                            {activity.description}
+                                        </p>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        ))
+                    )}
+                </div>
             </div>
         </div>
     );
+}
+
+function formatDate(dateStr: string) {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('id-ID', { 
+        day: 'numeric', 
+        month: 'short', 
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
 }

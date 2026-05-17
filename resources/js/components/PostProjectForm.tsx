@@ -13,7 +13,7 @@ export default function PostProjectForm({ onCancel, onSuccess }: PostProjectForm
 
     const [f, setF] = useState({ 
         title: '', desc: '', budget: '', loc: '', type: 'umum', target: 'both', deadline: '',
-        lat: '-6.200000', lng: '106.816666', province: '', city: '', kecamatan: '', kelurahan: '', postal_code: '', street_name: ''
+        lat: '-6.200000', lng: '106.816666', province: '', city: '', kecamatan: '', kelurahan: '', postal_code: '', street_name: '', wants_pm: false
     });
     const [images, setImages] = useState<File[]>([]);
     const update = (k: keyof typeof f) => (e: any) => setF({ ...f, [k]: e.target.value });
@@ -31,6 +31,7 @@ export default function PostProjectForm({ onCancel, onSuccess }: PostProjectForm
         formData.append('province', f.province); formData.append('city', f.city);
         formData.append('kecamatan', f.kecamatan); formData.append('kelurahan', f.kelurahan);
         formData.append('postal_code', f.postal_code); formData.append('street_name', f.street_name);
+        formData.append('wants_project_manager', f.wants_pm ? '1' : '0');
         images.forEach((img, i) => formData.append(`images[${i}]`, img));
 
         try { await axios.post('/projects', formData); onSuccess(); }
@@ -173,6 +174,23 @@ export default function PostProjectForm({ onCancel, onSuccess }: PostProjectForm
                                         <option value="arsitek">Khusus Arsitek (Desain)</option>
                                         <option value="kontraktor">Khusus Kontraktor (Pembangunan)</option>
                                     </select>
+                                </div>
+                                <div className="p-5 bg-[#FF2D20]/5 border border-[#FF2D20]/10 rounded-2xl flex items-start gap-4">
+                                    <div className="pt-1">
+                                        <input
+                                            type="checkbox"
+                                            id="wants_pm"
+                                            checked={f.wants_pm}
+                                            onChange={(e) => setF({ ...f, wants_pm: e.target.checked })}
+                                            className="w-5 h-5 text-[#FF2D20] bg-white border-gray-300 rounded focus:ring-[#FF2D20] cursor-pointer"
+                                        />
+                                    </div>
+                                    <label htmlFor="wants_pm" className="cursor-pointer cursor-pointer">
+                                        <p className="text-base font-bold text-gray-900 mb-1">Gunakan Project Manager (Direkomendasikan)</p>
+                                        <p className="text-sm text-gray-600">
+                                            Jika dicentang, Anda tidak perlu pusing mengurus vendor. Seorang Project Manager profesional akan memimpin seluruh proyek, mencarikan arsitek/kontraktor, dan melaporkan ringkasan eksekutif kepada Anda.
+                                        </p>
+                                    </label>
                                 </div>
                             </motion.div>
                         )}

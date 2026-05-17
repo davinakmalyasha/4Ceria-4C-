@@ -8,7 +8,6 @@ import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
-import ProfessionalLogin from './pages/ProfessionalLogin';
 import ProfessionalRegister from './pages/ProfessionalRegister';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
@@ -17,6 +16,7 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminVerification from './pages/admin/AdminVerification';
 import AdminHouses from './pages/admin/AdminHouses';
 import AdminProjects from './pages/admin/AdminProjects';
+import PublicBrief from './pages/PublicBrief';
 
 const AdminRoute = ({ children }: { children: React.ReactNode }) => {
     const { user, isLoading } = useAuth();
@@ -42,6 +42,9 @@ function App() {
                     <Route path="/admin/verification" element={<AdminRoute><AdminVerification /></AdminRoute>} />
                     <Route path="/admin/houses" element={<AdminRoute><AdminHouses /></AdminRoute>} />
                     <Route path="/admin/projects" element={<AdminRoute><AdminProjects /></AdminRoute>} />
+
+                    {/* Public Brief (no auth) */}
+                    <Route path="/brief/:token" element={<PublicBrief />} />
 
                     <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>

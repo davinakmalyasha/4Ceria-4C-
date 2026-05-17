@@ -1,12 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Save, Lock, Palette, Armchair, Lightbulb, Sparkles } from 'lucide-react';
+import { Save, Lock, Palette, Armchair, Lightbulb, Sparkles, Plus, Trash2 } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
 
 interface InteriorBriefManagerProps {
     project: any;
     isInteriorDesigner: boolean;
     onRefresh: () => void;
+}
+
+interface FurnitureItem {
+    id: string;
+    name: string;
+    room?: string;
+    notes?: string;
 }
 
 interface InteriorBrief {
@@ -16,6 +23,7 @@ interface InteriorBrief {
     room_priorities: string;
     special_requests: string;
     inspiration_notes: string;
+    furniture_wishlist: FurnitureItem[];
 }
 
 const STYLE_OPTIONS = [
@@ -31,6 +39,7 @@ const DEFAULT_BRIEF: InteriorBrief = {
     room_priorities: '',
     special_requests: '',
     inspiration_notes: '',
+    furniture_wishlist: [],
 };
 
 export default function InteriorBriefManager({ project, isInteriorDesigner, onRefresh }: InteriorBriefManagerProps) {
@@ -79,8 +88,31 @@ export default function InteriorBriefManager({ project, isInteriorDesigner, onRe
         }
     };
 
-    const updateField = (field: keyof InteriorBrief, value: string) => {
+    const updateField = (field: keyof InteriorBrief, value: any) => {
         setBrief(prev => ({ ...prev, [field]: value }));
+    };
+
+    const addWishlistItem = () => {
+        const name = prompt('Furniture Item Name:');
+        if (!name) return;
+        const newItem: FurnitureItem = {
+            id: Math.random().toString(36).substr(2, 9),
+            name,
+            room: '',
+            notes: ''
+        };
+        updateField('furniture_wishlist', [...brief.furniture_wishlist, newItem]);
+    };
+
+    const removeWishlistItem = (id: string) => {
+        updateField('furniture_wishlist', brief.furniture_wishlist.filter(i => i.id !== id));
+    };
+
+    const updateWishlistItem = (id: string, field: keyof FurnitureItem, value: string) => {
+        const updated = brief.furniture_wishlist.map(item => 
+            item.id === id ? { ...item, [field]: value } : item
+        );
+        updateField('furniture_wishlist', updated);
     };
 
     return (
@@ -190,6 +222,104 @@ export default function InteriorBriefManager({ project, isInteriorDesigner, onRe
                 ) : (
                     <p className="text-sm font-bold text-slate-700 whitespace-pre-wrap">{brief.special_requests || 'None'}</p>
                 )}
+            </div>
+
+            {/* Furniture Wishlist Section */}
+            <div className="p-8 bg-white border-2 border-slate-100 rounded-3xl space-y-6">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-purple-100 rounded-lg">
+                            <Armchair size={20} className="text-purple-600" />
+                        </div>
+                        <div>
+                            <h4 className="text-sm font-black text-slate-900 uppercase tracking-tight">Furniture & Styling Wishlist</h4>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Initial list of items to be sourced/designed</p>
+                        </div>
+                    </div>
+                    {canEdit && (
+                        <button 
+                            onClick={addWishlistItem}
+                            className="px-4 py-2 bg-purple-50 text-purple-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-purple-100 transition-all flex items-center gap-2"
+                        >
+                            <Plus size={14} /> Add Item
+                        </button>
+                    )}
+                </div>
+
+                <div className="overflow-hidden rounded-2xl border border-slate-100">
+                    <table className="w-full text-left">
+                        <thead>
+                            <tr className="bg-slate-50 border-b border-slate-100">
+                                <th className="px-5 py-3 text-[9px] font-black uppercase text-slate-400 tracking-wider">Item Name</th>
+                                <th className="px-5 py-3 text-[9px] font-black uppercase text-slate-400 tracking-wider">Target Room</th>
+                                <th className="px-5 py-3 text-[9px] font-black uppercase text-slate-400 tracking-wider">Notes / Spec</th>
+                                {canEdit && <th className="px-5 py-3 w-10"></th>}
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50">
+                            {brief.furniture_wishlist.length === 0 ? (
+                                <tr>
+                                    <td colSpan={canEdit ? 4 : 3} className="px-5 py-10 text-center text-xs font-bold text-slate-400 italic">
+                                        No specific items added to wishlist yet.
+                                    </td>
+                                </tr>
+                            ) : (
+                                brief.furniture_wishlist.map(item => (
+                                    <tr key={item.id} className="group hover:bg-slate-50/50 transition-colors">
+                                        <td className="px-5 py-4">
+                                            {canEdit ? (
+                                                <input 
+                                                    type="text" 
+                                                    value={item.name}
+                                                    onChange={e => updateWishlistItem(item.id, 'name', e.target.value)}
+                                                    className="w-full bg-transparent border-none p-0 text-sm font-bold text-slate-900 focus:ring-0"
+                                                />
+                                            ) : (
+                                                <span className="text-sm font-bold text-slate-900">{item.name}</span>
+                                            )}
+                                        </td>
+                                        <td className="px-5 py-4">
+                                            {canEdit ? (
+                                                <input 
+                                                    type="text" 
+                                                    value={item.room}
+                                                    onChange={e => updateWishlistItem(item.id, 'room', e.target.value)}
+                                                    placeholder="e.g. Living Room"
+                                                    className="w-full bg-transparent border-none p-0 text-xs font-bold text-slate-500 focus:ring-0"
+                                                />
+                                            ) : (
+                                                <span className="text-xs font-bold text-slate-500">{item.room || '-'}</span>
+                                            )}
+                                        </td>
+                                        <td className="px-5 py-4">
+                                            {canEdit ? (
+                                                <input 
+                                                    type="text" 
+                                                    value={item.notes}
+                                                    onChange={e => updateWishlistItem(item.id, 'notes', e.target.value)}
+                                                    placeholder="e.g. Velvet finish, L-shape"
+                                                    className="w-full bg-transparent border-none p-0 text-xs font-medium text-slate-400 focus:ring-0"
+                                                />
+                                            ) : (
+                                                <span className="text-xs font-medium text-slate-400">{item.notes || '-'}</span>
+                                            )}
+                                        </td>
+                                        {canEdit && (
+                                            <td className="px-5 py-4 text-right">
+                                                <button 
+                                                    onClick={() => removeWishlistItem(item.id)}
+                                                    className="p-1.5 text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                                                >
+                                                    <Trash2 size={14} />
+                                                </button>
+                                            </td>
+                                        )}
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             {/* Save & Lock Actions */}

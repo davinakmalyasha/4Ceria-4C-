@@ -13,7 +13,7 @@ class CityController extends Controller
 
         // Pastikan nama kolom 'name' dan tipe kota sesuai dengan data yang ada di tabel 'regions'
         $cities = DB::table('regions')
-            ->where('name', 'like', '%' . $query . '%')
+            ->where('name', 'like', '%'.$query.'%')
             ->where('type', 'kota') // Jika ada tipe kota, pastikan filter ini sesuai
             ->pluck('name');
 

@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class KontraktorRating extends Model
 {
     protected $fillable = [
-        'user_id', 'kontraktor_id', 'project_id', 'rating', 'komentar'
+        'user_id', 'kontraktor_id', 'project_id', 'rating', 'komentar',
     ];
 
     public function user()

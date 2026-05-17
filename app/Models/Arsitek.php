@@ -5,7 +5,6 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-
 class Arsitek extends Model
 {
     use HasFactory;
@@ -27,7 +26,11 @@ class Arsitek extends Model
         'alasan_hire',
         'verification_status',
         'rejection_reason',
-        'foto'
+        'foto',
+        'reliability_score',
+        'entity_type',
+        'company_name',
+        'company_license',
     ];
 
     protected $appends = ['average_rating', 'review_count'];
@@ -51,6 +54,7 @@ class Arsitek extends Model
     {
         return $this->hasMany(RiwayatProject::class);
     }
+
     public function ratings()
     {
         return $this->hasMany(ArsitekRating::class, 'arsitek_id');
@@ -60,6 +64,4 @@ class Arsitek extends Model
     {
         return $this->hasMany(Project::class, 'selected_arsitek_id');
     }
-
-
 }

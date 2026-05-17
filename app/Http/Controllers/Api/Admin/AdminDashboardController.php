@@ -3,12 +3,11 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
-use App\Models\House;
-use App\Models\Project;
 use App\Models\Arsitek;
+use App\Models\House;
 use App\Models\Kontraktor;
-use Illuminate\Http\Request;
+use App\Models\Project;
+use App\Models\User;
 
 class AdminDashboardController extends Controller
 {

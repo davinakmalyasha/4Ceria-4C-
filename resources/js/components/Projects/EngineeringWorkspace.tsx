@@ -7,20 +7,39 @@ import {
 import { useToast } from '../../context/ToastContext';
 import axios from 'axios';
 
+import SpecialistBiddingBoard from './Phases/SpecialistBiddingBoard';
+import { ProjectBidForm } from './Details/ProjectBidForm';
+
 interface EngineeringWorkspaceProps {
     project: any;
     user: any;
     onRefresh: () => void;
+    onShortlist: (bidId: number, role: string) => void;
+    onRecommend?: (bidId: number, role: 'structural' | 'mep') => void;
+    onOpenChat?: (user: any) => void;
 }
 
-export default function EngineeringWorkspace({ project, user, onRefresh }: EngineeringWorkspaceProps) {
+export default function EngineeringWorkspace({ project, user, onRefresh, onShortlist, onRecommend, onOpenChat }: EngineeringWorkspaceProps) {
     const { showToast } = useToast();
     const [isUploading, setIsUploading] = useState(false);
 
-    const isStructural = user.role_type === 'structural' && project.structural_id === user.structural_profile?.id;
-    const isMEP = user.role_type === 'mep' && project.mep_id === user.mep_profile?.id;
+    if (!project || !user) {
+        return (
+            <div className="py-20 text-center animate-pulse">
+                <HardHat size={40} className="mx-auto text-zinc-100 mb-4" />
+                <p className="text-[10px] text-zinc-400 font-black uppercase tracking-widest">Hydrating Engineering Hub...</p>
+            </div>
+        );
+    }
+
+    const isStructural = user.role_type === 'structural' && project.structural_id === user.structural_engineer?.id;
+    const isMEP = user.role_type === 'mep' && project.mep_id === user.mep_engineer?.id;
     const isPM = user.role_type === 'project_manager' && project.pm_id === user.id;
-    const isOwner = user.id === project.owner_id;
+    const isOwner = user.id === project.owner_id || user.id === project.user_id;
+    const isLeadArchitect = user.role_type === 'arsitek' && (project.arsitek?.user_id === user.id || project.selected_arsitek_id === user.arsitek?.id);
+
+    const structuralBids = project.bids_structural || [];
+    const mepBids = project.bids_mep || [];
 
     const pendingRequests = project.addendums?.filter((a: any) => 
         a.status === 'pending_approval' && (a.role_type === 'structural' || a.role_type === 'mep')
@@ -57,6 +76,21 @@ export default function EngineeringWorkspace({ project, user, onRefresh }: Engin
         }
     };
 
+    const canManage = isPM || isOwner || isLeadArchitect;
+    
+    const isStructuralPro = user.role_type === 'structural';
+    const isMEPPro = user.role_type === 'mep';
+
+    const hasSubmittedStructural = (project.bids_structural || []).some((b: any) => 
+        b.user_id === user.id || b.structural_engineer?.user_id === user.id
+    );
+    const hasSubmittedMEP = (project.bids_mep || []).some((b: any) => 
+        b.user_id === user.id || b.mep_engineer?.user_id === user.id
+    );
+
+    const isStructuralPublished = project.published_bidding_roles?.includes('structural');
+    const isMEPPublished = project.published_bidding_roles?.includes('mep');
+
     return (
         <div className="space-y-8">
             <div className="flex items-center justify-between">
@@ -65,6 +99,39 @@ export default function EngineeringWorkspace({ project, user, onRefresh }: Engin
                     <p className="text-sm text-slate-500 font-medium">Calculations, Load Analysis & Technical Schematics</p>
                 </div>
             </div>
+
+            {/* Specialist Bidding Boards (For PM/Owner/Architect) */}
+            {!project.structural_id && project.requires_structural && canManage && (
+                <SpecialistBiddingBoard project={project} role="structural" onShortlist={onShortlist} onRecommend={onRecommend} onOpenChat={onOpenChat} />
+            )}
+            {!project.mep_id && project.requires_mep && canManage && (
+                <SpecialistBiddingBoard project={project} role="mep" onShortlist={onShortlist} onRecommend={onRecommend} onOpenChat={onOpenChat} />
+            )}
+
+            {/* Specialist Bid Forms (For Professionals) */}
+            {isStructuralPro && !project.structural_id && isStructuralPublished && !hasSubmittedStructural && (
+                <div className="bg-white border-2 border-indigo-100 rounded-[2.5rem] p-10 shadow-xl">
+                    <ProjectBidForm project={project} user={user} onSuccess={onRefresh} />
+                </div>
+            )}
+            {isMEPPro && !project.mep_id && isMEPPublished && !hasSubmittedMEP && (
+                <div className="bg-white border-2 border-amber-100 rounded-[2.5rem] p-10 shadow-xl">
+                    <ProjectBidForm project={project} user={user} onSuccess={onRefresh} />
+                </div>
+            )}
+
+            {/* Specialist Bid Status (If already bid) */}
+            {((isStructuralPro && hasSubmittedStructural) || (isMEPPro && hasSubmittedMEP)) && !isStructural && !isMEP && (
+                <div className="bg-emerald-50 border-2 border-emerald-100 rounded-[2rem] p-8 text-center space-y-3">
+                    <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto">
+                        <CheckCircle2 size={24} />
+                    </div>
+                    <div>
+                        <h4 className="text-sm font-black text-emerald-900 uppercase tracking-tight">Proposal Transmitted</h4>
+                        <p className="text-xs text-emerald-600 font-medium">Your technical bid is being reviewed by the project leadership.</p>
+                    </div>
+                </div>
+            )}
 
             {/* PM Approval Board */}
             {isPM && pendingRequests.length > 0 && (

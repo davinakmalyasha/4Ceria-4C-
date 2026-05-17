@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Project;
 use App\Models\KontraktorRating;
-use Illuminate\Support\Facades\Auth;
+use App\Models\Project;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class KontraktorRatingController extends Controller
 {
@@ -14,7 +14,7 @@ class KontraktorRatingController extends Controller
         $project = Project::with('bidsKontraktor')->findOrFail($project_id);
 
         $bidKontraktor = $project->bidsKontraktor()->where('status', 'accepted')->first();
-        if (!$bidKontraktor) {
+        if (! $bidKontraktor) {
             return back()->with('error', 'Tidak ada kontraktor terpilih.');
         }
 
@@ -41,7 +41,7 @@ class KontraktorRatingController extends Controller
         $project = Project::with('bidsKontraktor')->findOrFail($project_id);
         $bidKontraktor = $project->bidsKontraktor()->where('status', 'accepted')->first();
 
-        if (!$bidKontraktor) {
+        if (! $bidKontraktor) {
             return back()->with('error', 'Tidak ada kontraktor terpilih.');
         }
 

@@ -12,7 +12,9 @@ return new class extends Migration
             $table->id();
             $table->unsignedBigInteger('project_id');
             $table->unsignedBigInteger('notaris_id');
-            $table->decimal('price', 15, 2);
+            $table->decimal('price', 24, 2)->default(0);
+            $table->decimal('tax_estimate', 24, 2)->nullable();
+            $table->decimal('fee_percentage', 5, 2)->nullable();
             $table->text('proposal')->nullable();
             $table->enum('status', ['pending', 'accepted', 'rejected'])->default('pending');
             $table->string('estimated_duration')->nullable();
@@ -20,6 +22,9 @@ return new class extends Migration
             $table->string('attachment_1')->nullable();
             $table->string('attachment_2')->nullable();
             $table->string('attachment_3')->nullable();
+            $table->string('payment_status')->default('unpaid');
+            $table->timestamp('paid_at')->nullable();
+            $table->json('selected_services')->nullable();
             $table->timestamps();
 
             $table->foreign('project_id')->references('id')->on('projects')->cascadeOnDelete();

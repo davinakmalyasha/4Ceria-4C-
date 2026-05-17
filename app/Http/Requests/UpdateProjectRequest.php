@@ -40,6 +40,23 @@ class UpdateProjectRequest extends FormRequest
             'images.*' => 'sometimes|file|mimes:jpg,jpeg,png|max:5120',
             'deleted_images' => 'sometimes|array',
             'deleted_images.*' => 'integer',
+            'design_details' => 'nullable|array',
+            'construction_details' => 'nullable|array',
+            'interior_details' => 'nullable|array',
+            'completed_phases' => 'nullable|array',
+            'wants_project_manager' => 'sometimes',
+            'requires_structural' => 'sometimes',
+            'requires_mep' => 'sometimes',
+            'negotiated_fee' => 'nullable|numeric|min:0',
+            'payment_instructions' => 'nullable|string',
+            'payment_termins' => 'nullable|array',
+            'payment_termins.*.label' => 'required|string',
+            'payment_termins.*.percentage' => 'required|numeric',
+            'payment_termins.*.amount' => 'required|numeric',
+            'payment_termins.*.notes' => 'nullable|string|max:250',
+            'legal_requirements' => 'nullable|array',
+            'legal_requirements.*' => 'string',
+            'needed_phases' => 'nullable|string', // JSON array of design,build,interior,legal
         ];
     }
 }

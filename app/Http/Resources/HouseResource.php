@@ -37,7 +37,7 @@ class HouseResource extends JsonResource
             'views' => $this->views,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
-            'housePic' => $this->whenLoaded('housePic', fn() => $this->housePic->values()),
+            'housePic' => $this->whenLoaded('housePic', fn () => $this->housePic->values()),
             'owner' => $this->whenLoaded('user', fn () => [
                 'name' => $this->user->name,
                 'email' => $this->user->email,

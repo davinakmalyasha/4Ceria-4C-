@@ -15,11 +15,18 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->string('email')->unique();
+            $table->string('username')->nullable()->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
+            $table->string('pic')->nullable();
+            $table->text('Deskripsi')->nullable();
             $table->rememberToken();
             $table->timestamps();
-            $table->enum('role_type', ['user', 'arsitek', 'kontraktor', 'admin'])->default('user');
+            $table->enum('role_type', [
+                'user', 'arsitek', 'kontraktor', 'admin', 'notaris', 
+                'interior', 'project_manager', 'mep', 'structural', 
+                'logistik', 'supplier'
+            ])->default('user');
         });
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {

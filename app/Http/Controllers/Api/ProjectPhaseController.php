@@ -162,6 +162,94 @@ class ProjectPhaseController extends Controller
         return new ProjectResource($this->loadFullProject($project));
     }
 
+    public function sealLegal(Project $project)
+    {
+        $user = Auth::user();
+
+        if ($user->role_type !== 'notaris' || $project->selected_notaris_id !== optional($user->notaris)->id) {
+            return response()->json(['message' => 'Unauthorized. Only the hired notary can seal the legal phase.'], 403);
+        }
+
+        // Check all legal milestones are completed
+        $incomplete = $project->milestones()
+            ->where('phase_context', 'legal')
+            ->where(function($query) {
+                $query->where('is_completed', false)
+                      ->orWhere('approval_status', '!=', 'approved');
+            })
+            ->exists();
+
+        if ($incomplete) {
+            return response()->json(['message' => 'All legal milestones must be completed and approved before sealing.'], 422);
+        }
+
+        DB::beginTransaction();
+        try {
+            $project->update([
+                'legal_handover_submitted_at' => now(),
+                'legal_handover_notes' => null
+            ]);
+
+            $this->logActivity($project, 'legal_handover_submitted', "Notary submitted legal handover for PM verification.");
+            $this->notifyReviewers($project, 'Legal Handover', "The Notary has submitted the legal handover for your verification.");
+
+            DB::commit();
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['message' => 'Failed to submit legal handover.'], 500);
+        }
+
+        return new ProjectResource($this->loadFullProject($project));
+    }
+
+    public function issueKickoff(Project $project, \Illuminate\Http\Request $request)
+    {
+        $user = Auth::user();
+        if (!$this->isProjectOwner($project, $user) && !$this->isProjectManager($project, $user)) {
+            return response()->json(['message' => 'Unauthorized. Only Owner or PM can issue Notice to Proceed.'], 403);
+        }
+
+        $request->validate([
+            'role' => 'required|in:arsitek,kontraktor'
+        ]);
+
+        $role = $request->role;
+        $field = $role . '_kickoff_at';
+
+        if ($project->$field) {
+            return response()->json(['message' => 'Notice to Proceed has already been issued for this role.'], 422);
+        }
+
+        DB::beginTransaction();
+        try {
+            $project->update([$field => now()]);
+
+            $this->logActivity($project, $role . '_kickoff', "Notice to Proceed issued for " . ucfirst($role) . ".");
+            
+            // Notify the professional
+            $pro = $role === 'arsitek' ? $project->arsitek : $project->kontraktor;
+            if ($pro && $pro->user_id) {
+                \App\Models\Notification::create([
+                    'user_id' => $pro->user_id,
+                    'type' => 'kickoff_issued',
+                    'title' => "Notice to Proceed!",
+                    'body' => "You have received the Notice to Proceed for project \"{$project->title}\". Your timeline starts now.",
+                    'data' => [
+                        'project_id' => $project->id,
+                        'role' => $role
+                    ],
+                ]);
+            }
+
+            DB::commit();
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['message' => 'Failed to issue Notice to Proceed.'], 500);
+        }
+
+        return new ProjectResource($this->loadFullProject($project));
+    }
+
     public function verifyDesign(Project $project)
     {
         if (!$this->isProjectOwner($project, Auth::user()) && !$this->isProjectManager($project, Auth::user())) {
@@ -222,9 +310,27 @@ class ProjectPhaseController extends Controller
     private function loadFullProject(Project $project)
     {
         $project->load([
-            'user', 'arsitek', 'kontraktor', 'interior', 'notaris', 'projectManager',
-            'bids', 'milestones', 'documents', 'comments', 'addendums'
-        ]);
+            // Hired Professionals
+            'arsitek.user.phoneNumber', 'arsitek.ratings',
+            'kontraktor.user.phoneNumber', 'kontraktor.ratings',
+            'notaris.user.phoneNumber', 'notaris.services', 'notaris.ratings',
+            'interior.user.phoneNumber', 'interior.ratings',
+            'structuralEngineer.user.phoneNumber',
+            'mepEngineer.user.phoneNumber',
+            'projectManager.user.phoneNumber', 'projectManager.ratings',
+
+            // Core Project Relations
+            'user', 'milestones', 'documents.uploader', 'comments', 'addendums',
+            'paymentTermins.milestone', 'images', 'requirements',
+            'bidsArsitek.arsitek.user.phoneNumber', 'bidsArsitek.arsitek.ratings',
+            'bidsKontraktor.kontraktor.user.phoneNumber', 'bidsKontraktor.kontraktor.ratings',
+            'bidsNotaris.notaris.user.phoneNumber', 'bidsNotaris.notaris.services', 'bidsNotaris.notaris.ratings',
+            'bidsInterior.interior.user.phoneNumber', 'bidsInterior.interior.ratings',
+            'bidsProjectManager.pm.user.phoneNumber', 'bidsProjectManager.pm.ratings',
+            'bidsStructural.structuralEngineer.user.phoneNumber',
+            'bidsMep.mepEngineer.user.phoneNumber',
+        ])->loadCount(['bidsArsitek', 'bidsKontraktor', 'bidsNotaris', 'bidsInterior', 'bidsProjectManager', 'bidsStructural', 'bidsMep']);
+        
         return $project;
     }
 

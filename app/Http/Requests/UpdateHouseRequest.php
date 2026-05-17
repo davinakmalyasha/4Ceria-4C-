@@ -8,7 +8,7 @@ class UpdateHouseRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true; 
+        return true;
     }
 
     public function rules(): array
@@ -42,7 +42,7 @@ class UpdateHouseRequest extends FormRequest
             'house_pics' => 'nullable|array',
             'house_pics.*' => 'image|mimes:jpeg,png,jpg|max:2048',
             'deleted_house_pics' => 'nullable|array',
-            'deleted_house_pics.*' => 'numeric|exists:house_pic,id'
+            'deleted_house_pics.*' => 'numeric|exists:house_pic,id',
         ];
     }
 }

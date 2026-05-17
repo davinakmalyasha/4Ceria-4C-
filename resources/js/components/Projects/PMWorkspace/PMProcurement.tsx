@@ -1,5 +1,6 @@
 import React from 'react';
 import { Box, ShoppingCart, Truck, CheckCircle, Package } from 'lucide-react';
+import MaterialOrderTracker from '../Phases/MaterialOrderTracker';
 
 interface PMProcurementProps {
     project: any;
@@ -62,28 +63,8 @@ export default function PMProcurement({ project, user }: PMProcurementProps) {
                     </div>
                 </div>
 
-                <div className="lg:col-span-3 space-y-4">
-                    <div className="flex items-center justify-between px-2">
-                        <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest">Order Ledger</h3>
-                        <div className="flex items-center gap-2 text-[10px] font-bold text-gray-400 tracking-widest bg-gray-50 px-3 py-1 rounded-lg">
-                            <Truck size={12} />
-                            ONGOING SHIPMENTS: 0
-                        </div>
-                    </div>
-
-                    {materialOrders.length === 0 ? (
-                        <div className="bg-white rounded-[2.5rem] p-20 text-center border border-gray-100 shadow-sm">
-                            <div className="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center mx-auto mb-4 text-gray-300">
-                                <Package size={32} />
-                            </div>
-                            <p className="text-gray-500 font-black text-sm uppercase tracking-tight">Empty Ledger</p>
-                            <p className="text-gray-400 text-xs mt-1">PM has not logged any material procurement transactions yet.</p>
-                        </div>
-                    ) : (
-                        <div className="space-y-3">
-                            {/* Material orders map would go here */}
-                        </div>
-                    )}
+                <div className="lg:col-span-3">
+                    <MaterialOrderTracker project={project} currentUser={user} />
                 </div>
             </div>
         </div>

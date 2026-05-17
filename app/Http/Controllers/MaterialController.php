@@ -3,13 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\Material;
-use App\Models\Supplier;
 use App\Models\MaterialImage;
+use App\Models\Supplier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
 
 class MaterialController extends Controller
 {
@@ -20,7 +20,7 @@ class MaterialController extends Controller
     {
         $query = Material::with(['supplier.user', 'images'])
             ->where('is_available', true)
-            ->whereHas('supplier', function($q) {
+            ->whereHas('supplier', function ($q) {
                 $q->where('verification_status', 'verified');
             });
 
@@ -29,7 +29,7 @@ class MaterialController extends Controller
         }
 
         if ($request->search) {
-            $query->where('name', 'like', '%' . $request->search . '%');
+            $query->where('name', 'like', '%'.$request->search.'%');
         }
 
         if ($request->min_price) {
@@ -42,7 +42,7 @@ class MaterialController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'data' => $query->latest()->get()
+            'data' => $query->latest()->get(),
         ]);
     }
 
@@ -57,7 +57,7 @@ class MaterialController extends Controller
         $query = Material::with('images')->where('supplier_id', $supplier->id);
 
         if ($request->search) {
-            $query->where('name', 'like', '%' . $request->search . '%');
+            $query->where('name', 'like', '%'.$request->search.'%');
         }
 
         if ($request->category) {
@@ -66,7 +66,7 @@ class MaterialController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'data' => $query->latest()->get()
+            'data' => $query->latest()->get(),
         ]);
     }
 
@@ -87,7 +87,7 @@ class MaterialController extends Controller
             'stock' => 'integer|min:0',
             'images' => 'nullable|array',
             'images.*' => 'image|max:2048',
-            'specifications' => 'nullable|array'
+            'specifications' => 'nullable|array',
         ]);
 
         if ($validator->fails()) {
@@ -113,7 +113,7 @@ class MaterialController extends Controller
             return response()->json([
                 'status' => 'success',
                 'message' => 'Material added successfully with multiple images',
-                'data' => $material->load('images')
+                'data' => $material->load('images'),
             ]);
         });
     }
@@ -171,7 +171,7 @@ class MaterialController extends Controller
             return response()->json([
                 'status' => 'success',
                 'message' => 'Material updated successfully',
-                'data' => $material->load('images')
+                'data' => $material->load('images'),
             ]);
         });
     }
@@ -194,7 +194,7 @@ class MaterialController extends Controller
 
             return response()->json([
                 'status' => 'success',
-                'message' => 'Material and its images deleted successfully'
+                'message' => 'Material and its images deleted successfully',
             ]);
         });
     }

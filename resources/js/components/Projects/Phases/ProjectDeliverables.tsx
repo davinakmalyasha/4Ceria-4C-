@@ -19,6 +19,7 @@ const CATEGORIES = [
     { id: 'blueprint', label: 'Master Blueprints', icon: Ruler, color: 'text-blue-600', bg: 'bg-blue-50', desc: 'Architectural & structural plans' },
     { id: 'render', label: '3D Visualizations', icon: ImageIcon, color: 'text-purple-600', bg: 'bg-purple-50', desc: 'Final renders & design previews' },
     { id: 'technical', label: 'Technical Specs', icon: Layers, color: 'text-teal-600', bg: 'bg-teal-50', desc: 'MEP & finishing specifications' },
+    { id: 'legal', label: 'Legal & Permits', icon: ShieldCheck, color: 'text-emerald-600', bg: 'bg-emerald-50', desc: 'Verified certificates & land deeds' },
     { id: 'src', label: 'Source (CAD)', icon: Code, color: 'text-orange-600', bg: 'bg-orange-50', desc: 'Editable DWG & source files' },
     { id: 'others', label: 'Progress & Misc', icon: FileArchive, color: 'text-slate-600', bg: 'bg-slate-50', desc: 'Field notes & other documents' },
 ];
@@ -29,6 +30,40 @@ export default function ProjectDeliverables({ project, currentUser, isPro }: Pro
     const [uploading, setUploading] = useState(false);
     const [selectedCategory, setSelectedCategory] = useState<string>('blueprint');
     const { showToast } = useToast();
+
+    // Dynamic filtering of categories based on accepted bid deliverables
+    const activeBid = project.accepted_arsitek_bid || project.accepted_kontraktor_bid || project.accepted_interior_bid;
+    const selectedDeliverables = activeBid?.deliverables || [];
+
+    const filteredCategories = CATEGORIES.filter(cat => {
+        // Fallback: If no structured deliverables exist yet (older bids), show everything
+        if (!selectedDeliverables || selectedDeliverables.length === 0) return true;
+
+        // "others" is the catch-all/progress category, always visible
+        if (cat.id === 'others') return true;
+
+        // Mapping logic
+        switch (cat.id) {
+            case 'blueprint':
+                return selectedDeliverables.some(d => ['floor_plan', 'structural'].includes(d));
+            case 'render':
+                return selectedDeliverables.some(d => ['3d_render', 'vr_walkthrough', 'interior_concept'].includes(d));
+            case 'technical':
+                return selectedDeliverables.some(d => ['mep_plan', 'structural'].includes(d));
+            case 'src':
+                // Source files are usually relevant if any design work is done
+                return selectedDeliverables.length > 0;
+            default:
+                return true;
+        }
+    });
+
+    // Auto-select first available category if current one is hidden
+    useEffect(() => {
+        if (!filteredCategories.find(c => c.id === selectedCategory)) {
+            setSelectedCategory(filteredCategories[0]?.id || 'others');
+        }
+    }, [selectedDeliverables]);
 
     const fetchDocuments = async () => {
         if (!project?.id) return;
@@ -90,6 +125,7 @@ export default function ProjectDeliverables({ project, currentUser, isPro }: Pro
             <p className="text-zinc-400 font-bold uppercase tracking-widest text-xs">Accessing Project Vault...</p>
         </div>
     );
+    const activeCategoryData = CATEGORIES.find(c => c.id === selectedCategory);
 
     return (
         <div className="space-y-8 animate-in fade-in duration-700">
@@ -98,13 +134,13 @@ export default function ProjectDeliverables({ project, currentUser, isPro }: Pro
                 <div className="max-w-xl">
                     <div className="flex items-center gap-3 mb-2">
                         <div className="w-10 h-10 rounded-2xl bg-zinc-900 text-white flex items-center justify-center shadow-xl shadow-zinc-200">
-                            <ShieldCheck size={20} />
+                            <FolderOpen size={20} />
                         </div>
-                        <h3 className="text-2xl font-black text-zinc-900">Design Vault</h3>
+                        <h3 className="text-2xl font-black text-zinc-900">Technical Working Files</h3>
                     </div>
                     <p className="text-zinc-500 text-sm font-medium leading-relaxed">
-                        The secure central repository for all professional architectural deliverables. 
-                        Files stored here represent the final technical output of the project.
+                        The architect's technical workspace for drafts, blueprints, and non-legal deliverables. 
+                        Official legal records are stored in the Official Document Vault.
                     </p>
                 </div>
 
@@ -122,7 +158,7 @@ export default function ProjectDeliverables({ project, currentUser, isPro }: Pro
                 {/* Category Sidebar */}
                 <div className="lg:col-span-4 space-y-2">
                     <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 mb-4 ml-2">Deliverable Categories</p>
-                    {CATEGORIES.map((cat) => {
+                    {filteredCategories.map((cat) => {
                         const count = getFilesByCategory(cat.id).length;
                         return (
                             <button
@@ -166,11 +202,11 @@ export default function ProjectDeliverables({ project, currentUser, isPro }: Pro
                         >
                             <div className="flex flex-col sm:flex-row justify-between items-center bg-white p-6 rounded-[2rem] border border-zinc-200/60 shadow-sm gap-4">
                                 <div className="flex items-center gap-4">
-                                    <div className={`w-12 h-12 rounded-[1.2rem] flex items-center justify-center ${CATEGORIES.find(c => c.id === selectedCategory)?.bg} ${CATEGORIES.find(c => c.id === selectedCategory)?.color}`}>
-                                        {React.createElement(CATEGORIES.find(c => c.id === selectedCategory)?.icon || FileIcon, { size: 24 })}
+                                    <div className={`w-12 h-12 rounded-[1.2rem] flex items-center justify-center ${activeCategoryData?.bg} ${activeCategoryData?.color}`}>
+                                        {React.createElement(activeCategoryData?.icon || FileIcon, { size: 24 })}
                                     </div>
                                     <div>
-                                        <h4 className="text-lg font-black text-zinc-900">{CATEGORIES.find(c => c.id === selectedCategory)?.label}</h4>
+                                        <h4 className="text-lg font-black text-zinc-900">{activeCategoryData?.label}</h4>
                                         <p className="text-xs text-zinc-400 font-bold uppercase tracking-wider">{getFilesByCategory(selectedCategory).length} Master Files</p>
                                     </div>
                                 </div>

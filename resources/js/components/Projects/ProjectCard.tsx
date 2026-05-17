@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MapPin, Calendar, Clock, MessageSquare, Briefcase, Eye, Wallet, MoreHorizontal, Edit2, Copy, Share2, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { MapPin, Calendar, Clock, MessageSquare, Briefcase, Eye, Wallet, MoreHorizontal, Edit2, Copy, Share2, Trash2, ChevronLeft, ChevronRight, CheckCircle } from 'lucide-react';
 import { Project, getStatusConfig, getProjectTypeConfig, formatCurrency } from '../../types/project.types';
 
 export const ProjectCardSkeleton = () => (
@@ -44,6 +44,14 @@ export default function ProjectCard({ project, onClick, userRole, viewMode = 'gr
     const TypeIcon = typeCfg.icon;
     
     const bidCount = (project.bids_arsitek_count || 0) + (project.bids_kontraktor_count || 0);
+
+    const CATEGORY_LABELS: Record<string, { label: string; emoji: string }> = {
+        new_build: { label: 'Bangun Baru', emoji: '🏠' },
+        renovation: { label: 'Renovasi', emoji: '🔨' },
+        interior: { label: 'Interior', emoji: '🎨' },
+        maintenance: { label: 'Perbaikan', emoji: '🔧' },
+    };
+    const categoryCfg = project.project_category ? CATEGORY_LABELS[project.project_category] : null;
     
     // Progress calculation
     const milestones = project.milestones || [];
@@ -138,6 +146,16 @@ export default function ProjectCard({ project, onClick, userRole, viewMode = 'gr
                     <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-zinc-900/80 text-white backdrop-blur-md shadow-md w-fit">
                         <TypeIcon size={12} /> {typeCfg.label}
                     </span>
+                    {categoryCfg && (
+                        <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-500/90 text-white backdrop-blur-md shadow-md w-fit">
+                            <span>{categoryCfg.emoji}</span> {categoryCfg.label}
+                        </span>
+                    )}
+                    {project.has_submitted_bid && (
+                        <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-tight bg-emerald-500 text-white shadow-lg border-2 border-white/20 backdrop-blur-sm">
+                            <CheckCircle size={10} /> Proposal Submitted
+                        </span>
+                    )}
                 </div>
             </div>
 

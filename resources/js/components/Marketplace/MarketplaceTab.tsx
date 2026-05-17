@@ -22,10 +22,11 @@ export default function MarketplaceTab({
     const [suppliers, setSuppliers] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
+    const [marketType, setMarketType] = useState<'materials' | 'furniture'>('materials');
     const [activeCategory, setActiveCategory] = useState('All');
     
     // Categories for filtering
-    const categories = [
+    const MATERIAL_CATEGORIES = [
         'All',
         'General Store',
         'Cement & Masonry',
@@ -35,6 +36,18 @@ export default function MarketplaceTab({
         'Finishing & Painting',
         'Tools & Safety'
     ];
+
+    const FURNITURE_CATEGORIES = [
+        'All',
+        'Living Room',
+        'Bedroom',
+        'Kitchen & Dining',
+        'Workspace',
+        'Lighting',
+        'Rugs & Decor'
+    ];
+
+    const categories = marketType === 'materials' ? MATERIAL_CATEGORIES : FURNITURE_CATEGORIES;
 
     const fetchData = async () => {
         setIsLoading(true);
@@ -57,6 +70,11 @@ export default function MarketplaceTab({
     }, []);
 
     const filteredMaterials = (materials || []).filter((m: any) => {
+        // Enforce top-level type separation
+        const isActuallyFurniture = FURNITURE_CATEGORIES.includes(m.category) || m.category === 'Furniture & Decor';
+        if (marketType === 'materials' && isActuallyFurniture) return false;
+        if (marketType === 'furniture' && !isActuallyFurniture) return false;
+
         const matchesCategory = activeCategory === 'All' || m.category === activeCategory;
         const matchesSearch = m.name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
                              m.description?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -78,17 +96,35 @@ export default function MarketplaceTab({
             className="w-full"
         >
             <div className="flex flex-col gap-2 mb-8">
+                {/* Top Level Toggle */}
+                <div className="flex bg-gray-200/50 p-1.5 rounded-2xl w-fit mb-4">
+                    <button 
+                        onClick={() => { setMarketType('materials'); setActiveCategory('All'); }} 
+                        className={`px-8 py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${marketType === 'materials' ? 'bg-white shadow-sm text-red-600' : 'text-gray-500 hover:text-gray-900'}`}
+                    >
+                        Construction Materials
+                    </button>
+                    <button 
+                        onClick={() => { setMarketType('furniture'); setActiveCategory('All'); }} 
+                        className={`px-8 py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${marketType === 'furniture' ? 'bg-white shadow-sm text-red-600' : 'text-gray-500 hover:text-gray-900'}`}
+                    >
+                        Furniture & Decor
+                    </button>
+                </div>
+
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                     <div className="flex items-center justify-between w-full">
                         <div>
                             <h3 className="text-3xl font-black text-gray-900 tracking-tight flex items-center gap-3">
                                 <ShoppingCart size={28} className="text-red-500" />
-                                {isStoreView ? 'Verified Suppliers' : 'Materials Marketplace'}
+                                {marketType === 'furniture' ? 'Furniture Marketplace' : isStoreView ? 'Verified Suppliers' : 'Materials Marketplace'}
                             </h3>
                             <p className="text-gray-500 font-medium">
-                                {isStoreView 
-                                    ? 'Connect directly with wholesalers and retail stores for mass supply.' 
-                                    : 'Source premium construction materials directly from verified suppliers.'
+                                {marketType === 'furniture' 
+                                    ? 'Discover premium furniture and decor to complete your interior design.'
+                                    : isStoreView 
+                                        ? 'Connect directly with wholesalers and retail stores for mass supply.' 
+                                        : 'Source premium construction materials directly from verified suppliers.'
                                 }
                             </p>
                         </div>

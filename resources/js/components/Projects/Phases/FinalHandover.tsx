@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { ClipboardCheck, Key, ShieldAlert, Trophy, FileText, Download } from 'lucide-react';
+import { getWarrantyDays } from '../../../types/phase.types';
 import { useToast } from '../../../context/ToastContext';
 import SnagListManager from './SnagListManager';
 import WarrantyDashboard from './WarrantyDashboard';
@@ -15,6 +16,10 @@ export default function FinalHandover({ project, user, onRefresh }: FinalHandove
     const { showToast } = useToast();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [acceptNotes, setAcceptNotes] = useState('');
+    const warrantyDays = getWarrantyDays(project?.project_category || 'new_build');
+    const isMaintenance = project?.project_category === 'maintenance';
+    const isInterior = project?.project_category === 'interior';
+    const workLabel = isMaintenance ? 'perbaikan' : isInterior ? 'hasil interior' : 'bangunan';
 
     const isOwner = user?.id === project.user_id;
     const isPM = user?.role_type === 'project_manager' && project.pm_id === user?.id;
@@ -26,7 +31,7 @@ export default function FinalHandover({ project, user, onRefresh }: FinalHandove
     const handleInitiateWalkthrough = async () => {
         setIsSubmitting(true);
         try {
-            await axios.post(`/api/projects/${project.id}/initiate-walkthrough`);
+            await axios.post(`/projects/${project.id}/initiate-walkthrough`);
             showToast('Final walkthrough initiated. You can now inspect and report defects.', 'success');
             onRefresh();
         } catch (err: any) {
@@ -37,10 +42,10 @@ export default function FinalHandover({ project, user, onRefresh }: FinalHandove
     };
 
     const handleOwnerAccept = async () => {
-        if (!window.confirm('Are you sure you want to officially accept this building? This will start the 180-day warranty period.')) return;
+        if (!window.confirm(`Are you sure you want to officially accept this ${workLabel}? This will start the ${warrantyDays}-day warranty period.`)) return;
         setIsSubmitting(true);
         try {
-            await axios.post(`/api/projects/${project.id}/owner-accept`, { notes: acceptNotes });
+            await axios.post(`/projects/${project.id}/owner-accept`, { notes: acceptNotes });
             showToast('Building officially accepted! Warranty period has started.', 'success');
             onRefresh();
         } catch (err: any) {
@@ -52,7 +57,7 @@ export default function FinalHandover({ project, user, onRefresh }: FinalHandove
 
     const handleDownloadBAST = async () => {
         try {
-            const res = await axios.get(`/api/projects/${project.id}/bast`);
+            const res = await axios.get(`/projects/${project.id}/bast`);
             const data = res.data.data;
             // For now, we'll open a new window and print the BAST data
             const printWindow = window.open('', '_blank');
@@ -168,11 +173,35 @@ export default function FinalHandover({ project, user, onRefresh }: FinalHandove
                     <ClipboardCheck size={32} />
                 </div>
                 <div className="space-y-2">
-                    <h4 className="text-lg font-black text-gray-700 uppercase tracking-tight">Serah Terima Belum Dimulai</h4>
+                    <h4 className="text-lg font-black text-gray-700 uppercase tracking-tight">
+                        {isMaintenance ? 'Verifikasi Belum Dimulai' : 'Serah Terima Belum Dimulai'}
+                    </h4>
                     <p className="text-sm text-gray-500 max-w-md mx-auto">
-                        PM harus menginisiasi inspeksi akhir (walkthrough) terlebih dahulu sebelum Owner bisa melaporkan cacat dan menerima bangunan.
+                        {isMaintenance 
+                            ? `Owner dapat langsung memverifikasi hasil ${workLabel} setelah pekerjaan selesai.`
+                            : `PM harus menginisiasi inspeksi akhir (walkthrough) terlebih dahulu sebelum Owner bisa melaporkan cacat dan menerima ${workLabel}.`
+                        }
                     </p>
                 </div>
+                {/* Maintenance: Owner can accept directly without PM walkthrough */}
+                {isMaintenance && isOwner && (
+                    <div className="space-y-3 max-w-md mx-auto">
+                        <textarea
+                            value={acceptNotes}
+                            onChange={e => setAcceptNotes(e.target.value)}
+                            placeholder="Catatan penerimaan (opsional)..."
+                            rows={2}
+                            className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                        />
+                        <button
+                            onClick={handleOwnerAccept}
+                            disabled={isSubmitting}
+                            className="w-full py-3.5 bg-emerald-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg disabled:opacity-50"
+                        >
+                            {isSubmitting ? 'Memproses...' : `Verifikasi Selesai & Mulai Garansi (${warrantyDays} Hari)`}
+                        </button>
+                    </div>
+                )}
                 {isPM && (
                     <button
                         onClick={handleInitiateWalkthrough}
@@ -222,7 +251,7 @@ export default function FinalHandover({ project, user, onRefresh }: FinalHandove
                         disabled={isSubmitting}
                         className="w-full py-3.5 bg-emerald-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg disabled:opacity-50"
                     >
-                        {isSubmitting ? 'Memproses...' : 'Terima & Mulai Garansi (180 Hari)'}
+                        {isSubmitting ? 'Memproses...' : `Terima & Mulai Garansi (${warrantyDays} Hari)`}
                     </button>
                 </div>
             )}

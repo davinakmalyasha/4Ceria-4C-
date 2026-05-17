@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Plus, Trash2, Camera, Sun, Cloud, CloudRain, CloudLightning, Users, CalendarDays, X, Save, Info, CheckCircle } from 'lucide-react';
+import { Plus, Trash2, Camera, Sun, Cloud, CloudRain, CloudLightning, Users, CalendarDays, X, Save, Info, CheckCircle, ShieldCheck } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
 import { WEATHER_OPTIONS } from '../../../constants/ContractorStandardPresets';
 
@@ -38,7 +38,7 @@ export default function DailySiteLog({ project, isContractor }: DailyLogProps) {
 
     const fetchLogs = async () => {
         try {
-            const res = await axios.get(`/api/projects/${project.id}/daily-logs`);
+            const res = await axios.get(`/projects/${project.id}/daily-logs`);
             setLogs(res.data.data);
         } catch (error) {
             console.error('Failed to fetch logs', error);
@@ -75,7 +75,7 @@ export default function DailySiteLog({ project, isContractor }: DailyLogProps) {
         photos.forEach(p => formData.append('photos[]', p));
 
         try {
-            await axios.post(`/api/projects/${project.id}/daily-logs`, formData, {
+            await axios.post(`/projects/${project.id}/daily-logs`, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
             showToast('Daily log submitted!', 'success');
@@ -94,7 +94,7 @@ export default function DailySiteLog({ project, isContractor }: DailyLogProps) {
     const handleDelete = async (id: number) => {
         if (!window.confirm('Delete this site log entry?')) return;
         try {
-            await axios.delete(`/api/projects/${project.id}/daily-logs/${id}`);
+            await axios.delete(`/projects/${project.id}/daily-logs/${id}`);
             showToast('Log entry deleted.', 'success');
             fetchLogs();
         } catch (error) {
@@ -117,10 +117,6 @@ export default function DailySiteLog({ project, isContractor }: DailyLogProps) {
     return (
         <div className="space-y-8">
             <div className="flex items-center justify-between">
-                <div>
-                    <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest">Daily Site Log</h4>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Historical record of site activities</p>
-                </div>
                 {isContractor && !showForm && (
                     <button 
                         onClick={() => setShowForm(true)}

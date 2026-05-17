@@ -86,16 +86,16 @@ export default function ProjectBoard({
     return (
         <div className="w-full flex flex-col space-y-6">
             {/* Header Area */}
-            <div className="flex flex-col gap-2">
-                <h2 className="text-3xl font-black text-gray-900 tracking-tight">
-                    {userRole === 'user' ? 'My Project History' : 'Project Bidding Board'}
-                </h2>
-                <p className="text-gray-500 text-sm font-medium">
-                    {userRole === 'user' 
-                        ? 'Manage your renovation projects, review bids, and track progress.'
-                        : 'Browse available projects, submit proposals, and grow your business.'}
-                </p>
-            </div>
+            {userRole !== 'user' && (
+                <div className="flex flex-col gap-2">
+                    <h2 className="text-3xl font-black text-gray-900 tracking-tight">
+                        Project Bidding Board
+                    </h2>
+                    <p className="text-gray-500 text-sm font-medium">
+                        Browse available projects, submit proposals, and grow your business.
+                    </p>
+                </div>
+            )}
 
             {/* Map Integration for Professionals */}
             {userRole !== 'user' && projects.length > 0 && (

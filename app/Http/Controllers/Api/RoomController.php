@@ -3,11 +3,11 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\HouseResource;
 use App\Models\House;
 use App\Models\Room;
 use App\Models\RoomPic;
 use Illuminate\Http\Request;
-use App\Http\Resources\HouseResource;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 
@@ -30,7 +30,7 @@ class RoomController extends Controller
             'length' => 'required|numeric|min:0',
             'desc' => 'required|string',
             'room_pic' => 'nullable|array',
-            'room_pic.*' => 'image|mimes:jpeg,png,jpg|max:2048'
+            'room_pic.*' => 'image|mimes:jpeg,png,jpg|max:2048',
         ]);
 
         $room = Room::create([
@@ -39,7 +39,7 @@ class RoomController extends Controller
             'width' => $validated['width'],
             'length' => $validated['length'],
             'desc' => $validated['desc'],
-            'id_house' => $house->id
+            'id_house' => $house->id,
         ]);
 
         // Handle room_pic multi-upload
@@ -48,12 +48,12 @@ class RoomController extends Controller
                 if ($pic->isValid()) {
                     $saveFolder = "uploads/house/house_{$house->id}/rooms/room_{$room->id}";
                     $path = $pic->store($saveFolder, 'public');
-                    
+
                     RoomPic::create([
                         'file_name' => $pic->getClientOriginalName(),
                         'dir' => $path,
                         'size' => $pic->getSize(),
-                        'id_room' => $room->id
+                        'id_room' => $room->id,
                     ]);
                 }
             }
@@ -61,7 +61,7 @@ class RoomController extends Controller
 
         return response()->json([
             'message' => 'Room added successfully',
-            'house' => new HouseResource($house->load(['room.roomPic', 'housePic']))
+            'house' => new HouseResource($house->load(['room.roomPic', 'housePic'])),
         ]);
     }
 
@@ -89,7 +89,7 @@ class RoomController extends Controller
 
         return response()->json([
             'message' => 'Room deleted successfully',
-            'house' => new HouseResource($house->load(['room.roomPic', 'housePic']))
+            'house' => new HouseResource($house->load(['room.roomPic', 'housePic'])),
         ]);
     }
 }

@@ -34,7 +34,7 @@ class LogisticsJobController extends Controller
         }
 
         $job = DB::table('delivery_jobs')->where('id', $id)->first();
-        if (!$job || $job->status !== 'pending') {
+        if (! $job || $job->status !== 'pending') {
             return response()->json(['message' => 'Job no longer available or not found.'], 404);
         }
 
@@ -43,18 +43,20 @@ class LogisticsJobController extends Controller
             DB::table('delivery_jobs')->where('id', $id)->update([
                 'status' => 'accepted',
                 'logistics_id' => $user->id,
-                'updated_at' => now()
+                'updated_at' => now(),
             ]);
 
             DB::table('material_quotes')->where('id', $job->quote_id)->update([
-                'status' => 'awaiting_payment' // Optional: move quote to next stage if it isn't an order yet. 
+                'status' => 'awaiting_payment', // Optional: move quote to next stage if it isn't an order yet.
                 // Wait: the formal flow is quote->order. Before order, it's quote. If driver accepts, the buyer needs to pay. So awaiting_payment is correct for Self Order/Platform.
             ]);
 
             DB::commit();
+
             return response()->json(['success' => true, 'message' => 'Job accepted successfully.']);
         } catch (\Exception $e) {
             DB::rollBack();
+
             return response()->json(['message' => 'Failed to accept job.'], 500);
         }
     }
@@ -103,8 +105,8 @@ class LogisticsJobController extends Controller
             ->join('suppliers', 'material_quotes.supplier_id', '=', 'suppliers.id')
             ->where('delivery_jobs.logistics_id', $user->id)
             ->select(
-                'delivery_jobs.*', 
-                'material_quotes.delivery_address', 
+                'delivery_jobs.*',
+                'material_quotes.delivery_address',
                 'material_quotes.latitude as dropoff_lat',
                 'material_quotes.longitude as dropoff_lng',
                 'material_quotes.address_detail as dropoff_detail',
@@ -132,13 +134,13 @@ class LogisticsJobController extends Controller
         ]);
 
         $job = DB::table('delivery_jobs')->where('id', $id)->where('logistics_id', $user->id)->first();
-        if (!$job) {
+        if (! $job) {
             return response()->json(['message' => 'Job not found or not assigned to you.'], 404);
         }
 
         $updateData = [
             'status' => $validated['status'],
-            'updated_at' => now()
+            'updated_at' => now(),
         ];
 
         if ($request->hasFile('photos')) {
@@ -151,7 +153,7 @@ class LogisticsJobController extends Controller
 
             if ($validated['status'] === 'picked_up') {
                 $updateData['pickup_photos'] = json_encode($paths);
-            } else if ($validated['status'] === 'delivered') {
+            } elseif ($validated['status'] === 'delivered') {
                 $updateData['delivery_photos'] = json_encode($paths);
             }
         }
@@ -159,9 +161,9 @@ class LogisticsJobController extends Controller
         DB::table('delivery_jobs')->where('id', $id)->update($updateData);
 
         return response()->json([
-            'success' => true, 
-            'message' => 'Job status updated to ' . $validated['status'],
-            'photos' => $paths ?? []
+            'success' => true,
+            'message' => 'Job status updated to '.$validated['status'],
+            'photos' => $paths ?? [],
         ]);
     }
 }

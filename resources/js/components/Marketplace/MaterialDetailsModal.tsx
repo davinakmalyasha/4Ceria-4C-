@@ -6,6 +6,8 @@ import {
     Box, Tag, Info, Building, ShieldCheck
 } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
+import AddMaterialToProjectModal from '../Modals/AddMaterialToProjectModal';
+import { useAuth } from '../../context/AuthContext';
 
 const ManualSlider = ({ images, altText }: { images?: { image_path: string }[]; altText: string }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
@@ -63,8 +65,10 @@ interface Props {
 
 export default function MaterialDetailsModal({ material, onClose, onOpenChat }: Props) {
     const { addItem, items } = useCart();
+    const { user } = useAuth();
     const [quantity, setQuantity] = useState(1);
     const [isAdded, setIsAdded] = useState(false);
+    const [showAddToProject, setShowAddToProject] = useState(false);
 
     const formattedPrice = new Intl.NumberFormat('id-ID', { 
         style: 'currency', 
@@ -256,7 +260,26 @@ export default function MaterialDetailsModal({ material, onClose, onOpenChat }: 
                         {isAdded ? <CheckCircle size={20} /> : <ShoppingCart size={20} />}
                         {isAdded ? 'Item Added' : 'Add to Catalog'}
                     </button>
+
+                    {user && (
+                        <button 
+                            onClick={() => setShowAddToProject(true)}
+                            className="px-8 py-5 rounded-2xl font-black text-sm uppercase tracking-[0.2em] transition-all duration-500 flex items-center justify-center gap-3 border-2 border-gray-900 text-gray-900 hover:bg-gray-900 hover:text-white shadow-lg active:scale-95"
+                        >
+                            <Box size={20} />
+                            Add to Project
+                        </button>
+                    )}
                 </div>
+
+                <AnimatePresence>
+                    {showAddToProject && (
+                        <AddMaterialToProjectModal 
+                            material={material} 
+                            onClose={() => setShowAddToProject(false)} 
+                        />
+                    )}
+                </AnimatePresence>
             </motion.div>
         </motion.div>
     );

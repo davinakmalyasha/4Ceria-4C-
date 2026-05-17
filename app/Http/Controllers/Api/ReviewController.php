@@ -3,11 +3,15 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Project;
 use App\Models\ArsitekRating;
 use App\Models\KontraktorRating;
+use App\Models\InteriorRating;
+use App\Models\NotarisRating;
+use App\Models\PMRating;
+use App\Models\Project;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class ReviewController extends Controller
 {
@@ -20,48 +24,104 @@ class ReviewController extends Controller
             return response()->json(['message' => 'Only the project owner can leave a review.'], 403);
         }
 
-        // 2. Validation: Ensure the project has a hired professional
-        if (!$project->selected_arsitek_id && !$project->selected_kontraktor_id) {
-            return response()->json(['message' => 'You can only review a professional once they are hired for the project.'], 422);
-        }
-
         $request->validate([
             'rating' => 'required|integer|min:1|max:5',
             'comment' => 'nullable|string|max:500',
+            'target_role' => 'required|in:arsitek,kontraktor,interior,notaris,pm',
         ]);
 
-        // 3. Handle Architect Review
-        if ($project->selected_arsitek_id) {
-            $existing = ArsitekRating::where('project_id', $project->id)->first();
-            if ($existing) {
-                return response()->json(['message' => 'You have already reviewed the architect for this project.'], 422);
-            }
+        $role = $request->target_role;
 
-            ArsitekRating::create([
-                'project_id' => $project->id,
-                'user_id' => $user->id,
-                'arsitek_id' => $project->selected_arsitek_id,
-                'rating' => $request->rating,
-                'komentar' => $request->comment,
-            ]);
+        // 2. Lifecycle Gate: Ensure the project is completed OR the professional was terminated/resigned
+        $modelClass = match ($role) {
+            'arsitek' => \App\Models\BidArsitek::class,
+            'kontraktor' => \App\Models\BidKontraktor::class,
+            'interior' => \App\Models\BidInterior::class,
+            'notaris' => \App\Models\BidNotaris::class,
+            'pm' => \App\Models\BidProjectManager::class,
+            default => null,
+        };
+
+        if (!$modelClass) {
+            return response()->json(['message' => "Invalid role: {$role}"], 422);
         }
 
-        // 4. Handle Contractor Review
-        if ($project->selected_kontraktor_id) {
-            $existing = KontraktorRating::where('project_id', $project->id)->first();
-            if ($existing) {
-                return response()->json(['message' => 'You have already reviewed the contractor for this project.'], 422);
-            }
+        $bid = $modelClass::where('project_id', $project->id)
+            ->whereIn('status', ['accepted', 'terminated', 'resigned'])
+            ->latest()
+            ->first();
 
-            KontraktorRating::create([
-                'project_id' => $project->id,
-                'user_id' => $user->id,
-                'kontraktor_id' => $project->selected_kontraktor_id,
-                'rating' => $request->rating,
-                'komentar' => $request->comment,
-            ]);
+        if (!$bid) {
+            return response()->json(['message' => "No professional assignment found for role: {$role}"], 422);
         }
 
-        return response()->json(['message' => 'Thank you for your feedback!'], 201);
+        // Only allow review if project is completed OR the pro was terminated/resigned
+        if ($project->status !== 'completed' && !in_array($bid->status, ['terminated', 'resigned'])) {
+            return response()->json(['message' => 'You can only leave a review once the project is completed or the professional has left.'], 422);
+        }
+
+        return DB::transaction(function () use ($request, $project, $user, $role, $bid) {
+            $result = null;
+            $professionalIdColumn = match($role) {
+                'arsitek' => 'arsitek_id',
+                'kontraktor' => 'kontraktor_id',
+                'interior' => 'interior_id',
+                'notaris' => 'notaris_id',
+                'pm' => 'pm_id',
+            };
+
+            $professionalId = $bid->$professionalIdColumn;
+
+            // Update or Create the review
+            if ($role === 'arsitek') {
+                $result = ArsitekRating::updateOrCreate(
+                    ['project_id' => $project->id, 'user_id' => $user->id, 'arsitek_id' => $professionalId],
+                    ['rating' => $request->rating, 'komentar' => $request->comment]
+                );
+            } elseif ($role === 'kontraktor') {
+                $result = KontraktorRating::updateOrCreate(
+                    ['project_id' => $project->id, 'user_id' => $user->id, 'kontraktor_id' => $professionalId],
+                    ['rating' => $request->rating, 'komentar' => $request->comment]
+                );
+            } elseif ($role === 'interior') {
+                $result = InteriorRating::updateOrCreate(
+                    ['project_id' => $project->id, 'user_id' => $user->id, 'interior_id' => $professionalId],
+                    ['rating' => $request->rating, 'komentar' => $request->comment]
+                );
+            } elseif ($role === 'notaris') {
+                $result = NotarisRating::updateOrCreate(
+                    ['project_id' => $project->id, 'user_id' => $user->id, 'notaris_id' => $professionalId],
+                    ['rating' => $request->rating, 'komentar' => $request->comment]
+                );
+            } elseif ($role === 'pm') {
+                $result = PMRating::updateOrCreate(
+                    ['project_id' => $project->id, 'user_id' => $user->id, 'pm_id' => $professionalId],
+                    ['rating' => $request->rating, 'komentar' => $request->comment]
+                );
+            }
+
+            // --- Real-Time Notification & Accountability ---
+            
+            // 1. Fetch the professional's User ID to send a notification
+            $professionalProfile = match($role) {
+                'arsitek' => $bid->arsitek,
+                'kontraktor' => $bid->kontraktor,
+                'interior' => $bid->interior,
+                'notaris' => $bid->notaris,
+                'pm' => $bid->projectManager,
+            };
+
+            if ($professionalProfile && $professionalProfile->user_id) {
+                \App\Models\Notification::create([
+                    'user_id' => $professionalProfile->user_id,
+                    'type' => 'new_review',
+                    'title' => 'New Review Received',
+                    'body' => "Project Owner of \"{$project->title}\" has left you a {$request->rating}-star review.",
+                    'data' => ['project_id' => $project->id, 'rating' => $request->rating],
+                ]);
+            }
+
+            return response()->json(['message' => 'Thank you for your feedback!', 'data' => $result], 201);
+        });
     }
 }

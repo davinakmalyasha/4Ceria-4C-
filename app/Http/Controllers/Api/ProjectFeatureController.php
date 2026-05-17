@@ -224,12 +224,18 @@ class ProjectFeatureController extends Controller
                 }
                 
                 if ($milestone->title === 'PBG (IMB) Permit') {
+                    // Check for SPK (Contract)
                     $spkApproved = \App\Models\ProjectMilestone::where('project_id', $project->id)
                         ->where('title', 'SPK (Surat Perintah Kerja)')
                         ->where('approval_status', 'approved')
                         ->exists();
                     if (!$spkApproved) {
                         return response()->json(['message' => 'Regulatory Block: PBG (IMB) Permit cannot be approved until the SPK Contract is verified.'], 422);
+                    }
+
+                    // CRITICAL FIX: Check for Architectural Brief/Drawings (SIMBG Requirement)
+                    if ($project->construction_brief_status !== 'approved') {
+                        return response()->json(['message' => 'Regulatory Block: PBG (IMB) Permit cannot be approved until the Architectural Construction Brief (DED) is approved and locked.'], 422);
                     }
                 }
             }

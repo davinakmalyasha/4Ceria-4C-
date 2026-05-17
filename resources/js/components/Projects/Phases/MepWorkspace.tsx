@@ -1,127 +1,308 @@
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-import { Zap, CheckCircle2, ShieldCheck, Activity, Package, Settings, PenTool } from 'lucide-react';
-import { PhaseKey } from '../../../types/phase.types';
+import React from 'react';
+import { CheckCircle2, ShieldCheck, Zap, Clock, Send } from 'lucide-react';
+import ArchitecturalHandoffCard from './ArchitecturalHandoffCard';
+import DeliverablesUploadCard from './DeliverablesUploadCard';
+import TechnicalMilestones from './TechnicalMilestones';
 import { useToast } from '../../../context/ToastContext';
-import ProjectRequirements from '../ProjectRequirements';
+import axios from 'axios';
 
 interface MepWorkspaceProps {
     project: any;
     user: any;
     onRefresh: () => void;
-    currentPhase: PhaseKey;
 }
 
-export default function MepWorkspace({ project, user, onRefresh, currentPhase }: MepWorkspaceProps) {
+export default function MepWorkspace({ project, user, onRefresh }: MepWorkspaceProps) {
     const { showToast } = useToast();
-    const [subTab, setSubTab] = useState<'design' | 'materials'>('design');
+    const [isUploading, setIsUploading] = React.useState(false);
+    const [isSubmitting, setIsSubmitting] = React.useState(false);
+    const currentUser = user;
+    
+    const isMep = user?.role_type === 'mep';
+    const isPM = user?.role_type === 'project_manager';
+    const isArchitect = user?.role_type === 'arsitek';
+    const isOwner = project.user_id === user?.id;
+    const canReview = isPM || isOwner || isArchitect;
+    const isReadOnly = !isMep && !canReview;
+
+    const getDeepLink = (type: 'submit' | 'approve' | 'revise') => {
+        const url = `${window.location.origin}/dashboard?project_id=${project.id}&phase=mep`;
+        const pm = project.project_manager || project.projectManager;
+        const mep = project.mep_engineer || project.mepEngineer || project.mep;
+        
+        if (type === 'submit') {
+            const phone = pm?.phone_number || pm?.no_telp || pm?.user?.phoneNumber?.[0]?.phone_number || '';
+            const cleanPhone = phone.replace(/[^0-9]/g, '');
+            const msg = `Hi ${pm?.nama || 'PM'}, I have submitted the MEP Design for project "${project.title}". Please review it here: ${url}`;
+            return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`;
+        } else if (type === 'approve') {
+            const phone = mep?.phone_number || mep?.no_telp || mep?.user?.phoneNumber?.[0]?.phone_number || '';
+            const cleanPhone = phone.replace(/[^0-9]/g, '');
+            const msg = `Hi ${mep?.nama || mep?.name || 'Specialist'}, your MEP Design for project "${project.title}" has been approved! View it here: ${url}`;
+            return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`;
+        } else {
+            const phone = mep?.phone_number || mep?.no_telp || mep?.user?.phoneNumber?.[0]?.phone_number || '';
+            const cleanPhone = phone.replace(/[^0-9]/g, '');
+            const msg = `Hi ${mep?.nama || mep?.name || 'Specialist'}, revision requested for the MEP Design on project "${project.title}". Please check it here: ${url}`;
+            return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`;
+        }
+    };
+
+    const isDesignCompleted = !!project.design_completed_at;
+    const isApproved = !!project.mep_approved_at;
+
+    const handoffDocs = (project.documents || []).filter(
+        (d: any) => d.category === 'technical_handoff' && d.target_role === 'mep'
+    );
+    const myDeliverables = (project.documents || []).filter(
+        (d: any) => d.category === 'mep_layout'
+    );
+
+    const hasPendingSubmission = myDeliverables.some((doc: any) => doc.status === 'under_review');
+
+    const handleUploadDeliverable = async (e: React.ChangeEvent<HTMLInputElement>, parentId?: number) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('category', 'mep_layout');
+        formData.append('target_role', 'architect');
+        if (parentId) {
+            formData.append('parent_id', parentId.toString());
+        }
+
+        setIsUploading(true);
+        try {
+            await axios.post(`/projects/${project.id}/documents`, formData);
+            showToast('Deliverable uploaded. Submit for review when ready.', 'success');
+            onRefresh();
+        } catch (error: any) {
+            showToast(error.response?.data?.message || 'Upload failed.', 'error');
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
+    const handleDeleteDeliverable = async (id: number) => {
+        if (!window.confirm("Are you sure you want to delete this deliverable?")) return;
+        try {
+            await axios.delete(`/projects/${project.id}/documents/${id}`);
+            showToast('Deliverable removed successfully.', 'success');
+            onRefresh();
+        } catch (error: any) {
+            showToast(error.response?.data?.message || 'Failed to delete deliverable.', 'error');
+        }
+    };
+
+    const handleUpdateDeliverable = async (id: number, name: string, note: string) => {
+        try {
+            await axios.put(`/projects/${project.id}/documents/${id}`, {
+                file_name: name,
+                version_label: note
+            });
+            showToast('Deliverable updated successfully.', 'success');
+            onRefresh();
+        } catch (error: any) {
+            showToast(error.response?.data?.message || 'Failed to update deliverable.', 'error');
+            throw error;
+        }
+    };
+
+    const handleSubmitDesign = async () => {
+        setIsSubmitting(true);
+        try {
+            await axios.post(`/projects/${project.id}/documents/submit-design`, {
+                role_type: 'mep'
+            });
+            showToast('MEP Design submitted to PM & Architect!', 'success');
+            onRefresh();
+        } catch (error: any) {
+            showToast(error.response?.data?.message || 'Submission failed.', 'error');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleApproveDesign = async () => {
+        if (!window.confirm("Are you sure you want to approve this MEP design integration?")) return;
+        setIsSubmitting(true);
+        try {
+            await axios.post(`/projects/${project.id}/documents/approve-design`, {
+                role_type: 'mep'
+            });
+            showToast('MEP Design Integration approved!', 'success');
+            onRefresh();
+        } catch (error: any) {
+            showToast(error.response?.data?.message || 'Approval failed.', 'error');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleReviseDesign = async () => {
+        const note = window.prompt("Enter revision instructions for the MEP Engineer:");
+        if (note === null) return;
+        if (!note.trim()) {
+            showToast('Revision instructions are required.', 'error');
+            return;
+        }
+
+        setIsSubmitting(true);
+        try {
+            await axios.post(`/projects/${project.id}/documents/revise-design`, {
+                role_type: 'mep',
+                note: note.trim()
+            });
+            showToast('Revision requested from Specialist.', 'success');
+            onRefresh();
+        } catch (error: any) {
+            showToast(error.response?.data?.message || 'Revision request failed.', 'error');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
 
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h3 className="text-xl font-black text-slate-900 tracking-tight">MEP Engineering Workspace</h3>
+                    <h3 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                        MEP Engineering Workspace
+                    </h3>
                     <p className="text-sm font-medium text-slate-500 mt-1 flex items-center gap-2">
-                        <Zap size={14} className="text-blue-500" />
+                        <Zap size={14} className="text-blue-500 shrink-0" />
                         Mechanical, Electrical, and Plumbing
                     </p>
                 </div>
-                <span className="px-4 py-1.5 bg-blue-100 text-blue-700 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
-                    <Activity size={14} /> Global Workspace Active
-                </span>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Phase specific contextual cards */}
-                
-                <div className={`p-6 rounded-3xl border-2 transition-all ${
-                    currentPhase === 'design' ? 'border-blue-500/30 bg-blue-50/50 shadow-md scale-[1.02]' : 'border-slate-100 bg-slate-50/50 opacity-60'
-                }`}>
-                    <div className="flex items-center gap-3 mb-4">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${currentPhase === 'design' ? 'bg-blue-500 text-white' : 'bg-slate-200 text-slate-500'}`}>
-                            <PenTool size={18} />
-                        </div>
-                        <div>
-                            <h4 className="text-sm font-black text-slate-900">Phase 1: Design</h4>
-                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Schematics</p>
-                        </div>
-                    </div>
-                    <p className="text-xs text-slate-600 font-medium">Draft electrical diagrams, plumbing layouts, and HVAC plans alongside the architect.</p>
-                </div>
-
-                <div className={`p-6 rounded-3xl border-2 transition-all ${
-                    currentPhase === 'build' ? 'border-amber-500/30 bg-amber-50/50 shadow-md scale-[1.02]' : 'border-slate-100 bg-slate-50/50 opacity-60'
-                }`}>
-                    <div className="flex items-center gap-3 mb-4">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${currentPhase === 'build' ? 'bg-amber-500 text-white' : 'bg-slate-200 text-slate-500'}`}>
-                            <ShieldCheck size={18} />
-                        </div>
-                        <div>
-                            <h4 className="text-sm font-black text-slate-900">Phase 2: Build</h4>
-                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Rough-in</p>
-                        </div>
-                    </div>
-                    <p className="text-xs text-slate-600 font-medium">Install core wires, pipes, and ducts before the walls are sealed by the contractor.</p>
-                </div>
-
-                <div className={`p-6 rounded-3xl border-2 transition-all ${
-                    currentPhase === 'interior' ? 'border-purple-500/30 bg-purple-50/50 shadow-md scale-[1.02]' : 'border-slate-100 bg-slate-50/50 opacity-60'
-                }`}>
-                    <div className="flex items-center gap-3 mb-4">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${currentPhase === 'interior' ? 'bg-purple-500 text-white' : 'bg-slate-200 text-slate-500'}`}>
-                            <Settings size={18} />
-                        </div>
-                        <div>
-                            <h4 className="text-sm font-black text-slate-900">Phase 3: Interior</h4>
-                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Fixtures</p>
-                        </div>
-                    </div>
-                    <p className="text-xs text-slate-600 font-medium">Finalize installation of ACs, lights, sinks, and visible mechanical units.</p>
-                </div>
-            </div>
-
-            <div className="flex items-center gap-2 border-b border-slate-100 pb-4 mt-8">
-                <button 
-                    onClick={() => setSubTab('design')}
-                    className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                        subTab === 'design' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'
-                    }`}
-                >
-                    Technical Schematics
-                </button>
-                <button 
-                    onClick={() => setSubTab('materials')}
-                    className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                        subTab === 'materials' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'
-                    }`}
-                >
-                    <Package size={14} className="inline mr-2" />
-                    MEP Materials & Inventory
-                </button>
-            </div>
-
-            <div className="pt-4">
-                {subTab === 'design' && (
-                    <div className="p-12 text-center border-2 border-dashed border-slate-200 rounded-[2.5rem] bg-slate-50/50">
-                        <Zap className="mx-auto text-slate-300 mb-4" size={32} />
-                        <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-2">Schematics Uploader</h4>
-                        <p className="text-xs text-slate-500 font-medium max-w-sm mx-auto">
-                            Upload your DWG, PDF, and load calculation documents here. The architect will use them for the master blueprint.
-                        </p>
-                        <button className="mt-6 px-8 py-3 bg-white border-2 border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-600 hover:border-blue-500 hover:text-blue-600 transition-all shadow-sm">
-                            Select Files
-                        </button>
-                    </div>
-                )}
-                
-                {subTab === 'materials' && (
-                    <ProjectRequirements 
-                        project={project} 
-                        onUpdate={onRefresh} 
-                        hideInventoryActions={false}
-                    />
+                {isApproved ? (
+                    <span className="px-4 py-1.5 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+                        <CheckCircle2 size={14} /> Approved & Integrated
+                    </span>
+                ) : (
+                    <span className="px-4 py-1.5 bg-indigo-100 text-indigo-700 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+                        <ShieldCheck size={14} /> Design Phase Active
+                    </span>
                 )}
             </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {!isReadOnly && <ArchitecturalHandoffCard handoffDocs={handoffDocs} />}
+
+                <DeliverablesUploadCard 
+                    title="Your Deliverables"
+                    subtitle="Upload MEP Deliverables"
+                    deliverables={myDeliverables}
+                    isUploading={isUploading}
+                    isApproved={isApproved}
+                    hasHandoffDocs={handoffDocs.length > 0}
+                    isSpecialist={isMep || isArchitect}
+                    isSubmitting={isSubmitting}
+                    readOnly={isReadOnly}
+                    onSubmitDesign={handleSubmitDesign}
+                    onUpload={handleUploadDeliverable}
+                    onDelete={handleDeleteDeliverable}
+                    onUpdate={handleUpdateDeliverable}
+                />
+            </div>
+            
+            {/* Interactive Integration Review Footer */}
+            {!isReadOnly && (
+                isApproved ? (
+                    <div className="border border-emerald-200 rounded-3xl p-6 bg-emerald-50 text-emerald-900 flex flex-col md:flex-row gap-4 items-center justify-between shadow-sm">
+                        <div className="flex items-center gap-3">
+                            <CheckCircle2 className="text-emerald-500 shrink-0" size={24} />
+                            <div>
+                                <h5 className="text-xs font-black uppercase tracking-tight">Verified & Integrated</h5>
+                                <p className="text-[10px] text-emerald-700 font-bold uppercase tracking-wide mt-0.5">
+                                    MEP schematics are officially integrated into the master design blueprint.
+                                </p>
+                            </div>
+                        </div>
+                        {canReview && (
+                            <a href={getDeepLink('approve')} target="_blank" rel="noopener noreferrer" className="flex-shrink-0 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors shadow-sm flex items-center gap-2">
+                                <Send size={14} /> Notify via WhatsApp
+                            </a>
+                        )}
+                    </div>
+                ) : (
+
+                canReview ? (
+                    hasPendingSubmission ? (
+                        <div className="border border-indigo-100 rounded-3xl p-6 bg-indigo-50/50 flex flex-col md:flex-row gap-4 items-center justify-between shadow-sm">
+                            <div className="flex items-center gap-3">
+                                <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-indigo-600 shadow-sm border border-indigo-100">
+                                    <ShieldCheck size={20} />
+                                </div>
+                                <div>
+                                    <h5 className="text-xs font-black text-slate-950 uppercase tracking-tight">Design Review Pending</h5>
+                                    <p className="text-[10px] text-slate-500 font-bold uppercase mt-0.5 tracking-wider">An MEP designer submitted schematics for integration</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2 w-full md:w-auto">
+                                <a href={getDeepLink('revise')} target="_blank" rel="noopener noreferrer" className="px-3 py-3 bg-white border border-slate-200 hover:bg-slate-50 text-slate-400 rounded-xl transition-colors shadow-sm" title="Send Revision Notice via WhatsApp">
+                                    <Send size={16} />
+                                </a>
+                                <button
+                                    onClick={handleReviseDesign}
+                                    disabled={isSubmitting}
+                                    className="flex-1 md:flex-initial px-5 py-3 bg-white border border-slate-200 hover:bg-slate-50 text-rose-600 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors shadow-sm disabled:opacity-50"
+                                >
+                                    Request Revision
+                                </button>
+                                <button
+                                    onClick={handleApproveDesign}
+                                    disabled={isSubmitting}
+                                    className="flex-1 md:flex-initial px-5 py-3 bg-slate-900 hover:bg-black text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors shadow-lg disabled:opacity-50"
+                                >
+                                    Approve Integration
+                                </button>
+                            </div>
+                        </div>
+
+                    ) : (
+                        <div className="border border-slate-200 rounded-3xl p-6 bg-slate-50 flex items-center gap-3">
+                            <Clock className="text-slate-400 shrink-0 animate-pulse" size={24} />
+                            <div>
+                                <h5 className="text-xs font-black text-slate-800 uppercase tracking-tight">Awaiting Submissions</h5>
+                                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wide mt-0.5">
+                                    The MEP designer is working on schematics. No submission is pending.
+                                </p>
+                            </div>
+                        </div>
+                    )
+                ) : (
+                    <div className="border border-slate-200 rounded-3xl p-6 bg-slate-50 flex flex-col md:flex-row items-center justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                            <Clock className="text-slate-400 shrink-0" size={24} />
+                            <div>
+                                <h5 className="text-xs font-black text-slate-800 uppercase tracking-tight">
+                                    {hasPendingSubmission ? "Review in Progress" : "Design Preparation"}
+                                </h5>
+                                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wide mt-0.5">
+                                    {hasPendingSubmission 
+                                        ? "Your design layouts have been submitted and are under review by the PM."
+                                        : "Upload MEP schematic layouts and submit them for official audit when completed."
+                                    }
+                                </p>
+                            </div>
+                        </div>
+                        {hasPendingSubmission && isMep && (
+                            <a href={getDeepLink('submit')} target="_blank" rel="noopener noreferrer" className="flex-shrink-0 px-4 py-2 bg-[#25D366] hover:bg-[#1DA851] text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors shadow-sm flex items-center gap-2">
+                                <Send size={14} /> Notify PM
+                            </a>
+                        )}
+                    </div>
+                )
+            ))}
+
+            <TechnicalMilestones 
+                project={project}
+                currentUser={currentUser}
+                roleType="mep"
+                isSpecialist={isMep || isArchitect}
+                isPM={isPM}
+            />
         </div>
     );
 }

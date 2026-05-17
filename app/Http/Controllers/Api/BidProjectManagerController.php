@@ -37,7 +37,7 @@ class BidProjectManagerController extends Controller
         }
 
         $request->validate([
-            'price' => 'required|numeric|min:0',
+            'price' => 'nullable|numeric|min:0',
             'proposal' => 'required|string',
             'estimated_duration' => 'nullable|integer',
             'duration_unit' => 'nullable|string',
@@ -59,8 +59,8 @@ class BidProjectManagerController extends Controller
             'quantity' => $calc['quantity'],
             'calculated_total' => $calc['calculated_total'],
             'proposal' => $request->proposal,
-            'estimated_duration' => $request->estimated_duration,
-            'duration_unit' => $request->duration_unit ?? 'weeks',
+            'estimated_duration' => $request->estimated_duration ?: 1,
+            'duration_unit' => $request->duration_unit ?: 'weeks',
             'scopes' => is_string($request->scopes) ? json_decode($request->scopes, true) : $request->scopes,
             'deliverables' => is_string($request->deliverables) ? json_decode($request->deliverables, true) : $request->deliverables,
             'status' => 'pending',
@@ -77,6 +77,56 @@ class BidProjectManagerController extends Controller
         return response()->json(['message' => 'Bid submitted successfully!', 'bid' => $bid]);
     }
 
+    public function shortlist(Request $request, Project $project, BidProjectManager $bid)
+    {
+        if ($project->user_id !== Auth::id()) {
+            return response()->json(['message' => 'Unauthorized. Only project owner can shortlist.'], 403);
+        }
+
+        if ($bid->status !== 'pending') {
+            return response()->json(['message' => 'Bid must be pending to be shortlisted.'], 400);
+        }
+
+        DB::beginTransaction();
+        try {
+            $bid->update(['status' => 'shortlisted']);
+
+            Notification::create([
+                'user_id' => $bid->pm->user_id,
+                'type' => 'pm_bid_shortlisted',
+                'title' => 'Proposal Shortlisted!',
+                'body' => "You have been shortlisted for project \"{$project->title}\". The owner wants to discuss your proposal.",
+                'data' => ['project_id' => $project->id],
+            ]);
+
+            DB::commit();
+
+            $project->load([
+                'arsitek.user.phoneNumber',
+                'kontraktor.user.phoneNumber',
+                'notaris.user.phoneNumber',
+                'interior.user.phoneNumber',
+                'bidsArsitek.arsitek.user.phoneNumber',
+                'bidsKontraktor.kontraktor.user.phoneNumber',
+                'bidsNotaris.notaris.user.phoneNumber',
+                'bidsInterior.interior.user.phoneNumber',
+                'bidsProjectManager.pm.user',
+                'images',
+                'milestones',
+                'user',
+                'ratings',
+                'kontraktorRating',
+                'projectManager.user',
+                'paymentTermins'
+            ])->loadCount(['bidsArsitek', 'bidsKontraktor', 'bidsNotaris', 'bidsInterior', 'bidsProjectManager']);
+
+            return new \App\Http\Resources\ProjectResource($project);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['message' => 'Failed to shortlist PM.', 'error' => $e->getMessage()], 500);
+        }
+    }
+
     public function accept(Request $request, Project $project, BidProjectManager $bid)
     {
         if ($project->user_id !== Auth::id()) {
@@ -87,29 +137,28 @@ class BidProjectManagerController extends Controller
             return response()->json(['message' => 'Project already has a Project Manager.'], 400);
         }
 
+        if ($bid->status !== 'shortlisted' && $bid->status !== 'negotiating') {
+            return response()->json(['message' => 'You must shortlist or negotiate with this professional first before hiring.'], 422);
+        }
+
         DB::beginTransaction();
         try {
             // Standardize: pm_id in projects table references users.id
             $pmUserId = $bid->pm->user_id;
-            
-            $bid->update(['status' => 'accepted']);
             $project->update(['pm_id' => $pmUserId]);
-
-            // Automatic Budget Deduction - Record as Transaction only
-            // DO NOT update the $project->budget column directly, as the frontend 
-            // calculates remaining budget by subtracting 'adjustment_down' transactions 
-            // from the base budget.
-            $deductionAmount = $bid->calculated_total ?? $bid->price;
             
-            // Create Transaction Log
-            ProjectBudgetTransaction::create([
-                'project_id' => $project->id, 
-                'transaction_type' => 'adjustment_down',
-                'amount' => $deductionAmount,
-                'title' => 'Project Manager Management Fee Allocation',
-                'reference_model' => 'BidProjectManager',
-                'reference_id' => $bid->id,
-                'transaction_date' => now(),
+            $bid->update([
+                'status' => 'contract_pending',
+                'verification_notes' => $request->verification_notes,
+            ]);
+            
+            // Notification for Aisha (Professional)
+            Notification::create([
+                'user_id' => $pmUserId,
+                'type' => 'pm_hire_initiated',
+                'title' => 'Hire Initiated!',
+                'body' => "Congratulations! The owner has initiated your hire for: \"{$project->title}\". Please review the SPK and define your payment milestones.",
+                'data' => ['project_id' => $project->id, 'bid_id' => $bid->id],
             ]);
 
             $project->refresh(); 
@@ -145,7 +194,8 @@ class BidProjectManagerController extends Controller
                 'user',
                 'ratings',
                 'kontraktorRating',
-                'projectManager.user'
+                'projectManager.user',
+                'paymentTermins'
             ])->loadCount(['bidsArsitek', 'bidsKontraktor', 'bidsNotaris', 'bidsInterior', 'bidsProjectManager']);
             return new \App\Http\Resources\ProjectResource($project);
         } catch (\Exception $e) {

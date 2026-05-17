@@ -15,7 +15,7 @@ class SupplierController extends Controller
     public function index(Request $request)
     {
         $query = Supplier::with(['user'])
-            ->withCount(['materials' => function($q) {
+            ->withCount(['materials' => function ($q) {
                 $q->where('is_available', true);
             }])
             ->withAvg('reviews', 'rating')
@@ -23,16 +23,16 @@ class SupplierController extends Controller
             ->where('verification_status', 'verified');
 
         if ($request->category) {
-            $query->where('category', 'like', '%' . $request->category . '%');
+            $query->where('category', 'like', '%'.$request->category.'%');
         }
 
         if ($request->search) {
-            $query->where('store_name', 'like', '%' . $request->search . '%');
+            $query->where('store_name', 'like', '%'.$request->search.'%');
         }
 
         return response()->json([
             'status' => 'success',
-            'data' => $query->get()
+            'data' => $query->get(),
         ]);
     }
 
@@ -43,19 +43,19 @@ class SupplierController extends Controller
     {
         $supplier = Supplier::with([
             'user',
-            'materials' => function($q) {
+            'materials' => function ($q) {
                 $q->where('is_available', true);
-            }, 
+            },
             'materials.images',
-            'reviews.user'
+            'reviews.user',
         ])
-        ->withAvg('reviews', 'rating')
-        ->withCount('reviews')
-        ->findOrFail($id);
+            ->withAvg('reviews', 'rating')
+            ->withCount('reviews')
+            ->findOrFail($id);
 
         return response()->json([
             'status' => 'success',
-            'data' => $supplier
+            'data' => $supplier,
         ]);
     }
 
@@ -70,18 +70,18 @@ class SupplierController extends Controller
         }
 
         $supplier = Supplier::where('user_id', $user->id)->first();
-        if (!$supplier) {
+        if (! $supplier) {
             // Create a blank profile if it doesn't exist
             $supplier = Supplier::create([
                 'user_id' => $user->id,
-                'store_name' => $user->name . "'s Store",
-                'verification_status' => 'pending'
+                'store_name' => $user->name."'s Store",
+                'verification_status' => 'pending',
             ]);
         }
 
         return response()->json([
             'status' => 'success',
-            'data' => $supplier
+            'data' => $supplier,
         ]);
     }
 
@@ -124,7 +124,7 @@ class SupplierController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Profile updated successfully',
-            'data' => $supplier
+            'data' => $supplier,
         ]);
     }
 }

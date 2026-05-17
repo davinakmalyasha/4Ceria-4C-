@@ -20,7 +20,7 @@ return new class extends Migration
             $table->text('deskripsi')->nullable();
             $table->string('lokasi')->nullable();
             $table->integer('pengalaman_tahun')->default(0);
-            $table->decimal('rate_harga', 15, 2)->default(0);
+            $table->decimal('rate_harga', 24, 2)->default(0);
             $table->enum('verification_status', ['pending', 'verified', 'rejected'])->default('pending');
             $table->text('rejection_reason')->nullable();
             $table->timestamps();

@@ -99,9 +99,12 @@ class Project extends Model
         'legal_detail',
         'wants_to_discuss_later',
         'bidding_choices',
+        'arsitek_kickoff_at',
+        'kontraktor_kickoff_at',
     ];
 
     protected $casts = [
+        'budget' => 'decimal:2',
         'needed_phases' => 'array',
         'completed_phases' => 'array',
         'design_details' => 'array',
@@ -144,6 +147,8 @@ class Project extends Model
         'owner_legal_approved_at' => 'datetime',
         'warranty_start_at' => 'datetime',
         'warranty_end_at' => 'datetime',
+        'arsitek_kickoff_at' => 'datetime',
+        'kontraktor_kickoff_at' => 'datetime',
     ];
 
     public function user()
@@ -164,6 +169,11 @@ class Project extends Model
     public function kontraktor()
     {
         return $this->belongsTo(Kontraktor::class, 'selected_kontraktor_id');
+    }
+
+    public function reports()
+    {
+        return $this->hasMany(ProjectReport::class);
     }
 
     public function bidsArsitek()
@@ -319,5 +329,63 @@ class Project extends Model
     public function timelineExtensions()
     {
         return $this->hasMany(ProjectTimelineExtension::class)->orderBy('created_at', 'desc');
+    }
+
+    public function schedules()
+    {
+        return $this->hasMany(ProjectSchedule::class);
+    }
+
+    public function delays()
+    {
+        return $this->hasMany(ProjectDelay::class);
+    }
+
+    public function subProfessionals()
+    {
+        return $this->hasMany(ProjectSubProfessional::class);
+    }
+
+    public function stickyNotes()
+    {
+        return $this->hasMany(StickyNote::class);
+    }
+
+    /**
+     * Calculate the current financial state of the project.
+     * Allocated = Sum of hired professionals + approved addendums + approved change orders.
+     */
+    public function calculateBudgetSummary(): array
+    {
+        $hiredStatuses = ['accepted', 'awaiting_payment', 'active', 'contract_pending', 'completed'];
+        
+        $allocated = 0;
+        
+        // Sum all accepted/active professional bids
+        $allocated += $this->bidsArsitek()->whereIn('status', $hiredStatuses)->sum('calculated_total') ?: $this->bidsArsitek()->whereIn('status', $hiredStatuses)->sum('price');
+        $allocated += $this->bidsKontraktor()->whereIn('status', $hiredStatuses)->sum('calculated_total') ?: $this->bidsKontraktor()->whereIn('status', $hiredStatuses)->sum('price');
+        $allocated += $this->bidsNotaris()->whereIn('status', $hiredStatuses)->sum('calculated_total') ?: $this->bidsNotaris()->whereIn('status', $hiredStatuses)->sum('price');
+        $allocated += $this->bidsInterior()->whereIn('status', $hiredStatuses)->sum('calculated_total') ?: $this->bidsInterior()->whereIn('status', $hiredStatuses)->sum('price');
+        $allocated += $this->bidsProjectManager()->whereIn('status', $hiredStatuses)->sum('calculated_total') ?: $this->bidsProjectManager()->whereIn('status', $hiredStatuses)->sum('price');
+        $allocated += $this->bidsStructural()->whereIn('status', $hiredStatuses)->sum('calculated_total') ?: $this->bidsStructural()->whereIn('status', $hiredStatuses)->sum('price');
+        $allocated += $this->bidsMep()->whereIn('status', $hiredStatuses)->sum('calculated_total') ?: $this->bidsMep()->whereIn('status', $hiredStatuses)->sum('price');
+        
+        // Addendums (Professional extra fees / Material authorizations)
+        // CRITICAL FIX: Only count PAID or APPROVED (pm_reviewed) addendums as allocated.
+        // approved_unpaid is just a reservation, it shouldn't show as "gone" yet if the user is confused.
+        $allocated += $this->addendums()->whereIn('status', ['paid', 'approved', 'pm_reviewed'])->sum('amount');
+
+        
+        // Change Orders
+        $allocated += $this->changeOrders()->where('status', 'owner_approved')->sum('cost_impact');
+
+        $totalBudget = (float) $this->budget;
+        
+        return [
+            'total' => $totalBudget,
+            'allocated' => (float) $allocated,
+            'remaining' => (float) ($totalBudget - $allocated),
+            'percent_used' => $totalBudget > 0 ? ($allocated / $totalBudget) * 100 : 0
+        ];
     }
 }

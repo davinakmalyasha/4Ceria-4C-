@@ -52,6 +52,62 @@ interface User {
         foto: string;
         verification_status: string;
     };
+    interior_profile?: {
+        id: number;
+        no_telp: string,
+        foto: string,
+        rate_harga: string, 
+        pengalaman_tahun: string, 
+        lokasi: string, 
+        deskripsi: string, 
+        spesialisasi: string, 
+        file_portofolio: string, 
+        file_sertifikat: string,
+        verification_status: string,
+        rejection_reason?: string
+    };
+    notaris_profile?: {
+        id: number;
+        no_telp: string,
+        foto: string,
+        pendidikan: string,
+        rate_harga: string,
+        lokasi: string,
+        deskripsi: string,
+        file_portofolio: string,
+        verification_status: string,
+        rejection_reason?: string
+    };
+    project_manager?: {
+        id: number;
+        nama: string;
+        no_telp: string;
+        verification_status: string;
+    };
+    structural_engineer?: {
+        id: number;
+        nama: string;
+        no_telp: string;
+        verification_status: string;
+    };
+    mep_engineer?: {
+        id: number;
+        nama: string;
+        no_telp: string;
+        verification_status: string;
+    };
+    team_members?: {
+        id: number;
+        name: string;
+        photo_path: string | null;
+        photo_url: string | null;
+        role_title: string;
+        bio: string | null;
+        skills: string[];
+        phone: string | null;
+        email: string | null;
+        status: 'active' | 'inactive';
+    }[];
 }
 
 interface AuthContextType {
@@ -74,7 +130,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (token) {
             axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
             axios.get('/me')
-                .then(res => setUser(res.data))
+                .then(res => setUser(res.data.data))
                 .catch(() => {
                     setToken(null);
                     localStorage.removeItem('auth_token');
@@ -101,7 +157,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const refreshUser = async () => {
         try {
             const res = await axios.get('/me');
-            setUser(res.data);
+            setUser(res.data.data);
         } catch (err) {
             console.error("Failed to refresh user data", err);
         }

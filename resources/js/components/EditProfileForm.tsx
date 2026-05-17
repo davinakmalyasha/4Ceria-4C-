@@ -4,6 +4,9 @@ import UserProfileForm from './UserProfileForm';
 import ArchitectProfileForm from './ArchitectProfileForm';
 import ConstructorProfileForm from './ConstructorProfileForm';
 import SupplierProfileForm from './SupplierProfileForm';
+import InteriorProfileForm from './InteriorProfileForm';
+import NotarisProfileForm from './Notaris/NotarisProfileForm';
+import EnterpriseProfileForm from './Profile/EnterpriseProfileForm';
 
 interface EditProfileFormProps {
     onCancel: () => void;
@@ -25,6 +28,18 @@ export default function EditProfileForm({ onCancel }: EditProfileFormProps) {
 
     if (user.role_type === 'kontraktor') {
         return <ConstructorProfileForm onCancel={onCancel} />;
+    }
+
+    if (user.role_type === 'interior') {
+        return <InteriorProfileForm onCancel={onCancel} />;
+    }
+
+    if (user.role_type === 'notaris') {
+        return <NotarisProfileForm onCancel={onCancel} />;
+    }
+
+    if (['project_manager', 'structural', 'mep'].includes(user.role_type)) {
+        return <EnterpriseProfileForm onCancel={onCancel} />;
     }
 
     if (user.role_type === 'supplier') {

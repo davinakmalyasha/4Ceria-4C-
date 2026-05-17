@@ -3,6 +3,7 @@ import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { Building, MapPin, Phone, FileText, UploadCloud, AlertCircle, CheckCircle, RefreshCcw, Info } from 'lucide-react';
 import LocationPickerMap, { ReverseGeoData } from './LocationPickerMap';
+import { PortfolioManager } from './Dashboard/PortfolioManager';
 
 interface SupplierProfileFormProps { 
     onCancel: () => void; 
@@ -301,6 +302,9 @@ export default function SupplierProfileForm({ onCancel, onSuccess }: SupplierPro
                     </div>
                 </div>
             </div>
+
+            {/* Interactive Portfolio Management inside Edit Mode */}
+            <PortfolioManager isEmbedded={true} />
 
             <div className="flex items-center gap-4 pt-4">
                 <button type="submit" disabled={isLoading} className="flex-1 px-8 py-4 bg-gray-900 text-white font-bold rounded-2xl hover:bg-gray-800 transition-all shadow-lg active:scale-95 disabled:opacity-50">

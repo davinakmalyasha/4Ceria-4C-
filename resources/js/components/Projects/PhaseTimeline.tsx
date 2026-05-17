@@ -1,21 +1,22 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Shield, Pencil, Hammer, Package, Armchair, KeyRound, Check, Users } from 'lucide-react';
-import { Phase, PhaseKey } from '../../types/phase.types';
+import { Phase, PhaseKey, getCategoryPhaseLabel } from '../../types/phase.types';
 
 const ICON_MAP: Record<string, React.ElementType> = {
     Shield, Pencil, Hammer, Package, Sofa: Armchair, Key: KeyRound, Users
 };
 
-const PARALLEL_KEYS: PhaseKey[] = ['build', 'materials', 'interior'];
+const PARALLEL_KEYS: PhaseKey[] = ['technical', 'design', 'build', 'materials', 'interior'];
 
 interface PhaseTimelineProps {
     phases: Phase[];
     activePhase: PhaseKey;
     onPhaseClick: (key: PhaseKey) => void;
+    projectCategory?: string;
 }
 
-function PhaseButton({ phase, isActive, onClick }: { phase: Phase; isActive: boolean; onClick: () => void }) {
+function PhaseButton({ phase, isActive, onClick, displayLabel }: { phase: Phase; isActive: boolean; onClick: () => void; displayLabel?: string }) {
     const Icon = ICON_MAP[phase.icon] || Shield;
     const isDone = phase.status === 'completed';
     const isSkipped = phase.status === 'skipped';
@@ -47,13 +48,13 @@ function PhaseButton({ phase, isActive, onClick }: { phase: Phase; isActive: boo
                 isPhaseActive ? 'text-slate-900' :
                 'text-gray-400'
             }`}>
-                {phase.label}
+                {displayLabel || phase.label}
             </span>
         </button>
     );
 }
 
-export default function PhaseTimeline({ phases, activePhase, onPhaseClick }: PhaseTimelineProps) {
+export default function PhaseTimeline({ phases, activePhase, onPhaseClick, projectCategory }: PhaseTimelineProps) {
     // Split phases into: pre-parallel, parallel group, post-parallel
     const preParallel = phases.filter(p => !PARALLEL_KEYS.includes(p.key) && p.key !== 'handover');
     const parallel = phases.filter(p => PARALLEL_KEYS.includes(p.key));
@@ -75,7 +76,7 @@ export default function PhaseTimeline({ phases, activePhase, onPhaseClick }: Pha
                                     isDone || preParallel[i - 1]?.status === 'completed' ? 'bg-emerald-400' : 'bg-gray-200'
                                 }`} />
                             )}
-                            <PhaseButton phase={phase} isActive={phase.key === activePhase} onClick={() => onPhaseClick(phase.key)} />
+                            <PhaseButton phase={phase} isActive={phase.key === activePhase} onClick={() => onPhaseClick(phase.key)} displayLabel={projectCategory ? getCategoryPhaseLabel(phase.key, projectCategory).label : undefined} />
                         </React.Fragment>
                     );
                 })}
@@ -96,7 +97,7 @@ export default function PhaseTimeline({ phases, activePhase, onPhaseClick }: Pha
                                 {parallel.map((phase, i) => (
                                     <React.Fragment key={phase.key}>
                                         {i > 0 && <div className="w-[1px] h-8 bg-slate-200" />}
-                                        <PhaseButton phase={phase} isActive={phase.key === activePhase} onClick={() => onPhaseClick(phase.key)} />
+                                        <PhaseButton phase={phase} isActive={phase.key === activePhase} onClick={() => onPhaseClick(phase.key)} displayLabel={projectCategory ? getCategoryPhaseLabel(phase.key, projectCategory).label : undefined} />
                                     </React.Fragment>
                                 ))}
                             </div>
@@ -110,7 +111,7 @@ export default function PhaseTimeline({ phases, activePhase, onPhaseClick }: Pha
                         <div className={`h-[2px] w-8 sm:w-12 flex-shrink-0 transition-colors duration-300 ${
                             allParallelDone ? 'bg-emerald-400' : 'bg-gray-200'
                         }`} />
-                        <PhaseButton phase={phase} isActive={phase.key === activePhase} onClick={() => onPhaseClick(phase.key)} />
+                        <PhaseButton phase={phase} isActive={phase.key === activePhase} onClick={() => onPhaseClick(phase.key)} displayLabel={projectCategory ? getCategoryPhaseLabel(phase.key, projectCategory).label : undefined} />
                     </React.Fragment>
                 ))}
             </div>

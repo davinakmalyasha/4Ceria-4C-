@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Conversation;
 use App\Models\ChatMessage;
+use App\Models\Conversation;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -18,17 +18,21 @@ class ChatController extends Controller
     public function index()
     {
         $user = Auth::user();
-        
+
         $conversations = Conversation::where('user_one_id', $user->id)
             ->orWhere('user_two_id', $user->id)
-            ->with(['userOne', 'userTwo', 'latestMessage'])
+            ->with([
+                'userOne.arsitek', 'userOne.kontraktor', 'userOne.notaris_profile', 'userOne.interior_profile', 'userOne.courierProfile', 'userOne.supplier',
+                'userTwo.arsitek', 'userTwo.kontraktor', 'userTwo.notaris_profile', 'userTwo.interior_profile', 'userTwo.courierProfile', 'userTwo.supplier',
+                'latestMessage'
+            ])
             ->orderBy('last_message_at', 'desc')
             ->get();
 
         // Map conversations to include the "other user" directly
         $formatted = $conversations->map(function ($conv) use ($user) {
             $otherUser = ($conv->user_one_id === $user->id) ? $conv->userTwo : $conv->userOne;
-            
+
             // Count unread messages from the other user
             $unreadCount = $conv->messages()
                 ->where('sender_id', '!=', $user->id)
@@ -42,7 +46,12 @@ class ChatController extends Controller
                     'name' => $otherUser->name,
                     'username' => $otherUser->username,
                     'role_type' => $otherUser->role_type,
-                    'pic' => $otherUser->arsitek->foto ?? ($otherUser->kontraktor->foto ?? null),
+                    'pic' => $otherUser->arsitek->foto ?? 
+                             ($otherUser->kontraktor->foto ?? 
+                             ($otherUser->notaris_profile->foto ?? 
+                             ($otherUser->interior_profile->foto ?? 
+                             ($otherUser->courierProfile->foto ?? 
+                             ($otherUser->supplier->foto ?? null))))),
                 ],
                 'last_message' => $conv->latestMessage,
                 'unread_count' => $unreadCount,
@@ -71,13 +80,13 @@ class ChatController extends Controller
 
         // Ensure user_one_id is always the smaller ID for consistency (matches the unique index if we had one, but we used user_one/user_two)
         // Actually, let's just find existing conversation regardless of order
-        $conversation = Conversation::where(function($q) use ($user1, $user2) {
-                $q->where('user_one_id', $user1)->where('user_two_id', $user2);
-            })->orWhere(function($q) use ($user1, $user2) {
-                $q->where('user_one_id', $user2)->where('user_two_id', $user1);
-            })->first();
+        $conversation = Conversation::where(function ($q) use ($user1, $user2) {
+            $q->where('user_one_id', $user1)->where('user_two_id', $user2);
+        })->orWhere(function ($q) use ($user1, $user2) {
+            $q->where('user_one_id', $user2)->where('user_two_id', $user1);
+        })->first();
 
-        if (!$conversation) {
+        if (! $conversation) {
             $conversation = Conversation::create([
                 'user_one_id' => min($user1, $user2),
                 'user_two_id' => max($user1, $user2),
@@ -93,7 +102,7 @@ class ChatController extends Controller
     public function show(Conversation $conversation)
     {
         $user = Auth::user();
-        
+
         // Ensure user is part of the conversation
         if ($conversation->user_one_id !== $user->id && $conversation->user_two_id !== $user->id) {
             return response()->json(['message' => 'Unauthorized'], 403);
@@ -121,7 +130,7 @@ class ChatController extends Controller
         ]);
 
         $user = Auth::user();
-        
+
         if ($conversation->user_one_id !== $user->id && $conversation->user_two_id !== $user->id) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
@@ -146,9 +155,11 @@ class ChatController extends Controller
             ]);
 
             DB::commit();
+
             return response()->json(['data' => $message->load('sender')]);
         } catch (\Exception $e) {
             DB::rollBack();
+
             return response()->json(['message' => 'Failed to send message.'], 500);
         }
     }

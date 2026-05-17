@@ -40,8 +40,12 @@ class ProjectFinancialService
                 return false;
             }
 
-            // 2. Update project budget
-            $project->decrement('budget', $amount);
+            // 2. Update project budget ONLY for structural adjustments
+            // Payments are deducted from the "Available" calculation in the UI, 
+            // so we don't decrement the core budget column to avoid double-counting.
+            if ($type !== 'payment') {
+                $project->decrement('budget', $amount);
+            }
 
             // 3. Record transaction
             ProjectBudgetTransaction::create([

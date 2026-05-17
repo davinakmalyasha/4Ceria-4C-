@@ -8,12 +8,22 @@ import StoreDetailView from '../Marketplace/StoreDetailView';
 import MaterialDetailsModal from '../Marketplace/MaterialDetailsModal';
 import ExploreArchitects from '../Architects/ExploreArchitects';
 import ExploreConstructors from '../Constructors/ExploreConstructors';
+import ExploreNotaries from '../Notaris/ExploreNotaries';
+import ExploreInterior from '../Interior/ExploreInterior';
+import { ExploreProjectManagers } from '../ProjectManagers/ExploreProjectManagers';
+import ExploreEngineers from '../Engineers/ExploreEngineers';
+
 
 interface ExploreTabProps {
     houses?: any[];
     isLoadingData?: boolean;
     architects?: any[];
     constructors?: any[];
+    interiors?: any[];
+    notaries?: any[];
+    projectManagers?: any[];
+    structuralEngineers?: any[];
+    mepEngineers?: any[];
     selectedProfessional?: any;
     setSelectedProfessional?: (p: any) => void;
     selectedStoreId?: number | null;
@@ -87,12 +97,32 @@ function ExploreContent({ subTab, props }: { subTab: string, props: ExploreTabPr
         return (
             <div className="space-y-12 pb-8">
                 <div>
+                    <h3 className="text-xl font-black text-gray-900 mb-4 px-4 border-l-4 border-blue-900">Project Management Experts</h3>
+                    <ExploreProjectManagers projectManagers={props.projectManagers || []} isLoading={props.isLoadingData || false} onSelectPM={(p) => { props.setActiveTab?.('project_manager'); props.setSelectedProfessional?.({ type: 'project_manager', data: p }); }} />
+                </div>
+                <div>
                     <h3 className="text-xl font-black text-gray-900 mb-4 px-4 border-l-4 border-[#FF2D20]">Architects & Designers</h3>
                     <ExploreArchitects architects={props.architects || []} isLoading={props.isLoadingData || false} onSelectArchitect={(a) => { props.setActiveTab?.('architects'); props.setSelectedProfessional?.({ type: 'architect', data: a }); }} />
                 </div>
                 <div>
+                    <h3 className="text-xl font-black text-gray-900 mb-4 px-4 border-l-4 border-[#FF2D20]">Interior Design Studios</h3>
+                    <ExploreInterior designers={props.interiors || []} isLoading={props.isLoadingData || false} onSelectDesigner={(i) => { props.setActiveTab?.('interior'); props.setSelectedProfessional?.({ type: 'interior', data: i }); }} />
+                </div>
+                <div>
                     <h3 className="text-xl font-black text-gray-900 mb-4 px-4 border-l-4 border-[#FF2D20]">Constructors & Build Teams</h3>
                     <ExploreConstructors constructors={props.constructors || []} isLoading={props.isLoadingData || false} onSelectConstructor={(c) => { props.setActiveTab?.('constructors'); props.setSelectedProfessional?.({ type: 'constructor', data: c }); }} />
+                </div>
+                <div>
+                    <h3 className="text-xl font-black text-gray-900 mb-4 px-4 border-l-4 border-blue-900">Legal Specialists & Notaries</h3>
+                    <ExploreNotaries notaries={props.notaries || []} isLoading={props.isLoadingData || false} onSelect={(n) => { props.setActiveTab?.('notaris'); props.setSelectedProfessional?.({ type: 'notaris', data: n }); }} />
+                </div>
+                <div>
+                    <h3 className="text-xl font-black text-gray-900 mb-4 px-4 border-l-4 border-zinc-900">Structural Engineers</h3>
+                    <ExploreEngineers engineers={props.structuralEngineers || []} isLoading={props.isLoadingData || false} type="structural" onSelect={(e) => { props.setActiveTab?.('structural'); props.setSelectedProfessional?.({ type: 'structural', data: e }); }} />
+                </div>
+                <div>
+                    <h3 className="text-xl font-black text-gray-900 mb-4 px-4 border-l-4 border-zinc-900">MEP Engineering Specialists</h3>
+                    <ExploreEngineers engineers={props.mepEngineers || []} isLoading={props.isLoadingData || false} type="mep" onSelect={(e) => { props.setActiveTab?.('mep'); props.setSelectedProfessional?.({ type: 'mep', data: e }); }} />
                 </div>
             </div>
         );

@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
     Wallet, TrendingDown, TrendingUp, Plus, Minus, 
     CheckCircle, Clock, ShieldAlert, Zap, AlertTriangle, Scale, Target, Banknote,
-    Edit3, Trash2, Save, X
+    Edit3, Trash2, Save, X, Users, Mail, Phone, ExternalLink, ShieldCheck
 } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 import ChangeOrderPanel from './Phases/ChangeOrderPanel';
@@ -17,7 +17,7 @@ interface ProjectBudgetManagerProps {
 export default function ProjectBudgetManager({ project, user }: ProjectBudgetManagerProps) {
     const { showToast } = useToast();
     const isOwner = useMemo(() => user?.id === project?.user_id, [user, project]);
-    const isPM = useMemo(() => user?.role_type === 'project_manager' && project?.pm_id === user?.project_manager?.id, [user, project]);
+    const isPM = useMemo(() => user?.role_type === 'project_manager' && project?.pm_id === user?.id, [user, project]);
     
     const [loading, setLoading] = useState(true);
     const [dashboardData, setDashboardData] = useState<any>(null);
@@ -32,6 +32,15 @@ export default function ProjectBudgetManager({ project, user }: ProjectBudgetMan
     const [editingId, setEditingId] = useState<number | null>(null);
     const [editTitle, setEditTitle] = useState('');
     const [editAmount, setEditAmount] = useState('');
+    
+    // Specialist Modal State
+    const [selectedSpecialist, setSelectedSpecialist] = useState<any>(null);
+
+    // Negotiation State
+    const [negotiatingId, setNegotiatingId] = useState<number | null>(null);
+    const [counterAmount, setCounterAmount] = useState('');
+    const [negotiationNote, setNegotiationNote] = useState('');
+    const [isNegotiatingSubmit, setIsNegotiatingSubmit] = useState(false);
 
     const fetchDashboard = async () => {
         try {
@@ -258,15 +267,15 @@ export default function ProjectBudgetManager({ project, user }: ProjectBudgetMan
                     </h3>
                     
                     {/* Render Base Bids */}
-                    {['arsitek', 'kontraktor', 'notaris', 'interior'].map((type) => {
+                    {['arsitek', 'kontraktor', 'notaris', 'interior', 'project_manager'].map((type) => {
                         const bid = dashboardData.accepted_bids?.[type];
                         if (!bid || type === 'kontraktor') return null; // Contractor uses Termins
                         return (
                             <div key={`${type}-${bid.id}`} className={`p-6 border-l-4 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all ${bid.payment_status === 'paid' ? 'bg-slate-50 border-emerald-500' : 'bg-white border-amber-400 shadow-sm'}`}>
                                 <div>
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">{type} Base Fee</p>
-                                    <h4 className="text-base font-black text-slate-900">{bid[type]?.user?.name || (type.charAt(0).toUpperCase() + type.slice(1))}</h4>
-                                    <p className="text-lg font-black text-slate-700 mt-1">Rp {Number((type === 'notaris' && bid.price <= 1) ? (bid.calculated_total || bid.price) : (bid.price || 0)).toLocaleString('id-ID')}</p>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">{type === 'project_manager' ? 'PM' : type} Base Fee</p>
+                                    <h4 className="text-base font-black text-slate-900">{bid[type === 'project_manager' ? 'pm' : type]?.user?.name || (type.charAt(0).toUpperCase() + type.slice(1).replace('_', ' '))}</h4>
+                                    <p className="text-lg font-black text-slate-700 mt-1">Rp {Number((bid.price <= 100 || bid.fee_type === 'percentage') ? (bid.calculated_total || bid.price) : (bid.price || 0)).toLocaleString('id-ID')}</p>
                                 </div>
                                 {bid.payment_status === 'paid' ? (
                                     <span className="px-4 py-2 bg-emerald-100 text-emerald-700 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-1">
@@ -325,9 +334,21 @@ export default function ProjectBudgetManager({ project, user }: ProjectBudgetMan
                                         {addendum.status === 'paid' ? (
                                             <CheckCircle size={18} className="text-emerald-500" />
                                         ) : isOwner ? (
-                                            <button onClick={() => markPaid('addendum', addendum.id)} className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-md">
-                                                Confirm Paid
-                                            </button>
+                                            <div className="flex flex-col gap-2">
+                                                <button onClick={() => markPaid('addendum', addendum.id)} className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-md">
+                                                    Confirm Paid (Offline)
+                                                </button>
+                                                <button 
+                                                    onClick={() => {
+                                                        // This assumes there's a window event or direct tab switching logic available
+                                                        // Usually switching via URL or global state is safer
+                                                        window.location.href = `/projects/${project.id}?tab=payments&highlight=${addendum.id}`;
+                                                    }}
+                                                    className="px-4 py-2 bg-white border border-blue-200 text-blue-600 hover:bg-blue-50 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-1.5"
+                                                >
+                                                    <Upload size={12} /> Pay Digitally (Upload Proof)
+                                                </button>
+                                            </div>
                                         ) : (
                                             <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest italic">Awaiting Payment</span>
                                         )}
@@ -337,57 +358,244 @@ export default function ProjectBudgetManager({ project, user }: ProjectBudgetMan
                         </div>
                     )}
 
-            {dashboardData.addendums && (dashboardData.addendums || []).filter((a:any) => a.status === 'pending_approval').length > 0 && (
-                        <div className="p-5 bg-amber-50 border border-amber-200 rounded-2xl">
-                            <h4 className="text-xs font-black text-amber-900 uppercase tracking-widest mb-3 flex items-center gap-2">
-                                <Zap size={14} className="text-amber-500"/> Action Required: Budget Authorization Pending
-                            </h4>
-                            {(dashboardData.addendums || []).filter((a:any) => a.status === 'pending_approval').map((addendum: any) => (
-                                <div key={addendum.id} className="mt-3 bg-white p-4 rounded-xl border border-amber-100">
-                                    <p className="text-[10px] uppercase font-black tracking-widest text-amber-500">{addendum.role_type} Request</p>
-                                    <div className="flex items-center gap-2 mb-1">
-                                        {addendum.role_type === 'pm_material' && (
-                                            <div className="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded text-[8px] font-black uppercase tracking-tighter shrink-0">
-                                                Material Procurement
+            {dashboardData.addendums && (dashboardData.addendums || []).filter((a:any) => ['pending_approval', 'negotiating', 'accepted_by_pro'].includes(a.status)).length > 0 && (
+                <div className="p-8 bg-amber-50/50 border border-amber-200 rounded-[2.5rem] shadow-sm relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
+                        <ShieldAlert size={120} className="text-amber-500" />
+                    </div>
+                    
+                    <h4 className="text-sm font-black text-amber-900 uppercase tracking-widest mb-6 flex items-center gap-2 relative z-10">
+                        <Zap size={18} className="text-amber-500 animate-pulse"/> 
+                        {isPM ? 'Budget Audit Required: Pending Professional Requests' : 'Authorization Required: Budget Impact Proposals'}
+                    </h4>
+
+                    <div className="space-y-4 relative z-10">
+                        {(dashboardData.addendums || []).filter((a:any) => ['pending_approval', 'negotiating', 'accepted_by_pro'].includes(a.status)).map((addendum: any) => (
+                            <div key={addendum.id} className="bg-white p-6 rounded-3xl border border-amber-100 shadow-sm hover:border-amber-300 transition-all group">
+                                <div className="flex flex-col md:flex-row justify-between gap-6">
+                                    <div className="space-y-3 flex-1">
+                                        <div className="flex items-center gap-2">
+                                            <span className="px-3 py-1 bg-slate-900 text-white rounded-lg text-[9px] font-black uppercase tracking-widest">
+                                                {addendum.role_type}
+                                            </span>
+                                            {addendum.type === 'specialist_assignment' && (
+                                                <span className="px-3 py-1 bg-indigo-500 text-white rounded-lg text-[9px] font-black uppercase tracking-widest">
+                                                    Specialist Assignment
+                                                </span>
+                                            )}
+                                        </div>
+                                        
+                                        <div>
+                                            <h4 className="text-base font-black text-slate-900 leading-tight">{addendum.title}</h4>
+                                            <p className="text-xs font-medium text-slate-500 mt-1 leading-relaxed">{addendum.description || 'No technical notes provided.'}</p>
+                                        </div>
+
+                                        {addendum.type === 'specialist_assignment' && addendum.teamMember && (
+                                            <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between gap-3">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-slate-400 border border-slate-100">
+                                                        <Users size={20} />
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Proposed Engineer</p>
+                                                        <p className="text-xs font-black text-slate-900">{addendum.teamMember.name}</p>
+                                                    </div>
+                                                </div>
+                                                <button 
+                                                    onClick={() => setSelectedSpecialist(addendum.teamMember)}
+                                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-indigo-100 transition-all"
+                                                >
+                                                    View Profile <ExternalLink size={12} />
+                                                </button>
                                             </div>
                                         )}
-                                        <h4 className={`text-sm font-black ${addendum.role_type === 'pm_material' ? 'text-indigo-900' : 'text-slate-900'}`}>{addendum.title}</h4>
                                     </div>
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{addendum.description || 'Verified by Project Manager'}</p>
-                                    <div className="flex justify-between items-center mt-4">
-                                        <p className={`font-black ${addendum.role_type === 'pm_material' ? 'text-indigo-600' : 'text-amber-600'}`}>Rp {Number(addendum.amount).toLocaleString('id-ID')}</p>
-                                        {isOwner && (
-                                            <div className="flex gap-2">
-                                                <button onClick={async () => {
-                                                    if (!window.confirm('Reject this budget authorization? The professional will stay assigned but no funds will be allocated.')) return;
-                                                    try {
-                                                        await axios.put(`/projects/${project.id}/budget/addendums/${addendum.id}`, { status: 'rejected' });
-                                                        showToast('Budget authorization rejected.', 'info');
-                                                        fetchDashboard();
-                                                    } catch (err: any) {
-                                                        showToast(err.response?.data?.message || 'Failed to reject', 'error');
-                                                    }
-                                                }} className="px-3 py-1.5 bg-red-100 hover:bg-red-200 text-red-600 rounded-lg text-[10px] font-black uppercase transition-all">Reject</button>
-                                                <button onClick={async () => {
-                                                    if (!window.confirm(`Authorize Rp ${Number(addendum.amount).toLocaleString('id-ID')} for "${addendum.title}"? This will deduct from your project budget.`)) return;
-                                                    try {
-                                                        await axios.put(`/projects/${project.id}/budget/addendums/${addendum.id}`, { status: 'approved_unpaid' });
-                                                        showToast('Budget authorized! Funds have been allocated.', 'success');
-                                                        fetchDashboard();
-                                                    } catch (err: any) {
-                                                        showToast(err.response?.data?.message || 'Failed to authorize budget', 'error');
-                                                    }
-                                                }} className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-[10px] font-black uppercase shadow-sm transition-all">Authorize Budget</button>
+
+                                    <div className="flex flex-col items-end justify-between min-w-[200px]">
+                                        <div className="text-right">
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Impact Value</p>
+                                            <p className="text-2xl font-black text-amber-600 tracking-tighter">Rp {Number(addendum.amount).toLocaleString('id-ID')}</p>
+                                        </div>
+
+                                        <div className="flex gap-2 mt-4">
+                                            {(isOwner || isPM) && !negotiatingId && addendum.status !== 'negotiating' && addendum.status !== 'accepted_by_pro' && (
+                                                <>
+                                                    <button 
+                                                        onClick={async () => {
+                                                            if (!window.confirm(`Reject this ${isPM ? 'audit' : 'budget'} request?`)) return;
+                                                            try {
+                                                                await axios.put(`/projects/${project.id}/budget/addendums/${addendum.id}`, { status: 'rejected' });
+                                                                showToast('Request rejected.', 'info');
+                                                                fetchDashboard();
+                                                            } catch (err: any) {
+                                                                showToast(err.response?.data?.message || 'Failed to reject', 'error');
+                                                            }
+                                                        }}
+                                                        className="px-5 py-2.5 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+                                                    >
+                                                        {isPM ? 'Decline Audit' : 'Reject'}
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => {
+                                                            setNegotiatingId(addendum.id);
+                                                            setCounterAmount(addendum.amount.toString());
+                                                        }}
+                                                        className="px-5 py-2.5 bg-amber-50 text-amber-600 hover:bg-amber-100 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+                                                    >
+                                                        Negotiate
+                                                    </button>
+                                                    <button 
+                                                        onClick={async () => {
+                                                            if (!window.confirm(`${isPM ? 'Audit and Authorize' : 'Authorize'} Rp ${Number(addendum.amount).toLocaleString('id-ID')} for this request?`)) return;
+                                                            try {
+                                                                await axios.put(`/projects/${project.id}/budget/addendums/${addendum.id}`, { status: 'approved_unpaid' });
+                                                                showToast(isPM ? 'Audit completed & Budget authorized!' : 'Budget authorized!', 'success');
+                                                                fetchDashboard();
+                                                            } catch (err: any) {
+                                                                showToast(err.response?.data?.message || 'Failed to authorize', 'error');
+                                                            }
+                                                        }}
+                                                        className="px-5 py-2.5 bg-emerald-500 text-white hover:bg-emerald-600 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20 transition-all"
+                                                    >
+                                                        {isPM ? 'Accept & Authorize' : 'Authorize Budget'}
+                                                    </button>
+                                                </>
+                                            )}
+                                        </div>
+
+                                        {negotiatingId === addendum.id && (
+                                            <div className="mt-4 p-5 bg-amber-50/50 border border-amber-100 rounded-[2rem] space-y-4 animate-in slide-in-from-top-2 duration-300">
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <div className="w-8 h-8 bg-amber-500 rounded-lg flex items-center justify-center text-white shadow-lg shadow-amber-500/20">
+                                                        <Banknote size={16} />
+                                                    </div>
+                                                    <h4 className="text-[11px] font-black text-amber-700 uppercase tracking-widest">Negotiate Fee</h4>
+                                                </div>
+                                                
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    <div className="space-y-1.5">
+                                                        <label className="text-[9px] font-black text-amber-600 uppercase tracking-widest ml-1">Your Counter Offer (Rp)</label>
+                                                        <input 
+                                                            type="number"
+                                                            value={counterAmount}
+                                                            onChange={(e) => setCounterAmount(e.target.value)}
+                                                            className="w-full h-12 px-4 bg-white border border-amber-200 rounded-xl text-sm font-bold text-slate-900 focus:ring-2 focus:ring-amber-500 transition-all"
+                                                            placeholder="Enter amount..."
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <label className="text-[9px] font-black text-amber-600 uppercase tracking-widest ml-1">Negotiation Note</label>
+                                                        <input 
+                                                            type="text"
+                                                            value={negotiationNote}
+                                                            onChange={(e) => setNegotiationNote(e.target.value)}
+                                                            className="w-full h-12 px-4 bg-white border border-amber-200 rounded-xl text-sm font-bold text-slate-900 focus:ring-2 focus:ring-amber-500 transition-all"
+                                                            placeholder="Why this price?..."
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex gap-2 pt-2">
+                                                    <button 
+                                                        disabled={isNegotiatingSubmit}
+                                                        onClick={() => setNegotiatingId(null)}
+                                                        className="px-6 py-2.5 bg-white text-slate-500 border border-slate-200 hover:bg-slate-50 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+                                                    >
+                                                        Cancel
+                                                    </button>
+                                                    <button 
+                                                        disabled={isNegotiatingSubmit}
+                                                        onClick={async () => {
+                                                            setIsNegotiatingSubmit(true);
+                                                            try {
+                                                                await axios.put(`/projects/${project.id}/budget/addendums/${addendum.id}`, { 
+                                                                    status: 'negotiating',
+                                                                    counter_offer_amount: counterAmount,
+                                                                    negotiation_note: negotiationNote
+                                                                });
+                                                                showToast('Negotiation request sent!', 'success');
+                                                                setNegotiatingId(null);
+                                                                setCounterAmount('');
+                                                                setNegotiationNote('');
+                                                                fetchDashboard();
+                                                            } catch (err: any) {
+                                                                showToast(err.response?.data?.message || 'Failed to send negotiation', 'error');
+                                                            } finally {
+                                                                setIsNegotiatingSubmit(false);
+                                                            }
+                                                        }}
+                                                        className="flex-1 py-2.5 bg-amber-500 text-white hover:bg-amber-600 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-amber-500/20 transition-all disabled:opacity-50"
+                                                    >
+                                                        {isNegotiatingSubmit ? 'Sending...' : 'Send Counter Offer'}
+                                                    </button>
+                                                </div>
                                             </div>
                                         )}
-                                        {!isOwner && (
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-amber-600 bg-white px-3 py-1.5 rounded-lg border border-amber-100">Pending Owner Authorization</span>
+
+                                        {addendum.status === 'negotiating' && (
+                                            <div className="mt-4 p-5 bg-amber-50/30 rounded-[2rem] border-2 border-dashed border-amber-200 animate-in fade-in duration-500">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-10 h-10 bg-white text-amber-500 rounded-xl flex items-center justify-center shadow-sm border border-amber-100">
+                                                            <Clock size={20} className="animate-spin-slow" />
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest leading-none mb-1">Awaiting Response</p>
+                                                            <p className="text-sm font-black text-slate-900">Counter: Rp {Number(addendum.counter_offer_amount).toLocaleString('id-ID')}</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex flex-col items-end">
+                                                        <span className="px-3 py-1 bg-amber-500 text-white rounded-lg text-[9px] font-black uppercase tracking-widest animate-pulse">
+                                                            Negotiating
+                                                        </span>
+                                                        <p className="text-[8px] font-bold text-amber-600 mt-1 uppercase tracking-tight">Sent to Professional</p>
+                                                    </div>
+                                                </div>
+                                                {addendum.negotiation_note && (
+                                                    <div className="mt-3 p-3 bg-white/50 rounded-xl border border-amber-100/50">
+                                                        <p className="text-[10px] font-medium text-slate-600 italic">"{addendum.negotiation_note}"</p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {addendum.status === 'accepted_by_pro' && (
+                                            <div className="mt-4 p-5 bg-emerald-50/50 rounded-[2rem] border-2 border-emerald-200 animate-in zoom-in duration-500">
+                                                <div className="flex items-center justify-between gap-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-12 h-12 bg-emerald-500 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                                                            <CheckCircle size={24} />
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest leading-none mb-1">Offer Accepted by Pro</p>
+                                                            <p className="text-sm font-black text-slate-900">Final Amount: Rp {Number(addendum.amount).toLocaleString('id-ID')}</p>
+                                                        </div>
+                                                    </div>
+                                                    <button 
+                                                        onClick={async () => {
+                                                            if (!window.confirm('Finalize this agreement and authorize budget?')) return;
+                                                            try {
+                                                                await axios.put(`/projects/${project.id}/budget/addendums/${addendum.id}`, { status: 'approved_unpaid' });
+                                                                showToast('Agreement finalized and budget authorized!', 'success');
+                                                                window.location.reload(); 
+                                                            } catch (err) {
+                                                                showToast('Failed to finalize', 'error');
+                                                            }
+                                                        }}
+                                                        className="px-6 py-3 bg-emerald-500 text-white hover:bg-emerald-600 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20 transition-all"
+                                                    >
+                                                        Finalize & Authorize
+                                                    </button>
+                                                </div>
+                                            </div>
                                         )}
                                     </div>
                                 </div>
-                            ))}
-                        </div>
-                    )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
                 </div>
 
                 {/* RIGHT COL: SANDBOX & SIMULATION */}
@@ -524,6 +732,100 @@ export default function ProjectBudgetManager({ project, user }: ProjectBudgetMan
             <div className="bg-white border border-slate-100 rounded-[2.5rem] p-8 shadow-sm">
                 <ChangeOrderPanel project={project} user={user} />
             </div>
+
+            {/* SPECIALIST PROFILE MODAL */}
+            <AnimatePresence>
+                {selectedSpecialist && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                        <motion.div 
+                            initial={{ opacity: 0 }} 
+                            animate={{ opacity: 1 }} 
+                            exit={{ opacity: 0 }}
+                            onClick={() => setSelectedSpecialist(null)}
+                            className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" 
+                        />
+                        <motion.div 
+                            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                            className="relative w-full max-w-lg bg-white rounded-[3rem] shadow-2xl overflow-hidden"
+                        >
+                            <div className="h-32 bg-gradient-to-r from-indigo-500 to-purple-600 relative">
+                                <button 
+                                    onClick={() => setSelectedSpecialist(null)}
+                                    className="absolute top-6 right-6 w-10 h-10 bg-white/20 hover:bg-white/40 text-white rounded-full flex items-center justify-center backdrop-blur-md transition-all"
+                                >
+                                    <X size={20} />
+                                </button>
+                            </div>
+                            
+                            <div className="px-8 pb-10 -mt-16 relative z-10">
+                                <div className="flex items-end justify-between mb-6">
+                                    <div className="relative">
+                                        <div className="w-32 h-32 bg-white rounded-[2.5rem] p-2 shadow-xl">
+                                            {selectedSpecialist.photo_url ? (
+                                                <img src={selectedSpecialist.photo_url} alt={selectedSpecialist.name} className="w-full h-full object-cover rounded-[2rem]" />
+                                            ) : (
+                                                <div className="w-full h-full bg-slate-100 rounded-[2rem] flex items-center justify-center text-slate-300">
+                                                    <Users size={48} />
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="absolute -bottom-2 -right-2 w-10 h-10 bg-emerald-500 text-white rounded-2xl flex items-center justify-center border-4 border-white shadow-lg">
+                                            <ShieldCheck size={20} />
+                                        </div>
+                                    </div>
+                                    <div className="flex flex-col items-end gap-2 pb-2">
+                                        <span className="px-4 py-1.5 bg-indigo-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-500/20">
+                                            Verified Specialist
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-6">
+                                    <div>
+                                        <h3 className="text-3xl font-black text-slate-900 tracking-tight">{selectedSpecialist.name}</h3>
+                                        <p className="text-sm font-bold text-indigo-600 uppercase tracking-widest mt-1">{selectedSpecialist.role_title || 'Expert Engineer'}</p>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4 p-4 bg-slate-50 rounded-[2rem] border border-slate-100">
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">
+                                                <Mail size={12} /> Email
+                                            </p>
+                                            <p className="text-xs font-bold text-slate-700 truncate">{selectedSpecialist.email || 'N/A'}</p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">
+                                                <Phone size={12} /> Contact
+                                            </p>
+                                            <p className="text-xs font-bold text-slate-700">{selectedSpecialist.phone || 'N/A'}</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-3">
+                                        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2">Professional Summary</h4>
+                                        <p className="text-sm font-medium text-slate-600 leading-relaxed italic">
+                                            "{selectedSpecialist.bio || 'Experienced engineering professional dedicated to technical excellence and structural integrity.'}"
+                                        </p>
+                                    </div>
+
+                                    <div className="space-y-3">
+                                        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2">Expertise & Skills</h4>
+                                        <div className="flex flex-wrap gap-2 pt-1">
+                                            {(selectedSpecialist.skills || ['Structural Design', 'Technical Audit', 'MEP Planning']).map((skill: string, idx: number) => (
+                                                <span key={idx} className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-tight shadow-sm hover:border-indigo-200 hover:text-indigo-600 transition-colors">
+                                                    {skill}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }

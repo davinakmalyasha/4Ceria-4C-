@@ -1,4 +1,5 @@
 import { formatCurrency as exploreFormatCurrency } from './explore';
+import { ProjectSubProfessional, ProposedTeamMember } from './sub_professional.types';
 import { 
     AlertCircle, CheckCircle, Clock, FileText, 
     Zap, Link as LinkIcon, Home, Compass, LayoutDashboard,
@@ -28,6 +29,8 @@ export interface ProjectMilestone {
     notaris_id?: number | null;
     pm_id?: number | null;
     interior_id?: number | null;
+    structural_id?: number | null;
+    mep_id?: number | null;
     title: string;
     description?: string | null;
     start_date?: string | null;
@@ -43,7 +46,26 @@ export interface ProjectMilestone {
     };
     is_completed: boolean;
     pm_verified_at?: string | null;
+    lead_pro_verified_at?: string | null;
+    review_note?: string | null;
+    review_status?: 'pending' | 'approved' | 'revision_requested';
     sort_order: number;
+    created_at: string;
+}
+
+export interface ProjectDocument {
+    id: number;
+    project_id: number;
+    uploader_id: number;
+    file_name: string;
+    file_path: string;
+    file_type?: string;
+    category?: string;
+    status?: 'pending' | 'approved' | 'revision_requested' | string;
+    target_role?: string;
+    version_label?: string;
+    review_note?: string | null;
+    reviewed_at?: string | null;
     created_at: string;
 }
 
@@ -53,7 +75,8 @@ export interface Termin {
     percentage: number;
     amount: number;
     trigger_description: string | null;
-    status: 'locked' | 'pending' | 'invoice_sent' | 'paid';
+    status: 'locked' | 'pending' | 'invoice_sent' | 'verifying' | 'paid';
+    payment_proof_path?: string | null;
     milestone_id: number | null;
     role_type: string;
     recipient_id: number | null;
@@ -66,8 +89,9 @@ export interface MaterialOrder {
     id: number;
     project_id: number;
     supplier_id: number;
-    status: string;
+    status: 'pending' | 'awaiting_payment' | 'verifying' | 'paid' | 'shipping' | 'delivered' | 'completed' | 'cancelled' | string;
     total_price: number;
+    payment_proof_path?: string | null;
     delivered_at?: string | null;
     created_at: string;
     delivery_job?: {
@@ -98,9 +122,53 @@ export interface ProjectDocument {
     file_type: string;
     category?: 'general' | 'blueprint' | 'render' | 'technical' | 'src' | 'technical_handoff' | 'structural_calc' | 'mep_layout' | 'others';
     status?: 'uploaded' | 'under_review' | 'awaiting_signature' | 'legally_binding' | 'revision_requested' | 'verified';
-    target_role?: string;
+    is_signed?: boolean;
+    requires_signature?: boolean;
     created_at: string;
-    uploader?: { id: number; name: string; role_type?: string };
+    uploader?: { id: number; name: string; role_type: string };
+}
+
+export interface ProjectReport {
+    id: number;
+    project_id: number;
+    user_id: number;
+    role_type: string;
+    phase_slug?: string | null;
+    title: string;
+    description: string;
+    report_date: string;
+    images?: string[];
+    is_verified?: boolean;
+    pm_feedback?: string | null;
+    created_at: string;
+    user?: { id: number; name: string };
+}
+
+export interface ProposedTermin {
+    percentage: number;
+    amount?: number;
+    trigger_description?: string;
+    milestone_index?: number; // Connects to a proposed milestone
+    existing_milestone_id?: number; // Connects to an existing project milestone
+}
+
+export interface ProposedMilestone {
+    title: string;
+    description: string;
+    type?: string;
+    services?: any[];
+}
+
+export interface PortfolioProject {
+    id: number;
+    user_id: number;
+    role_type: string;
+    title: string;
+    description: string;
+    image_path?: string;
+    duration?: string;
+    client_review?: string;
+    created_at: string;
 }
 
 export interface Bid {
@@ -108,12 +176,42 @@ export interface Bid {
     project_id: number;
     arsitek_id?: number | null;
     kontraktor_id?: number | null;
+    notaris_id?: number | null;
+    interior_id?: number | null;
+    pm_id?: number | null;
+    structural_id?: number | null;
+    mep_id?: number | null;
     price: number;
+    fee_type?: 'fixed' | 'percentage' | 'unit' | 'sqm' | 'hourly' | string;
+    unit_price?: number;
+    quantity?: number;
+    calculated_total?: number;
     proposal: string;
-    status: 'pending' | 'accepted' | 'rejected' | string;
+    status: 'pending' | 'shortlisted' | 'invited' | 'negotiating' | 'accepted' | 'rejected' | string;
     scopes?: string[];
     deliverables?: string[];
+    offered_by_id?: number | null;
+    fee_agreed_at?: string | null;
+    negotiation_count?: number;
+    payment_status?: 'unpaid' | 'paid' | 'verifying';
+    is_recommended?: boolean;
+    interview_notes?: string | null;
+    proposed_termins?: ProposedTermin[] | null;
+    proposed_milestones?: ProposedMilestone[] | null;
+    proposed_team?: ProposedTeamMember[] | null;
     created_at: string;
+}
+
+export interface ProjectExternalVendor {
+    id: number;
+    team_member_id: number | null;
+    phase_role: string;
+    company_name: string | null;
+    contact_person: string;
+    phone_number: string;
+    email: string | null;
+    agreed_fee: number;
+    notes: string | null;
 }
 
 export interface ProjectRequirement {
@@ -130,6 +228,15 @@ export interface ProjectRequirement {
     created_at: string;
 }
 
+export interface PlanningRequirementFeedback {
+    id: string;
+    author_id: number;
+    author_name: string;
+    author_role: string;
+    content: string;
+    created_at: string;
+}
+
 export interface PlanningRequirement {
     id: string; // Internal temporary ID for frontend or generated uniquely
     title: string;
@@ -137,6 +244,7 @@ export interface PlanningRequirement {
     image_url?: string;
     image_file?: File; // For newly added images before upload
     is_edited?: boolean;
+    feedback?: PlanningRequirementFeedback[];
 }
 
 export interface ProjectAddendum {
@@ -144,14 +252,40 @@ export interface ProjectAddendum {
     project_id: number;
     user_id: number;
     role_type: string;
+    type?: 'extra_fee' | 'specialist_assignment';
+    specialist_type?: 'structural' | 'mep';
+    team_member_id?: number | null;
+    teamMember?: TeamMember;
+    attachment_path?: string | null;
     title: string;
     description?: string | null;
     amount: number;
-    status: 'pending_approval' | 'approved_unpaid' | 'rejected' | 'paid';
+    counter_offer_amount?: number | null;
+    negotiation_note?: string | null;
+    status: 'pending_approval' | 'approved_unpaid' | 'rejected' | 'verifying' | 'paid' | 'negotiating' | 'accepted_by_pro';
+    payment_proof_path?: string | null;
     recommended_bid_id?: number | null;
     recommended_bid_type?: string | null;
     paid_at?: string | null;
     created_at: string;
+}
+
+export interface DesignDetails {
+    requirements?: PlanningRequirement[];
+    style?: string;
+    revisions?: number;
+    scopes?: string[];
+    deliverables?: string[];
+    floorCount?: number;
+    targetArea?: number;
+    maxClearSpan?: number;
+    cantileverLength?: number;
+    // Feedback arrays
+    style_feedback?: PlanningRequirementFeedback[];
+    revisions_feedback?: PlanningRequirementFeedback[];
+    scopes_feedback?: PlanningRequirementFeedback[];
+    deliverables_feedback?: PlanningRequirementFeedback[];
+    [key: string]: any;
 }
 
 export interface Project {
@@ -189,12 +323,17 @@ export interface Project {
     mep_id?: number | null;
     selected_arsitek_id?: number | null;
     selected_kontraktor_id?: number | null;
+    selected_notaris_id?: number | null;
+    selected_interior_id?: number | null;
     design_completed_at?: string | null;
     design_locked_at?: string | null;
+    construction_locked_at?: string | null;
+    interior_locked_at?: string | null;
     structural_approved_at?: string | null;
     mep_approved_at?: string | null;
     pbg_verified_at?: string | null;
     slf_verified_at?: string | null;
+    legal_requirements?: string[];
     construction_brief_status?: string | null;
     construction_brief_revision_notes?: string | null;
     design_handover_submitted_at?: string | null;
@@ -205,18 +344,42 @@ export interface Project {
     construction_handover_notes?: string | null;
     interior_handover_notes?: string | null;
     legal_handover_notes?: string | null;
+    arsitek_kickoff_at?: string | null;
+    kontraktor_kickoff_at?: string | null;
     created_at?: string;
     updated_at?: string;
     images?: ProjectImage[];
-    design_details?: {
-        requirements?: PlanningRequirement[];
-        [key: string]: any;
-    };
+    design_details?: DesignDetails;
     bids_arsitek_count?: number;
     bids_kontraktor_count?: number;
+    bids_project_manager_count?: number;
     bids_arsitek?: Bid[];
     bids_kontraktor?: Bid[];
+    bids_project_manager?: Bid[];
+    bids_structural?: Bid[];
+    bids_mep?: Bid[];
     target_role?: string;
+    sub_professionals?: ProjectSubProfessional[];
+    external_vendors?: ProjectExternalVendor[];
+    structural_engineer?: any;
+    mep_engineer?: any;
+    structural_profile?: {
+        name: string;
+        type: 'platform_hired' | 'internal_team';
+        payment_status: 'unpaid' | 'paid';
+        sub_professional_id?: number;
+        user_id?: number;
+        is_internal: boolean;
+    };
+    mep_profile?: {
+        name: string;
+        type: 'platform_hired' | 'internal_team';
+        payment_status: 'unpaid' | 'paid';
+        sub_professional_id?: number;
+        user_id?: number;
+        is_internal: boolean;
+    };
+
     milestones?: ProjectMilestone[];
     payment_termins?: Termin[];
     pm_audit_notes?: string;
@@ -231,9 +394,23 @@ export interface Project {
     project_category?: 'new_build' | 'renovation' | 'interior' | 'maintenance' | string;
     accepted_arsitek_bid?: Bid | null;
     accepted_kontraktor_bid?: Bid | null;
+    accepted_notaris_bid?: any | null;
     accepted_interior_bid?: Bid | null;
     owner_legal_approved_at?: string | null;
+    user_id?: number;
     user?: { id: number; name: string };
+    is_structural_hired_4c?: boolean;
+    is_mep_hired_4c?: boolean;
+    structural_profile?: {
+        name: string;
+        type: 'platform_hired' | 'internal_team';
+        payment_status: 'unpaid' | 'paid' | 'verifying';
+    };
+    mep_profile?: {
+        name: string;
+        type: 'platform_hired' | 'internal_team';
+        payment_status: 'unpaid' | 'paid' | 'verifying';
+    };
 }
 
 export type ProjectStatus = Project['status'];

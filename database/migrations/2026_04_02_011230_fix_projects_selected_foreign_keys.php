@@ -2,14 +2,18 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
     public function up(): void
     {
-        // Discover and drop ALL foreign keys on selected_arsitek_id and selected_kontraktor_id
+        // Only run if columns exist but have bad FKs (won't apply on consolidated fresh install)
+        if (!Schema::hasColumn('projects', 'selected_arsitek_id')) {
+            return;
+        }
+
         $foreignKeys = DB::select("
             SELECT CONSTRAINT_NAME
             FROM information_schema.KEY_COLUMN_USAGE
@@ -26,16 +30,10 @@ return new class extends Migration
                 }
             });
         }
-
-        // Ensure columns are nullable unsigned bigint (no FK constraint)
-        Schema::table('projects', function (Blueprint $table) {
-            $table->unsignedBigInteger('selected_arsitek_id')->nullable()->change();
-            $table->unsignedBigInteger('selected_kontraktor_id')->nullable()->change();
-        });
     }
 
     public function down(): void
     {
-        // No-op: we intentionally removed bad foreign keys
+        // No-op
     }
 };

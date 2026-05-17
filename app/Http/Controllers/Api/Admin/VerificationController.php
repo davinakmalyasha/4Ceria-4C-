@@ -29,7 +29,7 @@ class VerificationController extends Controller
         ]);
 
         $model = $type === 'arsitek' ? Arsitek::findOrFail($id) : Kontraktor::findOrFail($id);
-        
+
         $model->update([
             'verification_status' => $validated['status'],
             'rejection_reason' => $validated['status'] === 'rejected' ? $validated['reason'] : null,

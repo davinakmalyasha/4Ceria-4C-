@@ -13,8 +13,41 @@ class ProjectChangeOrderController extends Controller
 {
     public function index(Project $project)
     {
-        $orders = $project->changeOrders()->with('requester:id,name,role_type')->get();
-        return response()->json(['data' => $orders]);
+        $orders = $project->changeOrders()->with('requester:id,name,role_type')->get()->map(function($order) {
+            return [
+                'id' => 'co-' . $order->id,
+                'type' => 'change_order',
+                'title' => $order->title,
+                'description' => $order->description,
+                'cost_impact' => $order->cost_impact,
+                'status' => $order->status === 'owner_approved' ? 'owner_approved' : ($order->status === 'rejected' ? 'rejected' : 'proposed'),
+                'requester' => $order->requester,
+                'milestone_id' => $order->milestone_id,
+                'created_at' => $order->created_at,
+            ];
+        });
+
+        $addendums = $project->addendums()
+            ->whereIn('status', ['approved_unpaid', 'paid', 'negotiating', 'accepted_by_pro'])
+            ->with('user:id,name,role_type')
+            ->get()
+            ->map(function($a) {
+                return [
+                    'id' => 'add-' . $a->id,
+                    'type' => 'addendum',
+                    'title' => $a->title,
+                    'description' => $a->description,
+                    'cost_impact' => $a->amount,
+                    'status' => $a->status === 'paid' ? 'owner_approved' : ($a->status === 'approved_unpaid' ? 'owner_approved' : 'proposed'),
+                    'requester' => $a->user,
+                    'milestone_id' => null,
+                    'created_at' => $a->created_at,
+                ];
+            });
+
+        $combined = $orders->concat($addendums)->sortByDesc('created_at')->values();
+
+        return response()->json(['data' => $combined]);
     }
 
     public function store(Request $request, Project $project)
@@ -25,12 +58,15 @@ class ProjectChangeOrderController extends Controller
             'description' => 'required|string|max:2000',
             'cost_impact' => 'required|numeric',
             'time_impact_days' => 'nullable|integer|min:0',
+            'milestone_id' => 'nullable|exists:project_milestones,id',
         ]);
 
         DB::beginTransaction();
         try {
             $order = $project->changeOrders()->create([
                 'requested_by' => $user->id,
+                'role_type' => $user->role_type,
+                'milestone_id' => $validated['milestone_id'] ?? null,
                 'title' => $validated['title'],
                 'description' => $validated['description'],
                 'cost_impact' => $validated['cost_impact'],
@@ -91,16 +127,25 @@ class ProjectChangeOrderController extends Controller
                 
                 // Financial Synchronization: Auto-generate a Payment Termin for the approved extra cost
                 if ($changeOrder->cost_impact > 0) {
+                    $milestone = $changeOrder->milestone;
+                    $status = 'locked';
+                    
+                    // If the milestone is already approved, the payment should be ready for the user to pay
+                    if ($milestone && $milestone->approval_status === 'approved') {
+                        $status = 'pending'; // 'pending' in this system means awaiting payment proof
+                    }
+
                     $project->paymentTermins()->create([
                         'label' => 'Change Order: ' . $changeOrder->title,
-                        'percentage' => 0, // It's an absolute amount, not a % of base contract
+                        'percentage' => 0, 
                         'amount' => $changeOrder->cost_impact,
-                        'retention_amount' => 0, // Typically COs don't have retention, or if they do it's handled separately
+                        'retention_amount' => 0,
                         'net_amount' => $changeOrder->cost_impact,
                         'trigger_description' => 'Completion of Change Order: ' . $changeOrder->title,
                         'notes' => 'Auto-generated from approved Change Order #' . $changeOrder->id,
-                        'status' => 'locked',
-                        'role_type' => 'kontraktor', // Assuming COs are usually for contractors
+                        'status' => $status,
+                        'role_type' => $changeOrder->role_type ?? 'kontraktor', 
+                        'milestone_id' => $changeOrder->milestone_id,
                     ]);
                 }
             } else {

@@ -13,16 +13,25 @@ return new class extends Migration
     {
         Schema::create('kontraktors', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('user_id')->constrained()->onDelete('cascade');
             $table->string('nama');
+            $table->string('no_telepon')->nullable();
+            $table->string('alamat')->nullable();
+            $table->string('jenis')->nullable();
+            $table->string('nama_perusahaan')->nullable();
+            $table->string('npwp')->nullable();
+            $table->string('siup')->nullable();
+            $table->integer('pengalaman')->default(0);
+            $table->string('spesialisasi')->nullable();
+            $table->decimal('rate_harga', 24, 2)->default(0);
+            $table->string('pendidikan')->nullable();
+            $table->text('alasan_hire')->nullable();
+            $table->enum('verification_status', ['pending', 'verified', 'rejected'])->default('pending');
+            $table->text('rejection_reason')->nullable();
             $table->string('foto')->nullable();
-            $table->string('spesialisasi');
-            $table->string('lokasi');
-            $table->integer('pengalaman_tahun');
-            $table->decimal('rate_harga', 15, 2);
             $table->timestamps();
         });
     }
-    
 
     /**
      * Reverse the migrations.

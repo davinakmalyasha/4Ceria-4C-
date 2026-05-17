@@ -55,7 +55,10 @@ export default function ProjectMilestones({ project, user, isOwnerOrWorker, onUp
 
     const toggleStatus = async (milestone: ProjectMilestone) => {
         const canManage = (user?.role_type === 'arsitek' && milestone.arsitek_id === user.arsitek?.id) || 
-                         (user?.role_type === 'kontraktor' && milestone.kontraktor_id === user.kontraktor?.id);
+                         (user?.role_type === 'kontraktor' && milestone.kontraktor_id === user.kontraktor?.id) ||
+                         (user?.role_type === 'notaris' && milestone.notaris_id === user.notaris_profile?.id) ||
+                         (user?.role_type === 'interior' && milestone.interior_id === user.interior_profile?.id) ||
+                         (user?.role_type === 'project_manager' && milestone.pm_id === user.project_manager?.id);
         
         if (!canManage) return;
         const newStatus = !milestone.is_completed;
@@ -76,7 +79,10 @@ export default function ProjectMilestones({ project, user, isOwnerOrWorker, onUp
     const deleteMilestone = async (id: number) => {
         const m = milestones.find(ms => ms.id === id);
         const canManage = (user?.role_type === 'arsitek' && m?.arsitek_id === user.arsitek?.id) || 
-                         (user?.role_type === 'kontraktor' && m?.kontraktor_id === user.kontraktor?.id);
+                         (user?.role_type === 'kontraktor' && m?.kontraktor_id === user.kontraktor?.id) ||
+                         (user?.role_type === 'notaris' && m?.notaris_id === user.notaris_profile?.id) ||
+                         (user?.role_type === 'interior' && m?.interior_id === user.interior_profile?.id) ||
+                         (user?.role_type === 'project_manager' && m?.pm_id === user.project_manager?.id);
         
         if (!canManage) return;
         try {
@@ -90,7 +96,10 @@ export default function ProjectMilestones({ project, user, isOwnerOrWorker, onUp
 
     const archMilestones = milestones.filter(m => m.arsitek_id);
     const contractorMilestones = milestones.filter(m => m.kontraktor_id);
-    const generalMilestones = milestones.filter(m => !m.arsitek_id && !m.kontraktor_id);
+    const notaryMilestones = milestones.filter(m => m.notaris_id);
+    const interiorMilestones = milestones.filter(m => m.interior_id);
+    const pmMilestones = milestones.filter(m => m.pm_id);
+    const generalMilestones = milestones.filter(m => !m.arsitek_id && !m.kontraktor_id && !m.notaris_id && !m.interior_id && !m.pm_id);
 
     const getProgress = (list: ProjectMilestone[]) => {
         if (list.length === 0) return 0;
@@ -106,13 +115,13 @@ export default function ProjectMilestones({ project, user, isOwnerOrWorker, onUp
                         onClick={() => setView('list')}
                         className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${view === 'list' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                     >
-                        <List size={14} /> Side-by-Side View
+                        <List size={14} /> Grid View
                     </button>
                     <button 
                         onClick={() => setView('roadmap')}
                         className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${view === 'roadmap' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                     >
-                        <LayoutGrid size={14} /> Full Roadmap
+                        <LayoutGrid size={14} /> Timeline
                     </button>
                 </div>
 
@@ -127,23 +136,50 @@ export default function ProjectMilestones({ project, user, isOwnerOrWorker, onUp
             </div>
 
             {/* Compact Progress Summary */}
-            <div className="flex flex-wrap gap-4">
-                <div className="flex-1 min-w-[200px] bg-slate-50/50 p-4 rounded-2xl border border-slate-100">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100">
                     <div className="flex justify-between items-center mb-1.5">
-                        <span className="text-[9px] font-black uppercase tracking-widest text-indigo-400">Architecture</span>
-                        <span className="text-xs font-black text-indigo-600">{getProgress(archMilestones)}%</span>
+                        <span className="text-[9px] font-black uppercase tracking-widest text-blue-400">Arch</span>
+                        <span className="text-xs font-black text-blue-600">{getProgress(archMilestones)}%</span>
                     </div>
-                    <div className="h-1.5 bg-indigo-100/50 rounded-full overflow-hidden">
-                        <motion.div initial={{width:0}} animate={{width: `${getProgress(archMilestones)}%`}} className="h-full bg-indigo-500 rounded-full shadow-[0_0_8px_rgba(99,102,241,0.4)]" />
+                    <div className="h-1.5 bg-blue-100/50 rounded-full overflow-hidden">
+                        <motion.div initial={{width:0}} animate={{width: `${getProgress(archMilestones)}%`}} className="h-full bg-blue-500 rounded-full" />
                     </div>
                 </div>
-                <div className="flex-1 min-w-[200px] bg-slate-50/50 p-4 rounded-2xl border border-slate-100">
+                <div className="bg-red-50/50 p-4 rounded-2xl border border-red-100">
                     <div className="flex justify-between items-center mb-1.5">
-                        <span className="text-[9px] font-black uppercase tracking-widest text-red-400">Construction</span>
+                        <span className="text-[9px] font-black uppercase tracking-widest text-red-400">Const</span>
                         <span className="text-xs font-black text-red-600">{getProgress(contractorMilestones)}%</span>
                     </div>
                     <div className="h-1.5 bg-red-100/50 rounded-full overflow-hidden">
-                        <motion.div initial={{width:0}} animate={{width: `${getProgress(contractorMilestones)}%`}} className="h-full bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.4)]" />
+                        <motion.div initial={{width:0}} animate={{width: `${getProgress(contractorMilestones)}%`}} className="h-full bg-red-500 rounded-full" />
+                    </div>
+                </div>
+                <div className="bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100">
+                    <div className="flex justify-between items-center mb-1.5">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-indigo-400">Legal</span>
+                        <span className="text-xs font-black text-indigo-600">{getProgress(notaryMilestones)}%</span>
+                    </div>
+                    <div className="h-1.5 bg-indigo-100/50 rounded-full overflow-hidden">
+                        <motion.div initial={{width:0}} animate={{width: `${getProgress(notaryMilestones)}%`}} className="h-full bg-indigo-500 rounded-full" />
+                    </div>
+                </div>
+                <div className="bg-purple-50/50 p-4 rounded-2xl border border-purple-100">
+                    <div className="flex justify-between items-center mb-1.5">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-purple-400">Interior</span>
+                        <span className="text-xs font-black text-purple-600">{getProgress(interiorMilestones)}%</span>
+                    </div>
+                    <div className="h-1.5 bg-purple-100/50 rounded-full overflow-hidden">
+                        <motion.div initial={{width:0}} animate={{width: `${getProgress(interiorMilestones)}%`}} className="h-full bg-purple-500 rounded-full" />
+                    </div>
+                </div>
+                <div className="bg-emerald-50/50 p-4 rounded-2xl border border-emerald-100">
+                    <div className="flex justify-between items-center mb-1.5">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-emerald-400">PM</span>
+                        <span className="text-xs font-black text-emerald-600">{getProgress(pmMilestones)}%</span>
+                    </div>
+                    <div className="h-1.5 bg-emerald-100/50 rounded-full overflow-hidden">
+                        <motion.div initial={{width:0}} animate={{width: `${getProgress(pmMilestones)}%`}} className="h-full bg-emerald-500 rounded-full" />
                     </div>
                 </div>
             </div>
@@ -218,66 +254,91 @@ export default function ProjectMilestones({ project, user, isOwnerOrWorker, onUp
                 )}
             </AnimatePresence>
 
-            {/* Side-by-Side Milestone Columns */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-6">
+            {/* Grid View for Milestones */}
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
                 
-                {/* ARCHITECTURE COLUMN */}
+                {/* ARCHITECTURE */}
                 <div className="space-y-4">
-                    <div className="flex items-center justify-between px-2">
-                        <h4 className="font-black text-indigo-900 text-lg flex items-center gap-2">
-                            <div className="w-2 h-6 bg-indigo-500 rounded-full"></div>
-                            Architecture
-                        </h4>
-                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{archMilestones.length} Phases</span>
-                    </div>
-
+                    <h4 className="font-black text-blue-900 text-sm flex items-center gap-2 px-2">
+                        <div className="w-1.5 h-4 bg-blue-500 rounded-full"></div> Arch
+                    </h4>
                     <div className="space-y-3">
-                        {archMilestones.length === 0 ? (
-                            <div className="py-12 border-2 border-dashed border-indigo-50 rounded-3xl flex flex-col items-center justify-center text-center px-4">
-                                <p className="text-xs font-bold text-indigo-300 uppercase tracking-widest">No architecture milestones</p>
-                            </div>
-                        ) : (
-                            archMilestones.map((m, idx) => (
-                                <MilestoneCard 
-                                    key={m.id} 
-                                    milestone={m} 
-                                    color="indigo" 
-                                    onToggle={() => toggleStatus(m)} 
-                                    onDelete={() => deleteMilestone(m.id)}
-                                    canManage={(user?.role_type === 'arsitek' && m.arsitek_id === user.arsitek?.id)}
-                                />
-                            ))
-                        )}
+                        {archMilestones.map(m => (
+                            <MilestoneCard 
+                                key={m.id} milestone={m} color="blue" 
+                                onToggle={() => toggleStatus(m)} 
+                                onDelete={() => deleteMilestone(m.id)}
+                                canManage={(user?.role_type === 'arsitek' && m.arsitek_id === user.arsitek?.id)}
+                            />
+                        ))}
                     </div>
                 </div>
 
-                {/* CONSTRUCTION COLUMN */}
+                {/* CONSTRUCTION */}
                 <div className="space-y-4">
-                    <div className="flex items-center justify-between px-2">
-                        <h4 className="font-black text-red-900 text-lg flex items-center gap-2">
-                            <div className="w-2 h-6 bg-red-500 rounded-full"></div>
-                            Construction
-                        </h4>
-                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{contractorMilestones.length} Phases</span>
-                    </div>
-
+                    <h4 className="font-black text-red-900 text-sm flex items-center gap-2 px-2">
+                        <div className="w-1.5 h-4 bg-red-500 rounded-full"></div> Const
+                    </h4>
                     <div className="space-y-3">
-                        {contractorMilestones.length === 0 ? (
-                            <div className="py-12 border-2 border-dashed border-red-50 rounded-3xl flex flex-col items-center justify-center text-center px-4">
-                                <p className="text-xs font-bold text-red-300 uppercase tracking-widest">No construction milestones</p>
-                            </div>
-                        ) : (
-                            contractorMilestones.map((m, idx) => (
-                                <MilestoneCard 
-                                    key={m.id} 
-                                    milestone={m} 
-                                    color="red" 
-                                    onToggle={() => toggleStatus(m)} 
-                                    onDelete={() => deleteMilestone(m.id)}
-                                    canManage={(user?.role_type === 'kontraktor' && m.kontraktor_id === user.kontraktor?.id)}
-                                />
-                            ))
-                        )}
+                        {contractorMilestones.map(m => (
+                            <MilestoneCard 
+                                key={m.id} milestone={m} color="red" 
+                                onToggle={() => toggleStatus(m)} 
+                                onDelete={() => deleteMilestone(m.id)}
+                                canManage={(user?.role_type === 'kontraktor' && m.kontraktor_id === user.kontraktor?.id)}
+                            />
+                        ))}
+                    </div>
+                </div>
+
+                {/* LEGAL */}
+                <div className="space-y-4">
+                    <h4 className="font-black text-indigo-900 text-sm flex items-center gap-2 px-2">
+                        <div className="w-1.5 h-4 bg-indigo-500 rounded-full"></div> Legal
+                    </h4>
+                    <div className="space-y-3">
+                        {notaryMilestones.map(m => (
+                            <MilestoneCard 
+                                key={m.id} milestone={m} color="indigo" 
+                                onToggle={() => toggleStatus(m)} 
+                                onDelete={() => deleteMilestone(m.id)}
+                                canManage={(user?.role_type === 'notaris' && m.notaris_id === user.notaris_profile?.id)}
+                            />
+                        ))}
+                    </div>
+                </div>
+
+                {/* INTERIOR */}
+                <div className="space-y-4">
+                    <h4 className="font-black text-purple-900 text-sm flex items-center gap-2 px-2">
+                        <div className="w-1.5 h-4 bg-purple-500 rounded-full"></div> Interior
+                    </h4>
+                    <div className="space-y-3">
+                        {interiorMilestones.map(m => (
+                            <MilestoneCard 
+                                key={m.id} milestone={m} color="purple" 
+                                onToggle={() => toggleStatus(m)} 
+                                onDelete={() => deleteMilestone(m.id)}
+                                canManage={(user?.role_type === 'interior' && m.interior_id === user.interior_profile?.id)}
+                            />
+                        ))}
+                    </div>
+                </div>
+
+                {/* PROJECT MANAGER */}
+                <div className="space-y-4">
+                    <h4 className="font-black text-emerald-900 text-sm flex items-center gap-2 px-2">
+                        <div className="w-1.5 h-4 bg-emerald-500 rounded-full"></div> PM
+                    </h4>
+                    <div className="space-y-3">
+                        {pmMilestones.map(m => (
+                            <MilestoneCard 
+                                key={m.id} milestone={m} color="emerald" 
+                                onToggle={() => toggleStatus(m)} 
+                                onDelete={() => deleteMilestone(m.id)}
+                                canManage={(user?.role_type === 'project_manager' && m.pm_id === user.project_manager?.id)}
+                            />
+                        ))}
                     </div>
                 </div>
             </div>
@@ -315,6 +376,8 @@ function MilestoneCard({ milestone, color, onToggle, onDelete, canManage }: {
     const colorClasses = {
         indigo: 'hover:border-indigo-500 hover:shadow-indigo-500/5 text-indigo-500',
         red: 'hover:border-red-500 hover:shadow-red-500/5 text-red-500',
+        emerald: 'hover:border-emerald-500 hover:shadow-emerald-500/5 text-emerald-500',
+        purple: 'hover:border-purple-500 hover:shadow-purple-500/5 text-purple-500',
         gray: 'hover:border-gray-500 hover:shadow-gray-500/5 text-gray-500'
     };
 

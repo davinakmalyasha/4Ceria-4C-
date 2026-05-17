@@ -3,49 +3,50 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\House;
-use App\Models\HousePic;
-use App\Models\RoomPic;
-use App\Models\Provinces;
-use App\Models\Regions;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\File;
-use Illuminate\Http\Request;
-use App\Http\Resources\HouseResource;
 use App\Http\Requests\StoreHouseRequest;
 use App\Http\Requests\UpdateHouseRequest;
+use App\Http\Resources\HouseResource;
+use App\Models\House;
+use App\Models\HousePic;
+use App\Models\Provinces;
+use App\Models\Regions;
+use App\Models\RoomPic;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Storage;
 
 class HouseController extends Controller
 {
     public function index(Request $request)
     {
         $query = House::with(['housePic', 'user.phoneNumber', 'room.roomPic']);
-        
+
         $houses = $query->paginate(10);
+
         return HouseResource::collection($houses);
     }
 
     public function store(StoreHouseRequest $request)
     {
         $validated = $request->validated();
-        
-        if($validated['kab_kota'] == "Jakarta"){
+
+        if ($validated['kab_kota'] == 'Jakarta') {
             Regions::firstOrCreate([
                 'name' => $validated['kab_kota'],
-                'id_province' => 1
+                'id_province' => 1,
             ]);
         } else {
             $province = Provinces::firstOrCreate(['name' => $validated['province']]);
             Regions::firstOrCreate([
                 'name' => $validated['kab_kota'],
-                'id_province' => $province->id
+                'id_province' => $province->id,
             ]);
         }
 
         $validated['price'] = str_replace('.', '', $validated['price']);
         $validated['id_user'] = Auth::id();
-        $validated['coordinate'] = $validated['lat'].", ".$validated['lng'];
+        $validated['coordinate'] = $validated['lat'].', '.$validated['lng'];
 
         $house = House::create($validated);
 
@@ -64,7 +65,7 @@ class HouseController extends Controller
                 if ($request->hasFile("rooms.{$index}.pics")) {
                     foreach ($request->file("rooms.{$index}.pics") as $roomPic) {
                         if ($roomPic->isValid()) {
-                            $roomFolder = 'uploads/house/house_' . $house->id . '/rooms/room_' . $room->id;
+                            $roomFolder = 'uploads/house/house_'.$house->id.'/rooms/room_'.$room->id;
                             $path = $roomPic->store($roomFolder, 'public');
                             RoomPic::create([
                                 'file_name' => $roomPic->getClientOriginalName(),
@@ -82,7 +83,7 @@ class HouseController extends Controller
         if ($request->hasFile('house_pic')) {
             foreach ($request->file('house_pic') as $pic) {
                 if ($pic->isValid()) {
-                    $saveFolder = 'uploads/house/house_' . Auth::id();
+                    $saveFolder = 'uploads/house/house_'.Auth::id();
                     $path = $pic->store($saveFolder, 'public');
                     HousePic::create([
                         'file_name' => $pic->getClientOriginalName(),
@@ -101,6 +102,7 @@ class HouseController extends Controller
     {
         $house->increment('views');
         $house->load(['housePic', 'room.roomPic', 'user']);
+
         return new HouseResource($house);
     }
 
@@ -111,9 +113,9 @@ class HouseController extends Controller
         }
 
         $validated = $request->validated();
-        
+
         if (isset($validated['lat']) && isset($validated['lng'])) {
-            $validated['coordinate'] = $validated['lat'].", ".$validated['lng'];
+            $validated['coordinate'] = $validated['lat'].', '.$validated['lng'];
         }
 
         if (isset($validated['price'])) {
@@ -151,7 +153,7 @@ class HouseController extends Controller
                 if ($room && $request->hasFile("rooms.{$index}.pics")) {
                     foreach ($request->file("rooms.{$index}.pics") as $roomPic) {
                         if ($roomPic->isValid()) {
-                            $roomFolder = 'uploads/house/house_' . $house->id . '/rooms/room_' . $room->id;
+                            $roomFolder = 'uploads/house/house_'.$house->id.'/rooms/room_'.$room->id;
                             $path = $roomPic->store($roomFolder, 'public');
                             RoomPic::create([
                                 'file_name' => $roomPic->getClientOriginalName(),
@@ -180,7 +182,7 @@ class HouseController extends Controller
         }
 
         if ($request->hasFile('house_pics')) {
-            $houseFolder = 'uploads/house/house_' . $house->id;
+            $houseFolder = 'uploads/house/house_'.$house->id;
             foreach ($request->file('house_pics') as $pic) {
                 if ($pic->isValid()) {
                     $path = $pic->store($houseFolder, 'public');
@@ -193,7 +195,7 @@ class HouseController extends Controller
                 }
             }
         }
-        
+
         return new HouseResource($house->load(['housePic', 'room', 'room.roomPic']));
     }
 

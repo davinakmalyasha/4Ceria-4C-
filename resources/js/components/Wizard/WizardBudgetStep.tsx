@@ -9,14 +9,12 @@ const ICON_MAP: Record<string, React.ElementType> = { Shield, Pencil, Hammer, Pa
 interface WizardBudgetStepProps {
     budget: string;
     onBudgetChange: (val: string) => void;
-    wantsPM: boolean;
-    onWantsPMChange: (val: boolean) => void;
     neededPhases: PhaseKey[];
     form: WizardFormData;
 }
 
 export default function WizardBudgetStep({ 
-    budget, onBudgetChange, wantsPM, onWantsPMChange, neededPhases, form 
+    budget, onBudgetChange, neededPhases, form 
 }: WizardBudgetStepProps) {
     return (
         <motion.div initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="space-y-6">
@@ -66,24 +64,6 @@ export default function WizardBudgetStep({
                 </div>
             </div>
 
-            {/* PM Toggle */}
-            <div className="p-5 bg-[#FF2D20]/5 border border-[#FF2D20]/10 rounded-2xl flex items-start gap-4">
-                <div className="pt-1">
-                    <input
-                        type="checkbox"
-                        id="wants_pm_wizard"
-                        checked={wantsPM}
-                        onChange={(e) => onWantsPMChange(e.target.checked)}
-                        className="w-5 h-5 text-[#FF2D20] bg-white border-gray-300 rounded focus:ring-[#FF2D20] cursor-pointer"
-                    />
-                </div>
-                <label htmlFor="wants_pm_wizard" className="cursor-pointer">
-                    <p className="text-base font-bold text-gray-900 mb-1">Gunakan Project Manager (Direkomendasikan)</p>
-                    <p className="text-sm text-gray-600">
-                        Seorang PM profesional akan memimpin seluruh proyek, mencarikan arsitek/kontraktor, dan melaporkan ringkasan eksekutif kepada Anda.
-                    </p>
-                </label>
-            </div>
         </motion.div>
     );
 }

@@ -16,7 +16,7 @@ class AuthenticatedSessionController extends Controller
      */
     public function create(): View
     {
-        
+
         return view('auth.login');
     }
 
@@ -28,17 +28,16 @@ class AuthenticatedSessionController extends Controller
         $request->authenticate();
         $request->session()->regenerate();
 
-        $user = Auth::user(); 
-        $role = $user->role_type ?? 'user'; 
+        $user = Auth::user();
+        $role = $user->role_type ?? 'user';
         session(['role_type' => $role]);
 
-      
         return match ($role) {
             'arsitek' => redirect()->route('users-page.adminArsitek'),
             'kontraktor' => redirect()->route('users-page.adminKontraktor'),
             'admin' => redirect()->route('users-page.admin'),
-            'user' => redirect()->route('index'), 
-            default => redirect()->route('index'), 
+            'user' => redirect()->route('index'),
+            default => redirect()->route('index'),
         };
     }
 

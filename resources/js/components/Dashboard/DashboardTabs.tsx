@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+
 import { motion, AnimatePresence } from 'framer-motion';
 import { FileText } from 'lucide-react';
 import OverviewContent from '../OverviewContent';
@@ -21,6 +22,12 @@ import LogisticsOverview from '../Logistics/LogisticsOverview';
 import ProfessionalProfileView from '../ProfessionalProfileView';
 import ExploreArchitects from '../Architects/ExploreArchitects';
 import ExploreConstructors from '../Constructors/ExploreConstructors';
+import ExploreInterior from '../Interior/ExploreInterior';
+import ExploreNotaries from '../Notaris/ExploreNotaries';
+import ExploreEngineers from '../Engineers/ExploreEngineers';
+import { ExploreProjectManagers } from '../ProjectManagers/ExploreProjectManagers';
+import { HirePMWorkspace } from '../ProjectManagers/HirePMWorkspace';
+import { PMBid } from '../../types/project_manager.types';
 import ProfessionalProjects from '../Projects/ProfessionalProjects';
 import ChatTab from '../Chat/ChatTab';
 import MerchantInventory from '../MerchantInventory';
@@ -28,6 +35,9 @@ import MaterialDetailsModal from '../Marketplace/MaterialDetailsModal';
 import { UserProfileView } from './UserProfileView';
 import EditProfileForm from '../EditProfileForm';
 import ExploreTab from './ExploreTab';
+import { HireHistoryTab } from './HireHistoryTab';
+import FirmRoster from './FirmRoster';
+import FirmInvitations from './FirmInvitations';
 
 import { Project } from '../../types/project.types';
 import { House } from '../../types/explore';
@@ -35,6 +45,8 @@ import { House } from '../../types/explore';
 interface TabsProps {
     activeTab: string;
     setActiveTab: (tab: string) => void;
+    activeSubTab?: string | null;
+    setActiveSubTab?: (tab: string | null) => void;
     user: any;
     houses: House[];
     projects: Project[];
@@ -42,8 +54,14 @@ interface TabsProps {
     latestBids: any[];
     myBids: any[];
     isLoadingData: boolean;
+    hiredProfessionals?: any[];
     architects: any[];
     constructors: any[];
+    interiors?: any[];
+    notaries?: any[];
+    projectManagers?: any[];
+    structuralEngineers?: any[];
+    mepEngineers?: any[];
     selectedProfessional: any;
     setSelectedProfessional: (p: any) => void;
     selectedProject: any;
@@ -60,15 +78,21 @@ interface TabsProps {
     setIsEditingProfile: (v: boolean) => void;
     isEditingProfile: boolean;
     onRefresh?: () => void;
+    chatUserId?: number | null;
+    onClearChatUser?: (v: null) => void;
 }
 
 export const DashboardTabs: React.FC<TabsProps> = (props) => {
-    const { activeTab, setActiveTab, user, houses, projects, projectFeed, latestBids, myBids, 
-        isLoadingData, architects, constructors, selectedProfessional, setSelectedProfessional, 
+    const { activeTab, setActiveTab, activeSubTab, setActiveSubTab, user, houses, projects, projectFeed, latestBids, myBids, 
+        isLoadingData, hiredProfessionals = [], architects, constructors, interiors, notaries, projectManagers,
+        structuralEngineers, mepEngineers,
+        selectedProfessional, setSelectedProfessional, 
         selectedProject, setSelectedProject, selectedStoreId, setSelectedStoreId, 
         selectedMaterial, setSelectedMaterial, handleOpenChat, handleProjectStatusChange,
         setProjectToEdit, setProjectToDelete, handleViewActiveBids, setIsEditingProfile, 
-        isEditingProfile, onRefresh } = props;
+        isEditingProfile, onRefresh, chatUserId, onClearChatUser } = props;
+
+    const [selectedPMBid, setSelectedPMBid] = useState<PMBid | null>(null);
 
     const formatCurrency = (amount: number) => 
         new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount);
@@ -83,7 +107,11 @@ export const DashboardTabs: React.FC<TabsProps> = (props) => {
             <motion.div key={activeTab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="w-full">
                 
                 {activeTab === 'overview' && (
-                    user?.role_type === 'logistics' ? (
+                    <>
+                    {['structural', 'mep', 'interior', 'kontraktor'].includes(user?.role_type) && (
+                        <FirmInvitations />
+                    )}
+                    {user?.role_type === 'logistics' ? (
                         <LogisticsOverview user={user} setActiveTab={setActiveTab} />
                     ) : (
                         <OverviewContent 
@@ -91,12 +119,16 @@ export const DashboardTabs: React.FC<TabsProps> = (props) => {
                             projectFeed={projectFeed} latestBids={latestBids} isLoadingData={isLoadingData} 
                             setActiveTab={setActiveTab} formatCurrency={formatCurrency} 
                             onViewActiveBids={handleViewActiveBids} onEditProfile={() => setActiveTab('profile')}
-                            openTendersCount={projectFeed.length} myBidsCount={myBids.length}
+                            openTendersCount={projectFeed.length} 
+                            myBidsCount={user?.role_type === 'user' 
+                                ? projects.reduce((acc, p) => acc + (p.bids_arsitek_count || 0) + (p.bids_kontraktor_count || 0) + (p.bids_notaris_count || 0) + (p.bids_interior_count || 0), 0)
+                                : myBids.length}
                             myProjectsCount={projects.length}
                             onPostProject={() => setActiveTab('post-project')}
                             onViewProject={handleViewProject}
                         />
-                    )
+                    )}
+                    </>
                 )}
 
                 {activeTab === 'explore' && (
@@ -105,6 +137,11 @@ export const DashboardTabs: React.FC<TabsProps> = (props) => {
                         isLoadingData={isLoadingData} 
                         architects={architects} 
                         constructors={constructors}
+                        interiors={interiors}
+                        projectManagers={projectManagers}
+                        notaries={notaries}
+                        structuralEngineers={structuralEngineers}
+                        mepEngineers={mepEngineers}
                         selectedProfessional={selectedProfessional} 
                         setSelectedProfessional={setSelectedProfessional}
                         selectedStoreId={selectedStoreId} 
@@ -116,13 +153,42 @@ export const DashboardTabs: React.FC<TabsProps> = (props) => {
                     />
                 )}
 
-                {activeTab === 'project-detail' && selectedProject && (
-                    <ProjectDetailPage 
-                        project={selectedProject} user={user}
-                        onBack={() => { setSelectedProject(null); setActiveTab('projects'); }}
-                        onRefresh={() => onRefresh?.()}
-                    />
-                )}
+                {activeTab === 'project-detail' && selectedProject && (() => {
+                    const baseProject = 
+                        projects.find(p => p.id === selectedProject.id) || 
+                        projectFeed.find(p => p.id === selectedProject.id) || 
+                        myBids.find(b => b.project_id === selectedProject.id || b.project?.id === selectedProject.id)?.project ||
+                        selectedProject;
+                    
+                    // Merge specialist bid arrays from selectedProject so they're never lost
+                    // when baseProject comes from projectFeed (which doesn't carry bid arrays)
+                    const mergedProject = { ...baseProject };
+                    const bidKeys = ['bids_structural', 'bids_mep', 'bids_arsitek', 'bids_kontraktor', 'bids_notaris', 'bids_interior', 'bids_project_manager'] as const;
+                    for (const key of bidKeys) {
+                        if (!mergedProject[key]?.length && selectedProject[key]?.length) {
+                            mergedProject[key] = selectedProject[key];
+                        }
+                    }
+                    // Also preserve has_submitted_bid flag
+                    if (selectedProject.has_submitted_bid) {
+                        mergedProject.has_submitted_bid = true;
+                    }
+
+                    return (
+                        <ProjectDetailPage 
+                            project={mergedProject}
+                            user={user}
+                            onBack={() => { setSelectedProject(null); setActiveTab('projects'); }}
+                            onRefresh={() => onRefresh?.()}
+                            onOpenChat={handleOpenChat}
+                            onViewProfile={(pro, phaseKey) => {
+                                setSelectedProfessional(pro);
+                                const tabMap: any = { design: 'architects', build: 'constructors', legal: 'notaris', interior: 'interior', management: 'project_manager' };
+                                setActiveTab(tabMap[phaseKey] || 'architects');
+                            }}
+                        />
+                    );
+                })()}
 
                 {activeTab === 'projects' && (
                     <ProjectBoard 
@@ -146,8 +212,23 @@ export const DashboardTabs: React.FC<TabsProps> = (props) => {
                             </h3>
                             <p className="text-gray-500 text-sm">Track the status of all your submitted project bids.</p>
                         </div>
-                        <MyBidsList bids={myBids} isLoading={isLoadingData} onViewProject={(id) => handleViewProject(projects.find(p => p.id === id))} />
+                        <MyBidsList 
+                            bids={myBids} 
+                            isLoading={isLoadingData} 
+                            onViewProject={(project) => handleViewProject(project)} 
+                            initialSubTab={activeSubTab}
+                            onSubTabChange={(tab) => setActiveSubTab?.(tab)}
+                        />
                     </div>
+                )}
+
+                {activeTab === 'hire-history' && (
+                    <HireHistoryTab 
+                        history={hiredProfessionals} 
+                        isLoading={isLoadingData} 
+                        onOpenChat={(uid) => handleOpenChat({ id: uid })}
+                        onBrowseProfessionals={() => setActiveTab('architects')}
+                    />
                 )}
 
                 {activeTab === 'post-project' && (
@@ -213,11 +294,90 @@ export const DashboardTabs: React.FC<TabsProps> = (props) => {
                     ) : <ExploreConstructors constructors={constructors} isLoading={isLoadingData} onSelectConstructor={setSelectedProfessional} />
                 )}
 
-                {activeTab === 'chat' && <ChatTab initialUserId={null} onClearInitialUser={() => {}} />}
+                {activeTab === 'interior' && (
+                    selectedProfessional ? (
+                        <ProfessionalProfileView type="interior" data={selectedProfessional} projects={projects} onClose={() => setSelectedProfessional(null)} onOpenChat={handleOpenChat} />
+                    ) : <ExploreInterior designers={interiors || []} isLoading={isLoadingData} onSelectDesigner={setSelectedProfessional} />
+                )}
+
+                {activeTab === 'find-engineers' && (
+                    <div className="space-y-12">
+                        <div>
+                            <h3 className="text-xl font-black text-gray-900 mb-6 px-4 border-l-4 border-zinc-900">Structural Engineers</h3>
+                            <ExploreEngineers engineers={structuralEngineers || []} isLoading={isLoadingData} type="structural" onSelect={(e) => { setSelectedProfessional(e); setActiveTab('structural'); }} />
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-black text-gray-900 mb-6 px-4 border-l-4 border-zinc-900">MEP Specialists</h3>
+                            <ExploreEngineers engineers={mepEngineers || []} isLoading={isLoadingData} type="mep" onSelect={(e) => { setSelectedProfessional(e); setActiveTab('mep'); }} />
+                        </div>
+                    </div>
+                )}
+
+                {activeTab === 'find-sub-contractors' && (
+                    <div className="space-y-6">
+                        <div className="flex flex-col gap-2 mb-6">
+                            <h3 className="text-2xl font-black text-gray-900 flex items-center gap-3">
+                                <span className="w-10 h-10 rounded-xl bg-zinc-100 text-zinc-500 flex items-center justify-center shadow-sm border border-zinc-200">
+                                    <FileText size={20} />
+                                </span>
+                                Hire Sub-Contractors
+                            </h3>
+                            <p className="text-gray-500 text-sm">Browse and invite specialist contractors (roofing, pool, HVAC, etc.) to your active projects.</p>
+                        </div>
+                        <ExploreConstructors constructors={constructors} isLoading={isLoadingData} onSelectConstructor={setSelectedProfessional} />
+                    </div>
+                )}
+
+                {activeTab === 'structural' && (
+                    selectedProfessional ? (
+                        <ProfessionalProfileView type="structural" data={selectedProfessional} projects={projects} onClose={() => setSelectedProfessional(null)} onOpenChat={handleOpenChat} />
+                    ) : <ExploreEngineers engineers={structuralEngineers || []} isLoading={isLoadingData} type="structural" onSelect={setSelectedProfessional} />
+                )}
+
+                {activeTab === 'mep' && (
+                    selectedProfessional ? (
+                        <ProfessionalProfileView type="mep" data={selectedProfessional} projects={projects} onClose={() => setSelectedProfessional(null)} onOpenChat={handleOpenChat} />
+                    ) : <ExploreEngineers engineers={mepEngineers || []} isLoading={isLoadingData} type="mep" onSelect={setSelectedProfessional} />
+                )}
+
+                {activeTab === 'notaris' && (
+                    selectedProfessional ? (
+                        <ProfessionalProfileView type="notaris" data={selectedProfessional} projects={projects} onClose={() => setSelectedProfessional(null)} onOpenChat={handleOpenChat} />
+                    ) : <ExploreNotaries notaries={notaries || []} isLoading={isLoadingData} onSelect={setSelectedProfessional} />
+                )}
+                
+                {activeTab === 'project_manager' && (
+                    selectedPMBid ? (
+                        <HirePMWorkspace 
+                            project={projects.find(p => p.id === selectedPMBid.project_id)}
+                            user={user}
+                            bid={selectedPMBid}
+                            onBack={() => setSelectedPMBid(null)}
+                            onRefresh={onRefresh}
+                        />
+                    ) : selectedProfessional ? (
+                        <ProfessionalProfileView 
+                            type="project_manager" 
+                            data={selectedProfessional} 
+                            projects={projects} 
+                            onClose={() => setSelectedProfessional(null)} 
+                            onOpenChat={handleOpenChat}
+                            onHirePM={(bid) => {
+                                setSelectedPMBid(bid);
+                                setSelectedProfessional(null);
+                            }}
+                        />
+                    ) : <ExploreProjectManagers projectManagers={projectManagers || []} isLoading={isLoadingData} onSelectPM={setSelectedProfessional} />
+
+                )}
+
+                {activeTab === 'chat' && <ChatTab initialUserId={chatUserId} onClearInitialUser={() => onClearChatUser?.(null)} />}
 
                 {activeTab === 'management' && (
                     <ProfessionalProjects projects={projects} isLoading={isLoadingData} onViewProject={handleViewProject} formatCurrency={formatCurrency} />
                 )}
+
+                {activeTab === 'my-firm' && <FirmRoster />}
 
                 {activeTab === 'delivery-jobs' && <DeliveryJobsTab />}
                 {activeTab === 'job-radar' && <JobRadarTab />}

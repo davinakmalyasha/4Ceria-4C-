@@ -12,10 +12,11 @@ class RoomPic extends Model
         'file_name',
         'dir',
         'size',
-        'id_room'
+        'id_room',
     ];
 
-    public function room(){
+    public function room()
+    {
         return $this->belongsTo(Room::class, 'id_room');
     }
 }

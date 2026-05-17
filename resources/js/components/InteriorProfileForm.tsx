@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { Plus, X, Phone, UploadCloud, FileText, AlertCircle, Building2, Palette } from 'lucide-react';
+import { PortfolioManager } from './Dashboard/PortfolioManager';
 
 interface EditProfileFormProps { onCancel: () => void; }
 
@@ -54,7 +55,14 @@ export default function InteriorProfileForm({ onCancel }: EditProfileFormProps) 
             await refreshUser();
             setTimeout(() => onCancel(), 1000);
         } catch (err: any) {
-            setError(err.response?.data?.message || 'Update failed');
+            console.error(err);
+            const errorData = err.response?.data;
+            if (errorData?.errors) {
+                const firstError = Object.values(errorData.errors)[0] as string[];
+                setError(`Error: ${firstError[0]}`);
+            } else {
+                setError(errorData?.message || 'Update failed');
+            }
         } finally {
             setIsLoading(false);
         }
@@ -170,6 +178,9 @@ export default function InteriorProfileForm({ onCancel }: EditProfileFormProps) 
                     </div>
                 </div>
             </div>
+
+            {/* Interactive Portfolio Management inside Edit Mode */}
+            <PortfolioManager isEmbedded={true} />
 
             <div className="pt-6 flex items-center gap-4">
                 <button type="submit" disabled={isLoading} className="flex-1 bg-zinc-900 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-red-600 transition-all shadow-xl shadow-zinc-200 hover:shadow-red-600/20 disabled:opacity-50 active:scale-[0.98]">

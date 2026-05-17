@@ -25,6 +25,7 @@ class InteriorProfile extends Model
         'rate_harga',
         'verification_status',
         'rejection_reason',
+        'reliability_score',
     ];
 
     protected $appends = ['average_rating', 'review_count'];

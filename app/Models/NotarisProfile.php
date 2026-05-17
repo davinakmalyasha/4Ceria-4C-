@@ -26,6 +26,7 @@ class NotarisProfile extends Model
         'file_sertifikat',
         'verification_status',
         'rejection_reason',
+        'reliability_score',
     ];
 
     protected $appends = ['average_rating', 'review_count', 'is_verified'];

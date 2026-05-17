@@ -20,9 +20,12 @@ export function useChat() {
         setIsLoadingConv(true);
         try {
             const res = await axios.get('/conversations');
-            setConversations(res.data.data);
+            const data = res.data.data;
+            setConversations(data);
+            return data;
         } catch (err) {
             console.error('Failed to fetch conversations', err);
+            return [];
         } finally {
             setIsLoadingConv(false);
         }
@@ -45,7 +48,7 @@ export function useChat() {
         }
     }, []);
 
-    const sendMessage = async (content: string, imageFile?: File | null) => {
+    const sendMessage = useCallback(async (content: string, imageFile?: File | null) => {
         if (!activeConversation || (!content.trim() && !imageFile)) return;
         
         setIsSending(true);
@@ -70,33 +73,32 @@ export function useChat() {
             console.error('Failed to send message', err);
             showToast('Failed to send message. Please try again.', 'error');
         } finally {
-
             setIsSending(false);
         }
-    };
+    }, [activeConversation, showToast]);
 
-    const startConversation = async (userId: number) => {
+    const startConversation = useCallback(async (userId: number) => {
         try {
             const res = await axios.post('/conversations', { user_id: userId });
             const conversationId = res.data.data;
             
-            // Fetch conversations again to get the new one in the list
-            await fetchConversations();
+            // Fetch fresh list and wait for it to return the actual data
+            const freshConversations = await fetchConversations();
             
-            // Find and set the active conversation
-            const found = conversations.find(c => c.id === conversationId);
+            // Find and set the active conversation from the fresh list
+            const found = freshConversations.find((c: Conversation) => c.id === conversationId);
             if (found) {
                 setActiveConversation(found);
             } else {
-                // If not found in current list (rare since we just fetched), we might need to fetch it specifically or just wait for the state to update
+                // Final fallback if the list update was somehow delayed
                 const refreshedRes = await axios.get('/conversations');
-                const newFound = (refreshedRes.data.data as Conversation[]).find(c => c.id === conversationId);
-                if (newFound) setActiveConversation(newFound);
+                const finalFound = (refreshedRes.data.data as Conversation[]).find(c => c.id === conversationId);
+                if (finalFound) setActiveConversation(finalFound);
             }
         } catch (err) {
             console.error('Failed to start conversation', err);
         }
-    };
+    }, [fetchConversations]);
 
     useEffect(() => {
         fetchConversations();

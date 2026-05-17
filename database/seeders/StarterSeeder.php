@@ -5,7 +5,6 @@ namespace Database\Seeders;
 use App\Models\Provinces;
 use App\Models\User;
 use Hash;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Permission;
 
@@ -17,7 +16,7 @@ class StarterSeeder extends Seeder
     public function run(): void
     {
         Provinces::create([
-            "name"=>"Jakarta"
+            'name' => 'Jakarta',
         ]);
         $permissions = [
             'user-edit',
@@ -34,16 +33,16 @@ class StarterSeeder extends Seeder
             'role-edit',
             'role-view',
             'user-edit',
-            'user-view'
+            'user-view',
         ];
         foreach ($permissions as $permission) {
             Permission::firstOrCreate(['name' => $permission]);
         }
         $user = User::create([
-            "name"=>"tesSeed",
-            "username"=>"tesSeed",
-            "email"=>"start@4c.id",
-            'password' => Hash::make("123"),
+            'name' => 'tesSeed',
+            'username' => 'tesSeed',
+            'email' => 'start@4c.id',
+            'password' => Hash::make('123'),
         ]);
         $user->syncPermissions($permissions);
     }

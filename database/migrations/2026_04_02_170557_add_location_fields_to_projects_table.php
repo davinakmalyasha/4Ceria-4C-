@@ -1,38 +1,19 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
 
+/**
+ * NO-OP: All columns consolidated into base projects table migration.
+ */
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
-        Schema::table('projects', function (Blueprint $table) {
-            $table->string('latitude')->nullable();
-            $table->string('longitude')->nullable();
-            $table->string('province')->nullable();
-            $table->string('city')->nullable();
-            $table->string('kecamatan')->nullable();
-            $table->string('kelurahan')->nullable();
-            $table->string('postal_code')->nullable();
-            $table->string('street_name')->nullable();
-        });
+        // Columns already exist in consolidated base table
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
-        Schema::table('projects', function (Blueprint $table) {
-            $table->dropColumn([
-                'latitude', 'longitude', 'province', 'city', 
-                'kecamatan', 'kelurahan', 'postal_code', 'street_name'
-            ]);
-        });
+        // No-op
     }
 };

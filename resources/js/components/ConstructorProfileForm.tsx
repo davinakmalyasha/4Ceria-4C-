@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { Plus, X, Phone, UploadCloud, FileText, AlertCircle } from 'lucide-react';
+import { PortfolioManager } from './Dashboard/PortfolioManager';
+import { TeamMemberManager } from './Dashboard/TeamMemberManager';
+import { ErrorBoundary } from './Common/ErrorBoundary';
 
 interface EditProfileFormProps { onCancel: () => void; }
 
@@ -20,7 +23,11 @@ export default function ConstructorProfileForm({ onCancel }: EditProfileFormProp
         alasan_hire: user?.kontraktor?.alasan_hire || '',
         no_telepon: user?.kontraktor?.no_telepon || '',
     });
-    const [phoneNumbers, setPhoneNumbers] = useState<string[]>(user?.phone_number?.map(p => p.contact) || []);
+    const [phoneNumbers, setPhoneNumbers] = useState<string[]>(
+        Array.isArray(user?.phone_number) 
+            ? user.phone_number.map((p: any) => p.contact) 
+            : []
+    );
     const [fileNpwp, setFileNpwp] = useState<File | null>(null);
     const [fileSiup, setFileSiup] = useState<File | null>(null);
     const [fileFoto, setFileFoto] = useState<File | null>(null);
@@ -52,7 +59,14 @@ export default function ConstructorProfileForm({ onCancel }: EditProfileFormProp
             await refreshUser();
             setTimeout(() => onCancel(), 1000);
         } catch (err: any) {
-            setError(err.response?.data?.message || 'Update failed');
+            console.error(err);
+            const errorData = err.response?.data;
+            if (errorData?.errors) {
+                const firstError = Object.values(errorData.errors)[0] as string[];
+                setError(`Error: ${firstError[0]}`);
+            } else {
+                setError(errorData?.message || 'Update failed');
+            }
         } finally {
             setIsLoading(false);
         }
@@ -151,6 +165,12 @@ export default function ConstructorProfileForm({ onCancel }: EditProfileFormProp
                     </div>
                 </div>
             </div>
+
+            {/* Interactive Portfolio Management inside Edit Mode */}
+            <PortfolioManager isEmbedded={true} />
+            <ErrorBoundary name="Team Member Manager">
+                <TeamMemberManager isEmbedded={true} />
+            </ErrorBoundary>
 
             <div className="pt-4 flex items-center gap-4">
                 <button type="submit" disabled={isLoading} className="flex-1 bg-neutral-900 text-white py-3 rounded-xl font-bold hover:bg-neutral-800 transition-all shadow-lg disabled:opacity-50">

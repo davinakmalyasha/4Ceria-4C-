@@ -3,6 +3,11 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\Admin;
+use App\Models\Arsitek;
+use App\Models\InteriorProfile;
+use App\Models\Kontraktor;
+use App\Models\NotarisProfile;
 use App\Models\User;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
@@ -11,11 +16,6 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules;
 use Illuminate\View\View;
-use App\Models\Arsitek;
-use App\Models\Kontraktor;
-use App\Models\Admin;
-use App\Models\NotarisProfile;
-use App\Models\InteriorProfile;
 
 class RegisteredUserController extends Controller
 {
@@ -39,7 +39,7 @@ class RegisteredUserController extends Controller
             'username' => ['required', 'string', 'max:255', 'unique:users'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:users'],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
-            'role_type' => ['required', 'in:user,arsitek,kontraktor,admin,notaris,interior'], 
+            'role_type' => ['required', 'in:user,arsitek,kontraktor,admin,notaris,interior,structural,mep'],
         ]);
 
         $user = User::create([
@@ -47,19 +47,20 @@ class RegisteredUserController extends Controller
             'username' => $request->username,
             'email' => strtolower($request->email),
             'password' => Hash::make($request->password),
-            'role_type' => $request->role_type, 
+            'role_type' => $request->role_type,
+            'unique_code' => User::generateUniqueCode(),
         ]);
 
         // Jika role adalah arsitek, buat data di tabel arsiteks
         if ($request->role_type === 'arsitek') {
             Arsitek::create([
-                'user_id' => $user->id,  
-                'nama' => $user->name,  
-                'no_telp' => null, 
+                'user_id' => $user->id,
+                'nama' => $user->name,
+                'no_telp' => null,
                 'foto' => null,
                 'file_portofolio' => null,
                 'file_sertifikat' => null,
-                'rate_harga' => 0,  
+                'rate_harga' => 0,
                 'spesialisasi' => null,
                 'deskripsi' => null,
                 'lokasi' => null,
@@ -69,10 +70,10 @@ class RegisteredUserController extends Controller
 
         if ($request->role_type === 'kontraktor') {
             Kontraktor::create([
-                'user_id' => $user->id,  
-                'nama' => $user->name,  
+                'user_id' => $user->id,
+                'nama' => $user->name,
                 'email' => null,
-                'no_telepon' => null, 
+                'no_telepon' => null,
                 'alamat' => null,
                 'jenis' => null,
                 'nama_perusahaan' => null,
@@ -81,13 +82,13 @@ class RegisteredUserController extends Controller
                 'pengalaman' => null,
             ]);
         }
-        
+
         if ($request->role_type === 'admin') {
             Admin::create([
-                'user_id' => $user->id,  
-                'nama' => $user->name,  
-                'no_telepon' => null, 
-                'foto' => null, 
+                'user_id' => $user->id,
+                'nama' => $user->name,
+                'no_telepon' => null,
+                'foto' => null,
             ]);
         }
 
@@ -123,6 +124,38 @@ class RegisteredUserController extends Controller
             ]);
         }
 
+        if ($request->role_type === 'structural') {
+            \App\Models\StructuralEngineer::create([
+                'user_id' => $user->id,
+                'nama' => $user->name,
+                'no_telp' => null,
+                'foto' => null,
+                'file_portofolio' => null,
+                'file_sertifikat' => null,
+                'spesialisasi' => null,
+                'deskripsi' => null,
+                'lokasi' => null,
+                'pengalaman_tahun' => 0,
+                'rate_harga' => 0,
+            ]);
+        }
+
+        if ($request->role_type === 'mep') {
+            \App\Models\MepEngineer::create([
+                'user_id' => $user->id,
+                'nama' => $user->name,
+                'no_telp' => null,
+                'foto' => null,
+                'file_portofolio' => null,
+                'file_sertifikat' => null,
+                'spesialisasi' => null,
+                'deskripsi' => null,
+                'lokasi' => null,
+                'pengalaman_tahun' => 0,
+                'rate_harga' => 0,
+            ]);
+        }
+
         switch ($request->role_type) {
             case 'arsitek':
                 $user->assignRole('arsitek');
@@ -138,6 +171,12 @@ class RegisteredUserController extends Controller
                 break;
             case 'interior':
                 $user->assignRole('interior');
+                break;
+            case 'structural':
+                $user->assignRole('structural');
+                break;
+            case 'mep':
+                $user->assignRole('mep');
                 break;
             default:
                 $user->assignRole('user');
@@ -156,7 +195,9 @@ class RegisteredUserController extends Controller
             'admin' => redirect()->route('users-page.admin'),
             'notaris' => redirect()->route('index'),
             'interior' => redirect()->route('index'),
+            'structural' => redirect()->route('index'),
+            'mep' => redirect()->route('index'),
             default => redirect()->route('index'),
         };
-    }    
+    }
 }

@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, CheckCircle, Briefcase, FileText, Send } from 'lucide-react';
+import { X, CheckCircle, Briefcase, FileText, Send, Loader2 } from 'lucide-react';
 import { Project } from '../types/project.types';
+import axios from 'axios';
+import { useToast } from '../context/ToastContext';
 
 interface HireModalProps {
     professional: any; // Accommodates both architect and constructor
-    type: 'architect' | 'constructor';
+    type: 'architect' | 'constructor' | 'interior' | 'notaris' | 'project_manager' | 'structural' | 'mep';
     userProjects: Project[];
     onClose: () => void;
-    onSuccess: (projectId: number, message: string) => void;
+    onSuccess: (projectId: number, bid: any) => void;
 }
 
 export default function HireProfessionalModal({ professional, type, userProjects, onClose, onSuccess }: HireModalProps) {
@@ -17,24 +19,53 @@ export default function HireProfessionalModal({ professional, type, userProjects
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
 
-    const activeProjects = userProjects.filter(p => p.status === 'open');
+    const { showToast } = useToast();
+    const activeProjects = userProjects.filter(p => 
+        ['open', 'accepted_arsitek', 'accepted_kontraktor', 'procurement', 'in_progress', 'completed_build', 'awaiting_payment', 'contract_pending', 'planning', 'legal'].includes(p.status)
+    );
     const name = professional.nama_perusahaan || professional.nama || 'Professional';
-    const role = type === 'architect' ? (professional.spesialisasi || 'Arsitek') : (professional.jenis || 'Kontraktor');
+    const roleLabels = {
+        architect: professional.spesialisasi || 'Arsitek',
+        constructor: professional.jenis || 'Kontraktor',
+        interior: professional.spesialisasi || 'Interior Designer',
+        notaris: professional.spesialisasi || 'Notaris',
+        project_manager: professional.spesialisasi || 'Project Manager',
+        structural: 'Structural Engineer',
+        mep: 'MEP Engineer'
+    };
+    const role = roleLabels[type] || 'Professional';
 
-    const handleSubmit = (e: React.FormEvent) => {
+    // Mapping frontend role type to backend invitation role
+    const backendRole = type === 'architect' ? 'arsitek' : 
+                       type === 'constructor' ? 'kontraktor' : 
+                       type === 'notaris' ? 'notaris' : 
+                       type === 'project_manager' ? 'project_manager' : 
+                       type === 'structural' ? 'structural' : 
+                       type === 'mep' ? 'mep' : 'interior';
+
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!selectedProjectId) return;
         
         setIsSubmitting(true);
-        // Simulate network delay for MVP feel
-        setTimeout(() => {
-            setIsSubmitting(false);
+        try {
+            const response = await axios.post(`/projects/${selectedProjectId}/invite`, {
+                professional_id: professional.id,
+                role_type: backendRole,
+                message: message
+            });
+
             setShowSuccess(true);
             setTimeout(() => {
-                onSuccess(selectedProjectId, message);
+                onSuccess(selectedProjectId, response.data.bid);
                 onClose();
             }, 2000);
-        }, 1500);
+
+        } catch (err: any) {
+            showToast(err.response?.data?.message || 'Failed to send invitation', 'error');
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
@@ -82,19 +113,36 @@ export default function HireProfessionalModal({ professional, type, userProjects
                                         </div>
                                     ) : (
                                         <div className="space-y-3 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
-                                            {activeProjects.map(p => (
+                                            {activeProjects.map(p => {
+                                                let isHired = false;
+                                                let hasPending = false;
+                                                switch (type) {
+                                                    case 'architect': isHired = !!p.selected_arsitek_id; hasPending = (p.bids_arsitek||[]).some(b=>['invited', 'pending', 'negotiating'].includes(b.status)); break;
+                                                    case 'constructor': isHired = !!p.selected_kontraktor_id; hasPending = (p.bids_kontraktor||[]).some(b=>['invited', 'pending', 'negotiating'].includes(b.status)); break;
+                                                    case 'project_manager': isHired = !!p.pm_id; hasPending = (p.bids_project_manager||[]).some(b=>['invited', 'pending', 'negotiating'].includes(b.status)); break;
+                                                    case 'structural': isHired = !!p.structural_id; hasPending = (p.bids_structural||[]).some(b=>['invited', 'pending', 'negotiating'].includes(b.status)); break;
+                                                    case 'mep': isHired = !!p.mep_id; hasPending = (p.bids_mep||[]).some(b=>['invited', 'pending', 'negotiating'].includes(b.status)); break;
+                                                    case 'notaris': isHired = !!p.selected_notaris_id; break;
+                                                    case 'interior': isHired = !!p.selected_interior_id; break;
+                                                }
+                                                return (
                                                 <div 
                                                     key={p.id} 
-                                                    onClick={() => setSelectedProjectId(p.id)}
-                                                    className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${selectedProjectId === p.id ? 'border-[#FF2D20] bg-red-50/50 shadow-[0_0_0_4px_rgba(255,45,32,0.1)]' : 'border-gray-100 hover:border-gray-200 bg-white'}`}
+                                                    onClick={() => !isHired && setSelectedProjectId(p.id)}
+                                                    className={`p-4 rounded-xl border-2 transition-all relative overflow-hidden ${selectedProjectId === p.id ? 'border-[#FF2D20] bg-red-50/50 shadow-[0_0_0_4px_rgba(255,45,32,0.1)]' : isHired ? 'border-gray-200 bg-gray-50 opacity-70 cursor-not-allowed' : 'border-gray-100 hover:border-gray-200 bg-white cursor-pointer'}`}
                                                 >
-                                                    <h4 className="font-bold text-gray-900">{p.title}</h4>
-                                                    <p className="text-xs text-gray-500 mt-1 line-clamp-1">{p.description}</p>
+                                                    <div className="flex justify-between items-start mb-1">
+                                                        <h4 className="font-bold text-gray-900 pr-4">{p.title}</h4>
+                                                        <div className={`shrink-0 text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded border ${isHired ? 'bg-green-50 text-green-700 border-green-200' : hasPending ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-zinc-100 text-zinc-500 border-zinc-200'}`}>
+                                                            {isHired ? '1/1 Terisi' : hasPending ? 'Pending' : `0/1 ${roleLabels[type]}`}
+                                                        </div>
+                                                    </div>
+                                                    <p className="text-xs text-gray-500 mt-1 line-clamp-1 pr-16">{p.description}</p>
                                                     <div className="mt-2 text-xs font-bold text-gray-700 bg-white inline-block px-2 py-1 rounded-md shadow-sm border border-gray-100">
                                                         Rp {(p.budget || 0).toLocaleString('id-ID')}
                                                     </div>
                                                 </div>
-                                            ))}
+                                            )})}
                                         </div>
                                     )}
                                 </div>
@@ -119,7 +167,7 @@ export default function HireProfessionalModal({ professional, type, userProjects
                                     className="w-full py-4 px-6 bg-[#FF2D20] hover:bg-red-700 disabled:bg-gray-200 disabled:text-gray-400 text-white rounded-xl font-bold text-lg transition-all shadow-lg shadow-red-500/30 hover:shadow-red-500/50 flex items-center justify-center gap-2 disabled:shadow-none"
                                 >
                                     {isSubmitting ? (
-                                        <span className="flex items-center gap-2">Memproses Tawaran <span className="animate-pulse">...</span></span>
+                                        <span className="flex items-center gap-2">Memproses <Loader2 size={18} className="animate-spin" /></span>
                                     ) : (
                                         <>Kirim Tawaran <Send size={18} /></>
                                     )}

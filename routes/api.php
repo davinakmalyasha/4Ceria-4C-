@@ -26,6 +26,13 @@ use App\Http\Controllers\Api\ProjectDocumentController;
 use App\Http\Controllers\Api\ProjectCommentController;
 use App\Http\Controllers\Api\ProjectMilestoneController;
 use App\Http\Controllers\Api\ProjectHandoverController;
+use App\Http\Controllers\Api\ProjectReportController;
+use App\Http\Controllers\Api\ProjectScheduleController;
+use App\Http\Controllers\Api\SubProfessionalController;
+use App\Http\Controllers\Api\ContractorSubspecialtyController;
+use App\Http\Controllers\Api\HireHistoryController;
+use App\Http\Controllers\Api\TeamMemberController;
+use App\Http\Controllers\Api\FirmMemberController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -37,16 +44,25 @@ Route::get('/houses', [HouseController::class, 'index']);
 Route::get('/houses/{house}', [HouseController::class, 'show']);
 
 Route::get('/arsitek', function () {
-    return response()->json(['data' => \App\Models\Arsitek::with(['user.phoneNumber', 'ratings', 'projects.images'])->get()]);
+    return response()->json(['data' => \App\Models\Arsitek::with(['user.phoneNumber', 'user.teamMembers', 'ratings', 'projects.images'])->get()]);
 });
 Route::get('/kontraktor', function () {
-    return response()->json(['data' => \App\Models\Kontraktor::with(['user.phoneNumber', 'ratings', 'spesialisasis', 'projects.images'])->get()]);
+    return response()->json(['data' => \App\Models\Kontraktor::with(['user.phoneNumber', 'user.teamMembers', 'ratings', 'spesialisasis', 'projects.images'])->get()]);
 });
 Route::get('/interior', function () {
     return response()->json(['data' => \App\Models\InteriorProfile::with(['user.phoneNumber', 'ratings', 'projects.images'])->get()]);
 });
 Route::get('/notaris', function () {
     return response()->json(['data' => \App\Models\NotarisProfile::with(['user.phoneNumber', 'ratings', 'services'])->get()]);
+});
+Route::get('/project-manager', function () {
+    return response()->json(['data' => \App\Models\ProjectManager::with(['user.phoneNumber', 'ratings', 'projects.images'])->get()]);
+});
+Route::get('/structural-engineers', function () {
+    return response()->json(['data' => \App\Models\StructuralEngineer::with(['user.phoneNumber'])->get()]);
+});
+Route::get('/mep-engineers', function () {
+    return response()->json(['data' => \App\Models\MepEngineer::with(['user.phoneNumber'])->get()]);
 });
 
 // Materials Marketplace Public Routes
@@ -58,19 +74,26 @@ Route::get('/marketplace/materials', [MaterialController::class, 'index']);
 Route::get('/brief/{token}', [ProjectController::class, 'getPublicBrief']);
 
 Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/hire-history', [HireHistoryController::class, 'index']);
     Route::get('/projects', [ProjectController::class, 'index']);
     Route::get('/projects/{project}', [ProjectController::class, 'show']);
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', function (Request $request) {
-        return new \App\Http\Resources\UserResource(
-            $request->user()->load([
-                'phoneNumber', 'arsitek', 'kontraktor', 
-                'notaris_profile', 'interior_profile', 'project_manager',
-                'structural_engineer', 'mep_engineer'
-            ])
-        );
+        $user = $request->user();
+        $relations = [
+            'phoneNumber', 'arsitek', 'kontraktor',
+            'notaris_profile.services', 'interior_profile', 'project_manager',
+            // 'structural_engineer', 'mep_engineer',
+        ];
+        if (in_array($user->role_type, ['arsitek', 'kontraktor'])) {
+            $relations[] = 'teamMembers';
+        }
+        return new \App\Http\Resources\UserResource($user->load($relations));
     });
     Route::post('/me/professional', [ProfileController::class, 'updateProfessional']);
+    Route::get('/portfolios', [\App\Http\Controllers\Api\PortfolioController::class, 'index']);
+    Route::post('/portfolios', [\App\Http\Controllers\Api\PortfolioController::class, 'store']);
+    Route::delete('/portfolios/{id}', [\App\Http\Controllers\Api\PortfolioController::class, 'destroy']);
     Route::put('/me', function (Request $request) {
         $user = $request->user();
         $validated = $request->validate([
@@ -114,20 +137,37 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('rooms/{room}', [RoomController::class, 'destroy']);
 
     // Protected API endpoints
+    Route::get('/portfolios', [\App\Http\Controllers\Api\PortfolioController::class, 'index']);
+    Route::post('/portfolios', [\App\Http\Controllers\Api\PortfolioController::class, 'store']);
+    Route::delete('/portfolios/{id}', [\App\Http\Controllers\Api\PortfolioController::class, 'destroy']);
+    
     Route::apiResource('projects', ProjectController::class)->except(['index', 'show']);
     Route::post('/projects/{project}/update', [ProjectController::class, 'update']);
+    Route::post('/upload', [ProjectController::class, 'uploadFile']);
     Route::post('/projects/{project}/bids', [ProjectController::class, 'submitBid']);
     Route::post('/projects/{project}/accept-bid', [ProjectController::class, 'acceptBid']);
+    Route::post('/projects/{project}/shortlist-bid', [ProjectController::class, 'shortlistBid']);
     Route::post('/projects/{project}/decline-bid', [ProjectController::class, 'declineBid']);
     Route::get('/my-bids', [ProjectController::class, 'myBids']);
     Route::get('/user/active-projects', [ProjectController::class, 'getActiveProjects']);
     Route::post('/projects/{project}/invite', [ProjectController::class, 'inviteProfessional']);
+    Route::post('/projects/{project}/propose-fee', [ProjectController::class, 'proposeFeeAndTermins']);
+    Route::post('/projects/{project}/bids/{bid}/negotiate', [ProjectController::class, 'negotiateBidFee']);
+    Route::post('/projects/{project}/bids/{bid}/confirm-fee', [ProjectController::class, 'confirmBidFee']);
+    Route::post('/projects/{project}/bids/{bid}/sign-contract', [ProjectController::class, 'signContract']);
+    Route::post('/projects/{project}/termins/{termin}/upload-proof', [ProjectPaymentTerminController::class, 'uploadProof']);
+    Route::post('/projects/{project}/termins/{termin}/verify-payment', [ProjectPaymentTerminController::class, 'verifyPayment']);
+    Route::post('/projects/{project}/bids/{bid}/accept-invite', [ProjectController::class, 'acceptInvite']);
+    Route::post('/projects/{project}/bids/{bid}/reject-invite', [ProjectController::class, 'rejectInvite']);
+    Route::post('/projects/{project}/bids/{bid}/verify-payment', [ProjectController::class, 'verifyBidPayment']);
+    Route::post('/projects/{project}/bids/{bid}/upload-payment-proof', [ProjectController::class, 'uploadBidPaymentProof']);
     Route::post('/projects/{project}/terminate', [\App\Http\Controllers\Api\ProjectTerminationController::class, 'fireProfessional']);
     Route::post('/projects/{project}/resign', [\App\Http\Controllers\Api\ProjectTerminationController::class, 'resignFromProject']);
 
     // Project Manager Bidding
     Route::post('/projects/{project}/pm-bids', [\App\Http\Controllers\Api\BidProjectManagerController::class, 'store']);
     Route::post('/projects/{project}/pm-bids/{bid}/accept', [\App\Http\Controllers\Api\BidProjectManagerController::class, 'accept']);
+    Route::post('/projects/{project}/pm-bids/{bid}/shortlist', [\App\Http\Controllers\Api\BidProjectManagerController::class, 'shortlist']);
     Route::post('/projects/{project}/pm-bids/{bid}/decline', [\App\Http\Controllers\Api\BidProjectManagerController::class, 'decline']);
 
     // Project Features (Milestones, Comments, Documents)
@@ -136,9 +176,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/projects/{project}/milestones/{milestone}', [ProjectMilestoneController::class, 'update']);
     Route::post('/projects/{project}/milestones/{milestone}/approve', [ProjectMilestoneController::class, 'approve']);
     Route::post('/projects/{project}/milestones/{milestone}/request-revision', [ProjectMilestoneController::class, 'requestRevision']);
+    Route::post('/projects/{project}/technical-audit-submit', [ProjectMilestoneController::class, 'submitTechnicalAudit']);
     Route::post('/projects/{project}/seal-design', [ProjectPhaseController::class, 'sealDesign']);
     Route::delete('/projects/{project}/milestones/{milestone}', [ProjectMilestoneController::class, 'destroy']);
     Route::post('/projects/{project}/milestones/{milestone}/verify-pm', [ProjectMilestoneController::class, 'verifyPM']);
+    
+    // Sticky Notes
+    Route::get('/projects/{project}/sticky-notes', [\App\Http\Controllers\StickyNoteController::class, 'index']);
+    Route::post('/projects/{project}/sticky-notes', [\App\Http\Controllers\StickyNoteController::class, 'store']);
+    Route::put('/projects/{project}/sticky-notes/{stickyNote}', [\App\Http\Controllers\StickyNoteController::class, 'update']);
+    Route::delete('/projects/{project}/sticky-notes/{stickyNote}', [\App\Http\Controllers\StickyNoteController::class, 'destroy']);
 
 
     // Construction Daily Logs
@@ -151,10 +198,21 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/projects/{project}/payment-termins', [ProjectPaymentTerminController::class, 'storePaymentTermin']);
     Route::put('/projects/{project}/payment-termins/{termin}', [ProjectPaymentTerminController::class, 'updatePaymentTermin']);
     Route::delete('/projects/{project}/payment-termins/{termin}', [ProjectPaymentTerminController::class, 'deletePaymentTermin']);
+    Route::post('/projects/{project}/payment-termins/{termin}/link-milestone', [ProjectPaymentTerminController::class, 'linkMilestone']);
+
+    // Engineering Manual Logs
+    Route::post('/projects/{project}/engineering-logs', [ProjectEngineeringController::class, 'storeLog']);
+    Route::delete('/projects/{project}/engineering-logs/{milestone}', [ProjectEngineeringController::class, 'deleteLog']);
+    Route::post('/projects/{project}/payment-termins/{termin}/unlink-milestone', [ProjectPaymentTerminController::class, 'unlinkMilestone']);
+    
+    // Proof of Transfer Endpoints
+    Route::post('/projects/{project}/payments/{type}/{id}/upload-proof', [\App\Http\Controllers\Api\PaymentVerificationController::class, 'uploadProof']);
+    Route::post('/projects/{project}/payments/{type}/{id}/verify-proof', [\App\Http\Controllers\Api\PaymentVerificationController::class, 'verifyProof']);
 
     Route::post('/projects/{project}/seal-construction', [ProjectPhaseController::class, 'sealConstruction']);
     Route::post('/projects/{project}/seal-interior', [ProjectPhaseController::class, 'sealInterior']);
     Route::post('/projects/{project}/seal-legal', [ProjectPhaseController::class, 'sealLegal']);
+    Route::post('/projects/{project}/kickoff', [ProjectPhaseController::class, 'issueKickoff']);
     Route::post('/projects/{project}/verify-design', [ProjectPhaseController::class, 'verifyDesign']);
     Route::post('/projects/{project}/verify-construction', [ProjectPhaseController::class, 'verifyConstruction']);
     Route::post('/projects/{project}/verify-interior', [ProjectPhaseController::class, 'verifyInterior']);
@@ -162,6 +220,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/projects/{project}/legal-financials', [ProjectLegalController::class, 'getFinancials']);
     Route::post('/projects/{project}/legal-disbursements', [ProjectLegalController::class, 'storeDisbursement']);
     Route::post('/projects/{project}/legal-disbursements/{id}/verify', [ProjectLegalController::class, 'verifyDisbursement']);
+    Route::post('/projects/{project}/finalize-legal-scope', [ProjectLegalController::class, 'finalizeLegalScope']);
 
     Route::post('/projects/{project}/milestones/{milestone}/furniture-addendum', [ProjectAddendumController::class, 'createFurnitureAddendum']);
     Route::post('/projects/{project}/handover/approve', [ProjectHandoverController::class, 'approveHandover']);
@@ -202,6 +261,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/projects/{project}/reject-engineering-hire/{addendum}', [ProjectEngineeringController::class, 'rejectEngineeringHire']);
     Route::post('/projects/{project}/approve-engineering', [ProjectEngineeringController::class, 'approveEngineeringIntegration']);
     Route::post('/projects/{project}/request-engineering-revision', [ProjectEngineeringController::class, 'requestEngineeringRevision']);
+    Route::post('/projects/{project}/invite-engineering-vendor', [\App\Http\Controllers\Api\EngineeringProcurementController::class, 'inviteVendor']);
+    Route::post('/projects/{project}/submit-engineering-interview', [\App\Http\Controllers\Api\EngineeringProcurementController::class, 'submitInterview']);
+    Route::post('/projects/{project}/authorize-specialist', [ProjectEngineeringController::class, 'authorizeSpecialist']);
+    Route::post('/projects/{project}/reject-specialist', [ProjectEngineeringController::class, 'rejectSpecialist']);
 
     // Phase Brief Lock (Prepare → Lock → Execute lifecycle)
     Route::post('/projects/{project}/submit-planning', [ProjectController::class, 'submitPlanning']);
@@ -235,12 +298,29 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/projects/{project}/documents', [ProjectDocumentController::class, 'index']);
     Route::post('/projects/{project}/documents', [ProjectDocumentController::class, 'store']);
+    Route::put('/projects/{project}/documents/{document}', [ProjectDocumentController::class, 'update']);
     Route::delete('/projects/{project}/documents/{document}', [ProjectDocumentController::class, 'destroy']);
+    Route::post('/projects/{project}/documents/{document}/verify', [ProjectDocumentController::class, 'verify']);
+    Route::post('/projects/{project}/documents/submit-design', [\App\Http\Controllers\Api\TechnicalDesignReviewController::class, 'submitDesign']);
+    Route::post('/projects/{project}/documents/approve-design', [\App\Http\Controllers\Api\TechnicalDesignReviewController::class, 'approveDesign']);
+    Route::post('/projects/{project}/documents/revise-design', [\App\Http\Controllers\Api\TechnicalDesignReviewController::class, 'reviseDesign']);
+
 
     // Ratings & Activity Log
     Route::post('/projects/{project}/rate', [ProjectActivityController::class, 'rateProject']);
     Route::get('/projects/{project}/activity', [ProjectActivityController::class, 'getActivity']);
     Route::get('/projects/{project}/pending-actions', [ProjectActivityController::class, 'getPendingActions']);
+
+    // Project Executive Reports
+    Route::get('/projects/{project}/reports', [ProjectReportController::class, 'index']);
+    Route::post('/projects/{project}/reports', [ProjectReportController::class, 'store']);
+    Route::put('/projects/{project}/reports/{report}', [ProjectReportController::class, 'update']);
+    Route::delete('/projects/{project}/reports/{report}', [ProjectReportController::class, 'destroy']);
+
+    // Project Scheduling & Timeline
+    Route::get('/projects/{project}/schedules', [ProjectScheduleController::class, 'index']);
+    Route::put('/projects/{project}/schedules/{schedule}', [ProjectScheduleController::class, 'update']);
+    Route::post('/projects/{project}/delays', [ProjectScheduleController::class, 'logDelay']);
 
     // Material Requirements (Bill of Materials)
     Route::get('/projects/{project}/requirements', [ProjectRequirementController::class, 'index']);
@@ -341,4 +421,30 @@ Route::middleware('auth:sanctum')->group(function () {
     // Route::post('/consultations', [ConsultationController::class, 'store']);
     // Route::put('/consultations/{consultation}', [ConsultationController::class, 'update']);
     Route::get('/notaris/services', [ProjectController::class, 'getNotarisServices']);
+
+    // Team Members (Firm Roster)
+    Route::get('/team-members', [TeamMemberController::class, 'index']);
+    Route::post('/team-members', [TeamMemberController::class, 'store']);
+    Route::put('/team-members/{id}', [TeamMemberController::class, 'update']);
+    Route::delete('/team-members/{id}', [TeamMemberController::class, 'destroy']);
+
+    // Firm Members (Account-linked Roster)
+    Route::post('/firm-members/search', [FirmMemberController::class, 'search']);
+    Route::post('/firm-members/invite', [FirmMemberController::class, 'invite']);
+    Route::post('/firm-members/{firmMember}/respond', [FirmMemberController::class, 'respond']);
+    Route::get('/firm-members/roster', [FirmMemberController::class, 'index']);
+    Route::get('/firm-members/invitations', [FirmMemberController::class, 'invitations']);
+
+    // Sub-Professional Management
+    Route::get('/projects/{project}/sub-professionals', [SubProfessionalController::class, 'index']);
+    Route::post('/projects/{project}/sub-professionals', [SubProfessionalController::class, 'assign']);
+    Route::post('/projects/{project}/sub-professionals/{id}/interview', [SubProfessionalController::class, 'interview']);
+    Route::post('/projects/{project}/sub-professionals/{id}/recommend', [SubProfessionalController::class, 'recommend']);
+    Route::post('/projects/{project}/sub-professionals/{id}/accept', [SubProfessionalController::class, 'accept']);
+    Route::post('/projects/{project}/sub-professionals/{id}/hire', [SubProfessionalController::class, 'hire']);
+    Route::post('/projects/{project}/sub-professionals/shortlist-bid/{role}/{bidId}', [SubProfessionalController::class, 'shortlistBid']);
+    Route::delete('/projects/{project}/sub-professionals/{id}', [SubProfessionalController::class, 'remove']);
+
+    // Contractor Subspecialties Lookup
+    Route::get('/contractor-subspecialties', [ContractorSubspecialtyController::class, 'index']);
 });

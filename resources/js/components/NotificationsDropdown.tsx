@@ -123,7 +123,13 @@ export default function NotificationsDropdown() {
                                 notifications.map(n => (
                                     <div
                                         key={n.id}
-                                        onClick={() => !n.read_at && markRead(n.id)}
+                                        onClick={() => {
+                                            if (!n.read_at) markRead(n.id);
+                                            if (n.type === 'project_invitation') {
+                                                window.dispatchEvent(new CustomEvent('switchDashboardTab', { detail: { tab: 'my-bids', subTab: 'invitations' } }));
+                                                setOpen(false);
+                                            }
+                                        }}
                                         className={`flex items-start gap-3 px-5 py-4 border-b border-gray-50 cursor-pointer transition-colors hover:bg-gray-50 ${!n.read_at ? 'bg-red-50/40' : ''}`}
                                     >
                                         <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${!n.read_at ? 'bg-white shadow-sm border border-gray-100' : 'bg-gray-100'}`}>

@@ -15,9 +15,9 @@ class MaterialQuoteController extends Controller
 
         // Enhanced visibility: if user is a supplier, show both quotes they SENT and quotes they RECEIVED
         if ($user->role_type === 'supplier' && $user->supplier) {
-            $query->where(function($q) use ($user) {
+            $query->where(function ($q) use ($user) {
                 $q->where('supplier_id', $user->supplier->id)
-                  ->orWhere('user_id', $user->id);
+                    ->orWhere('user_id', $user->id);
             });
         } else {
             // Regular users only see quotes they sent
@@ -25,10 +25,10 @@ class MaterialQuoteController extends Controller
         }
 
         $quotes = $query->orderBy('created_at', 'desc')->get();
-            
+
         return response()->json([
             'success' => true,
-            'data' => $quotes
+            'data' => $quotes,
         ]);
     }
 
@@ -74,7 +74,7 @@ class MaterialQuoteController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Quote request recorded successfully.',
-            'data' => $quote->load(['supplier', 'project'])
+            'data' => $quote->load(['supplier', 'project']),
         ], 201);
     }
 
@@ -95,7 +95,7 @@ class MaterialQuoteController extends Controller
             'shipping_cost' => $validated['shipping_cost'],
             'delivery_method' => $validated['delivery_method'],
             'total_weight' => $validated['total_weight'] ?? $quote->total_weight,
-            'status' => 'awaiting_payment'
+            'status' => 'awaiting_payment',
         ]);
 
         return response()->json(['success' => true, 'message' => 'Payment requested from buyer.', 'data' => $quote]);
@@ -123,7 +123,7 @@ class MaterialQuoteController extends Controller
         $validated = $request->validate([
             'shipping_cost' => 'required|numeric|min:0',
             'total_weight' => 'nullable|string|max:100',
-            'internal_notes' => 'nullable|string'
+            'internal_notes' => 'nullable|string',
         ]);
 
         \DB::beginTransaction();
@@ -132,12 +132,12 @@ class MaterialQuoteController extends Controller
                 'delivery_method' => 'Hire Platform Courier',
                 'shipping_cost' => $validated['shipping_cost'],
                 'total_weight' => $validated['total_weight'] ?? $quote->total_weight,
-                'status' => 'awaiting_courier'
+                'status' => 'awaiting_courier',
             ]);
 
             \DB::table('delivery_jobs')->insert([
                 'quote_id' => $quote->id,
-                'pickup_address' => ($user->supplier->store_name ?? 'Store') . ' — ' . ($user->supplier->address ?? 'No address set') . ($user->supplier->detail_location ? ' (' . $user->supplier->detail_location . ')' : ''),
+                'pickup_address' => ($user->supplier->store_name ?? 'Store').' — '.($user->supplier->address ?? 'No address set').($user->supplier->detail_location ? ' ('.$user->supplier->detail_location.')' : ''),
                 'dropoff_address' => $quote->delivery_address,
                 'agreed_fee' => $validated['shipping_cost'],
                 'estimated_weight' => $validated['total_weight'] ?? $quote->total_weight,
@@ -147,15 +147,16 @@ class MaterialQuoteController extends Controller
             ]);
 
             \DB::commit();
+
             return response()->json(['success' => true, 'message' => 'Delivery job posted.', 'data' => $quote]);
         } catch (\Exception $e) {
             \DB::rollBack();
+
             return response()->json(['message' => 'Failed to post job.'], 500);
         }
     }
 
     public function approve(Request $request, MaterialQuote $quote)
-
     {
         $user = Auth::user();
         if ($user->role_type !== 'supplier' || $quote->supplier_id !== $user->supplier->id) {
@@ -168,7 +169,7 @@ class MaterialQuoteController extends Controller
             'delivery_method' => 'nullable|string',
             'total_weight' => 'nullable|string',
         ]);
-        
+
         $shippingCost = $validated['shipping_cost'] ?? $quote->shipping_cost ?? 0;
         $deliveryMethod = $validated['delivery_method'] ?? $quote->delivery_method ?? 'Supplier Delivery';
 
@@ -194,7 +195,7 @@ class MaterialQuoteController extends Controller
                 $dLat = $lat2 - $lat1;
                 $dLon = $lon2 - $lon1;
 
-                $a = sin($dLat/2) * sin($dLat/2) + cos($lat1) * cos($lat2) * sin($dLon/2) * sin($dLon/2);
+                $a = sin($dLat / 2) * sin($dLat / 2) + cos($lat1) * cos($lat2) * sin($dLon / 2) * sin($dLon / 2);
                 $c = 2 * asin(sqrt($a));
                 $radius = 6371; // Earth's radius in km
 
@@ -220,7 +221,7 @@ class MaterialQuoteController extends Controller
                 'total_price' => $quote->total_amount + $calculatedShippingCost,
                 'shipping_cost' => $calculatedShippingCost,
                 'delivery_method' => $deliveryMethod,
-                'whatsapp_order_id' => 'ORD-' . strtoupper(bin2hex(random_bytes(4))),
+                'whatsapp_order_id' => 'ORD-'.strtoupper(bin2hex(random_bytes(4))),
                 'notes' => $validated['notes'] ?? $quote->note,
                 'delivery_address' => $quote->delivery_address,
                 'address_detail' => $quote->address_detail,
@@ -245,7 +246,7 @@ class MaterialQuoteController extends Controller
                 \DB::table('delivery_jobs')->insert([
                     'quote_id' => $quote->id,
                     'order_id' => $order->id,
-                    'pickup_address' => ($user->supplier->store_name ?? 'Store') . ' — ' . ($user->supplier->address ?? 'No address set'),
+                    'pickup_address' => ($user->supplier->store_name ?? 'Store').' — '.($user->supplier->address ?? 'No address set'),
                     'dropoff_address' => $quote->delivery_address,
                     'status' => 'pending',
                     'agreed_fee' => $calculatedShippingCost,
@@ -260,11 +261,12 @@ class MaterialQuoteController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Quote approved and order created.',
-                'order' => $order->load('items.material')
+                'order' => $order->load('items.material'),
             ]);
         } catch (\Exception $e) {
             \DB::rollBack();
-            return response()->json(['message' => 'Failed to approve quote: ' . $e->getMessage()], 500);
+
+            return response()->json(['message' => 'Failed to approve quote: '.$e->getMessage()], 500);
         }
     }
 
@@ -279,14 +281,14 @@ class MaterialQuoteController extends Controller
             ->join('material_quotes', 'delivery_jobs.quote_id', '=', 'material_quotes.id')
             ->leftJoin('users as courier', 'delivery_jobs.logistics_id', '=', 'courier.id')
             ->leftJoin('courier_profiles', 'courier.id', '=', 'courier_profiles.user_id')
-            ->leftJoin('phone_user', function($join) {
+            ->leftJoin('phone_user', function ($join) {
                 $join->on('courier.id', '=', 'phone_user.id_user')
-                     ->whereRaw('phone_user.id = (select id from phone_user where id_user = courier.id limit 1)');
+                    ->whereRaw('phone_user.id = (select id from phone_user where id_user = courier.id limit 1)');
             })
             ->where('material_quotes.supplier_id', $user->supplier->id)
             ->select(
-                'delivery_jobs.*', 
-                'material_quotes.delivery_address', 
+                'delivery_jobs.*',
+                'material_quotes.delivery_address',
                 'material_quotes.total_amount',
                 'courier.id as driver_user_id',
                 'courier.name as driver_name',

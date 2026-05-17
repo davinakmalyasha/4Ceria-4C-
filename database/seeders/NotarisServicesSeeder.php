@@ -9,7 +9,11 @@ class NotarisServicesSeeder extends Seeder
 {
     public function run()
     {
-        $profile = NotarisProfile::where('user_id', 59)->first();
+        $notaryUser = \App\Models\User::where('email', 'rede@gmail.com')->first();
+        if (!$notaryUser) {
+            return;
+        }
+        $profile = NotarisProfile::where('user_id', $notaryUser->id)->first();
 
         if (! $profile) {
             return;

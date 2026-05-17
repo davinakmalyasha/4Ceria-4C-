@@ -26,10 +26,38 @@ class ProjectManager extends Model
         'verification_status',
         'rejection_reason',
         'foto',
+        'reliability_score',
     ];
+
+    protected $appends = ['average_rating', 'review_count'];
+
+    public function getAverageRatingAttribute(): float
+    {
+        return round($this->ratings()->avg('rating') ?: 0, 1);
+    }
+
+    public function getReviewCountAttribute(): int
+    {
+        return $this->ratings()->count();
+    }
 
     public function user()
     {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function ratings()
+    {
+        return $this->hasMany(PMRating::class, 'pm_id');
+    }
+
+    public function bids()
+    {
+        return $this->hasMany(BidProjectManager::class, 'pm_id');
+    }
+
+    public function projects()
+    {
+        return $this->hasMany(Project::class, 'pm_id', 'user_id');
     }
 }

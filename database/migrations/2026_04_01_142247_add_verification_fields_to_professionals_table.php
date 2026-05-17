@@ -11,28 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('arsiteks', function (Blueprint $table) {
-            $table->enum('verification_status', ['pending', 'verified', 'rejected'])->default('pending')->after('user_id');
-            $table->text('rejection_reason')->nullable()->after('verification_status');
-        });
-
-        Schema::table('kontraktors', function (Blueprint $table) {
-            $table->enum('verification_status', ['pending', 'verified', 'rejected'])->default('pending')->after('user_id');
-            $table->text('rejection_reason')->nullable()->after('verification_status');
-        });
+        // Consolidated into base profile migrations
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
-        Schema::table('arsiteks', function (Blueprint $table) {
-            $table->dropColumn(['verification_status', 'rejection_reason']);
-        });
-
-        Schema::table('kontraktors', function (Blueprint $table) {
-            $table->dropColumn(['verification_status', 'rejection_reason']);
-        });
+        // No-Op
     }
 };

@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { useNavigate, Link, Navigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
-import { Briefcase, Building2, HardHat, CheckCircle2, Shield, Armchair } from 'lucide-react';
+import { Briefcase, Building2, HardHat, CheckCircle2, Shield, Armchair, Zap, Wrench } from 'lucide-react';
 
 export default function ProfessionalRegister() {
     const [formData, setFormData] = useState({
@@ -20,7 +20,7 @@ export default function ProfessionalRegister() {
     const navigate = useNavigate();
 
     if (!isAuthLoading && user) {
-        if (user.role_type === 'arsitek' || user.role_type === 'kontraktor' || user.role_type === 'notaris' || user.role_type === 'interior') {
+        if (['arsitek','kontraktor','notaris','interior','structural','mep'].includes(user.role_type)) {
             return <Navigate to="/dashboard" replace />;
         }
         return (
@@ -50,7 +50,7 @@ export default function ProfessionalRegister() {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
-    const handleRoleSelect = (role: 'arsitek' | 'kontraktor' | 'notaris' | 'interior') => {
+    const handleRoleSelect = (role: 'arsitek' | 'kontraktor' | 'notaris' | 'interior' | 'structural' | 'mep') => {
         setFormData({ ...formData, role_type: role });
     };
 
@@ -173,6 +173,8 @@ export default function ProfessionalRegister() {
                                     { id: 'kontraktor' as const, label: 'Constructor', desc: 'Quote & execute physical builds', icon: HardHat },
                                     { id: 'notaris' as const, label: 'Notaris', desc: 'Land certificates & building permits', icon: Shield },
                                     { id: 'interior' as const, label: 'Interior Designer', desc: 'Kitchen sets, furniture & finishing', icon: Armchair },
+                                    { id: 'structural' as const, label: 'Structural Engineer', desc: 'Foundation, steel & concrete calcs', icon: Wrench },
+                                    { id: 'mep' as const, label: 'MEP Engineer', desc: 'Mechanical, electrical & plumbing', icon: Zap },
                                 ].map(role => {
                                     const Icon = role.icon;
                                     const isSelected = formData.role_type === role.id;

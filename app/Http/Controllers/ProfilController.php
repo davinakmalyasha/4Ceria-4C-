@@ -3,12 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\House;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use App\Models\User;
 use Illuminate\Support\Facades\Storage;
+
 // use App\Http\Controllers\Hash;
 
 class ProfilController extends Controller
@@ -16,9 +17,10 @@ class ProfilController extends Controller
     public function index()
     {
         $user = Auth::user();
-        $houses = House::with(['housePic' => function ($query){
+        $houses = House::with(['housePic' => function ($query) {
             $query->limit(1);
-        } ])->where('id_user', Auth::id())->get();
+        }])->where('id_user', Auth::id())->get();
+
         // return view('profile', compact('user', 'houses'));
         return view($houses);
     }
@@ -34,7 +36,7 @@ class ProfilController extends Controller
             'update_pNumber' => 'max:15',
             'pic' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
         ]);
-       
+
         $user = User::find($id);
         $user->username = $request->update_username;
         $user->name = $request->update_name;
@@ -46,7 +48,7 @@ class ProfilController extends Controller
             if ($user->pic && Storage::exists('public/profileUser/'.$user->pic)) {
                 Storage::delete('public/profileUser/'.$user->pic);
             }
-            
+
             // Simpan foto baru di folder profileUser
             $path = $request->file('pic')->store('profileUser', 'public');
             $user->pic = $path;
@@ -63,6 +65,7 @@ class ProfilController extends Controller
     public function deleteHouse($id)
     {
         DB::table('house')->where('id', $id)->delete();
+
         return redirect()->back()->with('success', 'House deleted successfully.');
     }
 }

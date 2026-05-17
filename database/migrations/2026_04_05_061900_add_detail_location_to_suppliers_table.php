@@ -1,28 +1,12 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
 
+/**
+ * NO-OP: Columns/tables consolidated into base migrations.
+ */
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
-    public function up(): void
-    {
-        Schema::table('suppliers', function (Blueprint $table) {
-            $table->text('detail_location')->nullable()->after('address');
-        });
-    }
-
-    /**
-     * Reverse the migrations.
-     */
-    public function down(): void
-    {
-        Schema::table('suppliers', function (Blueprint $table) {
-            $table->dropColumn('detail_location');
-        });
-    }
+    public function up(): void {}
+    public function down(): void {}
 };

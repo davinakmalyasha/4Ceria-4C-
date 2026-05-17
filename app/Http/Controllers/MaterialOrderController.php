@@ -3,10 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\MaterialOrder;
+use App\Services\OrderService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-
-use App\Services\OrderService;
 
 class MaterialOrderController extends Controller
 {
@@ -26,9 +25,9 @@ class MaterialOrderController extends Controller
         $query = MaterialOrder::with(['supplier', 'user', 'project', 'items.material', 'review', 'deliveryJob.logistics.phoneNumber']);
 
         if ($user->role_type === 'supplier' && $user->supplier) {
-            $query->where(function($q) use ($user) {
+            $query->where(function ($q) use ($user) {
                 $q->where('supplier_id', $user->supplier->id)
-                  ->orWhere('user_id', $user->id);
+                    ->orWhere('user_id', $user->id);
             });
         } else {
             $query->where('user_id', $user->id);
@@ -38,14 +37,14 @@ class MaterialOrderController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $orders
+            'data' => $orders,
         ]);
     }
 
     public function show(MaterialOrder $materialOrder)
     {
         $user = Auth::user();
-        
+
         // Ensure user is part of the order
         if ($materialOrder->user_id !== $user->id && ($user->role_type !== 'supplier' || $materialOrder->supplier_id !== $user->supplier->id)) {
             return response()->json(['message' => 'Unauthorized'], 403);
@@ -53,7 +52,7 @@ class MaterialOrderController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $materialOrder->load(['supplier', 'user', 'project', 'items.material'])
+            'data' => $materialOrder->load(['supplier', 'user', 'project', 'items.material']),
         ]);
     }
 
@@ -86,15 +85,15 @@ class MaterialOrderController extends Controller
             'status' => $validated['status'],
         ];
 
-        if ($validated['status'] === 'paid' && !$materialOrder->paid_at) {
+        if ($validated['status'] === 'paid' && ! $materialOrder->paid_at) {
             $updateData['paid_at'] = now();
-        } elseif ($validated['status'] === 'ready_for_pickup' && !$materialOrder->ready_for_pickup_at) {
+        } elseif ($validated['status'] === 'ready_for_pickup' && ! $materialOrder->ready_for_pickup_at) {
             $updateData['ready_for_pickup_at'] = now();
-        } elseif ($validated['status'] === 'shipping' && !$materialOrder->shipped_at) {
+        } elseif ($validated['status'] === 'shipping' && ! $materialOrder->shipped_at) {
             $updateData['shipped_at'] = now();
-        } elseif ($validated['status'] === 'delivered' && !$materialOrder->delivered_at) {
+        } elseif ($validated['status'] === 'delivered' && ! $materialOrder->delivered_at) {
             $updateData['delivered_at'] = now();
-        } elseif ($validated['status'] === 'completed' && !$materialOrder->completed_at) {
+        } elseif ($validated['status'] === 'completed' && ! $materialOrder->completed_at) {
             $updateData['completed_at'] = now();
         }
 
@@ -134,7 +133,7 @@ class MaterialOrderController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Order updated successfully.',
-            'data' => $materialOrder->load(['supplier', 'user', 'project', 'items.material', 'items.requirement'])
+            'data' => $materialOrder->load(['supplier', 'user', 'project', 'items.material', 'items.requirement']),
         ]);
     }
 }

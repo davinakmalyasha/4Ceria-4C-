@@ -39,6 +39,7 @@ class Conversation extends Model
         if (auth()->id() === $this->user_one_id) {
             return $this->userTwo;
         }
+
         return $this->userOne;
     }
 }

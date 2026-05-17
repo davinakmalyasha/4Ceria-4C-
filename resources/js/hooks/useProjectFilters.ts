@@ -52,7 +52,7 @@ export function useProjectFilters(projects: Project[]) {
 
         if (statusFilter !== 'all') {
             if (statusFilter === 'open') {
-                result = result.filter(p => ['open', 'accepted_arsitek', 'accepted_kontraktor'].includes(p.status));
+                result = result.filter(p => ['open', 'accepted_arsitek', 'accepted_kontraktor', 'completed_build', 'awaiting_payment', 'contract_pending', 'planning', 'legal'].includes(p.status));
             } else {
                 result = result.filter(p => p.status === statusFilter);
             }
@@ -99,7 +99,7 @@ export function useProjectFilters(projects: Project[]) {
     };
 
     const stats = useMemo(() => {
-        const openProjects = projects.filter(p => ['open', 'accepted_arsitek', 'accepted_kontraktor'].includes(p.status));
+        const openProjects = projects.filter(p => ['open', 'accepted_arsitek', 'accepted_kontraktor', 'completed_build', 'awaiting_payment', 'contract_pending', 'planning', 'legal'].includes(p.status));
         const activeBids = openProjects.reduce((acc, p) => acc + (p.bids_arsitek_count || 0) + (p.bids_kontraktor_count || 0), 0);
         const totalBudget = openProjects.reduce((acc, p) => acc + p.budget, 0);
 

@@ -26,6 +26,9 @@ class MepEngineer extends Model
         'verification_status',
         'rejection_reason',
         'foto',
+        'entity_type',
+        'company_name',
+        'company_license',
     ];
 
     public function user()

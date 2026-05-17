@@ -21,18 +21,22 @@ use Illuminate\Support\Facades\Storage;
 class ProjectController extends Controller
 {
     protected $lifecycleService;
+    protected $negotiationService;
 
-    public function __construct(\App\Services\ProjectLifecycleService $lifecycleService)
-    {
+    public function __construct(
+        \App\Services\ProjectLifecycleService $lifecycleService,
+        \App\Services\NegotiationService $negotiationService
+    ) {
         $this->lifecycleService = $lifecycleService;
+        $this->negotiationService = $negotiationService;
     }
     public function index(\Illuminate\Http\Request $request)
     {
         $user = Auth::guard('sanctum')->user();
 
         $query = Project::with([
-            'images', 
-            'milestones', 
+            'images',
+            'milestones',
             'requirements',
             'user',
             'arsitek.user.phoneNumber',
@@ -41,9 +45,13 @@ class ProjectController extends Controller
             'interior.user.phoneNumber',
             'projectManager.user',
             'addendums',
-            'documents.uploader'
+            'documents.uploader',
+            'paymentTermins',
+            'subProfessionals.user',
+            'structuralEngineer.user',
+            'mepEngineer.user'
         ])
-            ->withCount(['bidsArsitek', 'bidsKontraktor', 'bidsNotaris', 'bidsInterior', 'bidsProjectManager', 'bidsStructural']);
+            ->withCount(['bidsArsitek', 'bidsKontraktor', 'bidsNotaris', 'bidsInterior', 'bidsProjectManager', 'bidsStructural', 'bidsMep']);
 
         if ($request->query('with_bids') === 'true') {
             $query->with([
@@ -53,10 +61,11 @@ class ProjectController extends Controller
                 'bidsInterior.interior.user',
                 'bidsProjectManager.pm.user',
                 'bidsStructural.structuralEngineer.user',
+                'bidsMep.mepEngineer.user',
             ]);
         }
 
-        if (! $user) {
+        if (!$user) {
             // Public failsafe: only show open projects tagged for 'both' (or just don't show any)
             $query->where('status', 'open');
 
@@ -71,7 +80,7 @@ class ProjectController extends Controller
                 $arsitekId = optional($user->arsitek)->id;
                 $query->whereIn('target_role', ['both', 'arsitek'])
                     ->whereJsonContains('published_bidding_roles', 'arsitek')
-                    ->whereIn('status', ['open', 'accepted_kontraktor', 'in_progress'])
+                    ->whereIn('status', ['open', 'accepted_kontraktor', 'in_progress', 'awaiting_payment', 'contract_pending', 'planning'])
                     ->whereNull('selected_arsitek_id')
                     ->whereDoesntHave('bidsArsitek', function ($q) use ($arsitekId) {
                         $q->where('arsitek_id', $arsitekId);
@@ -89,7 +98,7 @@ class ProjectController extends Controller
                         });
                 })
                     ->whereJsonContains('published_bidding_roles', 'kontraktor')
-                    ->whereIn('status', ['open', 'accepted_arsitek', 'procurement', 'in_progress'])
+                    ->whereIn('status', ['open', 'accepted_arsitek', 'procurement', 'in_progress', 'awaiting_payment', 'contract_pending', 'planning'])
                     ->whereNull('selected_kontraktor_id')
                     ->whereDoesntHave('bidsKontraktor', function ($q) use ($kontraktorId) {
                         $q->where('kontraktor_id', $kontraktorId);
@@ -102,7 +111,29 @@ class ProjectController extends Controller
                         ->orWhere('needed_phases', '[]');
                 })
                     ->whereJsonContains('published_bidding_roles', 'notaris')
-                    ->whereIn('status', ['open', 'accepted_arsitek', 'accepted_kontraktor', 'in_progress']);
+                    ->whereNull('selected_notaris_id')
+                    ->whereIn('status', ['open', 'accepted_arsitek', 'accepted_kontraktor', 'in_progress', 'awaiting_payment', 'contract_pending', 'planning'])
+                    ->whereDoesntHave('bidsNotaris', function ($q) use ($notarisId) {
+                        $q->where('notaris_id', $notarisId);
+                    });
+            } elseif ($user->role_type === 'structural') {
+                $structuralId = optional($user->structural_engineer)->id;
+                $query->where('requires_structural', true)
+                    ->whereJsonContains('published_bidding_roles', 'structural')
+                    ->whereNull('structural_id')
+                    ->whereIn('status', ['open', 'accepted_arsitek', 'accepted_kontraktor', 'in_progress', 'awaiting_payment', 'contract_pending', 'planning'])
+                    ->whereDoesntHave('bidsStructural', function ($q) use ($structuralId) {
+                        $q->where('structural_id', $structuralId);
+                    });
+            } elseif ($user->role_type === 'mep') {
+                $mepId = optional($user->mep_engineer)->id;
+                $query->where('requires_mep', true)
+                    ->whereJsonContains('published_bidding_roles', 'mep')
+                    ->whereNull('mep_id')
+                    ->whereIn('status', ['open', 'accepted_arsitek', 'accepted_kontraktor', 'in_progress', 'awaiting_payment', 'contract_pending', 'planning'])
+                    ->whereDoesntHave('bidsMep', function ($q) use ($mepId) {
+                        $q->where('mep_id', $mepId);
+                    });
             } elseif ($user->role_type === 'interior') {
                 $interiorId = optional($user->interior_profile)->id;
                 $query->where(function ($q) {
@@ -111,13 +142,17 @@ class ProjectController extends Controller
                         ->orWhere('needed_phases', '[]');
                 })
                     ->whereJsonContains('published_bidding_roles', 'interior')
-                    ->whereIn('status', ['open', 'accepted_arsitek', 'accepted_kontraktor', 'in_progress', 'completed_build']);
+                    ->whereNull('selected_interior_id')
+                    ->whereIn('status', ['open', 'accepted_arsitek', 'accepted_kontraktor', 'in_progress', 'awaiting_payment', 'contract_pending', 'planning', 'completed_build'])
+                    ->whereDoesntHave('bidsInterior', function ($q) use ($interiorId) {
+                        $q->where('interior_id', $interiorId);
+                    });
             } elseif ($user->role_type === 'project_manager') {
                 $pmId = optional($user->project_manager)->id;
                 $query->where('wants_project_manager', true)
                     ->whereJsonContains('published_bidding_roles', 'project_manager')
                     ->whereNull('pm_id')
-                    ->whereIn('status', ['open', 'accepted_arsitek', 'accepted_kontraktor', 'in_progress'])
+                    ->whereIn('status', ['open', 'accepted_arsitek', 'accepted_kontraktor', 'in_progress', 'awaiting_payment', 'contract_pending', 'planning'])
                     ->whereDoesntHave('bidsProjectManager', function ($q) use ($pmId) {
                         $q->where('pm_id', $pmId);
                     });
@@ -203,7 +238,7 @@ class ProjectController extends Controller
         $data['wants_to_discuss_later'] = filter_var($request->wants_to_discuss_later, FILTER_VALIDATE_BOOLEAN);
         $data['project_dimensions'] = json_decode($request->project_dimensions, true);
         $data['legal_detail'] = $request->legal_detail;
-        
+
         $neededPhases = json_decode($request->needed_phases, true) ?? [];
         $data['needed_phases'] = $neededPhases;
 
@@ -268,6 +303,7 @@ class ProjectController extends Controller
 
             $project->load('images');
 
+
             ProjectActivityLog::create([
                 'project_id' => $project->id,
                 'user_id' => Auth::id(),
@@ -289,19 +325,35 @@ class ProjectController extends Controller
     public function show(Project $project)
     {
         $project->load([
-            'arsitek.user.phoneNumber',
-            'kontraktor.user.phoneNumber',
-            'notaris.user.phoneNumber',
-            'interior.user.phoneNumber',
+            // Hired Professionals
+            'arsitek.user.phoneNumber', 'arsitek.ratings',
+            'kontraktor.user.phoneNumber', 'kontraktor.ratings',
+            'notaris.user.phoneNumber', 'notaris.services', 'notaris.ratings',
+            'interior.user.phoneNumber', 'interior.ratings',
             'structuralEngineer.user.phoneNumber',
             'mepEngineer.user.phoneNumber',
-            'bidsArsitek.arsitek.user.phoneNumber',
-            'bidsKontraktor.kontraktor.user.phoneNumber',
-            'bidsNotaris.notaris.user.phoneNumber',
-            'bidsInterior.interior.user.phoneNumber',
+            'projectManager.user.phoneNumber', 'projectManager.ratings',
+
+            // Bids & Negotiation Logs
+            'bidsArsitek.negotiationLogs.user',
+            'bidsKontraktor.negotiationLogs.user',
+            'bidsNotaris.negotiationLogs.user',
+            'bidsInterior.negotiationLogs.user',
+            'bidsStructural.negotiationLogs.user',
+            'bidsMep.negotiationLogs.user',
+            'bidsProjectManager.negotiationLogs.user',
+
+            // Nested Bid Details (for Profile Previews in Bidding/Review phase)
+            'bidsArsitek.arsitek.user.phoneNumber', 'bidsArsitek.arsitek.ratings',
+            'bidsKontraktor.kontraktor.user.phoneNumber', 'bidsKontraktor.kontraktor.ratings',
+            'bidsNotaris.notaris.user.phoneNumber', 'bidsNotaris.notaris.services', 'bidsNotaris.notaris.ratings',
+            'bidsInterior.interior.user.phoneNumber', 'bidsInterior.interior.ratings',
+            'bidsProjectManager.pm.user.phoneNumber', 'bidsProjectManager.pm.ratings',
             'bidsStructural.structuralEngineer.user.phoneNumber',
             'bidsMep.mepEngineer.user.phoneNumber',
-            'bidsProjectManager.pm.user',
+
+            // Core Project Relations
+            'paymentTermins.milestone',
             'images',
             'milestones',
             'user',
@@ -309,9 +361,11 @@ class ProjectController extends Controller
             'kontraktorRating',
             'materialOrders.deliveryJob',
             'requirements',
-            'projectManager.user',
-            'addendums',
-            'documents.uploader'
+            'addendums.teamMember',
+            'documents.uploader',
+            'activityLogs',
+            'subProfessionals.user',
+            'subProfessionals.assignedByUser'
         ])->loadCount(['bidsArsitek', 'bidsKontraktor', 'bidsNotaris', 'bidsInterior', 'bidsProjectManager', 'bidsStructural', 'bidsMep']);
 
         return new ProjectResource($project);
@@ -321,12 +375,15 @@ class ProjectController extends Controller
     {
         $user = Auth::user();
 
-        if (! in_array($user->role_type, ['arsitek', 'kontraktor', 'notaris', 'interior', 'structural', 'mep', 'project_manager'])) {
+        if (!in_array($user->role_type, ['arsitek', 'kontraktor', 'notaris', 'interior', 'structural', 'mep', 'project_manager'])) {
             return response()->json(['message' => 'Only verified professionals can submit bids.'], 403);
         }
 
-        $allowedStatuses = ['open', 'accepted_arsitek', 'accepted_kontraktor', 'procurement', 'in_progress', 'completed_build'];
-        if (! in_array($project->status, $allowedStatuses)) {
+        $allowedStatuses = [
+            'open', 'accepted_arsitek', 'accepted_kontraktor', 'procurement', 
+            'in_progress', 'completed_build', 'awaiting_payment', 'contract_pending', 'planning'
+        ];
+        if (!in_array($project->status, $allowedStatuses)) {
             return response()->json(['message' => 'This project is no longer accepting bids.'], 422);
         }
 
@@ -367,11 +424,11 @@ class ProjectController extends Controller
         }
 
         $request->validate([
-            'price' => 'required|numeric|min:0',
+            'price' => 'nullable|numeric|min:0',
             'proposal' => 'required|string|max:2000',
             'estimated_duration' => 'nullable|integer|min:1',
             'duration_unit' => 'nullable|string|in:days,weeks,months',
-            'fee_type' => 'nullable|string|in:fixed,percentage,unit',
+            'fee_type' => 'nullable|string|in:fixed,percentage,unit,sqm,hourly',
             'unit_price' => 'nullable|numeric|min:0',
             'quantity' => 'nullable|numeric|min:0',
         ]);
@@ -386,8 +443,18 @@ class ProjectController extends Controller
             }
         }
 
-        // Calculate the actual total based on fee type
         $calc = $calculationService->calculate($request->all(), $project);
+
+        $servicesTotal = 0;
+        $selectedServices = $request->selected_services;
+        if ($selectedServices) {
+            $services = is_string($selectedServices) ? json_decode($selectedServices, true) : $selectedServices;
+            if (is_array($services)) {
+                foreach ($services as $service) {
+                    $servicesTotal += (float) ($service['price'] ?? 0);
+                }
+            }
+        }
 
         $baseData = [
             'project_id' => $project->id,
@@ -395,14 +462,15 @@ class ProjectController extends Controller
             'fee_type' => $calc['fee_type'],
             'unit_price' => $calc['unit_price'],
             'quantity' => $calc['quantity'],
-            'calculated_total' => $calc['calculated_total'],
+            'calculated_total' => $calc['calculated_total'] + $servicesTotal,
             'proposal' => $request->proposal,
-            'estimated_duration' => $request->estimated_duration,
-            'duration_unit' => $request->duration_unit,
+            'estimated_duration' => $request->estimated_duration ?: 1,
+            'duration_unit' => $request->duration_unit ?: 'weeks',
             'attachment_1' => $attachments['attachment_1'],
             'attachment_2' => $attachments['attachment_2'],
             'attachment_3' => $attachments['attachment_3'],
             'status' => 'pending',
+            'offered_by_id' => $user->id,
         ];
 
         if ($user->role_type === 'arsitek') {
@@ -491,28 +559,61 @@ class ProjectController extends Controller
             if ($profile->verification_status !== 'verified') {
                 return response()->json(['message' => 'Your account is pending verification.'], 403);
             }
+            $existing = \App\Models\BidStructural::where('project_id', $project->id)
+                ->where('structural_id', $profile->id)->first();
+            if ($existing && $existing->status !== 'invited') {
+                return response()->json(['message' => 'You have already submitted a bid for this project.'], 422);
+            }
+
+            if ($existing && $existing->status === 'invited') {
+                $existing->update(array_merge($baseData, [
+                    'license_number' => $request->license_number,
+                    'experience_years' => $request->experience_years,
+                    'technical_notes' => $request->technical_notes,
+                    'scopes' => is_string($request->scopes) ? json_decode($request->scopes, true) : $request->scopes,
+                    'deliverables' => is_string($request->deliverables) ? json_decode($request->deliverables, true) : $request->deliverables,
+                ]));
+                return new ProjectResource($project);
+            }
+
             \App\Models\BidStructural::create(array_merge($baseData, [
                 'structural_id' => $profile->id,
-                'scopes' => $request->scopes,
-                'deliverables' => $request->deliverables,
-                'fee_type' => $request->fee_type ?? 'fixed',
-                'unit_price' => $request->unit_price,
-                'quantity' => $request->quantity,
-                'calculated_total' => $request->calculated_total,
+                'license_number' => $request->license_number,
+                'experience_years' => $request->experience_years,
+                'technical_notes' => $request->technical_notes,
+                'scopes' => is_string($request->scopes) ? json_decode($request->scopes, true) : $request->scopes,
+                'deliverables' => is_string($request->deliverables) ? json_decode($request->deliverables, true) : $request->deliverables,
             ]));
         } elseif ($user->role_type === 'mep') {
             $profile = \App\Models\MepEngineer::where('user_id', $user->id)->firstOrFail();
             if ($profile->verification_status !== 'verified') {
                 return response()->json(['message' => 'Your account is pending verification.'], 403);
             }
+            $existing = \App\Models\BidMep::where('project_id', $project->id)
+                ->where('mep_id', $profile->id)->first();
+            if ($existing && $existing->status !== 'invited') {
+                return response()->json(['message' => 'You have already submitted a bid for this project.'], 422);
+            }
+
+            if ($existing && $existing->status === 'invited') {
+                $existing->update(array_merge($baseData, [
+                    'mep_id' => $profile->id,
+                    'license_number' => $request->license_number,
+                    'experience_years' => $request->experience_years,
+                    'technical_notes' => $request->technical_notes,
+                    'scopes' => is_string($request->scopes) ? json_decode($request->scopes, true) : $request->scopes,
+                    'deliverables' => is_string($request->deliverables) ? json_decode($request->deliverables, true) : $request->deliverables,
+                ]));
+                return new ProjectResource($project);
+            }
+
             \App\Models\BidMep::create(array_merge($baseData, [
                 'mep_id' => $profile->id,
-                'scopes' => $request->scopes,
-                'deliverables' => $request->deliverables,
-                'fee_type' => $request->fee_type ?? 'fixed',
-                'unit_price' => $request->unit_price,
-                'quantity' => $request->quantity,
-                'calculated_total' => $request->calculated_total,
+                'license_number' => $request->license_number,
+                'experience_years' => $request->experience_years,
+                'technical_notes' => $request->technical_notes,
+                'scopes' => is_string($request->scopes) ? json_decode($request->scopes, true) : $request->scopes,
+                'deliverables' => is_string($request->deliverables) ? json_decode($request->deliverables, true) : $request->deliverables,
             ]));
         } elseif ($user->role_type === 'project_manager') {
             $profile = \App\Models\ProjectManager::where('user_id', $user->id)->firstOrFail();
@@ -545,19 +646,166 @@ class ProjectController extends Controller
         ]);
 
         $project->load([
-            'bidsArsitek.arsitek.user', 
-            'bidsKontraktor.kontraktor.user', 
-            'bidsNotaris.notaris.user', 
-            'bidsInterior.interior.user', 
+            'bidsArsitek.arsitek.user',
+            'bidsKontraktor.kontraktor.user',
+            'bidsNotaris.notaris.user',
+            'bidsInterior.interior.user',
             'bidsProjectManager.pm.user',
-            'images', 
-            'user', 
-            'ratings', 
+            'images',
+            'user',
+            'ratings',
             'kontraktorRating',
             'projectManager.user'
         ]);
 
         return new ProjectResource($project);
+    }
+
+    public function proposeFeeAndTermins(Request $request, Project $project, \App\Services\BidCalculationService $calculationService)
+    {
+        $user = Auth::user();
+
+        $validated = $request->validate([
+            'bid_id' => 'required|integer',
+            'bid_type' => 'required|string|in:arsitek,kontraktor,notaris,interior,project_manager,structural,mep',
+            'price' => 'required|numeric|min:0',
+            'fee_type' => 'nullable|string|in:fixed,percentage,unit,sqm,hourly',
+            'note' => 'nullable|string', // Optional note for audit trail
+            'proposed_termins' => 'required|array',
+            'proposed_termins.*.percentage' => 'required|numeric|min:0|max:100',
+            'proposed_termins.*.trigger_description' => 'required|string',
+            'proposed_termins.*.milestone_index' => 'nullable|integer',
+            'proposed_milestones' => 'nullable|array',
+            'proposed_milestones.*.title' => 'required|string',
+            'proposed_milestones.*.description' => 'nullable|string',
+            'selected_services' => 'nullable|array',
+            'proposed_team' => 'nullable|array',
+            'proposed_team.*.team_member_id' => 'nullable|integer',
+            'proposed_team.*.name' => 'required|string|max:255',
+            'proposed_team.*.role_title' => 'required|string|max:100',
+            'proposed_team.*.role' => 'required|string|max:50',
+            'proposed_team.*.fee' => 'required|numeric|min:0',
+            'proposed_team.*.fee_type' => 'required|string|in:fixed,percentage',
+            'proposed_team.*.note' => 'nullable|string|max:500',
+        ]);
+
+        $totalPercentage = collect($validated['proposed_termins'])->sum('percentage');
+        if (abs($totalPercentage - 100) > 0.01) {
+            return response()->json(['message' => 'The total percentage of payment termins must equal exactly 100%.'], 422);
+        }
+
+        $bid = null;
+        $bidId = $validated['bid_id'];
+        $bidType = $validated['bid_type'];
+
+        $modelMap = [
+            'arsitek' => \App\Models\BidArsitek::class,
+            'kontraktor' => \App\Models\BidKontraktor::class,
+            'notaris' => \App\Models\BidNotaris::class,
+            'interior' => \App\Models\BidInterior::class,
+            'structural' => \App\Models\BidStructural::class,
+            'mep' => \App\Models\BidMep::class,
+            'project_manager' => \App\Models\BidProjectManager::class,
+        ];
+
+        $modelClass = $modelMap[$bidType];
+        $bid = $modelClass::find($bidId);
+
+        if (!$bid) {
+            return response()->json(['message' => 'Bid not found.'], 404);
+        }
+
+        // Authorization: User must be either the Bidder (Professional) OR the Project Owner
+        $isProjectOwner = (int)$project->user_id === (int)$user->id;
+        
+        // Generic Bid Ownership Check
+        $isBidOwner = false;
+        $profileIdFields = ['arsitek_id', 'kontraktor_id', 'pm_id', 'notaris_id', 'interior_id', 'structural_id', 'mep_id'];
+        
+        foreach ($profileIdFields as $field) {
+            if (isset($bid->$field)) {
+                // Find the profile for this user that matches the role
+                $profile = null;
+                if ($field === 'arsitek_id') $profile = \App\Models\Arsitek::where('user_id', $user->id)->first();
+                elseif ($field === 'kontraktor_id') $profile = \App\Models\Kontraktor::where('user_id', $user->id)->first();
+                elseif ($field === 'pm_id') $profile = \App\Models\ProjectManager::where('user_id', $user->id)->first();
+                elseif ($field === 'notaris_id') $profile = \App\Models\NotarisProfile::where('user_id', $user->id)->first();
+                elseif ($field === 'interior_id') $profile = \App\Models\InteriorProfile::where('user_id', $user->id)->first();
+                elseif ($field === 'structural_id') $profile = \App\Models\StructuralEngineer::where('user_id', $user->id)->first();
+                elseif ($field === 'mep_id') $profile = \App\Models\MepEngineer::where('user_id', $user->id)->first();
+
+                if ($profile && (int)$bid->$field === (int)$profile->id) {
+                    $isBidOwner = true;
+                    break;
+                }
+            }
+        }
+
+        if (!$isProjectOwner && !$isBidOwner) {
+            return response()->json(['message' => 'Unauthorized. You do not have permission to counter this bid.'], 403);
+        }
+
+        if (!$bid) {
+            return response()->json(['message' => 'Bid not found for this user.'], 404);
+        }
+
+        if (!in_array($bid->status, ['shortlisted', 'negotiating'])) {
+            return response()->json(['message' => 'Proposals can only be made during the shortlisting/negotiation phase.'], 422);
+        }
+
+        return DB::transaction(function () use ($bid, $validated, $project, $user, $calculationService) {
+            // 1. Log the current state as a snapshot before updating
+            $this->negotiationService->logRound($bid, $validated, $validated['note']);
+
+            // 2. Recalculate total including services
+            $calc = $calculationService->calculate([
+                'price' => $validated['price'],
+                'fee_type' => $validated['fee_type'] ?? $bid->fee_type ?? 'fixed',
+                'unit_price' => $bid->unit_price,
+                'quantity' => $bid->quantity,
+            ], $project);
+
+            $servicesTotal = 0;
+            if (isset($validated['selected_services']) && is_array($validated['selected_services'])) {
+                foreach ($validated['selected_services'] as $service) {
+                    $servicesTotal += (float) ($service['price'] ?? 0);
+                }
+            }
+
+            // Calculate team member fees total
+            $teamTotal = 0;
+            $proposedTeam = $validated['proposed_team'] ?? null;
+            if (is_array($proposedTeam)) {
+                foreach ($proposedTeam as $tm) {
+                    $teamTotal += (float) ($tm['fee'] ?? 0);
+                }
+            }
+
+            $bid->update([
+                'price' => $validated['price'],
+                'fee_type' => $validated['fee_type'] ?? $bid->fee_type ?? 'fixed',
+                'calculated_total' => $calc['calculated_total'] + $servicesTotal + $teamTotal,
+                'proposed_termins' => $validated['proposed_termins'],
+                'proposed_milestones' => $validated['proposed_milestones'] ?? null,
+                'selected_services' => $validated['selected_services'] ?? $bid->selected_services ?? null,
+                'proposed_team' => $proposedTeam,
+                'status' => 'negotiating',
+                'offered_by_id' => $user->id,
+                'negotiation_count' => ($bid->negotiation_count ?? 0) + 1,
+            ]);
+
+            \App\Models\ProjectActivityLog::create([
+                'project_id' => $project->id,
+                'user_id' => $user->id,
+                'action' => 'fee_proposed',
+                'details' => "{$user->name} proposed a counter-offer (Round " . ($bid->negotiation_count) . ").",
+            ]);
+
+            return response()->json([
+                'message' => 'Fee and phases proposed successfully',
+                'data' => $bid
+            ]);
+        });
     }
 
     /**
@@ -568,9 +816,14 @@ class ProjectController extends Controller
         $user = Auth::user();
         $isOwner = $project->user_id === $user->id;
         $isPM = $project->pm_id && $user->role_type === 'project_manager' && $user->id === $project->pm_id;
-        
+
         if (!$isOwner && !$isPM) {
             return response()->json(['message' => 'Only the Project Owner or assigned Project Manager can verify PBG compliance.'], 403);
+        }
+
+        // CRITICAL FIX: Check for Architectural Brief/Drawings (SIMBG Requirement)
+        if ($project->construction_brief_status !== 'approved') {
+            return response()->json(['message' => 'Regulatory Block: PBG verification is locked until the Architectural Construction Brief (DED) is approved and locked.'], 422);
         }
 
         return DB::transaction(function () use ($project, $user) {
@@ -597,7 +850,7 @@ class ProjectController extends Controller
         $user = Auth::user();
         $isOwner = $project->user_id === $user->id;
         $isPM = $project->pm_id && $user->role_type === 'project_manager' && $user->id === $project->pm_id;
-        
+
         if (!$isOwner && !$isPM) {
             return response()->json(['message' => 'Only the Project Owner or assigned Project Manager can verify SLF compliance.'], 403);
         }
@@ -719,34 +972,40 @@ class ProjectController extends Controller
         }
 
         $project->load([
-            'bidsArsitek.arsitek.user', 
-            'bidsKontraktor.kontraktor.user', 
-            'bidsNotaris.notaris.user', 
-            'bidsInterior.interior.user', 
+            'bidsArsitek.arsitek.user',
+            'bidsKontraktor.kontraktor.user',
+            'bidsNotaris.notaris.user',
+            'bidsInterior.interior.user',
             'bidsProjectManager.pm.user',
-            'images', 
-            'user', 
-            'ratings', 
+            'images',
+            'user',
+            'ratings',
             'kontraktorRating',
             'projectManager.user'
         ]);
 
         return new ProjectResource($project);
     }
-
-    public function acceptBid(Request $request, Project $project)
+    public function shortlistBid(Request $request, Project $project)
     {
         return DB::transaction(function () use ($request, $project) {
             $user = Auth::user();
             $isOwner = $project->user_id === $user->id;
             $isPM = $project->pm_id && $user->role_type === 'project_manager' && $user->id === $project->pm_id;
+            $isLeadArchitect = $project->selected_arsitek_id && $user->role_type === 'arsitek' && optional($user->arsitek)->id === $project->selected_arsitek_id;
+            $isLeadContractor = $project->selected_kontraktor_id && $user->role_type === 'kontraktor' && optional($user->kontraktor)->id === $project->selected_kontraktor_id;
 
-            if (!$isOwner && !$isPM) {
-                return response()->json(['message' => 'Unauthorized. Must be project owner or the assigned Project Manager.'], 403);
+            $isSpecialistRole = in_array($request->bid_type, ['structural', 'mep']);
+            $canShortlist = $isOwner || $isPM || ($isSpecialistRole && ($isLeadArchitect || $isLeadContractor));
+
+            if (!$canShortlist) {
+                return response()->json(['message' => 'Unauthorized. Only project owner, PM, or assigned lead professional can shortlist candidates.'], 403);
             }
 
-            if ($isOwner && $project->wants_project_manager) {
-                return response()->json(['message' => 'This project is managed by a Project Manager. Only the Project Manager can hire professionals.'], 403);
+            if (($isOwner || $isPM) && $project->wants_project_manager && !$isPM) {
+                // If owner tries but there is a PM, we might still block unless it's a specialist?
+                // Actually, let's just keep the existing logic for owner vs PM
+                return response()->json(['message' => 'This project is managed by a Project Manager. Only the Project Manager can shortlist professionals.'], 403);
             }
 
             $request->validate([
@@ -754,174 +1013,39 @@ class ProjectController extends Controller
                 'bid_type' => 'required|in:arsitek,kontraktor,notaris,interior,structural,mep',
             ]);
 
-            $totalDeduction = 0;
-            $bidderName = 'Professional';
-            $bidderUserId = null;
-
+            $bid = null;
             if ($request->bid_type === 'arsitek') {
-                $bid = \App\Models\BidArsitek::where('id', $request->bid_id)->where('project_id', $project->id)->firstOrFail();
-                $bid->update(['status' => 'accepted']);
-                \App\Models\BidArsitek::where('project_id', $project->id)->where('id', '!=', $bid->id)->update(['status' => 'rejected']);
-
-                $totalDeduction = $bid->calculated_total ?? $bid->price;
-                $bidderName = $bid->arsitek->user->name ?? 'Architect';
-                $bidderUserId = $bid->arsitek->user_id;
-
-                if ($project->target_role === 'arsitek' || $project->status === 'accepted_kontraktor') {
-                    $project->update(['selected_arsitek_id' => $bid->arsitek_id, 'status' => 'in_progress']);
-                } else {
-                    $project->update(['selected_arsitek_id' => $bid->arsitek_id, 'status' => 'accepted_arsitek']);
-                }
+                $bid = \App\Models\BidArsitek::where('id', $request->bid_id)->where('project_id', $project->id)->with('arsitek.user')->firstOrFail();
             } elseif ($request->bid_type === 'kontraktor') {
-                $bid = \App\Models\BidKontraktor::where('id', $request->bid_id)->where('project_id', $project->id)->firstOrFail();
-                $bid->update(['status' => 'accepted']);
-                \App\Models\BidKontraktor::where('project_id', $project->id)->where('id', '!=', $bid->id)->update(['status' => 'rejected']);
-
-                $totalDeduction = $bid->calculated_total ?? $bid->price;
-                $bidderName = $bid->kontraktor->user->name ?? 'Contractor';
-                $bidderUserId = $bid->kontraktor->user_id;
-
-                if ($project->target_role === 'kontraktor' || $project->status === 'accepted_arsitek') {
-                    $project->update(['selected_kontraktor_id' => $bid->kontraktor_id, 'status' => 'in_progress']);
-                } else {
-                    $project->update(['selected_kontraktor_id' => $bid->kontraktor_id, 'status' => 'accepted_kontraktor']);
-                }
-
-                // IMPLICIT APPROVAL: Hiring a contractor automatically unblocks/verifies the Design phase
-                $this->lifecycleService->implicitVerify($project, 'design');
+                $bid = \App\Models\BidKontraktor::where('id', $request->bid_id)->where('project_id', $project->id)->with('kontraktor.user')->firstOrFail();
             } elseif ($request->bid_type === 'notaris') {
-                $bid = \App\Models\BidNotaris::where('id', $request->bid_id)->where('project_id', $project->id)->firstOrFail();
-                $bid->update(['status' => 'accepted']);
-                \App\Models\BidNotaris::where('project_id', $project->id)->where('id', '!=', $bid->id)->update(['status' => 'rejected']);
-
-                $professionalFee = $bid->calculated_total ?? $bid->price;
-                $taxEstimate = $bid->tax_estimate ?? 0;
-                $totalDeduction = $professionalFee + $taxEstimate;
-                $bidderName = $bid->notaris->user->name ?? 'Notary';
-                $bidderUserId = $bid->notaris->user_id;
-
-                $project->update(['selected_notaris_id' => $bid->notaris_id, 'status' => 'in_progress']);
-
-                // Seed Legal Milestones
-                $rawRequirements = is_array($project->legal_requirements) ? $project->legal_requirements : [];
-                if (empty($rawRequirements) && is_array($bid->selected_services)) {
-                    $rawRequirements = $bid->selected_services;
-                }
-                $requirements = array_unique(['spk_contract', ...$rawRequirements, 'as_built_drawings', 'misc_legal']);
-                $labels = [
-                    'spk_contract' => 'SPK (Owner-Pro Contract)',
-                    'land_verification' => 'AJB & Balik Nama (Title Due Diligence)',
-                    'pbg_permit' => 'PBG (Building & Planning Permit)',
-                    'as_built_drawings' => 'As-Built Drawings (Record Drawings)',
-                    'slf_certification' => 'SLF Certification (Certificate of Occupancy)',
-                    'misc_legal' => 'Field Reports (Misc Progress)'
-                ];
-
-                foreach ($requirements as $index => $req) {
-                    $title = $labels[$req] ?? ucwords(str_replace(['_', '-'], ' ', (string)$req));
-
-                    \App\Models\ProjectMilestone::firstOrCreate(
-                        ['project_id' => $project->id, 'title' => $title],
-                        [
-                            'notaris_id' => $bid->notaris->user_id,
-                            'description' => 'Final verified ' . $title . ' document and legal processing notes.',
-                            'type' => 'legal',
-                            'phase_context' => 'legal',
-                            'sort_order' => $index,
-                            'is_completed' => false,
-                            'approval_status' => 'in_progress',
-                        ]
-                    );
-                }
+                $bid = \App\Models\BidNotaris::where('id', $request->bid_id)->where('project_id', $project->id)->with('notaris.user')->firstOrFail();
             } elseif ($request->bid_type === 'interior') {
-                $bid = \App\Models\BidInterior::where('id', $request->bid_id)->where('project_id', $project->id)->firstOrFail();
-                $bid->update(['status' => 'accepted']);
-                \App\Models\BidInterior::where('project_id', $project->id)->where('id', '!=', $bid->id)->update(['status' => 'rejected']);
-
-                $totalDeduction = $bid->calculated_total ?? $bid->price;
-                $bidderName = $bid->interior->user->name ?? 'Interior Designer';
-                $bidderUserId = $bid->interior->user_id;
-                $project->update(['selected_interior_id' => $bid->interior_id]);
+                $bid = \App\Models\BidInterior::where('id', $request->bid_id)->where('project_id', $project->id)->with('interior.user')->firstOrFail();
             } elseif ($request->bid_type === 'structural') {
-                $bid = \App\Models\BidStructural::where('id', $request->bid_id)->where('project_id', $project->id)->firstOrFail();
-
-                // GLOBAL STANDARD: Create a Change Order (Addendum) for Owner approval instead of direct hire
-                $project->addendums()->create([
-                    'role_type' => 'structural',
-                    'user_id' => $user->id,
-                    'title' => 'Engineering Resource: Structural Engineer Selection',
-                    'description' => "Recommendation to hire " . ($bid->structuralEngineer->user->name ?? 'Specialist') . " for structural analysis.\nProposed Fee: Rp " . number_format($bid->price, 0, ',', '.'),
-                    'amount' => $bid->calculated_total ?? $bid->price,
-                    'status' => 'pending_approval',
-                    'recommended_bid_id' => $bid->id,
-                    'recommended_bid_type' => 'structural',
-                ]);
-
-                return response()->json(['message' => 'Structural engineering recommendation sent to project owner for budget authorization.']);
+                $bid = \App\Models\BidStructural::where('id', $request->bid_id)->where('project_id', $project->id)->with('structuralEngineer.user')->firstOrFail();
             } elseif ($request->bid_type === 'mep') {
-                $bid = \App\Models\BidMep::where('id', $request->bid_id)->where('project_id', $project->id)->firstOrFail();
-
-                // GLOBAL STANDARD: Create a Change Order (Addendum) for Owner approval instead of direct hire
-                $project->addendums()->create([
-                    'role_type' => 'mep',
-                    'user_id' => $user->id,
-                    'title' => 'Engineering Resource: MEP Engineer Selection',
-                    'description' => "Recommendation to hire " . ($bid->mepEngineer->user->name ?? 'Specialist') . " for Mechanical, Electrical, and Plumbing design.\nProposed Fee: Rp " . number_format($bid->price, 0, ',', '.'),
-                    'amount' => $bid->calculated_total ?? $bid->price,
-                    'status' => 'pending_approval',
-                    'recommended_bid_id' => $bid->id,
-                    'recommended_bid_type' => 'mep',
-                ]);
-
-                return response()->json(['message' => 'MEP engineering recommendation sent to project owner for budget authorization.']);
+                $bid = \App\Models\BidMep::where('id', $request->bid_id)->where('project_id', $project->id)->with('mepEngineer.user')->firstOrFail();
             }
 
-            // --- BUDGET AUTHORIZATION GATE (Indonesian Standard: Permen PUPR) ---
-            // Instead of immediately deducting the budget, create an addendum
-            // that requires explicit Owner approval before funds are allocated.
-            $project->addendums()->create([
-                'role_type' => $request->bid_type,
-                'user_id' => $user->id,
-                'title' => ucwords($request->bid_type) . ' Professional Fee Authorization',
-                'description' => "PM recommends hiring {$bidderName} for project \"{$project->title}\".\nProposed Fee: Rp " . number_format($totalDeduction, 0, ',', '.'),
-                'amount' => $totalDeduction,
-                'status' => 'pending_approval',
-                'recommended_bid_id' => $bid->id,
-                'recommended_bid_type' => $request->bid_type,
-            ]);
+            $bid->update(['status' => 'shortlisted']);
 
-            // Notify the Owner that a budget authorization is pending
+            // Notify the shortlisted professional
+            $bidderUserId = match ($request->bid_type) {
+                'arsitek' => $bid->arsitek->user_id,
+                'kontraktor' => $bid->kontraktor->user_id,
+                'notaris' => $bid->notaris->user_id,
+                'interior' => $bid->interior->user_id,
+                'structural' => $bid->structuralEngineer->user_id,
+                'mep' => $bid->mepEngineer->user_id,
+            };
+
             Notification::create([
-                'user_id' => $project->user_id,
-                'type' => 'budget_authorization',
-                'title' => 'Budget Authorization Required',
-                'body' => "Your PM has hired {$bidderName} for project \"{$project->title}\". Please authorize the budget of Rp " . number_format($totalDeduction, 0, ',', '.') . ".",
+                'user_id' => $bidderUserId,
+                'type' => 'bid_shortlisted',
+                'title' => 'Proposal Shortlisted!',
+                'body' => "You have been shortlisted for project \"{$project->title}\". The owner wants to discuss your proposal.",
                 'data' => ['project_id' => $project->id],
-            ]);
-
-            // Notify the hired professional
-            if ($bidderUserId) {
-                Notification::create([
-                    'user_id' => $bidderUserId,
-                    'type' => 'bid_accepted',
-                    'title' => 'Congratulations! Your Bid was Accepted',
-                    'body' => "Your proposal for project \"{$project->title}\" has been accepted. Awaiting owner budget authorization.",
-                    'data' => ['project_id' => $project->id],
-                ]);
-            }
-
-            if ($project->status === 'in_progress') {
-                \App\Models\ProjectMilestone::firstOrCreate(
-                    ['project_id' => $project->id, 'title' => 'Project Kickoff'],
-                    ['description' => 'Contract executed. The project is ready to begin.', 'status' => 'pending']
-                );
-            }
-
-            ProjectActivityLog::create([
-                'project_id' => $project->id,
-                'user_id' => Auth::id(),
-                'action' => 'bid_accepted',
-                'details' => "Accepted {$request->bid_type} bid. Budget authorization pending owner approval.",
             ]);
 
             $project->load([
@@ -933,17 +1057,241 @@ class ProjectController extends Controller
                 'bidsKontraktor.kontraktor.user.phoneNumber',
                 'bidsNotaris.notaris.user.phoneNumber',
                 'bidsInterior.interior.user.phoneNumber',
+                'bidsStructural.structuralEngineer.user',
+                'bidsMep.mepEngineer.user',
+                'user',
+                'images',
+                'ratings',
+                'kontraktorRating',
+            ]);
+            $project->loadCount(['bidsArsitek', 'bidsKontraktor', 'bidsNotaris', 'bidsInterior', 'bidsProjectManager', 'bidsStructural', 'bidsMep']);
+
+            return new ProjectResource($project);
+        });
+    }
+
+    public function acceptBid(Request $request, Project $project)
+    {
+        return DB::transaction(function () use ($request, $project) {
+            $user = Auth::user();
+            $isOwner = $project->user_id === $user->id;
+            $isPM = $project->pm_id && $user->role_type === 'project_manager' && $user->id === $project->pm_id;
+
+            if (!$isOwner) {
+                return response()->json(['message' => 'Unauthorized. Only the Project Owner can finalize hiring and allocate budget.'], 403);
+            }
+
+            $request->validate([
+                'bid_id' => 'required|integer',
+                'bid_type' => 'required|in:arsitek,kontraktor,notaris,interior,structural,mep',
+                'verification_notes' => 'nullable|string|max:1000',
+            ]);
+
+            // Validate that the bid is shortlisted before accepting
+            $bidModel = match ($request->bid_type) {
+                'arsitek' => \App\Models\BidArsitek::class,
+                'kontraktor' => \App\Models\BidKontraktor::class,
+                'notaris' => \App\Models\BidNotaris::class,
+                'interior' => \App\Models\BidInterior::class,
+                'structural' => \App\Models\BidStructural::class,
+                'mep' => \App\Models\BidMep::class,
+            };
+
+            $bidToCheck = $bidModel::where('id', $request->bid_id)->where('project_id', $project->id)->firstOrFail();
+
+            // Financial Safety Check: Prevent Rp 0 or Unconfirmed Hire
+            if ($bidToCheck->status !== 'shortlisted' && $bidToCheck->status !== 'negotiating') {
+                return response()->json(['message' => 'You must shortlist or negotiate with this professional first before hiring.'], 422);
+            }
+
+            if ($bidToCheck->price <= 0 && ($bidToCheck->calculated_total ?? 0) <= 0) {
+                return response()->json(['message' => 'Cannot hire a professional with a Rp 0 fee. Please negotiate terms first.'], 422);
+            }
+
+            // If fee hasn't been explicitly agreed yet, we'll mark it as agreed now since the owner is finalizing the hire
+            if (!$bidToCheck->fee_agreed_at) {
+                $bidToCheck->update(['fee_agreed_at' => now()]);
+            }
+
+            $financialService = app(\App\Services\ProjectFinancialService::class);
+            $bidderName = 'Professional';
+            $bidderUserId = null;
+
+            if ($request->bid_type === 'arsitek') {
+                $bid = \App\Models\BidArsitek::where('id', $request->bid_id)->where('project_id', $project->id)->with('arsitek.user')->firstOrFail();
+                $bid->update([
+                    'status' => 'contract_pending',
+                    'verification_notes' => $request->verification_notes
+                ]);
+                \App\Models\BidArsitek::where('project_id', $project->id)->where('id', '!=', $bid->id)->update(['status' => 'rejected']);
+
+                if ($project->target_role === 'arsitek' || $project->status === 'accepted_kontraktor') {
+                    $project->update(['selected_arsitek_id' => $bid->arsitek_id]);
+                } else {
+                    $project->update(['selected_arsitek_id' => $bid->arsitek_id]);
+                }
+
+                // Removed AUTO-DEDUCT. This now happens in verifyBidPayment.
+
+            } elseif ($request->bid_type === 'kontraktor') {
+                $bid = \App\Models\BidKontraktor::where('id', $request->bid_id)->where('project_id', $project->id)->with('kontraktor.user')->firstOrFail();
+                $bid->update([
+                    'status' => 'contract_pending',
+                    'verification_notes' => $request->verification_notes
+                ]);
+                \App\Models\BidKontraktor::where('project_id', $project->id)->where('id', '!=', $bid->id)->update(['status' => 'rejected']);
+
+                if ($project->target_role === 'kontraktor' || $project->status === 'accepted_arsitek') {
+                    $project->update(['selected_kontraktor_id' => $bid->kontraktor_id]);
+                } else {
+                    $project->update(['selected_kontraktor_id' => $bid->kontraktor_id]);
+                }
+
+                // Removed AUTO-DEDUCT.
+                $this->lifecycleService->implicitVerify($project, 'design');
+
+            } elseif ($request->bid_type === 'notaris') {
+                $bid = \App\Models\BidNotaris::where('id', $request->bid_id)->where('project_id', $project->id)->with('notaris.user')->firstOrFail();
+                $bid->update([
+                    'status' => 'contract_pending',
+                    'verification_notes' => $request->verification_notes
+                ]);
+                \App\Models\BidNotaris::where('project_id', $project->id)->where('id', '!=', $bid->id)->update(['status' => 'rejected']);
+
+                $project->update([
+                    'selected_notaris_id' => $bid->notaris_id,
+                    'status' => 'in_progress'
+                ]);
+
+                $bidderName = $bid->notaris->user->name ?? 'Notary';
+                $bidderUserId = $bid->notaris->user_id;
+
+                // 4. Auto-finalize legal scope using negotiated services
+                $services = is_array($bid->selected_services) ? $bid->selected_services : [];
+                if (!empty($services)) {
+                    $serviceIds = array_map(function($s) {
+                        return is_array($s) ? (string)($s['id'] ?? $s) : (string)$s;
+                    }, $services);
+                    \App\Http\Controllers\Api\ProjectLegalController::syncProjectLegalScope($project, $serviceIds, $user->id);
+                }
+
+                // Tax estimate confirmation via addendum
+                if ($bid->tax_estimate > 0) {
+                    $project->addendums()->create([
+                        'role_type' => 'notaris',
+                        'user_id' => Auth::id(),
+                        'title' => 'Legal Tax Estimate Confirmation',
+                        'description' => "Estimated taxes (BPHTB/PPH) for legalization. Click to acknowledge and include in budget.",
+                        'amount' => $bid->tax_estimate,
+                        'status' => 'pending_approval',
+                        'recommended_bid_id' => $bid->id,
+                        'recommended_bid_type' => 'notaris',
+                    ]);
+                }
+            } elseif ($request->bid_type === 'interior') {
+                $bid = \App\Models\BidInterior::where('id', $request->bid_id)->where('project_id', $project->id)->with('interior.user')->firstOrFail();
+                $bid->update([
+                    'status' => 'contract_pending',
+                    'verification_notes' => $request->verification_notes
+                ]);
+                \App\Models\BidInterior::where('project_id', $project->id)->where('id', '!=', $bid->id)->update(['status' => 'rejected']);
+
+                $bidderName = $bid->interior->user->name ?? 'Interior Designer';
+                $bidderUserId = $bid->interior->user_id;
+                $project->update(['selected_interior_id' => $bid->interior_id]);
+
+            } elseif ($request->bid_type === 'structural') {
+                $bid = \App\Models\BidStructural::where('id', $request->bid_id)->where('project_id', $project->id)->with('structuralEngineer.user')->firstOrFail();
+                $bid->update([
+                    'status' => 'contract_pending',
+                    'verification_notes' => $request->verification_notes
+                ]);
+                $bidderName = $bid->structuralEngineer->user->name ?? 'Specialist';
+                $bidderUserId = $bid->structuralEngineer->user_id;
+
+                // BUDGET CONFIRMATION: Engineering Resource (Manual Authorization)
+                $project->addendums()->create([
+                    'role_type' => 'structural',
+                    'user_id' => Auth::id(),
+                    'title' => 'Structural Engineer Budget Authorization',
+                    'description' => "Acknowledging fee for {$bidderName} structural analysis resource.",
+                    'amount' => $bid->calculated_total ?? $bid->price,
+                    'status' => 'pending_approval',
+                    'recommended_bid_id' => $bid->id,
+                    'recommended_bid_type' => 'structural',
+                ]);
+            } elseif ($request->bid_type === 'mep') {
+                $bid = \App\Models\BidMep::where('id', $request->bid_id)->where('project_id', $project->id)->with('mepEngineer.user')->firstOrFail();
+                $bid->update([
+                    'status' => 'contract_pending',
+                    'verification_notes' => $request->verification_notes
+                ]);
+                $bidderName = $bid->mepEngineer->user->name ?? 'Specialist';
+                $bidderUserId = $bid->mepEngineer->user_id;
+
+                // BUDGET CONFIRMATION: Engineering Resource (Manual Authorization)
+                $project->addendums()->create([
+                    'role_type' => 'mep',
+                    'user_id' => Auth::id(),
+                    'title' => 'MEP Engineer Budget Authorization',
+                    'description' => "Acknowledging fee for {$bidderName} MEP design resource.",
+                    'amount' => $bid->calculated_total ?? $bid->price,
+                    'status' => 'pending_approval',
+                    'recommended_bid_id' => $bid->id,
+                    'recommended_bid_type' => 'mep',
+                ]);
+            }
+
+            // Global Notification to hired professional
+            if ($bidderUserId) {
+                Notification::create([
+                    'user_id' => $bidderUserId,
+                    'type' => 'bid_accepted',
+                    'title' => 'Congratulations! Your Bid was Accepted',
+                    'body' => "Your proposal for project \"{$project->title}\" has been accepted. You are now officially assigned to the project.",
+                    'data' => ['project_id' => $project->id],
+                ]);
+            }
+
+            if ($project->status === 'in_progress' || $project->status === 'accepted_arsitek' || $project->status === 'accepted_kontraktor') {
+                \App\Models\ProjectMilestone::firstOrCreate(
+                    ['project_id' => $project->id, 'title' => 'Project Kickoff'],
+                    ['description' => 'Contract executed. The project is ready to begin.', 'status' => 'pending']
+                );
+            }
+
+            // Removed auto-generation of milestones/termins here. 
+            // These are now created exclusively in signContract() when the professional defines the final terms.
+
+            ProjectActivityLog::create([
+                'project_id' => $project->id,
+                'user_id' => Auth::id(),
+                'action' => 'bid_accepted',
+                'details' => "Accepted {$request->bid_type} bid from {$bidderName}. Budget commitment managed via professional fee ledger.",
+            ]);
+
+            $project->load([
+                'arsitek.user',
+                'kontraktor.user',
+                'notaris.user',
+                'interior.user',
+                'bidsArsitek.arsitek.user',
+                'bidsKontraktor.kontraktor.user',
+                'bidsNotaris.notaris.user',
+                'bidsInterior.interior.user',
                 'bidsProjectManager.pm.user',
                 'user',
                 'images',
                 'ratings',
                 'kontraktorRating',
-                'projectManager.user'
+                'projectManager.user',
+                'paymentTermins'
             ])->loadCount(['bidsArsitek', 'bidsKontraktor', 'bidsNotaris', 'bidsInterior', 'bidsProjectManager']);
 
             return new ProjectResource($project);
         });
     }
+
 
     /**
      * Submit planning brief for client approval.
@@ -990,7 +1338,7 @@ class ProjectController extends Controller
                 'planning_approved_at' => now(),
                 'design_payment_verified_at' => now(),
             ]);
-            
+
             return new ProjectResource($project);
         });
     }
@@ -1014,7 +1362,7 @@ class ProjectController extends Controller
 
         return DB::transaction(function () use ($project, $request) {
             $attachments = $project->pm_audit_attachments ?? [];
-            
+
             if ($request->hasFile('attachments')) {
                 foreach ($request->file('attachments') as $file) {
                     if (count($attachments) < 3) {
@@ -1165,11 +1513,11 @@ class ProjectController extends Controller
                     ]
                 );
             }
-            
+
 
             // Auto-Generate Roadmap based on deliverables
             $deliverables = $project->design_details['deliverables'] ?? [];
-            
+
             $mapping = [
                 '3d_render' => [
                     'title' => '3D Visualization: Photorealistic Renders',
@@ -1295,22 +1643,22 @@ class ProjectController extends Controller
         ]);
 
         if ($request->bid_type === 'arsitek') {
-            $bid = \App\Models\BidArsitek::where('id', $request->bid_id)->where('project_id', $project->id)->firstOrFail();
+            $bid = \App\Models\BidArsitek::where('id', $request->bid_id)->where('project_id', $project->id)->whereIn('status', ['pending', 'shortlisted'])->firstOrFail();
             $bid->update(['status' => 'rejected']);
         } elseif ($request->bid_type === 'kontraktor') {
-            $bid = \App\Models\BidKontraktor::where('id', $request->bid_id)->where('project_id', $project->id)->firstOrFail();
+            $bid = \App\Models\BidKontraktor::where('id', $request->bid_id)->where('project_id', $project->id)->whereIn('status', ['pending', 'shortlisted'])->firstOrFail();
             $bid->update(['status' => 'rejected']);
         } elseif ($request->bid_type === 'notaris') {
-            $bid = \App\Models\BidNotaris::where('id', $request->bid_id)->where('project_id', $project->id)->firstOrFail();
+            $bid = \App\Models\BidNotaris::where('id', $request->bid_id)->where('project_id', $project->id)->whereIn('status', ['pending', 'shortlisted'])->firstOrFail();
             $bid->update(['status' => 'rejected']);
         } elseif ($request->bid_type === 'interior') {
-            $bid = \App\Models\BidInterior::where('id', $request->bid_id)->where('project_id', $project->id)->firstOrFail();
+            $bid = \App\Models\BidInterior::where('id', $request->bid_id)->where('project_id', $project->id)->whereIn('status', ['pending', 'shortlisted'])->firstOrFail();
             $bid->update(['status' => 'rejected']);
         } elseif ($request->bid_type === 'structural') {
-            $bid = \App\Models\BidStructural::where('id', $request->bid_id)->where('project_id', $project->id)->firstOrFail();
+            $bid = \App\Models\BidStructural::where('id', $request->bid_id)->where('project_id', $project->id)->whereIn('status', ['pending', 'shortlisted'])->firstOrFail();
             $bid->update(['status' => 'rejected']);
         } elseif ($request->bid_type === 'mep') {
-            $bid = \App\Models\BidMep::where('id', $request->bid_id)->where('project_id', $project->id)->firstOrFail();
+            $bid = \App\Models\BidMep::where('id', $request->bid_id)->where('project_id', $project->id)->whereIn('status', ['pending', 'shortlisted'])->firstOrFail();
             $bid->update(['status' => 'rejected']);
         }
 
@@ -1377,12 +1725,38 @@ class ProjectController extends Controller
         }
 
         $isPM = $project->pm_id === $user->id;
-        
-        if (! $isOwner && ! $isWorker && ! $isPM) {
+
+        if (!$isOwner && !$isWorker && !$isPM) {
             return response()->json(['message' => 'Unauthorized. Must be project owner, hired professional, or PM.'], 403);
         }
 
         $data = $request->validated();
+
+        // Robust JSON Handling: Merge instead of overwrite for structured details
+        if ($request->has('design_details')) {
+            $data['design_details'] = array_merge(
+                (array) ($project->design_details ?? []),
+                (array) $request->design_details
+            );
+        }
+        if ($request->has('construction_details')) {
+            $data['construction_details'] = array_merge(
+                (array) ($project->construction_details ?? []),
+                (array) $request->construction_details
+            );
+        }
+        if ($request->has('interior_details')) {
+            $data['interior_details'] = array_merge(
+                (array) ($project->interior_details ?? []),
+                (array) $request->interior_details
+            );
+        }
+
+        // Handle needed_phases if sent as JSON string
+        if ($request->has('needed_phases') && is_string($request->needed_phases)) {
+            $data['needed_phases'] = json_decode($request->needed_phases, true) ?? $project->needed_phases;
+        }
+
         if ($request->hasFile('attachment')) {
             $data['attachment'] = $request->file('attachment')->store('project_attachments', 'public');
         }
@@ -1425,9 +1799,9 @@ class ProjectController extends Controller
         // Sync Payment Termins if provided
         if ($request->has('payment_termins')) {
             $targetRole = $request->input('target_role', $user->role_type);
-            
+
             $project->paymentTermins()->where('role_type', $targetRole)->delete();
-            
+
             foreach ($request->payment_termins as $termin) {
                 $project->paymentTermins()->create([
                     'label' => $termin['label'],
@@ -1443,6 +1817,8 @@ class ProjectController extends Controller
             }
         }
 
+        $project->update($data);
+
         if (isset($data['status'])) {
             ProjectActivityLog::create([
                 'project_id' => $project->id,
@@ -1453,6 +1829,25 @@ class ProjectController extends Controller
         }
 
         return new ProjectResource($project);
+    }
+
+    /**
+     * Generic file upload for project-related assets (brief images, moodboards, etc.)
+     */
+    public function uploadFile(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:jpg,jpeg,png,pdf,webp|max:10240',
+            'folder' => 'nullable|string'
+        ]);
+
+        $folder = $request->input('folder', 'project_assets');
+        $path = $request->file('file')->store($folder, 'public');
+
+        return response()->json([
+            'url' => asset('storage/' . $path),
+            'path' => $path
+        ]);
     }
 
     public function destroy(Project $project)
@@ -1469,49 +1864,159 @@ class ProjectController extends Controller
     public function myBids()
     {
         $user = Auth::user();
+        $formatBids = function ($bids) {
+            return $bids->map(function ($bid) {
+                $array = $bid->toArray();
+                if ($bid->project) {
+                    $array['project'] = (new \App\Http\Resources\ProjectResource($bid->project))->resolve();
+                }
+                return $array;
+            });
+        };
         if ($user->role_type === 'arsitek') {
             $arsitek = \App\Models\Arsitek::where('user_id', $user->id)->first();
-            if (! $arsitek) {
+            if (!$arsitek) {
                 return response()->json(['data' => []]);
             }
-            $bids = \App\Models\BidArsitek::with(['project'])->where('arsitek_id', $arsitek->id)->orderBy('created_at', 'desc')->get();
+            $bids = \App\Models\BidArsitek::with([
+                'project' => function ($q) {
+                    $q->with([
+                        'bidsArsitek.arsitek.user', 'bidsArsitek.negotiationLogs.user',
+                        'bidsKontraktor.kontraktor.user', 'bidsKontraktor.negotiationLogs.user',
+                        'bidsNotaris.notaris.user', 'bidsNotaris.negotiationLogs.user',
+                        'bidsInterior.interior.user', 'bidsInterior.negotiationLogs.user',
+                        'bidsProjectManager.pm.user', 'bidsProjectManager.negotiationLogs.user',
+                        'bidsStructural.structuralEngineer.user', 'bidsStructural.negotiationLogs.user',
+                        'bidsMep.mepEngineer.user', 'bidsMep.negotiationLogs.user'
+                    ]);
+                }
+            ])->where('arsitek_id', $arsitek->id)->orderBy('created_at', 'desc')->get();
 
-            return response()->json(['data' => $bids]);
+            return response()->json(['data' => $formatBids($bids)]);
         } elseif ($user->role_type === 'kontraktor') {
             $kontraktor = \App\Models\Kontraktor::where('user_id', $user->id)->first();
-            if (! $kontraktor) {
+            if (!$kontraktor) {
                 return response()->json(['data' => []]);
             }
-            $bids = \App\Models\BidKontraktor::with(['project'])->where('kontraktor_id', $kontraktor->id)->orderBy('created_at', 'desc')->get();
+            $bids = \App\Models\BidKontraktor::with([
+                'project' => function ($q) {
+                    $q->with([
+                        'bidsArsitek.arsitek.user', 'bidsArsitek.negotiationLogs.user',
+                        'bidsKontraktor.kontraktor.user', 'bidsKontraktor.negotiationLogs.user',
+                        'bidsNotaris.notaris.user', 'bidsNotaris.negotiationLogs.user',
+                        'bidsInterior.interior.user', 'bidsInterior.negotiationLogs.user',
+                        'bidsProjectManager.pm.user', 'bidsProjectManager.negotiationLogs.user',
+                        'bidsStructural.structuralEngineer.user', 'bidsStructural.negotiationLogs.user',
+                        'bidsMep.mepEngineer.user', 'bidsMep.negotiationLogs.user'
+                    ]);
+                }
+            ])->where('kontraktor_id', $kontraktor->id)->orderBy('created_at', 'desc')->get();
 
-            return response()->json(['data' => $bids]);
+            return response()->json(['data' => $formatBids($bids)]);
         } elseif ($user->role_type === 'notaris') {
             $notaris = \App\Models\NotarisProfile::where('user_id', $user->id)->first();
-            if (! $notaris) {
+            if (!$notaris) {
                 return response()->json(['data' => []]);
             }
-            $bids = \App\Models\BidNotaris::with(['project'])->where('notaris_id', $notaris->id)->orderBy('created_at', 'desc')->get();
+            $bids = \App\Models\BidNotaris::with([
+                'project' => function ($q) {
+                    $q->with([
+                        'bidsArsitek.arsitek.user', 'bidsArsitek.negotiationLogs.user',
+                        'bidsKontraktor.kontraktor.user', 'bidsKontraktor.negotiationLogs.user',
+                        'bidsNotaris.notaris.user', 'bidsNotaris.negotiationLogs.user',
+                        'bidsInterior.interior.user', 'bidsInterior.negotiationLogs.user',
+                        'bidsProjectManager.pm.user', 'bidsProjectManager.negotiationLogs.user',
+                        'bidsStructural.structuralEngineer.user', 'bidsStructural.negotiationLogs.user',
+                        'bidsMep.mepEngineer.user', 'bidsMep.negotiationLogs.user'
+                    ]);
+                }
+            ])->where('notaris_id', $notaris->id)->orderBy('created_at', 'desc')->get();
 
-            return response()->json(['data' => $bids]);
+            return response()->json(['data' => $formatBids($bids)]);
         } elseif ($user->role_type === 'interior') {
             $interior = \App\Models\InteriorProfile::where('user_id', $user->id)->first();
-            if (! $interior) {
+            if (!$interior) {
                 return response()->json(['data' => []]);
             }
-            $bids = \App\Models\BidInterior::with(['project'])->where('interior_id', $interior->id)->orderBy('created_at', 'desc')->get();
+            $bids = \App\Models\BidInterior::with([
+                'project' => function ($q) {
+                    $q->with([
+                        'bidsArsitek.arsitek.user', 'bidsArsitek.negotiationLogs.user',
+                        'bidsKontraktor.kontraktor.user', 'bidsKontraktor.negotiationLogs.user',
+                        'bidsNotaris.notaris.user', 'bidsNotaris.negotiationLogs.user',
+                        'bidsInterior.interior.user', 'bidsInterior.negotiationLogs.user',
+                        'bidsProjectManager.pm.user', 'bidsProjectManager.negotiationLogs.user',
+                        'bidsStructural.structuralEngineer.user', 'bidsStructural.negotiationLogs.user',
+                        'bidsMep.mepEngineer.user', 'bidsMep.negotiationLogs.user'
+                    ]);
+                }
+            ])->where('interior_id', $interior->id)->orderBy('created_at', 'desc')->get();
 
-            return response()->json(['data' => $bids]);
+            return response()->json(['data' => $formatBids($bids)]);
         } elseif ($user->role_type === 'project_manager') {
             $pm = \App\Models\ProjectManager::where('user_id', $user->id)->first();
             if (!$pm) {
                 return response()->json(['data' => []]);
             }
-            $bids = \App\Models\BidProjectManager::with(['project'])
+            $bids = \App\Models\BidProjectManager::with([
+                'project' => function ($q) {
+                    $q->with([
+                        'bidsArsitek.arsitek.user',
+                        'bidsArsitek.negotiationLogs.user',
+                        'bidsKontraktor.kontraktor.user',
+                        'bidsKontraktor.negotiationLogs.user',
+                        'bidsNotaris.notaris.user',
+                        'bidsNotaris.negotiationLogs.user',
+                        'bidsInterior.interior.user',
+                        'bidsInterior.negotiationLogs.user',
+                        'bidsProjectManager.pm.user',
+                        'bidsProjectManager.negotiationLogs.user',
+                        'bidsStructural.structuralEngineer.user',
+                        'bidsStructural.negotiationLogs.user',
+                        'bidsMep.mepEngineer.user',
+                        'bidsMep.negotiationLogs.user'
+                    ]);
+                }
+            ])
                 ->where('pm_id', $pm->id)
                 ->orderBy('created_at', 'desc')
                 ->get();
 
-            return response()->json(['data' => $bids]);
+            return response()->json(['data' => $formatBids($bids)]);
+        } elseif ($user->role_type === 'structural') {
+            $structural = \App\Models\StructuralEngineer::where('user_id', $user->id)->first();
+            if (!$structural) return response()->json(['data' => []]);
+            $bids = \App\Models\BidStructural::with([
+                'project' => function ($q) {
+                    $q->with([
+                        'bidsArsitek.arsitek.user', 'bidsArsitek.negotiationLogs.user',
+                        'bidsKontraktor.kontraktor.user', 'bidsKontraktor.negotiationLogs.user',
+                        'bidsNotaris.notaris.user', 'bidsNotaris.negotiationLogs.user',
+                        'bidsInterior.interior.user', 'bidsInterior.negotiationLogs.user',
+                        'bidsProjectManager.pm.user', 'bidsProjectManager.negotiationLogs.user',
+                        'bidsStructural.structuralEngineer.user', 'bidsStructural.negotiationLogs.user',
+                        'bidsMep.mepEngineer.user', 'bidsMep.negotiationLogs.user'
+                    ]);
+                }
+            ])->where('structural_id', $structural->id)->orderBy('created_at', 'desc')->get();
+            return response()->json(['data' => $formatBids($bids)]);
+        } elseif ($user->role_type === 'mep') {
+            $mep = \App\Models\MepEngineer::where('user_id', $user->id)->first();
+            if (!$mep) return response()->json(['data' => []]);
+            $bids = \App\Models\BidMep::with([
+                'project' => function ($q) {
+                    $q->with([
+                        'bidsArsitek.arsitek.user', 'bidsArsitek.negotiationLogs.user',
+                        'bidsKontraktor.kontraktor.user', 'bidsKontraktor.negotiationLogs.user',
+                        'bidsNotaris.notaris.user', 'bidsNotaris.negotiationLogs.user',
+                        'bidsInterior.interior.user', 'bidsInterior.negotiationLogs.user',
+                        'bidsProjectManager.pm.user', 'bidsProjectManager.negotiationLogs.user',
+                        'bidsStructural.structuralEngineer.user', 'bidsStructural.negotiationLogs.user',
+                        'bidsMep.mepEngineer.user', 'bidsMep.negotiationLogs.user'
+                    ]);
+                }
+            ])->where('mep_id', $mep->id)->orderBy('created_at', 'desc')->get();
+            return response()->json(['data' => $formatBids($bids)]);
         }
 
         return response()->json(['data' => []]);
@@ -1525,7 +2030,7 @@ class ProjectController extends Controller
         }
 
         $profile = $user->notaris_profile;
-        if (! $profile) {
+        if (!$profile) {
             return response()->json(['data' => []]);
         }
 
@@ -1541,8 +2046,8 @@ class ProjectController extends Controller
         $user = Auth::guard('sanctum')->user();
 
         // Only the hired contractor or project owner can generate
-        $isContractor = $user->role_type === 'kontraktor' 
-            && $user->kontraktor 
+        $isContractor = $user->role_type === 'kontraktor'
+            && $user->kontraktor
             && $project->selected_kontraktor_id === $user->kontraktor->id;
         $isOwner = $project->user_id === $user->id;
 
@@ -1567,8 +2072,8 @@ class ProjectController extends Controller
     {
         $user = Auth::guard('sanctum')->user();
 
-        $isContractor = $user->role_type === 'kontraktor' 
-            && $user->kontraktor 
+        $isContractor = $user->role_type === 'kontraktor'
+            && $user->kontraktor
             && $project->selected_kontraktor_id === $user->kontraktor->id;
         $isOwner = $project->user_id === $user->id;
 
@@ -1615,8 +2120,8 @@ class ProjectController extends Controller
 
     public function broadcastPhase(Project $project, Request $request, ProjectPhaseService $service)
     {
-        $request->validate(['role' => 'required|string|in:arsitek,kontraktor,notaris,interior']);
-        
+        $request->validate(['role' => 'required|string|in:arsitek,kontraktor,notaris,interior,structural,mep']);
+
         $user = Auth::user();
         if ($project->user_id !== $user->id && $project->pm_id !== $user->id) {
             return response()->json(['message' => 'Unauthorized.'], 403);
@@ -1629,12 +2134,14 @@ class ProjectController extends Controller
     public function importExternalVendor(Project $project, Request $request, ProjectPhaseService $service)
     {
         $request->validate([
-            'phase_role' => 'required|string|in:arsitek,kontraktor,notaris,interior',
+            'phase_role' => 'required|string|in:arsitek,kontraktor,notaris,interior,project_manager,structural,mep',
+            'team_member_id' => 'nullable|exists:team_members,id',
             'company_name' => 'nullable|string|max:255',
             'contact_person' => 'required|string|max:255',
             'phone_number' => 'required|string|max:20',
             'email' => 'nullable|email|max:255',
             'agreed_fee' => 'nullable|numeric|min:0',
+            'notes' => 'nullable|string',
         ]);
 
         $user = Auth::user();
@@ -1648,5 +2155,591 @@ class ProjectController extends Controller
             'vendor' => $vendor,
             'project' => new ProjectResource($project->fresh())
         ]);
+    }
+    public function inviteProfessional(Project $project, Request $request)
+    {
+        $user = Auth::user();
+        
+        $isOwner = $project->user_id === $user->id;
+        $isArchitect = $project->selected_arsitek_id && $user->role_type === 'arsitek' && optional($user->arsitek)->id === $project->selected_arsitek_id;
+        $isPM = $project->pm_id && $user->role_type === 'project_manager' && $user->id === $project->pm_id;
+
+        if (!$isOwner && !$isArchitect && !$isPM) {
+            return response()->json(['message' => 'Unauthorized. Only the owner, assigned architect, or project manager can invite professionals.'], 403);
+        }
+
+        $request->validate([
+            'professional_id' => 'required|integer',
+            'role_type' => 'required|in:arsitek,kontraktor,notaris,interior,project_manager,structural,mep',
+        ]);
+
+        return DB::transaction(function () use ($project, $request) {
+            $bidModel = match ($request->role_type) {
+                'arsitek' => \App\Models\BidArsitek::class,
+                'kontraktor' => \App\Models\BidKontraktor::class,
+                'notaris' => \App\Models\BidNotaris::class,
+                'interior' => \App\Models\BidInterior::class,
+                'project_manager' => \App\Models\BidProjectManager::class,
+                'structural' => \App\Models\BidStructural::class,
+                'mep' => \App\Models\BidMep::class,
+            };
+
+            $roleField = match ($request->role_type) {
+                'arsitek' => 'arsitek_id',
+                'kontraktor' => 'kontraktor_id',
+                'notaris' => 'notaris_id',
+                'interior' => 'interior_id',
+                'project_manager' => 'pm_id',
+                'structural' => 'structural_id',
+                'mep' => 'mep_id',
+            };
+
+            // Check if already invited or bid exists
+            $existing = $bidModel::where('project_id', $project->id)
+                ->where($roleField, $request->professional_id)
+                ->first();
+
+            if ($existing) {
+                return response()->json(['message' => 'This professional already has a bid or invitation for this project.'], 422);
+            }
+
+            // Create "Invite" Bid
+            $bid = $bidModel::create([
+                'project_id' => $project->id,
+                $roleField => $request->professional_id,
+                'price' => 0, // Initial price is 0 for invitation
+                'proposal' => 'You have been invited to join this project by the owner.',
+                'status' => 'invited',
+            ]);
+
+            $proName = $professional->user->name ?? "Professional #{$request->professional_id}";
+            ProjectActivityLog::create([
+                'project_id' => $project->id,
+                'user_id' => Auth::id(),
+                'action' => 'professional_invited',
+                'details' => "Invited {$proName} ({$request->role_type}) to bid on project.",
+            ]);
+
+            // Notify the professional
+            $proUser = match ($request->role_type) {
+                'arsitek' => \App\Models\Arsitek::find($request->professional_id)->user,
+                'kontraktor' => \App\Models\Kontraktor::find($request->professional_id)->user,
+                'notaris' => \App\Models\NotarisProfile::find($request->professional_id)->user,
+                'interior' => \App\Models\InteriorProfile::find($request->professional_id)->user,
+                'project_manager' => \App\Models\ProjectManager::find($request->professional_id)->user,
+                'structural' => \App\Models\StructuralEngineer::find($request->professional_id)->user,
+                'mep' => \App\Models\MepEngineer::find($request->professional_id)->user,
+            };
+
+            if ($proUser) {
+                \App\Models\Notification::create([
+                    'user_id' => $proUser->id,
+                    'type' => 'project_invitation',
+                    'title' => 'New Project Invitation!',
+                    'body' => "You have been invited to participate in the project \"{$project->title}\".",
+                    'data' => ['project_id' => $project->id, 'bid_id' => $bid->id, 'role_type' => $request->role_type],
+                ]);
+            }
+
+            return response()->json([
+                'message' => 'Invitation sent successfully.',
+                'bid' => $bid
+            ]);
+        });
+    }
+    public function negotiateBidFee(Request $request, Project $project, $bidId, \App\Services\BidCalculationService $calculationService)
+    {
+        $user = Auth::user();
+        $request->validate([
+            'bid_type' => 'required|in:arsitek,kontraktor,notaris,interior,project_manager,structural,mep',
+            'price' => 'required|numeric|min:0',
+            'selected_services' => 'nullable|array',
+        ]);
+        $bidType = $request->bid_type;
+        $bidModel = $this->getBidModel($bidType);
+        $bid = $bidModel::where('id', $bidId)->where('project_id', $project->id)->firstOrFail();
+
+        // Only owner, the assigned PM, the professional, or the hired lead architect/contractor can negotiate
+        $proUserId = $this->getBidderUserId($bid, $bidType);
+        $arsitekUserId = $project->arsitek->user_id ?? $project->arsitek->user->id ?? null;
+        $kontraktorUserId = $project->kontraktor->user_id ?? $project->kontraktor->user->id ?? null;
+
+        if ($user->id !== $project->user_id && $user->id !== $project->pm_id && 
+            $user->id !== $proUserId && $user->id !== $arsitekUserId && $user->id !== $kontraktorUserId) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        if ($bid->offered_by_id === $user->id) {
+            return response()->json(['message' => 'You have already made an offer. Please wait for the other party to respond.'], 422);
+        }
+
+        return DB::transaction(function () use ($bid, $project, $request, $user, $calculationService) {
+            // Check negotiation limit
+            if ($bid->negotiation_count >= 5) {
+                return response()->json([
+                    'message' => 'Negotiation limit reached (max 5 rounds). Please discuss deeply before making a final decision.'
+                ], 422);
+            }
+
+            $calc = $calculationService->calculate([
+                'price' => $request->price,
+                'fee_type' => $bid->fee_type,
+                'unit_price' => $bid->unit_price,
+                'quantity' => $bid->quantity,
+            ], $project);
+
+            $servicesTotal = 0;
+            // Selected services can come from request array OR stay the same from current bid if not provided
+            $services = $request->selected_services ?? $bid->selected_services ?? [];
+            if (is_array($services)) {
+                foreach ($services as $service) {
+                    $servicesTotal += (float) ($service['price'] ?? 0);
+                }
+            }
+
+            $bid->update([
+                'price' => $calc['price'],
+                'calculated_total' => $calc['calculated_total'] + $servicesTotal,
+                'selected_services' => $services,
+                'unit_price' => $calc['unit_price'],
+                'quantity' => $calc['quantity'],
+                'status' => 'negotiating',
+                'offered_by_id' => $user->id,
+                'negotiation_count' => $bid->negotiation_count + 1,
+                'fee_agreed_at' => null, // Reset agreement if renegotiating
+            ]);
+
+            return response()->json([
+                'message' => 'Fee proposal submitted (' . $bid->negotiation_count . '/5).',
+                'bid' => $bid
+            ]);
+        });
+    }
+
+    public function confirmBidFee(Project $project, $bidId, Request $request)
+    {
+        $user = Auth::user();
+        $request->validate(['bid_type' => 'required|string']);
+
+        $bidModel = $this->getBidModel($request->bid_type);
+        $bid = $bidModel::where('id', $bidId)->where('project_id', $project->id)->firstOrFail();
+
+        if ($bid->offered_by_id === $user->id) {
+            return response()->json(['message' => 'You cannot confirm your own proposal. Wait for the other party.'], 422);
+        }
+
+        // Only owner, the assigned PM, the professional, or the hired lead architect/contractor can confirm
+        $proUserId = $this->getBidderUserId($bid, $request->bid_type);
+        $arsitekUserId = $project->arsitek->user_id ?? $project->arsitek->user->id ?? null;
+        $kontraktorUserId = $project->kontraktor->user_id ?? $project->kontraktor->user->id ?? null;
+
+        if ($user->id !== $project->user_id && $user->id !== $project->pm_id && 
+            $user->id !== $proUserId && $user->id !== $arsitekUserId && $user->id !== $kontraktorUserId) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        return DB::transaction(function () use ($bid, $user) {
+            $bid->update([
+                'fee_agreed_at' => now(),
+                // If owner is confirming, move to shortlisted to allow hiring.
+                // If professional is confirming, keep in negotiating so owner sees the acceptance in the negotiation box.
+                'status' => ($bid->project->user_id === $user->id) ? 'shortlisted' : 'negotiating',
+            ]);
+
+            return response()->json(['message' => 'Fee agreement confirmed.', 'bid' => $bid]);
+        });
+    }
+
+    public function signContract(Project $project, $bidId, Request $request)
+    {
+        $user = Auth::user();
+        $request->validate([
+            'bid_type' => 'required|string',
+            'termins' => 'required|array|min:1',
+            'termins.*.label' => 'required|string',
+            'termins.*.percentage' => 'required|numeric|min:0|max:100',
+            'termins.*.amount' => 'required|numeric|min:0',
+            'milestones' => 'nullable|array',
+            'milestones.*.title' => 'required|string|max:255',
+            'milestones.*.description' => 'nullable|string',
+        ]);
+
+        $bidModel = $this->getBidModel($request->bid_type);
+        $bid = $bidModel::where('id', $bidId)->where('project_id', $project->id)->firstOrFail();
+
+        // Only the professional of THIS bid can sign
+        $proUserId = $this->getBidderUserId($bid, $request->bid_type);
+        if ($user->id !== $proUserId) {
+            return response()->json(['message' => 'Unauthorized. Only the invited professional can sign this contract.'], 403);
+        }
+
+        if ($bid->status !== 'contract_pending') {
+            return response()->json(['message' => 'This bid is not in a signable state.'], 422);
+        }
+
+        // Robustly derive expected total: prioritize calculated_total, fallback to manual calc for percentage fees
+        $expectedTotal = (float) ($bid->calculated_total > 0 ? $bid->calculated_total : 0);
+        if ($expectedTotal <= 0) {
+            if ($bid->fee_type === 'percentage') {
+                $expectedTotal = ($bid->price / 100) * ($project->budget ?? 0);
+            } else {
+                $expectedTotal = $bid->price;
+            }
+        }
+
+        // Validate termin total matches agreed fee
+        $totalPercentage = collect($request->termins)->sum('percentage');
+        if (abs($totalPercentage - 100) > 0.01) {
+            return response()->json(['message' => 'Total termin percentage must be exactly 100%.'], 422);
+        }
+
+        $totalAmount = collect($request->termins)->sum('amount');
+        
+        // Critical Block: Prevent hiring for Rp 0
+        if ($expectedTotal <= 0) {
+            return response()->json(['message' => 'Contract value cannot be zero. Please negotiate a fee first.'], 422);
+        }
+
+        if ($totalAmount <= 0 || abs($totalAmount - $expectedTotal) > 1000) { 
+            // If amount is zero or significantly off, we might allow it ONLY if we can recalculate it
+            if ($totalAmount <= 0) {
+                // We will recalculate below, so we don't block here yet
+            } else {
+                return response()->json([
+                    'message' => 'The total amount of payment termins (Rp ' . number_format($totalAmount) . ') does not match the negotiated contract value (Rp ' . number_format($expectedTotal) . ').'
+                ], 422);
+            }
+        }
+
+        return DB::transaction(function () use ($project, $bid, $request, $user, $expectedTotal) {
+            // 0. Update Project Payment Instructions if provided
+            if ($request->payment_instructions) {
+                $project->update(['payment_instructions' => $request->payment_instructions]);
+            }
+
+            // 1. Clear any existing termins for this specific role
+            $project->paymentTermins()->where('role_type', $request->bid_type)->delete();
+
+            // 1. Create Work Plan (Milestones) First
+            $milestoneIdMap = [];
+            $phaseContext = match ($request->bid_type) {
+                'notaris' => 'legal',
+                'arsitek' => 'design',
+                'kontraktor' => 'build',
+                'interior' => 'interior',
+                'project_manager' => 'management',
+                default => $request->bid_type,
+            };
+
+            if ($request->has('milestones') && is_array($request->milestones)) {
+                foreach ($request->milestones as $index => $m) {
+                    $milestoneData = [
+                        'project_id' => $project->id,
+                        'title' => $m['title'],
+                        'description' => $m['description'] ?? null,
+                        'approval_status' => 'pending',
+                        'phase_context' => $phaseContext,
+                        'sort_order' => $index,
+                        'content' => [
+                            'services' => $m['services'] ?? []
+                        ],
+                    ];
+
+                    // Link to professional ID
+                    if ($request->bid_type === 'notaris') $milestoneData['notaris_id'] = $bid->notaris_id;
+                    elseif ($request->bid_type === 'arsitek') $milestoneData['arsitek_id'] = $bid->arsitek_id;
+                    elseif ($request->bid_type === 'kontraktor') $milestoneData['kontraktor_id'] = $bid->kontraktor_id;
+                    elseif ($request->bid_type === 'interior') $milestoneData['interior_id'] = $bid->interior_id;
+                    elseif ($request->bid_type === 'project_manager') $milestoneData['pm_id'] = $bid->pm_id;
+                    elseif ($request->bid_type === 'structural') $milestoneData['structural_id'] = $bid->structural_id;
+                    elseif ($request->bid_type === 'mep') $milestoneData['mep_id'] = $bid->mep_id;
+
+                    $milestone = \App\Models\ProjectMilestone::create($milestoneData);
+
+                    $milestoneIdMap[$index] = $milestone->id;
+                }
+            }
+
+            // 2. Create Termins and Link to Milestones
+            foreach ($request->termins as $t) {
+                $milestoneId = null;
+                if (isset($t['milestone_index']) && isset($milestoneIdMap[$t['milestone_index']])) {
+                    $milestoneId = $milestoneIdMap[$t['milestone_index']];
+                }
+
+                $percentage = (float) $t['percentage'];
+                $amount = (float) $t['amount'];
+
+                // RECALCULATION FAIL-SAFE: If frontend sent 0, calculate from expected total
+                if ($amount <= 0 && $expectedTotal > 0) {
+                    $amount = round(($percentage / 100) * $expectedTotal);
+                }
+
+                $project->paymentTermins()->create([
+                    'label' => $t['label'],
+                    'percentage' => $percentage,
+                    'amount' => $amount,
+                    'status' => 'pending',
+                    'role_type' => $request->bid_type,
+                    'recipient_id' => $user->id,
+                    'milestone_id' => $milestoneId,
+                ]);
+            }
+
+            // 3. Update Bid and Project Status
+            $bid->update(['status' => 'awaiting_payment']);
+            $project->update(['status' => 'awaiting_payment']);
+
+            // 3b. Auto-assign proposed team members as sub-professionals
+            $proposedTeam = is_array($bid->proposed_team) ? $bid->proposed_team : [];
+            foreach ($proposedTeam as $tmIndex => $tm) {
+                $subRole = $tm['role'] ?? 'other';
+                $teamFee = (float) ($tm['fee'] ?? 0);
+                $teamName = $tm['name'] ?? 'Team Member';
+
+                // Create sub-professional record (linked to lead pro's user)
+                \App\Models\ProjectSubProfessional::create([
+                    'project_id'  => $project->id,
+                    'user_id'     => $user->id,
+                    'parent_role' => $request->bid_type,
+                    'sub_role'    => $subRole,
+                    'assigned_by' => $user->id,
+                    'status'      => 'active',
+                    'rate'        => $teamFee,
+                    'scope_notes' => $tm['note'] ?? null,
+                    'lead_pro_notes' => "Team: " . $teamName . " (" . ($tm['role_title'] ?? $subRole) . ")",
+                ]);
+
+                // Create a milestone for this team member
+                $teamPhase = match ($subRole) {
+                    'structural' => 'design',
+                    'mep'        => 'design',
+                    default      => $phaseContext,
+                };
+
+                $teamMilestone = \App\Models\ProjectMilestone::create([
+                    'project_id'      => $project->id,
+                    'title'           => $teamName . " — " . ($tm['role_title'] ?? $subRole),
+                    'description'     => $tm['note'] ?? "Work scope for {$teamName}",
+                    'approval_status' => 'pending',
+                    'phase_context'   => $teamPhase,
+                    'sort_order'      => 100 + $tmIndex,
+                ]);
+
+                // Create a payment termin for this team member
+                if ($teamFee > 0) {
+                    $project->paymentTermins()->create([
+                        'label'        => "Fee — " . $teamName . " (" . ($tm['role_title'] ?? $subRole) . ")",
+                        'percentage'   => 100,
+                        'amount'       => $teamFee,
+                        'status'       => 'pending',
+                        'role_type'    => $subRole,
+                        'recipient_id' => $user->id,
+                        'milestone_id' => $teamMilestone->id,
+                    ]);
+                }
+            }
+
+            // 4. Special Hook for Notaries: Auto-finalize legal scope if signing
+            if ($request->bid_type === 'notaris') {
+                $services = is_array($bid->selected_services) ? $bid->selected_services : [];
+                if (!empty($services)) {
+                    // Extract IDs if they are objects
+                    $serviceIds = array_map(function($s) {
+                        return is_array($s) ? (string)($s['id'] ?? $s) : (string)$s;
+                    }, $services);
+                    
+                    \App\Http\Controllers\Api\ProjectLegalController::syncProjectLegalScope($project, $serviceIds, $user->id);
+                }
+            }
+
+            // 5. Generate SPK Draft
+            $contractService = app(\App\Services\ProjectContractService::class);
+            $contractService->generateSPKDraft($project, $bid, $request->bid_type);
+
+            // 4. Log Activity
+            \App\Models\ProjectActivityLog::create([
+                'project_id' => $project->id,
+                'user_id' => $user->id,
+                'action' => 'contract_signed',
+                'details' => "Professional has signed the SPK and defined payment termins.",
+            ]);
+
+            return response()->json(['message' => 'Contract signed successfully! Awaiting owner payment.', 'bid' => $bid]);
+        });
+    }
+
+    public function acceptInvite(Project $project, $bidId, Request $request)
+    {
+        $user = Auth::user();
+        $request->validate(['bid_type' => 'required|string']);
+
+        $bidModel = $this->getBidModel($request->bid_type);
+        $bid = $bidModel::where('id', $bidId)->where('project_id', $project->id)->firstOrFail();
+
+        $proUserId = $this->getBidderUserId($bid, $request->bid_type);
+        if ($user->id !== $proUserId) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        if ($bid->status !== 'invited') {
+            return response()->json(['message' => 'This invitation is no longer active.'], 422);
+        }
+
+        return DB::transaction(function () use ($bid) {
+            $bid->update(['status' => 'shortlisted']);
+            return response()->json(['message' => 'Invitation accepted. You are now in the interview phase.', 'bid' => $bid]);
+        });
+    }
+
+    public function rejectInvite(Project $project, $bidId, Request $request)
+    {
+        $user = Auth::user();
+        $request->validate(['bid_type' => 'required|string']);
+
+        $bidModel = $this->getBidModel($request->bid_type);
+        $bid = $bidModel::where('id', $bidId)->where('project_id', $project->id)->firstOrFail();
+
+        $proUserId = $this->getBidderUserId($bid, $request->bid_type);
+        if ($user->id !== $proUserId) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        return DB::transaction(function () use ($bid) {
+            $bid->update(['status' => 'rejected']);
+            return response()->json(['message' => 'Invitation rejected.', 'bid' => $bid]);
+        });
+    }
+
+    private function getBidModel($type)
+    {
+        return match ($type) {
+            'arsitek' => \App\Models\BidArsitek::class,
+            'kontraktor' => \App\Models\BidKontraktor::class,
+            'notaris' => \App\Models\BidNotaris::class,
+            'interior' => \App\Models\BidInterior::class,
+            'project_manager' => \App\Models\BidProjectManager::class,
+            'structural' => \App\Models\BidStructural::class,
+            'mep' => \App\Models\BidMep::class,
+        };
+    }
+
+    private function getBidderUserId($bid, $type)
+    {
+        return match ($type) {
+            'arsitek' => $bid->arsitek->user_id ?? \App\Models\Arsitek::find($bid->arsitek_id)->user_id,
+            'kontraktor' => $bid->kontraktor->user_id ?? \App\Models\Kontraktor::find($bid->kontraktor_id)->user_id,
+            'notaris' => $bid->notaris->user_id ?? \App\Models\NotarisProfile::find($bid->notaris_id)->user_id,
+            'interior' => $bid->interior->user_id ?? \App\Models\InteriorProfile::find($bid->interior_id)->user_id,
+            'project_manager' => $bid->pm->user_id ?? \App\Models\ProjectManager::find($bid->pm_id)->user_id,
+            'structural' => $bid->structuralEngineer->user_id ?? \App\Models\StructuralEngineer::find($bid->structural_id)->user_id,
+            'mep' => $bid->mepEngineer->user_id ?? \App\Models\MepEngineer::find($bid->mep_id)->user_id,
+        };
+    }
+    public function verifyBidPayment(Project $project, $bidId, Request $request)
+    {
+        $user = Auth::user();
+        $request->validate(['bid_type' => 'required|string']);
+
+        $bidModel = $this->getBidModel($request->bid_type);
+        $bid = $bidModel::where('id', $bidId)->where('project_id', $project->id)->firstOrFail();
+
+        // Only owner or PM can verify payment
+        $isOwner = $project->user_id === $user->id;
+        $isPM = $project->pm_id === $user->id;
+
+        if (!$isOwner && !$isPM) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        if (!in_array($bid->status, ['accepted', 'awaiting_payment'])) {
+            return response()->json(['message' => 'Bid must be accepted or awaiting payment before payment verification.'], 422);
+        }
+
+        return DB::transaction(function () use ($project, $bid, $request, $user) {
+            $bid->update([
+                'payment_status' => 'paid',
+                'paid_at' => now(),
+            ]);
+
+            // Budget Deduction
+            $financialService = app(\App\Services\ProjectFinancialService::class);
+            $fee = $bid->calculated_total ?? $bid->price;
+
+            $bidderName = 'Professional';
+            $proUser = $this->getBidderUser($bid, $request->bid_type);
+            if ($proUser)
+                $bidderName = $proUser->name;
+
+            $referenceModel = match ($request->bid_type) {
+                'arsitek' => 'BidArsitek',
+                'kontraktor' => 'BidKontraktor',
+                'notaris' => 'BidNotaris',
+                'interior' => 'BidInterior',
+                'project_manager' => 'BidProjectManager',
+                'structural' => 'BidStructural',
+                'mep' => 'BidMep',
+            };
+
+            $financialService->deductBudget($project, (float) $fee, 'payment', "Professional Fee: {$bidderName}", $referenceModel, $bid->id);
+
+            // Transition Project Status if necessary
+            if ($request->bid_type === 'arsitek' && $project->status === 'open') {
+                $project->update(['status' => 'accepted_arsitek']);
+            } elseif ($request->bid_type === 'kontraktor') {
+                if ($project->status === 'accepted_arsitek' || $project->target_role === 'kontraktor') {
+                    $project->update(['status' => 'in_progress']);
+                } else {
+                    $project->update(['status' => 'accepted_kontraktor']);
+                }
+            }
+
+            return response()->json(['message' => 'Payment verified successfully.', 'bid' => $bid]);
+        });
+    }
+
+    private function getBidderUser($bid, $type)
+    {
+        return match ($type) {
+            'arsitek' => $bid->arsitek->user ?? \App\Models\Arsitek::find($bid->arsitek_id)->user,
+            'kontraktor' => $bid->kontraktor->user ?? \App\Models\Kontraktor::find($bid->kontraktor_id)->user,
+            'notaris' => $bid->notaris->user ?? \App\Models\NotarisProfile::find($bid->notaris_id)->user,
+            'interior' => $bid->interior->user ?? \App\Models\InteriorProfile::find($bid->interior_id)->user,
+            'project_manager' => $bid->pm->user ?? \App\Models\ProjectManager::find($bid->pm_id)->user,
+            'structural' => $bid->structuralEngineer->user ?? \App\Models\StructuralEngineer::find($bid->structural_id)->user,
+            'mep' => $bid->mepEngineer->user ?? \App\Models\MepEngineer::find($bid->mep_id)->user,
+        };
+    }
+
+    public function uploadBidPaymentProof(Project $project, $bidId, Request $request)
+    {
+        $user = Auth::user();
+        if ($project->user_id !== $user->id) {
+            return response()->json(['message' => 'Unauthorized. Only project owner can upload proof.'], 403);
+        }
+
+        $request->validate([
+            'bid_type' => 'required|string',
+            'payment_proof' => 'required|file|mimes:jpg,jpeg,png,pdf|max:2048',
+        ]);
+
+        $bidModel = $this->getBidModel($request->bid_type);
+        $bid = $bidModel::where('id', $bidId)->where('project_id', $project->id)->firstOrFail();
+
+        if ($request->hasFile('payment_proof')) {
+            $path = $request->file('payment_proof')->store("projects/{$project->id}/proofs/bids", 'public');
+
+            $bid->update([
+                'payment_proof_path' => $path,
+                'payment_status' => 'verifying',
+            ]);
+
+            return response()->json([
+                'message' => 'Proof uploaded successfully! Awaiting professional verification.',
+                'bid' => $bid
+            ]);
+        }
+
+        return response()->json(['message' => 'File upload failed.'], 400);
     }
 }

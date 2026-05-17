@@ -14,6 +14,7 @@ interface Document {
     category: string;
     status: string;
     version_label?: string;
+    target_role?: string;
     uploader: { name: string };
     created_at: string;
 }
@@ -25,7 +26,7 @@ interface DocumentVaultProps {
 }
 
 export default function DocumentVault({ project, isPro, targetRole }: DocumentVaultProps) {
-    const [documents, setDocuments] = useState<Document[]>([]);
+    const [allDocuments, setAllDocuments] = useState<Document[]>([]);
     const [loading, setLoading] = useState(true);
     const [showUpload, setShowUpload] = useState(false);
     const { showToast } = useToast();
@@ -39,9 +40,31 @@ export default function DocumentVault({ project, isPro, targetRole }: DocumentVa
     const fetchDocs = async () => {
         try {
             const res = await axios.get(`/projects/${project.id}/documents`);
-            setDocuments(res.data.data);
+            setAllDocuments(res.data.data);
         } catch (err) { console.error(err); } finally { setLoading(false); }
     };
+
+    const filteredDocs = React.useMemo(() => {
+        if (!targetRole) return allDocuments;
+        return allDocuments.filter(doc => {
+            const docRole = (doc.target_role || '').toLowerCase();
+            const filterRole = targetRole.toLowerCase();
+
+            const isMatch = (roleA: string, roleB: string) => {
+                if (roleA === roleB) return true;
+                const pairs = [
+                    ['architect', 'arsitek'],
+                    ['contractor', 'kontraktor'],
+                    ['notary', 'notaris'],
+                    ['pm', 'project_manager']
+                ];
+                return pairs.some(p => p.includes(roleA) && p.includes(roleB));
+            };
+
+            if (isMatch(filterRole, 'architect') && doc.category === 'blueprint') return true;
+            return isMatch(filterRole, docRole);
+        });
+    }, [allDocuments, targetRole]);
 
     useEffect(() => { fetchDocs(); }, [project.id]);
 
@@ -85,9 +108,9 @@ export default function DocumentVault({ project, isPro, targetRole }: DocumentVa
                 <div>
                     <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
                         <History size={18} className="text-indigo-500" />
-                        Versioned Vault
+                        Project Deliverables Vault
                     </h4>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Official blueprints & technical documents</p>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Official drawings, technical specs & verified results</p>
                 </div>
                 {isPro && !showUpload && (
                     <button 
@@ -119,13 +142,13 @@ export default function DocumentVault({ project, isPro, targetRole }: DocumentVa
             )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {documents.length === 0 ? (
+                {filteredDocs.length === 0 ? (
                     <div className="col-span-full py-12 text-center bg-slate-50 border-2 border-dashed border-slate-100 rounded-[2rem]">
                         <FileText className="mx-auto text-slate-200 mb-2" size={32} />
                         <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Vault is empty</p>
                     </div>
                 ) : (
-                    documents.map(doc => (
+                    filteredDocs.map(doc => (
                         <div key={doc.id} className="bg-white border border-slate-100 rounded-2xl p-4 flex flex-col justify-between hover:shadow-md transition-shadow">
                             <div className="flex items-start justify-between mb-3">
                                 <div className="w-10 h-10 bg-indigo-50 text-indigo-500 rounded-xl flex items-center justify-center">
@@ -140,12 +163,16 @@ export default function DocumentVault({ project, isPro, targetRole }: DocumentVa
                             
                             <div>
                                 <h5 className="text-xs font-black text-slate-900 truncate">{doc.file_name}</h5>
-                                <div className="flex flex-wrap gap-2 mt-2">
-                                    {doc.version_label && (
-                                        <span className="px-2 py-0.5 bg-indigo-500 text-white rounded-full text-[8px] font-black uppercase tracking-widest">
-                                            {doc.version_label}
-                                        </span>
-                                    )}
+                                 <div className="flex flex-wrap gap-2 mt-2">
+                                    <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${
+                                        doc.category === 'spk' ? 'bg-amber-100 text-amber-700' : 
+                                        doc.status === 'under_review' ? 'bg-amber-500 text-white' :
+                                        'bg-indigo-500 text-white'
+                                    }`}>
+                                        {doc.category === 'spk' ? 'OFFICIAL CONTRACT' : 
+                                         doc.status === 'under_review' ? 'UNDER REVIEW' :
+                                         (doc.version_label || 'VERIFIED')}
+                                    </span>
                                     <span className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded-full text-[8px] font-black uppercase tracking-widest">
                                         {doc.file_type.toUpperCase()}
                                     </span>

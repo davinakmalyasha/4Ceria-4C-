@@ -8,7 +8,7 @@ class StoreHouseRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true; 
+        return true;
     }
 
     public function rules(): array
@@ -39,7 +39,7 @@ class StoreHouseRequest extends FormRequest
             'rooms.*.length' => 'required|numeric|min:0',
             'rooms.*.desc' => 'nullable|string',
             'rooms.*.pics' => 'nullable|array',
-            'rooms.*.pics.*' => 'image|mimes:jpeg,png,jpg|max:2048'
+            'rooms.*.pics.*' => 'image|mimes:jpeg,png,jpg|max:2048',
         ];
     }
 }

@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class ProjectActivityLog extends Model
 {
     protected $fillable = [
-        'project_id', 'user_id', 'action', 'details'
+        'project_id', 'user_id', 'action', 'details',
     ];
 
     public function user()

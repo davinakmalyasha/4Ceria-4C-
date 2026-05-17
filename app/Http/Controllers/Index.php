@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\House;
-use Illuminate\Http\Request;
 
 class Index extends Controller
 {
@@ -15,11 +14,12 @@ class Index extends Controller
         }
 
         // $houses = House::orderBy('harga', 'desc')->limit(3)->get();
-        $houses = House::with(['housePic' => function ($query){
-            $query->limit(1);}])->get();
+        $houses = House::with(['housePic' => function ($query) {
+            $query->limit(1);
+        }])->get();
+
         // dd($houses->house_pic->file_name);
         // return $houses;
         return view('users-page.index.index', compact('flashMessage', 'houses'));
     }
-
 }

@@ -54,7 +54,7 @@ export default function SnagListManager({ project, user, onRefresh }: SnagListMa
 
     const fetchItems = useCallback(async () => {
         try {
-            const res = await axios.get(`/api/projects/${project.id}/snag-items`);
+            const res = await axios.get(`/projects/${project.id}/snag-items`);
             setItems(res.data.data || []);
         } catch { /* silent */ } finally {
             setLoading(false);
@@ -67,7 +67,7 @@ export default function SnagListManager({ project, user, onRefresh }: SnagListMa
         if (!form.title.trim()) return;
         setIsSubmitting(true);
         try {
-            await axios.post(`/api/projects/${project.id}/snag-items`, form);
+            await axios.post(`/projects/${project.id}/snag-items`, form);
             showToast('Defect reported.', 'success');
             setForm({ title: '', description: '', location: '', severity: 'minor', assigned_role: 'kontraktor' });
             setShowForm(false);
@@ -92,14 +92,14 @@ export default function SnagListManager({ project, user, onRefresh }: SnagListMa
                         formData.append(`resolution_photos[${idx}]`, file);
                     });
                 }
-                await axios.post(`/api/projects/${project.id}/snag-items/${id}?_method=PUT`, formData, {
+                await axios.post(`/projects/${project.id}/snag-items/${id}?_method=PUT`, formData, {
                     headers: { 'Content-Type': 'multipart/form-data' }
                 });
                 setResolveId(null);
                 setResolveNote('');
                 setResolveFiles(null);
             } else {
-                await axios.put(`/api/projects/${project.id}/snag-items/${id}`, { status, resolution_note: note });
+                await axios.put(`/projects/${project.id}/snag-items/${id}`, { status, resolution_note: note });
             }
             showToast('Status updated.', 'success');
             fetchItems();
@@ -114,7 +114,7 @@ export default function SnagListManager({ project, user, onRefresh }: SnagListMa
     const handleAccept = async (id: number) => {
         setIsSubmitting(true);
         try {
-            await axios.post(`/api/projects/${project.id}/snag-items/${id}/accept`);
+            await axios.post(`/projects/${project.id}/snag-items/${id}/accept`);
             showToast('Resolution accepted.', 'success');
             fetchItems();
             onRefresh();

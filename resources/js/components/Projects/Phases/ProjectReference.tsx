@@ -57,9 +57,20 @@ export default function ProjectReference({ project, user, isArchitect }: Project
                                 <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                                     <TextQuote size={14} /> Proposal Content
                                 </h4>
-                                <div className="p-6 bg-slate-50/50 rounded-3xl border border-slate-100 italic">
-                                    <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">
-                                        "{acceptedBid.proposal}"
+                                <div className="p-6 bg-slate-50/50 rounded-3xl border border-slate-100 border-l-4 border-l-red-500/20 italic">
+                                    <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap font-medium">
+                                        {(() => {
+                                            let cleanProposal = acceptedBid.proposal;
+                                            if (cleanProposal.includes('--- PROFESSIONAL MESSAGE ---')) {
+                                                cleanProposal = cleanProposal.split('--- PROFESSIONAL MESSAGE ---')[1].split('---')[0].trim();
+                                            } else if (cleanProposal.includes('=== ARCHITECTURAL PROPOSAL SUMMARY ===') || 
+                                                       cleanProposal.includes('=== CONTRACTOR PROPOSAL SUMMARY ===') ||
+                                                       cleanProposal.includes('=== INTERIOR DESIGN PROPOSAL ===')) {
+                                                cleanProposal = cleanProposal.split('---').pop()?.trim() || cleanProposal;
+                                            }
+                                            if (!cleanProposal || cleanProposal.length < 5) cleanProposal = acceptedBid.proposal;
+                                            return `"${cleanProposal}"`;
+                                        })()}
                                     </p>
                                 </div>
                             </div>

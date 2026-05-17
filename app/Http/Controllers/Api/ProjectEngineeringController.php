@@ -4,229 +4,242 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Project;
-use App\Models\ProjectAddendum;
-use App\Models\ProjectActivityLog;
-use App\Http\Resources\ProjectResource;
+use App\Models\ProjectMilestone;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use App\Traits\HandlesProjectAuthorization;
+use Illuminate\Support\Facades\Storage;
 
 class ProjectEngineeringController extends Controller
 {
-    use HandlesProjectAuthorization;
-
-    protected $engineeringService;
-
-    public function __construct(\App\Services\ProjectEngineeringService $engineeringService)
+    /**
+     * Store a manual technical log for a specific role (structural/mep).
+     */
+    public function storeLog(Request $request, Project $project)
     {
-        $this->engineeringService = $engineeringService;
-    }
+        $this->authorize('update', $project);
 
-    public function requestEngineeringRole(Request $request, Project $project)
-    {
-        $user = Auth::user();
         $request->validate([
             'role_type' => 'required|in:structural,mep',
-            'suggested_fee' => 'nullable|numeric|min:0',
-            'description' => 'required|string|max:1000',
+            'title' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'files' => 'nullable|array',
+            'files.*' => 'file|max:10240', // 10MB
         ]);
 
-        $isArchitect = $user->role_type === 'arsitek' && $project->selected_arsitek_id === $user->arsitek?->id;
-        $isPM = $user->role_type === 'project_manager' && $project->pm_id === $user->id;
-
-        if (!$isArchitect && !$isPM) {
-            return response()->json(['message' => 'Unauthorized. Only the Architect or PM can request engineering roles.'], 403);
-        }
-
-        $addendum = $project->addendums()->create([
-            'user_id' => $user->id,
-            'role_type' => $request->role_type,
-            'title' => "[Role Request] " . strtoupper($request->role_type) . " Specialist",
-            'description' => $request->description,
-            'amount' => $request->suggested_fee ?? 0,
-            'status' => 'pending_approval'
-        ]);
-
-        $this->logActivity($project, 'engineering_requested', "Architect requested hiring of a " . strtoupper($request->role_type) . " specialist.");
-
-        // Notify Reviewers
-        $this->notifyReviewers($project, "Engineering Resource Requested", "The Architect has requested a " . strtoupper($request->role_type) . " specialist for this project.");
-
-        return response()->json(['data' => $addendum]);
-    }
-
-    public function verifyEngineeringRequest(Request $request, Project $project, ProjectAddendum $addendum)
-    {
-        $user = Auth::user();
-        $isOwner = $user->id === $project->user_id;
-        $isPM = $user->role_type === 'project_manager' && $project->pm_id === $user->id;
-
-        if (!$isPM && !$isOwner) {
-            return response()->json(['message' => 'Unauthorized. Only the PM (or Owner as fallback) can authorize engineering roles.'], 403);
-        }
-
-        $request->validate(['status' => 'required|in:approved,rejected']);
-
-        $dbStatus = $request->status === 'approved' ? 'approved_unpaid' : 'rejected';
-        $addendum->update(['status' => $dbStatus]);
-
-        if ($request->status === 'approved') {
-            $roles = $project->published_bidding_roles ?? [];
-            if (!in_array($addendum->role_type, $roles)) {
-                $roles[] = $addendum->role_type;
+        return DB::transaction(function () use ($request, $project) {
+            $gallery = [];
+            if ($request->hasFile('files')) {
+                foreach ($request->file('files') as $file) {
+                    $path = $file->store('milestones/gallery', 'public');
+                    $gallery[] = $path;
+                }
             }
 
-            $updateData = ['published_bidding_roles' => $roles];
-            if ($addendum->role_type === 'structural') $updateData['requires_structural'] = true;
-            if ($addendum->role_type === 'mep') $updateData['requires_mep'] = true;
+            $milestone = ProjectMilestone::create([
+                'project_id' => $project->id,
+                'phase_context' => $request->role_type,
+                'title' => $request->title,
+                'description' => $request->description,
+                'type' => 'generic',
+                'status' => 'active',
+                'approval_status' => 'approved', // Internal logs are auto-approved
+                'pm_verified_at' => now(),
+                'content' => [
+                    'checklist' => [],
+                    'gallery' => $gallery,
+                    'is_manual_log' => true,
+                    'added_by' => Auth::id(),
+                ],
+                'sort_order' => $project->milestones()->where('phase_context', $request->role_type)->count() + 1,
+            ]);
 
-            $project->update($updateData);
-        }
-
-        $this->logActivity($project, 'engineering_request_verified', "{$request->status} hiring request for " . strtoupper($addendum->role_type));
-
-        return response()->json(['data' => $addendum]);
+            return response()->json([
+                'message' => 'Log recorded successfully',
+                'data' => $milestone
+            ]);
+        });
     }
 
-    public function approveEngineeringHire(Request $request, Project $project, ProjectAddendum $addendum)
+    /**
+     * Delete a manual log.
+     */
+    public function deleteLog(Project $project, ProjectMilestone $milestone)
     {
-        $user = Auth::user();
-        if (!$this->isProjectOwner($project, $user)) {
-            return response()->json(['message' => 'Unauthorized. Only the Project Owner can authorize budget commitments.'], 403);
+        $this->authorize('update', $project);
+
+        if ($milestone->project_id !== $project->id) {
+            return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        if ($addendum->status !== 'pending_approval') {
-            return response()->json(['message' => 'This request is not pending approval.'], 400);
-        }
-
-        $success = $this->engineeringService->finalizeHiring($project, $addendum);
-
-        if (!$success) {
-            return response()->json(['message' => 'Insufficient project budget or hiring failure.'], 400);
-        }
-
-        $this->logActivity($project, 'engineering_hired', "Owner authorized hiring of " . strtoupper($addendum->recommended_bid_type) . " specialist.");
-
-        return response()->json(['data' => $addendum]);
+        $milestone->delete();
+        return response()->json(['message' => 'Log removed']);
     }
 
-    public function rejectEngineeringHire(Request $request, Project $project, ProjectAddendum $addendum)
+    /**
+     * Authorize a specialist hiring request (Addendum).
+     */
+    public function authorizeSpecialist(Request $request, Project $project)
     {
-        $user = Auth::user();
-        $isOwner = $user->id === $project->user_id;
-        $isPM = $user->role_type === 'project_manager' && $project->pm_id === $user->id;
+        $this->authorize('update', $project);
 
-        if (!$isOwner && !$isPM) {
-            return response()->json(['message' => 'Unauthorized.'], 403);
-        }
+        $request->validate([
+            'role_type' => 'required|in:structural,mep',
+            'addendum_id' => 'required|integer|exists:project_addendums,id'
+        ]);
 
-        $addendum->update(['status' => 'rejected']);
+        $addendum = \App\Models\ProjectAddendum::where('id', $request->addendum_id)
+            ->where('project_id', $project->id)
+            ->firstOrFail();
 
-        $this->logActivity($project, 'engineering_hire_rejected', "Hiring request for " . strtoupper($addendum->role_type) . " was rejected.");
+        return DB::transaction(function () use ($addendum, $project, $request) {
+            $addendum->update([
+                'status' => 'authorized'
+            ]);
 
-        return response()->json(['data' => $addendum]);
+            // If it's a platform-hired specialist, we should ensure the bid is also updated
+            if ($addendum->specialist_type === 'platform_hired' && $addendum->recommended_bid_id) {
+                $bidModel = $request->role_type === 'structural' ? \App\Models\BidStructural::class : \App\Models\BidMep::class;
+                $bid = $bidModel::find($addendum->recommended_bid_id);
+                if ($bid) {
+                    $bid->update(['status' => 'awaiting_payment']);
+                }
+            }
+
+            \App\Models\ProjectActivityLog::create([
+                'project_id' => $project->id,
+                'user_id' => Auth::id(),
+                'action' => 'specialist_authorized',
+                'details' => "Authorized hiring of " . ucfirst($request->role_type) . " specialist: {$addendum->title}",
+            ]);
+
+            return response()->json(['message' => 'Specialist hiring authorized. Awaiting payment.']);
+        });
     }
 
+    /**
+     * Reject a specialist hiring request.
+     */
+    public function rejectSpecialist(Request $request, Project $project)
+    {
+        $this->authorize('update', $project);
+
+        $request->validate([
+            'role_type' => 'required|in:structural,mep',
+            'addendum_id' => 'required|integer|exists:project_addendums,id',
+            'reason' => 'nullable|string'
+        ]);
+
+        $addendum = \App\Models\ProjectAddendum::where('id', $request->addendum_id)
+            ->where('project_id', $project->id)
+            ->firstOrFail();
+
+        return DB::transaction(function () use ($addendum, $project, $request) {
+            $addendum->update([
+                'status' => 'rejected',
+                'negotiation_note' => $request->reason
+            ]);
+
+            \App\Models\ProjectActivityLog::create([
+                'project_id' => $project->id,
+                'user_id' => Auth::id(),
+                'action' => 'specialist_rejected',
+                'details' => "Rejected hiring of " . ucfirst($request->role_type) . " specialist. Reason: " . ($request->reason ?? 'No reason provided'),
+            ]);
+
+            return response()->json(['message' => 'Specialist hiring rejected.']);
+        });
+    }
+
+    /**
+     * Verify an engineering request from an architect.
+     */
+    public function verifyEngineeringRequest(Request $request, Project $project, \App\Models\ProjectAddendum $addendum)
+    {
+        $this->authorize('update', $project);
+        
+        $request->validate(['status' => 'required|in:approved,rejected']);
+
+        return DB::transaction(function () use ($request, $project, $addendum) {
+            $status = $request->status === 'approved' ? 'authorized' : 'rejected';
+            $addendum->update(['status' => $status]);
+
+            \App\Models\ProjectActivityLog::create([
+                'project_id' => $project->id,
+                'user_id' => Auth::id(),
+                'action' => 'engineering_request_verified',
+                'details' => "PM " . $request->status . " engineering request for: " . ($addendum->role_type ?? $addendum->specialist_type),
+            ]);
+
+            return response()->json(['message' => "Request " . $request->status]);
+        });
+    }
+
+    /**
+     * Owner approves the hiring of a specialist recommended by PM/Architect.
+     */
+    public function approveEngineeringHire(Project $project, \App\Models\ProjectAddendum $addendum)
+    {
+        $this->authorize('update', $project);
+
+        return DB::transaction(function () use ($project, $addendum) {
+            $addendum->update(['status' => 'authorized']); // Assuming authorized means ready for payment or approved
+
+            \App\Models\ProjectActivityLog::create([
+                'project_id' => $project->id,
+                'user_id' => Auth::id(),
+                'action' => 'engineering_hire_approved',
+                'details' => "Owner approved hiring for " . ($addendum->role_type ?? $addendum->specialist_type),
+            ]);
+
+            return response()->json(['message' => 'Hiring approved. Awaiting payment.']);
+        });
+    }
+
+    /**
+     * Owner rejects the hiring of a specialist.
+     */
+    public function rejectEngineeringHire(Project $project, \App\Models\ProjectAddendum $addendum)
+    {
+        $this->authorize('update', $project);
+
+        return DB::transaction(function () use ($project, $addendum) {
+            $addendum->update(['status' => 'rejected']);
+
+            \App\Models\ProjectActivityLog::create([
+                'project_id' => $project->id,
+                'user_id' => Auth::id(),
+                'action' => 'engineering_hire_rejected',
+                'details' => "Owner rejected hiring for " . ($addendum->role_type ?? $addendum->specialist_type),
+            ]);
+
+            return response()->json(['message' => 'Hiring rejected.']);
+        });
+    }
+
+    /**
+     * Approve the final engineering integration.
+     */
     public function approveEngineeringIntegration(Request $request, Project $project)
     {
-        $user = Auth::user();
+        $this->authorize('update', $project);
+        $request->validate(['role_type' => 'required|in:structural,mep']);
 
-        if ($user->role_type !== 'arsitek' || $project->selected_arsitek_id !== optional($user->arsitek)->id) {
-            return response()->json(['message' => 'Only the hired architect can approve engineering integration.'], 403);
-        }
+        return DB::transaction(function () use ($request, $project) {
+            if ($request->role_type === 'structural') {
+                $project->update(['structural_approved_at' => now()]);
+            } else {
+                $project->update(['mep_approved_at' => now()]);
+            }
 
-        $validated = $request->validate([
-            'role_type' => 'required|in:structural,mep',
-        ]);
-
-        $roleType = $validated['role_type'];
-
-        if ($roleType === 'structural' && !$project->structural_id) {
-            return response()->json(['message' => 'No structural engineer is assigned.'], 422);
-        }
-        if ($roleType === 'mep' && !$project->mep_id) {
-            return response()->json(['message' => 'No MEP engineer is assigned.'], 422);
-        }
-
-        $field = $roleType === 'structural' ? 'structural_approved_at' : 'mep_approved_at';
-
-        if ($project->{$field}) {
-            return response()->json(['message' => ucfirst($roleType) . ' integration already approved.'], 422);
-        }
-
-        DB::beginTransaction();
-        try {
-            $project->update([$field => now()]);
-            $this->logActivity($project, 'engineering_approved', "Architect approved {$roleType} engineering integration.");
-            DB::commit();
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json(['message' => 'Failed to approve integration.'], 500);
-        }
-
-        return new ProjectResource($this->loadFullProject($project));
-    }
-
-    public function requestEngineeringRevision(Request $request, Project $project)
-    {
-        $user = Auth::user();
-
-        if ($user->role_type !== 'arsitek' || $project->selected_arsitek_id !== optional($user->arsitek)->id) {
-            return response()->json(['message' => 'Only the hired architect can request revisions.'], 403);
-        }
-
-        $validated = $request->validate([
-            'role_type' => 'required|in:structural,mep',
-            'note' => 'required|string|max:1000',
-        ]);
-
-        $roleType = $validated['role_type'];
-
-        // Reset approval if previously approved
-        $field = $roleType === 'structural' ? 'structural_approved_at' : 'mep_approved_at';
-        $project->update([$field => null]);
-
-        // Mark all engineer documents as needing revision
-        $project->documents()
-            ->where('category', $roleType === 'structural' ? 'structural_calc' : 'mep_layout')
-            ->update(['status' => 'revision_requested']);
-
-        $this->logActivity($project, 'engineering_revision', "Architect requested {$roleType} revision: {$validated['note']}");
-
-        return new ProjectResource($this->loadFullProject($project));
-    }
-
-    private function loadFullProject(Project $project)
-    {
-        $project->load([
-            'user', 'arsitek', 'kontraktor', 'interior', 'notaris', 'projectManager',
-            'bids', 'milestones', 'documents', 'comments', 'addendums'
-        ]);
-        return $project;
-    }
-
-    private function logActivity(Project $project, string $action, string $details): void
-    {
-        \App\Models\ProjectActivityLog::create([
-            'project_id' => $project->id,
-            'user_id' => Auth::id(),
-            'action' => $action,
-            'details' => $details,
-        ]);
-    }
-
-    private function notifyReviewers(Project $project, string $title, string $body): void
-    {
-        $reviewers = array_filter([$project->user_id, $project->pm_id]);
-        foreach ($reviewers as $userId) {
-            \App\Models\Notification::create([
-                'user_id' => $userId,
-                'type' => 'verification_required',
-                'title' => $title,
-                'body' => $body,
-                'data' => ['project_id' => $project->id],
+            \App\Models\ProjectActivityLog::create([
+                'project_id' => $project->id,
+                'user_id' => Auth::id(),
+                'action' => 'engineering_integrated',
+                'details' => "Formally approved " . ucfirst($request->role_type) . " integration.",
             ]);
-        }
+
+            return response()->json(['message' => 'Integration approved.']);
+        });
     }
 }

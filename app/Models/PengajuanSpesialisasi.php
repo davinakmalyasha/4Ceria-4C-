@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class PengajuanSpesialisasi extends Model
 {
     protected $table = 'pengajuan_spesialisasi';
+
     protected $fillable = [
         'kontraktor_id',
         'spesialisasi_id',

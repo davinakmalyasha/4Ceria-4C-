@@ -11,15 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('arsiteks', function (Blueprint $table) {
-            $table->text('pendidikan')->nullable();
-            $table->text('alasan_hire')->nullable();
-        });
-
-        Schema::table('kontraktors', function (Blueprint $table) {
-            $table->text('pendidikan')->nullable();
-            $table->text('alasan_hire')->nullable();
-        });
+        // Consolidated into base create_arsiteks和create_kontraktors migrations
     }
 
     /**
@@ -27,12 +19,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('arsiteks', function (Blueprint $table) {
-            $table->dropColumn(['pendidikan', 'alasan_hire']);
-        });
-
-        Schema::table('kontraktors', function (Blueprint $table) {
-            $table->dropColumn(['pendidikan', 'alasan_hire']);
-        });
+        // No-Op
     }
 };

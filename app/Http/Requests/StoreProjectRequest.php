@@ -34,12 +34,20 @@ class StoreProjectRequest extends FormRequest
             'kelurahan' => 'nullable|string',
             'postal_code' => 'nullable|string',
             'street_name' => 'nullable|string',
-            'jenis_proyek' => 'required|string',
-            'target_role' => 'required|string|in:both,arsitek,kontraktor',
+            'jenis_proyek' => 'nullable|string',
+            'project_category' => 'required|string|in:new_build,renovation,interior,maintenance',
+            'project_dimensions' => 'nullable|json',
+            'target_role' => 'sometimes|nullable|string|in:both,arsitek,kontraktor,interior',
             'deadline' => 'required|date',
             'attachment' => 'nullable|file|max:10240',
             'images' => 'nullable|array|max:3',
             'images.*' => 'image|max:5120',
+            'wants_project_manager' => 'nullable|boolean',
+            'needed_phases' => 'nullable|string', // JSON array of design,build,interior,legal
+            'legal_detail' => 'nullable|string',
+            'wants_to_discuss_later' => 'nullable|boolean',
+            'external_vendors' => 'nullable|json',
+            'bidding_choices' => 'nullable|json',
         ];
     }
 }

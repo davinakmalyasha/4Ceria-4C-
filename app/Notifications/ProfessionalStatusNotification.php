@@ -3,7 +3,6 @@
 namespace App\Notifications;
 
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
@@ -12,7 +11,9 @@ class ProfessionalStatusNotification extends Notification
     use Queueable;
 
     protected $status;
+
     protected $professionalType;
+
     protected $reason;
 
     /**
@@ -44,15 +45,15 @@ class ProfessionalStatusNotification extends Notification
         $color = $this->status === 'verified' ? '#10b981' : '#ef4444';
 
         $message = (new MailMessage)
-            ->subject('Professional Verification Status: ' . $statusText)
-            ->greeting('Hello, ' . $notifiable->name . '!')
-            ->line('Your request to join as a ' . $this->professionalType . ' has been ' . $statusText . '.');
+            ->subject('Professional Verification Status: '.$statusText)
+            ->greeting('Hello, '.$notifiable->name.'!')
+            ->line('Your request to join as a '.$this->professionalType.' has been '.$statusText.'.');
 
         if ($this->status === 'verified') {
             $message->line('Congratulations! You can now start bidding on projects and access professional features.')
                 ->action('Go to Dashboard', url('/dashboard'));
         } else {
-            $message->line('Reason for rejection: ' . ($this->reason ?? 'No specific reason provided.'))
+            $message->line('Reason for rejection: '.($this->reason ?? 'No specific reason provided.'))
                 ->line('Please update your profile details and try again.');
         }
 
@@ -70,7 +71,7 @@ class ProfessionalStatusNotification extends Notification
             'status' => $this->status,
             'professional_type' => $this->professionalType,
             'reason' => $this->reason,
-            'message' => 'Your ' . $this->professionalType . ' verification request was ' . $this->status . '.',
+            'message' => 'Your '.$this->professionalType.' verification request was '.$this->status.'.',
         ];
     }
 }

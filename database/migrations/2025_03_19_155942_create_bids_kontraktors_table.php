@@ -6,33 +6,38 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up()
     {
-        Schema::create('kontraktors', function (Blueprint $table) {
+        Schema::create('bids_kontraktor', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained()->onDelete('cascade');
-            $table->string('nama');
-            $table->string('no_telepon')->nullable();
-            $table->string('alamat')->nullable();
-            $table->string('jenis')->nullable();
-            $table->string('nama_perusahaan')->nullable();
-            $table->integer('npwp')->default(0);
-            $table->string('siup')->nullable();
-            $table->text('pengalaman')->nullable();
-            $table->string('spesialisasi')->nullable();
+            $table->foreignId('project_id')->constrained()->onDelete('cascade');
+            $table->unsignedBigInteger('kontraktor_id')->nullable();
+            $table->decimal('price', 24, 2)->default(0);
+            $table->text('proposal')->nullable();
+            $table->enum('status', ['pending', 'accepted', 'rejected'])->default('pending');
+            $table->integer('estimated_duration')->nullable();
+            $table->string('duration_unit')->nullable();
+            $table->string('attachment_1')->nullable();
+            $table->string('attachment_2')->nullable();
+            $table->string('attachment_3')->nullable();
+            $table->string('construction_method')->nullable();
+            $table->json('cost_breakdown')->nullable();
+            $table->integer('workforce_count')->nullable();
+            $table->text('equipment_owned')->nullable();
+            $table->integer('warranty_months')->nullable();
+            $table->string('payment_preference')->nullable();
+            $table->string('payment_status')->default('unpaid');
+            $table->timestamp('paid_at')->nullable();
+            $table->json('scopes')->nullable();
+            $table->json('deliverables')->nullable();
             $table->timestamps();
+
+            $table->foreign('kontraktor_id')->references('id')->on('kontraktors')->onDelete('cascade');
         });
     }
-    
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
-        Schema::dropIfExists('bids_kontraktors');
+        Schema::dropIfExists('bids_kontraktor');
     }
 };

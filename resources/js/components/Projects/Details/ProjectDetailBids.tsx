@@ -1,5 +1,10 @@
 import React from 'react';
-import { Star, User as UserIcon, FileText, ChevronRight, AlertCircle } from 'lucide-react';
+import { 
+    Star, User as UserIcon, FileText, ChevronRight, AlertCircle, 
+    Box, Layout, Zap, Grid, Eye, Sofa, CheckCircle2,
+    Calendar, Clock, ShieldCheck, MapPin
+} from 'lucide-react';
+import { ARCHITECT_SERVICE_SCOPES, ARCHITECT_DELIVERABLES } from '../../constants/ArchitectStandardPresets';
 import { ProjectBidForm } from './ProjectBidForm';
 
 interface Bid {
@@ -12,6 +17,8 @@ interface Bid {
     estimated_duration?: number;
     duration_unit?: string;
     attachments?: string[];
+    scopes?: string[];
+    deliverables?: string[];
 }
 
 interface Props {
@@ -30,15 +37,32 @@ export const ProjectDetailBids: React.FC<Props> = ({
     allBids, detail, user, formatCurrency, onViewProfile, onBidAction, 
     actionLoading, toggleCompareSelection, selectedCompareBidIds 
 }) => {
-    const isProfessional = user?.role_type === 'arsitek' || user?.role_type === 'kontraktor';
-    const hasAlreadyBid = allBids.some(b => {
-        if (user?.role_type === 'arsitek') return b.type === 'arsitek' && b.bidder?.id === user?.arsitek?.id;
-        if (user?.role_type === 'kontraktor') return b.type === 'kontraktor' && b.bidder?.id === user?.kontraktor?.id;
-        return false;
+    const professionalRoles = ['arsitek', 'kontraktor', 'notaris', 'interior', 'structural', 'mep', 'project_manager'];
+    const isProfessional = professionalRoles.includes(user?.role_type);
+    
+    // Use the backend-calculated has_submitted_bid if available, otherwise fallback to local check
+    const hasAlreadyBid = detail?.has_submitted_bid ?? allBids.some(b => {
+        if (!user) return false;
+        const role = user.role_type;
+        const profileId = user[role]?.id || user[`${role}_profile`]?.id;
+        
+        // If we have a specific profile match logic for standard roles
+        if (role === 'arsitek') return b.type === 'arsitek' && b.bidder?.id === profileId;
+        if (role === 'kontraktor') return b.type === 'kontraktor' && b.bidder?.id === profileId;
+        
+        // Match via nested user ID (Project Manager, Structural, MEP)
+        if (b.bidder?.user?.id === user.id) return true;
+        if (b.bidder?.user_id === user.id) return true;
+
+        // General check for others if they are in allBids
+        return b.bidder?.id === profileId || b.pm_id === profileId || b.structural_id === profileId || b.mep_id === profileId;
     });
 
-    const isTargetRole = detail?.target_role === 'both' || detail?.target_role === user?.role_type;
-    const canBid = isProfessional && !hasAlreadyBid && isTargetRole && (detail?.status === 'open' || detail?.status === 'accepted_arsitek' || detail?.status === 'accepted_kontraktor');
+    const isPublishedRole = detail?.published_bidding_roles?.includes(user?.role_type);
+    const isTargetRole = detail?.target_role === 'both' || detail?.target_role === user?.role_type || isPublishedRole;
+    
+    const canBid = isProfessional && !hasAlreadyBid && isTargetRole && 
+        ['open', 'accepted_arsitek', 'accepted_kontraktor', 'procurement', 'in_progress', 'awaiting_payment', 'contract_pending', 'planning'].includes(detail?.status);
 
     const lowestPrice = allBids.length > 0 ? Math.min(...allBids.map(b => b.price)) : 0;
     const maxExperience = allBids.length > 0 ? Math.max(...allBids.map(b => b.bidder?.experience_years || 0)) : 0;
@@ -130,14 +154,129 @@ export const ProjectDetailBids: React.FC<Props> = ({
                             </div>
 
                             {/* Proposal Details */}
-                            <div className="bg-zinc-50 rounded-2xl p-6 mb-8 border border-zinc-100/50">
-                                <p className="text-[13.5px] text-gray-600 leading-relaxed italic">"{bid.proposal}"</p>
+                            <div className="bg-zinc-50 rounded-[2rem] p-8 mb-8 border border-zinc-100/50 shadow-inner">
+                                {(() => {
+                                    const hasStructuredData = (bid.scopes && bid.scopes.length > 0) || (bid.deliverables && bid.deliverables.length > 0);
+                                    
+                                    // EXTRACT PROFESSIONAL MESSAGE (Universal Cleaning)
+                                    // We split by standard markers used in our formatting helpers
+                                    let cleanProposal = bid.proposal;
+                                    
+                                    // Try to isolate the message between the summary footer and the professional message header
+                                    if (bid.proposal.includes('--- PROFESSIONAL MESSAGE ---')) {
+                                        cleanProposal = bid.proposal.split('--- PROFESSIONAL MESSAGE ---')[1].split('---')[0].trim();
+                                    } else if (bid.proposal.includes('=== ARCHITECTURAL PROPOSAL SUMMARY ===')) {
+                                        // Fallback if the standard markers are slightly different or missing the end marker
+                                        cleanProposal = bid.proposal.split('---').pop()?.trim() || bid.proposal;
+                                    }
+
+                                    // Final fallbacks if cleaning resulted in empty string or if markers weren't found
+                                    if (!cleanProposal || cleanProposal.length < 5) cleanProposal = bid.proposal;
+
+                                    if (hasStructuredData) {
+                                        let style = "Custom";
+                                        let revisions = "As per agreement";
+                                        let feeStructure = "Contractual";
+
+                                        if (bid.proposal.includes('=== ARCHITECTURAL PROPOSAL SUMMARY ===')) {
+                                            const styleMatch = bid.proposal.match(/• STYLE\/THEME: (.*)/);
+                                            if (styleMatch) style = styleMatch[1].trim();
+
+                                            const revisionMatch = bid.proposal.match(/• REVISION LIMIT: (.*)/);
+                                            if (revisionMatch) revisions = revisionMatch[1].trim();
+
+                                            const feeMatch = bid.proposal.match(/• FEE STRUCTURE: (.*)/);
+                                            if (feeMatch) feeStructure = feeMatch[1].trim();
+                                        }
+
+                                        return (
+                                            <div className="space-y-6">
+                                                {/* Professional Message */}
+                                                <div>
+                                                    <p className="text-[15px] text-zinc-800 font-medium leading-relaxed italic border-l-4 border-red-500/20 pl-6 py-1">
+                                                        "{cleanProposal}"
+                                                    </p>
+                                                </div>
+
+                                                {/* Deliverables Grid */}
+                                                {bid.deliverables && bid.deliverables.length > 0 && (
+                                                    <div className="pt-6 border-t border-zinc-200/40">
+                                                        <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                                            <CheckCircle2 size={12} className="text-emerald-500" /> Promised Deliverables
+                                                        </p>
+                                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                                            {bid.deliverables.map(id => {
+                                                                const del = ARCHITECT_DELIVERABLES.find(d => d.id === id);
+                                                                if (!del) return null;
+                                                                
+                                                                // Icon mapping
+                                                                const IconMap: Record<string, any> = { Box, Layout, Zap, Grid, Eye, Sofa };
+                                                                const Icon = IconMap[del.icon as string] || FileText;
+
+                                                                return (
+                                                                    <div key={id} className="flex items-center gap-3 px-4 py-2.5 bg-white rounded-2xl border border-zinc-100 shadow-sm group-hover:border-zinc-200 transition-colors">
+                                                                        <div className="w-8 h-8 rounded-lg bg-zinc-50 flex items-center justify-center text-zinc-400">
+                                                                            <Icon size={14} />
+                                                                        </div>
+                                                                        <span className="text-[10px] font-black text-zinc-900 leading-tight">{del.label}</span>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* Scopes Badges */}
+                                                {bid.scopes && bid.scopes.length > 0 && (
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {bid.scopes.map(id => {
+                                                            const scope = ARCHITECT_SERVICE_SCOPES.find(s => s.id === id);
+                                                            return (
+                                                                <span key={id} className="px-3 py-1 bg-zinc-900/5 text-zinc-500 text-[9px] font-black uppercase tracking-widest rounded-lg border border-zinc-950/5">
+                                                                    {scope?.label || id}
+                                                                </span>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
+                                                
+                                                {/* Extracted Details */}
+                                                {bid.proposal.includes('=== ARCHITECTURAL PROPOSAL SUMMARY ===') && (
+                                                    <div className="mt-6 pt-6 border-t border-zinc-200/50 grid grid-cols-1 sm:grid-cols-3 gap-6">
+                                                        <div>
+                                                            <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1.5">Proposed Style</p>
+                                                            <p className="text-xs font-black text-zinc-900">{style}</p>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1.5">Revisions Allowed</p>
+                                                            <p className="text-xs font-black text-zinc-900">{revisions.replace('Times', '')} Times</p>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-[10px] font-black text-emerald-600/60 uppercase tracking-widest mb-1.5">Professional Fee Info</p>
+                                                            <p className="text-xs font-black text-zinc-900 flex items-baseline gap-2">
+                                                                {feeStructure}
+                                                                <span className="text-emerald-600 text-[13px]">(@ Rp {Number(bid.price).toLocaleString('id-ID')})</span>
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    }
+
+                                    // Legacy Rendering
+                                    return (
+                                        <p className="text-[14px] text-zinc-700 leading-relaxed italic border-l-4 border-zinc-200/50 pl-6 py-1 whitespace-pre-wrap">
+                                            "{cleanProposal}"
+                                        </p>
+                                    );
+                                })()}
                                 
                                 {bid.attachments && bid.attachments.length > 0 && (
-                                    <div className="mt-4 pt-4 border-t border-zinc-200/50 flex flex-wrap gap-2">
+                                    <div className="mt-8 pt-6 border-t border-zinc-200/40 flex flex-wrap gap-2">
                                         {bid.attachments.map((url, i) => (
-                                            <a key={i} href={url} target="_blank" rel="noreferrer" className="flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-100 rounded-xl text-[10px] font-black text-gray-400 hover:text-red-600 hover:border-red-100 transition-all shadow-sm group/att">
-                                                <FileText size={12} className="group-hover/att:scale-110 transition-transform" /> Attachment {i + 1}
+                                            <a key={i} href={url} target="_blank" rel="noreferrer" className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-100 rounded-xl text-[10px] font-black text-gray-400 hover:text-red-600 hover:border-red-100 transition-all shadow-sm group/att">
+                                                <FileText size={14} className="group-hover/att:scale-110 transition-transform" /> Attachment {i + 1}
                                             </a>
                                         ))}
                                     </div>

@@ -43,7 +43,7 @@ export default function WarrantyDashboard({ project, currentUser, isOwner, isCon
                     formData.append(`images[${idx}]`, file);
                 });
             }
-            await axios.post(`/api/projects/${project.id}/warranty-claims`, formData, {
+            await axios.post(`/projects/${project.id}/warranty-claims`, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
             showToast('Warranty claim filed successfully', 'success');
@@ -58,7 +58,7 @@ export default function WarrantyDashboard({ project, currentUser, isOwner, isCon
 
     const handleUpdateStatus = async (claimId: number, status: string) => {
         try {
-            await axios.put(`/api/projects/${project.id}/warranty-claims/${claimId}/status`, { status });
+            await axios.put(`/projects/${project.id}/warranty-claims/${claimId}/status`, { status });
             showToast('Claim status updated', 'success');
             fetchClaims();
         } catch (error) {

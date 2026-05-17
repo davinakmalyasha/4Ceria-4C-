@@ -2,8 +2,8 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 
 class Kontraktor extends Model
 {
@@ -22,12 +22,21 @@ class Kontraktor extends Model
         'siup',
         'pengalaman',
         'spesialisasi',
+        'subspecialties',
         'rate_harga',
         'pendidikan',
         'alasan_hire',
         'verification_status',
         'rejection_reason',
-        'foto'
+        'foto',
+        'reliability_score',
+        'entity_type',
+        'company_name',
+        'company_license',
+    ];
+
+    protected $casts = [
+        'subspecialties' => 'array',
     ];
 
     protected $appends = ['average_rating', 'review_count'];
@@ -42,11 +51,11 @@ class Kontraktor extends Model
         return $this->ratings()->count();
     }
 
-
     public function user()
     {
         return $this->belongsTo(User::class, 'user_id', 'id');
     }
+
     public function spesialisasis()
     {
         return $this->belongsToMany(Spesialisasi::class, 'kontraktor_spesialisasi', 'kontraktor_id', 'spesialisasi_id');
@@ -56,10 +65,12 @@ class Kontraktor extends Model
     {
         return $this->hasMany(PengajuanSpesialisasi::class);
     }
+
     public function riwayatProjects()
     {
         return $this->hasMany(RiwayatProject::class);
     }
+
     public function ratings()
     {
         return $this->hasMany(KontraktorRating::class, 'kontraktor_id', 'id');
@@ -69,6 +80,4 @@ class Kontraktor extends Model
     {
         return $this->hasMany(Project::class, 'selected_kontraktor_id', 'id');
     }
-
-
 }

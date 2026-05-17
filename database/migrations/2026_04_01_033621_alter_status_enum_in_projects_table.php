@@ -1,19 +1,19 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\DB;
 
+/**
+ * NO-OP: Status enum already defined in consolidated base projects table.
+ */
 return new class extends Migration
 {
     public function up(): void
     {
-        DB::statement("ALTER TABLE projects MODIFY status ENUM('open', 'accepted_arsitek', 'accepted_kontraktor', 'in_progress', 'completed', 'cancelled') DEFAULT 'open'");
+        // Status already defined with all values in consolidated base table
     }
 
     public function down(): void
     {
-        DB::statement("ALTER TABLE projects MODIFY status ENUM('open', 'accepted_arsitek', 'accepted_kontraktor', 'completed') DEFAULT 'open'");
+        // No-op
     }
 };

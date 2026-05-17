@@ -26,6 +26,7 @@ export default function EditProjectModal({ project, onClose, onSuccess }: Props)
     const [streetName, setStreetName] = useState(project.street_name || '');
     
     const [targetRole, setTargetRole] = useState(project.target_role || 'both');
+    const [wantsPM, setWantsPM] = useState(!!project.wants_project_manager);
     const [deadline, setDeadline] = useState(project.deadline ? project.deadline.split('T')[0] : '');
     
     const [existingImages, setExistingImages] = useState(project.images || []);
@@ -76,6 +77,7 @@ export default function EditProjectModal({ project, onClose, onSuccess }: Props)
         formData.append('kelurahan', kelurahan);
         formData.append('postal_code', postalCode);
         formData.append('street_name', streetName);
+        formData.append('wants_project_manager', wantsPM ? '1' : '0');
 
         deletedImageIds.forEach((id, index) => {
             formData.append(`deleted_images[${index}]`, id.toString());
@@ -216,6 +218,25 @@ export default function EditProjectModal({ project, onClose, onSuccess }: Props)
                                 <label className="block text-sm font-bold text-gray-700 mb-1">Deadline</label>
                                 <input type="date" value={deadline} onChange={e => setDeadline(e.target.value)} required className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#FF2D20]/20 focus:border-[#FF2D20] outline-none transition-all" />
                             </div>
+                        </div>
+
+                        {/* Project Manager Toggle */}
+                        <div className="p-4 bg-red-50/50 border border-red-100 rounded-2xl flex items-start gap-3">
+                            <div className="pt-0.5">
+                                <input
+                                    type="checkbox"
+                                    id="wants_pm_edit"
+                                    checked={wantsPM}
+                                    onChange={(e) => setWantsPM(e.target.checked)}
+                                    className="w-5 h-5 text-[#FF2D20] bg-white border-gray-300 rounded focus:ring-[#FF2D20] cursor-pointer"
+                                />
+                            </div>
+                            <label htmlFor="wants_pm_edit" className="cursor-pointer">
+                                <p className="text-sm font-bold text-gray-900 mb-0.5">Hire a Project Manager</p>
+                                <p className="text-[10px] text-gray-600 leading-tight">
+                                    A professional PM will lead the whole project, find architects/contractors, and report high-level summaries to you.
+                                </p>
+                            </label>
                         </div>
                     </form>
                 </div>

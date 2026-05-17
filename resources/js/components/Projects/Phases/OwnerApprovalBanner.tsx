@@ -40,7 +40,7 @@ export default function OwnerApprovalBanner({ project, user, onRefresh }: OwnerA
     const handleConfirm = async (phase: string) => {
         setIsSubmitting(true);
         try {
-            await axios.post(`/api/projects/${project.id}/owner-confirm-phase`, { phase });
+            await axios.post(`/projects/${project.id}/owner-confirm-phase`, { phase });
             showToast('Phase confirmed! Moving to next stage.', 'success');
             onRefresh();
         } catch (err: any) {

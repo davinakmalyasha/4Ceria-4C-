@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
     FileText, Plus, AlertCircle, Check, X, 
-    ChevronDown, ChevronUp, DollarSign, Clock, MessageSquare 
+    ChevronDown, ChevronUp, DollarSign, Clock, MessageSquare, Layers 
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '../../../context/ToastContext';
@@ -66,12 +66,15 @@ export default function ChangeOrderPanel({ project, isPM, isOwner, isPro }: Chan
         }
     };
 
-    const handlePMReview = async (id: number, action: 'approve' | 'reject') => {
+    const handlePMReview = async (id: number | string, action: 'approve' | 'reject') => {
         const notes = window.prompt(`Enter ${action} notes for Owner review:`);
         if (notes === null) return;
         
+        // Strip prefix if string
+        const cleanId = typeof id === 'string' ? id.replace('co-', '') : id;
+
         try {
-            await axios.post(`/projects/${project.id}/change-orders/${id}/pm-review`, {
+            await axios.post(`/projects/${project.id}/change-orders/${cleanId}/pm-review`, {
                 pm_notes: notes,
                 action
             });
@@ -82,12 +85,15 @@ export default function ChangeOrderPanel({ project, isPM, isOwner, isPro }: Chan
         }
     };
 
-    const handleOwnerDecide = async (id: number, action: 'approve' | 'reject') => {
+    const handleOwnerDecide = async (id: number | string, action: 'approve' | 'reject') => {
         const notes = window.prompt(`Enter feedback for professional:`);
         if (notes === null) return;
 
+        // Strip prefix if string
+        const cleanId = typeof id === 'string' ? id.replace('co-', '') : id;
+
         try {
-            await axios.post(`/projects/${project.id}/change-orders/${id}/owner-decide`, {
+            await axios.post(`/projects/${project.id}/change-orders/${cleanId}/owner-decide`, {
                 owner_notes: notes,
                 action
             });
@@ -176,8 +182,13 @@ export default function ChangeOrderPanel({ project, isPM, isOwner, isPro }: Chan
                                     </div>
                                     <div>
                                         <h5 className="text-xs font-black text-slate-900">{order.title}</h5>
-                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
-                                            {order.status.replace('_', ' ')} • By {order.requester?.name}
+                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                            {(order.status || 'proposed').replace('_', ' ')} • By {order.requester?.name} {order.role_type && `(${order.role_type})`}
+                                            {order.milestone_id && (
+                                                <span className="flex items-center gap-1 text-purple-500 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-100">
+                                                    <Layers size={8} /> Milestone #{order.milestone_id}
+                                                </span>
+                                            )}
                                         </p>
                                     </div>
                                 </div>
@@ -232,18 +243,25 @@ export default function ChangeOrderPanel({ project, isPM, isOwner, isPro }: Chan
                                                 )}
                                             </div>
 
-                                            {/* Action Buttons */}
-                                            {isPM && order.status === 'proposed' && (
+                                            {/* Action Buttons (Only for real Change Orders) */}
+                                            {order.type !== 'addendum' && isPM && order.status === 'proposed' && (
                                                 <div className="flex gap-2 pt-2 border-t border-slate-100">
                                                     <button onClick={() => handlePMReview(order.id, 'approve')} className="flex-1 py-3 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-colors">Approve & Forward to Owner</button>
                                                     <button onClick={() => handlePMReview(order.id, 'reject')} className="px-6 py-3 bg-red-50 text-red-600 rounded-xl text-[10px] font-black uppercase tracking-widest">Reject</button>
                                                 </div>
                                             )}
-
-                                            {isOwner && order.status === 'pm_reviewed' && (
+                                            
+                                            {order.type !== 'addendum' && isOwner && order.status === 'pm_reviewed' && (
                                                 <div className="flex gap-2 pt-2 border-t border-slate-100">
                                                     <button onClick={() => handleOwnerDecide(order.id, 'approve')} className="flex-1 py-3 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-colors">Authorize Budget Increase</button>
                                                     <button onClick={() => handleOwnerDecide(order.id, 'reject')} className="px-6 py-3 bg-red-50 text-red-600 rounded-xl text-[10px] font-black uppercase tracking-widest">Decline</button>
+                                                </div>
+                                            )}
+
+                                            {order.type === 'addendum' && (
+                                                <div className="flex items-center gap-2 pt-2 border-t border-slate-100 opacity-60">
+                                                    <div className="px-2 py-1 bg-slate-100 rounded text-[8px] font-black uppercase tracking-widest text-slate-500">Negotiated via Financial Hub</div>
+                                                    <span className="text-[8px] font-medium text-slate-400 italic">This adjustment was handled through the specialized negotiation workflow.</span>
                                                 </div>
                                             )}
                                         </div>

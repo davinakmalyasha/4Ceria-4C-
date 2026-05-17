@@ -53,29 +53,71 @@ class ProjectLegalController extends Controller
             'selected_requirements.*' => 'required|string|max:100',
         ]);
 
-        $requirements = $validated['selected_requirements'];
+        try {
+            $requirements = self::syncProjectLegalScope($project, $validated['selected_requirements'], $user->id);
+            return response()->json([
+                'message' => 'Legal scope finalized. The Document Vault has been populated.',
+                'requirements' => $requirements,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Failed to finalize legal scope: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
 
+    /**
+     * Core logic to sync legal requirements to milestones.
+     * Can be called automatically when a bid is accepted/signed.
+     */
+    public static function syncProjectLegalScope(Project $project, array $requirements, $actingUserId = null)
+    {
         // Always ensure misc_legal is present as a catch-all
         if (!in_array('misc_legal', $requirements)) {
             $requirements[] = 'misc_legal';
         }
 
-        DB::beginTransaction();
-        try {
+        return DB::transaction(function () use ($project, $requirements, $actingUserId) {
             // 1. Persist to project
             $project->update(['legal_requirements' => $requirements]);
 
             // 2. Seed milestone slots for each selected requirement
             $notarisUserId = null;
+            $bidServices = collect();
             if ($project->selected_notaris_id) {
                 $notarisProfile = \App\Models\NotarisProfile::find($project->selected_notaris_id);
-                $notarisUserId = $notarisProfile?->user_id;
+                if ($notarisProfile) {
+                    $notarisUserId = $notarisProfile->user_id;
+                }
+                
+                // Get the accepted bid to find service titles
+                $bid = \App\Models\BidNotaris::where('project_id', $project->id)
+                    ->where('notaris_id', $project->selected_notaris_id)
+                    ->whereIn('status', ['accepted', 'awaiting_payment', 'active', 'contract_pending'])
+                    ->first();
+                
+                if ($bid && is_array($bid->selected_services)) {
+                    $bidServices = collect($bid->selected_services);
+                }
             }
 
             foreach ($requirements as $index => $reqId) {
-                $label = $this->getRequirementLabel($reqId);
+                // Try to get label from hardcoded list first
+                $label = (new self)->getRequirementLabel($reqId);
+                
+                // If the reqId is a dynamic service ID (numeric), look it up in the bid's selected services
+                if (is_numeric($reqId)) {
+                    $service = $bidServices->first(function($s) use ($reqId) {
+                        $id = is_array($s) ? ($s['id'] ?? null) : (is_object($s) ? ($s->id ?? null) : $s);
+                        return (string)$id === (string)$reqId;
+                    });
+                    
+                    if ($service) {
+                        $label = is_array($service) ? ($service['title'] ?? $label) : (is_object($service) ? ($service->title ?? $label) : $label);
+                    }
+                }
 
-                ProjectMilestone::firstOrCreate(
+                ProjectMilestone::updateOrCreate(
                     [
                         'project_id' => $project->id,
                         'type' => 'legal',
@@ -95,25 +137,17 @@ class ProjectLegalController extends Controller
             }
 
             // 3. Log activity
-            ProjectActivityLog::create([
-                'project_id' => $project->id,
-                'user_id' => $user->id,
-                'action' => 'legal_scope_finalized',
-                'details' => 'Legal scope finalized with ' . count($requirements) . ' document requirements.',
-            ]);
+            if ($actingUserId) {
+                ProjectActivityLog::create([
+                    'project_id' => $project->id,
+                    'user_id' => $actingUserId,
+                    'action' => 'legal_scope_finalized',
+                    'details' => 'Legal scope finalized with ' . count($requirements) . ' document requirements.',
+                ]);
+            }
 
-            DB::commit();
-
-            return response()->json([
-                'message' => 'Legal scope finalized. The Document Vault has been populated.',
-                'requirements' => $requirements,
-            ]);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json([
-                'message' => 'Failed to finalize legal scope.',
-            ], 500);
-        }
+            return $requirements;
+        });
     }
 
     public function storeDisbursement(Request $request, Project $project)

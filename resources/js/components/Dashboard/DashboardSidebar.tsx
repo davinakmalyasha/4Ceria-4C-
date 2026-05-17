@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Home, FolderKanban, Compass, MessageSquare, User as UserIcon, LogOut, Search, CheckSquare, FileText, Building, Truck, Package, Users, ShoppingBag, Heart, Paintbrush, ShieldCheck } from 'lucide-react';
+import { Home, FolderKanban, Compass, MessageSquare, User as UserIcon, LogOut, Search, CheckSquare, FileText, Building, Truck, Package, Users, ShoppingBag, Heart, Paintbrush, ShieldCheck, Briefcase, Building2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 interface SidebarProps {
@@ -17,7 +17,9 @@ const USER_NAV = [
     { id: 'architects', label: 'Hire Architect', icon: Users },
     { id: 'constructors', label: 'Hire Constructor', icon: Users },
     { id: 'interior', label: 'Hire Interior', icon: Paintbrush },
-    { id: 'notaris', label: 'Legal & Notary', icon: ShieldCheck },
+    { id: 'notaris', label: 'Legal, Notary & PPAT', icon: ShieldCheck },
+    { id: 'project_manager', label: 'Hire Project Manager', icon: Briefcase },
+    { id: 'hire-history', label: 'Hire History', icon: Users },
     { id: 'marketplace', label: 'Marketplace', icon: ShoppingBag },
     { id: 'material-orders', label: 'My Orders', icon: Package },
     { id: 'saved', label: 'Saved Items', icon: Heart },
@@ -30,6 +32,8 @@ const PRO_NAV = (role: string) => {
                   role === 'interior' ? 'Interior' : 
                   role === 'arsitek' ? 'Architect' : 
                   role === 'project_manager' ? 'Project Manager' :
+                  role === 'structural' ? 'Structural' :
+                  role === 'mep' ? 'MEP' :
                   'Constructor';
     const nav = [
         { id: 'overview', label: 'Home', icon: Home },
@@ -44,7 +48,26 @@ const PRO_NAV = (role: string) => {
     if (role === 'kontraktor') {
         const marketplaceIndex = nav.findIndex(item => item.id === 'management');
         if (marketplaceIndex !== -1) {
-            nav.splice(marketplaceIndex + 1, 0, { id: 'marketplace', label: 'Marketplace', icon: ShoppingBag });
+            nav.splice(marketplaceIndex + 1, 0, 
+                { id: 'marketplace', label: 'Marketplace', icon: ShoppingBag },
+                { id: 'find-sub-contractors', label: 'Hire Sub-Contractors', icon: Users },
+            );
+        }
+    }
+
+    // Add Find Engineers for architects
+    if (role === 'arsitek') {
+        const index = nav.findIndex(item => item.id === 'management');
+        if (index !== -1) {
+            nav.splice(index + 1, 0, { id: 'find-engineers', label: 'Hire Specialists', icon: Users });
+        }
+    }
+
+    // Add My Firm for architects and contractors
+    if (role === 'arsitek' || role === 'kontraktor') {
+        const chatIdx = nav.findIndex(item => item.id === 'chat');
+        if (chatIdx !== -1) {
+            nav.splice(chatIdx, 0, { id: 'my-firm', label: 'My Firm', icon: Building2 });
         }
     }
 

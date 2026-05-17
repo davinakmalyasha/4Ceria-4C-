@@ -20,6 +20,7 @@ class ProjectRequirement extends Model
         'unit',
         'quality_level',
         'notes',
+        'category',
         'image_path',
     ];
 
@@ -39,5 +40,10 @@ class ProjectRequirement extends Model
     public function orderItems()
     {
         return $this->hasMany(MaterialOrderItem::class, 'requirement_id');
+    }
+
+    public function procurementRequests()
+    {
+        return $this->hasMany(ProjectProcurementRequest::class, 'requirement_id');
     }
 }

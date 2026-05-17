@@ -32,6 +32,7 @@ class MaterialOrder extends Model
         'delivery_documentation_path',
         'is_stock_decremented',
         'total_weight',
+        'verification_notes',
     ];
 
     protected $casts = [
@@ -63,7 +64,7 @@ class MaterialOrder extends Model
     {
         return $this->hasMany(MaterialOrderItem::class, 'order_id');
     }
-    
+
     public function review()
     {
         return $this->hasOne(MaterialOrderReview::class, 'order_id');

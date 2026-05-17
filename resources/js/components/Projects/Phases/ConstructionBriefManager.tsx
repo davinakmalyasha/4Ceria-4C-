@@ -20,10 +20,12 @@ import { useToast } from '../../../context/ToastContext';
 interface ConstructionBriefManagerProps {
     project: any;
     isContractor: boolean;
+    isOwner?: boolean;
+    isPM?: boolean;
     onRefresh: () => void;
 }
 
-export default function ConstructionBriefManager({ project, isContractor, onRefresh }: ConstructionBriefManagerProps) {
+export default function ConstructionBriefManager({ project, isContractor, isOwner, isPM, onRefresh }: ConstructionBriefManagerProps) {
     const { showToast } = useToast();
     const [isEditing, setIsEditing] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
@@ -110,30 +112,25 @@ export default function ConstructionBriefManager({ project, isContractor, onRefr
         }
     };
 
-    const handleLock = async () => {
+    const handleSubmit = async () => {
         // Validation: Ensure everything is ready
         if (totalRab !== 100) {
-            showToast('Cannot lock: RAB must total 100%.', 'error');
+            showToast('Cannot submit: RAB must total 100%.', 'error');
             setActiveSection(3);
             return;
         }
 
         if (!scheduleStart || !scheduleEnd) {
-            showToast('Cannot lock: Please select Start and End dates in Section 2.', 'error');
+            showToast('Cannot submit: Please select Start and End dates in Section 2.', 'error');
             setActiveSection(2);
             return;
         }
 
-        if (!window.confirm(
-            'PERMANENT ACTION: Lock this construction brief?\n\n' +
-            'Once locked, no further edits can be made. ' +
-            'Make sure you\'ve discussed everything with the client first.\n\n' +
-            'This signals that planning is complete and construction can begin.'
-        )) return;
+        if (!window.confirm('Submit this master plan to the Project Manager / Owner for review?')) return;
 
         setIsLocking(true);
         try {
-            // AUTO-SAVE BEFORE LOCKING (Ensure the DB has the latest details)
+            // AUTO-SAVE BEFORE SUBMITTING
             await axios.put(`/projects/${project.id}`, {
                 construction_details: {
                     method,
@@ -151,23 +148,53 @@ export default function ConstructionBriefManager({ project, isContractor, onRefr
                     safety_protocols: safetyProtocols,
                     subcontractors,
                     site_notes: siteNotes,
-                    locked_at: new Date().toISOString()
                 }
             });
 
             await axios.post(`/projects/${project.id}/lock-brief`, { phase: 'build' });
-            showToast('Construction Brief locked! Work can now begin on-site.', 'success');
+            showToast('Construction Plan submitted for review!', 'success');
             onRefresh();
         } catch (error: any) {
-            const msg = error.response?.data?.message || '';
-            if (msg.toLowerCase().includes('already locked')) {
-                showToast('Synchronizing lock status...', 'info');
-                onRefresh(); // SELF-HEAL: Refresh data if server says it's already locked
-            } else {
-                showToast(msg || 'Failed to lock brief.', 'error');
-            }
+             showToast(error.response?.data?.message || 'Failed to submit plan.', 'error');
         } finally {
             setIsLocking(false);
+        }
+    };
+
+    const handleApprove = async () => {
+        if (!window.confirm('Approve this master plan and LOCK it permanently? This authorizes the contractor to proceed.')) return;
+        try {
+            await axios.post(`/projects/${project.id}/approve-construction-brief`);
+            showToast('Plan approved and locked!', 'success');
+            onRefresh();
+        } catch (error: any) {
+            showToast(error.response?.data?.message || 'Failed to approve plan.', 'error');
+        }
+    };
+
+    const handleRevise = async () => {
+        const notes = window.prompt("Enter revision notes for the contractor:");
+        if (!notes) return;
+        try {
+            await axios.post(`/projects/${project.id}/revise-construction-brief`, { notes });
+            showToast('Revision requested.', 'success');
+            onRefresh();
+        } catch (error: any) {
+            showToast(error.response?.data?.message || 'Failed to request revision.', 'error');
+        }
+    };
+
+    const handleKickoff = async () => {
+        if (!window.confirm('Issue official Notice to Proceed to the Contractor? This starts the project timeline.')) return;
+        setIsLoading(true);
+        try {
+            await axios.post(`/projects/${project.id}/kickoff`, { role: 'kontraktor' });
+            showToast('Notice to Proceed issued!', 'success');
+            onRefresh();
+        } catch (error: any) {
+            showToast(error.response?.data?.message || 'Failed to issue NTP.', 'error');
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -283,6 +310,33 @@ export default function ConstructionBriefManager({ project, isContractor, onRefr
                             </span>
                         </div>
                     </div>
+
+                    {!project.kontraktor_kickoff_at && (
+                        <div className="relative mb-12 p-8 bg-amber-500/10 border border-amber-500/20 rounded-[2rem] flex flex-col md:flex-row items-center justify-between gap-6">
+                            <div className="flex items-center gap-5">
+                                <div className="w-14 h-14 bg-amber-500/20 rounded-2xl flex items-center justify-center text-amber-500">
+                                    <Clock size={28} className="animate-pulse" />
+                                </div>
+                                <div>
+                                    <h4 className="text-lg font-black text-amber-500 tracking-tight uppercase">Standby: Awaiting NTP</h4>
+                                    <p className="text-[11px] font-medium text-amber-200/60 leading-relaxed max-w-md mt-1">
+                                        The plan is locked, but construction cannot start until the official Notice to Proceed is issued.
+                                    </p>
+                                    {!project.legal_handover_submitted_at && (isOwner || isPM) && (
+                                        <p className="text-[9px] font-black text-red-400 uppercase mt-2">
+                                            Warning: Notary has not finalized legal documents.
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                            
+                            {(isOwner || isPM) && (
+                                <button onClick={handleKickoff} disabled={isLoading} className="w-full md:w-auto px-8 py-4 bg-amber-500 text-zinc-900 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-amber-400 transition-all shadow-xl shadow-amber-500/20 flex items-center justify-center gap-2">
+                                    {isLoading ? <div className="w-4 h-4 border-2 border-zinc-900/30 border-t-zinc-900 rounded-full animate-spin" /> : <><CheckCircle size={16} /> Issue Notice to Proceed</>}
+                                </button>
+                            )}
+                        </div>
+                    )}
 
                     <div className="relative grid grid-cols-1 lg:grid-cols-2 gap-x-12 gap-y-12">
                         {/* Sec 1: Scope of Work */}
@@ -679,7 +733,9 @@ export default function ConstructionBriefManager({ project, isContractor, onRefr
         );
     }
 
-    // ─── DEFAULT STATE: Read-only unlocked view with edit + lock option ───
+    // ─── DEFAULT STATE: Read-only unlocked view with edit + submit + review options ───
+    const briefStatus = project.construction_brief_status || 'draft';
+
     return (
         <div className="bg-white border-2 border-slate-100 rounded-[2.5rem] p-8 md:p-10 shadow-sm space-y-8 overflow-hidden relative">
             <div className="absolute top-0 right-0 w-48 h-48 bg-slate-50 rounded-bl-[8rem] -mr-16 -mt-16 -z-10" />
@@ -694,7 +750,7 @@ export default function ConstructionBriefManager({ project, isContractor, onRefr
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1">Pre-construction configuration</p>
                     </div>
                 </div>
-                {isContractor && (
+                {isContractor && briefStatus !== 'pending_review' && (
                     <button onClick={() => setIsEditing(true)}
                         className="flex items-center justify-center gap-2 px-6 py-3.5 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all hover:scale-105 active:scale-95 border border-slate-200">
                         <Pencil size={14} /> Edit Plan Details
@@ -702,31 +758,68 @@ export default function ConstructionBriefManager({ project, isContractor, onRefr
                 )}
             </div>
 
-            <div className="bg-slate-50/50 border-2 border-dashed border-slate-200 p-8 text-center rounded-3xl">
-                <p className="text-sm font-bold text-slate-600 max-w-lg mx-auto leading-relaxed">
-                    The detailed construction plan is currently in <span className="font-black text-slate-900">Draft Mode</span>. 
-                    {isContractor ? " Configure the comprehensive 6-sections Master Plan by clicking Edit above. Once you're fully aligned with the client, Lock the plan to proceed to execution." : " The contractor is currently drafting the master plan. It will be visible here once locked."}
-                </p>
-            </div>
+            {briefStatus === 'pending_review' && (
+                <div className="bg-blue-50 border-2 border-blue-200 p-8 text-center rounded-3xl">
+                    <ShieldCheck className="w-12 h-12 text-blue-500 mx-auto mb-4" />
+                    <h4 className="text-xl font-black text-blue-900 mb-2">Master Plan Under Review</h4>
+                    <p className="text-sm font-bold text-blue-700 max-w-lg mx-auto leading-relaxed">
+                        {isContractor ? "The plan has been submitted and is awaiting approval from the Project Manager or Owner." : "The contractor has submitted the master plan. Please review it carefully before approving."}
+                    </p>
 
-            {/* Lock Plan Button */}
-            {isContractor && (
+                    {(isOwner || isPM) && (
+                        <div className="mt-8 flex flex-col md:flex-row items-center justify-center gap-4">
+                            <button onClick={handleApprove}
+                                className="w-full md:w-auto px-8 py-4 bg-emerald-500 text-white rounded-xl text-xs font-black uppercase tracking-[0.2em] shadow-xl shadow-emerald-500/20 hover:bg-emerald-600 transition-all flex items-center justify-center gap-2">
+                                <CheckCircle size={16} /> Approve & Lock Plan
+                            </button>
+                            <button onClick={handleRevise}
+                                className="w-full md:w-auto px-8 py-4 bg-white border-2 border-red-200 text-red-500 rounded-xl text-xs font-black uppercase tracking-[0.2em] hover:bg-red-50 transition-all flex items-center justify-center gap-2">
+                                <AlertTriangle size={16} /> Request Revision
+                            </button>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {briefStatus === 'revision_requested' && (
+                <div className="bg-red-50 border-2 border-red-200 p-6 text-left rounded-3xl">
+                    <div className="flex items-center gap-3 mb-2">
+                        <AlertTriangle className="text-red-500" size={20} />
+                        <h4 className="text-sm font-black text-red-900 tracking-tight">Revision Requested</h4>
+                    </div>
+                    <p className="text-xs font-medium text-red-800 leading-relaxed italic border-l-2 border-red-300 pl-3">
+                        "{project.construction_brief_revision_notes}"
+                    </p>
+                </div>
+            )}
+
+            {briefStatus !== 'pending_review' && (
+                <div className="bg-slate-50/50 border-2 border-dashed border-slate-200 p-8 text-center rounded-3xl">
+                    <p className="text-sm font-bold text-slate-600 max-w-lg mx-auto leading-relaxed">
+                        The detailed construction plan is currently in <span className="font-black text-slate-900">Draft Mode</span>. 
+                        {isContractor ? " Configure the comprehensive 6-sections Master Plan by clicking Edit above. Once you're ready, submit the draft for pm review." : " The contractor is currently drafting the master plan. It will be visible here once locked."}
+                    </p>
+                </div>
+            )}
+
+            {/* Submit Plan Button (Contractor only) */}
+            {isContractor && briefStatus !== 'pending_review' && (
                 <div className="pt-6 border-t border-slate-100">
                     <div className="bg-amber-50 border-2 border-amber-100/60 rounded-[2rem] p-6 lg:p-8 flex flex-col md:flex-row items-center justify-between gap-6 shadow-sm">
                         <div className="flex items-center gap-5">
                             <div className="w-14 h-14 bg-amber-100 rounded-[1.25rem] flex items-center justify-center text-amber-600 shrink-0">
-                                <Lock size={28} />
+                                <CheckSquare size={28} />
                             </div>
                             <div>
-                                <h4 className="text-base font-black text-amber-900 tracking-tight">Lock & Execute</h4>
+                                <h4 className="text-base font-black text-amber-900 tracking-tight">Submit for Review</h4>
                                 <p className="text-[11px] text-amber-700/80 font-bold leading-relaxed max-w-md mt-1">
-                                    Locking ensures the 6-section Master Plan becomes immutable and acts as your official baseline. This will unlock Progress Tracking and Daily Logs.
+                                    Submit the Master Plan to the Project Manager for approval. Once approved and locked, construction tracking operations will unlock.
                                 </p>
                             </div>
                         </div>
-                        <button onClick={handleLock} disabled={isLocking}
+                        <button onClick={handleSubmit} disabled={isLocking}
                             className="w-full md:w-auto px-10 py-4 lg:py-5 bg-amber-500 text-white rounded-2xl text-[10px] lg:text-xs font-black uppercase tracking-[0.2em] hover:bg-amber-600 active:scale-95 transition-all shadow-xl shadow-amber-500/20 disabled:opacity-50 flex items-center justify-center gap-3 shrink-0">
-                            {isLocking ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><Lock size={16} /> Seal Plan & Start</>}
+                            {isLocking ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><CheckSquare size={16} /> Submit Plan</>}
                         </button>
                     </div>
                 </div>

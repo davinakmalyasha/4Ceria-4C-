@@ -26,7 +26,7 @@ class OrderService
             $order->update([
                 'status' => 'completed',
                 'completed_at' => Carbon::now(),
-                'notes' => ($order->notes ? $order->notes . "\n" : "") . "[System] Automatically completed after 3 days of arrival."
+                'notes' => ($order->notes ? $order->notes."\n" : '').'[System] Automatically completed after 3 days of arrival.',
             ]);
         }
 
@@ -38,7 +38,9 @@ class OrderService
      */
     public function decrementStock(MaterialOrder $order)
     {
-        if ($order->is_stock_decremented) return false;
+        if ($order->is_stock_decremented) {
+            return false;
+        }
 
         foreach ($order->items as $item) {
             if ($item->material) {
@@ -47,6 +49,7 @@ class OrderService
         }
 
         $order->update(['is_stock_decremented' => true]);
+
         return true;
     }
 
@@ -55,7 +58,9 @@ class OrderService
      */
     public function incrementStock(MaterialOrder $order)
     {
-        if (!$order->is_stock_decremented) return false;
+        if (! $order->is_stock_decremented) {
+            return false;
+        }
 
         foreach ($order->items as $item) {
             if ($item->material) {
@@ -64,6 +69,7 @@ class OrderService
         }
 
         $order->update(['is_stock_decremented' => false]);
+
         return true;
     }
 }

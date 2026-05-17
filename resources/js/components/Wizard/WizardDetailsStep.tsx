@@ -69,12 +69,14 @@ export default function WizardDetailsStep({ form, updateForm, images, setImages 
                     <label className="block text-sm font-bold text-gray-900 mb-1.5 flex items-center gap-2"><Calendar size={14} className="text-[#FF2D20]" /> Target Selesai</label>
                     <input type="date" value={form.deadline} onChange={e => updateForm('deadline', e.target.value)} required className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-[#FF2D20] focus:ring-4 focus:ring-red-100 outline-none transition-all" />
                 </div>
-                <div>
-                    <label className="block text-sm font-bold text-gray-900 mb-1.5">Jenis Proyek</label>
-                    <select value={form.type} onChange={e => updateForm('type', e.target.value)} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-[#FF2D20]">
-                        {['umum', 'fondasi', 'struktur', 'dinding', 'atap', 'lantai', 'ventilasi', 'listrik', 'plumbing'].map(o => <option key={o} value={o}>{o}</option>)}
-                    </select>
-                </div>
+                {form.project_category === 'maintenance' && (
+                    <div>
+                        <label className="block text-sm font-bold text-gray-900 mb-1.5">Jenis Proyek</label>
+                        <select value={form.type} onChange={e => updateForm('type', e.target.value)} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-[#FF2D20]">
+                            {['umum', 'fondasi', 'struktur', 'dinding', 'atap', 'lantai', 'ventilasi', 'listrik', 'plumbing'].map(o => <option key={o} value={o}>{o}</option>)}
+                        </select>
+                    </div>
+                )}
             </div>
         </motion.div>
     );

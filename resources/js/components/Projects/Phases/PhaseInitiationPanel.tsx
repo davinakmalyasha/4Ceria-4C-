@@ -15,35 +15,107 @@ export default function PhaseInitiationPanel({
     projectId,
     phaseKey,
     phaseLabel,
-    onRefresh
-}) {
+    onRefresh,
+    project // New prop
+}: any) {
     const { showToast } = useToast();
     const [isBroadcasting, setIsBroadcasting] = React.useState(false);
+    const [isAutoPilot, setIsAutoPilot] = React.useState(false); // New state
     const [showImportModal, setShowImportModal] = React.useState(false);
 
     // Map PhaseKey to DB role
     const ROLE_MAP = {
         management: 'project_manager',
         legal: 'notaris',
+        technical: 'structural', // Structural is the primary technical role
         design: 'arsitek',
         build: 'kontraktor',
         interior: 'interior'
     };
 
+    const currentRole = ROLE_MAP[phaseKey] || phaseKey;
+
+    const choice = project?.bidding_choices?.[currentRole];
+    const isPublished = project?.published_bidding_roles?.includes(currentRole);
+    const isAutoPilotChoice = ['find', 'cert_only'].includes(choice) && !isPublished;
+    
+    // Safety lock to prevent double-triggering in a single session
+    const hasTriggered = React.useRef(false);
+
+    // Auto-Pilot Logic: If wizard choice was "find" or "cert_only", do it automatically
+    React.useEffect(() => {
+        if (isAutoPilotChoice && !isBroadcasting && !isAutoPilot && !hasTriggered.current) {
+            console.log(`[DEBUG] Auto-Pilot Triggered for ${currentRole}`);
+            hasTriggered.current = true;
+            setIsAutoPilot(true);
+            handleBroadcast();
+        }
+    }, [phaseKey, project, choice, isAutoPilotChoice]);
+
     const handleBroadcast = async () => {
         setIsBroadcasting(true);
         try {
-            await axios.post(`/projects/${projectId}/broadcast-phase`, {
-                role: ROLE_MAP[phaseKey] || phaseKey
-            });
+            if (phaseKey === 'technical') {
+                await Promise.all([
+                    axios.post(`/projects/${projectId}/broadcast-phase`, { role: 'structural' }),
+                    axios.post(`/projects/${projectId}/broadcast-phase`, { role: 'mep' })
+                ]);
+            } else {
+                await axios.post(`/projects/${projectId}/broadcast-phase`, {
+                    role: currentRole
+                });
+            }
             showToast(`${phaseLabel} phase published to Bidding Board!`, 'success');
             onRefresh();
         } catch (error: any) {
             showToast(error.response?.data?.message || 'Failed to publish phase.', 'error');
+            setIsAutoPilot(false); 
+            hasTriggered.current = false;
         } finally {
             setIsBroadcasting(false);
         }
     };
+
+    if (isAutoPilot || isBroadcasting) {
+        return (
+            <div className="bg-slate-950 border-2 border-white/5 rounded-[3rem] p-16 shadow-2xl text-center relative overflow-hidden group">
+                {/* Animated Background Gradients */}
+                <div className="absolute inset-0 bg-gradient-to-br from-red-600/10 via-transparent to-blue-600/10 animate-pulse" />
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-1 bg-gradient-to-r from-transparent via-red-500 to-transparent" />
+                
+                <div className="relative z-10 space-y-8">
+                    <div className="relative inline-block">
+                        <div className="absolute inset-0 bg-red-500 blur-3xl opacity-20 animate-pulse" />
+                        <div className="w-24 h-24 bg-zinc-900 border-2 border-white/10 text-red-500 rounded-[2rem] flex items-center justify-center mx-auto shadow-2xl relative">
+                            <Zap size={48} className="fill-red-500 animate-pulse" />
+                        </div>
+                    </div>
+                    
+                    <div className="space-y-3">
+                        <h3 className="text-3xl font-black text-white tracking-tighter uppercase italic">Auto-Pilot Engaged</h3>
+                        <div className="flex flex-col items-center gap-1">
+                            <p className="text-xs font-black text-red-500 uppercase tracking-[0.2em]">Executing Strategic Decision</p>
+                            <p className="text-sm font-bold text-slate-400 max-w-sm mx-auto leading-relaxed">
+                                We're broadcasting the <span className="text-white">{phaseLabel}</span> phase to the Papan Lelang based on your Wizard choices.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="flex justify-center gap-3 pt-4">
+                        {[0, 1, 2].map((i) => (
+                            <div 
+                                key={i}
+                                className="w-3 h-3 bg-red-500 rounded-full animate-bounce"
+                                style={{ animationDelay: `${i * 0.15}s` }}
+                            />
+                        ))}
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    if (isAutoPilotChoice) return null;
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">

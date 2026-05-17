@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use App\Models\Notification;
 use Illuminate\Support\Facades\Auth;
 
@@ -17,7 +16,7 @@ class NotificationController extends Controller
             ->get();
 
         return response()->json([
-            'data' => $notifications
+            'data' => $notifications,
         ]);
     }
 

@@ -10,10 +10,11 @@ use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Redirect;
-use Illuminate\View\View;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Redirect;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\View\View;
+
 class ProfileController extends Controller
 {
     /**
@@ -23,9 +24,10 @@ class ProfileController extends Controller
     {
         $user = User::with('PhoneNumber')->find(Auth::id());
         $contacts = Contact::all();
-        $houses = House::with(['housePic' => function ($query){
+        $houses = House::with(['housePic' => function ($query) {
             $query->limit(1);
-        } ])->where('id_user', Auth::id())->get();
+        }])->where('id_user', Auth::id())->get();
+
         return view('profile', compact('user', 'contacts', 'tab', 'houses'));
     }
 
@@ -35,34 +37,33 @@ class ProfileController extends Controller
     public function update(ProfileUpdateRequest $request): RedirectResponse
     {
         $request->validate([
-            'username'=>'required|string|max:55|unique:users,username,'.Auth::id(),
+            'username' => 'required|string|max:55|unique:users,username,'.Auth::id(),
             'name' => 'required|string|max:255',
-            'email'=>'required|string|email|max:255|unique:users,email,'.Auth::id(),
+            'email' => 'required|string|email|max:255|unique:users,email,'.Auth::id(),
             'update_password' => 'nullable|string|min:6',
             'update_deskripsi' => 'nullable|string|max:255',
             'pic' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
         ]);
 
-        
-    $user = User::find(Auth::id());
-    $user->username = $request->username;
-    $user->name = $request->name;
-    $user->email = $request->email;
-    $user->Deskripsi = $request->update_deskripsi;
-    if ($request->hasFile('pic')) {
-        if ($user->pic && Storage::exists('public/profileUser/'.$user->pic)) {
-            Storage::delete('public/profileUser/'.$user->pic);
-        }
-        
-        // Simpan foto baru di folder profileUser
-        $path = $request->file('pic')->store('profileUser', 'public');
-        $user->pic = $path;
-    }
-    if ($request->filled('update_password')) {
-        $user->password = Hash::make($request->update_password);
-    }
+        $user = User::find(Auth::id());
+        $user->username = $request->username;
+        $user->name = $request->name;
+        $user->email = $request->email;
+        $user->Deskripsi = $request->update_deskripsi;
+        if ($request->hasFile('pic')) {
+            if ($user->pic && Storage::exists('public/profileUser/'.$user->pic)) {
+                Storage::delete('public/profileUser/'.$user->pic);
+            }
 
-    $user->save();
+            // Simpan foto baru di folder profileUser
+            $path = $request->file('pic')->store('profileUser', 'public');
+            $user->pic = $path;
+        }
+        if ($request->filled('update_password')) {
+            $user->password = Hash::make($request->update_password);
+        }
+
+        $user->save();
         // $request->user()->fill($request->validated());
 
         // if ($request->user()->isDirty('email')) {
@@ -77,7 +78,6 @@ class ProfileController extends Controller
 
         // $request->user()->save();
 
-
         return Redirect::route('profile.edit', 1)->with('status', 'profile-updated');
     }
 
@@ -85,20 +85,20 @@ class ProfileController extends Controller
      * Delete the user's account.
      */
     public function deleteProfilePicture(Request $request): RedirectResponse
-{
-    $user = $request->user();
+    {
+        $user = $request->user();
 
-    // Hapus foto lama jika ada
-    if ($user->pic && Storage::exists('public/profileUser/' . $user->pic)) {
-        Storage::delete('public/profileUser/' . $user->pic);
+        // Hapus foto lama jika ada
+        if ($user->pic && Storage::exists('public/profileUser/'.$user->pic)) {
+            Storage::delete('public/profileUser/'.$user->pic);
+        }
+
+        // Set foto profil menjadi null
+        $user->pic = null;
+        $user->save();
+
+        return Redirect::route('profile.edit', 1)->with('status', 'Profile picture deleted');
     }
-
-    // Set foto profil menjadi null
-    $user->pic = null;
-    $user->save();
-
-    return Redirect::route('profile.edit', 1)->with('status', 'Profile picture deleted');
-}
 
     public function destroy(Request $request): RedirectResponse
     {
@@ -118,28 +118,36 @@ class ProfileController extends Controller
         return Redirect::to('/');
     }
 
-    public function addPhoneNumber(Request $request){
+    public function addPhoneNumber(Request $request)
+    {
         $request->validate([
-            'create_phoneNumber'=>['string', 'max:15']
+            'create_phoneNumber' => ['string', 'max:15'],
         ]);
         PhoneNumber::create([
-            'contact'=>$request->create_phoneNumber,
-            'id_user'=>Auth::id()
+            'contact' => $request->create_phoneNumber,
+            'id_user' => Auth::id(),
         ]);
+
         return Redirect::route('profile.edit', 1)->with('status', 'Phone Number Added');
     }
-    public function deletePhoneNumber($id){
+
+    public function deletePhoneNumber($id)
+    {
         $phone = PhoneNumber::find($id);
         $phone->delete();
+
         return Redirect::route('profile.edit', 1)->with('status', 'Phone Number Deleted');
     }
-    public function editPhoneNumber(Request $request, $id){
+
+    public function editPhoneNumber(Request $request, $id)
+    {
         $request->validate([
-            'update_phoneNumber'=>['string', 'max:15']
+            'update_phoneNumber' => ['string', 'max:15'],
         ]);
         $phone = PhoneNumber::find($id);
         $phone->contact = $request->update_phoneNumber;
         $phone->save();
+
         return Redirect::route('profile.edit', 1)->with('status', 'Phone Number Updated');
     }
 }

@@ -9,20 +9,20 @@ class MaterialQuote extends Model
     use \Illuminate\Database\Eloquent\Factories\HasFactory;
 
     protected $fillable = [
-        'user_id', 
-        'supplier_id', 
-        'project_id', 
-        'items', 
-        'delivery_address', 
-        'total_amount', 
+        'user_id',
+        'supplier_id',
+        'project_id',
+        'items',
+        'delivery_address',
+        'total_amount',
         'shipping_cost',
         'delivery_method',
-        'status', 
+        'status',
         'note',
         'latitude',
         'longitude',
         'address_detail',
-        'total_weight'
+        'total_weight',
     ];
 
     protected $casts = [

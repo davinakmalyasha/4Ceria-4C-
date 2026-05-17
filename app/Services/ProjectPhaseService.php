@@ -41,12 +41,14 @@ class ProjectPhaseService
         return DB::transaction(function () use ($project, $data) {
             $vendor = ProjectExternalVendor::create([
                 'project_id' => $project->id,
+                'team_member_id' => $data['team_member_id'] ?? null,
                 'phase_role' => $data['phase_role'],
                 'company_name' => $data['company_name'] ?? null,
                 'contact_person' => $data['contact_person'],
                 'phone_number' => $data['phone_number'],
                 'email' => $data['email'] ?? null,
                 'agreed_fee' => $data['agreed_fee'] ?? 0,
+                'notes' => $data['notes'] ?? null,
             ]);
 
             // Deduct from budget if agreed_fee is present
@@ -67,11 +69,12 @@ class ProjectPhaseService
                 ]);
             }
 
+            $source = $vendor->team_member_id ? "internal team" : "external partner";
             ProjectActivityLog::create([
                 'project_id' => $project->id,
                 'user_id' => Auth::id(),
                 'action' => 'external_vendor_imported',
-                'details' => "Externally handled {$vendor->phase_role} phase assigned to: {$vendor->contact_person}.",
+                'details' => "Externally handled {$vendor->phase_role} phase assigned to {$vendor->contact_person} (imported from {$source}).",
             ]);
 
             return $vendor;

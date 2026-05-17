@@ -14,6 +14,7 @@ import { LEGAL_REQUIREMENTS, getLegalRequirementById } from '../../../constants/
 interface LegalVaultProps {
     project: Project;
     currentUser: any;
+    isNotaris: boolean;
     isArchitect: boolean;
     defaultProRole?: 'notaris' | 'arsitek' | 'kontraktor' | 'interior';
     onUpdate?: () => void;
@@ -27,6 +28,16 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
     const [submittingId, setSubmittingId] = useState<string | number | null>(null);
     const [editNote, setEditNote] = useState('');
     const [isSealing, setIsSealing] = useState(false);
+    const [vaultView, setVaultView] = useState<'deliverables' | 'personal'>('deliverables');
+
+    if (!project) {
+        return (
+            <div className="py-20 text-center animate-pulse">
+                <ShieldCheck size={40} className="mx-auto text-zinc-100 mb-4" />
+                <p className="text-[10px] text-zinc-400 font-black uppercase tracking-widest">Hydrating Vault...</p>
+            </div>
+        );
+    }
     
     // Financial Modal State
     const [isRequestingDisbursement, setIsRequestingDisbursement] = useState(false);
@@ -39,63 +50,102 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
     
     const { showToast } = useToast();
 
-    const isOwner = currentUser?.id === project.user_id;
-    const isPM = currentUser?.role_type === 'project_manager' && project.pm_id === currentUser?.id;
+    const isOwner = currentUser?.id === project?.user_id;
+    const isPM = currentUser?.role_type === 'project_manager' && project?.pm_id === currentUser?.id;
     const canApprove = isOwner || isPM;
 
-    // The source of truth: What the client requested + a catch-all Misc slot
+    // The source of truth: What the Notary finalized in the BriefManager
     const templateSlots = useMemo(() => {
-        const reqs = project.legal_requirements || [];
-        const combined = [...reqs];
-        // Ensure critical universal slots are always present
-        if (!combined.includes('spk_contract')) combined.unshift('spk_contract');
-        if (!combined.includes('misc_legal')) combined.push('misc_legal');
-
-        // Responsibility mapping based on Indonesian regulatory standards
-        const getResponsibleRole = (id: string): string => {
-            switch (id) {
-                case 'spk_contract': return 'Owner & Pro';
-                case 'land_verification': return 'Notary';
-                case 'pbg_permit': return 'Architect';
-                case 'as_built_drawings': return 'Architect';
-                case 'slf_certification': return 'Architect';
-                case 'misc_legal': return 'Any';
-                default: return 'Notary';
+        const reqs = Array.isArray(project?.legal_requirements) ? project.legal_requirements : [];
+        let combined = [...reqs];
+        
+        // NEW FALLBACK: Try deriving from accepted bid's selected services if requirements is empty
+        if (combined.length === 0 && project.accepted_notaris_bid?.selected_services) {
+            const bidServices = project.accepted_notaris_bid.selected_services;
+            if (Array.isArray(bidServices)) {
+                combined = bidServices.map((s: any) => String(s.id || s));
             }
-        };
+        }
 
-        return combined.map(id => {
-            const preset = getLegalRequirementById(id);
+        // FALLBACK: If legal_requirements is empty, try deriving from existing milestones (legacy data)
+        if (reqs.length === 0 && milestones.length > 0) {
+            const milestoneIds = milestones
+                .filter(m => m.type === 'legal' || m.phase_context === 'legal')
+                .map(m => m.content?.req_id)
+                .filter(Boolean);
+            
+            if (milestoneIds.length > 0) {
+                combined = Array.from(new Set(milestoneIds)) as string[];
+            }
+        }
+
+        // If still empty, return empty — LegalVault will show "Scope Not Defined" banner
+        if (combined.length === 0) return [];
+
+        const is_numeric = (n: any) => !isNaN(parseFloat(n)) && isFinite(n);
+
+        return combined.map(reqId => {
+            const activeMilestone = milestones.find(m => m.type === 'legal' && String(m.content?.req_id) === String(reqId));
+            const preset = getLegalRequirementById(reqId);
+            
+            // Try to find title in bid services if it's a numeric ID
+            let fallbackLabel = reqId.toUpperCase().replace('_', ' ');
+            if (is_numeric(reqId) && project.accepted_notaris_bid?.selected_services) {
+                const service = project.accepted_notaris_bid.selected_services.find((s: any) => String(s.id || s) === String(reqId));
+                if (service && typeof service === 'object') {
+                    fallbackLabel = service.title || fallbackLabel;
+                }
+            }
+
+            const label = activeMilestone?.title || preset?.label || fallbackLabel;
+            const desc = preset?.desc || 'Project specific legal deliverable';
+            
             return {
-                id,
-                label: preset?.label || 'Custom Legal Requirement',
-                desc: preset?.desc || 'Project specific legal deliverable',
+                id: reqId,
+                label,
+                desc,
                 milestone_code: preset?.milestone_code || 'L-MISC',
-                responsibleRole: getResponsibleRole(id)
+                responsibleRole: preset?.responsibleRole || 'Notary',
+                category: preset?.category
             };
         });
-    }, [project.legal_requirements]);
+    }, [project.legal_requirements, milestones]);
+
+    const activeSlots = useMemo(() => {
+        if (vaultView === 'personal') {
+            return templateSlots.filter(s => s.category === 'personal_id');
+        }
+        return templateSlots.filter(s => s.category !== 'personal_id');
+    }, [templateSlots, vaultView]);
+
+    const isScopeEmpty = templateSlots.length === 0;
 
     const fetchMilestones = async () => {
         try {
             const [milestoneRes, financialRes] = await Promise.all([
-                axios.get(`/projects/${project.id}/milestones`, { params: { phase_context: 'legal' } }),
-                axios.get(`/projects/${project.id}/legal-financials`)
+                axios.get(`/projects/${project?.id}/milestones`),
+                axios.get(`/projects/${project?.id}/legal-financials`)
             ]);
             
             setMilestones(milestoneRes.data?.data || []);
             setFinancials(financialRes.data || null);
             
-            // Auto-select first slot if nothing selected
-            if (templateSlots.length > 0 && selectedReqId === null) {
-                setSelectedReqId(templateSlots[0].id);
-            }
         } catch (error) {
             console.error('Failed to fetch legal data', error);
         } finally {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        if (activeSlots.length > 0) {
+            if (!selectedReqId || !activeSlots.find(s => s.id === selectedReqId)) {
+                setSelectedReqId(activeSlots[0].id);
+            }
+        } else {
+            setSelectedReqId(null);
+        }
+    }, [vaultView, activeSlots]);
 
     useEffect(() => {
         fetchMilestones();
@@ -116,17 +166,24 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
         const slot = templateSlots.find(s => s.id === selectedReqId);
         
         if (preset?.isProfessionalSpecific) {
-            return milestones.find(m => {
-                const matchesId = m.content?.req_id === selectedReqId || m.title === slot?.label;
+            const m = milestones.find(ms => {
+                const matchesId = ms.content?.req_id === selectedReqId || ms.title === slot?.label;
                 if (!matchesId) return false;
                 
                 // Filter by role
-                if (activeProRole === 'notaris') return m.notaris_id !== null && m.notaris_id !== undefined;
-                if (activeProRole === 'arsitek') return m.arsitek_id !== null && m.arsitek_id !== undefined;
-                if (activeProRole === 'kontraktor') return m.kontraktor_id !== null && m.kontraktor_id !== undefined;
-                if (activeProRole === 'interior') return m.interior_id !== null && m.interior_id !== undefined;
-                return false; // Strict: Must match a professional ID to show in this role tab
+                if (activeProRole === 'notaris') return ms.notaris_id !== null && ms.notaris_id !== undefined;
+                if (activeProRole === 'arsitek') return ms.arsitek_id !== null && ms.arsitek_id !== undefined;
+                if (activeProRole === 'kontraktor') return ms.kontraktor_id !== null && ms.kontraktor_id !== undefined;
+                if (activeProRole === 'interior') return ms.interior_id !== null && ms.interior_id !== undefined;
+                return false; 
             });
+
+            // FALLBACK: If no milestone matches the SPECIFIC role tab, but one exists for this slot globally, show it
+            // This prevents "Empty Drawer" confusion when a document is shared or incorrectly tagged.
+            if (!m) {
+                return milestones.find(ms => ms.content?.req_id === selectedReqId || ms.title === slot?.label);
+            }
+            return m;
         }
         
         return milestones.find(m => m.title === slot?.label || m.content?.req_id === selectedReqId);
@@ -200,19 +257,26 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
     };
 
     const canUpload = useMemo(() => {
-        if (isPhaseSealed || (!isNotaris && !isArchitect)) return false;
+        if (isPhaseSealed) return false;
         if (!selectedReqId) return false;
         
         const slot = templateSlots.find(s => s.id === selectedReqId);
         if (!slot) return false;
 
+        // Notary acts as Administrator: they can upload ANY document (e.g. assisting offline users)
+        if (isNotaris) return true;
+
         const role = slot.responsibleRole;
         if (role === 'Any' || role === 'Owner & Pro') return true;
-        if (isNotaris && role === 'Notary') return true;
-        if (isArchitect && role === 'Architect') return true;
+        
+        // Owner can upload to Owner slots
+        if (isOwner && role === 'Owner') return true;
+        
+        // Architect can upload to Architect slots
+        if (isArchitect && (role === 'Architect' || role === 'Architect & Notary')) return true;
         
         return false;
-    }, [selectedReqId, isPhaseSealed, isNotaris, isArchitect, templateSlots]);
+    }, [selectedReqId, isPhaseSealed, isNotaris, isArchitect, isPM, isOwner, templateSlots]);
 
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files?.[0]) {
@@ -301,19 +365,31 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
                (activeMilestone.content?.gallery?.length ?? 0) > 0;
     }, [activeMilestone]);
 
+    // Helper to check for architect deliverables from design phase
+    const architectBlueprints = useMemo(() => {
+        const docBlueprints = (project.documents || []).filter((d: any) => d.category === 'blueprint');
+        const milestoneBlueprints = milestones.filter(m => m.phase_context === 'design' && (m.approval_status === 'approved' || m.is_completed));
+        return [...docBlueprints, ...milestoneBlueprints];
+    }, [project.documents, milestones]);
+
     // Regulatory Dependency Check (Frontend Warning)
     const checkDependency = (id: string) => {
+        if (id === 'pbg_permit') {
+            if (architectBlueprints.length === 0) {
+                return { 
+                    blocked: false, // Not a hard block anymore as per user request for "Management Tool"
+                    warning: 'Architect Technical Blueprints (Working Drawings) have not been verified yet.',
+                    by: 'Architect' 
+                };
+            }
+        }
         if (id === 'slf_certification') {
-            const asBuilt = milestones.find(m => m.title === 'As-Built Drawings');
-            if (asBuilt?.approval_status !== 'approved') return { blocked: true, by: 'As-Built Drawings' };
+            const asBuilt = milestones.find(m => m.content?.req_id === 'as_built_drawings');
+            if (!asBuilt || asBuilt.approval_status !== 'approved') return { blocked: true, by: 'As-Built Drawings (Record Drawings)' };
         }
         if (id === 'as_built_drawings') {
-            const pbg = milestones.find(m => m.title === 'PBG (IMB) Permit');
-            if (pbg?.approval_status !== 'approved') return { blocked: true, by: 'PBG (IMB) Permit' };
-        }
-        if (id === 'pbg_permit') {
-            const spk = milestones.find(m => m.title === 'SPK (Surat Perintah Kerja)');
-            if (spk?.approval_status !== 'approved') return { blocked: true, by: 'SPK (Surat Perintah Kerja)' };
+            const pbg = milestones.find(m => m.content?.req_id === 'pbg_permit');
+            if (!pbg || pbg.approval_status !== 'approved') return { blocked: true, by: 'PBG (Building & Planning Permit)' };
         }
         return { blocked: false };
     };
@@ -325,13 +401,35 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
         </div>
     );
 
-    const formatIDR = (amount: number) => {
+    const formatIDR = (amount: number = 0) => {
+        const value = Number(amount) || 0;
         return new Intl.NumberFormat('id-ID', {
             style: 'currency',
             currency: 'IDR',
             minimumFractionDigits: 0
-        }).format(amount);
+        }).format(value);
     };
+
+    if (isScopeEmpty) {
+        return (
+            <div className="py-16 text-center space-y-6 animate-in fade-in duration-500">
+                <div className="w-20 h-20 mx-auto rounded-[2rem] bg-amber-50 flex items-center justify-center">
+                    <AlertCircle size={36} className="text-amber-400" />
+                </div>
+                <div>
+                    <h3 className="text-xl font-black text-zinc-900 mb-2">Legal Scope Not Yet Defined</h3>
+                    <p className="text-sm text-zinc-500 font-medium max-w-md mx-auto leading-relaxed">
+                        The legal scope is derived from the negotiated services in the contract. 
+                        If this vault is empty, it means no legal services were selected during the bidding and negotiation phase.
+                    </p>
+                </div>
+                <div className="flex items-center justify-center gap-2 text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+                    <ShieldCheck size={14} />
+                    Negotiated Agreement Source
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-8 animate-in fade-in duration-700">
@@ -418,12 +516,38 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
                         <div className="w-10 h-10 rounded-2xl bg-zinc-900 text-white flex items-center justify-center shadow-xl">
                             <ShieldCheck size={20} />
                         </div>
-                        <h3 className="text-2xl font-black text-zinc-900">Legal Vault</h3>
+                        <h3 className="text-2xl font-black text-zinc-900">Document Vault</h3>
                     </div>
-                    <p className="text-zinc-500 text-sm font-medium leading-relaxed">
+                    <p className="text-zinc-500 text-sm font-medium leading-relaxed mb-6">
                         Complete your contract requirements below. Each slot represents a mandatory document 
                         requested by the client. Simply select a drawer and fill out the progress.
                     </p>
+
+                    {/* Vault Selector Toggle */}
+                    <div className="flex items-center p-1 bg-zinc-100 rounded-2xl w-fit border border-zinc-200">
+                        <button 
+                            onClick={() => setVaultView('deliverables')}
+                            className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${
+                                vaultView === 'deliverables' 
+                                ? 'bg-white text-zinc-900 shadow-sm border border-zinc-200' 
+                                : 'text-zinc-400 hover:text-zinc-600'
+                            }`}
+                        >
+                            <Box size={14} />
+                            Official Outcomes
+                        </button>
+                        <button 
+                            onClick={() => setVaultView('personal')}
+                            className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${
+                                vaultView === 'personal' 
+                                ? 'bg-white text-zinc-900 shadow-sm border border-zinc-200' 
+                                : 'text-zinc-400 hover:text-zinc-600'
+                            }`}
+                        >
+                            <ShieldCheck size={14} />
+                            Client Identification
+                        </button>
+                    </div>
                 </div>
 
                 {/* The Digital Ledger Header */}
@@ -470,8 +594,10 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                 {/* Sidebar: ALL Template Slots are visible here */}
                 <div className="lg:col-span-4 space-y-3">
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 mb-4 ml-2 text-left">Legal Requirements (Templates)</p>
-                    {templateSlots.map((slot) => {
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 mb-4 ml-2 text-left">
+                        {vaultView === 'personal' ? 'Identity Verification Required' : 'Project Deliverables'}
+                    </p>
+                    {activeSlots.map((slot) => {
                         const preset = getLegalRequirementById(slot.id);
                         const m = milestones.find(item => {
                             const baseMatch = item.title === slot.label || item.content?.req_id === slot.id;
@@ -514,12 +640,12 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
                                     }`}>
                                         {isApproved ? <ShieldCheck size={22} /> : (m ? <FileText size={22} /> : <Box size={22} />)}
                                     </div>
-                                    <div>
-                                        <p className="text-sm font-black text-zinc-900">{slot.label}</p>
-                                        <p className={`text-[9px] font-bold uppercase tracking-wider ${isApproved ? 'text-emerald-500' : 'text-zinc-400'}`}>
-                                            {isApproved ? 'Verified Result' : (hasFile ? 'Pending Review' : (m ? 'Drafting' : 'Empty Slot'))}
-                                        </p>
-                                    </div>
+                                        <div>
+                                            <p className="text-sm font-black text-zinc-900 truncate max-w-[200px]">{slot.label}</p>
+                                            <p className={`text-[9px] font-bold uppercase tracking-wider ${isApproved ? 'text-emerald-500' : 'text-zinc-400'}`}>
+                                                {slot.id === 'construction_contract' ? 'Unified SPK' : (isApproved ? 'Verified Result' : (hasFile ? 'Pending Review' : (m ? 'Drafting' : 'Empty Slot')))}
+                                            </p>
+                                        </div>
                                 </div>
                                 <div className={`flex items-center gap-2 ${isSelected ? 'opacity-100' : 'opacity-0'} transition-opacity`}>
                                     {hasFile && <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />}
@@ -559,7 +685,7 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
                                                     : 'bg-transparent text-zinc-400 hover:text-zinc-600'
                                                 }`}
                                             >
-                                                {p.label}
+                                                {p.label === 'Notary' ? 'Legal Expert' : p.label} (SPK)
                                             </button>
                                         ))}
                                         {(isNotaris || isArchitect) && (
@@ -589,10 +715,10 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
                                                 </span>
                                             </div>
                                             <h4 className="text-2xl font-black text-zinc-900 mb-1">
-                                                {templateSlots.find(s => s.id === selectedReqId)?.label}
+                                                {templateSlots.find(s => s.id === selectedReqId)?.label || 'Requirement Details'}
                                             </h4>
                                             <p className="text-sm font-medium text-zinc-400">
-                                                {templateSlots.find(s => s.id === selectedReqId)?.desc}
+                                                {templateSlots.find(s => s.id === selectedReqId)?.desc || 'Official legal documentation slot.'}
                                             </p>
                                             
                                             {/* Dual-Standard Template Download */}
@@ -614,30 +740,29 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
                                                 <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest ${
                                                     templateSlots.find(s => s.id === selectedReqId)?.responsibleRole === 'Architect' 
                                                     ? 'bg-blue-50 text-blue-600' 
+                                                    : templateSlots.find(s => s.id === selectedReqId)?.responsibleRole === 'Architect & Notary'
+                                                    ? 'bg-purple-50 text-purple-600'
                                                     : 'bg-indigo-50 text-indigo-600'
                                                 }`}>
-                                                    {templateSlots.find(s => s.id === selectedReqId)?.responsibleRole}
+                                                    {templateSlots.find(s => s.id === selectedReqId)?.responsibleRole || 'Legal Expert'}
                                                 </span>
                                             </div>
                                         </div>
 
-                                        {selectedReqId === 'spk_contract' && !activeMilestone?.is_completed && (
-                                            <div className="p-5 bg-amber-50 border border-amber-100 rounded-3xl flex items-center justify-between gap-4">
-                                                <div className="flex items-center gap-3">
-                                                    <Box size={20} className="text-amber-600" />
-                                                    <p className="text-[11px] font-bold text-amber-900 leading-tight">
-                                                        Before signing, ensure the <span className="underline cursor-pointer" onClick={() => document.querySelector<HTMLButtonElement>('button[data-tab-id="managing"]')?.click()}>Design Brief</span> specifications match your agreement.
+                                        {(checkDependency(selectedReqId) as any).warning && (
+                                            <div className="p-6 bg-amber-50 border border-amber-100 rounded-[2rem] flex items-center gap-5">
+                                                <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center shadow-inner">
+                                                    <AlertCircle size={24} />
+                                                </div>
+                                                <div className="flex-1">
+                                                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-700 mb-1">Prerequisite Alert</p>
+                                                    <p className="text-[11px] font-bold text-amber-900 leading-relaxed">
+                                                        {(checkDependency(selectedReqId) as any).warning}
+                                                    </p>
+                                                    <p className="text-[9px] font-medium text-amber-600 mt-1 uppercase tracking-widest">
+                                                        Note: You can still proceed with management updates.
                                                     </p>
                                                 </div>
-                                                <button 
-                                                    onClick={() => {
-                                                        const btn = document.querySelector<HTMLButtonElement>('button[data-tab-id="managing"]');
-                                                        if (btn) btn.click();
-                                                    }}
-                                                    className="px-4 py-2 bg-amber-600 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-amber-700 transition-all shrink-0"
-                                                >
-                                                    Review Brief
-                                                </button>
                                             </div>
                                         )}
 
@@ -655,7 +780,7 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
                                                     className={`flex items-center gap-3 px-8 py-4 ${activeMilestone?.approval_status === 'approved' ? 'bg-amber-600' : 'bg-zinc-900'} text-white rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest cursor-pointer hover:bg-black hover:scale-105 transition-all shadow-xl ${submittingId ? 'opacity-50' : ''}`}
                                                 >
                                                     {submittingId === selectedReqId ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />} 
-                                                    {selectedReqId === 'spk_contract' ? 'Upload Signed SPK' : (activeMilestone?.approval_status === 'approved' ? 'Replace Approved File' : (activeMilestone ? 'Replace File' : 'Upload & Start'))}
+                                                    {activeMilestone?.approval_status === 'approved' ? 'Replace Approved File' : (activeMilestone ? 'Replace File' : 'Upload & Start')}
                                                 </label>
                                             </div>
                                         )}
@@ -665,16 +790,22 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                     {/* Drawer Item: The File */}
                                     <div className="space-y-4">
-                                        <h5 className="text-[11px] font-black uppercase tracking-widest text-zinc-400 ml-2">Official Outcome</h5>
+                                        <h5 className="text-[11px] font-black uppercase tracking-widest text-zinc-400 ml-2">
+                                            {vaultView === 'personal' ? 'Identity Document' : 'Official Outcome'}
+                                        </h5>
                                         {!activeMilestone?.content?.gallery?.length ? (
                                             <div className="bg-zinc-50 border-2 border-dashed border-zinc-200 rounded-[2.5rem] p-16 text-center flex flex-col items-center justify-center group hover:border-zinc-400 transition-colors">
                                                 <div className="w-20 h-20 rounded-full bg-white flex items-center justify-center mb-6 text-zinc-200 group-hover:text-zinc-400 transition-colors shadow-sm">
-                                                    <Box size={40} />
+                                                    {vaultView === 'personal' ? <ShieldCheck size={40} /> : <Box size={40} />}
                                                 </div>
                                                 <p className="text-xs font-black text-zinc-400 uppercase tracking-widest leading-relaxed">
-                                                    Drawer is Empty
+                                                    {vaultView === 'personal' ? 'Verification Required' : 'Drawer is Empty'}
                                                 </p>
-                                                <p className="text-[10px] text-zinc-300 font-bold mt-2 uppercase">Please upload the finalized certificate</p>
+                                                <p className="text-[10px] text-zinc-300 font-bold mt-2 uppercase">
+                                                    {vaultView === 'personal' 
+                                                        ? 'Please upload your valid identity proof' 
+                                                        : 'Please upload the finalized certificate'}
+                                                </p>
                                             </div>
                                         ) : (
                                             <div className="group bg-white p-8 rounded-[2.5rem] border border-zinc-200 shadow-sm hover:shadow-2xl transition-all duration-500">
@@ -752,7 +883,7 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
                                 </div>
                                 
                                 {/* Ledger Detail section */}
-                                {financials && financials.disbursements.length > 0 && (
+                                {financials && (financials.disbursements || []).length > 0 && (
                                     <div className="space-y-4">
                                         <h5 className="text-[11px] font-black uppercase tracking-widest text-zinc-400 ml-2">Fee Disbursement History</h5>
                                         <div className="bg-white rounded-[2.5rem] border border-zinc-200 overflow-hidden shadow-sm">
@@ -768,14 +899,14 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
                                                         </tr>
                                                     </thead>
                                                     <tbody className="divide-y divide-zinc-50">
-                                                        {financials.disbursements.map((d: any) => (
+                                                        {(financials.disbursements || []).map((d: any) => (
                                                             <tr key={d.id} className="hover:bg-zinc-50/50 transition-colors">
                                                                 <td className="px-8 py-6 whitespace-nowrap">
                                                                     <p className="text-[10px] font-bold text-zinc-400">{new Date(d.created_at).toLocaleDateString()}</p>
                                                                 </td>
                                                                 <td className="px-8 py-6">
-                                                                    <p className="text-sm font-black text-zinc-900 mb-1">{d.title.replace('[Legal Disbursement] ', '')}</p>
-                                                                    <p className="text-[10px] text-zinc-400 font-medium leading-relaxed max-w-xs">{d.description}</p>
+                                                                    <p className="text-sm font-black text-zinc-900 mb-1">{(d.label || '').replace('[Legal Disbursement] ', '')}</p>
+                                                                    <p className="text-[10px] text-zinc-400 font-medium leading-relaxed max-w-xs">{d.trigger_description || d.notes}</p>
                                                                 </td>
                                                                 <td className="px-8 py-6 whitespace-nowrap">
                                                                     <p className="text-sm font-black text-zinc-900">{formatIDR(d.amount)}</p>
@@ -869,7 +1000,7 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
                                 )}
 
                                 {/* Legal Phase Sealing CTA */}
-                                {!isPhaseSealed && allMilestonesApproved && !unapprovedHasFile && (
+                                {!isPhaseSealed && (allMilestonesApproved || isNotaris) && !unapprovedHasFile && (
                                     <motion.div 
                                         initial={{ opacity: 0, scale: 0.95 }}
                                         animate={{ opacity: 1, scale: 1 }}
@@ -881,10 +1012,14 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
                                         <div className="relative z-10 space-y-3">
                                             <div className="flex items-center gap-3 text-emerald-400 mb-2">
                                                 <CheckCircle2 size={24} />
-                                                <h5 className="text-xl font-black uppercase tracking-[0.2em]">Ready to Seal</h5>
+                                                <h5 className="text-xl font-black uppercase tracking-[0.2em]">
+                                                    {isNotaris ? 'Finalize Legal Work' : 'Ready to Seal'}
+                                                </h5>
                                             </div>
                                             <p className="text-sm font-bold text-zinc-400 max-w-lg leading-relaxed">
-                                                All required legal documents have been verified and archived. You can now formally finalize the Legal Phase to lock the vault and proceed.
+                                                {isNotaris 
+                                                    ? 'By finalizing, you signal to the Client and PM that the legal documents are ready for review and project kickoff.'
+                                                    : 'All required legal documents have been verified and archived. You can now formally finalize the Legal Phase to lock the vault and proceed.'}
                                             </p>
                                         </div>
 
@@ -897,7 +1032,7 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
                                                 <Loader2 size={18} className="animate-spin" />
                                             ) : (
                                                 <>
-                                                    Seal Legal Phase
+                                                    {isNotaris ? 'Finalize & Submit' : 'Seal Legal Phase'}
                                                     <ArrowRightCircle size={18} className="group-hover:translate-x-1 transition-transform" />
                                                 </>
                                             )}

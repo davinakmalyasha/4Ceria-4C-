@@ -157,6 +157,7 @@ export default function Login() {
 
                             <button
                                 type="submit"
+                                id="login-submit-btn"
                                 disabled={isLoading}
                                 className="w-full flex justify-center items-center gap-2 py-3.5 px-4 border border-transparent rounded-xl shadow-lg text-sm font-bold text-white bg-neutral-900 hover:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-neutral-900 transition-all disabled:opacity-50 active:scale-[0.98]"
                             >
@@ -164,6 +165,47 @@ export default function Login() {
                                 {!isLoading && <ChevronRight className="w-4 h-4 opacity-70" />}
                             </button>
                         </form>
+
+                        {/* TEMPORARY QUICK LOGIN (FOR TESTING) */}
+                        <div className="mt-8 p-6 bg-red-50/50 border border-red-100 rounded-3xl overflow-hidden relative">
+                             <div className="absolute top-0 right-0 p-4 opacity-10 rotate-12">
+                                <ShieldCheck className="w-12 h-12 text-red-600" />
+                             </div>
+                            <h3 className="text-[10px] font-black text-red-600 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
+                                <div className="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse" />
+                                DEV MODE: QUICK LOGIN
+                            </h3>
+                            <div className="grid grid-cols-3 gap-2">
+                                {[
+                                    { name: 'Owner', email: 'davin@gmail.com' },
+                                    { name: 'Arsitek', email: 'giska@gmail.com' },
+                                    { name: 'Constructor', email: 'anindia@gmail.com' },
+                                    { name: 'Notary', email: 'rede@gmail.com' },
+                                    { name: 'Interior', email: 'gmail@gmail.com' },
+                                    { name: 'Courier', email: 'fariz@gmail.com' },
+                                    { name: 'Supplier', email: 'akmal@gmail.com' },
+                                    { name: 'PM', email: 'aisha@gmail.com' },
+                                    { name: 'Structural', email: 'budi_struc@gmail.com' },
+                                    { name: 'MEP', email: 'andi_mep@gmail.com' },
+                                ].map((test) => (
+                                    <button
+                                        key={test.email}
+                                        type="button"
+                                        onClick={() => {
+                                            setEmail(test.email);
+                                            setPassword('12345678');
+                                            setTimeout(() => {
+                                                document.getElementById('login-submit-btn')?.click();
+                                            }, 100);
+                                        }}
+                                        className="py-2 px-1 text-[9px] font-bold bg-white border border-red-100 text-neutral-800 rounded-lg hover:bg-red-500 hover:text-white transition-all shadow-sm active:scale-95"
+                                    >
+                                        {test.name}
+                                    </button>
+                                ))}
+                            </div>
+                            <p className="mt-3 text-[9px] text-red-400 italic text-center">Click to instantly login as role</p>
+                        </div>
                     </motion.div>
 
                     {/* Secondary Branded Redirect for Professionals */}

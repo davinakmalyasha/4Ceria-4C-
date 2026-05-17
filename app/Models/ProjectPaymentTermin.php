@@ -24,6 +24,7 @@ class ProjectPaymentTermin extends Model
         'retention_amount',
         'net_amount',
         'retention_notes',
+        'verification_notes',
     ];
 
     protected $casts = [

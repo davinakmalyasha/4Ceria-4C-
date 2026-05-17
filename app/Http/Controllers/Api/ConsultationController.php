@@ -13,7 +13,7 @@ class ConsultationController extends Controller
         $user = $request->user();
 
         if ($user->role_type === 'notaris') {
-            $consultations = NotarisConsultation::where('notaris_id', $user->notarisProfile->id)
+            $consultations = NotarisConsultation::where('notaris_id', $user->notaris_profile->id)
                 ->with('user')
                 ->latest()
                 ->get();
@@ -54,7 +54,7 @@ class ConsultationController extends Controller
         $user = $request->user();
 
         // Only the notary can change status
-        if ($user->role_type !== 'notaris' || $consultation->notaris_id !== $user->notarisProfile->id) {
+        if ($user->role_type !== 'notaris' || $consultation->notaris_id !== $user->notaris_profile->id) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 

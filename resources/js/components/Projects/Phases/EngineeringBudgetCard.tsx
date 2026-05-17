@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldCheck, ArrowRight, Wallet, AlertCircle, Info, Banknote } from 'lucide-react';
+import { ShieldCheck, ArrowRight, Wallet, AlertCircle, Info, Banknote, FileText } from 'lucide-react';
 import { Project, ProjectAddendum, formatCurrency } from '../../../types/project.types';
 
 interface EngineeringBudgetCardProps {
@@ -58,13 +58,32 @@ export default function EngineeringBudgetCard({
                             <p className={`text-[10px] font-black uppercase tracking-widest ${
                                 isOverBudget ? 'text-red-400' : 'text-white/40'
                             }`}>
-                                Change Order Description
+                                {addendum.type === 'specialist_assignment' ? 'Specialist Proposal' : 'Change Order Description'}
                             </p>
                             <p className={`text-sm leading-relaxed font-medium ${
                                 isOverBudget ? 'text-red-800' : 'text-white/80'
                             }`}>
                                 {addendum.description}
                             </p>
+                            {addendum.type === 'specialist_assignment' && addendum.teamMember && (
+                                <div className="mt-2 p-3 bg-white/5 rounded-xl border border-white/10">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-indigo-400 mb-1">Proposed Professional</p>
+                                    <p className="text-sm font-black text-white">{addendum.teamMember.name}</p>
+                                    <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest mt-0.5">
+                                        {addendum.specialist_type?.toUpperCase()} Specialist
+                                    </p>
+                                </div>
+                            )}
+                            {addendum.attachment_path && (
+                                <a 
+                                    href={`/storage/${addendum.attachment_path}`} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-2 mt-2 px-3 py-1.5 bg-indigo-500/20 text-indigo-400 rounded-lg text-[9px] font-black uppercase tracking-widest border border-indigo-500/30 hover:bg-indigo-500/30 transition-all"
+                                >
+                                    <FileText size={12} /> View Supporting Document
+                                </a>
+                            )}
                         </div>
 
                         <div className={`p-4 rounded-2xl flex items-start gap-3 border ${
