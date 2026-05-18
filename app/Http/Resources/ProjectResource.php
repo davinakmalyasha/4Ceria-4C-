@@ -150,6 +150,8 @@ class ProjectResource extends JsonResource
             'wants_project_manager' => (bool) $this->wants_project_manager,
             'requires_structural' => $this->requires_structural,
             'requires_mep' => $this->requires_mep,
+            'project_dimensions' => is_string($this->project_dimensions) ? json_decode($this->project_dimensions, true) : $this->project_dimensions,
+            'requires_interior' => $this->requires_interior,
             'planning_status' => $this->planning_status,
             'negotiated_fee' => $this->negotiated_fee,
             'payment_instructions' => $this->payment_instructions,
@@ -168,10 +170,13 @@ class ProjectResource extends JsonResource
             'is_mep_hired_4c' => (bool) $this->mep_id,
             'structural_profile' => $this->resolveSpecialistProfile('structural'),
             'mep_profile' => $this->resolveSpecialistProfile('mep'),
+            'interior_profile' => $this->resolveSpecialistProfile('interior'),
             'structural_engineer' => $this->whenLoaded('structuralEngineer'),
             'mep_engineer' => $this->whenLoaded('mepEngineer'),
+            'interior_engineer' => $this->whenLoaded('interior'),
             'structural_approved_at' => $this->structural_approved_at,
             'mep_approved_at' => $this->mep_approved_at,
+            'interior_approved_at' => $this->owner_interior_approved_at,
             'share_token' => $this->share_token,
             'legal_detail' => $this->legal_detail,
             'wants_to_discuss_later' => (bool) $this->wants_to_discuss_later,
@@ -220,6 +225,8 @@ class ProjectResource extends JsonResource
                     'id' => $a->id,
                     'role_type' => $a->role_type,
                     'user_id' => $a->user_id,
+                    'assigned_user_id' => $a->assigned_user_id,
+                    'team_member_id' => $a->team_member_id,
                     'title' => $a->title,
                     'description' => $a->description,
                     'amount' => (string) $a->amount,
@@ -227,7 +234,7 @@ class ProjectResource extends JsonResource
                     'negotiation_note' => $a->negotiation_note,
                     'type' => $a->type,
                     'specialist_type' => $a->specialist_type,
-                    'teamMember' => $a->relationLoaded('teamMember') && $a->teamMember ? [
+                    'teamMember' => $a->teamMember ? [
                         'id' => $a->teamMember->id,
                         'name' => $a->teamMember->name,
                         'bio' => $a->teamMember->bio,
@@ -235,6 +242,14 @@ class ProjectResource extends JsonResource
                         'is_verified' => (bool)$a->teamMember->is_verified,
                         'phone_number' => $a->teamMember->phone_number,
                         'email' => $a->teamMember->email,
+                    ] : null,
+                    'assignedUser' => $a->assignedUser ? [
+                        'id' => $a->assignedUser->id,
+                        'name' => $a->assignedUser->name,
+                        'email' => $a->assignedUser->email,
+                        'phone_number' => $a->assignedUser->phoneNumber->first()?->contact ?? '',
+                        'profile_picture' => $a->assignedUser->profile_picture ? asset('storage/' . $a->assignedUser->profile_picture) : null,
+                        'technical_skills' => $a->assignedUser->technical_skills,
                     ] : null,
                     'status' => $a->status,
                     'paid_at' => $a->paid_at,
@@ -255,6 +270,7 @@ class ProjectResource extends JsonResource
                     return [
                         'id' => $bid->id,
                         'price' => $bid->price,
+                        'price_max' => $bid->price_max,
                         'calculated_total' => $bid->calculated_total,
                         'fee_type' => $bid->fee_type,
                         'proposal' => $bid->proposal,
@@ -277,6 +293,7 @@ class ProjectResource extends JsonResource
                         'verification_notes' => $bid->verification_notes,
                         'proposed_termins' => $bid->proposed_termins,
                         'proposed_milestones' => $bid->proposed_milestones,
+                        'proposed_team' => $bid->proposed_team,
                         'negotiation_logs' => $bid->negotiationLogs->map(fn($log) => [
                             'user_name' => $log->user->name,
                             'round_number' => $log->round_number,
@@ -308,6 +325,7 @@ class ProjectResource extends JsonResource
                     return [
                         'id' => $bid->id,
                         'price' => $bid->price,
+                        'price_max' => $bid->price_max,
                         'calculated_total' => $bid->calculated_total,
                         'fee_type' => $bid->fee_type,
                         'proposal' => $bid->proposal,
@@ -336,6 +354,7 @@ class ProjectResource extends JsonResource
                         'verification_notes' => $bid->verification_notes,
                         'proposed_termins' => $bid->proposed_termins,
                         'proposed_milestones' => $bid->proposed_milestones,
+                        'proposed_team' => $bid->proposed_team,
                         'negotiation_logs' => $bid->negotiationLogs->map(fn($log) => [
                             'user_name' => $log->user->name,
                             'round_number' => $log->round_number,
@@ -365,6 +384,7 @@ class ProjectResource extends JsonResource
                     return [
                         'id' => $bid->id,
                         'price' => $bid->price,
+                        'price_max' => $bid->price_max,
                         'calculated_total' => $bid->calculated_total,
                         'fee_type' => $bid->fee_type,
                         'tax_estimate' => $bid->tax_estimate,
@@ -417,6 +437,7 @@ class ProjectResource extends JsonResource
                     return [
                         'id' => $bid->id,
                         'price' => $bid->price,
+                        'price_max' => $bid->price_max,
                         'calculated_total' => $bid->calculated_total,
                         'fee_type' => $bid->fee_type,
                         'proposal' => $bid->proposal,
@@ -468,6 +489,7 @@ class ProjectResource extends JsonResource
                     return [
                         'id' => $bid->id,
                         'price' => $bid->price,
+                        'price_max' => $bid->price_max,
                         'calculated_total' => $bid->calculated_total,
                         'fee_type' => $bid->fee_type,
                         'proposal' => $bid->proposal,
@@ -652,6 +674,7 @@ class ProjectResource extends JsonResource
                     return [
                         'id' => $bid->id,
                         'price' => $bid->price,
+                        'price_max' => $bid->price_max,
                         'proposal' => $bid->proposal,
                         'status' => $bid->status,
                         'estimated_duration' => $bid->estimated_duration,
@@ -706,6 +729,7 @@ class ProjectResource extends JsonResource
                     return [
                         'id' => $bid->id,
                         'price' => $bid->price,
+                        'price_max' => $bid->price_max,
                         'proposal' => $bid->proposal,
                         'status' => $bid->status,
                         'estimated_duration' => $bid->estimated_duration,
@@ -891,6 +915,7 @@ class ProjectResource extends JsonResource
                 ] : null,
                 'proposal' => $t->trigger_description,
                 'role_type' => $t->role_type,
+                'recipient_id' => $t->recipient_id,
                 'retention_amount' => (float) $t->retention_amount,
                 'net_amount' => (float) $t->net_amount,
                 'paid_at' => $t->paid_at,
@@ -905,6 +930,28 @@ class ProjectResource extends JsonResource
                     'created_at' => $log->created_at,
                 ]);
             }),
+            'sub_professionals' => $this->subProfessionals ? $this->subProfessionals->map(fn($sp) => [
+                'id' => $sp->id,
+                'user_id' => $sp->user_id,
+                'parent_role' => $sp->parent_role,
+                'sub_role' => $sp->sub_role,
+                'assigned_by' => $sp->assigned_by,
+                'status' => $sp->status,
+                'rate' => $sp->rate,
+                'scope_notes' => $sp->scope_notes,
+                'lead_pro_notes' => $sp->lead_pro_notes,
+                'suggested_fee' => $sp->suggested_fee,
+                'accepted_at' => $sp->accepted_at,
+                'recommended_at' => $sp->recommended_at,
+                'hired_at' => $sp->hired_at,
+                'completed_at' => $sp->completed_at,
+                'user' => $sp->user ? [
+                    'id' => $sp->user->id,
+                    'name' => $sp->user->name,
+                    'email' => $sp->user->email,
+                    'role_type' => $sp->user->role_type,
+                ] : null,
+            ]) : [],
         ];
     }
     /**
@@ -912,10 +959,10 @@ class ProjectResource extends JsonResource
      */
     private function resolveSpecialistProfile(string $role): ?array
     {
-        $idField = $role === 'structural' ? 'structural_id' : 'mep_id';
-        $relation = $role === 'structural' ? 'structuralEngineer' : 'mepEngineer';
-        $bidRelation = $role === 'structural' ? 'bidsStructural' : 'bidsMep';
-        $fallbackTitle = $role === 'structural' ? 'Structural Engineer' : 'MEP Engineer';
+        $idField = $role === 'structural' ? 'structural_id' : ($role === 'mep' ? 'mep_id' : 'selected_interior_id');
+        $relation = $role === 'structural' ? 'structuralEngineer' : ($role === 'mep' ? 'mepEngineer' : 'interior');
+        $bidRelation = $role === 'structural' ? 'bidsStructural' : ($role === 'mep' ? 'bidsMep' : 'bidsInterior');
+        $fallbackTitle = $role === 'structural' ? 'Structural Engineer' : ($role === 'mep' ? 'MEP Engineer' : 'Interior Designer');
 
         $profileId = $this->$idField;
         
@@ -951,13 +998,19 @@ class ProjectResource extends JsonResource
             ->whereIn('status', ['accepted', 'awaiting_payment', 'active', 'contract_pending', 'completed'])
             ->first()?->payment_status ?? 
             (\App\Models\ProjectAddendum::where('project_id', $this->id)
-                ->where('role_type', $role)
-                ->where('type', 'specialist_assignment')
+                ->where(function($q) use ($role) {
+                    $q->where('role_type', $role)
+                      ->orWhere('specialist_type', $role);
+                })
+                ->whereIn('type', ['specialist_assignment', 'specialist_request'])
                 ->where('status', 'paid')
                 ->exists() ? 'paid' : (
                     \App\Models\ProjectAddendum::where('project_id', $this->id)
-                        ->where('role_type', $role)
-                        ->where('type', 'specialist_assignment')
+                        ->where(function($q) use ($role) {
+                            $q->where('role_type', $role)
+                              ->orWhere('specialist_type', $role);
+                        })
+                        ->whereIn('type', ['specialist_assignment', 'specialist_request'])
                         ->whereIn('status', ['authorized', 'verifying', 'approved_unpaid'])
                         ->first()?->status ?? 'unpaid'
                 ));

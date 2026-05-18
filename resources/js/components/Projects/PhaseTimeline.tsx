@@ -14,23 +14,120 @@ interface PhaseTimelineProps {
     activePhase: PhaseKey;
     onPhaseClick: (key: PhaseKey) => void;
     projectCategory?: string;
+    project?: any;
 }
 
-function PhaseButton({ phase, isActive, onClick, displayLabel }: { phase: Phase; isActive: boolean; onClick: () => void; displayLabel?: string }) {
+const getPhaseProgress = (phaseKey: PhaseKey, project: any): number => {
+    if (!project) return 0;
+
+    // Helper to calculate milestone percentage
+    const getMilestonePercent = (filterFn: (m: any) => boolean, defaultVal: number = 0) => {
+        const milestones = project.milestones || [];
+        const filtered = milestones.filter(filterFn);
+        if (filtered.length === 0) return defaultVal;
+        const completed = filtered.filter((m: any) => m.is_completed || m.approval_status === 'approved').length;
+        return Math.round((completed / filtered.length) * 100);
+    };
+
+    switch (phaseKey) {
+        case 'management': {
+            if (!project.pm_id) return 15;
+            return getMilestonePercent(
+                (m) => m.phase_context === 'management' || !!m.pm_id, 
+                100
+            );
+        }
+        case 'legal': {
+            if (!project.selected_notaris_id) return 10;
+            return getMilestonePercent(
+                (m) => m.phase_context === 'legal' || m.type === 'legal', 
+                40
+            );
+        }
+        case 'technical': {
+            const hasStructural = !!project.structural_id;
+            const hasMep = !!project.mep_id;
+            if (!hasStructural && !hasMep) return 0;
+            
+            const milestones = project.milestones || [];
+            const technicalMilestones = milestones.filter(
+                (m: any) => m.phase_context === 'technical' || m.phase_context === 'structural' || m.phase_context === 'mep'
+            );
+            if (technicalMilestones.length === 0) {
+                return (hasStructural ? 50 : 0) + (hasMep ? 50 : 0);
+            }
+            const completed = technicalMilestones.filter((m: any) => m.is_completed || m.approval_status === 'approved').length;
+            return Math.round((completed / technicalMilestones.length) * 100);
+        }
+        case 'design': {
+            if (!project.selected_arsitek_id) return 10;
+            return getMilestonePercent(
+                (m) => m.phase_context === 'design',
+                30
+            );
+        }
+        case 'materials': {
+            const orders = project.material_orders || [];
+            if (orders.length === 0) return 0;
+            const delivered = orders.filter((o: any) => o.status === 'delivered').length;
+            return Math.round((delivered / orders.length) * 100);
+        }
+        case 'build': {
+            if (!project.selected_kontraktor_id) return 10;
+            return getMilestonePercent(
+                (m) => m.phase_context === 'build',
+                20
+            );
+        }
+        case 'interior': {
+            if (!project.selected_interior_id) return 10;
+            return getMilestonePercent(
+                (m) => m.phase_context === 'interior',
+                20
+            );
+        }
+        case 'handover': {
+            return getMilestonePercent(
+                (m) => m.phase_context === 'handover',
+                0
+            );
+        }
+        default:
+            return 0;
+    }
+};
+
+function PhaseButton({ 
+    phase, 
+    isActive, 
+    onClick, 
+    displayLabel,
+    progress = 0 
+}: { 
+    phase: Phase; 
+    isActive: boolean; 
+    onClick: () => void; 
+    displayLabel?: string;
+    progress?: number; 
+}) {
     const Icon = ICON_MAP[phase.icon] || Shield;
     const isDone = phase.status === 'completed';
     const isSkipped = phase.status === 'skipped';
     const isPhaseActive = phase.status === 'active';
+    const isPending = phase.status === 'pending';
+
+    // Show progress bar only if active or completed
+    const showProgress = !isSkipped && !isPending && (isPhaseActive || isDone);
 
     return (
         <button
             onClick={() => !isSkipped && onClick()}
             disabled={isSkipped}
-            className={`flex flex-col items-center gap-1.5 px-3 py-2 rounded-2xl transition-all min-w-[72px] ${
+            className={`flex flex-col items-center gap-1.5 px-3 py-2.5 rounded-2xl transition-all min-w-[80px] ${
                 isSkipped ? 'opacity-30 cursor-not-allowed' :
-                isActive ? 'bg-red-50 scale-105' :
-                isDone ? 'bg-emerald-50' :
-                isPhaseActive ? 'hover:bg-gray-50 cursor-pointer' :
+                isActive ? 'bg-red-50/70 scale-105 shadow-sm border border-red-100/50' :
+                isDone ? 'bg-emerald-50/50' :
+                isPhaseActive ? 'hover:bg-slate-50/50 cursor-pointer' :
                 'hover:bg-gray-50 cursor-pointer opacity-50'
             }`}
         >
@@ -42,19 +139,42 @@ function PhaseButton({ phase, isActive, onClick, displayLabel }: { phase: Phase;
             }`}>
                 {isDone ? <Check size={18} strokeWidth={3} /> : <Icon size={18} />}
             </div>
-            <span className={`text-[10px] font-bold uppercase tracking-wide ${
-                isDone ? 'text-emerald-600' :
-                isActive ? 'text-[#FF2D20]' :
-                isPhaseActive ? 'text-slate-900' :
-                'text-gray-400'
-            }`}>
-                {displayLabel || phase.label}
-            </span>
+            
+            <div className="flex flex-col items-center gap-1 w-full text-center">
+                <span className={`text-[10px] font-bold uppercase tracking-wide leading-none ${
+                    isDone ? 'text-emerald-600' :
+                    isActive ? 'text-[#FF2D20]' :
+                    isPhaseActive ? 'text-slate-900' :
+                    'text-gray-400'
+                }`}>
+                    {displayLabel || phase.label}
+                </span>
+
+                {/* Elegant Minimal Progress Bar */}
+                {showProgress && (
+                    <div className="w-full mt-1 px-1">
+                        <div className="flex items-center justify-between text-[7.5px] font-black text-slate-400/80 mb-0.5 tracking-tight">
+                            <span>PROGRESS</span>
+                            <span>{isDone ? 100 : progress}%</span>
+                        </div>
+                        <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden">
+                            <div 
+                                className={`h-full rounded-full transition-all duration-700 ${
+                                    isDone ? 'bg-emerald-500' :
+                                    isActive ? 'bg-[#FF2D20]' :
+                                    'bg-slate-900'
+                                }`}
+                                style={{ width: `${isDone ? 100 : progress}%` }}
+                            />
+                        </div>
+                    </div>
+                )}
+            </div>
         </button>
     );
 }
 
-export default function PhaseTimeline({ phases, activePhase, onPhaseClick, projectCategory }: PhaseTimelineProps) {
+export default function PhaseTimeline({ phases, activePhase, onPhaseClick, projectCategory, project }: PhaseTimelineProps) {
     // Split phases into: pre-parallel, parallel group, post-parallel
     const preParallel = phases.filter(p => !PARALLEL_KEYS.includes(p.key) && p.key !== 'handover');
     const parallel = phases.filter(p => PARALLEL_KEYS.includes(p.key));
@@ -76,7 +196,13 @@ export default function PhaseTimeline({ phases, activePhase, onPhaseClick, proje
                                     isDone || preParallel[i - 1]?.status === 'completed' ? 'bg-emerald-400' : 'bg-gray-200'
                                 }`} />
                             )}
-                            <PhaseButton phase={phase} isActive={phase.key === activePhase} onClick={() => onPhaseClick(phase.key)} displayLabel={projectCategory ? getCategoryPhaseLabel(phase.key, projectCategory).label : undefined} />
+                            <PhaseButton 
+                                phase={phase} 
+                                isActive={phase.key === activePhase} 
+                                onClick={() => onPhaseClick(phase.key)} 
+                                displayLabel={projectCategory ? getCategoryPhaseLabel(phase.key, projectCategory).label : undefined}
+                                progress={getPhaseProgress(phase.key, project)}
+                            />
                         </React.Fragment>
                     );
                 })}
@@ -97,7 +223,13 @@ export default function PhaseTimeline({ phases, activePhase, onPhaseClick, proje
                                 {parallel.map((phase, i) => (
                                     <React.Fragment key={phase.key}>
                                         {i > 0 && <div className="w-[1px] h-8 bg-slate-200" />}
-                                        <PhaseButton phase={phase} isActive={phase.key === activePhase} onClick={() => onPhaseClick(phase.key)} displayLabel={projectCategory ? getCategoryPhaseLabel(phase.key, projectCategory).label : undefined} />
+                                        <PhaseButton 
+                                            phase={phase} 
+                                            isActive={phase.key === activePhase} 
+                                            onClick={() => onPhaseClick(phase.key)} 
+                                            displayLabel={projectCategory ? getCategoryPhaseLabel(phase.key, projectCategory).label : undefined}
+                                            progress={getPhaseProgress(phase.key, project)}
+                                        />
                                     </React.Fragment>
                                 ))}
                             </div>
@@ -111,7 +243,13 @@ export default function PhaseTimeline({ phases, activePhase, onPhaseClick, proje
                         <div className={`h-[2px] w-8 sm:w-12 flex-shrink-0 transition-colors duration-300 ${
                             allParallelDone ? 'bg-emerald-400' : 'bg-gray-200'
                         }`} />
-                        <PhaseButton phase={phase} isActive={phase.key === activePhase} onClick={() => onPhaseClick(phase.key)} displayLabel={projectCategory ? getCategoryPhaseLabel(phase.key, projectCategory).label : undefined} />
+                        <PhaseButton 
+                            phase={phase} 
+                            isActive={phase.key === activePhase} 
+                            onClick={() => onPhaseClick(phase.key)} 
+                            displayLabel={projectCategory ? getCategoryPhaseLabel(phase.key, projectCategory).label : undefined}
+                            progress={getPhaseProgress(phase.key, project)}
+                        />
                     </React.Fragment>
                 ))}
             </div>

@@ -2,15 +2,16 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { 
     ShieldCheck, HardHat, Zap, CheckCircle2, 
-    AlertTriangle, Users, ArrowRight, Check, X, Clock
+    AlertTriangle, Users, ArrowRight, Check, X, Clock, Sofa
 } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
 import { Project, ProjectAddendum, formatCurrency } from '../../../types/project.types';
 import EngineeringCoordination from './EngineeringCoordination';
 import EngineeringBidsBoard from './EngineeringBidsBoard';
 import AddendumProposalModal from './AddendumProposalModal';
+import RequestSpecialistModal from './RequestSpecialistModal';
 import { TeamMember } from '../../../types/sub_professional.types';
-import { UserPlus } from 'lucide-react';
+import { UserPlus, MessageCircle, Send } from 'lucide-react';
 
 interface TechnicalResourcingProps {
     project: Project;
@@ -19,7 +20,7 @@ interface TechnicalResourcingProps {
     onRefresh: () => void;
     onShortlist?: (bidId: number, role: string) => void;
     onRecommend?: (bidId: number, role: string) => void;
-    activeTab?: 'structural' | 'mep';
+    activeTab?: 'structural' | 'mep' | 'interior';
 }
 
 export default function TechnicalResourcing({ 
@@ -27,10 +28,11 @@ export default function TechnicalResourcing({
 }: TechnicalResourcingProps) {
     const { showToast } = useToast();
     const [isProcessing, setIsProcessing] = useState<string | null>(null);
-    const [showBidsBoard, setShowBidsBoard] = useState<'structural' | 'mep' | null>(null);
+    const [showBidsBoard, setShowBidsBoard] = useState<'structural' | 'mep' | 'interior' | null>(null);
     const [isAddendumModalOpen, setIsAddendumModalOpen] = useState(false);
     const [addendumInitialType, setAddendumInitialType] = useState<'extra_fee' | 'specialist_assignment'>('specialist_assignment');
-    const [importRole, setImportRole] = useState<'structural' | 'mep'>('structural');
+    const [importRole, setImportRole] = useState<'structural' | 'mep' | 'interior'>('structural');
+    const [requestRole, setRequestRole] = useState<'structural' | 'mep' | 'interior' | null>(null);
 
     const isPM = (user?.role_type === 'project_manager' || user?.role_type === 'pm') && Number(project.pm_id) === Number(user?.id);
     const isOwner = Number(user?.id) === Number(project.user_id);
@@ -38,8 +40,10 @@ export default function TechnicalResourcing({
 
     const requiresStructural = !!project.requires_structural;
     const requiresMep = !!project.requires_mep;
+    const requiresInterior = !!project.requires_interior;
     const hasStructural = !!project.structural_id;
     const hasMEP = !!project.mep_id;
+    const hasInterior = !!project.selected_interior_id;
 
     // Smart Advisory Logic
     const designDetails = project.design_details || {};
@@ -52,8 +56,8 @@ export default function TechnicalResourcing({
     // Filter pending requests for this phase (both manual requests and specialist assignments)
     const pendingRequests = project.addendums?.filter(a => 
         (a.status === 'pending_approval' || a.status === 'approved_unpaid' || a.status === 'verifying') && (
-            a.role_type === 'structural' || a.role_type === 'mep' || 
-            a.specialist_type === 'structural' || a.specialist_type === 'mep'
+            a.role_type === 'structural' || a.role_type === 'mep' || a.role_type === 'interior' ||
+            a.specialist_type === 'structural' || a.specialist_type === 'mep' || a.specialist_type === 'interior'
         )
     ) || [];
 
@@ -71,37 +75,28 @@ export default function TechnicalResourcing({
         (a.role_type === 'mep' || a.specialist_type === 'mep') && (a.status === 'approved_unpaid' || a.status === 'verifying')
     );
 
+    const activePendingInterior = pendingRequests.find(a => 
+        (a.role_type === 'interior' || a.specialist_type === 'interior') && a.status === 'pending_approval'
+    );
+    const awaitingPaymentInterior = pendingRequests.find(a => 
+        (a.role_type === 'interior' || a.specialist_type === 'interior') && (a.status === 'approved_unpaid' || a.status === 'verifying')
+    );
+
     // Keep compatibility with existing variables or update them
     const pendingStructuralRequest = activePendingStructural;
     const pendingMepRequest = activePendingMep;
+    const pendingInteriorRequest = activePendingInterior;
 
-    const handleRequestEngineering = async (type: 'structural' | 'mep') => {
-        const description = window.prompt(
-            `Explain to the PM why this project needs a specialized ${type.toUpperCase()} engineer:`,
-            `Based on current architectural layouts, a ${type} analysis is required for compliance and safety.`
-        );
-
-        if (!description) return;
-
-        setIsProcessing(type);
-        try {
-            await axios.post(`/projects/${project.id}/request-engineering`, {
-                role_type: type,
-                description,
-                suggested_fee: 0 // Market bidding will decide
-            });
-            showToast(`${type.toUpperCase()} request sent to PM for review.`, 'success');
-            onRefresh();
-        } catch (error: any) {
-            showToast(error.response?.data?.message || 'Failed to send request.', 'error');
-        } finally {
-            setIsProcessing(null);
-        }
+    const handleRequestEngineering = (type: 'structural' | 'mep' | 'interior') => {
+        setRequestRole(type);
     };
 
-    const handleInvitePartner = async (type: 'structural' | 'mep') => {
-        // Redirect to the Find Engineers page via the global Dashboard event
-        window.dispatchEvent(new CustomEvent('switchDashboardTab', { detail: 'find-engineers' }));
+    const handleInvitePartner = async (type: 'structural' | 'mep' | 'interior') => {
+        if (type === 'interior') {
+            window.dispatchEvent(new CustomEvent('switchDashboardTab', { detail: 'find-interior' }));
+        } else {
+            window.dispatchEvent(new CustomEvent('switchDashboardTab', { detail: 'find-engineers' }));
+        }
     };
 
 
@@ -112,7 +107,28 @@ export default function TechnicalResourcing({
         return bid.calculated_total || bid.price;
     };
 
-    const handleAuthorizeSpecialist = async (bidId: number, bidType: 'structural' | 'mep') => {
+    const renderBidPriceRange = (bid: any) => {
+        if (bid.price_max && Number(bid.price_max) > 0) {
+            if (bid.fee_type === 'percentage') {
+                if (project.budget > 0) {
+                    return `${formatCurrency((Number(bid.price) / 100) * project.budget)} - ${formatCurrency((Number(bid.price_max) / 100) * project.budget)}`;
+                } else {
+                    return `${bid.price}% - ${bid.price_max}%`;
+                }
+            }
+            return `${formatCurrency(bid.price)} - ${formatCurrency(bid.price_max)}`;
+        }
+        return formatCurrency(getDisplayPrice(bid));
+    };
+
+    const renderBidPriceSubtitle = (bid: any) => {
+        const percentageText = bid.fee_type === 'percentage'
+            ? (bid.price_max && Number(bid.price_max) > 0 ? `${bid.price}% - ${bid.price_max}% • ` : `${bid.price}% • `)
+            : '';
+        return `${percentageText}${bid.estimated_duration} ${bid.duration_unit}`;
+    };
+
+    const handleAuthorizeSpecialist = async (bidId: number, bidType: 'structural' | 'mep' | 'interior') => {
         if (!window.confirm('Authorize this specialist hire and commit budget?')) return;
         
         setIsProcessing(`accept-${bidId}`);
@@ -132,7 +148,7 @@ export default function TechnicalResourcing({
     };
 
 
-    const handleRejectSpecialist = async (bidId: number, bidType: 'structural' | 'mep') => {
+    const handleRejectSpecialist = async (bidId: number, bidType: 'structural' | 'mep' | 'interior') => {
         if (!window.confirm('Reject this specialist recommendation?')) return;
         
         setIsProcessing(`reject-${bidId}`);
@@ -179,6 +195,162 @@ export default function TechnicalResourcing({
                         </div>
                     </div>
                 ))}
+            </div>
+        );
+    };
+
+    const renderHighFidelityPendingCard = (request: any, role: string) => {
+        if (!request) return null;
+
+        const isDirectHire = !!(request.assigned_user_id || request.team_member_id || request.assignedUser || request.teamMember);
+        const strategy = isDirectHire ? 'Bring Own Team' : 'Open Bidding Board';
+        const fee = request.amount ? formatCurrency(request.amount) : 'Fixed Fee Proposed';
+
+        let statusLabel = 'Pending PM Approval';
+        let statusColor = 'bg-amber-100 text-amber-800 border-amber-200';
+        let pulseColor = 'bg-amber-500';
+
+        if (request.status === 'approved_unpaid') {
+            statusLabel = 'Awaiting Client Payment';
+            statusColor = 'bg-indigo-100 text-indigo-800 border-indigo-200';
+            pulseColor = 'bg-indigo-500';
+        } else if (request.status === 'verifying') {
+            statusLabel = 'Verifying Escrow Ledger';
+            statusColor = 'bg-emerald-100 text-emerald-800 border-emerald-200';
+            pulseColor = 'bg-emerald-500';
+        }
+
+        const colleague = request.assignedUser || request.teamMember;
+
+        return (
+            <div className="p-5 bg-white border-2 border-slate-100 rounded-3xl space-y-4 shadow-sm hover:border-slate-300 transition-all animate-in fade-in slide-in-from-top-2 duration-500">
+                <div className="flex items-center justify-between border-b border-slate-50 pb-3">
+                    <div>
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Resourcing Strategy</p>
+                        <h5 className="text-xs font-black text-slate-900 mt-0.5">{strategy}</h5>
+                    </div>
+                    <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border ${statusColor} flex items-center gap-1.5`}>
+                        <span className={`h-1.5 w-1.5 rounded-full ${pulseColor} animate-pulse`} />
+                        {statusLabel}
+                    </span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                    <div>
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Financial Impact (Fixed Fee)</p>
+                        <p className="text-sm font-black text-slate-700 mt-0.5">{fee}</p>
+                    </div>
+                </div>
+
+                {colleague && (
+                    <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100/50 flex items-center gap-3">
+                        <div className="w-10 h-10 bg-white border border-slate-200 rounded-xl overflow-hidden flex items-center justify-center text-slate-400 shrink-0">
+                            {colleague.profile_picture || colleague.photo_url ? (
+                                <img src={colleague.profile_picture || colleague.photo_url} alt={colleague.name} className="w-full h-full object-cover" />
+                            ) : (
+                                <Users size={18} />
+                            )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Proposed Candidate</p>
+                            <h6 className="text-xs font-black text-slate-900 truncate mt-0.5">{colleague.name}</h6>
+                            <p className="text-[9px] text-slate-400 font-medium truncate">
+                                {colleague.role_title || colleague.experience_years ? `${colleague.role_title || 'Expert'} • ${colleague.experience_years || 'Roster'} Years Exp` : 'Firm Colleague'}
+                            </p>
+                        </div>
+                    </div>
+                )}
+
+                {request.description && (
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-[10px] text-slate-500 italic">
+                        "{request.description}"
+                    </div>
+                )}
+
+                {isOwner && request.status === 'approved_unpaid' && (
+                    <div className="flex flex-col gap-2 pt-2 border-t border-slate-50">
+                        <button 
+                            onClick={() => {
+                                window.location.href = `/projects/${project.id}?tab=payments&highlight=${request.id}`;
+                            }}
+                            className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-md shadow-indigo-600/10 flex items-center justify-center gap-1.5"
+                        >
+                            Upload Escrow Payment Proof
+                        </button>
+                    </div>
+                )}
+
+                {(isPM || isArchitect) && request.status === 'approved_unpaid' && (
+                    <div className="flex gap-2 pt-2 border-t border-slate-50">
+                        <button 
+                            onClick={() => {
+                                const phone = project.owner?.phone || project.user?.phone || '';
+                                let cleanPhone = phone.replace(/\D/g, '');
+                                if (cleanPhone.startsWith('0')) {
+                                    cleanPhone = '62' + cleanPhone.substring(1);
+                                }
+                                const appUrl = window.location.origin;
+                                const paymentLink = `${appUrl}/projects/${project.id}?tab=payments&highlight=${request.id}`;
+                                const messageTemplate = `Halo, permintaan koordinasi spesialis *${role.toUpperCase()}* untuk proyek *${project.title}* telah disetujui oleh Project Manager.\n\nSilakan lakukan pembayaran escrow sebesar *Rp ${Number(request.amount).toLocaleString('id-ID')}* agar tenaga spesialis dapat mulai diintegrasikan ke proyek.\n\nKlik link berikut untuk melakukan pembayaran escrow:\n${paymentLink}\n\nTerima kasih.`;
+                                const encodedMessage = encodeURIComponent(messageTemplate);
+                                const waUrl = cleanPhone 
+                                    ? `https://wa.me/${cleanPhone}?text=${encodedMessage}`
+                                    : `https://wa.me/?text=${encodedMessage}`;
+                                window.open(waUrl, '_blank');
+                            }}
+                            className="flex-1 py-2 bg-[#25D366] hover:bg-[#128C7E] text-white rounded-lg text-[9px] font-black uppercase tracking-widest transition-all shadow-sm flex items-center justify-center gap-1.5"
+                        >
+                            <MessageCircle size={12} /> Notify Owner (WhatsApp)
+                        </button>
+                        <button 
+                            onClick={() => {
+                                const appUrl = window.location.origin;
+                                const paymentLink = `${appUrl}/projects/${project.id}?tab=payments&highlight=${request.id}`;
+                                const messageTemplate = `Halo, permintaan koordinasi spesialis *${role.toUpperCase()}* untuk proyek *${project.title}* telah disetujui oleh Project Manager.\n\nSilakan lakukan pembayaran escrow sebesar *Rp ${Number(request.amount).toLocaleString('id-ID')}* agar tenaga spesialis dapat mulai diintegrasikan ke proyek.\n\nKlik link berikut untuk melakukan pembayaran escrow:\n${paymentLink}\n\nTerima kasih.`;
+                                navigator.clipboard.writeText(messageTemplate);
+                                showToast('Pesan disalin! Silakan paste di Internal Chat.', 'success');
+                            }}
+                            className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-1"
+                        >
+                            <Send size={12} /> Copy Chat
+                        </button>
+                    </div>
+                )}
+
+                {isPM && request.status === 'pending_approval' && (
+                    <div className="flex gap-2 pt-2 border-t border-slate-50">
+                        <button 
+                            onClick={async () => {
+                                if (!window.confirm('Approve and authorize this specialist request?')) return;
+                                try {
+                                    await axios.post(`/projects/${project.id}/verify-engineering/${request.id}`, { status: 'approved' });
+                                    showToast('Specialist request approved!', 'success');
+                                    onRefresh();
+                                } catch (err) {
+                                    showToast('Failed to approve request', 'error');
+                                }
+                            }}
+                            className="flex-1 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-[9px] font-black uppercase tracking-widest transition-all shadow-sm"
+                        >
+                            Verify & Approve
+                        </button>
+                        <button 
+                            onClick={async () => {
+                                if (!window.confirm('Reject this specialist request?')) return;
+                                try {
+                                    await axios.post(`/projects/${project.id}/verify-engineering/${request.id}`, { status: 'rejected' });
+                                    showToast('Specialist request rejected.', 'info');
+                                    onRefresh();
+                                } catch (err) {
+                                    showToast('Failed to reject request', 'error');
+                                }
+                            }}
+                            className="px-3 py-2 bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-600 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all"
+                        >
+                            Reject
+                        </button>
+                    </div>
+                )}
             </div>
         );
     };
@@ -249,7 +421,7 @@ export default function TechnicalResourcing({
             )}
 
 
-            <div className={`grid grid-cols-1 ${!activeTab ? 'md:grid-cols-2' : ''} gap-6`}>
+            <div className={`grid grid-cols-1 ${!activeTab ? 'lg:grid-cols-3' : ''} gap-6`}>
                 {/* Structural Engineer Block */}
                 {(!activeTab || activeTab === 'structural') && (
                 <div className={`p-6 border-2 rounded-3xl space-y-5 transition-colors ${
@@ -288,7 +460,11 @@ export default function TechnicalResourcing({
                         )}
                     </div>
 
-                    {!hasStructural && !requiresStructural && (
+                    {!hasStructural && (pendingStructuralRequest || awaitingPaymentStructural) && (
+                        renderHighFidelityPendingCard(pendingStructuralRequest || awaitingPaymentStructural, 'structural')
+                    )}
+
+                    {!hasStructural && !requiresStructural && !pendingStructuralRequest && !awaitingPaymentStructural && (
                         <div className="p-3 bg-slate-100 border border-slate-200 rounded-2xl flex items-start gap-3">
                             <ShieldCheck className="text-slate-400 shrink-0 mt-0.5" size={16} />
                             <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
@@ -297,7 +473,7 @@ export default function TechnicalResourcing({
                         </div>
                     )}
 
-                    {requiresStructural && !hasStructural && (
+                    {requiresStructural && !hasStructural && !pendingStructuralRequest && !awaitingPaymentStructural && (
                         <div className="space-y-4">
                             <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-2xl flex items-center justify-between">
                                 <div className="flex items-center gap-3">
@@ -340,10 +516,9 @@ export default function TechnicalResourcing({
                                                     <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">{bid.bidder?.experience_years} Years Experience</p>
                                                 </div>
                                                 <div className="text-right">
-                                                    <p className="text-sm font-black text-slate-900">{formatCurrency(getDisplayPrice(bid))}</p>
+                                                    <p className="text-sm font-black text-slate-900">{renderBidPriceRange(bid)}</p>
                                                     <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">
-                                                        {bid.fee_type === 'percentage' ? `${bid.price}% • ` : ''}
-                                                        {bid.estimated_duration} {bid.duration_unit}
+                                                        {renderBidPriceSubtitle(bid)}
                                                     </p>
                                                 </div>
                                             </div>
@@ -437,7 +612,7 @@ export default function TechnicalResourcing({
                         />
                     )}
 
-                    {isArchitect && !hasStructural && !requiresStructural && (
+                    {isArchitect && !hasStructural && !requiresStructural && !pendingStructuralRequest && !awaitingPaymentStructural && (
                         <button 
                             onClick={() => handleRequestEngineering('structural')}
                             disabled={!!isProcessing || !!pendingStructuralRequest}
@@ -500,7 +675,11 @@ export default function TechnicalResourcing({
                         )}
                     </div>
  
-                    {!hasMEP && !requiresMep && (
+                    {!hasMEP && (pendingMepRequest || awaitingPaymentMep) && (
+                        renderHighFidelityPendingCard(pendingMepRequest || awaitingPaymentMep, 'mep')
+                    )}
+
+                    {!hasMEP && !requiresMep && !pendingMepRequest && !awaitingPaymentMep && (
                         <div className="p-3 bg-slate-100 border border-slate-200 rounded-2xl flex items-start gap-3">
                             <ShieldCheck className="text-slate-400 shrink-0 mt-0.5" size={16} />
                             <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
@@ -509,7 +688,7 @@ export default function TechnicalResourcing({
                         </div>
                     )}
 
-                    {requiresMep && !hasMEP && (
+                    {requiresMep && !hasMEP && !pendingMepRequest && !awaitingPaymentMep && (
                         <div className="space-y-4">
                             <div className="p-3 bg-amber-50 border border-amber-100 rounded-2xl flex items-center justify-between">
                                 <div className="flex items-center gap-3">
@@ -549,10 +728,9 @@ export default function TechnicalResourcing({
                                                     <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">{bid.bidder?.experience_years} Years Experience</p>
                                                 </div>
                                                 <div className="text-right">
-                                                    <p className="text-sm font-black text-slate-900">{formatCurrency(getDisplayPrice(bid))}</p>
+                                                    <p className="text-sm font-black text-slate-900">{renderBidPriceRange(bid)}</p>
                                                     <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">
-                                                        {bid.fee_type === 'percentage' ? `${bid.price}% • ` : ''}
-                                                        {bid.estimated_duration} {bid.duration_unit}
+                                                        {renderBidPriceSubtitle(bid)}
                                                     </p>
                                                 </div>
                                             </div>
@@ -646,7 +824,7 @@ export default function TechnicalResourcing({
                         />
                     )}
 
-                    {isArchitect && !hasMEP && !requiresMep && (
+                    {isArchitect && !hasMEP && !requiresMep && !pendingMepRequest && !awaitingPaymentMep && (
                         <button 
                             onClick={() => handleRequestEngineering('mep')}
                             disabled={!!isProcessing || !!pendingMepRequest}
@@ -663,6 +841,220 @@ export default function TechnicalResourcing({
                             ) : (
                                 <>
                                     {isProcessing === 'mep' ? 'Notifying PM...' : 'Notify PM of MEP Need'}
+                                    <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+                                </>
+                            )}
+                        </button>
+                    )}
+                </div>
+                )}
+
+                {/* Interior Designer Block */}
+                {(!activeTab || activeTab === 'interior') && (
+                <div className={`p-6 border-2 rounded-3xl space-y-5 transition-colors ${
+                    requiresInterior ? 'border-rose-500/30 bg-rose-50/10' : 'border-slate-100 bg-slate-50/50'
+                }`}>
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                                requiresInterior ? 'bg-rose-100 text-rose-600 shadow-sm' : 'bg-slate-200 text-slate-600'
+                            }`}>
+                                <Sofa size={20} />
+                            </div>
+                            <div>
+                                <h4 className="text-sm font-black text-slate-900 leading-tight">Interior Designer</h4>
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                    Space Planning & Aesthetics Styling
+                                </p>
+                            </div>
+                        </div>
+                        {hasInterior ? (
+                            <span className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-lg text-[10px] font-black uppercase tracking-widest">Assigned</span>
+                        ) : awaitingPaymentInterior ? (
+                            <div className="flex items-center gap-2">
+                                <span className="flex h-2 w-2 rounded-full bg-rose-500 animate-pulse" />
+                                <span className="px-3 py-1 bg-rose-100 text-rose-700 rounded-lg text-[10px] font-black uppercase tracking-widest border border-rose-200">
+                                    {awaitingPaymentInterior.status === 'verifying' ? 'Verifying Payment' : 'Awaiting Payment'}
+                                </span>
+                            </div>
+                        ) : pendingInteriorRequest ? (
+                            <div className="flex items-center gap-2">
+                                <span className="flex h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                                <span className="px-3 py-1 bg-amber-100 text-amber-700 rounded-lg text-[10px] font-black uppercase tracking-widest border border-amber-200">Awaiting PM Approval</span>
+                            </div>
+                        ) : (
+                            <span className="px-3 py-1 bg-slate-200 text-slate-600 rounded-lg text-[10px] font-black uppercase tracking-widest">Standby</span>
+                        )}
+                    </div>
+
+                    {!hasInterior && (pendingInteriorRequest || awaitingPaymentInterior) && (
+                        renderHighFidelityPendingCard(pendingInteriorRequest || awaitingPaymentInterior, 'interior')
+                    )}
+
+                    {!hasInterior && !requiresInterior && !pendingInteriorRequest && !awaitingPaymentInterior && (
+                        <div className="p-3 bg-slate-100 border border-slate-200 rounded-2xl flex items-start gap-3">
+                            <ShieldCheck className="text-slate-400 shrink-0 mt-0.5" size={16} />
+                            <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
+                                Standard project. Interior styling necessity can be flagged by the Architect if spatial curation is required.
+                            </p>
+                        </div>
+                    )}
+
+                    {requiresInterior && !hasInterior && !pendingInteriorRequest && !awaitingPaymentInterior && (
+                        <div className="space-y-4">
+                            <div className="p-3 bg-rose-50 border border-rose-100 rounded-2xl flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <Users className="text-rose-500 shrink-0" size={16} />
+                                    <p className="text-[11px] text-rose-800 font-semibold italic">
+                                        "{project.bids_interior_count || 0} Interior bids pending review"
+                                    </p>
+                                </div>
+                                {isArchitect && (
+                                    <div className="flex gap-2">
+                                        <button 
+                                            onClick={() => {
+                                                setAddendumInitialType('specialist_assignment');
+                                                setIsAddendumModalOpen(true);
+                                            }} 
+                                            className="px-3 py-1 bg-slate-900 text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-black transition-all flex items-center gap-1.5 shadow-sm"
+                                        >
+                                            <UserPlus size={12} />
+                                            Bring Own Team
+                                        </button>
+                                        <button onClick={() => handleInvitePartner('interior')} disabled={!!isProcessing} className="px-3 py-1 bg-white border border-rose-200 text-rose-600 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-rose-50 transition-all">
+                                            Invite Partner
+                                        </button>
+                                        <button onClick={() => setShowBidsBoard('interior')} className="px-3 py-1 bg-rose-600 text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-rose-700 transition-all shadow-sm">
+                                            Review Bids
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Live Interior Proposals */}
+                            {(project.bids_interior || []).length > 0 && (
+                                <div className="space-y-3 mt-4">
+                                    {project.bids_interior?.map((bid: any) => (
+                                        <div key={bid.id} className="p-4 bg-white border border-slate-200 rounded-2xl shadow-sm hover:border-rose-300 transition-all">
+                                            <div className="flex justify-between items-start mb-3">
+                                                <div>
+                                                    <h5 className="text-sm font-black text-slate-900">{bid.bidder?.name || 'Designer'}</h5>
+                                                    <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">{bid.bidder?.experience_years} Years Experience</p>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="text-sm font-black text-slate-900">{renderBidPriceRange(bid)}</p>
+                                                    <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">
+                                                        {renderBidPriceSubtitle(bid)}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            
+                                            <div className="p-3 bg-slate-50 rounded-xl mb-3 border border-slate-100 text-xs text-slate-600 italic line-clamp-3">
+                                                "{bid.proposal}"
+                                            </div>
+ 
+                                            {bid.is_recommended && (
+                                                <div className="flex items-center gap-2 mb-3">
+                                                    <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-[8px] font-black uppercase tracking-widest rounded flex items-center gap-1">
+                                                        <ShieldCheck size={10} /> Architect Recommended
+                                                    </span>
+                                                </div>
+                                            )}
+ 
+                                            {isOwner ? (
+                                                bid.is_recommended ? (
+                                                    <div className="flex gap-2 mt-3">
+                                                        <button 
+                                                            onClick={() => handleAuthorizeSpecialist(bid.id, 'interior')}
+                                                            disabled={!!isProcessing}
+                                                            className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-[10px] font-black uppercase tracking-widest transition-all shadow-md shadow-rose-600/20 flex justify-center items-center gap-2"
+                                                        >
+                                                            {isProcessing === `accept-${bid.id}` ? 'Processing...' : 'Confirm & Hire'}
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => handleRejectSpecialist(bid.id, 'interior')}
+                                                            disabled={!!isProcessing}
+                                                            className="px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-rose-500 hover:border-rose-200 text-[10px] font-black uppercase tracking-widest transition-all"
+                                                        >
+                                                            Reject
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-[9px] text-center text-amber-500 font-black uppercase tracking-widest mt-3 flex items-center justify-center gap-1">
+                                                        <Clock size={10} /> Architect Review Pending
+                                                    </p>
+                                                )
+                                            ) : isPM ? (
+                                                <p className="text-[9px] text-center text-amber-500 font-black uppercase tracking-widest mt-3 flex items-center justify-center gap-1">
+                                                    <Clock size={10} /> 
+                                                    {bid.is_recommended ? 'Awaiting Owner Authorization' : 'Awaiting Architect Recommendation'}
+                                                </p>
+                                            ) : isArchitect ? (
+                                                <div className="flex items-center gap-2 mt-4">
+                                                    {(!bid.status || bid.status === 'pending') ? (
+                                                        <button 
+                                                            onClick={() => onShortlist?.(bid.id, 'interior')}
+                                                            className="flex-1 py-2.5 bg-rose-600 text-white text-[9px] font-black uppercase tracking-widest rounded-xl hover:bg-rose-700 transition-all shadow-lg shadow-rose-200"
+                                                        >
+                                                            Shortlist for Interview
+                                                        </button>
+                                                    ) : (
+                                                        <>
+                                                            {bid.status === 'shortlisted' && (
+                                                                <button 
+                                                                    onClick={() => onRecommend?.(bid.id, 'interior')}
+                                                                    className="flex-1 py-2.5 bg-emerald-500 text-white text-[9px] font-black uppercase tracking-widest rounded-xl hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-200"
+                                                                >
+                                                                    Recommend to Owner
+                                                                </button>
+                                                            )}
+                                                        </>
+                                                    )}
+                                                    <button className="px-4 py-2.5 bg-slate-100 text-slate-600 text-[9px] font-black uppercase tracking-widest rounded-xl hover:bg-slate-200 transition-all">
+                                                        Profile
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <p className="text-[9px] text-center text-slate-400 font-black uppercase tracking-widest mt-3">
+                                                    {bid.is_recommended ? 'Awaiting Owner Authorization' : 'Architect Review Pending'}
+                                                </p>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {renderExternalVendors('interior')}
+                        </div>
+                    )}
+
+                    {hasInterior && (
+                        <EngineeringCoordination
+                            project={project}
+                            user={user}
+                            roleType="interior"
+                            isArchitect={isArchitect}
+                            onRefresh={onRefresh}
+                        />
+                    )}
+
+                    {isArchitect && !hasInterior && !requiresInterior && !pendingInteriorRequest && !awaitingPaymentInterior && (
+                        <button 
+                            onClick={() => handleRequestEngineering('interior')}
+                            disabled={!!isProcessing || !!pendingInteriorRequest}
+                            className={`w-full py-4 rounded-2xl border-2 text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 group ${
+                                pendingInteriorRequest 
+                                    ? 'bg-amber-50 border-amber-200 text-amber-700 cursor-default' 
+                                    : 'bg-white border-slate-200 text-slate-600 hover:border-slate-900 hover:text-slate-900'
+                            }`}
+                        >
+                            {pendingInteriorRequest ? (
+                                <>
+                                    <Clock size={14} className="animate-pulse" /> Request Awaiting PM Approval
+                                </>
+                            ) : (
+                                <>
+                                    {isProcessing === 'interior' ? 'Notifying PM...' : 'Notify PM of Interior Designer Need'}
                                     <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
                                 </>
                             )}
@@ -707,6 +1099,15 @@ export default function TechnicalResourcing({
                 isOpen={isAddendumModalOpen}
                 initialType={addendumInitialType}
                 onClose={() => setIsAddendumModalOpen(false)}
+                onRefresh={onRefresh}
+            />
+
+            <RequestSpecialistModal 
+                projectId={project.id}
+                project={project}
+                isOpen={!!requestRole}
+                roleType={requestRole}
+                onClose={() => setRequestRole(null)}
                 onRefresh={onRefresh}
             />
         </div>

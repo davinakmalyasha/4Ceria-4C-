@@ -30,6 +30,7 @@ class Project extends Model
         'wants_project_manager',
         'requires_structural',
         'requires_mep',
+        'requires_interior',
         'design_completed_at',
         'deadline',
         'attachment',
@@ -117,6 +118,7 @@ class Project extends Model
         'wants_project_manager' => 'boolean',
         'requires_structural' => 'boolean',
         'requires_mep' => 'boolean',
+        'requires_interior' => 'boolean',
         'wants_to_discuss_later' => 'boolean',
         'design_locked_at' => 'datetime',
         'construction_locked_at' => 'datetime',
@@ -234,6 +236,11 @@ class Project extends Model
     public function requirements()
     {
         return $this->hasMany(ProjectRequirement::class);
+    }
+
+    public function materialFolders()
+    {
+        return $this->hasMany(ProjectMaterialFolder::class);
     }
 
     public function dailyLogs()

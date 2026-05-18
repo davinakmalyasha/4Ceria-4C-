@@ -128,9 +128,73 @@ class SubProfessionalController extends Controller
             $mep = \App\Models\MepEngineer::where('user_id', $sub->user_id)->first();
             if ($mep) $project->update(['mep_id' => $mep->id]);
         }
+        if ($sub->sub_role === 'interior') {
+            $interior = \App\Models\InteriorProfile::where('user_id', $sub->user_id)->first();
+            if ($interior) $project->update(['selected_interior_id' => $interior->id]);
+        }
 
         return response()->json([
             'message' => 'Invitation accepted.',
+            'data' => $sub,
+        ]);
+    }
+
+    public function decline(Project $project, int $id): \Illuminate\Http\JsonResponse
+    {
+        $user = Auth::user();
+        $sub = ProjectSubProfessional::where('id', $id)
+            ->where('project_id', $project->id)
+            ->firstOrFail();
+
+        if ((int) $sub->user_id !== (int) $user->id) {
+            return response()->json(['message' => 'Only the invited professional can decline.'], 403);
+        }
+
+        if (!in_array($sub->status, ['invited', 'accepted', 'interviewing', 'recommended'])) {
+            return response()->json(['message' => 'Cannot decline this assignment.'], 422);
+        }
+
+        $sub->update([
+            'status' => 'declined',
+            'completed_at' => now(),
+        ]);
+
+        // Unlink from project core slots
+        if ($sub->sub_role === 'structural') {
+            $struc = \App\Models\StructuralEngineer::where('user_id', $sub->user_id)->first();
+            if ($struc && (int)$project->structural_id === (int)$struc->id) {
+                $project->update(['structural_id' => null]);
+            }
+        }
+        if ($sub->sub_role === 'mep') {
+            $mep = \App\Models\MepEngineer::where('user_id', $sub->user_id)->first();
+            if ($mep && (int)$project->mep_id === (int)$mep->id) {
+                $project->update(['mep_id' => null]);
+            }
+        }
+        if ($sub->sub_role === 'interior') {
+            $interior = \App\Models\InteriorProfile::where('user_id', $sub->user_id)->first();
+            if ($interior && (int)$project->selected_interior_id === (int)$interior->id) {
+                $project->update(['selected_interior_id' => null]);
+            }
+        }
+
+        // Notify the architect/lead pro who assigned them
+        if ($sub->assigned_by) {
+            \App\Models\Notification::create([
+                'user_id' => $sub->assigned_by,
+                'type' => 'sub_professional_declined',
+                'title' => 'Specialist Assignment Declined',
+                'body' => "{$user->name} has declined the invitation to join \"{$project->title}\" as a {$sub->sub_role}.",
+                'data' => [
+                    'project_id' => $project->id,
+                    'sub_professional_id' => $sub->id,
+                ],
+            ]);
+        }
+
+        return response()->json([
+            'message' => 'Assignment declined.',
             'data' => $sub,
         ]);
     }

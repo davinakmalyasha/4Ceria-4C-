@@ -36,8 +36,9 @@ import { UserProfileView } from './UserProfileView';
 import EditProfileForm from '../EditProfileForm';
 import ExploreTab from './ExploreTab';
 import { HireHistoryTab } from './HireHistoryTab';
-import FirmRoster from './FirmRoster';
+import FirmHub from './FirmHub';
 import FirmInvitations from './FirmInvitations';
+import SpecialistFirmHub from './SpecialistFirmHub';
 
 import { Project } from '../../types/project.types';
 import { House } from '../../types/explore';
@@ -108,8 +109,8 @@ export const DashboardTabs: React.FC<TabsProps> = (props) => {
                 
                 {activeTab === 'overview' && (
                     <>
-                    {['structural', 'mep', 'interior', 'kontraktor'].includes(user?.role_type) && (
-                        <FirmInvitations />
+                    {['structural', 'mep', 'interior', 'kontraktor', 'civil', 'mechanical', 'electrical', 'plumbing', 'roofing', 'finishing'].includes(user?.role_type) && (
+                        <FirmInvitations onOpenChat={handleOpenChat} />
                     )}
                     {user?.role_type === 'logistics' ? (
                         <LogisticsOverview user={user} setActiveTab={setActiveTab} />
@@ -275,7 +276,14 @@ export const DashboardTabs: React.FC<TabsProps> = (props) => {
                             <h3 className="text-2xl font-black text-gray-900 mb-8">Edit Profile</h3>
                             <EditProfileForm onCancel={() => setIsEditingProfile(false)} />
                         </div>
-                    ) : <UserProfileView user={user} setIsEditingProfile={setIsEditingProfile} />
+                    ) : (
+                        <div className="space-y-10">
+                            <UserProfileView user={user} setIsEditingProfile={setIsEditingProfile} />
+                            {(user?.role_type === 'arsitek' || user?.role_type === 'kontraktor') && (
+                                <FirmHub onOpenChat={handleOpenChat} />
+                            )}
+                        </div>
+                    )
                 )}
 
                 {activeTab === 'material-orders' && <MaterialOrdersTab />}
@@ -377,7 +385,9 @@ export const DashboardTabs: React.FC<TabsProps> = (props) => {
                     <ProfessionalProjects projects={projects} isLoading={isLoadingData} onViewProject={handleViewProject} formatCurrency={formatCurrency} />
                 )}
 
-                {activeTab === 'my-firm' && <FirmRoster />}
+                {activeTab === 'my-firms' && ['structural', 'mep', 'interior', 'civil', 'mechanical', 'electrical', 'plumbing', 'roofing', 'finishing'].includes(user?.role_type) && (
+                    <SpecialistFirmHub onOpenChat={handleOpenChat} />
+                )}
 
                 {activeTab === 'delivery-jobs' && <DeliveryJobsTab />}
                 {activeTab === 'job-radar' && <JobRadarTab />}

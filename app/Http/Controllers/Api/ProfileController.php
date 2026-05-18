@@ -94,7 +94,19 @@ class ProfileController extends Controller
             $arsitek->update($validatedArsitek);
         }
 
-        if ($user->role_type === 'kontraktor') {
+        if (in_array($user->role_type, ['kontraktor', 'civil', 'mechanical', 'electrical', 'plumbing', 'roofing', 'finishing'])) {
+            if (in_array($user->role_type, ['civil', 'mechanical', 'electrical', 'plumbing', 'roofing', 'finishing'])) {
+                if ($request->has('lokasi') && !$request->has('alamat')) {
+                    $request->merge(['alamat' => $request->lokasi]);
+                }
+                if ($request->has('no_telp') && !$request->has('no_telepon')) {
+                    $request->merge(['no_telepon' => $request->no_telp]);
+                }
+                if ($request->has('pengalaman_tahun') && !$request->has('pengalaman')) {
+                    $request->merge(['pengalaman' => $request->pengalaman_tahun]);
+                }
+            }
+
             $validatedKontraktor = $request->validate([
                 'nama_perusahaan' => 'nullable|string',
                 'alamat' => 'nullable|string',
@@ -104,6 +116,7 @@ class ProfileController extends Controller
                 'jenis' => 'nullable|string',
                 'pendidikan' => 'nullable|string',
                 'alasan_hire' => 'nullable|string',
+                'spesialisasi' => 'nullable|string',
                 'foto' => 'nullable|file|mimes:jpg,png,jpeg|max:5120',
                 'npwp' => 'nullable|file|mimes:pdf,jpg,png|max:5120',
                 'siup' => 'nullable|file|mimes:pdf,jpg,png|max:5120',

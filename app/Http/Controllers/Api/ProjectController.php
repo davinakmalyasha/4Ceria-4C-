@@ -192,30 +192,48 @@ class ProjectController extends Controller
             $query->latest();
         } elseif ($user->role_type === 'interior') {
             $interior = \App\Models\InteriorProfile::where('user_id', $user->id)->first();
-            if ($interior) {
-                $query->where('selected_interior_id', $interior->id);
-            } else {
-                $query->whereRaw('1 = 0');
-            }
+            $query->where(function ($q) use ($user, $interior) {
+                if ($interior) {
+                    $q->where('selected_interior_id', $interior->id);
+                } else {
+                    $q->whereRaw('1 = 0');
+                }
+                $q->orWhereHas('subProfessionals', function ($sq) use ($user) {
+                    $sq->where('user_id', $user->id)
+                       ->whereIn('status', ['invited', 'accepted', 'interviewing', 'recommended']);
+                });
+            });
             $query->latest();
         } elseif ($user->role_type === 'project_manager') {
             $query->where('pm_id', $user->id);
             $query->latest();
         } elseif ($user->role_type === 'structural') {
             $structural = \App\Models\StructuralEngineer::where('user_id', $user->id)->first();
-            if ($structural) {
-                $query->where('structural_id', $structural->id);
-            } else {
-                $query->whereRaw('1 = 0');
-            }
+            $query->where(function ($q) use ($user, $structural) {
+                if ($structural) {
+                    $q->where('structural_id', $structural->id);
+                } else {
+                    $q->whereRaw('1 = 0');
+                }
+                $q->orWhereHas('subProfessionals', function ($sq) use ($user) {
+                    $sq->where('user_id', $user->id)
+                       ->whereIn('status', ['invited', 'accepted', 'interviewing', 'recommended']);
+                });
+            });
             $query->latest();
         } elseif ($user->role_type === 'mep') {
             $mep = \App\Models\MepEngineer::where('user_id', $user->id)->first();
-            if ($mep) {
-                $query->where('mep_id', $mep->id);
-            } else {
-                $query->whereRaw('1 = 0');
-            }
+            $query->where(function ($q) use ($user, $mep) {
+                if ($mep) {
+                    $q->where('mep_id', $mep->id);
+                } else {
+                    $q->whereRaw('1 = 0');
+                }
+                $q->orWhereHas('subProfessionals', function ($sq) use ($user) {
+                    $sq->where('user_id', $user->id)
+                       ->whereIn('status', ['invited', 'accepted', 'interviewing', 'recommended']);
+                });
+            });
             $query->latest();
         } else {
             // General professionals or unknown roles: show nothing in "My projects" unless hired
@@ -362,6 +380,7 @@ class ProjectController extends Controller
             'materialOrders.deliveryJob',
             'requirements',
             'addendums.teamMember',
+            'addendums.assignedUser',
             'documents.uploader',
             'activityLogs',
             'subProfessionals.user',
@@ -425,6 +444,7 @@ class ProjectController extends Controller
 
         $request->validate([
             'price' => 'nullable|numeric|min:0',
+            'price_max' => 'nullable|numeric|min:0',
             'proposal' => 'required|string|max:2000',
             'estimated_duration' => 'nullable|integer|min:1',
             'duration_unit' => 'nullable|string|in:days,weeks,months',
@@ -459,6 +479,7 @@ class ProjectController extends Controller
         $baseData = [
             'project_id' => $project->id,
             'price' => $calc['price'],
+            'price_max' => $request->price_max,
             'fee_type' => $calc['fee_type'],
             'unit_price' => $calc['unit_price'],
             'quantity' => $calc['quantity'],
@@ -687,6 +708,8 @@ class ProjectController extends Controller
             'proposed_team.*.fee' => 'required|numeric|min:0',
             'proposed_team.*.fee_type' => 'required|string|in:fixed,percentage',
             'proposed_team.*.note' => 'nullable|string|max:500',
+            'project_length' => 'nullable|numeric|min:0',
+            'project_width' => 'nullable|numeric|min:0',
         ]);
 
         $totalPercentage = collect($validated['proposed_termins'])->sum('percentage');
@@ -697,6 +720,12 @@ class ProjectController extends Controller
         $bid = null;
         $bidId = $validated['bid_id'];
         $bidType = $validated['bid_type'];
+
+        if ($bidType === 'project_manager' && isset($validated['fee_type'])) {
+            if (!in_array($validated['fee_type'], ['fixed', 'percentage'])) {
+                return response()->json(['message' => 'Invalid fee structure for Project Managers. Project Managers are only permitted to use Fixed Fee or Percentage structures.'], 422);
+            }
+        }
 
         $modelMap = [
             'arsitek' => \App\Models\BidArsitek::class,
@@ -754,6 +783,36 @@ class ProjectController extends Controller
         }
 
         return DB::transaction(function () use ($bid, $validated, $project, $user, $calculationService) {
+            // Update project dimensions if passed
+            if (isset($validated['project_length']) && isset($validated['project_width'])) {
+                $dims = is_array($project->project_dimensions) ? $project->project_dimensions : (json_decode($project->project_dimensions, true) ?? []);
+                
+                $length = (float) $validated['project_length'];
+                $width = (float) $validated['project_width'];
+                $area = $length * $width;
+
+                if ($length > 0 && $width > 0) {
+                    if ($project->project_category === 'new_build') {
+                        $dims['building_length'] = $length;
+                        $dims['building_width'] = $width;
+                        $dims['building_size'] = $area;
+                    } elseif ($project->project_category === 'renovation') {
+                        $dims['renovation_length'] = $length;
+                        $dims['renovation_width'] = $width;
+                        $dims['renovation_area'] = $area;
+                    } elseif ($project->project_category === 'interior') {
+                        $dims['area_length'] = $length;
+                        $dims['area_width'] = $width;
+                        $dims['area_size'] = $area;
+                    } else {
+                        $dims['building_length'] = $length;
+                        $dims['building_width'] = $width;
+                        $dims['building_size'] = $area;
+                    }
+                    $project->update(['project_dimensions' => $dims]);
+                }
+            }
+
             // 1. Log the current state as a snapshot before updating
             $this->negotiationService->logRound($bid, $validated, $validated['note']);
 
@@ -1738,6 +1797,61 @@ class ProjectController extends Controller
                 (array) ($project->design_details ?? []),
                 (array) $request->design_details
             );
+
+            // Specialist Tagging Notification Trigger
+            if (isset($data['design_details']['requirements'])) {
+                $oldRequirements = collect($project->design_details['requirements'] ?? []);
+                $newRequirements = $data['design_details']['requirements'];
+
+                foreach ($newRequirements as $newReq) {
+                    if (empty($newReq['tagged_role'])) {
+                        continue;
+                    }
+
+                    $reqId = $newReq['id'] ?? null;
+                    $taggedRole = $newReq['tagged_role'];
+                    $newTitle = $newReq['title'] ?? 'New Requirement';
+
+                    // Check if this requirement already had this specialist role tagged
+                    $oldReq = $oldRequirements->firstWhere('id', $reqId);
+                    $alreadyTagged = $oldReq && isset($oldReq['tagged_role']) && $oldReq['tagged_role'] === $taggedRole;
+
+                    if (!$alreadyTagged) {
+                        // Resolve user ID for the tagged specialist role
+                        $targetUserId = null;
+
+                        if ($taggedRole === 'structural' && $project->structural_id) {
+                            $se = \App\Models\StructuralEngineer::find($project->structural_id);
+                            if ($se) {
+                                $targetUserId = $se->user_id;
+                            }
+                        } elseif ($taggedRole === 'mep' && $project->mep_id) {
+                            $me = \App\Models\MepEngineer::find($project->mep_id);
+                            if ($me) {
+                                $targetUserId = $me->user_id;
+                            }
+                        } elseif ($taggedRole === 'interior' && $project->selected_interior_id) {
+                            $ip = \App\Models\InteriorProfile::find($project->selected_interior_id);
+                            if ($ip) {
+                                $targetUserId = $ip->user_id;
+                            }
+                        }
+
+                        if ($targetUserId) {
+                            Notification::create([
+                                'user_id' => $targetUserId,
+                                'type' => 'requirement_tagged',
+                                'title' => '🚨 Tagged in Requirement Brief',
+                                'body' => "You have been tagged in the design requirement: \"{$newTitle}\". Please check the Architecture subtab to provide your feedback.",
+                                'data' => [
+                                    'project_id' => $project->id,
+                                    'requirement_id' => $reqId
+                                ]
+                            ]);
+                        }
+                    }
+                }
+            }
         }
         if ($request->has('construction_details')) {
             $data['construction_details'] = array_merge(
@@ -2494,21 +2608,62 @@ class ProjectController extends Controller
             $proposedTeam = is_array($bid->proposed_team) ? $bid->proposed_team : [];
             foreach ($proposedTeam as $tmIndex => $tm) {
                 $subRole = $tm['role'] ?? 'other';
+                if ($subRole === 'other') {
+                    $roleTitle = strtolower($tm['role_title'] ?? '');
+                    if (str_contains($roleTitle, 'structural') || str_contains($roleTitle, 'sipil') || str_contains($roleTitle, 'structure')) {
+                        $subRole = 'structural';
+                    } elseif (str_contains($roleTitle, 'mep') || str_contains($roleTitle, 'mechanical') || str_contains($roleTitle, 'plumbing') || str_contains($roleTitle, 'electrical') || str_contains($roleTitle, 'mep')) {
+                        $subRole = 'mep';
+                    } elseif (str_contains($roleTitle, 'interior')) {
+                        $subRole = 'interior';
+                    } else {
+                        $assignedUser = !empty($tm['team_member_id']) ? \App\Models\User::find($tm['team_member_id']) : null;
+                        if ($assignedUser && in_array($assignedUser->role_type, ['structural', 'mep', 'interior'])) {
+                            $subRole = $assignedUser->role_type;
+                        }
+                    }
+                }
+
                 $teamFee = (float) ($tm['fee'] ?? 0);
                 $teamName = $tm['name'] ?? 'Team Member';
 
-                // Create sub-professional record (linked to lead pro's user)
-                \App\Models\ProjectSubProfessional::create([
+                // Determine the correct user_id for the sub-professional record (prioritize roster user, fallback to lead pro)
+                $assignedUserId = !empty($tm['team_member_id']) && \App\Models\User::where('id', $tm['team_member_id'])->exists()
+                    ? (int)$tm['team_member_id']
+                    : $user->id;
+
+                // If falling back to the lead professional's user_id, make sub_role unique to prevent DB unique key constraint violation
+                $actualSubRole = $subRole;
+                if ($assignedUserId === $user->id) {
+                    $actualSubRole = substr($subRole . '-' . $tmIndex, 0, 50);
+                }
+
+                // Create sub-professional record
+                $sub = \App\Models\ProjectSubProfessional::create([
                     'project_id'  => $project->id,
-                    'user_id'     => $user->id,
+                    'user_id'     => $assignedUserId,
                     'parent_role' => $request->bid_type,
-                    'sub_role'    => $subRole,
+                    'sub_role'    => $actualSubRole,
                     'assigned_by' => $user->id,
                     'status'      => 'active',
                     'rate'        => $teamFee,
                     'scope_notes' => $tm['note'] ?? null,
                     'lead_pro_notes' => "Team: " . $teamName . " (" . ($tm['role_title'] ?? $subRole) . ")",
+                    'hired_at'    => now(),
+                    'accepted_at' => now(),
                 ]);
+
+                // Link to project main fields if applicable
+                if ($subRole === 'structural') {
+                    $struc = \App\Models\StructuralEngineer::where('user_id', $assignedUserId)->first();
+                    if ($struc) $project->update(['structural_id' => $struc->id]);
+                } elseif ($subRole === 'mep') {
+                    $mep = \App\Models\MepEngineer::where('user_id', $assignedUserId)->first();
+                    if ($mep) $project->update(['mep_id' => $mep->id]);
+                } elseif ($subRole === 'interior') {
+                    $interior = \App\Models\InteriorProfile::where('user_id', $assignedUserId)->first();
+                    if ($interior) $project->update(['selected_interior_id' => $interior->id]);
+                }
 
                 // Create a milestone for this team member
                 $teamPhase = match ($subRole) {
@@ -2523,6 +2678,7 @@ class ProjectController extends Controller
                     'description'     => $tm['note'] ?? "Work scope for {$teamName}",
                     'approval_status' => 'pending',
                     'phase_context'   => $teamPhase,
+                    'type'            => 'sub_professional',
                     'sort_order'      => 100 + $tmIndex,
                 ]);
 

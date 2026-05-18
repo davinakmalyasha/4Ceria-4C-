@@ -14,6 +14,7 @@ import DesignProgress from './DesignProgress';
 import ProjectDeliverables from './ProjectDeliverables';
 import ProjectReference from './ProjectReference';
 import ProjectRequirements from '../ProjectRequirements';
+import MaterialHistoryLog from '../Requirements/MaterialHistoryLog';
 import TechnicalResourcing from './TechnicalResourcing';
 import ConstructionBriefManager from './ConstructionBriefManager';
 import ConstructionProgress from './ConstructionProgress';
@@ -22,7 +23,6 @@ import MaterialOrderTracker from './MaterialOrderTracker';
 import InteriorProgress from './InteriorProgress';
 import InteriorBriefManager from './InteriorBriefManager';
 import LegalBriefManager from './LegalBriefManager';
-import LegalProgress from './LegalProgress';
 import LegalVault from './LegalVault';
 import { ErrorBoundary } from '../../Common/ErrorBoundary';
 import StickyNotesLayer from './StickyNotesLayer';
@@ -88,10 +88,20 @@ export default function PhaseAssignedPro({
     const [activeSubTab, setActiveSubTab] = React.useState(
         phaseKey === 'legal' ? 'planning' :
             phaseKey === 'build' ? 'site_command' :
-                phaseKey === 'materials' ? 'orders' :
+                phaseKey === 'materials' ? 'bom' :
                     phaseKey === 'interior' ? 'planning' :
                         'managing'
     );
+
+    React.useEffect(() => {
+        setActiveSubTab(
+            phaseKey === 'legal' ? 'planning' :
+                phaseKey === 'build' ? 'site_command' :
+                    phaseKey === 'materials' ? 'bom' :
+                        phaseKey === 'interior' ? 'planning' :
+                            'managing'
+        );
+    }, [phaseKey]);
 
     const [isUpdating, setIsUpdating] = React.useState(false);
     const [isAddendumModalOpen, setIsAddendumModalOpen] = React.useState(false);
@@ -259,64 +269,6 @@ export default function PhaseAssignedPro({
                     </div>
                 )}
 
-            {/* Architect Handover Workshop Button */}
-            {isHiredPro && phaseKey === 'design' && !project.design_completed_at && (
-                <div className="mb-8 p-8 bg-zinc-50 border border-zinc-200 rounded-[3rem] shadow-sm flex flex-col items-center text-center gap-6">
-                    <div className="max-w-md">
-                        <h4 className="text-xl font-black text-zinc-900 tracking-tight">Design Handover Workshop</h4>
-                        <p className="text-xs text-zinc-500 font-bold mt-2 leading-relaxed uppercase tracking-wider">
-                            By requesting handover, you certify that all blueprints, BoM, and technical specs are finalized. 
-                            The PM will technically verify the package before it is sealed.
-                        </p>
-                    </div>
-
-                    {submittedAt && (
-                        <div className="px-6 py-3 bg-amber-50 border border-amber-100 rounded-2xl flex items-center gap-3 animate-pulse">
-                            <Clock size={16} className="text-amber-500" />
-                            <span className="text-[10px] font-black text-amber-700 uppercase tracking-widest">Awaiting PM Verification Since {new Date(submittedAt).toLocaleDateString()}</span>
-                        </div>
-                    )}
-
-                    {revisionNotes && !submittedAt && (
-                        <div className="p-5 bg-red-50 border border-red-100 rounded-2xl text-left w-full">
-                            <div className="flex items-center gap-2 mb-2 text-red-600">
-                                <AlertTriangle size={16} />
-                                <span className="text-[10px] font-black uppercase tracking-widest">Handover Needs Revision</span>
-                            </div>
-                            <p className="text-xs font-bold text-red-700">{revisionNotes}</p>
-                        </div>
-                    )}
-
-                    <button
-                        onClick={async () => {
-                            if (project.requires_structural && !project.structural_id) {
-                                showToast('Cannot submit: A Structural Engineer is legally required but not hired.', 'error');
-                                return;
-                            }
-                            if (!window.confirm("Submit design package for PM verification?")) return;
-                            setIsUpdating(true);
-                            try {
-                                await axios.post(`/projects/${project.id}/seal-design`);
-                                showToast('Design Package Submitted for Review', 'success');
-                                onRefresh();
-                            } catch (error: any) {
-                                const message = error.response?.data?.message || 'Handover failed.';
-                                showToast(message, 'error');
-                            } finally {
-                                setIsUpdating(false);
-                            }
-                        }}
-                        disabled={isUpdating || !!submittedAt || (project.requires_structural && !project.structural_id)}
-                        className={`group relative px-12 py-5 rounded-[2rem] font-black text-xs uppercase tracking-[0.25em] shadow-2xl transition-all flex items-center gap-4 overflow-hidden ${(project.requires_structural && !project.structural_id) || submittedAt
-                            ? 'bg-zinc-300 text-zinc-500 cursor-not-allowed opacity-70'
-                            : 'bg-zinc-900 text-white hover:bg-black'
-                            }`}
-                    >
-                        <ShieldCheck size={20} className={!(project.requires_structural && !project.structural_id) && !submittedAt ? "group-hover:rotate-12 transition-transform" : ""} />
-                        {isUpdating ? 'SUBMITTING...' : submittedAt ? 'PENDING PM REVIEW' : revisionNotes ? 'RESUBMIT HANDOVER' : 'SUBMIT DESIGN PACKAGE'}
-                    </button>
-                </div>
-            )}
 
             {/* Contractor Handover Workshop Button */}
             {isHiredPro && phaseKey === 'build' && !project.construction_completed_at && (
@@ -520,8 +472,7 @@ export default function PhaseAssignedPro({
                     <div className="flex items-center gap-1 p-1 bg-slate-50 rounded-2xl w-fit overflow-x-auto">
                         {[
                             { id: 'planning', label: 'Contract & Scope', icon: FileText },
-                            { id: 'vault', label: 'Official Document Vault', icon: ShieldCheck },
-                            { id: 'progress', label: 'Notary Progress', icon: Layers },
+                            { id: 'vault', label: 'Document Vault & Progress', icon: ShieldCheck },
                             { id: 'archive', label: 'Architect Technical Files', icon: FolderOpen },
                         ].filter(Boolean).map((tab: any) => (
                             <button
@@ -558,17 +509,6 @@ export default function PhaseAssignedPro({
                                 />
                             </ErrorBoundary>
                         )}
-                        {activeSubTab === 'progress' && (
-                            <ErrorBoundary name="LegalProgress">
-                                <LegalProgress
-                                    project={project}
-                                    currentUser={user}
-                                    isNotaris={isHiredPro}
-                                    onUpdate={onRefresh}
-                                    onGoToPayments={onGoToPayments}
-                                />
-                            </ErrorBoundary>
-                        )}
                         {activeSubTab === 'archive' && (
                             <ProjectDeliverables 
                                 project={project} 
@@ -586,8 +526,7 @@ export default function PhaseAssignedPro({
                     <div className="flex items-center gap-1 p-1 bg-slate-50 rounded-2xl w-fit overflow-x-auto">
                         {[
                             { id: 'managing', label: project.design_locked_at ? 'Brief' : 'Planning', icon: Settings },
-                            { id: 'progress', label: 'Design Progress', icon: FileText },
-                            { id: 'bom', label: 'Bill of Materials', icon: Package }
+                            { id: 'progress', label: 'Design Progress', icon: FileText }
                         ].map((tab) => (
                             <button
                                 key={tab.id}
@@ -620,13 +559,6 @@ export default function PhaseAssignedPro({
                         )}
                         {activeSubTab === 'progress' && (
                             <DesignProgress project={project} currentUser={user} isArchitect={isHiredPro} isPM={isPM} />
-                        )}
-                        {activeSubTab === 'bom' && (
-                            <ProjectRequirements
-                                project={project}
-                                onUpdate={onRefresh}
-                                hideInventoryActions={isHiredPro && user.role_type === 'arsitek'}
-                            />
                         )}
                     </div>
                 </div>
@@ -802,7 +734,7 @@ export default function PhaseAssignedPro({
                         {[
                             { id: 'orders', label: 'Order Tracker', icon: Package },
                             { id: 'bom', label: 'Bill of Materials', icon: Layers },
-                            { id: 'results', label: 'Results & Files', icon: Box }
+                            { id: 'results', label: 'History/Log', icon: FileText }
                         ].map((tab) => (
                             <button
                                 key={tab.id}
@@ -822,11 +754,21 @@ export default function PhaseAssignedPro({
                         {activeSubTab === 'orders' && (
                             <MaterialOrderTracker project={project} currentUser={user} />
                         )}
-                        {activeSubTab === 'bom' && (
-                            <ProjectRequirements project={project} onUpdate={onRefresh} />
-                        )}
+                        {activeSubTab === 'bom' && (() => {
+                            const isOwner = user?.id === project?.user_id;
+                            const isPM = user?.role_type === 'project_manager' && project?.pm_id === user?.id;
+                            const canMutateBOM = isOwner || isPM || isHiredPro;
+                            
+                            return (
+                                <ProjectRequirements 
+                                    project={project} 
+                                    onUpdate={onRefresh} 
+                                    canMutate={canMutateBOM}
+                                />
+                            );
+                        })()}
                         {activeSubTab === 'results' && (
-                            <ProjectDeliverables project={project} currentUser={user} isPro={isHiredPro} />
+                            <MaterialHistoryLog project={project} />
                         )}
                     </div>
                 </div>

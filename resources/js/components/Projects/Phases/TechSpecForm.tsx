@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
-import { Save, X, Info, Zap, ShieldCheck, Layers, Layout } from 'lucide-react';
+import { Save, X, Info, Zap, ShieldCheck, Layers, Layout, Plus, Trash2 } from 'lucide-react';
 import { 
-    ARCHITECT_STYLES, 
-    ARCHITECT_SERVICE_SCOPES, 
-    ARCHITECT_DELIVERABLES 
+    ARCHITECT_STYLES
 } from '../../../constants/ArchitectStandardPresets';
 import { DesignDetails } from '../../../types/project.types';
 
@@ -17,17 +15,34 @@ interface TechSpecFormProps {
 export default function TechSpecForm({ initialData, isUpdating, onSave, onCancel }: TechSpecFormProps) {
     const [style, setStyle] = useState(initialData.style || 'Modern');
     const [revisions, setRevisions] = useState(initialData.revisions || 3);
-    const [scopes, setScopes] = useState<string[]>(initialData.scopes || ['schematic']);
-    const [deliverables, setDeliverables] = useState<string[]>(initialData.deliverables || ['3d_render']);
+    const [scopes, setScopes] = useState<string[]>(initialData.scopes || []);
+    const [deliverables, setDeliverables] = useState<string[]>(initialData.deliverables || []);
     const [floorCount, setFloorCount] = useState(initialData.floorCount || 1);
     const [targetArea, setTargetArea] = useState(initialData.targetArea || 0);
 
-    const toggleScope = (id: string) => {
-        setScopes(prev => prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]);
+    const [newScope, setNewScope] = useState('');
+    const [newDeliverable, setNewDeliverable] = useState('');
+
+    const addScope = () => {
+        if (newScope.trim() && !scopes.includes(newScope.trim())) {
+            setScopes(prev => [...prev, newScope.trim()]);
+            setNewScope('');
+        }
     };
 
-    const toggleDeliverable = (id: string) => {
-        setDeliverables(prev => prev.includes(id) ? prev.filter(d => d !== id) : [...prev, id]);
+    const removeScope = (item: string) => {
+        setScopes(prev => prev.filter(s => s !== item));
+    };
+
+    const addDeliverable = () => {
+        if (newDeliverable.trim() && !deliverables.includes(newDeliverable.trim())) {
+            setDeliverables(prev => [...prev, newDeliverable.trim()]);
+            setNewDeliverable('');
+        }
+    };
+
+    const removeDeliverable = (item: string) => {
+        setDeliverables(prev => prev.filter(d => d !== item));
     };
 
     const needsStructural = floorCount > 2 || targetArea > 200;
@@ -124,26 +139,47 @@ export default function TechSpecForm({ initialData, isUpdating, onSave, onCancel
                         <Layers size={18} className="text-zinc-400" />
                         <h4 className="text-xs font-black text-zinc-900 uppercase tracking-widest">Service Scopes</h4>
                     </div>
-                    <div className="space-y-2">
-                        {ARCHITECT_SERVICE_SCOPES.map(scope => (
-                            <button
-                                key={scope.id}
-                                onClick={() => toggleScope(scope.id)}
-                                className={`w-full text-left p-4 rounded-2xl border transition-all flex items-start gap-3 ${
-                                    scopes.includes(scope.id) 
-                                        ? 'bg-white border-zinc-900 shadow-sm ring-1 ring-zinc-900' 
-                                        : 'bg-transparent border-zinc-200 opacity-60 hover:opacity-100'
-                                }`}
-                            >
-                                <div className={`mt-1 w-4 h-4 rounded border flex items-center justify-center transition-colors ${scopes.includes(scope.id) ? 'bg-zinc-900 border-zinc-900' : 'bg-white border-zinc-300'}`}>
-                                    {scopes.includes(scope.id) && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
+                    
+                    {/* Manual Add Input */}
+                    <div className="flex gap-2">
+                        <input 
+                            type="text" 
+                            value={newScope} 
+                            onChange={(e) => setNewScope(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addScope())}
+                            placeholder="Add custom service scope..."
+                            className="flex-1 px-4 py-2.5 bg-white border border-zinc-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-zinc-900 outline-none"
+                        />
+                        <button 
+                            type="button"
+                            onClick={addScope}
+                            className="px-4 py-2.5 bg-zinc-900 hover:bg-black text-white rounded-xl text-xs font-black flex items-center justify-center gap-1 transition-colors"
+                        >
+                            <Plus size={14} /> Add
+                        </button>
+                    </div>
+
+                    {/* Scopes List */}
+                    <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1">
+                        {scopes.length === 0 ? (
+                            <p className="text-xs text-zinc-400 font-bold italic py-2">No custom scopes added yet.</p>
+                        ) : (
+                            scopes.map(scope => (
+                                <div 
+                                    key={scope}
+                                    className="flex justify-between items-center p-3 bg-white border border-zinc-200 rounded-xl hover:border-zinc-300 transition-colors shadow-sm animate-in fade-in zoom-in-95 duration-200"
+                                >
+                                    <span className="text-xs font-bold text-zinc-900">{scope}</span>
+                                    <button 
+                                        type="button"
+                                        onClick={() => removeScope(scope)}
+                                        className="p-1 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                                    >
+                                        <Trash2 size={14} />
+                                    </button>
                                 </div>
-                                <div>
-                                    <p className="text-xs font-black text-zinc-900 leading-none">{scope.label}</p>
-                                    <p className="text-[10px] text-zinc-500 font-bold mt-1 leading-tight">{scope.description}</p>
-                                </div>
-                            </button>
-                        ))}
+                            ))
+                        )}
                     </div>
                 </div>
 
@@ -153,23 +189,47 @@ export default function TechSpecForm({ initialData, isUpdating, onSave, onCancel
                         <Layout size={18} className="text-zinc-400" />
                         <h4 className="text-xs font-black text-zinc-900 uppercase tracking-widest">Expected Deliverables</h4>
                     </div>
-                    <div className="grid grid-cols-1 gap-2">
-                        {ARCHITECT_DELIVERABLES.map(del => (
-                            <button
-                                key={del.id}
-                                onClick={() => toggleDeliverable(del.id)}
-                                className={`text-left p-4 rounded-2xl border transition-all flex items-center gap-3 ${
-                                    deliverables.includes(del.id) 
-                                        ? 'bg-white border-zinc-900 shadow-sm ring-1 ring-zinc-900' 
-                                        : 'bg-transparent border-zinc-200 opacity-60 hover:opacity-100'
-                                }`}
-                            >
-                                <div className={`w-4 h-4 rounded-full border flex items-center justify-center transition-colors ${deliverables.includes(del.id) ? 'bg-zinc-900 border-zinc-900' : 'bg-white border-zinc-300'}`}>
-                                    {deliverables.includes(del.id) && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
+
+                    {/* Manual Add Input */}
+                    <div className="flex gap-2">
+                        <input 
+                            type="text" 
+                            value={newDeliverable} 
+                            onChange={(e) => setNewDeliverable(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addDeliverable())}
+                            placeholder="Add custom deliverable..."
+                            className="flex-1 px-4 py-2.5 bg-white border border-zinc-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-zinc-900 outline-none"
+                        />
+                        <button 
+                            type="button"
+                            onClick={addDeliverable}
+                            className="px-4 py-2.5 bg-zinc-900 hover:bg-black text-white rounded-xl text-xs font-black flex items-center justify-center gap-1 transition-colors"
+                        >
+                            <Plus size={14} /> Add
+                        </button>
+                    </div>
+
+                    {/* Deliverables List */}
+                    <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1">
+                        {deliverables.length === 0 ? (
+                            <p className="text-xs text-zinc-400 font-bold italic py-2">No custom deliverables added yet.</p>
+                        ) : (
+                            deliverables.map(del => (
+                                <div 
+                                    key={del}
+                                    className="flex justify-between items-center p-3 bg-white border border-zinc-200 rounded-xl hover:border-zinc-300 transition-colors shadow-sm animate-in fade-in zoom-in-95 duration-200"
+                                >
+                                    <span className="text-xs font-bold text-zinc-900">{del}</span>
+                                    <button 
+                                        type="button"
+                                        onClick={() => removeDeliverable(del)}
+                                        className="p-1 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                                    >
+                                        <Trash2 size={14} />
+                                    </button>
                                 </div>
-                                <span className="text-xs font-black text-zinc-900">{del.label}</span>
-                            </button>
-                        ))}
+                            ))
+                        )}
                     </div>
                 </div>
             </div>

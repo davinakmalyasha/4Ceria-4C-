@@ -9,6 +9,7 @@ interface SubProfessionalPanelProps {
     canManage: boolean;
     onAddClick: () => void;
     onAccept?: (subId: number) => void;
+    onDecline?: (subId: number) => void;
     onRemove?: (subId: number) => void;
     onHire?: (subId: number) => void;
     onInterview?: (subId: number) => void;
@@ -26,6 +27,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.
     active: { label: 'Active', color: 'bg-green-50 text-green-700 border-green-200', icon: CheckCircle },
     completed: { label: 'Completed', color: 'bg-zinc-100 text-zinc-600 border-zinc-200', icon: CheckCircle },
     removed: { label: 'Removed', color: 'bg-red-50 text-red-600 border-red-200', icon: XCircle },
+    declined: { label: 'Declined', color: 'bg-red-50 text-red-700 border-red-200', icon: XCircle },
 };
 
 function SubRoleLabel({ subRole }: { subRole: string }): React.ReactElement {
@@ -35,12 +37,16 @@ function SubRoleLabel({ subRole }: { subRole: string }): React.ReactElement {
         steel_structure: 'Steel Structure', hvac: 'HVAC', electrical_specialist: 'Electrical',
         plumbing_specialist: 'Plumbing', waterproofing: 'Waterproofing',
         glass_facade: 'Glass & Facade', painting: 'Painting',
+        // Constructor sub-roles
+        civil: 'Civil & Structural', mechanical: 'Mechanical',
+        electrical: 'Electrical', plumbing: 'Plumbing',
+        finishing: 'Finishing', general: 'General Contractor',
     };
     return <span>{labels[subRole] || subRole}</span>;
 }
 
 export default function SubProfessionalPanel({
-    subs, isLoading, canManage, onAddClick, onAccept, onRemove, onHire, onInterview, onRecommend, currentUserId, isOwner, isPM
+    subs, isLoading, canManage, onAddClick, onAccept, onDecline, onRemove, onHire, onInterview, onRecommend, currentUserId, isOwner, isPM
 }: SubProfessionalPanelProps): React.ReactElement {
     const activeSubs = useMemo(() => subs.filter(s => s.status !== 'removed'), [subs]);
 
@@ -102,7 +108,12 @@ export default function SubProfessionalPanel({
                                             <StatusIcon size={11} /> {cfg.label}
                                         </div>
                                         {isInvitedToMe && onAccept && (
-                                            <button onClick={() => onAccept(sub.id)} className="px-2.5 py-1 text-[10px] font-bold text-white bg-green-600 hover:bg-green-700 rounded-md transition-colors">Accept</button>
+                                            <div className="flex items-center gap-1.5">
+                                                <button onClick={() => onAccept(sub.id)} className="px-2.5 py-1 text-[10px] font-bold text-white bg-green-600 hover:bg-green-700 rounded-md transition-colors">Accept</button>
+                                                {onDecline && (
+                                                    <button onClick={() => onDecline(sub.id)} className="px-2.5 py-1 text-[10px] font-bold text-red-600 hover:bg-red-50 rounded-md transition-colors">Decline</button>
+                                                )}
+                                            </div>
                                         )}
                                         
                                         {/* Lead Pro Vetting Actions */}

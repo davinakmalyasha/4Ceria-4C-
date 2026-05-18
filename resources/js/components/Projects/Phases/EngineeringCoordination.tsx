@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import axios from 'axios';
 import {
     Upload, Download, CheckCircle2, AlertTriangle,
-    FileText, X, ShieldCheck, RotateCcw, Clock, HardHat, Sparkles, RefreshCw, Plus
+    FileText, X, ShieldCheck, RotateCcw, Clock, HardHat, Sparkles, RefreshCw, Plus, MessageCircle
 } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
 
@@ -13,7 +13,7 @@ import { Project } from '../../../types/project.types';
 interface EngineeringCoordinationProps {
     project: Project;
     user: any;
-    roleType: 'structural' | 'mep';
+    roleType: 'structural' | 'mep' | 'interior';
     isArchitect: boolean;
     onRefresh: () => void;
 }
@@ -25,7 +25,9 @@ export default function EngineeringCoordination({ project, user, roleType, isArc
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [openNoteIds, setOpenNoteIds] = useState<{documents: number[], milestones: number[]}>({documents: [], milestones: []});
     const cacheKey = `draft_audit_${project.id}_${roleType}`;
-    const approvedAt = roleType === 'structural' ? project.structural_approved_at : project.mep_approved_at;
+    const approvedAt = roleType === 'structural' 
+        ? project.structural_approved_at 
+        : (roleType === 'mep' ? project.mep_approved_at : project.interior_approved_at);
 
     const [auditData, setAuditData] = useState<{
         milestones: Record<number, { status: 'approved' | 'revision_requested', note: string }>,
@@ -110,10 +112,10 @@ export default function EngineeringCoordination({ project, user, roleType, isArc
     };
 
 
-    const engineer = roleType === 'structural' ? project.structural_engineer : project.mep_engineer;
-    const profile = roleType === 'structural' ? project.structural_profile : project.mep_profile;
+    const engineer = roleType === 'structural' ? project.structural_engineer : (roleType === 'mep' ? project.mep_engineer : project.interior_engineer);
+    const profile = roleType === 'structural' ? project.structural_profile : (roleType === 'mep' ? project.mep_profile : project.interior_profile);
     const handoffCategory = 'technical_handoff';
-    const deliverableCategory = roleType === 'structural' ? 'structural_calc' : 'mep_layout';
+    const deliverableCategory = roleType === 'structural' ? 'structural_calc' : (roleType === 'mep' ? 'mep_layout' : 'interior_design');
 
     const handoffDocs = (project.documents || []).filter(
         (d: any) => d.category === handoffCategory && d.target_role === roleType
@@ -257,58 +259,61 @@ export default function EngineeringCoordination({ project, user, roleType, isArc
         }
     };
 
-    const accentColor = roleType === 'structural' ? 'indigo' : 'amber';
+    const accentColor = roleType === 'structural' ? 'indigo' : (roleType === 'mep' ? 'amber' : 'rose');
 
     return (
         <div className="space-y-4">
             {/* Engineer Info */}
-            <div className={`flex items-center gap-3 p-3 bg-${accentColor}-50 rounded-2xl border border-${accentColor}-100`}>
-                <div className={`w-10 h-10 rounded-full bg-${accentColor}-200 border-2 border-white flex items-center justify-center overflow-hidden`}>
-                    <img src={`https://ui-avatars.com/api/?name=${profile?.name || engineer?.user?.name || engineer?.name || (roleType === 'structural' ? 'Structural' : 'MEP')}&background=${roleType === 'structural' ? '6366f1' : 'f59e0b'}&color=fff`} alt="" className="w-full h-full object-cover" />
-                </div>
-                <div className="flex-1 min-w-0">
-                    <p className="text-xs font-black text-slate-900 truncate">
-                        {profile?.name || engineer?.user?.name || engineer?.name || (roleType === 'structural' ? 'Structural Engineer' : 'MEP Engineer')}
-                    </p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                        <p className={`text-[9px] text-${accentColor}-600 font-black uppercase tracking-widest`}>
-                            {profile?.type === 'internal_team' ? 'Architect Team' : 'Hired Specialist'}
-                        </p>
-                        {profile?.payment_status && (
-                            <span className={`px-1.5 py-0.5 rounded text-[7px] font-black uppercase tracking-widest ${
-                                profile.payment_status === 'paid' ? 'bg-emerald-100 text-emerald-600' : 
-                                (profile.payment_status === 'verifying' || profile.payment_status === 'authorized' || profile.payment_status === 'awaiting_payment') ? 'bg-amber-100 text-amber-600' : 
-                                'bg-red-100 text-red-600'
-                            }`}>
-                                {profile.payment_status === 'authorized' ? 'approved' : 
-                                 profile.payment_status === 'awaiting_payment' ? 'awaiting payment' : 
-                                 profile.payment_status}
-                            </span>
-                        )}
+            <div className="space-y-2">
+                <div className={`flex items-center gap-3 p-3 bg-${accentColor}-50 rounded-2xl border border-${accentColor}-100`}>
+                    <div className={`w-10 h-10 rounded-full bg-${accentColor}-200 border-2 border-white flex items-center justify-center overflow-hidden`}>
+                        <img src={`https://ui-avatars.com/api/?name=${profile?.name || engineer?.user?.name || engineer?.name || (roleType === 'structural' ? 'Structural' : (roleType === 'mep' ? 'MEP' : 'Interior'))}&background=${roleType === 'structural' ? '6366f1' : (roleType === 'mep' ? 'f59e0b' : 'f43f5e')}&color=fff`} alt="" className="w-full h-full object-cover" />
                     </div>
+                    <div className="flex-1 min-w-0">
+                        <p className="text-xs font-black text-slate-900 truncate">
+                            {profile?.name || engineer?.user?.name || engineer?.name || (roleType === 'structural' ? 'Structural Engineer' : (roleType === 'mep' ? 'MEP Engineer' : 'Interior Designer'))}
+                        </p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                            <p className={`text-[9px] text-${accentColor}-600 font-black uppercase tracking-widest`}>
+                                {profile?.type === 'internal_team' ? 'Architect Team' : 'Hired Specialist'}
+                            </p>
+                            {profile?.payment_status && (
+                                <span className={`px-1.5 py-0.5 rounded text-[7px] font-black uppercase tracking-widest ${
+                                    profile.payment_status === 'paid' ? 'bg-emerald-100 text-emerald-600' : 
+                                    (profile.payment_status === 'verifying' || profile.payment_status === 'authorized' || profile.payment_status === 'awaiting_payment' || profile.payment_status === 'unpaid') ? 'bg-amber-100 text-amber-600' : 
+                                    'bg-red-100 text-red-600'
+                                }`}>
+                                    {profile.payment_status === 'authorized' ? 'approved' : 
+                                     profile.payment_status === 'awaiting_payment' ? 'awaiting payment' : 
+                                     profile.payment_status}
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                    {(() => {
+                        if (approvedAt) return (
+                            <span className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-1">
+                                <CheckCircle2 size={12} /> Integrated
+                            </span>
+                        );
+                        if (handoffDocs.length === 0) return (
+                            <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-1">
+                                <Clock size={12} /> Awaiting Handoff
+                            </span>
+                        );
+                        if (deliverableDocs.length === 0) return (
+                            <span className="px-3 py-1 bg-amber-100 text-amber-700 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-1">
+                                <HardHat size={12} /> Calculating
+                            </span>
+                        );
+                        return (
+                            <span className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-1 border border-indigo-200">
+                                <ShieldCheck size={12} /> Reviewing
+                            </span>
+                        );
+                    })()}
                 </div>
-                {(() => {
-                    if (approvedAt) return (
-                        <span className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-1">
-                            <CheckCircle2 size={12} /> Integrated
-                        </span>
-                    );
-                    if (handoffDocs.length === 0) return (
-                        <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-1">
-                            <Clock size={12} /> Awaiting Handoff
-                        </span>
-                    );
-                    if (deliverableDocs.length === 0) return (
-                        <span className="px-3 py-1 bg-amber-100 text-amber-700 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-1">
-                            <HardHat size={12} /> Calculating
-                        </span>
-                    );
-                    return (
-                        <span className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-1 border border-indigo-200">
-                            <ShieldCheck size={12} /> Reviewing
-                        </span>
-                    );
-                })()}
+
             </div>
 
             {/* Phase 1: Inputs Section */}

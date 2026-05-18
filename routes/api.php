@@ -22,6 +22,7 @@ use App\Http\Controllers\Api\ProjectExtensionController;
 use App\Http\Controllers\Api\ProjectWarrantyController;
 use App\Http\Controllers\Api\ProjectDailyLogController;
 use App\Http\Controllers\Api\ProjectRequirementController;
+use App\Http\Controllers\Api\ProjectRequirementHistoryController;
 use App\Http\Controllers\Api\ProjectDocumentController;
 use App\Http\Controllers\Api\ProjectCommentController;
 use App\Http\Controllers\Api\ProjectMilestoneController;
@@ -330,7 +331,17 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/projects/{project}/requirements/{requirement}/usage', [ProjectRequirementController::class, 'logUsage']);
     Route::post('/projects/{project}/requirements/{requirement}/manual-procurement', [ProjectRequirementController::class, 'logExternalProcurement']);
     Route::post('/projects/{project}/requirements/{requirement}/request-procurement', [ProjectRequirementController::class, 'requestProcurement']);
+    Route::get('/projects/{project}/requirements/{requirement}/history', [ProjectRequirementHistoryController::class, 'index']);
+    Route::post('/projects/{project}/requirements/{requirement}/restock', [ProjectRequirementHistoryController::class, 'restock']);
+    Route::post('/projects/{project}/requirements/{requirement}/use', [ProjectRequirementHistoryController::class, 'use']);
     Route::get('/projects/{project}/procurement-requests', [ProjectRequirementController::class, 'getProcurementRequests']);
+    Route::get('/projects/{project}/requirements-history', [ProjectRequirementController::class, 'getHistory']);
+    
+    // Material Folders
+    Route::get('/projects/{project}/material-folders', [\App\Http\Controllers\Api\ProjectMaterialFolderController::class, 'index']);
+    Route::post('/projects/{project}/material-folders', [\App\Http\Controllers\Api\ProjectMaterialFolderController::class, 'store']);
+    Route::put('/projects/{project}/material-folders/{folder}', [\App\Http\Controllers\Api\ProjectMaterialFolderController::class, 'update']);
+    Route::delete('/projects/{project}/material-folders/{folder}', [\App\Http\Controllers\Api\ProjectMaterialFolderController::class, 'destroy']);
     Route::post('/projects/{project}/procurement-requests/{procurementRequest}/reject', [ProjectRequirementController::class, 'pmRejectProcurement']);
     Route::post('/projects/{project}/procurement-requests/{procurementRequest}/owner-approve', [ProjectRequirementController::class, 'ownerApproveProcurement']);
     Route::post('/projects/{project}/procurement-requests/{procurementRequest}/owner-reject', [ProjectRequirementController::class, 'ownerRejectProcurement']);
@@ -429,11 +440,20 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/team-members/{id}', [TeamMemberController::class, 'destroy']);
 
     // Firm Members (Account-linked Roster)
+    Route::get('/firm-members/suggestions', [FirmMemberController::class, 'suggestions']);
+    Route::get('/firm-members/my-firms', [FirmMemberController::class, 'myFirms']);
+    Route::get('/firm-members/join-requests', [FirmMemberController::class, 'joinRequests']);
     Route::post('/firm-members/search', [FirmMemberController::class, 'search']);
     Route::post('/firm-members/invite', [FirmMemberController::class, 'invite']);
+    Route::post('/firm-members/request-join', [FirmMemberController::class, 'requestJoin']);
     Route::post('/firm-members/{firmMember}/respond', [FirmMemberController::class, 'respond']);
     Route::get('/firm-members/roster', [FirmMemberController::class, 'index']);
     Route::get('/firm-members/invitations', [FirmMemberController::class, 'invitations']);
+    Route::get('/firm-members/browse-owners', [FirmMemberController::class, 'browseFirmOwners']);
+    Route::post('/firm-members/{firmMember}/resend', [FirmMemberController::class, 'resend']);
+    Route::post('/firm-members/{firmMember}/cancel', [FirmMemberController::class, 'cancel']);
+    Route::delete('/firm-members/{firmMember}', [FirmMemberController::class, 'remove']);
+    Route::post('/firm-members/quick-assign', [FirmMemberController::class, 'quickAssign']);
 
     // Sub-Professional Management
     Route::get('/projects/{project}/sub-professionals', [SubProfessionalController::class, 'index']);
@@ -441,6 +461,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/projects/{project}/sub-professionals/{id}/interview', [SubProfessionalController::class, 'interview']);
     Route::post('/projects/{project}/sub-professionals/{id}/recommend', [SubProfessionalController::class, 'recommend']);
     Route::post('/projects/{project}/sub-professionals/{id}/accept', [SubProfessionalController::class, 'accept']);
+    Route::post('/projects/{project}/sub-professionals/{id}/decline', [SubProfessionalController::class, 'decline']);
     Route::post('/projects/{project}/sub-professionals/{id}/hire', [SubProfessionalController::class, 'hire']);
     Route::post('/projects/{project}/sub-professionals/shortlist-bid/{role}/{bidId}', [SubProfessionalController::class, 'shortlistBid']);
     Route::delete('/projects/{project}/sub-professionals/{id}', [SubProfessionalController::class, 'remove']);

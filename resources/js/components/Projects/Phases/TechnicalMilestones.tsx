@@ -4,7 +4,7 @@ import {
     Plus, Pencil, Check, Layers, X, Save, 
     Trash2, FileText, ArrowUpRight, Sparkles, 
     ShieldCheck, Calendar, Banknote, Image as ImageIcon,
-    RefreshCw, Upload, Eye, ChevronRight, HardHat, Wrench, AlertTriangle
+    RefreshCw, Upload, Eye, ChevronRight, HardHat, Wrench, AlertTriangle, Sofa
 } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -12,7 +12,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 interface TechnicalMilestonesProps {
     project: any;
     currentUser: any;
-    roleType: 'structural' | 'mep';
+    roleType: 'structural' | 'mep' | 'interior';
     isSpecialist: boolean;
     isPM: boolean;
     auditData?: Record<number, { status: 'approved' | 'revision_requested', note: string }>;
@@ -71,8 +71,8 @@ export default function TechnicalMilestones({
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const isOwner = currentUser?.id === project?.user_id;
-    const accentColor = roleType === 'structural' ? 'amber' : 'blue';
-    const Icon = roleType === 'structural' ? HardHat : Wrench;
+    const accentColor = roleType === 'structural' ? 'amber' : (roleType === 'mep' ? 'blue' : 'rose');
+    const Icon = roleType === 'structural' ? HardHat : (roleType === 'mep' ? Wrench : Sofa);
 
     const fetchMilestones = async () => {
         try {
@@ -112,6 +112,8 @@ export default function TechnicalMilestones({
                 formData.append('target_structural_id', project.structural_id.toString());
             } else if (roleType === 'mep' && project.mep_id) {
                 formData.append('target_mep_id', project.mep_id.toString());
+            } else if (roleType === 'interior' && project.selected_interior_id) {
+                formData.append('target_interior_id', project.selected_interior_id.toString());
             }
             
             selectedFiles.forEach(file => {
@@ -184,6 +186,10 @@ export default function TechnicalMilestones({
         </div>
     );
 
+    const activeSubPro = (project.sub_professionals || []).find((sp: any) => sp.sub_role === roleType);
+    const isHiredAndActive = activeSubPro?.status === 'active';
+    const isUnlocked = isApproved || isHiredAndActive;
+
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
@@ -195,8 +201,14 @@ export default function TechnicalMilestones({
                 </div>
                 {isSpecialist && !showForm && (
                     <button 
+                        disabled={!isUnlocked}
                         onClick={() => { setEditingId(null); setFormTitle(''); setFormDesc(''); setSelectedFiles([]); setShowForm(true); }} 
-                        className={`px-5 py-2.5 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all shadow-lg flex items-center gap-2`}
+                        className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${
+                            isUnlocked 
+                            ? 'bg-slate-900 text-white hover:scale-105 shadow-lg cursor-pointer' 
+                            : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
+                        }`}
+                        title={!isUnlocked ? "Cannot log technical progress before the specialist is hired and active." : undefined}
                     >
                         <Plus size={14} /> Log Technical Progress
                     </button>

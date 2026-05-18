@@ -83,7 +83,7 @@ export default function ProjectDetailPage({ project, user, onBack, onRefresh, on
 
     const { 
         subs, subspecialties, isLoading: subsLoading, 
-        assignSub, acceptSub, removeSub, hireSub, interviewSub, recommendSub, shortlistSubBid,
+        assignSub, acceptSub, declineSub, removeSub, hireSub, interviewSub, recommendSub, shortlistSubBid,
         refresh: refreshSubs 
     } = useSubProfessionals(project?.id);
 
@@ -200,6 +200,7 @@ export default function ProjectDetailPage({ project, user, onBack, onRefresh, on
                                 canManage={canManageSubs}
                                 onAddClick={() => setShowAssignModal(true)}
                                 onAccept={async (subId) => { await acceptSub(subId); refreshSubs(); }}
+                                onDecline={async (subId) => { await declineSub(subId); refreshSubs(); }}
                                 onRemove={async (subId) => { await removeSub(subId); refreshSubs(); }}
                                 onHire={async (subId) => { await hireSub(subId); refreshSubs(); }}
                                 onInterview={async (subId) => { await interviewSub(subId); refreshSubs(); }}
@@ -222,7 +223,7 @@ export default function ProjectDetailPage({ project, user, onBack, onRefresh, on
                                 className="space-y-6"
                             >
                                 <div className="bg-white rounded-3xl border border-gray-100 shadow-sm">
-                                    <PhaseTimeline phases={phases} activePhase={activePhase} onPhaseClick={setActivePhase} projectCategory={project?.project_category} />
+                                    <PhaseTimeline phases={phases} activePhase={activePhase} onPhaseClick={setActivePhase} projectCategory={project?.project_category} project={project} />
                                 </div>
 
                                 <div className="bg-white rounded-3xl border border-gray-100 p-8 shadow-sm min-h-[300px]">

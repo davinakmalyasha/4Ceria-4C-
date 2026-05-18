@@ -84,6 +84,8 @@ export interface FirmMemberUser {
     unique_code: string;
     role_type: string;
     pic: string | null;
+    phone?: string | null;
+    no_telp?: string | null;
 }
 
 export interface FirmMember {
@@ -91,10 +93,13 @@ export interface FirmMember {
     firm_owner_id: number;
     member_user_id: number;
     role_in_firm: string;
-    status: 'invited' | 'active' | 'removed';
+    status: 'invited' | 'active' | 'removed' | 'requested';
     invited_at: string | null;
     accepted_at: string | null;
+    requested_at: string | null;
     member: FirmMemberUser;
+    active_projects_count?: number;
+    active_projects?: string[];
 }
 
 export interface FirmInvitation extends Pick<FirmMember, 'id' | 'role_in_firm' | 'status'> {
@@ -103,6 +108,26 @@ export interface FirmInvitation extends Pick<FirmMember, 'id' | 'role_in_firm' |
         name: string;
         company_name: string | null;
         role_type: string;
+        pic: string | null;
+        phone?: string | null;
+        no_telp?: string | null;
+    };
+}
+
+export interface MyFirmEntry {
+    id: number;
+    firm_owner_id: number;
+    role_in_firm: string;
+    status: 'active' | 'removed';
+    accepted_at: string | null;
+    firm_owner: {
+        id: number;
+        name: string;
+        role_type: string;
+        pic: string | null;
+        company_name: string | null;
+        phone?: string | null;
+        no_telp?: string | null;
     };
 }
 

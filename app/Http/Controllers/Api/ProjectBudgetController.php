@@ -31,6 +31,7 @@ class ProjectBudgetController extends Controller
                 'budgetSandboxItems', 
                 'addendums.user',
                 'addendums.teamMember',
+                'addendums.assignedUser',
                 'bidsArsitek' => fn($q) => $q->where('status', 'accepted')->with('arsitek.user'),
                 'bidsKontraktor' => fn($q) => $q->where('status', 'accepted')->with('kontraktor.user'),
                 'bidsNotaris' => fn($q) => $q->where('status', 'accepted')->with('notaris.user'),
@@ -265,27 +266,47 @@ class ProjectBudgetController extends Controller
                 $referenceModel = 'App\Models\ProjectAddendum';
 
                 // Finalize specialist assignment if this was a specialist hiring addendum
-                if ($addendum->type === 'specialist_assignment' && $addendum->team_member_id) {
-                    $teamMember = \App\Models\TeamMember::find($addendum->team_member_id);
-                    if ($teamMember) {
-                        $subRole = $addendum->specialist_type;
-                        
+                if (in_array($addendum->type, ['specialist_assignment', 'specialist_request']) && ($addendum->team_member_id || $addendum->assigned_user_id)) {
+                    $subRole = $addendum->specialist_type ?: $addendum->role_type;
+                    $specialistUserId = null;
+                    $specialistName = '';
+
+                    if ($addendum->assigned_user_id) {
+                        $user = \App\Models\User::find($addendum->assigned_user_id);
+                        if ($user) {
+                            $specialistUserId = $user->id;
+                            $specialistName = $user->name;
+                        }
+                    } else {
+                        $teamMember = \App\Models\TeamMember::find($addendum->team_member_id);
+                        if ($teamMember) {
+                            $specialistName = $teamMember->name;
+                        }
+                    }
+
+                    if ($specialistName || $specialistUserId) {
                         \App\Models\ProjectSubProfessional::updateOrCreate(
-                            ['project_id' => $project->id, 'user_id' => $addendum->user_id, 'sub_role' => $subRole],
+                            ['project_id' => $project->id, 'sub_role' => $subRole],
                             [
+                                'user_id' => $specialistUserId,
                                 'parent_role' => $addendum->role_type,
                                 'assigned_by' => $addendum->user_id,
                                 'status' => 'active',
                                 'rate' => $addendum->amount,
-                                'lead_pro_notes' => "Assigned via Paid Addendum (Manual): {$teamMember->name}",
+                                'lead_pro_notes' => "Assigned via Paid Addendum: {$specialistName}",
                                 'hired_at' => now(),
                             ]
                         );
 
                         if ($subRole === 'structural') {
-                            $project->update(['structural_id' => $addendum->team_member_id]);
+                            $struc = $specialistUserId ? \App\Models\StructuralEngineer::where('user_id', $specialistUserId)->first() : null;
+                            $project->update(['structural_id' => $struc ? $struc->id : null]);
                         } elseif ($subRole === 'mep') {
-                            $project->update(['mep_id' => $addendum->team_member_id]);
+                            $mep = $specialistUserId ? \App\Models\MepEngineer::where('user_id', $specialistUserId)->first() : null;
+                            $project->update(['mep_id' => $mep ? $mep->id : null]);
+                        } elseif ($subRole === 'interior') {
+                            $interior = $specialistUserId ? \App\Models\InteriorProfile::where('user_id', $specialistUserId)->first() : null;
+                            $project->update(['selected_interior_id' => $interior ? $interior->id : null]);
                         }
                     }
                 }
@@ -367,6 +388,7 @@ class ProjectBudgetController extends Controller
             'description' => 'nullable|string',
             'type' => 'nullable|string|in:extra_fee,specialist_assignment',
             'team_member_id' => 'nullable|exists:team_members,id',
+            'assigned_user_id' => 'nullable|exists:users,id',
             'specialist_type' => 'nullable|string|in:structural,mep',
             'attachment' => 'nullable|file|max:10240', // 10MB limit
         ]);
@@ -385,6 +407,7 @@ class ProjectBudgetController extends Controller
             'description' => $request->description,
             'type' => $request->type ?? 'extra_fee',
             'team_member_id' => $request->team_member_id,
+            'assigned_user_id' => $request->assigned_user_id,
             'specialist_type' => $request->specialist_type,
             'attachment_path' => $attachmentPath,
             'status' => 'pending_approval',

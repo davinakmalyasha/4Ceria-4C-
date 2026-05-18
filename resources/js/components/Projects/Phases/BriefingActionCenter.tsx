@@ -8,6 +8,7 @@ import { Project, Termin } from '../../../types/project.types';
 import axios from 'axios';
 import { useToast } from '../../../context/ToastContext';
 import TerminBuilder from './TerminBuilder';
+import PMTechnicalAuditBanner from './PMTechnicalAuditBanner';
 
 interface BriefingActionCenterProps {
     project: Project;
@@ -162,33 +163,37 @@ const BriefingActionCenter: React.FC<BriefingActionCenterProps> = ({
         }
     };
 
+    const handleVerify = () => {
+        handleAction('verify-planning-pm', 'Technical Verification Finalized!', { pm_audit_notes: auditNote });
+    };
+
+    const handleReject = () => {
+        if (!auditNote.trim()) {
+            const reason = window.prompt("Reason for requested revision:") || '';
+            if (!reason.trim()) {
+                showToast('Reason needed for revision', 'error');
+                return;
+            }
+            handleAction('reject-planning', 'Revision requested', { pm_audit_notes: reason });
+        } else {
+            if (confirm('Request revision from Architect with your technical notes?')) {
+                handleAction('reject-planning', 'Revision requested', { pm_audit_notes: auditNote });
+            }
+        }
+    };
+
     const generateWhatsAppLink = () => {
         const text = `Hi ${project.accepted_arsitek_bid?.arsitek_id ? 'Architect' : 'Professional'}, I have approved the Design Brief for project "${project.title}". I am ready to process the payment of IDR ${project.negotiated_fee?.toLocaleString()}. Please provide any additional details if needed.`;
         return `https://wa.me/?text=${encodeURIComponent(text)}`;
     };
 
     return (
-        <div className="bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden shadow-2xl">
-            {/* Header Status Bar (Only for non-draft or if PM is auditing) */}
-            {status !== 'draft' && (
-                <div className={`px-6 py-4 flex items-center justify-between ${
-                    status === 'approved' ? 'bg-green-600 text-white' : 
-                    'bg-amber-500 text-white'
-                }`}>
-                    <div className="flex items-center gap-2 font-semibold">
-                        {status === 'proposed' && <Search className="w-5 h-5 animate-pulse" />}
-                        {status === 'pm_verified' && <ShieldCheck className="w-5 h-5" />}
-                        {status === 'approved' && <CheckCircle2 className="w-5 h-5" />}
-                        <span className="capitalize">
-                            {status === 'proposed' ? 'Phase 2: Project Manager Technical Audit' :
-                             status === 'pm_verified' ? 'Phase 3: Owner Final Review' :
-                             'Phase 4: Active Project'}
-                        </span>
-                    </div>
-                </div>
-            )}
-
-            <div className={status === 'draft' ? 'p-6' : 'p-8'}>
+        <div className={
+            status === 'draft'
+                ? "bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden shadow-2xl"
+                : "bg-white border border-zinc-150 rounded-[2rem] shadow-sm overflow-hidden"
+        }>
+            <div className={status === 'draft' ? 'p-6' : 'p-6 md:p-8'}>
                 {status === 'draft' && (
                     <div className="flex flex-col lg:flex-row items-center gap-6">
                         <div className="flex-1">
@@ -240,214 +245,95 @@ const BriefingActionCenter: React.FC<BriefingActionCenterProps> = ({
 
                 {(status === 'proposed' || status === 'pm_verified') && (
                     <div className="max-w-3xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4">
-                        <div className="flex items-center justify-between border-b border-zinc-200 pb-6">
-                            <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 bg-amber-100 rounded-2xl flex items-center justify-center text-amber-600 shadow-sm">
-                                    <ShieldCheck className="w-6 h-6" />
-                                </div>
-                                <div>
-                                    <div className="flex items-center gap-2">
-                                        <h4 className="text-lg font-black uppercase text-zinc-900 leading-none">Technical Audit Center</h4>
-                                        {project.planning_iteration > 0 && (
-                                            <span className="bg-zinc-900 text-white text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-tighter">
-                                                Iteration #{project.planning_iteration}
-                                            </span>
-                                        )}
-                                    </div>
-                                    <p className="text-[11px] text-zinc-500 mt-1 uppercase tracking-widest font-bold">
-                                        {status === 'proposed' ? 'Managed by Project Manager' : 'Audit Complete & Verified'}
-                                    </p>
-                                </div>
-                            </div>
-                            
-                            {isPM && status === 'proposed' && (
-                                <div className="flex items-center gap-2">
-                                    {isAutoSaving ? (
-                                        <div className="flex items-center gap-2 text-amber-600 animate-pulse">
-                                            <RefreshCw className="w-3 h-3 animate-spin" />
-                                            <span className="text-[10px] font-black uppercase tracking-tight">Syncing</span>
-                                        </div>
-                                    ) : (
-                                        <div className="flex items-center gap-2 text-zinc-300">
-                                            <Cloud className="w-3 h-3" />
-                                            <span className="text-[10px] font-black uppercase tracking-tight">Saved</span>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-
                         {isPM && status === 'proposed' ? (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                <div className="space-y-6">
-                                    {project.architect_notes && (
-                                        <div className="bg-zinc-50 border border-zinc-100 p-6 rounded-3xl flex items-start gap-4 shadow-inner">
-                                            <div className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center shadow-sm flex-shrink-0 border border-zinc-100">
-                                                <MessageCircle className="w-5 h-5 text-zinc-400" />
-                                            </div>
-                                            <div>
-                                                <h5 className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Architect Message</h5>
-                                                <p className="text-sm text-zinc-600 italic leading-relaxed">"{project.architect_notes}"</p>
-                                            </div>
-                                        </div>
-                                    )}
-                                    
-                                    <div className="space-y-3">
-                                        <label className="block text-[11px] font-black text-zinc-900 mb-2 uppercase tracking-widest pl-1">Technical Audit Notes</label>
-                                        <textarea 
-                                            value={auditNote}
-                                            onChange={(e) => setAuditNote(e.target.value)}
-                                            className="w-full bg-zinc-50 border border-zinc-200 rounded-3xl p-5 text-sm h-48 focus:ring-2 focus:ring-zinc-900 transition-all outline-none"
-                                            placeholder="Write your technical analysis here... (visible to Owner & Architect)"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="space-y-6">
-                                    <div>
-                                        <div className="flex items-center justify-between mb-4 px-1">
-                                            <label className="text-[11px] font-black text-zinc-900 uppercase tracking-widest">Supporting Evidence ({project.pm_audit_attachments?.length || 0}/3)</label>
-                                            <button 
-                                                onClick={() => fileInputRef.current?.click()}
-                                                className="text-[10px] font-black text-amber-600 flex items-center gap-1.5 hover:underline bg-amber-50 px-3 py-1.5 rounded-full"
-                                            >
-                                                <Paperclip className="w-3 h-3" />
-                                                Add Image/PDF
-                                            </button>
-                                        </div>
-                                        <input 
-                                            type="file" 
-                                            ref={fileInputRef} 
-                                            onChange={handleFileChange} 
-                                            className="hidden" 
-                                            multiple 
-                                            accept="image/*,.pdf"
-                                        />
-                                        <div className="grid grid-cols-2 gap-4">
-                                            {project.pm_audit_attachments?.map((url, i) => (
-                                                <div key={i} className="relative aspect-[4/3] rounded-2xl border border-zinc-200 overflow-hidden bg-white shadow-sm hover:shadow-md transition-all group">
-                                                    <a 
-                                                        href={url} 
-                                                        target="_blank" 
-                                                        rel="noopener noreferrer"
-                                                        className="w-full h-full flex items-center justify-center overflow-hidden"
-                                                    >
-                                                        {isImage(url) ? (
-                                                            <img 
-                                                                src={url} 
-                                                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
-                                                                alt={`Evidence ${i + 1}`}
-                                                            />
-                                                        ) : (
-                                                            <div className="flex flex-col items-center gap-2">
-                                                                <FileText className="w-8 h-8 text-zinc-300" />
-                                                                <span className="text-[8px] font-black text-zinc-400 uppercase tracking-widest">PDF DOC</span>
-                                                            </div>
-                                                        )}
-                                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 flex items-center justify-center transition-all">
-                                                            <Search className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-                                                        </div>
-                                                    </a>
-                                                    
-                                                    <button 
-                                                        onClick={() => handleDeleteAttachment(i)}
-                                                        className="absolute top-2 right-2 w-7 h-7 bg-white/95 backdrop-blur shadow-sm rounded-full flex items-center justify-center text-red-500 hover:bg-red-500 hover:text-white transition-all z-10"
-                                                        disabled={isLoading || isAutoSaving}
-                                                    >
-                                                        <X className="w-3.5 h-3.5" />
-                                                    </button>
-                                                </div>
-                                            ))}
-                                            {(!project.pm_audit_attachments || project.pm_audit_attachments.length === 0) && (
-                                                <div className="col-span-2 aspect-[4/3] border-2 border-dashed border-zinc-100 rounded-3xl flex flex-col items-center justify-center text-zinc-400 bg-zinc-50/50">
-                                                    <Paperclip className="w-8 h-8 mb-3 opacity-20" />
-                                                    <p className="text-[11px] italic font-medium">No technical evidence uploaded.</p>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    <div className="pt-4 space-y-3">
-                                        <button
-                                            onClick={() => {
-                                                if (!auditNote) return showToast('Please provide an audit note', 'error');
-                                                handleAction('verify-planning-pm', 'Technical Verification Finalized!', { pm_audit_notes: auditNote });
-                                            }}
-                                            disabled={isLoading || isAutoSaving}
-                                            className="w-full bg-zinc-900 text-white rounded-2xl py-4 text-[11px] font-black uppercase tracking-[0.2em] hover:bg-black transition-all shadow-xl active:scale-[0.98] disabled:opacity-50"
-                                        >
-                                            Verify & Finalize Plan
-                                        </button>
-                                        <button
-                                            onClick={() => {
-                                                if (!auditNote) return showToast('Reason needed for revision', 'error');
-                                                if (confirm('Request revision from Architect?')) {
-                                                    handleAction('reject-planning', 'Revision requested', { pm_audit_notes: auditNote });
-                                                }
-                                            }}
-                                            disabled={isLoading}
-                                            className="w-full text-[10px] font-black text-red-500 hover:bg-red-50 py-3 rounded-2xl border border-transparent hover:border-red-100 transition-all uppercase tracking-widest"
-                                        >
-                                            Request Official Revision
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
+                            <PMTechnicalAuditBanner
+                                project={project}
+                                isLoading={isLoading}
+                                isAutoSaving={isAutoSaving}
+                                auditNote={auditNote}
+                                setAuditNote={setAuditNote}
+                                onVerify={handleVerify}
+                                onReject={handleReject}
+                                onFileChange={handleFileChange}
+                                onDeleteAttachment={handleDeleteAttachment}
+                                fileInputRef={fileInputRef}
+                            />
                         ) : (
-                            <div className="max-w-2xl mx-auto space-y-8">
-                                {project.architect_notes && (
-                                    <div className="bg-zinc-50 p-6 rounded-3xl border border-zinc-100 flex gap-5 items-start shadow-inner">
-                                        <div className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center shadow-sm flex-shrink-0 border border-zinc-100">
-                                            <MessageCircle className="w-5 h-5 text-zinc-400" />
+                            <>
+                                <div className="flex items-center justify-between border-b border-zinc-100 pb-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 bg-zinc-50 border border-zinc-100 text-zinc-450 rounded-xl flex items-center justify-center flex-shrink-0">
+                                            <ShieldCheck size={20} />
                                         </div>
                                         <div>
-                                            <h5 className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Architect Message</h5>
-                                            <p className="text-sm text-zinc-600 italic leading-relaxed">"{project.architect_notes}"</p>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xs font-semibold text-zinc-800">
+                                                    Technical Audit
+                                                </span>
+                                                {project.planning_iteration > 0 && (
+                                                    <span className="border border-zinc-200 text-zinc-450 text-[9px] font-medium px-2 py-0.5 rounded-full uppercase ml-1">
+                                                        Iteration #{project.planning_iteration}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <p className="text-xs text-zinc-400 mt-1">
+                                                {status === 'proposed' ? 'Under review by Project Manager' : 'Audit Complete & Verified'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div className="max-w-2xl mx-auto space-y-6">
+                                {project.architect_notes && (
+                                    <div className="bg-zinc-50 p-5 rounded-2xl border border-zinc-100 flex gap-4 items-start shadow-inner">
+                                        <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center shadow-sm flex-shrink-0 border border-zinc-100">
+                                            <MessageCircle className="w-4 h-4 text-zinc-400" />
+                                        </div>
+                                        <div>
+                                            <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider block mb-0.5">Architect Note</span>
+                                            <p className="text-xs text-zinc-550 italic">"{project.architect_notes}"</p>
                                         </div>
                                     </div>
                                 )}
 
-                                <div className="bg-amber-50/50 p-8 rounded-[2.5rem] border border-amber-100 relative group overflow-hidden">
-                                    <div className="absolute top-6 right-6">
-                                        {status === 'proposed' && <Clock className="w-6 h-6 text-amber-500 animate-spin-slow" />}
-                                        {status === 'pm_verified' && <CheckCircle2 className="w-6 h-6 text-green-500" />}
-                                    </div>
-                                    <div className="absolute -bottom-6 -left-6 opacity-[0.03] rotate-12">
-                                        <ShieldCheck size={160} className="text-amber-900" />
+                                <div className="bg-zinc-50 p-6 rounded-2xl border border-zinc-150 relative group overflow-hidden shadow-inner">
+                                    <div className="absolute top-4 right-4">
+                                        {status === 'proposed' && <Clock className="w-5 h-5 text-zinc-400 animate-spin-slow" />}
+                                        {status === 'pm_verified' && <CheckCircle2 className="w-5 h-5 text-emerald-500" />}
                                     </div>
                                     
                                     <div className="relative z-10">
-                                        <h5 className="text-[11px] font-black text-amber-600 uppercase tracking-widest mb-4">Live Audit Report</h5>
-                                        <p className="text-base text-zinc-800 leading-relaxed italic font-medium">
+                                        <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider block mb-2">Live Audit Report</span>
+                                        <p className="text-xs text-zinc-600 leading-relaxed italic">
                                             {project.pm_audit_notes || (status === 'proposed' ? 'The Project Manager is currently analyzing technical feasibility...' : 'No additional notes provided.')}
                                         </p>
                                         
                                         {project.pm_audit_attachments && project.pm_audit_attachments.length > 0 && (
-                                            <div className="mt-8 pt-8 border-t border-amber-100">
-                                                <h6 className="text-[11px] font-black text-amber-600 uppercase tracking-widest mb-5">Supporting Evidence</h6>
-                                                <div className="grid grid-cols-3 gap-4">
+                                            <div className="mt-6 pt-6 border-t border-zinc-200">
+                                                <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider block mb-3">Supporting Evidence</span>
+                                                <div className="grid grid-cols-3 gap-3">
                                                     {project.pm_audit_attachments.map((url, i) => (
                                                         <a 
                                                             key={i} 
                                                             href={url} 
                                                             target="_blank" 
                                                             rel="noopener noreferrer"
-                                                            className="relative aspect-square rounded-[1.5rem] border border-amber-200 overflow-hidden bg-white shadow-sm hover:shadow-xl transition-all group"
+                                                            className="relative aspect-square rounded-xl border border-zinc-200 overflow-hidden bg-zinc-50 shadow-sm hover:shadow-md transition-all group"
                                                         >
                                                             {isImage(url) ? (
                                                                 <img 
                                                                     src={url} 
-                                                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                                                                    className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300" 
                                                                     alt={`Evidence ${i + 1}`}
                                                                 />
                                                             ) : (
-                                                                <div className="w-full h-full flex flex-col items-center justify-center gap-2 bg-amber-50">
-                                                                    <FileText className="w-8 h-8 text-amber-200" />
-                                                                    <span className="text-[8px] font-black text-amber-400 uppercase tracking-widest">TECHNICAL DOC</span>
+                                                                <div className="w-full h-full flex flex-col items-center justify-center gap-1.5 bg-zinc-50">
+                                                                    <FileText className="w-6 h-6 text-zinc-300" />
+                                                                    <span className="text-[8px] font-medium text-zinc-400 uppercase tracking-wider">TECHNICAL DOC</span>
                                                                 </div>
                                                             )}
-                                                            <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent flex items-end p-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                <span className="text-[9px] font-black text-white uppercase tracking-widest">Evidence {i+1}</span>
+                                                            <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent flex items-end p-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                <span className="text-[8px] font-medium text-white uppercase tracking-wider">Evidence {i+1}</span>
                                                             </div>
                                                         </a>
                                                     ))}
@@ -458,11 +344,11 @@ const BriefingActionCenter: React.FC<BriefingActionCenterProps> = ({
                                 </div>
 
                                 {isOwner && status === 'pm_verified' && (
-                                    <div className="space-y-4 pt-4">
+                                    <div className="space-y-3 pt-2">
                                         <button
                                             onClick={() => handleAction('approve-planning', 'Agreement Finalized!')}
                                             disabled={isLoading}
-                                            className="w-full bg-zinc-900 text-white rounded-3xl py-5 font-black text-xs uppercase tracking-[0.2em] hover:bg-black transition-all shadow-2xl active:scale-[0.98]"
+                                            className="w-full bg-zinc-950 text-white rounded-xl py-3.5 text-xs font-medium hover:bg-black transition-all shadow-sm active:scale-[0.98]"
                                         >
                                             Approve & Confirm Plan
                                         </button>
@@ -472,7 +358,7 @@ const BriefingActionCenter: React.FC<BriefingActionCenterProps> = ({
                                                     handleAction('reject-planning', 'Revision requested');
                                                 }
                                             }}
-                                            className="w-full text-[10px] font-black text-zinc-400 hover:text-zinc-600 py-2 uppercase tracking-widest"
+                                            className="w-full text-xs font-medium text-zinc-450 hover:text-red-650 py-2 transition-all"
                                         >
                                             Request Revision
                                         </button>
@@ -480,13 +366,14 @@ const BriefingActionCenter: React.FC<BriefingActionCenterProps> = ({
                                 )}
 
                                 {isArchitect && (
-                                    <div className="p-10 border-2 border-dashed border-zinc-200 rounded-[2.5rem] text-center bg-zinc-50/30">
-                                        <AlertCircle className="w-10 h-10 text-zinc-300 mx-auto mb-4" />
-                                        <p className="text-sm font-bold text-zinc-900">Brief Locked for Audit</p>
-                                        <p className="text-xs text-zinc-400 mt-2 leading-relaxed">Your specifications are currently under technical review. You can modify them if a revision is requested.</p>
+                                    <div className="p-8 border border-dashed border-zinc-200 rounded-2xl text-center bg-zinc-50/50">
+                                        <AlertCircle className="w-8 h-8 text-zinc-300 mx-auto mb-3" />
+                                        <p className="text-sm font-semibold text-zinc-800">Brief Locked for Audit</p>
+                                        <p className="text-xs text-zinc-400 mt-1 leading-relaxed">Your specifications are currently under technical review. You can modify them if a revision is requested.</p>
                                     </div>
                                 )}
                             </div>
+                        </>
                         )}
                     </div>
                 )}

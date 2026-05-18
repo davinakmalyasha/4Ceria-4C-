@@ -61,13 +61,20 @@ export default function DesignProgress({ project, currentUser, isArchitect, isPM
                         roleType={roleType}
                     />
                 )}
-                {activeTab === 'vault' && (
-                    <DocumentVault 
-                        project={project} 
-                        isPro={isArchitect || (roleType !== 'design' && (project[`selected_${roleType}_id`] === currentUser?.id || project[`${roleType}_id`] === currentUser?.id))} 
-                        targetRole={roleType === 'design' ? 'architect' : roleType}
-                    />
-                )}
+                {activeTab === 'vault' && (() => {
+                    const isOwner = currentUser?.id === project?.user_id;
+                    const isHired = isArchitect || (roleType !== 'design' && (project[`selected_${roleType}_id`] === currentUser?.id || project[`${roleType}_id`] === currentUser?.id));
+                    const canDownload = isOwner || isPM || isHired;
+                    
+                    return (
+                        <DocumentVault 
+                            project={project} 
+                            isPro={isHired} 
+                            targetRole={roleType === 'design' ? 'architect' : roleType}
+                            canDownload={canDownload}
+                        />
+                    );
+                })()}
             </div>
         </div>
     );

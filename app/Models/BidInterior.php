@@ -14,7 +14,7 @@ class BidInterior extends Model
     protected $table = 'bids_interior';
 
     protected $fillable = [
-        'project_id', 'interior_id', 'price', 'proposal', 'status',
+        'project_id', 'interior_id', 'price', 'price_max', 'proposal', 'status',
         'estimated_duration', 'duration_unit', 'attachment_1', 'attachment_2', 'attachment_3',
         'payment_status', 'paid_at', 'scopes', 'deliverables',
         'fee_type', 'unit_price', 'quantity', 'calculated_total',
@@ -29,6 +29,7 @@ class BidInterior extends Model
         'proposed_termins' => 'array',
         'proposed_milestones' => 'array',
         'fee_agreed_at' => 'datetime',
+        'price_max' => 'decimal:2',
     ];
 
     public function offeredBy()

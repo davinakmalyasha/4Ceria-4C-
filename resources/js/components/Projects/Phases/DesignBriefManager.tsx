@@ -4,12 +4,10 @@ import { motion } from 'framer-motion';
 import { 
     Pencil, CheckCircle, Save, X, Lock, Coins, Layers, Layout, Target, 
     Settings, ShieldCheck, Clock, Zap, RefreshCw, AlertTriangle, 
-    MessageSquarePlus, Send, User 
+    MessageSquarePlus, Send, User, FileText, Plus 
 } from 'lucide-react';
 import { 
     ARCHITECT_STYLES, 
-    ARCHITECT_SERVICE_SCOPES, 
-    ARCHITECT_DELIVERABLES,
     ARCHITECT_FEE_TYPES
 } from '../../../constants/ArchitectStandardPresets';
 import { useToast } from '../../../context/ToastContext';
@@ -18,6 +16,118 @@ import BriefingActionCenter from './BriefingActionCenter';
 import PlanningNotesBoard from './PlanningNotesBoard';
 import TechSpecForm from './TechSpecForm';
 import { DesignDetails } from '../../../types/project.types';
+
+interface PMStickyNoteWrapperProps {
+    noteKey: string;
+    isPM: boolean;
+    isReadOnly: boolean;
+    brief: any;
+    openNotes: string[];
+    draftNotes: Record<string, string>;
+    toggleNote: (key: string) => void;
+    handleDraftNoteChange: (key: string, text: string) => void;
+    handleSaveStickyNote: (key: string) => void;
+    handleDeleteStickyNote: (key: string) => void;
+    children: React.ReactNode;
+    className?: string;
+}
+
+function PMStickyNoteWrapper({
+    noteKey,
+    isPM,
+    isReadOnly,
+    brief,
+    openNotes,
+    draftNotes,
+    toggleNote,
+    handleDraftNoteChange,
+    handleSaveStickyNote,
+    handleDeleteStickyNote,
+    children,
+    className = ''
+}: PMStickyNoteWrapperProps) {
+    const hasNote = !!brief[`${noteKey}_sticky_note`];
+    const isOpen = openNotes.includes(noteKey);
+    const draftText = draftNotes[noteKey] !== undefined ? draftNotes[noteKey] : (brief[`${noteKey}_sticky_note`] || '');
+
+    return (
+        <div 
+            className={`flex gap-4 items-start relative transition-all duration-300 ${
+                (isOpen || hasNote) ? 'col-span-1 sm:col-span-2' : 'col-span-1'
+            } ${className}`}
+        >
+            <div className="flex-1 relative w-full">
+                {children}
+                
+                {/* Sticky Note Tab (Right Edge of card, only visible when note is closed) */}
+                {isPM && !isReadOnly && !isOpen && !hasNote && (
+                    <div className="absolute -right-3 top-6 z-10">
+                        <button 
+                            onClick={() => toggleNote(noteKey)}
+                            className="w-10 h-10 bg-yellow-300 hover:bg-yellow-400 border border-yellow-400 rounded-l-lg rounded-r-md flex items-center justify-center shadow-lg transition-all group/note animate-in fade-in zoom-in-95"
+                            title="Add Sticky Note"
+                        >
+                            <FileText size={16} className="text-yellow-700" />
+                            <Plus size={10} className="absolute bottom-1 right-1 text-yellow-800 font-black" />
+                        </button>
+                    </div>
+                )}
+            </div>
+
+            {/* Yellow Sticky Note Panel */}
+            {(isOpen || hasNote) && (
+                <div className="w-80 shrink-0 bg-yellow-50 border border-yellow-200 rounded-3xl p-5 shadow-sm flex flex-col gap-3 relative animate-in slide-in-from-right duration-300">
+                    <div className="flex justify-between items-center">
+                        <span className="text-[10px] font-black text-yellow-700 uppercase tracking-widest flex items-center gap-1.5">
+                            📌 PM Sticky Note
+                        </span>
+                        <div className="flex gap-1">
+                            {isPM && !isReadOnly && hasNote && (
+                                <button 
+                                    onClick={() => handleDeleteStickyNote(noteKey)}
+                                    className="p-1 hover:bg-yellow-100 rounded text-red-600 transition-colors"
+                                    title="Delete note"
+                                >
+                                    <X size={12} className="stroke-[3]" />
+                                </button>
+                            )}
+                            {isPM && !isReadOnly && (
+                                <button 
+                                    onClick={() => toggleNote(noteKey)}
+                                    className="p-1 hover:bg-yellow-100 rounded text-yellow-700 transition-colors"
+                                    title="Close panel"
+                                >
+                                    <X size={12} />
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                    
+                    {isPM && !isReadOnly ? (
+                        <div className="flex flex-col gap-2">
+                            <textarea
+                                className="w-full bg-yellow-100/50 border-none rounded-xl p-2.5 text-xs text-yellow-900 placeholder-yellow-600/60 focus:ring-1 focus:ring-yellow-400 focus:bg-yellow-100/80 resize-none h-28"
+                                placeholder="Write sticky note here..."
+                                value={draftText}
+                                onChange={(e) => handleDraftNoteChange(noteKey, e.target.value)}
+                            />
+                            <button
+                                onClick={() => handleSaveStickyNote(noteKey)}
+                                className="w-full py-2 bg-yellow-400 hover:bg-yellow-500 text-yellow-900 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all shadow-sm"
+                            >
+                                Pin Note
+                            </button>
+                        </div>
+                    ) : (
+                        <p className="text-xs text-yellow-900 font-medium leading-relaxed bg-yellow-100/30 p-3 rounded-xl border border-yellow-200/50 whitespace-pre-wrap">
+                            {brief[`${noteKey}_sticky_note`]}
+                        </p>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
 
 interface DesignBriefManagerProps {
     project: any;
@@ -36,7 +146,53 @@ export default function DesignBriefManager({ project, isArchitect, isOwner, isPM
     const [feedbackInputType, setFeedbackInputType] = useState<'style' | 'revisions' | null>(null);
     const [feedbackContent, setFeedbackContent] = useState('');
 
+    const [openNotes, setOpenNotes] = useState<string[]>([]);
+    const [draftNotes, setDraftNotes] = useState<Record<string, string>>({});
+
     const brief = project.design_details || {};
+
+    const toggleNote = (key: string) => {
+        if (openNotes.includes(key)) {
+            setOpenNotes(prev => prev.filter(k => k !== key));
+        } else {
+            setOpenNotes(prev => [...prev, key]);
+            setDraftNotes(prev => ({
+                ...prev,
+                [key]: brief[`${key}_sticky_note`] || ''
+            }));
+        }
+    };
+
+    const handleDraftNoteChange = (key: string, text: string) => {
+        setDraftNotes(prev => ({
+            ...prev,
+            [key]: text
+        }));
+    };
+
+    const handleSaveStickyNote = async (key: string) => {
+        const text = draftNotes[key] || '';
+        await handleUpdateBrief({
+            [`${key}_sticky_note`]: text || undefined
+        });
+        setOpenNotes(prev => prev.filter(k => k !== key));
+        showToast(text ? 'Sticky note pinned!' : 'Sticky note deleted!', 'success');
+    };
+
+    const handleDeleteStickyNote = async (key: string) => {
+        if (window.confirm('Delete this sticky note?')) {
+            await handleUpdateBrief({
+                [`${key}_sticky_note`]: undefined
+            });
+            setOpenNotes(prev => prev.filter(k => k !== key));
+            setDraftNotes(prev => {
+                const copy = { ...prev };
+                delete copy[key];
+                return copy;
+            });
+            showToast('Sticky note deleted!', 'success');
+        }
+    };
     const isLocked = !!project.design_locked_at;
 
     // Form States
@@ -120,7 +276,7 @@ export default function DesignBriefManager({ project, isArchitect, isOwner, isPM
         } catch (error) {
             showToast('Failed to add feedback', 'error');
         } finally {
-            setIsLoading(false);
+            setIsUpdating(false);
         }
     };
 
@@ -162,239 +318,266 @@ export default function DesignBriefManager({ project, isArchitect, isOwner, isPM
                 ) : (
                     <div className="space-y-6">
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {/* Aesthetic Style Card */}
-                        <div className="group p-6 bg-white border border-zinc-100 rounded-3xl shadow-sm space-y-3 flex flex-col">
-                            <div className="flex justify-between items-start">
-                                <div className="space-y-1">
-                                    <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Aesthetic Style</span>
-                                    <p className="font-bold text-zinc-900">{brief.style || 'Standard'}</p>
-                                </div>
-                                {canAddFeedback && (
-                                    <button 
-                                        onClick={() => setFeedbackInputType(feedbackInputType === 'style' ? null : 'style')}
-                                        className={`p-1.5 rounded-lg transition-all ${feedbackInputType === 'style' ? 'bg-amber-100 text-amber-600' : 'opacity-0 group-hover:opacity-100 text-zinc-300 hover:text-amber-600 hover:bg-amber-50'}`}
-                                    >
-                                        <MessageSquarePlus size={16} />
-                                    </button>
-                                )}
-                            </div>
-                            <div className="space-y-2">
-                                {brief.style_feedback?.map((f: any) => (
-                                    <div key={f.id} className={`p-2 rounded-xl text-[10px] flex flex-col gap-1 border ${f.author_role === 'project_manager' ? 'bg-zinc-900 text-white border-zinc-800' : 'bg-amber-50 text-amber-900 border-amber-100'}`}>
-                                        <div className="flex items-center gap-1 opacity-80 font-bold uppercase tracking-tighter">
-                                            <User size={10} /> {f.author_role.replace('_', ' ')}
+                            {/* Aesthetic Style Card */}
+                            <PMStickyNoteWrapper
+                                noteKey="style"
+                                isPM={isPM}
+                                isReadOnly={isReadOnly}
+                                brief={brief}
+                                openNotes={openNotes}
+                                draftNotes={draftNotes}
+                                toggleNote={toggleNote}
+                                handleDraftNoteChange={handleDraftNoteChange}
+                                handleSaveStickyNote={handleSaveStickyNote}
+                                handleDeleteStickyNote={handleDeleteStickyNote}
+                            >
+                                <div className="group p-6 bg-white border border-zinc-100 rounded-3xl shadow-sm space-y-3 flex flex-col w-full h-full">
+                                    <div className="flex justify-between items-start">
+                                        <div className="space-y-1">
+                                            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Aesthetic Style</span>
+                                            <p className="font-bold text-zinc-900">{brief.style || 'Standard'}</p>
                                         </div>
-                                        <p>{f.content}</p>
+                                        {canAddFeedback && (
+                                            <button 
+                                                onClick={() => setFeedbackInputType(feedbackInputType === 'style' ? null : 'style')}
+                                                className={`p-1.5 rounded-lg transition-all ${feedbackInputType === 'style' ? 'bg-amber-100 text-amber-600' : 'opacity-0 group-hover:opacity-100 text-zinc-300 hover:text-amber-600 hover:bg-amber-50'}`}
+                                            >
+                                                <MessageSquarePlus size={16} />
+                                            </button>
+                                        )}
                                     </div>
-                                ))}
-                                {feedbackInputType === 'style' && (
-                                    <div className="flex gap-2 animate-in fade-in slide-in-from-bottom-1">
-                                        <input 
-                                            autoFocus
-                                            className="flex-1 bg-zinc-50 border-none rounded-lg px-2 py-1 text-[10px] focus:ring-1 focus:ring-amber-500"
-                                            placeholder="Add feedback..."
-                                            value={feedbackContent}
-                                            onChange={(e) => setFeedbackContent(e.target.value)}
-                                            onKeyDown={(e) => e.key === 'Enter' && handleAddFeedback('style')}
-                                        />
-                                        <button onClick={() => handleAddFeedback('style')} disabled={isUpdating || !feedbackContent.trim()} className="text-amber-600 disabled:opacity-50"><Send size={12}/></button>
+                                    <div className="space-y-2">
+                                        {brief.style_feedback?.map((f: any) => (
+                                            <div key={f.id} className={`p-2 rounded-xl text-[10px] flex flex-col gap-1 border ${f.author_role === 'project_manager' ? 'bg-zinc-900 text-white border-zinc-800' : 'bg-amber-50 text-amber-900 border-amber-100'}`}>
+                                                <div className="flex items-center gap-1 opacity-80 font-bold uppercase tracking-tighter">
+                                                    <User size={10} /> {f.author_role.replace('_', ' ')}
+                                                </div>
+                                                <p>{f.content}</p>
+                                            </div>
+                                        ))}
+                                        {feedbackInputType === 'style' && (
+                                            <div className="flex gap-2 animate-in fade-in slide-in-from-bottom-1">
+                                                <input 
+                                                    autoFocus
+                                                    className="flex-1 bg-zinc-50 border-none rounded-lg px-2 py-1 text-[10px] focus:ring-1 focus:ring-amber-500"
+                                                    placeholder="Add feedback..."
+                                                    value={feedbackContent}
+                                                    onChange={(e) => setFeedbackContent(e.target.value)}
+                                                    onKeyDown={(e) => e.key === 'Enter' && handleAddFeedback('style')}
+                                                />
+                                                <button onClick={() => handleAddFeedback('style')} disabled={isUpdating || !feedbackContent.trim()} className="text-amber-600 disabled:opacity-50"><Send size={12}/></button>
+                                            </div>
+                                        )}
                                     </div>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Revision Limit Card */}
-                        <div className="group p-6 bg-white border border-zinc-100 rounded-3xl shadow-sm space-y-3 flex flex-col">
-                            <div className="flex justify-between items-start">
-                                <div className="space-y-1">
-                                    <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Revision Limit</span>
-                                    <p className="font-bold text-zinc-900">{brief.revisions || '3'} Iterations</p>
                                 </div>
-                                {canAddFeedback && (
-                                    <button 
-                                        onClick={() => setFeedbackInputType(feedbackInputType === 'revisions' ? null : 'revisions')}
-                                        className={`p-1.5 rounded-lg transition-all ${feedbackInputType === 'revisions' ? 'bg-amber-100 text-amber-600' : 'opacity-0 group-hover:opacity-100 text-zinc-300 hover:text-amber-600 hover:bg-amber-50'}`}
-                                    >
-                                        <MessageSquarePlus size={16} />
-                                    </button>
-                                )}
-                            </div>
-                            <div className="space-y-2">
-                                {brief.revisions_feedback?.map((f: any) => (
-                                    <div key={f.id} className={`p-2 rounded-xl text-[10px] flex flex-col gap-1 border ${f.author_role === 'project_manager' ? 'bg-zinc-900 text-white border-zinc-800' : 'bg-amber-50 text-amber-900 border-amber-100'}`}>
-                                        <div className="flex items-center gap-1 opacity-80 font-bold uppercase tracking-tighter">
-                                            <User size={10} /> {f.author_role.replace('_', ' ')}
-                                        </div>
-                                        <p>{f.content}</p>
-                                    </div>
-                                ))}
-                                {feedbackInputType === 'revisions' && (
-                                    <div className="flex gap-2 animate-in fade-in slide-in-from-bottom-1">
-                                        <input 
-                                            autoFocus
-                                            className="flex-1 bg-zinc-50 border-none rounded-lg px-2 py-1 text-[10px] focus:ring-1 focus:ring-amber-500"
-                                            placeholder="Add feedback..."
-                                            value={feedbackContent}
-                                            onChange={(e) => setFeedbackContent(e.target.value)}
-                                            onKeyDown={(e) => e.key === 'Enter' && handleAddFeedback('revisions')}
-                                        />
-                                        <button onClick={() => handleAddFeedback('revisions')} disabled={isUpdating || !feedbackContent.trim()} className="text-amber-600 disabled:opacity-50"><Send size={12}/></button>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
+                            </PMStickyNoteWrapper>
 
-                        {/* Building Stats Card */}
-                        <div className="group p-6 bg-white border border-zinc-100 rounded-3xl shadow-sm space-y-3 flex flex-col">
-                            <div className="flex justify-between items-start">
-                                <div className="space-y-1">
-                                    <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Building Stats</span>
-                                    <p className="font-bold text-zinc-900">
-                                        {brief.floorCount || 1} Floors • {brief.targetArea || '?'} sqm
+                            {/* Revision Limit Card */}
+                            <PMStickyNoteWrapper
+                                noteKey="revisions"
+                                isPM={isPM}
+                                isReadOnly={isReadOnly}
+                                brief={brief}
+                                openNotes={openNotes}
+                                draftNotes={draftNotes}
+                                toggleNote={toggleNote}
+                                handleDraftNoteChange={handleDraftNoteChange}
+                                handleSaveStickyNote={handleSaveStickyNote}
+                                handleDeleteStickyNote={handleDeleteStickyNote}
+                            >
+                                <div className="group p-6 bg-white border border-zinc-100 rounded-3xl shadow-sm space-y-3 flex flex-col w-full h-full">
+                                    <div className="flex justify-between items-start">
+                                        <div className="space-y-1">
+                                            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Revision Limit</span>
+                                            <p className="font-bold text-zinc-900">{brief.revisions || '3'} Iterations</p>
+                                        </div>
+                                        {canAddFeedback && (
+                                            <button 
+                                                onClick={() => setFeedbackInputType(feedbackInputType === 'revisions' ? null : 'revisions')}
+                                                className={`p-1.5 rounded-lg transition-all ${feedbackInputType === 'revisions' ? 'bg-amber-100 text-amber-600' : 'opacity-0 group-hover:opacity-100 text-zinc-300 hover:text-amber-600 hover:bg-amber-50'}`}
+                                            >
+                                                <MessageSquarePlus size={16} />
+                                            </button>
+                                        )}
+                                    </div>
+                                    <div className="space-y-2">
+                                        {brief.revisions_feedback?.map((f: any) => (
+                                            <div key={f.id} className={`p-2 rounded-xl text-[10px] flex flex-col gap-1 border ${f.author_role === 'project_manager' ? 'bg-zinc-900 text-white border-zinc-800' : 'bg-amber-50 text-amber-900 border-amber-100'}`}>
+                                                <div className="flex items-center gap-1 opacity-80 font-bold uppercase tracking-tighter">
+                                                    <User size={10} /> {f.author_role.replace('_', ' ')}
+                                                </div>
+                                                <p>{f.content}</p>
+                                            </div>
+                                        ))}
+                                        {feedbackInputType === 'revisions' && (
+                                            <div className="flex gap-2 animate-in fade-in slide-in-from-bottom-1">
+                                                <input 
+                                                    autoFocus
+                                                    className="flex-1 bg-zinc-50 border-none rounded-lg px-2 py-1 text-[10px] focus:ring-1 focus:ring-amber-500"
+                                                    placeholder="Add feedback..."
+                                                    value={feedbackContent}
+                                                    onChange={(e) => setFeedbackContent(e.target.value)}
+                                                    onKeyDown={(e) => e.key === 'Enter' && handleAddFeedback('revisions')}
+                                                />
+                                                <button onClick={() => handleAddFeedback('revisions')} disabled={isUpdating || !feedbackContent.trim()} className="text-amber-600 disabled:opacity-50"><Send size={12}/></button>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </PMStickyNoteWrapper>
+
+                            {/* Building Stats Card */}
+                            <PMStickyNoteWrapper
+                                noteKey="stats"
+                                isPM={isPM}
+                                isReadOnly={isReadOnly}
+                                brief={brief}
+                                openNotes={openNotes}
+                                draftNotes={draftNotes}
+                                toggleNote={toggleNote}
+                                handleDraftNoteChange={handleDraftNoteChange}
+                                handleSaveStickyNote={handleSaveStickyNote}
+                                handleDeleteStickyNote={handleDeleteStickyNote}
+                            >
+                                <div className="group p-6 bg-white border border-zinc-100 rounded-3xl shadow-sm space-y-3 flex flex-col w-full h-full">
+                                    <div className="flex justify-between items-start">
+                                        <div className="space-y-1">
+                                            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Building Stats</span>
+                                            <p className="font-bold text-zinc-900">
+                                                {brief.floorCount || 1} Floors • {brief.targetArea || '?'} sqm
+                                            </p>
+                                        </div>
+                                        {canAddFeedback && (
+                                            <button 
+                                                onClick={() => setFeedbackInputType(feedbackInputType === 'stats' ? null : 'stats')}
+                                                className={`p-1.5 rounded-lg transition-all ${feedbackInputType === 'stats' ? 'bg-amber-100 text-amber-600' : 'opacity-0 group-hover:opacity-100 text-zinc-300 hover:text-amber-600 hover:bg-amber-50'}`}
+                                            >
+                                                <MessageSquarePlus size={16} />
+                                            </button>
+                                        )}
+                                    </div>
+                                    <div className="space-y-2">
+                                        {brief.stats_feedback?.map((f: any) => (
+                                            <div key={f.id} className={`p-2 rounded-xl text-[10px] flex flex-col gap-1 border ${f.author_role === 'project_manager' ? 'bg-zinc-900 text-white border-zinc-800' : 'bg-amber-50 text-amber-900 border-amber-100'}`}>
+                                                <div className="flex items-center gap-1 opacity-80 font-bold uppercase tracking-tighter">
+                                                    <User size={10} /> {f.author_role.replace('_', ' ')}
+                                                </div>
+                                                <p>{f.content}</p>
+                                            </div>
+                                        ))}
+                                        {feedbackInputType === 'stats' && (
+                                            <div className="flex gap-2 animate-in fade-in slide-in-from-bottom-1">
+                                                <input 
+                                                    autoFocus
+                                                    className="flex-1 bg-zinc-50 border-none rounded-lg px-2 py-1 text-[10px] focus:ring-1 focus:ring-amber-500"
+                                                    placeholder="Add feedback..."
+                                                    value={feedbackContent}
+                                                    onChange={(e) => setFeedbackContent(e.target.value)}
+                                                    onKeyDown={(e) => e.key === 'Enter' && handleAddFeedback('stats')}
+                                                />
+                                                <button onClick={() => handleAddFeedback('stats')} disabled={isUpdating || !feedbackContent.trim()} className="text-amber-600 disabled:opacity-50"><Send size={12}/></button>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </PMStickyNoteWrapper>
+
+                            {/* Legal Guard Card */}
+                            <PMStickyNoteWrapper
+                                noteKey="legal"
+                                isPM={isPM}
+                                isReadOnly={isReadOnly}
+                                brief={brief}
+                                openNotes={openNotes}
+                                draftNotes={draftNotes}
+                                toggleNote={toggleNote}
+                                handleDraftNoteChange={handleDraftNoteChange}
+                                handleSaveStickyNote={handleSaveStickyNote}
+                                handleDeleteStickyNote={handleDeleteStickyNote}
+                            >
+                                <div className={`p-6 border rounded-3xl shadow-sm space-y-1 transition-all flex flex-col justify-center w-full h-full ${
+                                    project?.milestones?.some((m: any) => (m.content?.req_id === 'land_verification' || m.title.toUpperCase().includes('AJB')) && m.approval_status === 'approved')
+                                    ? 'bg-emerald-50 border-emerald-100 text-emerald-900'
+                                    : 'bg-amber-50 border-amber-100 text-amber-900'
+                                }`}>
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[10px] font-bold uppercase tracking-widest opacity-60">Legal Guard</span>
+                                        <ShieldCheck size={14} className={project?.milestones?.some((m: any) => (m.content?.req_id === 'land_verification' || m.title.toUpperCase().includes('AJB')) && m.approval_status === 'approved') ? 'text-emerald-500' : 'text-amber-500'} />
+                                    </div>
+                                    <p className="font-bold text-sm">
+                                        {project?.milestones?.some((m: any) => (m.content?.req_id === 'land_verification' || m.title.toUpperCase().includes('AJB')) && m.approval_status === 'approved') 
+                                        ? 'Land Verified (AJB)' 
+                                        : 'Pending Verification'}
                                     </p>
                                 </div>
-                                {canAddFeedback && (
-                                    <button 
-                                        onClick={() => setFeedbackInputType(feedbackInputType === 'stats' ? null : 'stats')}
-                                        className={`p-1.5 rounded-lg transition-all ${feedbackInputType === 'stats' ? 'bg-amber-100 text-amber-600' : 'opacity-0 group-hover:opacity-100 text-zinc-300 hover:text-amber-600 hover:bg-amber-50'}`}
-                                    >
-                                        <MessageSquarePlus size={16} />
-                                    </button>
-                                )}
-                            </div>
-                            <div className="space-y-2">
-                                {brief.stats_feedback?.map((f: any) => (
-                                    <div key={f.id} className={`p-2 rounded-xl text-[10px] flex flex-col gap-1 border ${f.author_role === 'project_manager' ? 'bg-zinc-900 text-white border-zinc-800' : 'bg-amber-50 text-amber-900 border-amber-100'}`}>
-                                        <div className="flex items-center gap-1 opacity-80 font-bold uppercase tracking-tighter">
-                                            <User size={10} /> {f.author_role.replace('_', ' ')}
-                                        </div>
-                                        <p>{f.content}</p>
-                                    </div>
-                                ))}
-                                {feedbackInputType === 'stats' && (
-                                    <div className="flex gap-2 animate-in fade-in slide-in-from-bottom-1">
-                                        <input 
-                                            autoFocus
-                                            className="flex-1 bg-zinc-50 border-none rounded-lg px-2 py-1 text-[10px] focus:ring-1 focus:ring-amber-500"
-                                            placeholder="Add feedback..."
-                                            value={feedbackContent}
-                                            onChange={(e) => setFeedbackContent(e.target.value)}
-                                            onKeyDown={(e) => e.key === 'Enter' && handleAddFeedback('stats')}
-                                        />
-                                        <button onClick={() => handleAddFeedback('stats')} disabled={isUpdating || !feedbackContent.trim()} className="text-amber-600 disabled:opacity-50"><Send size={12}/></button>
-                                    </div>
-                                )}
-                            </div>
+                            </PMStickyNoteWrapper>
                         </div>
-
-                        {/* Legal Guard Card */}
-                        <div className={`p-6 border rounded-3xl shadow-sm space-y-1 transition-all flex flex-col justify-center ${
-                            project?.milestones?.some((m: any) => (m.content?.req_id === 'land_verification' || m.title.toUpperCase().includes('AJB')) && m.approval_status === 'approved')
-                            ? 'bg-emerald-50 border-emerald-100 text-emerald-900'
-                            : 'bg-amber-50 border-amber-100 text-amber-900'
-                        }`}>
-                            <div className="flex items-center justify-between">
-                                <span className="text-[10px] font-bold uppercase tracking-widest opacity-60">Legal Guard</span>
-                                <ShieldCheck size={14} className={project?.milestones?.some((m: any) => (m.content?.req_id === 'land_verification' || m.title.toUpperCase().includes('AJB')) && m.approval_status === 'approved') ? 'text-emerald-500' : 'text-amber-500'} />
-                            </div>
-                            <p className="font-bold text-sm">
-                                {project?.milestones?.some((m: any) => (m.content?.req_id === 'land_verification' || m.title.toUpperCase().includes('AJB')) && m.approval_status === 'approved') 
-                                ? 'Land Verified (AJB)' 
-                                : 'Pending Verification'}
-                            </p>
-                        </div>
-                    </div>
 
                     {/* Scopes & Deliverables View */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="bg-white border border-zinc-100 rounded-3xl p-6 space-y-4">
-                            <div className="flex items-center justify-between">
+                        <PMStickyNoteWrapper
+                            noteKey="scopes"
+                            isPM={isPM}
+                            isReadOnly={isReadOnly}
+                            brief={brief}
+                            openNotes={openNotes}
+                            draftNotes={draftNotes}
+                            toggleNote={toggleNote}
+                            handleDraftNoteChange={handleDraftNoteChange}
+                            handleSaveStickyNote={handleSaveStickyNote}
+                            handleDeleteStickyNote={handleDeleteStickyNote}
+                        >
+                            <div className="bg-white border border-zinc-100 rounded-3xl p-6 space-y-4 w-full h-full">
                                 <div className="flex items-center gap-2">
                                     <Layers size={18} className="text-zinc-400" />
                                     <h4 className="text-[10px] font-black text-zinc-900 uppercase tracking-widest">Service Scopes</h4>
                                 </div>
-                                {canAddFeedback && (
-                                    <button 
-                                        onClick={() => setFeedbackInputType(feedbackInputType === 'scopes' ? null : 'scopes')}
-                                        className={`p-1.5 rounded-lg transition-all ${feedbackInputType === 'scopes' ? 'bg-amber-100 text-amber-600' : 'text-zinc-300 hover:text-amber-600 hover:bg-amber-50'}`}
-                                    >
-                                        <MessageSquarePlus size={16} />
-                                    </button>
-                                )}
+                                <div className="flex flex-wrap gap-2">
+                                    {!brief.scopes || brief.scopes.length === 0 ? (
+                                        <p className="text-xs text-zinc-400 font-bold italic">No custom scopes defined.</p>
+                                    ) : (
+                                        brief.scopes.map((s: string) => (
+                                            <span key={s} className="px-3 py-1 bg-zinc-100 text-zinc-600 text-[10px] font-black rounded-full uppercase tracking-widest">
+                                                {s}
+                                            </span>
+                                        ))
+                                    )}
+                                </div>
                             </div>
-                            <div className="flex flex-wrap gap-2">
-                                {(brief.scopes || ['schematic']).map((s: string) => (
-                                    <span key={s} className="px-3 py-1 bg-zinc-100 text-zinc-600 text-[10px] font-black rounded-full uppercase tracking-widest">
-                                        {ARCHITECT_SERVICE_SCOPES.find(scope => scope.id === s)?.label || s}
-                                    </span>
-                                ))}
-                            </div>
-                            <div className="space-y-2 mt-4">
-                                {brief.scopes_feedback?.map((f: any) => (
-                                    <div key={f.id} className={`p-2 rounded-xl text-[10px] flex flex-col gap-1 border ${f.author_role === 'project_manager' ? 'bg-zinc-900 text-white border-zinc-800' : 'bg-amber-50 text-amber-900 border-amber-100'}`}>
-                                        <p>{f.content}</p>
-                                    </div>
-                                ))}
-                                {feedbackInputType === 'scopes' && (
-                                    <div className="flex gap-2">
-                                        <input 
-                                            autoFocus
-                                            className="flex-1 bg-zinc-50 border-none rounded-lg px-2 py-1 text-[10px] focus:ring-1 focus:ring-amber-500"
-                                            placeholder="Add feedback..."
-                                            value={feedbackContent}
-                                            onChange={(e) => setFeedbackContent(e.target.value)}
-                                            onKeyDown={(e) => e.key === 'Enter' && handleAddFeedback('scopes')}
-                                        />
-                                        <button onClick={() => handleAddFeedback('scopes')} disabled={isUpdating || !feedbackContent.trim()} className="text-amber-600"><Send size={12}/></button>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
+                        </PMStickyNoteWrapper>
 
-                        <div className="bg-white border border-zinc-100 rounded-3xl p-6 space-y-4">
-                            <div className="flex items-center justify-between">
+                        <PMStickyNoteWrapper
+                            noteKey="deliverables"
+                            isPM={isPM}
+                            isReadOnly={isReadOnly}
+                            brief={brief}
+                            openNotes={openNotes}
+                            draftNotes={draftNotes}
+                            toggleNote={toggleNote}
+                            handleDraftNoteChange={handleDraftNoteChange}
+                            handleSaveStickyNote={handleSaveStickyNote}
+                            handleDeleteStickyNote={handleDeleteStickyNote}
+                        >
+                            <div className="bg-white border border-zinc-100 rounded-3xl p-6 space-y-4 w-full h-full">
                                 <div className="flex items-center gap-2">
                                     <Layout size={18} className="text-zinc-400" />
                                     <h4 className="text-[10px] font-black text-zinc-900 uppercase tracking-widest">Expected Deliverables</h4>
                                 </div>
-                                {canAddFeedback && (
-                                    <button 
-                                        onClick={() => setFeedbackInputType(feedbackInputType === 'deliverables' ? null : 'deliverables')}
-                                        className={`p-1.5 rounded-lg transition-all ${feedbackInputType === 'deliverables' ? 'bg-amber-100 text-amber-600' : 'text-zinc-300 hover:text-amber-600 hover:bg-amber-50'}`}
-                                    >
-                                        <MessageSquarePlus size={16} />
-                                    </button>
-                                )}
+                                <div className="flex flex-wrap gap-2">
+                                    {!brief.deliverables || brief.deliverables.length === 0 ? (
+                                        <p className="text-xs text-zinc-400 font-bold italic">No custom deliverables defined.</p>
+                                    ) : (
+                                        brief.deliverables.map((d: string) => (
+                                            <span key={d} className="px-3 py-1 bg-amber-50 text-amber-700 text-[10px] font-black rounded-full uppercase tracking-widest border border-amber-100">
+                                                {d}
+                                            </span>
+                                        ))
+                                    )}
+                                </div>
                             </div>
-                            <div className="flex flex-wrap gap-2">
-                                {(brief.deliverables || ['3d_render']).map((d: string) => (
-                                    <span key={d} className="px-3 py-1 bg-amber-50 text-amber-700 text-[10px] font-black rounded-full uppercase tracking-widest border border-amber-100">
-                                        {ARCHITECT_DELIVERABLES.find(del => del.id === d)?.label || d}
-                                    </span>
-                                ))}
-                            </div>
-                            <div className="space-y-2 mt-4">
-                                {brief.deliverables_feedback?.map((f: any) => (
-                                    <div key={f.id} className={`p-2 rounded-xl text-[10px] flex flex-col gap-1 border ${f.author_role === 'project_manager' ? 'bg-zinc-900 text-white border-zinc-800' : 'bg-amber-50 text-amber-900 border-amber-100'}`}>
-                                        <p>{f.content}</p>
-                                    </div>
-                                ))}
-                                {feedbackInputType === 'deliverables' && (
-                                    <div className="flex gap-2">
-                                        <input 
-                                            autoFocus
-                                            className="flex-1 bg-zinc-50 border-none rounded-lg px-2 py-1 text-[10px] focus:ring-1 focus:ring-amber-500"
-                                            placeholder="Add feedback..."
-                                            value={feedbackContent}
-                                            onChange={(e) => setFeedbackContent(e.target.value)}
-                                            onKeyDown={(e) => e.key === 'Enter' && handleAddFeedback('deliverables')}
-                                        />
-                                        <button onClick={() => handleAddFeedback('deliverables')} disabled={isUpdating || !feedbackContent.trim()} className="text-amber-600"><Send size={12}/></button>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
+                        </PMStickyNoteWrapper>
                     </div>
+
                 </div>
                 )}
             </div>

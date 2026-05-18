@@ -302,6 +302,7 @@ export default function MepWorkspace({ project, user, onRefresh }: MepWorkspaceP
                 roleType="mep"
                 isSpecialist={isMep || isArchitect}
                 isPM={isPM}
+                isApproved={isApproved}
             />
         </div>
     );

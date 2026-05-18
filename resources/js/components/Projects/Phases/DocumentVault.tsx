@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
     FileText, Upload, Trash2, Download, 
-    History, CheckCircle2, AlertCircle, X, Plus
+    History, CheckCircle2, AlertCircle, X, Plus,
+    ShieldAlert
 } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
 
@@ -23,9 +24,10 @@ interface DocumentVaultProps {
     project: any;
     isPro: boolean;
     targetRole?: string;
+    canDownload?: boolean;
 }
 
-export default function DocumentVault({ project, isPro, targetRole }: DocumentVaultProps) {
+export default function DocumentVault({ project, isPro, targetRole, canDownload = false }: DocumentVaultProps) {
     const [allDocuments, setAllDocuments] = useState<Document[]>([]);
     const [loading, setLoading] = useState(true);
     const [showUpload, setShowUpload] = useState(false);
@@ -182,13 +184,19 @@ export default function DocumentVault({ project, isPro, targetRole }: DocumentVa
                                 </p>
                             </div>
 
-                            <a 
-                                href={`/storage/${doc.file_path}`} 
-                                target="_blank" 
-                                className="mt-4 w-full py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-colors"
-                            >
-                                <Download size={12} /> Download
-                            </a>
+                            {canDownload ? (
+                                <a 
+                                    href={`/storage/${doc.file_path}`} 
+                                    target="_blank" 
+                                    className="mt-4 w-full py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-colors"
+                                >
+                                    <Download size={12} /> Download
+                                </a>
+                            ) : (
+                                <div className="mt-4 w-full py-2.5 bg-slate-50 text-slate-400 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-2 cursor-not-allowed" title="Access Restricted">
+                                    <ShieldAlert size={12} /> Restricted
+                                </div>
+                            )}
                         </div>
                     ))
                 )}

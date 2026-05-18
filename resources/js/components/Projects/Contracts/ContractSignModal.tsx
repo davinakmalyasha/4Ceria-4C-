@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { 
     X, Check, Loader2, FileText, 
-    ShieldCheck, AlertCircle, Percent, Layers
+    ShieldCheck, AlertCircle, Percent, Layers, Users
 } from 'lucide-react';
 import axios from 'axios';
 import { useToast } from '../../../context/ToastContext';
+import { ProposedTeamMember } from '../../../types/sub_professional.types';
 
 interface ContractSignModalProps {
     isOpen: boolean;
@@ -18,6 +19,13 @@ interface ContractSignModalProps {
 export const ContractSignModal: React.FC<ContractSignModalProps> = ({ isOpen, onClose, project, bid, bidType, onSuccess }) => {
     const { showToast } = useToast();
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [bankDetails, setBankDetails] = useState('');
+
+    React.useEffect(() => {
+        if (isOpen) {
+            setBankDetails(bid?.payment_instructions || '');
+        }
+    }, [isOpen, bid?.payment_instructions]);
     
     // IMMUTABLE STATE - Purely for display
     // Reactive data derived from props
@@ -42,6 +50,20 @@ export const ContractSignModal: React.FC<ContractSignModalProps> = ({ isOpen, on
         }));
     }, [bid.proposed_milestones]);
 
+    const proposedTeam = React.useMemo((): ProposedTeamMember[] => {
+        const raw = bid.proposed_team || [];
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        return (Array.isArray(parsed) ? parsed : []).map((m: any) => ({
+            team_member_id: m.team_member_id ?? null,
+            name: m.name || '',
+            role_title: m.role_title || '',
+            role: m.role || 'other',
+            fee: Number(m.fee) || 0,
+            fee_type: m.fee_type || 'fixed',
+            note: m.note || ''
+        }));
+    }, [bid.proposed_team]);
+
     const paymentNotes = bid.payment_instructions || '';
 
     // Calculation constants
@@ -63,6 +85,11 @@ export const ContractSignModal: React.FC<ContractSignModalProps> = ({ isOpen, on
     const totalPercentage = termins.reduce((sum, t) => sum + Number(t.percentage), 0);
 
     const handleSubmit = async () => {
+        if (!bankDetails || !bankDetails.trim()) {
+            showToast('Bank details & payment instructions are required before signing.', 'error');
+            return;
+        }
+
         setIsSubmitting(true);
         try {
             // FINAL CALCULATION: Ensure all termins have their absolute Rupiah amounts calculated 
@@ -96,7 +123,7 @@ export const ContractSignModal: React.FC<ContractSignModalProps> = ({ isOpen, on
                 bid_type: bidType,
                 termins: finalTermins,
                 milestones: milestones,
-                payment_instructions: paymentNotes
+                payment_instructions: bankDetails
             });
             showToast('Contract signed successfully!', 'success');
             onSuccess();
@@ -212,42 +239,50 @@ export const ContractSignModal: React.FC<ContractSignModalProps> = ({ isOpen, on
                                         </div>
                                     </div>
 
-                                    {/* Milestone Connection & Services Preview */}
-                                    <div className="pt-4 border-t border-zinc-700/30 space-y-3">
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-2">
-                                                <Layers size={12} className="text-zinc-500" />
-                                                <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
-                                                    Phase: {milestone?.title || 'General Phase'}
-                                                </span>
-                                            </div>
-                                            
-                                            {milestoneServices.length > 0 && (
-                                                <span className="text-[9px] font-bold text-emerald-500/70 uppercase">
-                                                    Includes {milestoneServices.length} Documents
-                                                </span>
+                                    {/* Deliverables & Services Preview */}
+                                    {(milestone?.description || milestoneServices.length > 0 || bidType === 'notaris') && (
+                                        <div className="pt-4 border-t border-zinc-700/30 space-y-3">
+                                            {milestone?.description && (
+                                                <div className="space-y-1">
+                                                    <label className="text-[8px] font-black text-zinc-500 uppercase tracking-widest block">Deliverables / Scope</label>
+                                                    <p className="text-[10px] text-zinc-400 font-semibold leading-relaxed">
+                                                        {milestone.description}
+                                                    </p>
+                                                </div>
+                                            )}
+
+                                            {(milestoneServices.length > 0 || bidType === 'notaris') && (
+                                                <div className="space-y-2">
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Legal Documents</span>
+                                                        {milestoneServices.length > 0 && (
+                                                            <span className="text-[8px] font-bold text-emerald-500/70 uppercase">
+                                                                Includes {milestoneServices.length} Documents
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    {milestoneServices.length > 0 ? (
+                                                        <div className="flex flex-wrap gap-1.5">
+                                                            {milestoneServices.map((service: any, sIdx: number) => {
+                                                                const displayName = service.title || service.name || service.label || service.document_name || 'Legal Document';
+                                                                return (
+                                                                    <div
+                                                                        key={sIdx}
+                                                                        className="px-3 py-1.5 rounded-lg text-[9px] font-black bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 flex items-center gap-1.5"
+                                                                    >
+                                                                        <FileText size={10} />
+                                                                        <span>{displayName}</span>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    ) : (
+                                                        <p className="text-[8px] font-bold text-zinc-600 uppercase italic">No legal documents assigned to this phase</p>
+                                                    )}
+                                                </div>
                                             )}
                                         </div>
-
-                                        {milestoneServices.length > 0 ? (
-                                            <div className="flex flex-wrap gap-1.5">
-                                                {milestoneServices.map((service: any, sIdx: number) => {
-                                                    const displayName = service.title || service.name || service.label || service.document_name || 'Legal Document';
-                                                    return (
-                                                        <div
-                                                            key={sIdx}
-                                                            className="px-3 py-1.5 rounded-lg text-[9px] font-black bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 flex items-center gap-1.5"
-                                                        >
-                                                            <FileText size={10} />
-                                                            <span>{displayName}</span>
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        ) : (
-                                            <p className="text-[8px] font-bold text-zinc-600 uppercase italic">No legal documents assigned to this phase</p>
-                                        )}
-                                    </div>
+                                    )}
                                 </div>
                             );
                         })}
@@ -264,33 +299,66 @@ export const ContractSignModal: React.FC<ContractSignModalProps> = ({ isOpen, on
                         </div>
                     </div>
 
-                    {/* Work Plan Section Preview */}
-                    <div className="space-y-4 pt-4 border-t border-zinc-800">
-                        <h4 className="text-[10px] font-black text-white uppercase tracking-widest">Work Plan Phases</h4>
-                        <div className="space-y-3">
-                            {milestones.map((m, index) => (
-                                <div key={index} className="bg-zinc-800/20 border border-zinc-700/20 rounded-2xl p-4 flex gap-4 items-start">
-                                    <div className="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center text-[10px] font-black text-zinc-400 shrink-0">
-                                        {index + 1}
-                                    </div>
-                                    <div className="flex-1 space-y-1">
-                                        <h5 className="text-xs font-black text-white uppercase tracking-wider">{m.title}</h5>
-                                        <p className="text-[10px] font-medium text-zinc-500 leading-relaxed">{m.description}</p>
-                                    </div>
+                    {/* Proposed Team Section Preview */}
+                    {proposedTeam.length > 0 && (
+                        <div className="space-y-3 pt-4 border-t border-zinc-800">
+                            <div className="flex items-center justify-between">
+                                <h4 className="text-[10px] font-black text-white uppercase tracking-widest">Proposed Team Composition</h4>
+                                <div className="flex items-center gap-1.5 text-[9px] font-bold text-zinc-500 uppercase tracking-widest">
+                                    <Users size={12} className="text-zinc-500" />
+                                    {proposedTeam.length} Member{proposedTeam.length > 1 ? 's' : ''}
                                 </div>
-                            ))}
-                        </div>
-                    </div>
+                            </div>
 
-                    {/* Payment Notes */}
-                    {paymentNotes && (
-                        <div className="space-y-2 pt-4 border-t border-zinc-800">
-                            <label className="text-[10px] font-black text-white uppercase tracking-widest">Payment Instructions</label>
-                            <div className="w-full bg-zinc-800/50 border border-zinc-700 rounded-2xl p-4 text-xs font-bold text-zinc-400 whitespace-pre-wrap">
-                                {paymentNotes}
+                            <div className="grid grid-cols-1 gap-3">
+                                {proposedTeam.map((member, index) => (
+                                    <div key={index} className="bg-zinc-800/30 border border-zinc-700/30 rounded-3xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center font-black text-emerald-400 text-sm shrink-0">
+                                                {member.name ? member.name.charAt(0) : 'T'}
+                                            </div>
+                                            <div>
+                                                <h5 className="text-xs font-black text-white uppercase tracking-wider">{member.name || 'Unnamed Member'}</h5>
+                                                <p className="text-[9px] font-bold text-emerald-500 uppercase tracking-widest mt-0.5">{member.role_title || 'Team Member'}</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex flex-col sm:items-end gap-1 shrink-0">
+                                            <span className="text-xs font-black text-white">
+                                                Rp {member.fee.toLocaleString()} {member.fee_type === 'percentage' ? '% of Project' : ''}
+                                            </span>
+                                            {member.note ? (
+                                                <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider max-w-[200px] truncate block">
+                                                    {member.note}
+                                                </span>
+                                            ) : (
+                                                <span className="text-[8px] font-bold text-zinc-600 uppercase italic block">
+                                                    No special notes
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     )}
+
+                    {/* Bank Details & Payment Instructions (Required) */}
+                    <div className="space-y-2 pt-4 border-t border-zinc-800">
+                        <div className="flex items-center justify-between">
+                            <label className="text-[10px] font-black text-white uppercase tracking-widest flex items-center gap-1">
+                                Bank Details & Payment Instructions <span className="text-rose-500 font-bold">*</span>
+                            </label>
+                            <span className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Required</span>
+                        </div>
+                        <textarea
+                            value={bankDetails}
+                            onChange={(e) => setBankDetails(e.target.value)}
+                            required
+                            className="w-full bg-zinc-950/80 border border-zinc-700 rounded-2xl p-4 text-xs font-bold text-zinc-300 placeholder:text-zinc-600 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all resize-none h-24"
+                            placeholder="Example: Bank Mandiri A/N Aisha Project Management - Acc: 1234567890"
+                        />
+                    </div>
                 </div>
 
                 {/* Footer Actions */}

@@ -8,10 +8,24 @@ interface ChatInputProps {
 }
 
 export default function ChatInput({ onSend, placeholder = "Type a message...", isDisabled }: ChatInputProps) {
-    const [content, setContent] = useState('');
+    const [content, setContent] = useState(() => {
+        const draft = sessionStorage.getItem('chat_draft_message');
+        if (draft) {
+            sessionStorage.removeItem('chat_draft_message');
+            return draft;
+        }
+        return '';
+    });
     const [image, setImage] = useState<File | null>(null);
     const [preview, setPreview] = useState<string | null>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
+
+    React.useEffect(() => {
+        if (content && inputRef.current) {
+            inputRef.current.style.height = 'auto';
+            inputRef.current.style.height = `${Math.min(inputRef.current.scrollHeight, 120)}px`;
+        }
+    }, [content]);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleSend = (e?: React.FormEvent) => {

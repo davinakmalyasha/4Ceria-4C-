@@ -42,7 +42,16 @@ class BidCalculationService
             case 'sqm':
                 // priceInput is treated as rate per sqm
                 $dimensions = is_array($project->project_dimensions) ? $project->project_dimensions : json_decode($project->project_dimensions, true);
-                $area = (float) ($dimensions['building_area'] ?? $dimensions['land_area'] ?? 1);
+                $area = 1.0;
+                if (!empty($dimensions)) {
+                    $possibleKeys = ['building_area', 'building_size', 'renovation_area', 'area_size', 'land_area', 'land_size'];
+                    foreach ($possibleKeys as $key) {
+                        if (isset($dimensions[$key]) && (float)$dimensions[$key] > 0) {
+                            $area = (float)$dimensions[$key];
+                            break;
+                        }
+                    }
+                }
                 $calculatedTotal = $priceInput * $area;
                 $quantity = $area;
                 $unitPrice = $priceInput;

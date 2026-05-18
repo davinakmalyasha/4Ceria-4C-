@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShieldCheck, Lock, FileText } from 'lucide-react';
+import { CONSTRUCTION_SUB_ROLES, ConstructionSubRoleKey } from '../../constants/ConstructionSubRolePresets';
 import { ErrorBoundary } from '../Common/ErrorBoundary';
 import { Phase, PhaseKey, PHASE_ROLE_MAP, getCategoryPhaseLabel } from '../../types/phase.types';
 import PhaseAssignedPro from './Phases/PhaseAssignedPro';
@@ -8,14 +9,16 @@ import PhaseBidsList from './Phases/PhaseBidsList';
 import { ProjectBidForm } from './Details/ProjectBidForm';
 import StructuralWorkspace from './Phases/StructuralWorkspace';
 import MepWorkspace from './Phases/MepWorkspace';
+import InteriorWorkspace from './Phases/InteriorWorkspace';
 import PMWorkspace from './Phases/PMWorkspace';
 import FinalHandover from './Phases/FinalHandover';
 import SpecialistBiddingBoard from './Phases/SpecialistBiddingBoard';
 import PhaseInitiationPanel from './Phases/PhaseInitiationPanel';
 import EngineeringManualLogs from './Phases/EngineeringManualLogs';
 import TechnicalResourcing from './Phases/TechnicalResourcing';
+import ConstructionResourcing from './Phases/ConstructionResourcing';
 import { BidReviewCard } from './Phases/BidReviewCard';
-import { MessageCircle, UserCheck, ArrowRight, HardHat, Activity, Pencil, Wrench } from 'lucide-react';
+import { MessageCircle, UserCheck, ArrowRight, HardHat, Activity, Pencil, Wrench, Sofa } from 'lucide-react';
 import axios from 'axios';
 import { useToast } from '../../context/ToastContext';
 import StickyNotesLayer from './Phases/StickyNotesLayer';
@@ -40,14 +43,22 @@ export default function PhaseContent({
     onSwitchTab 
 }: PhaseContentProps) {
     const { showToast } = useToast();
-    const [engineeringSubTab, setEngineeringSubTab] = React.useState<'architecture' | 'structural' | 'mep'>(
+    const [engineeringSubTab, setEngineeringSubTab] = React.useState<'architecture' | 'structural' | 'mep' | 'interior'>(
         phase.key === 'technical' ? 'structural' : 'architecture'
     );
+    const [constructionSubTab, setConstructionSubTab] = React.useState<ConstructionSubRoleKey>('general');
 
     if (!phase) return null;
 
     const isStructuralHired = project.structural_id && (user?.structural_engineer?.id === project.structural_id || user?.id === project.structural_engineer?.user?.id);
     const isMEPHired = project.mep_id && (user?.mep_engineer?.id === project.mep_id || user?.id === project.mep_engineer?.user?.id);
+    const isInteriorHired = project.selected_interior_id && (
+        user?.interior_profile?.id === project.selected_interior_id || 
+        user?.id === project.interior?.user_id || 
+        user?.id === project.interior?.user?.id ||
+        user?.id === project.interior_profile?.user_id || 
+        user?.id === project.interior_profile?.user?.id
+    );
 
     if (!project) {
         return (
@@ -83,19 +94,33 @@ export default function PhaseContent({
 
 
     // Sub-phase adjusted variables
-    const currentConfig = (phase.key === 'design' || phase.key === 'technical') 
+    const isBuildPhase = phase.key === 'build';
+    const isDesignPhase = phase.key === 'design' || phase.key === 'technical';
+
+    const currentConfig = isDesignPhase
         ? (engineeringSubTab === 'architecture' ? PHASE_ROLE_MAP['design'] : 
            (engineeringSubTab === 'structural' ? PHASE_ROLE_MAP['technical'] : 
-            { bidKey: 'bids_mep', selectedKey: 'mep_id', profileKey: 'mep' }))
-        : config;
+            (engineeringSubTab === 'mep' ? { bidKey: 'bids_mep', selectedKey: 'mep_id', profileKey: 'mep' } : 
+             PHASE_ROLE_MAP['interior'])))
+        : isBuildPhase && constructionSubTab !== 'general'
+            ? { bidKey: '', selectedKey: '', profileKey: 'kontraktor' }
+            : config;
     
-    const currentRoleKey = (phase.key === 'design' || phase.key === 'technical')
-        ? (engineeringSubTab === 'architecture' ? 'arsitek' : (engineeringSubTab === 'structural' ? 'structural' : 'mep'))
-        : roleKey;
+    const currentRoleKey = isDesignPhase
+        ? (engineeringSubTab === 'architecture' ? 'arsitek' : 
+           (engineeringSubTab === 'structural' ? 'structural' : 
+            (engineeringSubTab === 'mep' ? 'mep' : 'interior')))
+        : isBuildPhase && constructionSubTab !== 'general'
+            ? constructionSubTab
+            : roleKey;
 
-    const currentBids = (phase.key === 'design' || phase.key === 'technical')
-        ? (engineeringSubTab === 'architecture' ? project?.bids_arsitek : (engineeringSubTab === 'structural' ? project?.bids_structural : project?.bids_mep))
-        : bids;
+    const currentBids = isDesignPhase
+        ? (engineeringSubTab === 'architecture' ? project?.bids_arsitek : 
+           (engineeringSubTab === 'structural' ? project?.bids_structural : 
+            (engineeringSubTab === 'mep' ? project?.bids_mep : project?.bids_interior)))
+        : isBuildPhase && constructionSubTab !== 'general'
+            ? [] // Sub-contractors use sub_professionals, not bidding board
+            : bids;
 
     const acceptedBid = React.useMemo(() => {
         if (!currentBids) return null;
@@ -123,9 +148,37 @@ export default function PhaseContent({
 
     const hasAlreadyBid = project?.has_submitted_bid || !!userBid;
 
-    const currentHasPro = (phase.key === 'design' || phase.key === 'technical')
-        ? (engineeringSubTab === 'architecture' ? !!project.selected_arsitek_id : (engineeringSubTab === 'structural' ? (!!project.structural_id || !!acceptedBid) : (!!project.mep_id || !!acceptedBid)))
-        : (hasPro || !!acceptedBid);
+    const activeSubTab = isBuildPhase && constructionSubTab !== 'general' ? constructionSubTab : engineeringSubTab;
+
+    const activeSubPro = React.useMemo(() => {
+        if (!project?.sub_professionals || !activeSubTab) return null;
+        return project.sub_professionals.find((s: any) => 
+            s.sub_role === activeSubTab && s.status === 'active'
+        );
+    }, [project?.sub_professionals, activeSubTab]);
+
+    const hasDirectResourcing = React.useMemo(() => {
+        if (!project?.sub_professionals || !activeSubTab) return false;
+        return project.sub_professionals.some((s: any) => 
+            s.sub_role === activeSubTab && ['invited', 'accepted', 'interviewing', 'recommended', 'active'].includes(s.status)
+        );
+    }, [project?.sub_professionals, activeSubTab]);
+
+    const isInvitedSpecialistForTab = React.useMemo(() => {
+        if (!project?.sub_professionals || !activeSubTab || !user) return false;
+        return project.sub_professionals.some((s: any) => 
+            s.sub_role === activeSubTab && s.user_id === user.id && s.status === 'invited'
+        );
+    }, [project?.sub_professionals, activeSubTab, user]);
+
+    const currentHasPro = isDesignPhase
+        ? (engineeringSubTab === 'architecture' ? !!project.selected_arsitek_id : 
+           (engineeringSubTab === 'structural' ? (!!project.structural_id || !!acceptedBid || !!activeSubPro) : 
+            (engineeringSubTab === 'mep' ? (!!project.mep_id || !!acceptedBid || !!activeSubPro) : 
+             (!!project.selected_interior_id || !!acceptedBid || !!activeSubPro))))
+        : isBuildPhase && constructionSubTab !== 'general'
+            ? !!activeSubPro
+            : (hasPro || !!acceptedBid || !!activeSubPro);
 
     const currentIsMatchingPro = (user?.role_type === currentRoleKey);
 
@@ -144,9 +197,45 @@ export default function PhaseContent({
             if (engineeringSubTab === 'architecture') return 'design';
             if (engineeringSubTab === 'structural') return 'structural';
             if (engineeringSubTab === 'mep') return 'mep';
+            if (engineeringSubTab === 'interior') return 'interior';
+        }
+        if (isBuildPhase && constructionSubTab !== 'general') {
+            return `build_${constructionSubTab}`;
         }
         return phase.key;
-    }, [phase.key, engineeringSubTab]);
+    }, [phase.key, engineeringSubTab, isBuildPhase, constructionSubTab]);
+
+    // Calculate dynamic notification counts for specialists tagged on briefing requirements
+    const badgeCounts = React.useMemo(() => {
+        const counts = {
+            architecture: 0,
+            structural: 0,
+            mep: 0,
+            interior: 0
+        };
+
+        const requirements = project.design_details?.requirements || [];
+
+        requirements.forEach((req: any) => {
+            if (!req.tagged_role) return;
+
+            const isTaggedRole = req.tagged_role;
+            if (['structural', 'mep', 'interior'].includes(isTaggedRole)) {
+                // Count a notification if the specialist role is tagged and the user has not written feedback yet
+                const hasReplied = req.feedback?.some((f: any) => 
+                    f.author_role === isTaggedRole || f.author_id === user?.id
+                );
+
+                if (!hasReplied) {
+                    if (isTaggedRole === 'structural') counts.structural += 1;
+                    if (isTaggedRole === 'mep') counts.mep += 1;
+                    if (isTaggedRole === 'interior') counts.interior += 1;
+                }
+            }
+        });
+
+        return counts;
+    }, [project.design_details?.requirements, user?.id]);
 
     return (
         <AnimatePresence mode="wait">
@@ -205,25 +294,67 @@ export default function PhaseContent({
                     <div className="flex items-center gap-2 p-1 bg-slate-50 rounded-2xl w-fit">
                         <button 
                             onClick={() => setEngineeringSubTab('architecture')}
-                            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${engineeringSubTab === 'architecture' ? 'bg-white text-slate-900 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                            className={`relative flex items-center gap-2 px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${engineeringSubTab === 'architecture' ? 'bg-white text-slate-900 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
                         >
                             <Pencil size={14} />
                             Architecture
                         </button>
                         <button 
                             onClick={() => setEngineeringSubTab('structural')}
-                            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${engineeringSubTab === 'structural' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                            className={`relative flex items-center gap-2 px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${engineeringSubTab === 'structural' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
                         >
                             <HardHat size={14} />
                             Structural
+                            {user?.role_type === 'structural' && badgeCounts.structural > 0 && (
+                                <span className="absolute -top-1.5 -right-1.5 bg-indigo-500 text-white font-black text-[8px] h-4 w-4 rounded-full flex items-center justify-center border border-white shadow-lg animate-pulse">
+                                    {badgeCounts.structural}
+                                </span>
+                            )}
                         </button>
                         <button 
                             onClick={() => setEngineeringSubTab('mep')}
-                            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${engineeringSubTab === 'mep' ? 'bg-white text-amber-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                            className={`relative flex items-center gap-2 px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${engineeringSubTab === 'mep' ? 'bg-white text-amber-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
                         >
                             <Wrench size={14} />
                             MEP
+                            {user?.role_type === 'mep' && badgeCounts.mep > 0 && (
+                                <span className="absolute -top-1.5 -right-1.5 bg-amber-500 text-white font-black text-[8px] h-4 w-4 rounded-full flex items-center justify-center border border-white shadow-lg animate-pulse">
+                                    {badgeCounts.mep}
+                                </span>
+                            )}
                         </button>
+                        <button 
+                            onClick={() => setEngineeringSubTab('interior')}
+                            className={`relative flex items-center gap-2 px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${engineeringSubTab === 'interior' ? 'bg-white text-rose-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                        >
+                            <Sofa size={14} />
+                            Interior
+                            {user?.role_type === 'interior' && badgeCounts.interior > 0 && (
+                                <span className="absolute -top-1.5 -right-1.5 bg-rose-500 text-white font-black text-[8px] h-4 w-4 rounded-full flex items-center justify-center border border-white shadow-lg animate-pulse">
+                                    {badgeCounts.interior}
+                                </span>
+                            )}
+                        </button>
+                    </div>
+                )}
+
+                {/* Construction Sub-Phase Navigator (Build Phase) */}
+                {isBuildPhase && (
+                    <div className="flex items-center gap-1.5 p-1 bg-slate-50 rounded-2xl w-fit flex-wrap">
+                        {CONSTRUCTION_SUB_ROLES.map((role) => {
+                            const Icon = role.icon;
+                            const isActive = constructionSubTab === role.key;
+                            return (
+                                <button 
+                                    key={role.key}
+                                    onClick={() => setConstructionSubTab(role.key)}
+                                    className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${isActive ? role.activeClass : 'text-gray-400 hover:text-gray-600'}`}
+                                >
+                                    <Icon size={14} />
+                                    {role.label.split(' ')[0]}
+                                </button>
+                            );
+                        })}
                     </div>
                 )}
 
@@ -251,48 +382,6 @@ export default function PhaseContent({
                     </div>
                 )}
 
-                {/* Regulatory Gate: Land Verification (AJB) — only for new_build and architecture subtab */}
-                {phase.key === 'design' && project?.project_category === 'new_build' && engineeringSubTab === 'architecture' && (() => {
-                    const isLandApproved = project?.milestones?.some((m: any) => 
-                        (m.content?.req_id === 'land_verification' || 
-                         m.title.toUpperCase().includes('AJB') || 
-                         m.title.toUpperCase().includes('LAND VERIFICATION')) && 
-                        m.approval_status === 'approved'
-                    );
-
-                    if (!isLandApproved) {
-                        const canOverride = user?.role_type === 'project_manager' || user?.id === project?.user_id;
-                        return (
-                            <div className="bg-amber-50 border-2 border-amber-100 rounded-[2rem] p-8 text-center space-y-4">
-                                <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center mx-auto shadow-sm">
-                                    <ShieldCheck size={32} />
-                                </div>
-                                <div className="space-y-1">
-                                    <h4 className="text-lg font-black text-amber-900 uppercase tracking-tight">Land Verification Required</h4>
-                                    <p className="text-sm text-amber-700 font-medium max-w-md mx-auto">
-                                        Regulatory safety protocols require the <span className="font-black underline">AJB (Land Deed)</span> to be verified by a Notary and the PM before Design Work begins.
-                                    </p>
-                                </div>
-                                {!canOverride && (
-                                    <div className="pt-4">
-                                        <button 
-                                            onClick={() => {
-                                                // Try to switch to the Legalities tab if it exists in the timeline
-                                                const legalTab = document.querySelector<HTMLButtonElement>('button[data-phase-key="legal"]');
-                                                if (legalTab) legalTab.click();
-                                                else showToast('Please visit the Legalities phase to upload documents.', 'info');
-                                            }}
-                                            className="px-6 py-3 bg-amber-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-amber-700 transition-all shadow-lg"
-                                        >
-                                            Check Legal Progress
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                        );
-                    }
-                    return null;
-                })()}
 
                 {/* Regulatory Gate: PBG Permit — only for new_build and structural renovation */}
                 {phase.key === 'build' && ['new_build', 'renovation'].includes(project?.project_category) && (() => {
@@ -374,8 +463,8 @@ export default function PhaseContent({
                                 ) : (
                                     <PhaseInitiationPanel 
                                         projectId={project.id} 
-                                        phaseKey={phase.key} 
-                                        phaseLabel={phase.label} 
+                                        phaseKey={engineeringSubTab === 'interior' ? 'interior' : phase.key} 
+                                        phaseLabel={engineeringSubTab === 'interior' ? 'Interior' : phase.label} 
                                         onRefresh={onRefresh} 
                                         project={project}
                                     />
@@ -387,11 +476,11 @@ export default function PhaseContent({
                         {(currentHasPro || isMaterialsPhase || isPublished || !currentRoleKey || isSpecialistWithBid) && (
                             <>
                                 {/* Architecture & Built Phase Pro Workspace */}
-                                {(currentHasPro || isMaterialsPhase || (phase.key === 'interior' && user?.role_type === 'kontraktor' && project.selected_kontraktor_id === user?.id)) && engineeringSubTab === 'architecture' && (
+                                {(currentHasPro || isMaterialsPhase || (phase.key === 'interior' && user?.role_type === 'kontraktor' && project.selected_kontraktor_id === user?.id)) && (engineeringSubTab === 'architecture') && (!isBuildPhase || constructionSubTab === 'general') && (
                                     <ErrorBoundary name="PhaseAssignedPro">
                                         <PhaseAssignedPro 
                                             project={project} 
-                                            phaseKey={phase.key} 
+                                            phaseKey={engineeringSubTab === 'interior' ? 'interior' : phase.key} 
                                             activeSubRole={(phase.key === 'design' || phase.key === 'technical') ? engineeringSubTab : undefined}
                                             user={user}
                                             config={currentConfig} 
@@ -407,13 +496,27 @@ export default function PhaseContent({
                                     </ErrorBoundary>
                                 )}
 
-                                {/* Technical Resourcing (Structural / MEP) directly managed from Design Phase Tabs */}
-                                {(phase.key === 'design' || phase.key === 'technical') && (engineeringSubTab === 'structural' || engineeringSubTab === 'mep') && (
+                                {/* Technical Resourcing (Structural / MEP / Interior) directly managed from Design Phase Tabs */}
+                                {(phase.key === 'design' || phase.key === 'technical') && (engineeringSubTab === 'structural' || engineeringSubTab === 'mep' || engineeringSubTab === 'interior') && (
                                     <ErrorBoundary name="TechnicalResourcing">
                                         {engineeringSubTab === 'structural' && user?.role_type === 'structural' && isStructuralHired ? (
                                             <StructuralWorkspace project={project} user={user} onRefresh={onRefresh} />
                                         ) : engineeringSubTab === 'mep' && user?.role_type === 'mep' && isMEPHired ? (
                                             <MepWorkspace project={project} user={user} onRefresh={onRefresh} currentPhase={phase.key} />
+                                        ) : engineeringSubTab === 'interior' && user?.role_type === 'interior' && isInteriorHired ? (
+                                            <InteriorWorkspace project={project} user={user} onRefresh={onRefresh} />
+                                        ) : isInvitedSpecialistForTab ? (
+                                            <div className="bg-amber-50 border border-amber-200 rounded-[2rem] p-10 text-center space-y-4">
+                                                <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center mx-auto shadow-sm">
+                                                    <Sofa size={32} />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <h4 className="text-lg font-black text-amber-900 uppercase tracking-tight">Specialist Invitation Pending</h4>
+                                                    <p className="text-sm text-amber-700 font-medium max-w-md mx-auto leading-relaxed">
+                                                        You have been directly invited to this project as the Interior Designer. Please review and **Accept the Invitation** via the banner at the top of the page to activate your design workspace and begin collaboration.
+                                                    </p>
+                                                </div>
+                                            </div>
                                         ) : (
                                             <TechnicalResourcing 
                                                 project={project} 
@@ -422,43 +525,37 @@ export default function PhaseContent({
                                                 onRefresh={onRefresh} 
                                                 onShortlist={onShortlist}
                                                 onRecommend={onRecommend}
-                                                activeTab={engineeringSubTab as 'structural' | 'mep'}
+                                                activeTab={engineeringSubTab as 'structural' | 'mep' | 'interior'}
                                             />
                                         )}
                                     </ErrorBoundary>
                                 )}
 
-                                {/* Manual Engineering Logs for Companies (Internal Team) */}
-                                {phase.key === 'design' && engineeringSubTab === 'architecture' && !project.is_structural_hired_4c && !project.is_mep_hired_4c && (
-                                    <div className="mt-12 pt-12 border-t-4 border-slate-50">
-                                        <div className="flex items-center gap-3 mb-8">
-                                            <div className="w-10 h-10 bg-slate-900 text-white rounded-xl flex items-center justify-center">
-                                                <Activity size={20} />
-                                            </div>
-                                            <div>
-                                                <h4 className="text-lg font-black text-slate-900 uppercase tracking-tight">Technical Coordination</h4>
-                                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Internal Engineering Management</p>
-                                            </div>
-                                        </div>
-                                        <EngineeringManualLogs 
-                                            project={project} 
-                                            currentUser={user} 
-                                            onRefresh={onRefresh} 
+
+                                {/* Construction Sub-Contractor Resourcing (Build Phase Sub-Tabs) */}
+                                {isBuildPhase && constructionSubTab !== 'general' && (
+                                    <ErrorBoundary name="ConstructionResourcing">
+                                        <ConstructionResourcing
+                                            project={project}
+                                            user={user}
+                                            activeSubRole={constructionSubTab}
+                                            onRefresh={onRefresh}
+                                            isContractor={user?.role_type === 'kontraktor' && project.selected_kontraktor_id === user?.id}
                                         />
-                                    </div>
+                                    </ErrorBoundary>
                                 )}
 
                                 {!currentHasPro && canManage && currentBids?.length > 0 && (!project.pm_id || isHiredPM || phase.key === 'management' || engineeringSubTab !== 'architecture') && (
                                     <PhaseBidsList 
                                         bids={currentBids} 
-                                        phaseKey={engineeringSubTab !== 'architecture' ? 'engineering' : phase.key} 
+                                        phaseKey={engineeringSubTab === 'interior' ? 'interior' : (engineeringSubTab !== 'architecture' ? 'engineering' : phase.key)} 
                                         projectId={project.id} 
                                         onRefresh={onRefresh} 
                                         isPMBidding={phase.key === 'management'}
                                         readOnly={isOwner && !!project.pm_id && !isHiredPM}
                                         onOpenChat={onOpenChat}
                                         projectContext={project}
-                                        overrideType={engineeringSubTab !== 'architecture' ? engineeringSubTab : undefined}
+                                        overrideType={engineeringSubTab !== 'architecture' && engineeringSubTab !== 'interior' ? engineeringSubTab : undefined}
                                         onRecommend={onRecommend}
                                         onSwitchTab={onSwitchTab}
                                     />
@@ -470,7 +567,7 @@ export default function PhaseContent({
                                         <p className="text-[10px] uppercase tracking-widest mt-1">Visit the Overview tab to see global progress</p>
                                     </div>
                                 )}
-                                {isHiredPM && (
+                                {isHiredPM && phase.key !== 'design' && phase.key !== 'materials' && phase.key !== 'build' && (
                                     <div className="mt-8 border-t border-gray-100 pt-8">
                                         <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">Operations Directive (PM Only)</h4>
                                         <ErrorBoundary name="PMWorkspace">
@@ -478,14 +575,20 @@ export default function PhaseContent({
                                         </ErrorBoundary>
                                     </div>
                                 )}
-                                {!currentHasPro && (!currentBids || currentBids.length === 0) && (
+                                {!isMaterialsPhase && !currentHasPro && (!currentBids || currentBids.length === 0) && !hasDirectResourcing && (
                                     <div className="bg-gray-50 border border-dashed border-gray-200 rounded-2xl p-8 text-center text-gray-400">
                                         <p className="font-black text-sm uppercase tracking-widest">Waiting for Proposals</p>
-                                        <p className="text-[10px] mt-1">This project is visible to {engineeringSubTab === 'architecture' ? 'Architectural' : (engineeringSubTab === 'structural' ? 'Structural' : 'MEP')} professionals.</p>
+                                        <p className="text-[10px] mt-1">
+                                            This project is visible to {
+                                                engineeringSubTab === 'architecture' ? 'Architectural' : 
+                                                (engineeringSubTab === 'structural' ? 'Structural' : 
+                                                 (engineeringSubTab === 'mep' ? 'MEP' : 'Interior'))
+                                            } professionals.
+                                        </p>
                                     </div>
                                 )}
 
-                                {!currentHasPro && currentIsMatchingPro && !hasAlreadyBid && (
+                                {!currentHasPro && currentIsMatchingPro && !hasAlreadyBid && !hasDirectResourcing && (
                                     <div className="mt-8">
                                         <ProjectBidForm 
                                             project={project} 

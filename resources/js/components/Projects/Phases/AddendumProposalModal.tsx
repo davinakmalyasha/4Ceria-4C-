@@ -26,7 +26,7 @@ export default function AddendumProposalModal({
     const [title, setTitle] = useState('');
     const [amount, setAmount] = useState('');
     const [description, setDescription] = useState('');
-    const [specialistType, setSpecialistType] = useState<'structural' | 'mep'>('structural');
+    const [specialistType, setSpecialistType] = useState<'structural' | 'mep' | 'interior'>('structural');
     const [selectedTeamMemberId, setSelectedTeamMemberId] = useState('');
     const [attachment, setAttachment] = useState<File | null>(null);
 
@@ -42,8 +42,10 @@ export default function AddendumProposalModal({
             }
             
             // Auto-select available role or default to extra_fee if all filled
-            if (project.structural_id && project.mep_id) {
+            if (project.structural_id && project.mep_id && project.selected_interior_id) {
                 setType('extra_fee');
+            } else if (project.structural_id && project.mep_id && !project.selected_interior_id) {
+                setSpecialistType('interior');
             } else if (project.structural_id && !project.mep_id) {
                 setSpecialistType('mep');
             } else if (!project.structural_id) {
@@ -80,7 +82,12 @@ export default function AddendumProposalModal({
 
             if (type === 'specialist_assignment') {
                 formData.append('specialist_type', specialistType);
-                formData.append('team_member_id', selectedTeamMemberId);
+                if (selectedTeamMemberId.startsWith('firm:')) {
+                    const cleanUserId = selectedTeamMemberId.replace('firm:', '');
+                    formData.append('assigned_user_id', cleanUserId);
+                } else {
+                    formData.append('team_member_id', selectedTeamMemberId);
+                }
                 if (attachment) {
                     formData.append('attachment', attachment);
                 }
@@ -171,6 +178,9 @@ export default function AddendumProposalModal({
                                         </option>
                                         <option value="mep" disabled={!!project.mep_id}>
                                             MEP Engineer {project.mep_id ? '(Filled 1/1)' : ''}
+                                        </option>
+                                        <option value="interior" disabled={!!project.selected_interior_id}>
+                                            Interior Designer {project.selected_interior_id ? '(Filled 1/1)' : ''}
                                         </option>
                                     </select>
                                 </div>

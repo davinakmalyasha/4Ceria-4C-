@@ -10,10 +10,8 @@ import {
 import axios from 'axios';
 import { useToast } from '../../../context/ToastContext';
 import ProjectRequirements from '../ProjectRequirements';
-import PMQualityControl from '../PMWorkspace/PMQualityControl';
 import PMReports from '../PMWorkspace/PMReports';
 import PMSchedule from '../PMWorkspace/PMSchedule';
-import PMProcurement from '../PMWorkspace/PMProcurement';
 
 interface PMWorkspaceProps {
     project: any;
@@ -24,7 +22,7 @@ interface PMWorkspaceProps {
 
 export default function PMWorkspace({ project, user, onRefresh, phaseKey }: PMWorkspaceProps) {
     const { showToast } = useToast();
-    const [activeSubTab, setActiveSubTab] = useState<'dashboard' | 'qa' | 'reports' | 'schedule' | 'logistics'>('dashboard');
+    const [activeSubTab, setActiveSubTab] = useState<'dashboard' | 'reports' | 'schedule'>('dashboard');
     const [reportFilter, setReportFilter] = useState<string | undefined>(undefined);
     
     if (!project || !user) {
@@ -134,17 +132,7 @@ export default function PMWorkspace({ project, user, onRefresh, phaseKey }: PMWo
                         <LayoutDashboard size={14} />
                         Dashboard
                     </button>
-                    <button
-                        onClick={() => setActiveSubTab('qa')}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                            activeSubTab === 'qa' 
-                            ? 'bg-white text-slate-900 shadow-sm border border-slate-100' 
-                            : 'text-slate-400 hover:text-slate-600'
-                        }`}
-                    >
-                        <ShieldCheck size={14} />
-                        QA/QC
-                    </button>
+
                     <button
                         onClick={() => setActiveSubTab('reports')}
                         className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
@@ -167,17 +155,7 @@ export default function PMWorkspace({ project, user, onRefresh, phaseKey }: PMWo
                         <CalendarRange size={14} />
                         Schedule
                     </button>
-                    <button
-                        onClick={() => setActiveSubTab('logistics')}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                            activeSubTab === 'logistics' 
-                            ? 'bg-white text-slate-900 shadow-sm border border-slate-100' 
-                            : 'text-slate-400 hover:text-slate-600'
-                        }`}
-                    >
-                        <Box size={14} />
-                        Logistics
-                    </button>
+
                 </div>
             )}
 
@@ -351,51 +329,59 @@ export default function PMWorkspace({ project, user, onRefresh, phaseKey }: PMWo
                     </div>
 
                     {/* Procurement / BoM Integration */}
-                    {showBoM && (
-                        <div className="space-y-4">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <h3 className="text-lg font-black text-gray-900">Procurement & Resources</h3>
-                                    <p className="text-sm text-gray-400">Bill of Materials and supply tracking</p>
+                    {showBoM && (() => {
+                        const isOwner = user?.id === project?.user_id;
+                        const isPM = user?.role_type === 'project_manager' && project?.pm_id === user?.id;
+                        const isHiredContractor = user?.role_type === 'kontraktor' && project?.selected_kontraktor_id === user?.id;
+                        const canMutateBOM = isOwner || isPM || isHiredContractor;
+                        
+                        return (
+                            <div className="space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <h3 className="text-lg font-black text-gray-900">Procurement & Resources</h3>
+                                        <p className="text-sm text-gray-400">Bill of Materials and supply tracking</p>
+                                    </div>
+                                </div>
+                                
+                                <div className="bg-white rounded-3xl border border-gray-100 p-1 shadow-sm overflow-hidden">
+                                    <ProjectRequirements 
+                                        project={project} 
+                                        onUpdate={onRefresh}
+                                        canMutate={canMutateBOM}
+                                    />
                                 </div>
                             </div>
-                            
-                            <div className="bg-white rounded-3xl border border-gray-100 p-1 shadow-sm overflow-hidden">
-                                <ProjectRequirements 
-                                    project={project} 
-                                    user={user}
-                                    hideInventoryActions={true} 
-                                />
-                            </div>
-                        </div>
-                    )}
+                        );
+                    })()}
 
                     {/* PM Workflow Notes */}
-                    <div className="bg-neutral-900 rounded-[2.5rem] p-8 text-white relative overflow-hidden shadow-2xl">
-                        <div className="relative z-10 space-y-8">
-                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                                <div>
-                                    <h3 className="text-xl font-black mb-2 flex items-center gap-2">
-                                        <LayoutDashboard size={24} className="text-red-500" />
-                                        Operational Directive
-                                    </h3>
-                                    <p className="text-neutral-400 text-sm max-w-xl leading-relaxed">
-                                        As the Project Manager, you have full oversight across all professional tracks. 
-                                        Use the **Budget** tab for financial audits and the **QA** tab for vendor coordination.
-                                    </p>
+                    {phaseKey !== 'materials' && (
+                        <div className="bg-neutral-900 rounded-[2.5rem] p-8 text-white relative overflow-hidden shadow-2xl">
+                            <div className="relative z-10 space-y-8">
+                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                                    <div>
+                                        <h3 className="text-xl font-black mb-2 flex items-center gap-2">
+                                            <LayoutDashboard size={24} className="text-red-500" />
+                                            Operational Directive
+                                        </h3>
+                                        <p className="text-neutral-400 text-sm max-w-xl leading-relaxed">
+                                            As the Project Manager, you have full oversight across all professional tracks. 
+                                            Use the **Budget** tab for financial audits and the **Reports** tab for project coordination.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="pt-4 border-t border-white/5 text-[10px] text-neutral-500 font-bold uppercase tracking-[0.2em]">
+                                    Project Governance Protocol v4.0.2
                                 </div>
                             </div>
-
-                            <div className="pt-4 border-t border-white/5 text-[10px] text-neutral-500 font-bold uppercase tracking-[0.2em]">
-                                Project Governance Protocol v4.0.2
-                            </div>
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-red-500/10 rounded-full -mr-32 -mt-32 blur-3xl"></div>
                         </div>
-                        <div className="absolute top-0 right-0 w-64 h-64 bg-red-500/10 rounded-full -mr-32 -mt-32 blur-3xl"></div>
-                    </div>
+                    )}
                 </div>
             ) : (
                 <div className="animate-in slide-in-from-bottom-4 duration-500">
-                    {activeSubTab === 'qa' && <PMQualityControl project={project} user={user} onRefresh={onRefresh} />}
                     {activeSubTab === 'reports' && (
                         <PMReports 
                             project={project} 
@@ -416,7 +402,6 @@ export default function PMWorkspace({ project, user, onRefresh, phaseKey }: PMWo
                             }}
                         />
                     )}
-                    {activeSubTab === 'logistics' && <PMProcurement project={project} user={user} />}
                 </div>
             )}
         </div>

@@ -69,8 +69,9 @@ export default function DeliverablesUploadCard({
     const hasSubmittableFiles = deliverables.some(doc => doc.status === 'uploaded' || doc.status === 'revision_requested');
     const hasUnderReviewFiles = deliverables.some(doc => doc.status === 'under_review');
     
-    // Main upload button is only locked if handoff docs are missing or if a review is currently pending
-    const isLockedState = !hasHandoffDocs || hasUnderReviewFiles;
+    // Main upload button is only locked if a review is currently pending.
+    // We do not force-lock on missing handoff docs to prevent blocking real-life specialist workflows.
+    const isLockedState = hasUnderReviewFiles;
 
     // Group deliverables by parent to implement Version Control
     const parentDocs = deliverables.filter(d => !d.parent_id);

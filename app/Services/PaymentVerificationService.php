@@ -95,7 +95,21 @@ class PaymentVerificationService
                 }
             } elseif ($user->role_type === 'project_manager' && $project->pm_id === $user->id) {
                 $isAuthorized = true;
-            } elseif ($type === 'termin' || $type === 'addendum') {
+            } elseif ($type === 'addendum') {
+                // If it is a specialist request / assignment addendum, only the assigned specialist or the PM can verify it!
+                if (in_array($model->type, ['specialist_assignment', 'specialist_request']) && ($model->team_member_id || $model->assigned_user_id)) {
+                    if ($model->assigned_user_id && (int) $user->id === (int) $model->assigned_user_id) {
+                        $isAuthorized = true;
+                    } elseif ($user->role_type === 'project_manager' && $project->pm_id === $user->id) {
+                        $isAuthorized = true;
+                    }
+                } else {
+                    // Standard addendums: any professional (like lead architect / contractor) or PM who is not the owner
+                    if ($user->id !== $project->user_id) {
+                        $isAuthorized = true;
+                    }
+                }
+            } elseif ($type === 'termin') {
                 if ($user->id !== $project->user_id) {
                     $isAuthorized = true; 
                 }
@@ -184,33 +198,75 @@ class PaymentVerificationService
                 };
                 
                 // For Addendums of type specialist_assignment, we must finalize the assignment here
-                if ($type === 'addendum' && $model->type === 'specialist_assignment' && $model->team_member_id) {
-                    $teamMember = \App\Models\TeamMember::find($model->team_member_id);
-                    if ($teamMember) {
-                        $subRole = $model->specialist_type; // 'structural' or 'mep'
-                        
+                if ($type === 'addendum' && in_array($model->type, ['specialist_assignment', 'specialist_request']) && ($model->team_member_id || $model->assigned_user_id)) {
+                    $subRole = $model->specialist_type ?: $model->role_type; // 'structural', 'mep' or 'interior'
+                    $specialistUserId = null;
+                    $specialistName = '';
+
+                    if ($model->assigned_user_id) {
+                        $user = \App\Models\User::find($model->assigned_user_id);
+                        if ($user) {
+                            $specialistUserId = $user->id;
+                            $specialistName = $user->name;
+                        }
+                    } else {
+                        $teamMember = \App\Models\TeamMember::find($model->team_member_id);
+                        if ($teamMember) {
+                            $specialistName = $teamMember->name;
+                        }
+                    }
+
+                    if ($specialistName || $specialistUserId) {
+                        // Check if a record already exists
+                        $existingSub = \App\Models\ProjectSubProfessional::where('project_id', $project->id)
+                            ->where('sub_role', $subRole)
+                            ->first();
+
+                        // When payment is verified and paid, they are officially active/hired!
+                        $newStatus = 'active';
+                        $hiredAt = now();
+
                         // Create or Update SubProfessional record
-                        \App\Models\ProjectSubProfessional::updateOrCreate(
+                        $sub = \App\Models\ProjectSubProfessional::updateOrCreate(
                             [
                                 'project_id' => $project->id,
-                                'user_id' => $model->user_id, // The professional who proposed it
                                 'sub_role' => $subRole,
                             ],
                             [
-                                'parent_role' => $model->role_type,
+                                'user_id' => $specialistUserId,
+                                'parent_role' => ($model->user?->role_type === 'kontraktor') ? 'kontraktor' : 'arsitek',
                                 'assigned_by' => $model->user_id,
-                                'status' => 'active',
+                                'status' => $newStatus,
                                 'rate' => $model->amount,
-                                'lead_pro_notes' => "Assigned via Paid Addendum: {$teamMember->name}",
-                                'hired_at' => now(),
+                                'lead_pro_notes' => "Assigned via Paid Addendum: {$specialistName}",
+                                'hired_at' => $hiredAt,
+                                'accepted_at' => ($existingSub && $existingSub->accepted_at) ? $existingSub->accepted_at : now(),
                             ]
                         );
 
-                        // Update Project specialist link
+                        // Link to project main fields
                         if ($subRole === 'structural') {
-                            $project->update(['structural_id' => $model->team_member_id]);
+                            $struc = $specialistUserId ? \App\Models\StructuralEngineer::where('user_id', $specialistUserId)->first() : null;
+                            if ($struc) $project->update(['structural_id' => $struc->id]);
                         } elseif ($subRole === 'mep') {
-                            $project->update(['mep_id' => $model->team_member_id]);
+                            $mep = $specialistUserId ? \App\Models\MepEngineer::where('user_id', $specialistUserId)->first() : null;
+                            if ($mep) $project->update(['mep_id' => $mep->id]);
+                        } elseif ($subRole === 'interior') {
+                            $interior = $specialistUserId ? \App\Models\InteriorProfile::where('user_id', $specialistUserId)->first() : null;
+                            if ($interior) $project->update(['selected_interior_id' => $interior->id]);
+                        }
+
+                        if ($specialistUserId) {
+                            \App\Models\Notification::create([
+                                'user_id' => $specialistUserId,
+                                'type' => 'sub_professional_invite',
+                                'title' => 'New Sub-Professional Invitation',
+                                'body' => "You have been invited as a {$subRole} for \"{$project->title}\".",
+                                'data' => [
+                                    'project_id' => $project->id,
+                                    'sub_professional_id' => $sub->id,
+                                ],
+                            ]);
                         }
                     }
                 }

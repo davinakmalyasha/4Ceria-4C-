@@ -13,7 +13,7 @@ class BidKontraktor extends Model
     use HasFactory, HasNegotiationHistory;
 
     protected $fillable = [
-        'project_id', 'kontraktor_id', 'price', 'proposal', 'status',
+        'project_id', 'kontraktor_id', 'price', 'price_max', 'proposal', 'status',
         'estimated_duration', 'duration_unit', 'attachment_1', 'attachment_2', 'attachment_3',
         'construction_method', 'cost_breakdown', 'workforce_count', 'equipment_owned', 
         'warranty_months', 'payment_preference', 'payment_status', 'paid_at', 'scopes', 'deliverables',
@@ -31,6 +31,7 @@ class BidKontraktor extends Model
         'proposed_milestones' => 'array',
         'proposed_team' => 'array',
         'fee_agreed_at' => 'datetime',
+        'price_max' => 'decimal:2',
     ];
 
     public function offeredBy()

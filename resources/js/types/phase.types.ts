@@ -70,7 +70,7 @@ export const PHASE_CONFIG: Record<PhaseKey, Omit<Phase, 'status'>> = {
     },
 };
 
-export const PHASE_ORDER: PhaseKey[] = ['management', 'legal', 'technical', 'design', 'build', 'materials', 'interior', 'handover'];
+export const PHASE_ORDER: PhaseKey[] = ['management', 'legal', 'technical', 'design', 'materials', 'build', 'interior', 'handover'];
 
 export const PHASE_ROLE_MAP: Record<PhaseKey, { bidKey: string; selectedKey: string; profileKey: string }> = {
     management: { bidKey: 'bids_project_manager', selectedKey: 'pm_id',                 profileKey: 'project_manager' },
@@ -150,11 +150,18 @@ export function getProjectPhases(project: any | null, neededPhases?: string[] | 
             
             if (project) {
                 const config = PHASE_ROLE_MAP[key];
+                const hasHiredPro = 
+                    (config?.selectedKey && !!project[config.selectedKey]) ||
+                    (key === 'technical' && (!!project.structural_id || !!project.mep_id));
                 
                 // 1. Strict Completion: Only if explicitly marked in project data
                 if (completedPhases.includes(key)) {
                     status = 'completed';
                 } 
+                // 1.5 Professional hired implies phase is active/going
+                else if (hasHiredPro) {
+                    status = 'active';
+                }
                 // 2. Active Logic: Determine if the phase is the current focus
                 else if (!wantsPM || pmHired) {
                     // Handover unlocks when everything else is done

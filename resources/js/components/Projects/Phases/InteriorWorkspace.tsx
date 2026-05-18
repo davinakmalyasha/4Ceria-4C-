@@ -1,61 +1,60 @@
 import React from 'react';
-import { CheckCircle2, ShieldCheck, Clock, Send } from 'lucide-react';
+import { CheckCircle2, ShieldCheck, Clock, Send, Sofa } from 'lucide-react';
 import ArchitecturalHandoffCard from './ArchitecturalHandoffCard';
 import DeliverablesUploadCard from './DeliverablesUploadCard';
 import TechnicalMilestones from './TechnicalMilestones';
 import { useToast } from '../../../context/ToastContext';
 import axios from 'axios';
 
-interface StructuralWorkspaceProps {
+interface InteriorWorkspaceProps {
     project: any;
     user: any;
     onRefresh: () => void;
 }
 
-export default function StructuralWorkspace({ project, user, onRefresh }: StructuralWorkspaceProps) {
+export default function InteriorWorkspace({ project, user, onRefresh }: InteriorWorkspaceProps) {
     const { showToast } = useToast();
     const [isUploading, setIsUploading] = React.useState(false);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const currentUser = user;
     
-    const isStructural = user?.role_type === 'structural';
+    const isInterior = user?.role_type === 'interior';
     const isPM = user?.role_type === 'project_manager';
     const isArchitect = user?.role_type === 'arsitek';
     const isOwner = project.user_id === user?.id;
     const canReview = isPM || isOwner || isArchitect;
-    const isReadOnly = !isStructural && !canReview;
+    const isReadOnly = !isInterior && !canReview;
 
     const getDeepLink = (type: 'submit' | 'approve' | 'revise') => {
-        const url = `${window.location.origin}/dashboard?project_id=${project.id}&phase=structural`;
+        const url = `${window.location.origin}/dashboard?project_id=${project.id}&phase=interior`;
         const pm = project.project_manager || project.projectManager;
-        const structural = project.structural_engineer || project.structuralEngineer || project.structural;
+        const interior = project.interior || project.selected_interior;
         
         if (type === 'submit') {
             const phone = pm?.phone_number || pm?.no_telp || pm?.user?.phoneNumber?.[0]?.phone_number || '';
             const cleanPhone = phone.replace(/[^0-9]/g, '');
-            const msg = `Hi ${pm?.nama || 'PM'}, I have submitted the Structural Design for project "${project.title}". Please review it here: ${url}`;
+            const msg = `Hi ${pm?.nama || 'PM'}, I have submitted the Interior Design for project "${project.title}". Please review it here: ${url}`;
             return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`;
         } else if (type === 'approve') {
-            const phone = structural?.phone_number || structural?.no_telp || structural?.user?.phoneNumber?.[0]?.phone_number || '';
+            const phone = interior?.phone_number || interior?.no_telp || interior?.user?.phoneNumber?.[0]?.phone_number || '';
             const cleanPhone = phone.replace(/[^0-9]/g, '');
-            const msg = `Hi ${structural?.nama || structural?.name || 'Specialist'}, your Structural Design for project "${project.title}" has been approved! View it here: ${url}`;
+            const msg = `Hi ${interior?.nama || interior?.name || 'Specialist'}, your Interior Design for project "${project.title}" has been approved! View it here: ${url}`;
             return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`;
         } else {
-            const phone = structural?.phone_number || structural?.no_telp || structural?.user?.phoneNumber?.[0]?.phone_number || '';
+            const phone = interior?.phone_number || interior?.no_telp || interior?.user?.phoneNumber?.[0]?.phone_number || '';
             const cleanPhone = phone.replace(/[^0-9]/g, '');
-            const msg = `Hi ${structural?.nama || structural?.name || 'Specialist'}, revision requested for the Structural Design on project "${project.title}". Please check it here: ${url}`;
+            const msg = `Hi ${interior?.nama || interior?.name || 'Specialist'}, revision requested for the Interior Design on project "${project.title}". Please check it here: ${url}`;
             return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`;
         }
     };
 
-    const isDesignCompleted = !!project.design_completed_at;
-    const isApproved = !!project.structural_approved_at;
+    const isApproved = !!project.owner_interior_approved_at;
 
     const handoffDocs = (project.documents || []).filter(
-        (d: any) => d.category === 'technical_handoff' && d.target_role === 'structural'
+        (d: any) => d.category === 'technical_handoff' && d.target_role === 'interior'
     );
     const myDeliverables = (project.documents || []).filter(
-        (d: any) => d.category === 'structural_calc'
+        (d: any) => d.category === 'interior_design'
     );
 
     const hasPendingSubmission = myDeliverables.some((doc: any) => doc.status === 'under_review');
@@ -66,7 +65,7 @@ export default function StructuralWorkspace({ project, user, onRefresh }: Struct
 
         const formData = new FormData();
         formData.append('file', file);
-        formData.append('category', 'structural_calc');
+        formData.append('category', 'interior_design');
         formData.append('target_role', 'architect');
         if (parentId) {
             formData.append('parent_id', parentId.toString());
@@ -113,9 +112,9 @@ export default function StructuralWorkspace({ project, user, onRefresh }: Struct
         setIsSubmitting(true);
         try {
             await axios.post(`/projects/${project.id}/documents/submit-design`, {
-                role_type: 'structural'
+                role_type: 'interior'
             });
-            showToast('Structural Design submitted to PM & Architect!', 'success');
+            showToast('Interior Design submitted to PM & Architect!', 'success');
             onRefresh();
         } catch (error: any) {
             showToast(error.response?.data?.message || 'Submission failed.', 'error');
@@ -125,13 +124,13 @@ export default function StructuralWorkspace({ project, user, onRefresh }: Struct
     };
 
     const handleApproveDesign = async () => {
-        if (!window.confirm("Are you sure you want to approve this structural design integration?")) return;
+        if (!window.confirm("Are you sure you want to approve this interior design integration?")) return;
         setIsSubmitting(true);
         try {
             await axios.post(`/projects/${project.id}/documents/approve-design`, {
-                role_type: 'structural'
+                role_type: 'interior'
             });
-            showToast('Structural Design Integration approved!', 'success');
+            showToast('Interior Design Integration approved!', 'success');
             onRefresh();
         } catch (error: any) {
             showToast(error.response?.data?.message || 'Approval failed.', 'error');
@@ -141,7 +140,7 @@ export default function StructuralWorkspace({ project, user, onRefresh }: Struct
     };
 
     const handleReviseDesign = async () => {
-        const note = window.prompt("Enter revision instructions for the Structural Engineer:");
+        const note = window.prompt("Enter revision instructions for the Interior Designer:");
         if (note === null) return;
         if (!note.trim()) {
             showToast('Revision instructions are required.', 'error');
@@ -151,7 +150,7 @@ export default function StructuralWorkspace({ project, user, onRefresh }: Struct
         setIsSubmitting(true);
         try {
             await axios.post(`/projects/${project.id}/documents/revise-design`, {
-                role_type: 'structural',
+                role_type: 'interior',
                 note: note.trim()
             });
             showToast('Revision requested from Specialist.', 'success');
@@ -167,16 +166,16 @@ export default function StructuralWorkspace({ project, user, onRefresh }: Struct
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h3 className="text-xl font-black text-slate-900 tracking-tight">Structural Engineering Workspace</h3>
-                    <p className="text-sm font-medium text-slate-500 mt-1">Load calculations and structural integrity</p>
+                    <h3 className="text-xl font-black text-slate-900 tracking-tight">Interior Design Workspace</h3>
+                    <p className="text-sm font-medium text-slate-500 mt-1">Space planning, custom styling, and layout aesthetics</p>
                 </div>
                 {isApproved ? (
                     <span className="px-4 py-1.5 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
                         <CheckCircle2 size={14} /> Approved & Integrated
                     </span>
                 ) : (
-                    <span className="px-4 py-1.5 bg-indigo-100 text-indigo-700 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
-                        <ShieldCheck size={14} /> Design Phase Active
+                    <span className="px-4 py-1.5 bg-rose-100 text-rose-700 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+                        <Sofa size={14} /> Design Phase Active
                     </span>
                 )}
             </div>
@@ -186,12 +185,12 @@ export default function StructuralWorkspace({ project, user, onRefresh }: Struct
 
                 <DeliverablesUploadCard 
                     title="Your Deliverables"
-                    subtitle="Upload Structural Calculations"
+                    subtitle="Upload Interior Layouts & Renders"
                     deliverables={myDeliverables}
                     isUploading={isUploading}
                     isApproved={isApproved}
                     hasHandoffDocs={handoffDocs.length > 0}
-                    isSpecialist={isStructural || isArchitect}
+                    isSpecialist={isInterior || isArchitect}
                     isSubmitting={isSubmitting}
                     readOnly={isReadOnly}
                     onSubmitDesign={handleSubmitDesign}
@@ -210,7 +209,7 @@ export default function StructuralWorkspace({ project, user, onRefresh }: Struct
                             <div>
                                 <h5 className="text-xs font-black uppercase tracking-tight">Verified & Integrated</h5>
                                 <p className="text-[10px] text-emerald-700 font-bold uppercase tracking-wide mt-0.5">
-                                    Structural calculations are officially integrated into the master design blueprint.
+                                    Interior designs are officially integrated into the master design blueprint.
                                 </p>
                             </div>
                         </div>
@@ -231,7 +230,7 @@ export default function StructuralWorkspace({ project, user, onRefresh }: Struct
                                 </div>
                                 <div>
                                     <h5 className="text-xs font-black text-slate-950 uppercase tracking-tight">Design Review Pending</h5>
-                                    <p className="text-[10px] text-slate-500 font-bold uppercase mt-0.5 tracking-wider">A structural designer submitted calculations for integration</p>
+                                    <p className="text-[10px] text-slate-500 font-bold uppercase mt-0.5 tracking-wider">An interior designer submitted layout blueprints for integration</p>
                                 </div>
                             </div>
                             <div className="flex items-center gap-2 w-full md:w-auto">
@@ -261,7 +260,7 @@ export default function StructuralWorkspace({ project, user, onRefresh }: Struct
                             <div>
                                 <h5 className="text-xs font-black text-slate-800 uppercase tracking-tight">Awaiting Submissions</h5>
                                 <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wide mt-0.5">
-                                    The structural designer is working on calculations. No submission is pending.
+                                    The interior designer is working on space layouts. No submission is pending.
                                 </p>
                             </div>
                         </div>
@@ -276,13 +275,13 @@ export default function StructuralWorkspace({ project, user, onRefresh }: Struct
                                 </h5>
                                 <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wide mt-0.5">
                                     {hasPendingSubmission 
-                                        ? "Your design calculations have been submitted and are under review by the PM."
-                                        : "Upload structural layout calculations and submit them for official audit when completed."
+                                        ? "Your interior layout calculations have been submitted and are under review by the PM."
+                                        : "Upload interior layout calculations and submit them for official audit when completed."
                                     }
                                 </p>
                             </div>
                         </div>
-                        {hasPendingSubmission && isStructural && (
+                        {hasPendingSubmission && isInterior && (
                             <a href={getDeepLink('submit')} target="_blank" rel="noopener noreferrer" className="flex-shrink-0 px-4 py-2 bg-[#25D366] hover:bg-[#1DA851] text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors shadow-sm flex items-center gap-2">
                                 <Send size={14} /> Notify PM
                             </a>
@@ -294,8 +293,8 @@ export default function StructuralWorkspace({ project, user, onRefresh }: Struct
             <TechnicalMilestones 
                 project={project}
                 currentUser={currentUser}
-                roleType="structural"
-                isSpecialist={isStructural || isArchitect}
+                roleType="interior"
+                isSpecialist={isInterior || isArchitect}
                 isPM={isPM}
                 isApproved={isApproved}
             />

@@ -15,6 +15,12 @@ export const InvitationBanner: React.FC<InvitationBannerProps> = ({ project, use
     const [isAccepting, setIsAccepting] = useState(false);
     const [isRejecting, setIsRejecting] = useState(false);
 
+    // Find if the current user has a direct sub-professional invitation for this project
+    const directSubInvitation = useMemo(() => {
+        if (!project || !user || !project.id || !project.sub_professionals) return null;
+        return project.sub_professionals.find((s: any) => s.user_id === user.id && s.status === 'invited');
+    }, [project, user]);
+
     // Find if the current user has an invitation bid for this project
     const userInvitation = useMemo(() => {
         if (!project || !user || !project.id) return null;
@@ -58,15 +64,38 @@ export const InvitationBanner: React.FC<InvitationBannerProps> = ({ project, use
         return null;
     }, [project, user]);
 
-    if (!userInvitation || !project?.id || !userInvitation.id) return null;
+    const activeInvitation = useMemo(() => {
+        if (directSubInvitation) {
+            return {
+                id: directSubInvitation.id,
+                type: 'sub_professional',
+                role: directSubInvitation.sub_role,
+            };
+        }
+        if (userInvitation) {
+            return {
+                id: userInvitation.id,
+                type: 'bid',
+                role: userInvitation.bid_type,
+            };
+        }
+        return null;
+    }, [directSubInvitation, userInvitation]);
+
+    if (!activeInvitation || !project?.id || !activeInvitation.id) return null;
 
     const handleAccept = async () => {
         setIsAccepting(true);
         try {
-            await axios.post(`/projects/${project.id}/bids/${userInvitation.id}/accept-invite`, {
-                bid_type: userInvitation.bid_type
-            });
-            showToast('Invitation accepted! You can now propose your fee.', 'success');
+            if (activeInvitation.type === 'sub_professional') {
+                await axios.post(`/projects/${project.id}/sub-professionals/${activeInvitation.id}/accept`);
+                showToast('Invitation accepted successfully!', 'success');
+            } else {
+                await axios.post(`/projects/${project.id}/bids/${activeInvitation.id}/accept-invite`, {
+                    bid_type: activeInvitation.role
+                });
+                showToast('Invitation accepted! You can now propose your fee.', 'success');
+            }
             onRefresh();
         } catch (error: any) {
             showToast(error.response?.data?.message || 'Failed to accept invitation', 'error');
@@ -78,10 +107,15 @@ export const InvitationBanner: React.FC<InvitationBannerProps> = ({ project, use
     const handleReject = async () => {
         setIsRejecting(true);
         try {
-            await axios.post(`/projects/${project.id}/bids/${userInvitation.id}/reject-invite`, {
-                bid_type: userInvitation.bid_type
-            });
-            showToast('Invitation rejected.', 'success');
+            if (activeInvitation.type === 'sub_professional') {
+                await axios.post(`/projects/${project.id}/sub-professionals/${activeInvitation.id}/decline`);
+                showToast('Invitation declined successfully.', 'success');
+            } else {
+                await axios.post(`/projects/${project.id}/bids/${activeInvitation.id}/reject-invite`, {
+                    bid_type: activeInvitation.role
+                });
+                showToast('Invitation rejected.', 'success');
+            }
             onRefresh();
         } catch (error: any) {
             showToast(error.response?.data?.message || 'Failed to reject invitation', 'error');
@@ -105,7 +139,10 @@ export const InvitationBanner: React.FC<InvitationBannerProps> = ({ project, use
                 <div>
                     <h3 className="text-lg font-black text-amber-900 tracking-tight">Project Invitation</h3>
                     <p className="text-amber-700/80 text-sm font-medium mt-1">
-                        You have been invited to participate in this project. Review the details and submit your proposal if interested.
+                        {activeInvitation.type === 'sub_professional' 
+                            ? `You have been directly invited by the project leadership as the ${activeInvitation.role === 'interior' ? 'Interior Designer' : activeInvitation.role === 'structural' ? 'Structural Engineer' : activeInvitation.role === 'mep' ? 'MEP Engineer' : activeInvitation.role}. Accept the invitation to join the workspace and begin collaboration.`
+                            : "You have been invited to participate in this project. Review the details and submit your proposal if interested."
+                        }
                     </p>
                 </div>
             </div>

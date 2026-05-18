@@ -244,7 +244,9 @@ export interface PlanningRequirement {
     image_url?: string;
     image_file?: File; // For newly added images before upload
     is_edited?: boolean;
+    tagged_role?: string;
     feedback?: PlanningRequirementFeedback[];
+    sticky_note?: string;
 }
 
 export interface ProjectAddendum {

@@ -87,18 +87,26 @@ function DashboardContent() {
             if (typeof e.detail === 'object') {
                 setActiveTab(e.detail.tab);
                 if (e.detail.subTab) setActiveSubTab(e.detail.subTab);
+                if (e.detail.chatUserId) setChatUserId(e.detail.chatUserId);
             } else {
                 setActiveTab(e.detail);
                 setActiveSubTab(null);
             }
         };
+        const handleViewProfile = (e: any) => {
+            const { type, data } = e.detail;
+            setSelectedProfessional(data);
+            setActiveTab(type === 'arsitek' ? 'architects' : type === 'kontraktor' ? 'constructors' : type);
+        };
         
         window.addEventListener('openHouseDetails', handleOpenHouse);
         window.addEventListener('switchDashboardTab', handleSwitchTab);
+        window.addEventListener('viewProfessionalProfile', handleViewProfile);
         
         return () => {
             window.removeEventListener('openHouseDetails', handleOpenHouse);
             window.removeEventListener('switchDashboardTab', handleSwitchTab);
+            window.removeEventListener('viewProfessionalProfile', handleViewProfile);
         };
     }, []);
 

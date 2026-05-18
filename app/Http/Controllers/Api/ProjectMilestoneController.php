@@ -16,7 +16,44 @@ class ProjectMilestoneController extends Controller
 {
     public function index(Request $request, Project $project)
     {
+        $user = Auth::user();
+        $isOwner = $project->user_id === $user->id;
+        $isPM = $user->role_type === 'project_manager' && $project->pm_id === $user->id;
+        
+        $isHiredPro = false;
+        if ($user->role_type === 'arsitek' && $project->selected_arsitek_id === $user->arsitek?->id) $isHiredPro = true;
+        if ($user->role_type === 'kontraktor' && $project->selected_kontraktor_id === $user->kontraktor?->id) $isHiredPro = true;
+        if ($user->role_type === 'notaris' && $project->selected_notaris_id === $user->notaris_profile?->id) $isHiredPro = true;
+        if ($user->role_type === 'interior' && $project->selected_interior_id === $user->interior_profile?->id) $isHiredPro = true;
+        if ($user->role_type === 'structural' && $project->structural_id === $user->structural_engineer?->id) $isHiredPro = true;
+        if ($user->role_type === 'mep' && $project->mep_id === $user->mep_engineer?->id) $isHiredPro = true;
+
+        if (!$isOwner && !$isPM && !$isHiredPro) {
+            return response()->json(['message' => 'Unauthorized. You must be assigned to this project to view files.'], 403);
+        }
+
+        // Silent Auto-Heal: Update type to sub_professional for any legacy administrative team placeholders
+        DB::table('project_milestones')
+            ->where('project_id', $project->id)
+            ->whereNull('type')
+            ->where(function($q) {
+                $q->where('title', 'like', '% — MEP')
+                  ->orWhere('title', 'like', '% — STRUCTURAL')
+                  ->orWhere('title', 'like', '% — INTERIOR')
+                  ->orWhere('title', 'like', '% — mep')
+                  ->orWhere('title', 'like', '% — structural')
+                  ->orWhere('title', 'like', '% — interior');
+            })
+            ->update(['type' => 'sub_professional']);
+
         $query = $project->milestones()->with(['arsitek.user', 'kontraktor.user', 'notaris.user', 'interior.user', 'pm.user', 'linkedTermin', 'changeOrders']);
+        
+        // Exclude sub-professional payment placeholder milestones from the regular technical milestones list
+        $query->where(function($q) {
+            $q->whereNull('type')
+              ->orWhere('type', '!=', 'sub_professional');
+        });
+
         if ($request->has('phase_context')) {
             $query->where('phase_context', $request->phase_context);
         }

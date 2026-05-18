@@ -13,7 +13,7 @@ class BidMep extends Model
     use HasFactory, HasNegotiationHistory;
 
     protected $fillable = [
-        'project_id', 'mep_id', 'price', 'fee_type', 'unit_price', 'quantity', 'calculated_total',
+        'project_id', 'mep_id', 'price', 'price_max', 'fee_type', 'unit_price', 'quantity', 'calculated_total',
         'proposal', 'status', 'estimated_duration', 'duration_unit', 'attachment_1', 'attachment_2', 'attachment_3',
         'scopes', 'deliverables', 'payment_status', 'paid_at',
         'offered_by_id', 'fee_agreed_at', 'negotiation_count',
@@ -29,6 +29,7 @@ class BidMep extends Model
         'paid_at' => 'datetime',
         'fee_agreed_at' => 'datetime',
         'is_recommended' => 'boolean',
+        'price_max' => 'decimal:2',
     ];
 
     public function offeredBy()

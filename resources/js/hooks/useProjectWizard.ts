@@ -22,6 +22,14 @@ export interface ProjectDimensions {
     room_count?: number;
     area_size?: number;
     scope_tags?: string[];
+    building_length?: number;
+    building_width?: number;
+    land_length?: number;
+    land_width?: number;
+    renovation_length?: number;
+    renovation_width?: number;
+    area_length?: number;
+    area_width?: number;
 }
 
 export interface WizardFormData {

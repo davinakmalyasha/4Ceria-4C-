@@ -9,6 +9,7 @@ interface UseSubProfessionalsReturn {
     error: string | null;
     assignSub: (payload: AssignSubPayload) => Promise<boolean>;
     acceptSub: (subId: number) => Promise<boolean>;
+    declineSub: (subId: number) => Promise<boolean>;
     removeSub: (subId: number) => Promise<boolean>;
     hireSub: (subId: number) => Promise<boolean>;
     interviewSub: (subId: number) => Promise<boolean>;
@@ -74,6 +75,19 @@ export function useSubProfessionals(projectId: number | null): UseSubProfessiona
         } catch (err: unknown) {
             const axErr = err as { response?: { data?: { message?: string } } };
             setError(axErr.response?.data?.message || 'Failed to accept invitation');
+            return false;
+        }
+    }, [projectId]);
+
+    const declineSub = useCallback(async (subId: number): Promise<boolean> => {
+        if (!projectId) return false;
+        try {
+            await axios.post(`/projects/${projectId}/sub-professionals/${subId}/decline`);
+            setSubs(prev => prev.map(s => s.id === subId ? { ...s, status: 'declined' } : s));
+            return true;
+        } catch (err: unknown) {
+            const axErr = err as { response?: { data?: { message?: string } } };
+            setError(axErr.response?.data?.message || 'Failed to decline invitation');
             return false;
         }
     }, [projectId]);
@@ -153,6 +167,7 @@ export function useSubProfessionals(projectId: number | null): UseSubProfessiona
         error,
         assignSub,
         acceptSub,
+        declineSub,
         removeSub,
         hireSub,
         interviewSub,

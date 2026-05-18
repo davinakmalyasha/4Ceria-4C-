@@ -34,6 +34,12 @@ const PRO_NAV = (role: string) => {
                   role === 'project_manager' ? 'Project Manager' :
                   role === 'structural' ? 'Structural' :
                   role === 'mep' ? 'MEP' :
+                  role === 'civil' ? 'Civil & Structural' :
+                  role === 'mechanical' ? 'Mechanical' :
+                  role === 'electrical' ? 'Electrical' :
+                  role === 'plumbing' ? 'Plumbing' :
+                  role === 'roofing' ? 'Roofing' :
+                  role === 'finishing' ? 'Finishing' :
                   'Constructor';
     const nav = [
         { id: 'overview', label: 'Home', icon: Home },
@@ -63,11 +69,11 @@ const PRO_NAV = (role: string) => {
         }
     }
 
-    // Add My Firm for architects and contractors
-    if (role === 'arsitek' || role === 'kontraktor') {
+    // Add My Firms for specialists (structural, mep, interior, civil, mechanical, electrical, plumbing, roofing, finishing)
+    if (['structural', 'mep', 'interior', 'civil', 'mechanical', 'electrical', 'plumbing', 'roofing', 'finishing'].includes(role)) {
         const chatIdx = nav.findIndex(item => item.id === 'chat');
         if (chatIdx !== -1) {
-            nav.splice(chatIdx, 0, { id: 'my-firm', label: 'My Firm', icon: Building2 });
+            nav.splice(chatIdx, 0, { id: 'my-firms', label: 'My Firms', icon: Building2 });
         }
     }
 

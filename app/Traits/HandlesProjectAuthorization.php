@@ -33,8 +33,8 @@ trait HandlesProjectAuthorization
             'interior' => (int)$project->selected_interior_id === (int)$user->interior_profile?->id,
             'notaris' => (int)$project->selected_notaris_id === (int)$user->notaris_profile?->id,
             'project_manager' => (int)$project->pm_id === (int)$user->id,
-            'structural' => (int)$project->structural_id === (int)$user->id,
-            'mep' => (int)$project->mep_id === (int)$user->id,
+            'structural' => (int)$project->structural_id === (int)($user->structural_engineer?->id),
+            'mep' => (int)$project->mep_id === (int)($user->mep_engineer?->id),
             default => false,
         };
     }

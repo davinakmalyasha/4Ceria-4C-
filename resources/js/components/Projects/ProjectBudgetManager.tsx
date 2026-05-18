@@ -378,7 +378,7 @@ export default function ProjectBudgetManager({ project, user }: ProjectBudgetMan
                                             <span className="px-3 py-1 bg-slate-900 text-white rounded-lg text-[9px] font-black uppercase tracking-widest">
                                                 {addendum.role_type}
                                             </span>
-                                            {addendum.type === 'specialist_assignment' && (
+                                            {['specialist_assignment', 'specialist_request'].includes(addendum.type) && (
                                                 <span className="px-3 py-1 bg-indigo-500 text-white rounded-lg text-[9px] font-black uppercase tracking-widest">
                                                     Specialist Assignment
                                                 </span>
@@ -389,20 +389,37 @@ export default function ProjectBudgetManager({ project, user }: ProjectBudgetMan
                                             <h4 className="text-base font-black text-slate-900 leading-tight">{addendum.title}</h4>
                                             <p className="text-xs font-medium text-slate-500 mt-1 leading-relaxed">{addendum.description || 'No technical notes provided.'}</p>
                                         </div>
-
-                                        {addendum.type === 'specialist_assignment' && addendum.teamMember && (
+ 
+                                        {(addendum.teamMember || addendum.assignedUser) && (
                                             <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between gap-3">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-slate-400 border border-slate-100">
-                                                        <Users size={20} />
+                                                    <div className="w-10 h-10 bg-white rounded-xl overflow-hidden flex items-center justify-center text-slate-400 border border-slate-100 shrink-0">
+                                                        {addendum.assignedUser?.profile_picture ? (
+                                                            <img src={addendum.assignedUser.profile_picture} alt={addendum.assignedUser.name} className="w-full h-full object-cover" />
+                                                        ) : (
+                                                            <Users size={20} />
+                                                        )}
                                                     </div>
                                                     <div>
-                                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Proposed Engineer</p>
-                                                        <p className="text-xs font-black text-slate-900">{addendum.teamMember.name}</p>
+                                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                                            {addendum.assignedUser ? 'Proposed Colleague' : 'Proposed Engineer'}
+                                                        </p>
+                                                        <p className="text-xs font-black text-slate-900">
+                                                            {addendum.assignedUser?.name || addendum.teamMember?.name}
+                                                        </p>
                                                     </div>
                                                 </div>
                                                 <button 
-                                                    onClick={() => setSelectedSpecialist(addendum.teamMember)}
+                                                    onClick={() => setSelectedSpecialist(
+                                                        addendum.assignedUser ? {
+                                                            name: addendum.assignedUser.name,
+                                                            photo_url: addendum.assignedUser.profile_picture,
+                                                            role_title: addendum.role_type ? `${addendum.role_type.toUpperCase()} expert` : 'Firm Colleague',
+                                                            email: addendum.assignedUser.email,
+                                                            phone: addendum.assignedUser.phone_number,
+                                                            technical_skills: addendum.assignedUser.technical_skills
+                                                        } : addendum.teamMember
+                                                    )}
                                                     className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-indigo-100 transition-all"
                                                 >
                                                     View Profile <ExternalLink size={12} />

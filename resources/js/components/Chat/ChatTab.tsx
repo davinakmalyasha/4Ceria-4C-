@@ -84,7 +84,7 @@ export default function ChatTab({ initialUserId, onClearInitialUser }: ChatTabPr
                         />
 
                         {/* Input */}
-                        <ChatInput onSend={sendMessage} isDisabled={isSending} />
+                        <ChatInput key={activeConversation.id} onSend={sendMessage} isDisabled={isSending} />
                     </>
                 ) : (
                     <div className="flex-1 flex flex-col items-center justify-center text-center p-12 bg-gray-50/30">

@@ -51,6 +51,7 @@ export default function DesignMilestones({ project, currentUser, isArchitect, is
     // Audit state
     const [auditState, setAuditState] = useState<Record<number, { status: 'approved' | 'revision_requested', note: string }>>({});
     const [isSubmittingAudit, setIsSubmittingAudit] = useState(false);
+    const [openNotes, setOpenNotes] = useState<number[]>([]);
     
     // Confirmation Modal state
     const [confirmModal, setConfirmModal] = useState<{
@@ -77,6 +78,12 @@ export default function DesignMilestones({ project, currentUser, isArchitect, is
         isNewCreation: false
     });
 
+    const toggleNote = (id: number) => {
+        setOpenNotes(prev => 
+            prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+        );
+    };
+
     // Form state
     const [formTitle, setFormTitle] = useState('');
     const [formType, setFormType] = useState<Milestone['type']>('generic');
@@ -90,7 +97,7 @@ export default function DesignMilestones({ project, currentUser, isArchitect, is
 
     const isOwner = currentUser?.id === project?.user_id;
 
-    const handleAuditSubmit = async (milestone: Milestone, status: 'approved' | 'revision_requested') => {
+    const handleAuditSubmit = async (milestone: Milestone, status: 'approved' | 'revision_requested', noteOverride?: string) => {
         setIsSubmittingAudit(true);
         try {
             const payload = {
@@ -98,7 +105,7 @@ export default function DesignMilestones({ project, currentUser, isArchitect, is
                 milestones: [{ 
                     id: milestone.id, 
                     status, 
-                    note: auditState[milestone.id]?.note || '' 
+                    note: noteOverride !== undefined ? noteOverride : (auditState[milestone.id]?.note || '')
                 }]
             };
             const res = await axios.post(`/projects/${project.id}/technical-audit-submit`, payload);
@@ -354,7 +361,106 @@ export default function DesignMilestones({ project, currentUser, isArchitect, is
                 )}
                 
                 {milestones.map((m) => (
-                    <MilestoneCard key={m.id} m={m} />
+                    <div key={m.id} className="flex gap-4 items-start relative w-full">
+                        <div className="flex-1 relative">
+                            {/* Sticky Note Tab (Right Edge of card, only visible when note is closed) */}
+                            {isPM && m.approval_status !== 'approved' && !openNotes.includes(m.id) && !auditState[m.id]?.note ? (
+                                <div className="absolute -right-3 top-6 z-10">
+                                    <button 
+                                        onClick={() => toggleNote(m.id)}
+                                        className="w-10 h-10 bg-yellow-300 hover:bg-yellow-400 border border-yellow-400 rounded-l-lg rounded-r-md flex items-center justify-center shadow-lg transition-all group/note"
+                                        title="Add Sticky Note"
+                                    >
+                                        <FileText size={16} className="text-yellow-700" />
+                                        <Plus size={10} className="absolute bottom-1 right-1 text-yellow-800 font-black" />
+                                    </button>
+                                </div>
+                            ) : null}
+
+                            <MilestoneCard m={m} />
+                        </div>
+
+                        {/* Sticky Note Beside the Card */}
+                        {isPM && m.approval_status !== 'approved' && (openNotes.includes(m.id) || auditState[m.id]?.note) && (
+                            <div className="w-80 bg-yellow-100 border-2 border-yellow-300 rounded-3xl p-4 shadow-lg shrink-0 relative animate-in slide-in-from-right-4 duration-200 flex flex-col gap-3">
+                                <div className="flex items-center justify-between border-b border-yellow-200 pb-2">
+                                    <span className="text-[10px] font-black text-yellow-800 uppercase tracking-widest flex items-center gap-1.5">
+                                        <FileText size={12} /> Milestone Note
+                                    </span>
+                                    <button 
+                                        onClick={() => {
+                                            if (openNotes.includes(m.id)) {
+                                                toggleNote(m.id);
+                                            } else {
+                                                if (window.confirm('Are you sure you want to delete this sticky note?')) {
+                                                    setAuditState({...auditState, [m.id]: { status: 'revision_requested', note: '' }});
+                                                    showToast('Sticky note deleted!', 'info');
+                                                }
+                                            }
+                                        }}
+                                        className="text-yellow-700 hover:text-red-500 transition-colors"
+                                        title={openNotes.includes(m.id) ? "Close Note" : "Delete Note"}
+                                    >
+                                        <X size={14} />
+                                    </button>
+                                </div>
+                                <textarea 
+                                    placeholder="Type your sticky note for this log here..."
+                                    value={auditState[m.id]?.note || ''}
+                                    onChange={(e) => setAuditState({...auditState, [m.id]: { status: 'revision_requested', note: e.target.value }})}
+                                    readOnly={!openNotes.includes(m.id)}
+                                    className={`w-full h-24 p-2 bg-yellow-50/50 rounded-xl border border-yellow-200 text-yellow-900 placeholder-yellow-600/50 outline-none resize-none font-medium text-xs leading-relaxed transition-all ${
+                                        !openNotes.includes(m.id) ? 'cursor-not-allowed select-none bg-yellow-50/10 border-dashed' : 'focus:bg-white'
+                                    }`}
+                                />
+                                <div className="flex items-center justify-end gap-2">
+                                    {!openNotes.includes(m.id) ? (
+                                        <>
+                                            <button 
+                                                onClick={() => toggleNote(m.id)}
+                                                className="px-3 py-1.5 bg-yellow-400 hover:bg-yellow-500 text-yellow-950 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm"
+                                            >
+                                                Edit
+                                            </button>
+                                            <button 
+                                                onClick={() => {
+                                                    if (window.confirm('Are you sure you want to delete this sticky note?')) {
+                                                        setAuditState({...auditState, [m.id]: { status: 'revision_requested', note: '' }});
+                                                        showToast('Sticky note deleted!', 'info');
+                                                    }
+                                                }}
+                                                className="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm"
+                                            >
+                                                Delete
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <button 
+                                                onClick={() => toggleNote(m.id)}
+                                                className="px-3 py-1.5 bg-yellow-200 hover:bg-yellow-300 text-yellow-800 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+                                            >
+                                                Close
+                                            </button>
+                                            <button 
+                                                onClick={() => {
+                                                    if (!auditState[m.id]?.note?.trim()) {
+                                                        showToast('Please enter some text or close the note', 'error');
+                                                        return;
+                                                    }
+                                                    toggleNote(m.id);
+                                                    showToast('Sticky note pinned to milestone!', 'success');
+                                                }}
+                                                className="px-3 py-1.5 bg-yellow-400 hover:bg-yellow-500 text-yellow-950 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm"
+                                            >
+                                                Pin Note
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 ))}
             </div>
 
@@ -488,6 +594,16 @@ export default function DesignMilestones({ project, currentUser, isArchitect, is
                                 </div>
                             )}
 
+                            <div className="space-y-2 pt-4 border-t border-slate-200/60">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Approval Note (Optional)</label>
+                                <textarea 
+                                    placeholder="Add a note for this approval..."
+                                    value={auditState[confirmModal.milestone?.id || 0]?.note || ''}
+                                    onChange={(e) => confirmModal.milestone && setAuditState({...auditState, [confirmModal.milestone.id]: { status: 'approved', note: e.target.value }})}
+                                    className="w-full h-20 p-3 bg-white rounded-xl border border-slate-200 text-xs outline-none focus:border-emerald-500 font-medium"
+                                />
+                            </div>
+
                             <div className="p-3 bg-amber-50 rounded-xl border border-amber-100">
                                 <p className="text-[10px] text-amber-700 font-bold leading-tight">
                                     {confirmModal.termin 
@@ -547,7 +663,9 @@ export default function DesignMilestones({ project, currentUser, isArchitect, is
     // Sub-components for cleaner rendering
     function MilestoneCard({ m }: { m: Milestone }) {
         return (
-            <div key={m.id} className="bg-white border-2 border-slate-50 rounded-3xl p-8 group hover:border-slate-200 transition-all relative overflow-hidden">
+            <div key={m.id} className={`bg-white border-2 rounded-3xl p-8 group hover:border-slate-200 transition-all relative overflow-hidden ${
+                openNotes.includes(m.id) || auditState[m.id]?.note ? 'border-yellow-300' : 'border-slate-50'
+            }`}>
                 <div className="flex items-start justify-between relative z-10">
                     <div className="flex-1 space-y-4">
                         <div className="flex items-center gap-3">
@@ -686,36 +804,35 @@ export default function DesignMilestones({ project, currentUser, isArchitect, is
                             }
 
                             return (isOwner || isPM) && m.approval_status === 'pending' && (
-                                <div className="flex flex-col gap-2 min-w-[200px] bg-slate-50 p-3 rounded-xl border border-slate-100 z-10 relative">
-                                    {project.payment_termins?.find((t: any) => t.milestone_id === m.id) && (
-                                        <div className="flex items-center gap-2 px-2 py-1 bg-emerald-50 text-emerald-600 rounded-lg border border-emerald-100 mb-1">
-                                            <Banknote size={10} />
-                                            <span className="text-[8px] font-black uppercase tracking-widest">Triggers Payment</span>
-                                        </div>
-                                    )}
-                                    <div className="flex gap-2">
-                                        <button 
-                                            onClick={() => handleApprovalClick(m)}
-                                            disabled={isSubmittingAudit}
-                                            className={`flex-1 py-2 rounded-lg text-[10px] font-black tracking-widest uppercase transition-all bg-white text-slate-400 hover:bg-emerald-500 hover:text-white border border-slate-200 flex items-center justify-center gap-2`}
-                                        >
-                                            {isSubmittingAudit ? <RefreshCw size={10} className="animate-spin" /> : 'Approve'}
-                                        </button>
-                                        <button 
-                                            onClick={() => handleAuditSubmit(m, 'revision_requested')}
-                                            disabled={isSubmittingAudit}
-                                            className={`flex-1 py-2 rounded-lg text-[10px] font-black tracking-widest uppercase transition-all bg-white text-slate-400 hover:bg-rose-500 hover:text-white border border-slate-200 flex items-center justify-center gap-2`}
-                                        >
-                                            {isSubmittingAudit ? <RefreshCw size={10} className="animate-spin" /> : 'Revise'}
-                                        </button>
-                                    </div>
-                                    <input 
-                                        type="text" 
-                                        placeholder="Add note..."
-                                        value={auditState[m.id]?.note || ''}
-                                        onChange={(e) => setAuditState({...auditState, [m.id]: { status: auditState[m.id]?.status || 'approved', note: e.target.value }})}
-                                        className="w-full text-xs p-2 rounded-lg border border-slate-200 outline-none focus:border-emerald-500 bg-white"
-                                    />
+                                <div className="flex gap-2 z-10 relative">
+                                    <button 
+                                        onClick={() => handleApprovalClick(m)}
+                                        disabled={isSubmittingAudit}
+                                        className="px-4 py-2 bg-white text-slate-900 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-slate-50 transition-all border border-slate-200 flex items-center justify-center gap-2"
+                                    >
+                                        {isSubmittingAudit ? <RefreshCw size={10} className="animate-spin" /> : 'Verify and Finalize'}
+                                    </button>
+                                    <button 
+                                        onClick={() => {
+                                            const currentNote = auditState[m.id]?.note;
+                                            if (!currentNote?.trim()) {
+                                                const note = window.prompt("Enter revision instructions for the Architect:");
+                                                if (note === null) return;
+                                                if (!note.trim()) {
+                                                    showToast('Revision instructions are required.', 'error');
+                                                    return;
+                                                }
+                                                setAuditState({...auditState, [m.id]: { status: 'revision_requested', note }});
+                                                handleAuditSubmit(m, 'revision_requested', note);
+                                            } else {
+                                                handleAuditSubmit(m, 'revision_requested');
+                                            }
+                                        }}
+                                        disabled={isSubmittingAudit}
+                                        className="px-4 py-2 bg-white text-slate-900 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-slate-50 transition-all border border-slate-200 flex items-center justify-center gap-2"
+                                    >
+                                        {isSubmittingAudit ? <RefreshCw size={10} className="animate-spin" /> : 'Request Revision'}
+                                    </button>
                                 </div>
                             );
                         })()}

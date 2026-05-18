@@ -87,24 +87,62 @@ class ProjectAddendumController extends Controller
 
         return DB::transaction(function () use ($project, $addendum) {
             if ($addendum->amount > 0) {
-                $financialService = app(\App\Services\ProjectFinancialService::class);
-                $success = $financialService->deductBudget(
-                    $project,
-                    (float)$addendum->amount,
-                    'payment',
-                    "Approved Addendum: {$addendum->title}",
-                    "ProjectAddendum",
-                    $addendum->id
-                );
-
-                if (!$success) {
-                    return response()->json(['message' => 'Insufficient project budget to approve this addendum.'], 400);
-                }
-
+                // Transition to approved_unpaid (Awaiting Payment) so the client must upload payment proof.
+                // The actual budget transaction recording will happen in PaymentVerificationService upon successful verification.
                 $addendum->update([
-                    'status' => 'paid',
-                    'paid_at' => now()
+                    'status' => 'approved_unpaid',
+                    'paid_at' => null
                 ]);
+
+                // Create the SubProfessional record immediately so the specialist gets the project on their dashboard and can verify the payment themselves!
+                if (in_array($addendum->type, ['specialist_assignment', 'specialist_request']) && ($addendum->team_member_id || $addendum->assigned_user_id)) {
+                    $subRole = $addendum->specialist_type ?: $addendum->role_type; // 'structural', 'mep' or 'interior'
+                    $specialistUserId = null;
+                    $specialistName = '';
+
+                    if ($addendum->assigned_user_id) {
+                        $sUser = \App\Models\User::find($addendum->assigned_user_id);
+                        if ($sUser) {
+                            $specialistUserId = $sUser->id;
+                            $specialistName = $sUser->name;
+                        }
+                    } else {
+                        $teamMember = \App\Models\TeamMember::find($addendum->team_member_id);
+                        if ($teamMember) {
+                            $specialistName = $teamMember->name;
+                        }
+                    }
+
+                    if ($specialistName || $specialistUserId) {
+                        \App\Models\ProjectSubProfessional::updateOrCreate(
+                            [
+                                'project_id' => $project->id,
+                                'sub_role' => $subRole,
+                            ],
+                            [
+                                'user_id' => $specialistUserId,
+                                'parent_role' => ($addendum->user?->role_type === 'kontraktor') ? 'kontraktor' : 'arsitek',
+                                'assigned_by' => $addendum->user_id,
+                                'status' => 'invited',
+                                'rate' => $addendum->amount,
+                                'lead_pro_notes' => "Assigned via Paid Addendum: {$specialistName}",
+                                'hired_at' => null,
+                            ]
+                        );
+
+                        if ($specialistUserId) {
+                            \App\Models\Notification::create([
+                                'user_id' => $specialistUserId,
+                                'type' => 'sub_professional_invite',
+                                'title' => 'New Sub-Professional Invitation',
+                                'body' => "You have been invited as a {$subRole} for \"{$project->title}\".",
+                                'data' => [
+                                    'project_id' => $project->id,
+                                ],
+                            ]);
+                        }
+                    }
+                }
             } else {
                 $addendum->update(['status' => 'approved']);
             }

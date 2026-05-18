@@ -585,8 +585,8 @@ class ProjectFeatureController extends Controller
         $isOwner = $project->user_id === $user->id;
         $isHiredArsitek = $user->role_type === 'arsitek' && $project->selected_arsitek_id === $user->arsitek?->id;
         $isHiredKontraktor = $user->role_type === 'kontraktor' && $project->selected_kontraktor_id === $user->kontraktor?->id;
-        $isHiredMep = $user->role_type === 'mep' && $project->mep_id === $user->id;
-        $isHiredStructural = $user->role_type === 'structural' && $project->structural_id === $user->id;
+        $isHiredMep = $user->role_type === 'mep' && $project->mep_id === ($user->mep_engineer?->id);
+        $isHiredStructural = $user->role_type === 'structural' && $project->structural_id === ($user->structural_engineer?->id);
         $isHiredPM = $user->role_type === 'project_manager' && $project->pm_id === $user->id;
 
         if (!$isOwner && !$isHiredArsitek && !$isHiredKontraktor && !$isHiredMep && !$isHiredStructural && !$isHiredPM) {
@@ -630,8 +630,8 @@ class ProjectFeatureController extends Controller
         $isOwner = $project->user_id === $user->id;
         $isHiredArsitek = $user->role_type === 'arsitek' && $project->selected_arsitek_id === $user->arsitek?->id;
         $isHiredKontraktor = $user->role_type === 'kontraktor' && $project->selected_kontraktor_id === $user->kontraktor?->id;
-        $isHiredMep = $user->role_type === 'mep' && $project->mep_id === $user->id;
-        $isHiredStructural = $user->role_type === 'structural' && $project->structural_id === $user->id;
+        $isHiredMep = $user->role_type === 'mep' && $project->mep_id === ($user->mep_engineer?->id);
+        $isHiredStructural = $user->role_type === 'structural' && $project->structural_id === ($user->structural_engineer?->id);
         $isHiredPM = $user->role_type === 'project_manager' && $project->pm_id === $user->id;
 
         if (!$isOwner && !$isHiredArsitek && !$isHiredKontraktor && !$isHiredMep && !$isHiredStructural && !$isHiredPM) {
@@ -659,8 +659,8 @@ class ProjectFeatureController extends Controller
         $isOwner = $project->user_id === $user->id;
         $isHiredArsitek = $user->role_type === 'arsitek' && $project->selected_arsitek_id === $user->arsitek?->id;
         $isHiredKontraktor = $user->role_type === 'kontraktor' && $project->selected_kontraktor_id === $user->kontraktor?->id;
-        $isHiredMep = $user->role_type === 'mep' && $project->mep_id === $user->id;
-        $isHiredStructural = $user->role_type === 'structural' && $project->structural_id === $user->id;
+        $isHiredMep = $user->role_type === 'mep' && $project->mep_id === ($user->mep_engineer?->id);
+        $isHiredStructural = $user->role_type === 'structural' && $project->structural_id === ($user->structural_engineer?->id);
         $isHiredPM = $user->role_type === 'project_manager' && $project->pm_id === $user->id;
 
         if (!$isOwner && !$isHiredArsitek && !$isHiredKontraktor && !$isHiredMep && !$isHiredStructural && !$isHiredPM) {

@@ -20,6 +20,7 @@ class TechnicalDesignReviewController extends Controller
         if ($mode === 'specialist') {
             return ($role === 'structural' && $project->structuralEngineer?->user_id === $u->id) ||
                    ($role === 'mep' && $project->mepEngineer?->user_id === $u->id) ||
+                   ($role === 'interior' && $project->interior?->user_id === $u->id) ||
                    ($u->role_type === 'arsitek' && $project->selected_arsitek_id === $u->arsitek?->id) ||
                    ($project->user_id === $u->id);
         }
@@ -37,11 +38,11 @@ class TechnicalDesignReviewController extends Controller
 
     public function submitDesign(Request $request, Project $project)
     {
-        $v = $request->validate(['role_type' => 'required|in:structural,mep']);
+        $v = $request->validate(['role_type' => 'required|in:structural,mep,interior']);
         if (!$this->checkAuth($project, $v['role_type'], 'specialist')) return response()->json(['message' => 'Unauthorized'], 403);
 
         return DB::transaction(function () use ($project, $v) {
-            $cat = $v['role_type'] === 'structural' ? 'structural_calc' : 'mep_layout';
+            $cat = $v['role_type'] === 'structural' ? 'structural_calc' : ($v['role_type'] === 'mep' ? 'mep_layout' : 'interior_design');
             
             // Update documents status and clear old review notes
             $project->documents()
@@ -73,13 +74,13 @@ class TechnicalDesignReviewController extends Controller
 
     public function approveDesign(Request $request, Project $project)
     {
-        $v = $request->validate(['role_type' => 'required|in:structural,mep']);
+        $v = $request->validate(['role_type' => 'required|in:structural,mep,interior']);
         if (!$this->checkAuth($project, $v['role_type'], 'pm')) return response()->json(['message' => 'Unauthorized'], 403);
 
         return DB::transaction(function () use ($project, $v) {
-            $cat = $v['role_type'] === 'structural' ? 'structural_calc' : 'mep_layout';
+            $cat = $v['role_type'] === 'structural' ? 'structural_calc' : ($v['role_type'] === 'mep' ? 'mep_layout' : 'interior_design');
             $project->documents()->where('category', $cat)->update(['status' => 'verified', 'reviewed_at' => now()]);
-            $col = $v['role_type'] === 'structural' ? 'structural_approved_at' : 'mep_approved_at';
+            $col = $v['role_type'] === 'structural' ? 'structural_approved_at' : ($v['role_type'] === 'mep' ? 'mep_approved_at' : 'owner_interior_approved_at');
             $project->update([$col => now()]);
             $this->logActivity($project, 'design_approved', "Approved " . ucfirst($v['role_type']) . " Design");
 
@@ -136,7 +137,7 @@ class TechnicalDesignReviewController extends Controller
                             'category' => $milestone->phase_context === 'design' ? 'blueprint' : ($milestone->type ?? 'milestone_attachment'),
                             'status' => 'verified',
                             'version_label' => $milestone->title,
-                            'target_role' => $v['role_type'] === 'structural' ? 'structural' : 'mep',
+                            'target_role' => $v['role_type'],
                         ]
                     );
                 }
@@ -148,7 +149,7 @@ class TechnicalDesignReviewController extends Controller
                 );
             }
 
-            $target = $v['role_type'] === 'structural' ? $project->structuralEngineer?->user_id : $project->mepEngineer?->user_id;
+            $target = $v['role_type'] === 'structural' ? $project->structuralEngineer?->user_id : ($v['role_type'] === 'mep' ? $project->mepEngineer?->user_id : $project->interior?->user_id);
             $body = "Your " . strtoupper($v['role_type']) . " design has been approved and integrated into the project.";
             $this->notify($target, 'design_approved', 'Technical Design Integrated', $body, $project->id);
             return response()->json(['message' => 'Approved successfully']);
@@ -157,17 +158,17 @@ class TechnicalDesignReviewController extends Controller
 
     public function reviseDesign(Request $request, Project $project)
     {
-        $v = $request->validate(['role_type' => 'required|in:structural,mep', 'note' => 'required|string|max:1000']);
+        $v = $request->validate(['role_type' => 'required|in:structural,mep,interior', 'note' => 'required|string|max:1000']);
         if (!$this->checkAuth($project, $v['role_type'], 'pm')) return response()->json(['message' => 'Unauthorized'], 403);
 
         return DB::transaction(function () use ($project, $v) {
-            $cat = $v['role_type'] === 'structural' ? 'structural_calc' : 'mep_layout';
+            $cat = $v['role_type'] === 'structural' ? 'structural_calc' : ($v['role_type'] === 'mep' ? 'mep_layout' : 'interior_design');
             $project->documents()->where('category', $cat)->update(['status' => 'revision_requested', 'review_note' => $v['note'], 'reviewed_at' => now()]);
-            $col = $v['role_type'] === 'structural' ? 'structural_approved_at' : 'mep_approved_at';
+            $col = $v['role_type'] === 'structural' ? 'structural_approved_at' : ($v['role_type'] === 'mep' ? 'mep_approved_at' : 'owner_interior_approved_at');
             $project->update([$col => null]);
             $this->logActivity($project, 'design_revision_requested', "Revision Requested: " . $v['note']);
 
-            $target = $v['role_type'] === 'structural' ? $project->structuralEngineer?->user_id : $project->mepEngineer?->user_id;
+            $target = $v['role_type'] === 'structural' ? $project->structuralEngineer?->user_id : ($v['role_type'] === 'mep' ? $project->mepEngineer?->user_id : $project->interior?->user_id);
             $body = "A revision has been requested for your " . strtoupper($v['role_type']) . " design: " . $v['note'];
             $this->notify($target, 'design_revision_requested', 'Revision Requested for Design', $body, $project->id);
             return response()->json(['message' => 'Revision requested successfully']);

@@ -14,7 +14,7 @@ class BidNotaris extends Model
     protected $table = 'bids_notaris';
 
     protected $fillable = [
-        'project_id', 'notaris_id', 'price', 'proposal', 'status',
+        'project_id', 'notaris_id', 'price', 'price_max', 'proposal', 'status',
         'estimated_duration', 'duration_unit', 'attachment_1', 'attachment_2', 'attachment_3',
         'tax_estimate', 'selected_services', 'payment_status', 'paid_at',
         'fee_type', 'unit_price', 'quantity', 'calculated_total',
@@ -28,6 +28,7 @@ class BidNotaris extends Model
         'proposed_termins' => 'array',
         'proposed_milestones' => 'array',
         'fee_agreed_at' => 'datetime',
+        'price_max' => 'decimal:2',
     ];
 
     public function offeredBy()

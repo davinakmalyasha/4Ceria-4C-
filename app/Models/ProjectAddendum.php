@@ -17,6 +17,7 @@ class ProjectAddendum extends Model
         'role_type',
         'user_id',
         'team_member_id',
+        'assigned_user_id',
         'specialist_type',
         'title',
         'description',
@@ -52,6 +53,11 @@ class ProjectAddendum extends Model
     public function teamMember()
     {
         return $this->belongsTo(TeamMember::class, 'team_member_id');
+    }
+
+    public function assignedUser()
+    {
+        return $this->belongsTo(User::class, 'assigned_user_id');
     }
 
     public function procurementRequest()

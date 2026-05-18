@@ -146,9 +146,29 @@ export default function EngineeringBidsBoard({ project, user, roleType, isArchit
                                             </p>
                                         </div>
                                         <div className="text-right">
-                                            <p className="text-xl font-black text-slate-900">{formatCurrency(getDisplayPrice(bid))}</p>
+                                            <p className="text-xl font-black text-slate-900">
+                                                {bid.price_max && Number(bid.price_max) > 0 ? (
+                                                    bid.fee_type === 'percentage' ? (
+                                                        project.budget > 0 ? (
+                                                            `${formatCurrency((Number(bid.price) / 100) * project.budget)} - ${formatCurrency((Number(bid.price_max) / 100) * project.budget)}`
+                                                        ) : (
+                                                            `${bid.price}% - ${bid.price_max}%`
+                                                        )
+                                                    ) : (
+                                                        `${formatCurrency(bid.price)} - ${formatCurrency(bid.price_max)}`
+                                                    )
+                                                ) : (
+                                                    formatCurrency(getDisplayPrice(bid))
+                                                )}
+                                            </p>
                                             <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1">
-                                                {bid.fee_type === 'percentage' ? `${bid.price}% • ` : ''}
+                                                {bid.fee_type === 'percentage' ? (
+                                                    bid.price_max && Number(bid.price_max) > 0 ? (
+                                                        `${bid.price}% - ${bid.price_max}% • `
+                                                    ) : (
+                                                        `${bid.price}% • `
+                                                    )
+                                                ) : ''}
                                                 Est. {bid.estimated_duration || '?'} {bid.duration_unit || 'Days'}
                                             </p>
                                         </div>

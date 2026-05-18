@@ -4,7 +4,8 @@ import {
     ShieldCheck, FileText, Upload, CheckCircle2, 
     Download, Eye, AlertCircle, Clock, Loader2,
     ChevronRight, Save, MessageSquare, Box, Plus,
-    Wallet, Receipt, History, ArrowRightCircle
+    Wallet, Receipt, History, ArrowRightCircle, X,
+    ShieldAlert
 } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
 import { Project, ProjectMilestone } from '../../../types/project.types';
@@ -52,9 +53,24 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
 
     const isOwner = currentUser?.id === project?.user_id;
     const isPM = currentUser?.role_type === 'project_manager' && project?.pm_id === currentUser?.id;
+    const isHiredPro = 
+        (currentUser?.role_type === 'arsitek' && project?.selected_arsitek_id === currentUser?.id) ||
+        (currentUser?.role_type === 'kontraktor' && project?.selected_kontraktor_id === currentUser?.id) ||
+        (currentUser?.role_type === 'notaris' && project?.selected_notaris_id === currentUser?.id) ||
+        (currentUser?.role_type === 'interior' && project?.selected_interior_id === currentUser?.id) ||
+        (currentUser?.role_type === 'structural' && project?.structural_id === currentUser?.id) ||
+        (currentUser?.role_type === 'mep' && project?.mep_id === currentUser?.id);
     const canApprove = isOwner || isPM;
 
-    // The source of truth: What the Notary finalized in the BriefManager
+    const [termins, setTermins] = useState<any[]>([]);
+    
+    // Custom/Manual Step creation states
+    const [isAddingCustom, setIsAddingCustom] = useState(false);
+    const [newTitle, setNewTitle] = useState('');
+    const [newDesc, setNewDesc] = useState('');
+    const [isCreatingCustom, setIsCreatingCustom] = useState(false);
+
+    // The source of truth: What the Notary finalized in the BriefManager + manual milestones
     const templateSlots = useMemo(() => {
         const reqs = Array.isArray(project?.legal_requirements) ? project.legal_requirements : [];
         let combined = [...reqs];
@@ -79,12 +95,10 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
             }
         }
 
-        // If still empty, return empty — LegalVault will show "Scope Not Defined" banner
-        if (combined.length === 0) return [];
-
         const is_numeric = (n: any) => !isNaN(parseFloat(n)) && isFinite(n);
 
-        return combined.map(reqId => {
+        // Predefined slots
+        let presetSlots = combined.map(reqId => {
             const activeMilestone = milestones.find(m => m.type === 'legal' && String(m.content?.req_id) === String(reqId));
             const preset = getLegalRequirementById(reqId);
             
@@ -106,10 +120,47 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
                 desc,
                 milestone_code: preset?.milestone_code || 'L-MISC',
                 responsibleRole: preset?.responsibleRole || 'Notary',
-                category: preset?.category
+                category: preset?.category || 'deliverable',
+                isManual: false,
+                hasActiveMilestone: !!activeMilestone
             };
         });
-    }, [project.legal_requirements, milestones]);
+
+        // Check if we have custom contract-signed milestones (milestones linked to payment termins)
+        const hasLinkedPayments = milestones.some(m => 
+            (m.type === 'legal' || m.phase_context === 'legal') &&
+            termins.some(t => t.milestone_id === m.id)
+        );
+
+        // If milestones linked to payments exist, filter out predefined slots that don't have their milestones linked to payments
+        if (hasLinkedPayments) {
+            presetSlots = presetSlots.filter(slot => {
+                if (slot.category === 'personal_id') return true;
+                
+                const m = milestones.find(item => item.type === 'legal' && String(item.content?.req_id) === String(slot.id));
+                if (!m) return false;
+                
+                return termins.some(t => t.milestone_id === m.id);
+            });
+        }
+
+        // Add any manually created milestones (that are not in predefined reqs)
+        const manualSlots = milestones
+            .filter(m => (m.type === 'legal' || m.phase_context === 'legal') && !combined.some(reqId => String(m.content?.req_id) === String(reqId)))
+            .map(m => {
+                return {
+                    id: `manual_${m.id}`,
+                    label: m.title,
+                    desc: m.description || 'Custom notary progress step',
+                    milestone_code: 'L-CUST',
+                    responsibleRole: 'Notary',
+                    category: 'deliverable',
+                    isManual: true
+                };
+            });
+
+        return [...presetSlots, ...manualSlots];
+    }, [project.legal_requirements, milestones, termins]);
 
     const activeSlots = useMemo(() => {
         if (vaultView === 'personal') {
@@ -122,13 +173,15 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
 
     const fetchMilestones = async () => {
         try {
-            const [milestoneRes, financialRes] = await Promise.all([
+            const [milestoneRes, financialRes, terminsRes] = await Promise.all([
                 axios.get(`/projects/${project?.id}/milestones`),
-                axios.get(`/projects/${project?.id}/legal-financials`)
+                axios.get(`/projects/${project?.id}/legal-financials`),
+                axios.get(`/projects/${project?.id}/payment-termins`)
             ]);
             
             setMilestones(milestoneRes.data?.data || []);
             setFinancials(financialRes.data || null);
+            setTermins(terminsRes.data?.data || []);
             
         } catch (error) {
             console.error('Failed to fetch legal data', error);
@@ -162,6 +215,13 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
     // Find the milestone matching the current slot
     const activeMilestone = useMemo(() => {
         if (!selectedReqId) return null;
+        
+        // Direct resolution for manual steps
+        if (selectedReqId.startsWith('manual_')) {
+            const mId = parseInt(selectedReqId.replace('manual_', ''), 10);
+            return milestones.find(m => m.id === mId) || null;
+        }
+
         const preset = getLegalRequirementById(selectedReqId);
         const slot = templateSlots.find(s => s.id === selectedReqId);
         
@@ -179,14 +239,13 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
             });
 
             // FALLBACK: If no milestone matches the SPECIFIC role tab, but one exists for this slot globally, show it
-            // This prevents "Empty Drawer" confusion when a document is shared or incorrectly tagged.
             if (!m) {
-                return milestones.find(ms => ms.content?.req_id === selectedReqId || ms.title === slot?.label);
+                return milestones.find(ms => ms.content?.req_id === selectedReqId || ms.title === slot?.label) || null;
             }
             return m;
         }
         
-        return milestones.find(m => m.title === slot?.label || m.content?.req_id === selectedReqId);
+        return milestones.find(m => m.title === slot?.label || m.content?.req_id === selectedReqId) || null;
     }, [selectedReqId, milestones, templateSlots, activeProRole]);
 
     // Check if the overall phase can be sealed
@@ -223,7 +282,7 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
             
             formData.append('content', JSON.stringify({
                 ...activeMilestone?.content,
-                req_id: selectedReqId
+                req_id: selectedReqId.startsWith('manual_') ? '' : selectedReqId
             }));
 
             // Pass targeted professional ID if slot is professional-specific
@@ -282,6 +341,88 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
         if (e.target.files?.[0]) {
             handleAction(e.target.files[0]);
             e.target.value = '';
+        }
+    };
+
+    const handleLinkTermin = async (milestoneId: number, terminId: number) => {
+        const selectedTermin = Array.isArray(termins) ? termins.find(t => t.id === terminId) : null;
+        if (!selectedTermin) return;
+
+        const confirmMsg = `Are you sure you want to link "${selectedTermin.label}" to this work phase?\n\n` + 
+                          (selectedTermin.status === 'paid' ? "⚠️ Note: This payment is already PAID." : "This will link the payment release to the completion of this phase.");
+        
+        if (!window.confirm(confirmMsg)) return;
+
+        try {
+            await axios.post(`/projects/${project.id}/payment-termins/${terminId}/link-milestone`, {
+                milestone_id: milestoneId
+            });
+            showToast('Payment linked to progress step', 'success');
+            fetchMilestones();
+        } catch (error) {
+            showToast('Failed to link payment', 'error');
+        }
+    };
+
+    const handleUnlinkTermin = async (terminId: number) => {
+        try {
+            await axios.post(`/projects/${project.id}/payment-termins/${terminId}/unlink-milestone`);
+            showToast('Payment link removed', 'success');
+            fetchMilestones();
+        } catch (error) {
+            showToast('Failed to unlink payment', 'error');
+        }
+    };
+
+    const handleCreateCustomMilestone = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!newTitle) return;
+
+        setIsCreatingCustom(true);
+        try {
+            const formData = new FormData();
+            formData.append('title', newTitle);
+            formData.append('description', newDesc);
+            formData.append('type', 'legal');
+            formData.append('phase_context', 'legal');
+            formData.append('sort_order', String(milestones.length));
+
+            await axios.post(`/projects/${project.id}/milestones`, formData);
+            
+            showToast('New progress step added', 'success');
+            setIsAddingCustom(false);
+            setNewTitle('');
+            setNewDesc('');
+            fetchMilestones();
+            if (onUpdate) onUpdate();
+        } catch (error) {
+            showToast('Failed to add progress step', 'error');
+        } finally {
+            setIsCreatingCustom(false);
+        }
+    };
+
+    const handleDeleteMilestone = async (id: number) => {
+        const milestone = milestones.find(m => m.id === id);
+        if (!milestone) return;
+
+        const linkedTermin = Array.isArray(termins) ? termins.find(t => t.milestone_id === milestone.id) : null;
+        const isAgreedMilestone = !!linkedTermin || (milestone.content && 'services' in milestone.content);
+
+        if (isAgreedMilestone) {
+            showToast('Cannot delete an agreed contract step', 'error');
+            return;
+        }
+
+        if (!window.confirm("Are you sure you want to remove this custom progress step?")) return;
+        try {
+            await axios.delete(`/projects/${project.id}/milestones/${id}`);
+            showToast('Progress step removed', 'success');
+            setSelectedReqId(null);
+            fetchMilestones();
+            if (onUpdate) onUpdate();
+        } catch (error) {
+            showToast('Failed to delete step', 'error');
         }
     };
 
@@ -509,6 +650,73 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
                 )}
             </AnimatePresence>
 
+            {/* Modal: Add Custom Step */}
+            <AnimatePresence>
+                {isAddingCustom && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-zinc-900/40 backdrop-blur-md animate-in fade-in duration-300">
+                        <motion.div 
+                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                            className="bg-white rounded-[3.5rem] p-10 max-w-lg w-full shadow-2xl border border-zinc-100 text-left"
+                        >
+                            <div className="flex items-center gap-4 mb-6">
+                                <div className="w-12 h-12 rounded-2xl bg-zinc-950 text-white flex items-center justify-center shadow-inner">
+                                    <Plus size={24} />
+                                </div>
+                                <div>
+                                    <h3 className="text-xl font-black text-zinc-900">Add Custom Progress Step</h3>
+                                    <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Create an ad-hoc legal deliverable slot</p>
+                                </div>
+                            </div>
+
+                            <form onSubmit={handleCreateCustomMilestone} className="space-y-6">
+                                <div>
+                                    <label className="block text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-2 ml-1">Step Title</label>
+                                    <input 
+                                        type="text" 
+                                        value={newTitle} 
+                                        onChange={e => setNewTitle(e.target.value)}
+                                        placeholder="e.g. Surat Keterangan Ahli Waris" 
+                                        required 
+                                        className="w-full px-6 py-4 bg-zinc-50 border-2 border-transparent focus:border-zinc-900 rounded-2xl text-sm font-bold outline-none transition-all"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-2 ml-1">Deliverables Description</label>
+                                    <textarea 
+                                        value={newDesc} 
+                                        onChange={e => setNewDesc(e.target.value)}
+                                        placeholder="Explain what documents or tasks are involved..." 
+                                        required 
+                                        rows={4}
+                                        className="w-full px-6 py-4 bg-zinc-50 border-2 border-transparent focus:border-zinc-900 rounded-2xl text-sm font-bold outline-none transition-all resize-none"
+                                    />
+                                </div>
+
+                                <div className="flex gap-4 pt-4">
+                                    <button 
+                                        type="button" 
+                                        onClick={() => setIsAddingCustom(false)}
+                                        className="flex-1 py-4 bg-zinc-100 text-zinc-500 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-200 transition-all"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button 
+                                        type="submit"
+                                        disabled={isCreatingCustom}
+                                        className="flex-[2] py-4 bg-zinc-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all shadow-xl shadow-zinc-100 flex items-center justify-center gap-2"
+                                    >
+                                        {isCreatingCustom ? <Loader2 size={14} className="animate-spin" /> : null}
+                                        Create Step
+                                    </button>
+                                </div>
+                            </form>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
             {/* Header & Ledger Summary */}
             <div className="flex flex-col xl:flex-row justify-between items-start xl:items-end gap-8">
                 <div className="max-w-xl text-left">
@@ -654,6 +862,16 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
                             </button>
                         );
                     })}
+
+                    {/* Add Custom Step Button for Notary */}
+                    {isNotaris && !isPhaseSealed && vaultView === 'deliverables' && (
+                        <button
+                            onClick={() => setIsAddingCustom(true)}
+                            className="w-full mt-4 flex items-center justify-center gap-2 p-4 bg-zinc-50 border-2 border-dashed border-zinc-200 hover:border-zinc-900 rounded-[1.8rem] text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:text-zinc-900 transition-all shadow-sm"
+                        >
+                            <Plus size={14} /> Add Custom Step
+                        </button>
+                    )}
                 </div>
 
                 {/* Workspace: Fill out the Template */}
@@ -747,6 +965,77 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
                                                     {templateSlots.find(s => s.id === selectedReqId)?.responsibleRole || 'Legal Expert'}
                                                 </span>
                                             </div>
+
+                                            {/* Payment Linkage UI */}
+                                            {activeMilestone && (() => {
+                                                const linkedTermin = Array.isArray(termins) ? termins.find(t => t.milestone_id === activeMilestone.id) : null;
+                                                const isAgreedMilestone = !!linkedTermin || (activeMilestone.content && 'services' in activeMilestone.content);
+                                                
+                                                const selectedSlotObj = templateSlots.find(s => s.id === selectedReqId);
+                                                const isManualSlot = selectedSlotObj?.isManual === true;
+
+                                                return (
+                                                    <div className="mt-6 pt-4 border-t border-zinc-100 flex flex-wrap items-center gap-4">
+                                                        {linkedTermin ? (
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Linked Payment:</span>
+                                                                <div className="px-3 py-1.5 bg-blue-50/50 border border-blue-100 rounded-xl text-blue-700 text-[10px] font-bold flex items-center gap-2">
+                                                                    <Wallet size={12} />
+                                                                    <span>{linkedTermin.label} ({linkedTermin.percentage}%) - {formatIDR(linkedTermin.amount)}</span>
+                                                                    <span className={`px-2 py-0.5 text-[8px] font-black rounded-md ${linkedTermin.status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                                                                        {linkedTermin.status === 'paid' ? 'PAID' : 'AWAITING COMPLETION'}
+                                                                    </span>
+                                                                    {isNotaris && !isPhaseSealed && !isAgreedMilestone && (
+                                                                        <button 
+                                                                            onClick={() => handleUnlinkTermin(linkedTermin.id)}
+                                                                            className="text-blue-400 hover:text-blue-600 transition-colors ml-1 p-0.5"
+                                                                            title="Remove Payment Link"
+                                                                        >
+                                                                            <X size={12} />
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            isNotaris && !isPhaseSealed && (
+                                                                <div className="flex items-center gap-3">
+                                                                    <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Link Payment Release:</span>
+                                                                    <select 
+                                                                        onChange={(e) => {
+                                                                            if (e.target.value) {
+                                                                                handleLinkTermin(activeMilestone.id, parseInt(e.target.value, 10));
+                                                                                e.target.value = '';
+                                                                            }
+                                                                        }}
+                                                                        defaultValue=""
+                                                                        className="px-3 py-2 bg-zinc-50 border-2 border-zinc-200 rounded-xl text-[10px] font-bold outline-none cursor-pointer focus:border-zinc-900 transition-all"
+                                                                    >
+                                                                        <option value="">-- Choose Payment Termin --</option>
+                                                                        {termins
+                                                                            .filter((t: any) => !t.milestone_id)
+                                                                            .map((t: any) => (
+                                                                                <option key={t.id} value={t.id}>
+                                                                                    {t.label} ({t.percentage}%) - {formatIDR(t.amount)}
+                                                                                </option>
+                                                                            ))
+                                                                        }
+                                                                    </select>
+                                                                </div>
+                                                            )
+                                                        )}
+
+                                                        {/* Custom Milestone Delete Control */}
+                                                        {isNotaris && !isPhaseSealed && isManualSlot && !isAgreedMilestone && (
+                                                            <button
+                                                                onClick={() => handleDeleteMilestone(activeMilestone.id)}
+                                                                className="ml-auto flex items-center gap-1.5 px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+                                                            >
+                                                                <X size={12} /> Delete Step
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })()}
                                         </div>
 
                                         {(checkDependency(selectedReqId) as any).warning && (
@@ -780,7 +1069,7 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
                                                     className={`flex items-center gap-3 px-8 py-4 ${activeMilestone?.approval_status === 'approved' ? 'bg-amber-600' : 'bg-zinc-900'} text-white rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest cursor-pointer hover:bg-black hover:scale-105 transition-all shadow-xl ${submittingId ? 'opacity-50' : ''}`}
                                                 >
                                                     {submittingId === selectedReqId ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />} 
-                                                    {activeMilestone?.approval_status === 'approved' ? 'Replace Approved File' : (activeMilestone ? 'Replace File' : 'Upload & Start')}
+                                                    {activeMilestone?.approval_status === 'approved' ? 'Replace Approved File' : (activeMilestone?.content?.gallery?.length > 0 ? 'Replace File' : 'Upload File')}
                                                 </label>
                                             </div>
                                         )}
@@ -814,15 +1103,21 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
                                                         <FileText size={32} />
                                                     </div>
                                                     <div className="flex items-center gap-2">
-                                                        <a 
-                                                            href={`/storage/${activeMilestone.content.gallery[0]}`}
-                                                            target="_blank"
-                                                            rel="noreferrer"
-                                                            className="p-4 bg-zinc-50 text-zinc-900 rounded-2xl hover:bg-zinc-900 hover:text-white transition-all shadow-sm"
-                                                            title="Download File"
-                                                        >
-                                                            <Download size={24} />
-                                                        </a>
+                                                        {isOwner || isPM || isHiredPro ? (
+                                                            <a 
+                                                                href={`/storage/${activeMilestone.content.gallery[0]}`}
+                                                                target="_blank"
+                                                                rel="noreferrer"
+                                                                className="p-4 bg-zinc-50 text-zinc-900 rounded-2xl hover:bg-zinc-900 hover:text-white transition-all shadow-sm"
+                                                                title="Download File"
+                                                            >
+                                                                <Download size={24} />
+                                                            </a>
+                                                        ) : (
+                                                            <div className="p-4 bg-zinc-50 text-zinc-300 rounded-2xl cursor-not-allowed" title="Access Restricted">
+                                                                <ShieldAlert size={24} />
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
                                                 <p className="text-sm font-black text-zinc-900 mb-1">Legally Authenticated</p>

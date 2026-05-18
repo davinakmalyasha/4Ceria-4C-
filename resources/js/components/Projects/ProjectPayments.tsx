@@ -100,12 +100,13 @@ export default function ProjectPayments({ project, user, onRefresh }: ProjectPay
         roles.forEach(role => {
             const roleBids = role.bids && Array.isArray(role.bids) ? role.bids : [];
             roleBids.forEach((bid: any) => {
-                if (bid.status === 'accepted' || bid.status === 'awaiting_payment' || bid.status === 'active' || bid.status === 'contract_pending') {
+                // Only show payment groups for professionals who have signed the contract (status is awaiting_payment or active)
+                if (bid.status === 'awaiting_payment' || bid.status === 'active') {
                     const roleTermins = (project.payment_termins || []).filter((t: any) => {
                         if (role.roleType === 'engineering') {
                             return t.role_type === 'structural' || t.role_type === 'mep';
                         }
-                        return t.role_type === role.roleType;
+                        return t.role_type === role.roleType || (t.role_type === 'other' && t.recipient_id === bid.bidder?.user?.id);
                     });
                     
                     const proPayments: any[] = [];
@@ -131,6 +132,7 @@ export default function ProjectPayments({ project, user, onRefresh }: ProjectPay
                                 verification_notes: termin.verification_notes,
                                 proposal: termin.proposal,
                                 isTermin: true,
+                                role_type: termin.role_type,
                                 phaseKey: role.key,
                                 milestone: termin.milestone // Linked milestone data
                             });
@@ -175,9 +177,20 @@ export default function ProjectPayments({ project, user, onRefresh }: ProjectPay
         // Process Addendums: Merge into existing groups or create new ones
         if (project.addendums && Array.isArray(project.addendums)) {
             project.addendums.forEach((addendum: any) => {
+                // Ignore any addendums with zero or negative amounts
+                if (Number(addendum.amount) <= 0) return;
+
                 if (addendum.status === 'approved_unpaid' || addendum.status === 'verifying' || addendum.status === 'paid') {
                     // Try to find existing group for this role (e.g. arsitek, kontraktor)
-                    const existingGroup = groups.find(g => g.roleType === addendum.role_type);
+                    // Group under 'arsitek' for the owner or PM/Architect to avoid redundancy, but keep it in its own role for the specialist themselves so they can see and verify it!
+                    const isSpecialistSelf = user?.role_type === addendum.role_type || (addendum.assigned_user_id && user?.id === addendum.assigned_user_id);
+                    const targetRoleType = (isSpecialistSelf)
+                        ? addendum.role_type
+                        : ((addendum.role_type === 'structural' || addendum.role_type === 'mep' || addendum.role_type === 'interior')
+                            ? 'arsitek'
+                            : addendum.role_type);
+
+                    const existingGroup = groups.find(g => g.roleType === targetRoleType);
                     
                     const paymentObj = {
                         ...addendum,
@@ -207,8 +220,10 @@ export default function ProjectPayments({ project, user, onRefresh }: ProjectPay
                         existingGroup.progress = existingGroup.totalPrice > 0 ? (existingGroup.paidPrice / existingGroup.totalPrice) * 100 : 0;
                     } else {
                         // Create new group if none exists for this professional role
-                        const bidder = { user: { id: addendum.user_id }, phone: '' };
-                        const proName = addendum.team_member?.name || (addendum.role_type === 'arsitek' ? 'Architect' : 'Professional') + ' Add-on';
+                        const bidder = { user: { id: addendum.assigned_user_id || addendum.user_id }, phone: '' };
+                        const proName = addendum.assigned_user_id === user?.id 
+                            ? (user?.name || 'Interior Designer') 
+                            : (addendum.team_member?.name || (addendum.role_type === 'arsitek' ? 'Architect' : 'Professional') + ' Add-on');
                         groups.push({
                             id: `addendum-${addendum.id}`,
                             proName: proName,
@@ -443,13 +458,20 @@ export default function ProjectPayments({ project, user, onRefresh }: ProjectPay
                                             
                                             // Enforce strict PM gating
                                             let isLocked = payment.payment_status === 'locked';
-                                            if (payment.isTermin && !isPaid && !isVerifying) {
-                                                if (payment.milestone) {
-                                                    // Must be approved by PM
+                                            const isDownPayment = index === 0 || 
+                                                                  payment.label.toLowerCase().includes('dp') || 
+                                                                  payment.label.toLowerCase().includes('down payment') || 
+                                                                  payment.label.toLowerCase().includes('downpayment');
+
+                                            const isTeamPayment = payment.role_type === 'other';
+
+                                            if (payment.isTermin && !isPaid && !isVerifying && !isTeamPayment) {
+                                                if (payment.milestone && !isDownPayment) {
+                                                    // Must be approved by PM (except Down Payment)
                                                     if (payment.milestone.approval_status !== 'approved') {
                                                         isLocked = true;
                                                     }
-                                                } else if (index > 0) {
+                                                } else if (index > 0 && !isDownPayment) {
                                                     // Termins without milestones (except DP) are locked until PM defines them
                                                     isLocked = true;
                                                 }

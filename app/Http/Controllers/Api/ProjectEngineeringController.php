@@ -9,15 +9,66 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use App\Traits\HandlesProjectAuthorization;
 
 class ProjectEngineeringController extends Controller
 {
+    use HandlesProjectAuthorization;
+    /**
+     * Request an engineering or specialist role (structural, mep, or interior).
+     */
+    public function requestEngineeringRole(Request $request, Project $project)
+    {
+        if (!$this->authorizeProjectAccess($project)) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        $request->validate([
+            'role_type' => 'required|in:structural,mep,interior',
+            'description' => 'required|string',
+            'suggested_fee' => 'nullable|numeric|min:0',
+            'assigned_user_id' => 'nullable|integer|exists:users,id',
+            'team_member_id' => 'nullable|integer|exists:team_members,id'
+        ]);
+
+        return DB::transaction(function () use ($request, $project) {
+            $roleType = $request->role_type;
+            
+            // Create a pending approval Addendum for this role request
+            $addendum = \App\Models\ProjectAddendum::create([
+                'project_id' => $project->id,
+                'user_id' => Auth::id(),
+                'role_type' => $roleType,
+                'type' => 'specialist_request',
+                'title' => 'Request Specialist: ' . ucfirst($roleType),
+                'description' => $request->description,
+                'amount' => $request->suggested_fee ?? 0,
+                'status' => 'pending_approval',
+                'assigned_user_id' => $request->assigned_user_id,
+                'team_member_id' => $request->team_member_id
+            ]);
+
+            \App\Models\ProjectActivityLog::create([
+                'project_id' => $project->id,
+                'user_id' => Auth::id(),
+                'action' => 'specialist_requested',
+                'details' => "Architect requested specialist coordination for: " . ucfirst($roleType) . ". Description: " . $request->description,
+            ]);
+
+            return response()->json([
+                'message' => 'Specialist coordination request submitted successfully.',
+                'data' => $addendum
+            ]);
+        });
+    }
     /**
      * Store a manual technical log for a specific role (structural/mep).
      */
     public function storeLog(Request $request, Project $project)
     {
-        $this->authorize('update', $project);
+        if (!$this->authorizeProjectAccess($project)) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
 
         $request->validate([
             'role_type' => 'required|in:structural,mep',
@@ -66,7 +117,9 @@ class ProjectEngineeringController extends Controller
      */
     public function deleteLog(Project $project, ProjectMilestone $milestone)
     {
-        $this->authorize('update', $project);
+        if (!$this->authorizeProjectAccess($project)) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
 
         if ($milestone->project_id !== $project->id) {
             return response()->json(['message' => 'Unauthorized'], 403);
@@ -81,10 +134,12 @@ class ProjectEngineeringController extends Controller
      */
     public function authorizeSpecialist(Request $request, Project $project)
     {
-        $this->authorize('update', $project);
+        if (!$this->authorizeProjectAccess($project)) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
 
         $request->validate([
-            'role_type' => 'required|in:structural,mep',
+            'role_type' => 'required|in:structural,mep,interior',
             'addendum_id' => 'required|integer|exists:project_addendums,id'
         ]);
 
@@ -99,7 +154,11 @@ class ProjectEngineeringController extends Controller
 
             // If it's a platform-hired specialist, we should ensure the bid is also updated
             if ($addendum->specialist_type === 'platform_hired' && $addendum->recommended_bid_id) {
-                $bidModel = $request->role_type === 'structural' ? \App\Models\BidStructural::class : \App\Models\BidMep::class;
+                $bidModel = match ($request->role_type) {
+                    'structural' => \App\Models\BidStructural::class,
+                    'mep' => \App\Models\BidMep::class,
+                    'interior' => \App\Models\BidInterior::class,
+                };
                 $bid = $bidModel::find($addendum->recommended_bid_id);
                 if ($bid) {
                     $bid->update(['status' => 'awaiting_payment']);
@@ -122,10 +181,12 @@ class ProjectEngineeringController extends Controller
      */
     public function rejectSpecialist(Request $request, Project $project)
     {
-        $this->authorize('update', $project);
+        if (!$this->authorizeProjectAccess($project)) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
 
         $request->validate([
-            'role_type' => 'required|in:structural,mep',
+            'role_type' => 'required|in:structural,mep,interior',
             'addendum_id' => 'required|integer|exists:project_addendums,id',
             'reason' => 'nullable|string'
         ]);
@@ -156,19 +217,40 @@ class ProjectEngineeringController extends Controller
      */
     public function verifyEngineeringRequest(Request $request, Project $project, \App\Models\ProjectAddendum $addendum)
     {
-        $this->authorize('update', $project);
+        if (!$this->authorizeProjectAccess($project)) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
         
         $request->validate(['status' => 'required|in:approved,rejected']);
 
         return DB::transaction(function () use ($request, $project, $addendum) {
-            $status = $request->status === 'approved' ? 'authorized' : 'rejected';
+            $status = 'rejected';
+            if ($request->status === 'approved') {
+                if ($addendum->assigned_user_id || $addendum->team_member_id) {
+                    $status = 'approved_unpaid'; // Direct team hire: awaiting client payment
+                } else {
+                    $status = 'authorized'; // Open bidding: unlocked for platform experts
+                }
+            }
             $addendum->update(['status' => $status]);
+
+            // Update project requirement flag when approved
+            if ($request->status === 'approved') {
+                $role = $addendum->role_type;
+                if ($role === 'structural') {
+                    $project->update(['requires_structural' => true]);
+                } elseif ($role === 'mep') {
+                    $project->update(['requires_mep' => true]);
+                } elseif ($role === 'interior') {
+                    $project->update(['requires_interior' => true]);
+                }
+            }
 
             \App\Models\ProjectActivityLog::create([
                 'project_id' => $project->id,
                 'user_id' => Auth::id(),
                 'action' => 'engineering_request_verified',
-                'details' => "PM " . $request->status . " engineering request for: " . ($addendum->role_type ?? $addendum->specialist_type),
+                'details' => "PM " . $request->status . " specialist request for: " . ucfirst($addendum->role_type ?? $addendum->specialist_type),
             ]);
 
             return response()->json(['message' => "Request " . $request->status]);
@@ -180,7 +262,9 @@ class ProjectEngineeringController extends Controller
      */
     public function approveEngineeringHire(Project $project, \App\Models\ProjectAddendum $addendum)
     {
-        $this->authorize('update', $project);
+        if (!$this->authorizeProjectAccess($project)) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
 
         return DB::transaction(function () use ($project, $addendum) {
             $addendum->update(['status' => 'authorized']); // Assuming authorized means ready for payment or approved
@@ -201,7 +285,9 @@ class ProjectEngineeringController extends Controller
      */
     public function rejectEngineeringHire(Project $project, \App\Models\ProjectAddendum $addendum)
     {
-        $this->authorize('update', $project);
+        if (!$this->authorizeProjectAccess($project)) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
 
         return DB::transaction(function () use ($project, $addendum) {
             $addendum->update(['status' => 'rejected']);
@@ -222,14 +308,18 @@ class ProjectEngineeringController extends Controller
      */
     public function approveEngineeringIntegration(Request $request, Project $project)
     {
-        $this->authorize('update', $project);
-        $request->validate(['role_type' => 'required|in:structural,mep']);
+        if (!$this->authorizeProjectAccess($project)) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+        $request->validate(['role_type' => 'required|in:structural,mep,interior']);
 
         return DB::transaction(function () use ($request, $project) {
             if ($request->role_type === 'structural') {
                 $project->update(['structural_approved_at' => now()]);
-            } else {
+            } elseif ($request->role_type === 'mep') {
                 $project->update(['mep_approved_at' => now()]);
+            } elseif ($request->role_type === 'interior') {
+                $project->update(['interior_completed_at' => now()]);
             }
 
             \App\Models\ProjectActivityLog::create([
