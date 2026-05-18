@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class CourierSeeder extends Seeder
@@ -23,7 +22,7 @@ class CourierSeeder extends Seeder
         );
 
         $role = \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'logistics']);
-        if (!$user->hasRole('logistics')) {
+        if (! $user->hasRole('logistics')) {
             $user->assignRole($role);
         }
 

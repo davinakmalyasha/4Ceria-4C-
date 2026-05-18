@@ -40,6 +40,7 @@ class DatabaseSeeder extends Seeder
             DummyProfessionalDataSeeder::class,
             RestoreLegalLedgerSeeder::class,
             NotarisServicesSeeder::class,
+            SubContractorSeeder::class,
         ]);
     }
 }

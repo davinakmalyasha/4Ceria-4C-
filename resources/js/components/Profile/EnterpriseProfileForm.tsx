@@ -10,6 +10,12 @@ const PROFILE_KEY: Record<string, string> = {
     project_manager: 'project_manager',
     structural: 'structural_engineer',
     mep: 'mep_engineer',
+    civil: 'kontraktor',
+    mechanical: 'kontraktor',
+    electrical: 'kontraktor',
+    plumbing: 'kontraktor',
+    roofing: 'kontraktor',
+    finishing: 'kontraktor',
 };
 
 export default function EnterpriseProfileForm({ onCancel }: Props) {
@@ -22,13 +28,13 @@ export default function EnterpriseProfileForm({ onCancel }: Props) {
         email: user?.email ?? '',
         username: user?.username ?? '',
         rate_harga: profile?.rate_harga ?? '',
-        pengalaman_tahun: profile?.pengalaman_tahun ?? '',
-        lokasi: profile?.lokasi ?? '',
+        pengalaman_tahun: profile?.pengalaman_tahun ?? profile?.pengalaman ?? '',
+        lokasi: profile?.lokasi ?? profile?.alamat ?? '',
         deskripsi: profile?.deskripsi ?? '',
         spesialisasi: profile?.spesialisasi ?? '',
         pendidikan: profile?.pendidikan ?? '',
         alasan_hire: '',
-        no_telp: profile?.no_telp ?? '',
+        no_telp: profile?.no_telp ?? profile?.no_telepon ?? '',
     });
     const [phoneNumbers, setPhoneNumbers] = useState<string[]>(user?.phone_number?.map(p => p.contact) ?? []);
     const [fileFoto, setFileFoto] = useState<File | null>(null);

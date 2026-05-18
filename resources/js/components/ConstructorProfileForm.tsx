@@ -3,7 +3,7 @@ import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { Plus, X, Phone, UploadCloud, FileText, AlertCircle } from 'lucide-react';
 import { PortfolioManager } from './Dashboard/PortfolioManager';
-import { TeamMemberManager } from './Dashboard/TeamMemberManager';
+
 import { ErrorBoundary } from './Common/ErrorBoundary';
 
 interface EditProfileFormProps { onCancel: () => void; }
@@ -168,9 +168,6 @@ export default function ConstructorProfileForm({ onCancel }: EditProfileFormProp
 
             {/* Interactive Portfolio Management inside Edit Mode */}
             <PortfolioManager isEmbedded={true} />
-            <ErrorBoundary name="Team Member Manager">
-                <TeamMemberManager isEmbedded={true} />
-            </ErrorBoundary>
 
             <div className="pt-4 flex items-center gap-4">
                 <button type="submit" disabled={isLoading} className="flex-1 bg-neutral-900 text-white py-3 rounded-xl font-bold hover:bg-neutral-800 transition-all shadow-lg disabled:opacity-50">

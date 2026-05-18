@@ -8,6 +8,9 @@ use App\Models\InteriorProfile;
 use App\Models\Kontraktor;
 use App\Models\Material;
 use App\Models\NotarisProfile;
+use App\Models\StructuralEngineer;
+use App\Models\MepEngineer;
+use App\Models\ProjectManager;
 use App\Models\Project;
 use App\Models\ProjectImage;
 use App\Models\Supplier;
@@ -108,6 +111,60 @@ class DummyProfessionalDataSeeder extends Seeder
                     'vehicle_type' => 'Pickup Truck (L300)',
                     'license_plate' => 'B 4122 CER',
                     'is_active' => true,
+                ]
+            );
+        }
+
+        // 6. Structural Engineer Dummy Data (Budi)
+        $structuralUser = User::where('email', 'budi_struc@gmail.com')->first();
+        if ($structuralUser) {
+            StructuralEngineer::updateOrCreate(
+                ['user_id' => $structuralUser->id],
+                [
+                    'nama' => 'Budi Structural & Civil',
+                    'no_telp' => '08512345678',
+                    'spesialisasi' => 'High-Rise, Steel Structures',
+                    'deskripsi' => 'Expert in structural integrity and earthquake-resistant designs.',
+                    'lokasi' => 'Bandung',
+                    'pengalaman_tahun' => 10,
+                    'rate_harga' => 12000000,
+                    'verification_status' => 'verified',
+                ]
+            );
+        }
+
+        // 7. MEP Engineer Dummy Data (Andi)
+        $mepUser = User::where('email', 'andi_mep@gmail.com')->first();
+        if ($mepUser) {
+            MepEngineer::updateOrCreate(
+                ['user_id' => $mepUser->id],
+                [
+                    'nama' => 'Andi MEP Solutions',
+                    'no_telp' => '08612345678',
+                    'spesialisasi' => 'Electrical, Plumbing, HVAC',
+                    'deskripsi' => 'Comprehensive MEP engineering for modern smart homes.',
+                    'lokasi' => 'Surabaya',
+                    'pengalaman_tahun' => 7,
+                    'rate_harga' => 8000000,
+                    'verification_status' => 'verified',
+                ]
+            );
+        }
+
+        // 8. Project Manager Dummy Data (Aisha)
+        $pmUser = User::where('email', 'aisha@gmail.com')->first();
+        if ($pmUser) {
+            ProjectManager::updateOrCreate(
+                ['user_id' => $pmUser->id],
+                [
+                    'nama' => 'Aisha Project Management',
+                    'no_telp' => '08712345678',
+                    'spesialisasi' => 'Agile Construction, Risk Management',
+                    'deskripsi' => 'Ensuring project delivery on time and within budget.',
+                    'lokasi' => 'Jakarta',
+                    'pengalaman_tahun' => 9,
+                    'rate_harga' => 20000000,
+                    'verification_status' => 'verified',
                 ]
             );
         }

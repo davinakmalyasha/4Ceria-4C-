@@ -109,9 +109,10 @@ export const CONTRACTOR_DELIVERABLES = [
 ];
 
 export const CONTRACTOR_FEE_TYPES = [
-    { id: 'fixed', label: 'Lump Sum (Fixed Price)', description: 'Total construction cost based on the agreed RAB.' },
-    { id: 'cost_plus', label: 'Cost Plus Fee', description: 'Actual material/labor cost + fixed percentage margin (typically 10%).' },
-    { id: 'unit_price', label: 'Unit Price Contract', description: 'Based on actual volume of work measured on site.' }
+    { id: 'fixed', label: 'Lump Sum (Harga Pasti)', description: 'Total biaya konstruksi berdasarkan RAB yang disepakati.' },
+    { id: 'cost_plus', label: 'Cost + Fee (Biaya + Margin)', description: 'Biaya aktual material + tenaga kerja + margin kontraktor (10-15%).' },
+    { id: 'unit_price', label: 'Harga Satuan (Unit Price)', description: 'Berdasarkan volume pekerjaan aktual di lapangan (per m³, per m², dll).' },
+    { id: 'sqm', label: 'Harga per Meter Persegi', description: 'Tarif per m² luas bangunan — standar estimasi proyek di Indonesia.' },
 ];
 
 export const CONTRACTOR_BID_EQUIPMENT = [

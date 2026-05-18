@@ -38,7 +38,7 @@ export default function EditProfileForm({ onCancel }: EditProfileFormProps) {
         return <NotarisProfileForm onCancel={onCancel} />;
     }
 
-    if (['project_manager', 'structural', 'mep'].includes(user.role_type)) {
+    if (['project_manager', 'structural', 'mep', 'civil', 'mechanical', 'electrical', 'plumbing', 'roofing', 'finishing'].includes(user.role_type)) {
         return <EnterpriseProfileForm onCancel={onCancel} />;
     }
 
