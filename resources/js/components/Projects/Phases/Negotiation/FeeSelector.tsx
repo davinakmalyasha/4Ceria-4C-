@@ -8,6 +8,12 @@ interface Props {
     onTypeChange: (type: NegotiationOfferDTO['fee_type']) => void;
     onAmountChange: (amount: number) => void;
     estimatedTotal: number;
+    roleType?: string;
+    area?: number;
+    length?: number;
+    width?: number;
+    onLengthChange?: (val: number) => void;
+    onWidthChange?: (val: number) => void;
 }
 
 const FEE_TYPE_CONFIG = [
@@ -19,14 +25,29 @@ const FEE_TYPE_CONFIG = [
 ];
 
 export const FeeSelector: React.FC<Props> = ({ 
-    feeType, amount, onTypeChange, onAmountChange, estimatedTotal 
+    feeType, amount, onTypeChange, onAmountChange, estimatedTotal, roleType, area, length, width, onLengthChange, onWidthChange
 }) => {
+    const feeTypes = React.useMemo(() => {
+        if (roleType === 'project_manager' || roleType === 'notaris') {
+            return FEE_TYPE_CONFIG.filter(type => ['fixed', 'percentage'].includes(type.id));
+        }
+        if (roleType === 'arsitek' || roleType === 'architect' || roleType === 'interior') {
+            // Custom Architects and Interior Designers primarily use Fixed, Percentage, or Per SQM
+            return FEE_TYPE_CONFIG.filter(type => ['fixed', 'percentage', 'sqm'].includes(type.id));
+        }
+        if (roleType === 'kontraktor') {
+            // Contractors use Fixed (Lump Sum), Unit Price, and Per SQM — no percentage/hourly
+            return FEE_TYPE_CONFIG.filter(type => ['fixed', 'unit', 'sqm'].includes(type.id));
+        }
+        return FEE_TYPE_CONFIG;
+    }, [roleType]);
+
     return (
         <div className="space-y-6">
             <div className="space-y-4">
                 <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block">Select Fee Structure</label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-                    {FEE_TYPE_CONFIG.map((type) => (
+                    {feeTypes.map((type) => (
                         <button
                             key={type.id}
                             type="button"
@@ -66,11 +87,64 @@ export const FeeSelector: React.FC<Props> = ({
                         <span className="absolute right-6 top-1/2 -translate-y-1/2 font-black text-gray-400">%</span>
                     )}
                 </div>
+
+                {feeType === 'sqm' && (
+                    <div className="grid grid-cols-2 gap-4 pt-2">
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block">Panjang Area (m)</label>
+                            <div className="relative">
+                                <input 
+                                    type="number" 
+                                    required 
+                                    min="1"
+                                    value={length || ''} 
+                                    onChange={(e) => onLengthChange?.(Number(e.target.value))}
+                                    className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-100 focus:border-slate-900 rounded-2xl font-bold text-base text-slate-900 outline-none transition-all"
+                                    placeholder="Cth: 10"
+                                />
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400">m</span>
+                            </div>
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block">Lebar Area (m)</label>
+                            <div className="relative">
+                                <input 
+                                    type="number" 
+                                    required 
+                                    min="1"
+                                    value={width || ''} 
+                                    onChange={(e) => onWidthChange?.(Number(e.target.value))}
+                                    className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-100 focus:border-slate-900 rounded-2xl font-bold text-base text-slate-900 outline-none transition-all"
+                                    placeholder="Cth: 8"
+                                />
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400">m</span>
+                            </div>
+                        </div>
+                    </div>
+                )}
                 
                 {(feeType === 'percentage' || feeType === 'sqm') && (
-                    <div className="flex items-center justify-between px-2">
-                        <span className="text-[10px] font-bold text-gray-400 uppercase">Estimated Total:</span>
-                        <span className="text-sm font-black text-slate-900">Rp {(estimatedTotal || 0).toLocaleString('id-ID')}</span>
+                    <div className="space-y-1.5 p-4 bg-slate-50 border border-slate-100 rounded-2xl">
+                        {feeType === 'sqm' && area && area > 0 && (
+                            <div className="flex flex-col gap-0.5 px-1 pb-1 border-b border-slate-100 text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                                <div className="flex items-center justify-between">
+                                    <span>Project Area Size:</span>
+                                    <span className="text-slate-700 font-black">{area} sqm</span>
+                                </div>
+                                {length && width && length > 0 && width > 0 ? (
+                                    <div className="flex items-center justify-between text-[9px] text-slate-400 font-bold tracking-tight lowercase">
+                                        <span>Formula:</span>
+                                        <span>{length}m (panjang) × {width}m (lebar) = {area}m²</span>
+                                    </div>
+                                ) : null}
+                            </div>
+                        )}
+                        <div className="flex items-center justify-between px-1 pt-0.5">
+                            <span className="text-[10px] font-bold text-gray-500 uppercase">
+                                {feeType === 'sqm' ? 'Calculated Fee (Rate × Area):' : 'Estimated Total:'}
+                            </span>
+                            <span className="text-sm font-black text-slate-900">Rp {(estimatedTotal || 0).toLocaleString('id-ID')}</span>
+                        </div>
                     </div>
                 )}
             </div>

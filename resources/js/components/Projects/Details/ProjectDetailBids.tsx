@@ -10,6 +10,8 @@ import { ProjectBidForm } from './ProjectBidForm';
 interface Bid {
     id: number;
     price: number;
+    price_max?: number;
+    fee_type?: string;
     proposal: string;
     status: string;
     type: 'arsitek' | 'kontraktor';
@@ -207,18 +209,18 @@ export const ProjectDetailBids: React.FC<Props> = ({
                                                         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                                                             {bid.deliverables.map(id => {
                                                                 const del = ARCHITECT_DELIVERABLES.find(d => d.id === id);
-                                                                if (!del) return null;
+                                                                const label = del ? del.label : id;
                                                                 
                                                                 // Icon mapping
                                                                 const IconMap: Record<string, any> = { Box, Layout, Zap, Grid, Eye, Sofa };
-                                                                const Icon = IconMap[del.icon as string] || FileText;
+                                                                const Icon = del ? (IconMap[del.icon as string] || FileText) : FileText;
 
                                                                 return (
                                                                     <div key={id} className="flex items-center gap-3 px-4 py-2.5 bg-white rounded-2xl border border-zinc-100 shadow-sm group-hover:border-zinc-200 transition-colors">
                                                                         <div className="w-8 h-8 rounded-lg bg-zinc-50 flex items-center justify-center text-zinc-400">
                                                                             <Icon size={14} />
                                                                         </div>
-                                                                        <span className="text-[10px] font-black text-zinc-900 leading-tight">{del.label}</span>
+                                                                        <span className="text-[10px] font-black text-zinc-900 leading-tight">{label}</span>
                                                                     </div>
                                                                 );
                                                             })}
@@ -287,8 +289,40 @@ export const ProjectDetailBids: React.FC<Props> = ({
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
                                 <div className="space-y-1">
                                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Investment Bid</p>
-                                    <p className="text-2xl font-black text-gray-900 tracking-tight">{formatCurrency(bid.price)}</p>
-                                    <p className="text-[11px] font-bold text-gray-400 capitalize">ETA: {bid.estimated_duration} {bid.duration_unit}</p>
+                                    <p className="text-2xl font-black text-gray-900 tracking-tight">
+                                        {bid.fee_type === 'percentage' ? (
+                                            bid.price_max && Number(bid.price_max) > 0 ? (
+                                                detail?.budget ? (
+                                                    `${formatCurrency((Number(bid.price) / 100) * detail.budget)} - ${formatCurrency((Number(bid.price_max) / 100) * detail.budget)}`
+                                                ) : (
+                                                    `${Number(bid.price)}% - ${Number(bid.price_max)}%`
+                                                )
+                                            ) : (
+                                                detail?.budget ? formatCurrency((Number(bid.price) / 100) * detail.budget) : `${Number(bid.price)}%`
+                                            )
+                                        ) : (
+                                            bid.price_max && Number(bid.price_max) > 0 ? (
+                                                `${formatCurrency(bid.price)} - ${formatCurrency(bid.price_max)}`
+                                            ) : (
+                                                formatCurrency(bid.price)
+                                            )
+                                        )}
+                                    </p>
+                                    <p className="text-[11px] font-bold text-gray-400 capitalize">
+                                        {bid.fee_type === 'percentage' ? (
+                                            bid.price_max && Number(bid.price_max) > 0 ? (
+                                                `Ballpark: ${Number(bid.price)}% - ${Number(bid.price_max)}% of budget • ETA: ${bid.estimated_duration} ${bid.duration_unit}`
+                                            ) : (
+                                                `Fee: ${Number(bid.price)}% of budget • ETA: ${bid.estimated_duration} ${bid.duration_unit}`
+                                            )
+                                        ) : (
+                                            bid.price_max && Number(bid.price_max) > 0 ? (
+                                                `Ballpark price range • ETA: ${bid.estimated_duration} ${bid.duration_unit}`
+                                            ) : (
+                                                `Estimated fee • ETA: ${bid.estimated_duration} ${bid.duration_unit}`
+                                            )
+                                        )}
+                                    </p>
                                 </div>
 
                                 <div className="flex items-center gap-3">

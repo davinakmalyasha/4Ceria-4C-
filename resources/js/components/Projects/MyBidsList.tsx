@@ -7,6 +7,7 @@ interface Bid {
     id: number;
     project_id: number;
     price: number;
+    price_max?: number;
     calculated_total?: number;
     fee_type?: string;
     proposal: string;
@@ -159,13 +160,31 @@ export default function MyBidsList({ bids, isLoading, onViewProject, initialSubT
                                                 {bid.fee_type === 'percentage' ? 'Estimated Fee' : 'Offered Price'}
                                             </div>
                                             <div className="text-xl font-extrabold text-zinc-900">
-                                                {bid.fee_type === 'percentage' && bid.calculated_total
-                                                    ? formatCurrency(bid.calculated_total) 
-                                                    : formatCurrency(bid.price)}
+                                                {bid.fee_type === 'percentage' ? (
+                                                    bid.price_max && Number(bid.price_max) > 0 ? (
+                                                        bid.project?.budget ? (
+                                                            `${formatCurrency((Number(bid.price) / 100) * bid.project.budget)} - ${formatCurrency((Number(bid.price_max) / 100) * bid.project.budget)}`
+                                                        ) : (
+                                                            `${bid.price}% - ${bid.price_max}%`
+                                                        )
+                                                    ) : (
+                                                        bid.calculated_total ? formatCurrency(bid.calculated_total) : `${bid.price}%`
+                                                    )
+                                                ) : (
+                                                    bid.price_max && Number(bid.price_max) > 0 ? (
+                                                        `${formatCurrency(bid.price)} - ${formatCurrency(bid.price_max)}`
+                                                    ) : (
+                                                        formatCurrency(bid.price)
+                                                    )
+                                                )}
                                             </div>
                                             {bid.fee_type === 'percentage' && (
                                                 <div className="text-[10px] font-bold text-gray-400 mt-1 uppercase tracking-tighter">
-                                                    {bid.price}% of project budget
+                                                    {bid.price_max && Number(bid.price_max) > 0 ? (
+                                                        `${bid.price}% - ${bid.price_max}% of project budget`
+                                                    ) : (
+                                                        `${bid.price}% of project budget`
+                                                    )}
                                                 </div>
                                             )}
                                         </>

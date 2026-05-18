@@ -1,16 +1,6 @@
 import React, { useMemo } from 'react';
-import { Plus, X, Users, UserPlus } from 'lucide-react';
+import { Plus, X, Users, UserCheck } from 'lucide-react';
 import { ProposedTeamMember, TeamMember } from '../../../../types/sub_professional.types';
-
-const ROLE_OPTIONS = [
-    { value: 'structural', label: 'Structural Engineer' },
-    { value: 'mep', label: 'MEP Engineer' },
-    { value: 'surveyor', label: 'Surveyor' },
-    { value: 'foreman', label: 'Site Foreman' },
-    { value: 'electrician', label: 'Electrician' },
-    { value: 'plumber', label: 'Plumber' },
-    { value: 'other', label: 'Other' },
-] as const;
 
 interface TeamCompositionSectionProps {
     team: ProposedTeamMember[];
@@ -37,16 +27,8 @@ export const TeamCompositionSection: React.FC<TeamCompositionSectionProps> = ({
         }]);
     };
 
-    const addManual = () => {
-        onChange([...team, {
-            team_member_id: null,
-            name: '',
-            role_title: '',
-            role: 'other',
-            fee: 0,
-            fee_type: 'fixed',
-            note: '',
-        }]);
+    const removeMember = (index: number) => {
+        onChange(team.filter((_, i) => i !== index));
     };
 
     const updateMember = (index: number, updates: Partial<ProposedTeamMember>) => {
@@ -55,67 +37,83 @@ export const TeamCompositionSection: React.FC<TeamCompositionSectionProps> = ({
         onChange(updated);
     };
 
-    const removeMember = (index: number) => {
-        onChange(team.filter((_, i) => i !== index));
-    };
-
     const unusedRoster = useMemo(() =>
         availableMembers.filter(m => !team.some(t => t.team_member_id === m.id)),
     [availableMembers, team]);
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-6">
+            {/* Header info */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                    <Users size={16} className="text-blue-600" />
-                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Team Composition</span>
+                    <Users size={18} className="text-slate-900" />
+                    <span className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Team Composition</span>
                 </div>
                 {teamTotal > 0 && (
-                    <span className="text-xs font-black text-blue-600 bg-blue-50 px-3 py-1 rounded-lg">
+                    <span className="text-xs font-black text-blue-600 bg-blue-50 px-3 py-1 rounded-xl">
                         Team Total: Rp {teamTotal.toLocaleString('id-ID')}
                     </span>
                 )}
             </div>
 
-            {/* Quick-add from roster */}
-            {unusedRoster.length > 0 && (
-                <div className="p-3 bg-blue-50/50 rounded-2xl border border-blue-100">
-                    <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-2">Quick Add from Your Team</p>
-                    <div className="flex flex-wrap gap-2">
-                        {unusedRoster.map(m => (
-                            <button key={m.id} type="button" onClick={() => addFromRoster(m)}
-                                className="flex items-center gap-2 px-3 py-1.5 bg-white border border-blue-200 rounded-xl text-xs font-bold text-gray-700 hover:border-blue-500 hover:bg-blue-50 transition-all">
-                                {m.photo_url ? (
-                                    <img src={m.photo_url} className="w-5 h-5 rounded-full object-cover" alt="" />
-                                ) : (
-                                    <div className="w-5 h-5 rounded-full bg-blue-100 flex items-center justify-center text-[8px] font-black text-blue-600">
-                                        {m.name.charAt(0)}
-                                    </div>
-                                )}
-                                {m.name}
-                                <Plus size={12} className="text-blue-500" />
-                            </button>
-                        ))}
+            {/* Dropdown Selector to select from active Team Roster */}
+            {unusedRoster.length > 0 ? (
+                <div className="space-y-2">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Assign Member from Roster</label>
+                    <div className="relative">
+                        <select
+                            onChange={(e) => {
+                                const id = Number(e.target.value);
+                                if (id) {
+                                    const member = unusedRoster.find(m => m.id === id);
+                                    if (member) addFromRoster(member);
+                                }
+                                e.target.value = "";
+                            }}
+                            className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-100 hover:border-slate-200 focus:border-slate-900 rounded-3xl text-xs font-black text-slate-700 outline-none transition-all cursor-pointer appearance-none"
+                            defaultValue=""
+                        >
+                            <option value="" disabled>➕ Choose team member joining this project...</option>
+                            {unusedRoster.map(m => (
+                                <option key={m.id} value={m.id}>
+                                    {m.name} ({m.role_title || 'Team Member'})
+                                </option>
+                            ))}
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-6 flex items-center text-slate-400">
+                            <Plus size={16} />
+                        </div>
                     </div>
+                </div>
+            ) : (availableMembers.length === 0 && team.length === 0) ? (
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded-3xl text-center space-y-1">
+                    <p className="text-xs font-black text-slate-700">No team members in your roster.</p>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">You can invite and manage your firm team members in your Dashboard Roster tab.</p>
+                </div>
+            ) : (
+                <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-100 rounded-2xl text-emerald-800 text-[10px] font-bold uppercase tracking-wider justify-center">
+                    <UserCheck size={14} className="text-emerald-500" />
+                    <span>All team members assigned to this proposal</span>
                 </div>
             )}
 
-            {/* Team member entries */}
+            {/* Selected Assigned Members List */}
             <div className="space-y-3">
                 {team.map((member, index) => (
-                    <TeamMemberEntry key={index} member={member} index={index} onUpdate={updateMember} onRemove={removeMember} />
+                    <TeamMemberEntry 
+                        key={index} 
+                        member={member} 
+                        index={index} 
+                        onUpdate={updateMember} 
+                        onRemove={removeMember} 
+                    />
                 ))}
             </div>
-
-            <button type="button" onClick={addManual}
-                className="w-full py-3 border-2 border-dashed border-gray-200 rounded-2xl text-sm font-bold text-gray-400 hover:border-blue-300 hover:text-blue-500 hover:bg-blue-50/30 transition-all flex items-center justify-center gap-2">
-                <UserPlus size={16} /> Add Team Member Manually
-            </button>
         </div>
     );
 };
 
-/* ─── Entry Row ─── */
+/* ─── Entry Row (Read-Only name/role + editable fees/notes) ─── */
 
 interface EntryProps {
     member: ProposedTeamMember;
@@ -125,53 +123,64 @@ interface EntryProps {
 }
 
 const TeamMemberEntry: React.FC<EntryProps> = ({ member, index, onUpdate, onRemove }) => (
-    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3 relative group">
-        <button type="button" onClick={() => onRemove(index)}
-            className="absolute top-3 right-3 p-1.5 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all hover:bg-red-50 rounded-lg">
-            <X size={14} />
+    <div className="p-5 bg-slate-50 rounded-3xl border border-slate-100 space-y-4 relative group hover:border-slate-200 transition-all">
+        {/* Remove Button */}
+        <button 
+            type="button" 
+            onClick={() => onRemove(index)}
+            className="absolute top-4 right-4 p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+        >
+            <X size={16} />
         </button>
 
-        <div className="grid grid-cols-3 gap-3">
-            <div>
-                <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Name</label>
-                <input type="text" value={member.name} onChange={e => onUpdate(index, { name: e.target.value })}
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20"
-                    placeholder="Member name" />
+        {/* Member Profile Info (Read-only from Roster) */}
+        <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
+            <div className="w-9 h-9 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center font-black text-blue-600 text-xs">
+                {member.name ? member.name.charAt(0) : 'T'}
             </div>
             <div>
-                <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Role Title</label>
-                <input type="text" value={member.role_title} onChange={e => onUpdate(index, { role_title: e.target.value })}
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20"
-                    placeholder="e.g. Structural Lead" />
-            </div>
-            <div>
-                <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Category</label>
-                <select value={member.role} onChange={e => onUpdate(index, { role: e.target.value as ProposedTeamMember['role'] })}
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-blue-500">
-                    {ROLE_OPTIONS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
-                </select>
+                <h4 className="text-xs font-black text-slate-800">{member.name || 'Unnamed Member'}</h4>
+                <p className="text-[9px] font-bold text-blue-500 uppercase tracking-wider">{member.role_title || 'Team Member'}</p>
             </div>
         </div>
-        <div className="grid grid-cols-3 gap-3">
+
+        {/* Fee & Note inputs */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-                <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Fee (IDR)</label>
-                <input type="number" value={member.fee || ''} onChange={e => onUpdate(index, { fee: Number(e.target.value) })}
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20"
-                    placeholder="0" min={0} />
+                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider mb-1.5">Fee (IDR)</label>
+                <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xs font-black text-gray-400">Rp</span>
+                    <input 
+                        type="number" 
+                        required
+                        min="0"
+                        value={member.fee || ''} 
+                        onChange={e => onUpdate(index, { fee: Number(e.target.value) })}
+                        className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 focus:border-slate-900 rounded-2xl text-xs font-black text-slate-900 outline-none transition-all"
+                        placeholder="0" 
+                    />
+                </div>
             </div>
             <div>
-                <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Fee Type</label>
-                <select value={member.fee_type} onChange={e => onUpdate(index, { fee_type: e.target.value as 'fixed' | 'percentage' })}
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-blue-500">
+                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider mb-1.5">Fee Structure</label>
+                <select 
+                    value={member.fee_type || 'fixed'} 
+                    onChange={e => onUpdate(index, { fee_type: e.target.value as 'fixed' | 'percentage' })}
+                    className="w-full px-4 py-3 bg-white border border-slate-200 focus:border-slate-900 rounded-2xl text-xs font-black text-slate-700 outline-none transition-all cursor-pointer"
+                >
                     <option value="fixed">Fixed Amount</option>
                     <option value="percentage">% of Project</option>
                 </select>
             </div>
             <div>
-                <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Note</label>
-                <input type="text" value={member.note} onChange={e => onUpdate(index, { note: e.target.value })}
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20"
-                    placeholder="Scope note..." />
+                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider mb-1.5">Role Note / Scope</label>
+                <input 
+                    type="text" 
+                    value={member.note || ''} 
+                    onChange={e => onUpdate(index, { note: e.target.value })}
+                    className="w-full px-4 py-3 bg-white border border-slate-200 focus:border-slate-900 rounded-2xl text-xs font-medium text-slate-800 outline-none transition-all"
+                    placeholder="Describe contributions..." 
+                />
             </div>
         </div>
     </div>

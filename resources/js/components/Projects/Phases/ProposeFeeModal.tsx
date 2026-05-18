@@ -96,6 +96,7 @@ export const ProposeFeeModal: React.FC<ProposeFeeModalProps> = ({
                         <NegotiationOfferForm 
                             bid={bid}
                             project={project || bid.project}
+                            proType={proType}
                             onSubmit={handleSubmit}
                             onCancel={onClose}
                         />

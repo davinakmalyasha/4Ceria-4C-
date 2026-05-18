@@ -10,6 +10,8 @@ interface Props {
     onChange: (termins: ProposedTermin[]) => void;
     availableServices?: ServiceItem[];
     onMilestoneUpdate: (index: number, updates: Partial<ProposedMilestone>) => void;
+    onMilestoneDelete: (index: number) => void;
+    readOnly?: boolean;
 }
 
 export const PaymentSchedule: React.FC<Props> = ({ 
@@ -18,30 +20,28 @@ export const PaymentSchedule: React.FC<Props> = ({
     totalOfferValue, 
     onChange,
     availableServices = [],
-    onMilestoneUpdate
+    onMilestoneUpdate,
+    onMilestoneDelete,
+    readOnly = false
 }) => {
     const totalPercentage = termins.reduce((acc, curr) => acc + Number(curr.percentage || 0), 0);
 
     const addTermin = () => {
-        const nextMilestoneIndex = milestones.length;
+        if (readOnly) return;
+        const nextIndex = termins.length;
         const newMilestone = { 
-            title: `Milestone for Phase ${termins.length + 1}`, 
+            title: `Phase ${nextIndex + 1}`, 
             description: '', 
             services: [] 
         };
-        
-        // Update milestones first
-        const updatedMilestones = [...milestones, newMilestone];
-        // We can't easily batch update here without changing props, 
-        // so we'll rely on the parent state update in the next tick or update termins last.
         
         const remainder = 100 - totalPercentage;
         
         if (remainder > 0) {
             const newTermin: ProposedTermin = { 
-                trigger_description: '', 
+                trigger_description: `Phase ${nextIndex + 1}`, 
                 percentage: remainder, 
-                milestone_index: nextMilestoneIndex 
+                milestone_index: nextIndex 
             };
             onChange([...termins, newTermin]);
         } else {
@@ -55,64 +55,56 @@ export const PaymentSchedule: React.FC<Props> = ({
 
             const newTermins = [...termins];
             newTermins[largestIndex] = { ...newTermins[largestIndex], percentage: half1 };
-            newTermins.push({ trigger_description: '', percentage: half2, milestone_index: nextMilestoneIndex });
+            newTermins.push({ trigger_description: `Phase ${nextIndex + 1}`, percentage: half2, milestone_index: nextIndex });
             
             onChange(newTermins);
         }
         
-        // Also trigger the milestone creation in parent
-        onMilestoneUpdate(nextMilestoneIndex, newMilestone);
+        // Trigger corresponding milestone creation
+        onMilestoneUpdate(nextIndex, newMilestone);
     };
 
     const removeTermin = (index: number) => {
-        onChange(termins.filter((_, i) => i !== index));
+        if (readOnly) return;
+        // Filter out termin and shift all subsequent milestone_indexes
+        const nextTermins = termins.filter((_, i) => i !== index).map((t, i) => ({
+            ...t,
+            milestone_index: i
+        }));
+        onChange(nextTermins);
+        
+        // Delete corresponding milestone
+        onMilestoneDelete(index);
     };
 
     const updateTermin = (index: number, updates: Partial<ProposedTermin>) => {
+        if (readOnly) return;
         const newTermins = [...termins];
         newTermins[index] = { ...newTermins[index], ...updates };
         onChange(newTermins);
     };
 
     const toggleService = (terminIndex: number, service: ServiceItem) => {
-        let mIndex = termins[terminIndex].milestone_index ?? -1;
+        if (readOnly) return;
+        const milestone = milestones[terminIndex];
+        if (!milestone) return;
         
-        // MAGIC DECOUPLER: 
-        // If this milestone is shared with another termin, create a unique one for this card
-        const isShared = termins.some((t, idx) => idx !== terminIndex && t.milestone_index === mIndex);
-        
-        if (mIndex < 0 || isShared) {
-            const nextIdx = milestones.length;
-            const newMilestone = { 
-                title: termins[terminIndex].trigger_description || `Phase ${terminIndex + 1} Delivery`, 
-                description: '', 
-                services: isShared && mIndex >= 0 ? [...(milestones[mIndex].services || [])] : []
-            };
-            
-            // Link termin to new unique milestone
-            updateTermin(terminIndex, { milestone_index: nextIdx });
-            onMilestoneUpdate(nextIdx, newMilestone);
-            mIndex = nextIdx;
-        }
-
-        const milestone = milestones[mIndex];
-        const currentServices = milestone?.services || [];
-        
-        // Ensure the service is removed from all other milestones (the "Move" logic)
+        // Ensure the service is removed from all other milestones (Move logic)
         milestones.forEach((m, idx) => {
-            if (idx !== mIndex && m.services?.some(s => s.title === service.title)) {
+            if (idx !== terminIndex && m.services?.some(s => s.title === service.title)) {
                 onMilestoneUpdate(idx, { 
                     services: m.services.filter(s => s.title !== service.title) 
                 });
             }
         });
 
+        const currentServices = milestone.services || [];
         const exists = currentServices.some(s => s.title === service.title);
         const nextServices = exists 
             ? currentServices.filter(s => s.title !== service.title)
-            : [...currentServices, { ...service, milestone_index: mIndex }]; // Tag service with its phase index
+            : [...currentServices, { ...service, milestone_index: terminIndex }];
             
-        onMilestoneUpdate(mIndex, { services: nextServices });
+        onMilestoneUpdate(terminIndex, { services: nextServices });
     };
 
     return (
@@ -126,8 +118,8 @@ export const PaymentSchedule: React.FC<Props> = ({
             
             <div className="space-y-3">
                 {termins.map((termin, index) => {
-                    const milestoneIndex = termin.milestone_index ?? -1;
-                    const connectedMilestone = milestoneIndex >= 0 ? milestones[milestoneIndex] : null;
+                    const milestoneIndex = index;
+                    const connectedMilestone = milestones[milestoneIndex];
                     const milestoneServices = connectedMilestone?.services || [];
 
                     return (
@@ -136,52 +128,63 @@ export const PaymentSchedule: React.FC<Props> = ({
                                 <input 
                                     type="text" 
                                     required 
+                                    disabled={readOnly}
                                     value={termin.trigger_description}
-                                    onChange={(e) => updateTermin(index, { trigger_description: e.target.value })}
-                                    className="flex-1 px-4 py-2 bg-gray-50 border border-transparent focus:border-slate-900 rounded-xl font-bold text-xs outline-none"
+                                    onChange={(e) => {
+                                        updateTermin(index, { trigger_description: e.target.value });
+                                        onMilestoneUpdate(index, { title: e.target.value });
+                                    }}
+                                    className="flex-1 px-4 py-2 bg-gray-50 border border-transparent focus:border-slate-900 rounded-xl font-bold text-xs outline-none disabled:opacity-75 disabled:cursor-not-allowed"
                                     placeholder="Phase description (e.g. DP)"
                                 />
                                 <div className="relative w-20">
                                     <input 
                                         type="number" 
                                         required 
+                                        disabled={readOnly}
                                         min="0" max="100"
                                         value={termin.percentage || ''}
                                         onChange={(e) => updateTermin(index, { percentage: Number(e.target.value) })}
-                                        className="w-full pl-4 pr-8 py-2 bg-gray-50 border border-transparent focus:border-slate-900 rounded-xl font-bold text-xs outline-none"
+                                        className="w-full pl-4 pr-8 py-2 bg-gray-50 border border-transparent focus:border-slate-900 rounded-xl font-bold text-xs outline-none disabled:opacity-75 disabled:cursor-not-allowed"
                                         placeholder="0"
                                     />
                                     <span className="absolute right-4 top-1/2 -translate-y-1/2 font-black text-gray-400 text-[10px]">%</span>
                                 </div>
-                                <button type="button" onClick={() => removeTermin(index)} className="p-2 text-gray-300 hover:text-red-500">
-                                    <Trash2 size={16} />
-                                </button>
+                                {!readOnly && (
+                                    <button type="button" onClick={() => removeTermin(index)} className="p-2 text-gray-300 hover:text-red-500">
+                                        <Trash2 size={16} />
+                                    </button>
+                                )}
                             </div>
 
-                            <div className="flex items-center gap-2">
-                                <select
-                                    value={termin.milestone_index}
-                                    onChange={(e) => updateTermin(index, { milestone_index: Number(e.target.value) })}
-                                    className="flex-1 px-3 py-1.5 bg-zinc-100 border-none rounded-lg text-[10px] font-bold outline-none text-slate-600"
-                                >
-                                    <option value={-1}>No specific milestone</option>
-                                    {milestones.map((m, i) => (
-                                        <option key={i} value={i}>Triggered by: {m.title || `Milestone ${i+1}`}</option>
-                                    ))}
-                                </select>
-                                <span className="text-[10px] font-black text-slate-400 min-w-[80px] text-right">
+                            {/* Deliverables Description (Merged Milestone Input) */}
+                            <div className="space-y-1">
+                                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">What will be delivered at this stage?</label>
+                                <textarea
+                                    value={connectedMilestone?.description || ''}
+                                    disabled={readOnly}
+                                    onChange={(e) => onMilestoneUpdate(index, { description: e.target.value })}
+                                    className="w-full px-4 py-3 bg-gray-50 border border-transparent focus:border-slate-900 rounded-xl text-xs font-semibold placeholder:text-gray-300 outline-none resize-none h-16 disabled:opacity-75 disabled:cursor-not-allowed"
+                                    placeholder="Explain deliverables (e.g., Drafting legal documents, Gov permit submission, etc.)"
+                                    rows={2}
+                                />
+                            </div>
+
+                            <div className="flex items-center justify-between pt-1">
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Calculated Price:</span>
+                                <span className="text-[11px] font-black text-slate-900">
                                     {(() => {
                                         const baseAmount = ((totalOfferValue || 0) * (termin.percentage || 0)) / 100;
                                         const servicesCost = milestoneServices.reduce((sum: number, s: any) => sum + (Number(s.price) || 0), 0);
                                         
                                         if (servicesCost > 0) {
                                             return (
-                                                <div className="flex flex-col items-end">
+                                                <span className="text-right flex flex-col items-end">
                                                     <span className="text-slate-900 font-black">Rp {(baseAmount + servicesCost).toLocaleString('id-ID')}</span>
                                                     <span className="text-[8px] text-slate-400 uppercase tracking-tighter">
                                                         (Rp {baseAmount.toLocaleString('id-ID')} + Rp {servicesCost.toLocaleString('id-ID')} Service)
                                                     </span>
-                                                </div>
+                                                </span>
                                             );
                                         }
                                         
@@ -190,7 +193,7 @@ export const PaymentSchedule: React.FC<Props> = ({
                                 </span>
                             </div>
 
-                            {/* Service Picker inside Termin Card - ALWAYS VISIBLE if services available */}
+                            {/* Service Picker inside Card */}
                             {availableServices.length > 0 && (
                                 <div className="pt-3 border-t border-slate-50 space-y-2">
                                     <div className="flex items-center gap-1 text-[8px] font-black text-slate-400 uppercase tracking-widest">
@@ -204,12 +207,13 @@ export const PaymentSchedule: React.FC<Props> = ({
                                                 <button
                                                     key={sIdx}
                                                     type="button"
+                                                    disabled={readOnly}
                                                     onClick={() => toggleService(index, service)}
                                                     className={`px-3 py-1.5 rounded-lg text-[9px] font-black transition-all border ${
                                                         isSelected 
                                                         ? 'bg-blue-600 border-blue-500 text-white shadow-md shadow-blue-900/20' 
                                                         : 'bg-slate-50 border-slate-100 text-slate-400 hover:border-slate-300'
-                                                    }`}
+                                                    } ${readOnly ? 'cursor-not-allowed opacity-90' : ''}`}
                                                 >
                                                     <div className="flex items-center gap-1.5">
                                                         <span>{service.title}</span>
@@ -226,9 +230,11 @@ export const PaymentSchedule: React.FC<Props> = ({
                 })}
             </div>
             
-            <button type="button" onClick={addTermin} className="text-[10px] font-black text-slate-900 flex items-center gap-2 hover:bg-gray-100 px-4 py-2 rounded-xl transition-all">
-                <Plus size={14} /> Add Payment Phase
-            </button>
+            {!readOnly && (
+                <button type="button" onClick={addTermin} className="text-[10px] font-black text-slate-900 flex items-center gap-2 hover:bg-gray-100 px-4 py-2 rounded-xl transition-all">
+                    <Plus size={14} /> Add Payment Phase
+                </button>
+            )}
         </div>
     );
 };

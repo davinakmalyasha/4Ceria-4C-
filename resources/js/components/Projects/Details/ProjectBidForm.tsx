@@ -20,6 +20,9 @@ export const ProjectBidForm: React.FC<Props> = ({ project, user, onSuccess }) =>
     const [proposal, setProposal] = useState('');
     const [attachments, setAttachments] = useState<File[]>([]);
     const [portfolios, setPortfolios] = useState<PortfolioProject[]>([]);
+    const [feeType, setFeeType] = useState('');
+    const [price, setPrice] = useState<number | undefined>(undefined);
+    const [priceMax, setPriceMax] = useState<number | undefined>(undefined);
 
     useEffect(() => {
         if (user?.id) {
@@ -54,6 +57,16 @@ export const ProjectBidForm: React.FC<Props> = ({ project, user, onSuccess }) =>
             formData.append('estimated_duration', '1');
             formData.append('duration_unit', 'weeks');
             
+            if (feeType) {
+                formData.append('fee_type', feeType);
+                if (price !== undefined) {
+                    formData.append('price', price.toString());
+                }
+                if (priceMax !== undefined) {
+                    formData.append('price_max', priceMax.toString());
+                }
+            }
+            
             await axios.post(`/projects/${project.id}/bids`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
             showToast('Bid submitted successfully', 'success');
             onSuccess();
@@ -70,7 +83,7 @@ export const ProjectBidForm: React.FC<Props> = ({ project, user, onSuccess }) =>
                 <Shield className="w-12 h-12 text-amber-500 mx-auto mb-4" />
                 <h3 className="text-lg font-black text-amber-900 mb-2">Account Verification Pending</h3>
                 <p className="text-sm font-medium text-amber-700">
-                    You must be a fully verified professional to submit proposals on the 4Ceria network.
+                    You must be a verified professional to submit proposals on the 4Ceria network.
                 </p>
             </div>
         );
@@ -110,6 +123,9 @@ export const ProjectBidForm: React.FC<Props> = ({ project, user, onSuccess }) =>
                     attachments={attachments} onFileChange={handleFileChange} onRemoveAttachment={removeAttachment}
                     isLoading={isLoading}
                     buttonText={user?.role_type === 'project_manager' ? "Submit Official Enterprise Bid" : "Submit Professional Proposal"}
+                    feeType={feeType} setFeeType={setFeeType}
+                    price={price} setPrice={setPrice}
+                    priceMax={priceMax} setPriceMax={setPriceMax}
                 />
             </form>
         </div>

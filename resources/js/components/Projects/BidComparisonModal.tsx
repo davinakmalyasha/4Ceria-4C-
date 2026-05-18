@@ -14,6 +14,8 @@ interface Bidder {
 interface Bid {
     id: number;
     price: number;
+    price_max?: number;
+    fee_type?: string;
     proposal: string;
     estimated_duration?: number;
     duration_unit?: string;
@@ -27,9 +29,10 @@ interface BidComparisonModalProps {
     onAccept: (bidId: number, type: 'arsitek' | 'kontraktor') => void;
     onChat: (bidderId: number) => void;
     formatCurrency: (amount: number) => string;
+    projectBudget?: number;
 }
 
-export default function BidComparisonModal({ bids, onClose, onAccept, onChat, formatCurrency }: BidComparisonModalProps) {
+export default function BidComparisonModal({ bids, onClose, onAccept, onChat, formatCurrency, projectBudget }: BidComparisonModalProps) {
     const lowestPrice = Math.min(...bids.map(b => b.price));
     const highestRating = Math.max(...bids.map(b => b.bidder?.average_rating || 0));
 
@@ -101,8 +104,29 @@ export default function BidComparisonModal({ bids, onClose, onAccept, onChat, fo
                                     {bids.map(bid => (
                                         <td key={bid.id} className="py-6 text-center border-b border-gray-50">
                                             <div className={`text-2xl font-black ${bid.price === lowestPrice ? 'text-[#FF2D20]' : 'text-gray-900'}`}>
-                                                {formatCurrency(bid.price)}
+                                                {bid.fee_type === 'percentage' ? (
+                                                    bid.price_max && Number(bid.price_max) > 0 ? (
+                                                        projectBudget ? (
+                                                            `${formatCurrency((Number(bid.price) / 100) * projectBudget)} - ${formatCurrency((Number(bid.price_max) / 100) * projectBudget)}`
+                                                        ) : (
+                                                            `${bid.price}% - ${bid.price_max}%`
+                                                        )
+                                                    ) : (
+                                                        projectBudget ? formatCurrency((Number(bid.price) / 100) * projectBudget) : `${bid.price}%`
+                                                    )
+                                                ) : (
+                                                    bid.price_max && Number(bid.price_max) > 0 ? (
+                                                        `${formatCurrency(bid.price)} - ${formatCurrency(bid.price_max)}`
+                                                    ) : (
+                                                        formatCurrency(bid.price)
+                                                    )
+                                                )}
                                             </div>
+                                            {bid.fee_type === 'percentage' && (
+                                                <div className="text-[10px] font-bold text-gray-400 mt-1 uppercase tracking-tighter">
+                                                    {bid.price_max && Number(bid.price_max) > 0 ? `${bid.price}% - ${bid.price_max}% budget` : `${bid.price}% budget`}
+                                                </div>
+                                            )}
                                         </td>
                                     ))}
                                 </tr>

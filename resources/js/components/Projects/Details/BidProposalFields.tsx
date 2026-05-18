@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileText, Upload, X, CheckCircle2 } from 'lucide-react';
+import { FileText, Upload, X, CheckCircle2, DollarSign } from 'lucide-react';
 
 interface Props {
     proposal: string;
@@ -9,15 +9,89 @@ interface Props {
     onRemoveAttachment: (i: number) => void;
     isLoading: boolean;
     buttonText?: string;
+    feeType?: string;
+    setFeeType?: (v: string) => void;
+    price?: number;
+    setPrice?: (v: number | undefined) => void;
+    priceMax?: number;
+    setPriceMax?: (v: number | undefined) => void;
 }
 
 export const BidProposalFields: React.FC<Props> = ({ 
     proposal, setProposal, attachments, onFileChange, onRemoveAttachment, isLoading,
-    buttonText = "Submit Official Proposal"
+    buttonText = "Submit Official Proposal",
+    feeType, setFeeType, price, setPrice, priceMax, setPriceMax
 }) => (
     <>
         {/* Proposal Text & Files */}
         <div className="space-y-10">
+            {setFeeType && setPrice && setPriceMax && (
+                <div className="bg-zinc-50 rounded-[2.5rem] p-8 border border-zinc-100 space-y-6">
+                    <div>
+                        <h4 className="text-sm font-black text-gray-900 uppercase tracking-widest flex items-center gap-2">
+                            <DollarSign size={16} className="text-emerald-500" />
+                            Commercial Alignment <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-tight">(Optional)</span>
+                        </h4>
+                        <p className="text-xs text-zinc-500 mt-1 font-medium">Provide a ballpark fee range to align budget expectations with the client upfront.</p>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Estimated Fee Type</label>
+                            <select 
+                                value={feeType || ''} 
+                                onChange={(e) => {
+                                    setFeeType(e.target.value);
+                                    if (!e.target.value) {
+                                        setPrice(undefined);
+                                        setPriceMax(undefined);
+                                    }
+                                }}
+                                className="w-full px-5 py-4 bg-white border-2 border-zinc-150 focus:border-slate-900 rounded-2xl font-bold text-sm text-gray-700 outline-none transition-all cursor-pointer"
+                            >
+                                <option value="">Specify During Negotiation</option>
+                                <option value="fixed">Fixed Rupiah Amount (IDR)</option>
+                                <option value="percentage">Percentage of Project Budget (%)</option>
+                            </select>
+                        </div>
+
+                        {feeType ? (
+                            <>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                                        Min Estimate {feeType === 'percentage' ? '(%)' : '(IDR)'}
+                                    </label>
+                                    <input 
+                                        type="number" 
+                                        min="0"
+                                        value={price !== undefined ? price : ''} 
+                                        onChange={(e) => setPrice(e.target.value ? Number(e.target.value) : undefined)}
+                                        placeholder={feeType === 'percentage' ? 'e.g. 5' : 'e.g. 20000000'}
+                                        className="w-full px-5 py-4 bg-white border-2 border-zinc-150 focus:border-slate-900 rounded-2xl font-bold text-sm text-gray-700 outline-none transition-all"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                                        Max Estimate {feeType === 'percentage' ? '(%)' : '(IDR)'}
+                                    </label>
+                                    <input 
+                                        type="number" 
+                                        min="0"
+                                        value={priceMax !== undefined ? priceMax : ''} 
+                                        onChange={(e) => setPriceMax(e.target.value ? Number(e.target.value) : undefined)}
+                                        placeholder={feeType === 'percentage' ? 'e.g. 8' : 'e.g. 30000000'}
+                                        className="w-full px-5 py-4 bg-white border-2 border-zinc-150 focus:border-slate-900 rounded-2xl font-bold text-sm text-gray-700 outline-none transition-all"
+                                    />
+                                </div>
+                            </>
+                        ) : (
+                            <div className="md:col-span-2 hidden md:flex items-center text-xs font-semibold text-zinc-400 italic">
+                                Select a fee type to specify your ballpark price range.
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
             <div className="space-y-4">
                 <div className="flex items-center gap-3 mb-2">
                     <div className="w-8 h-8 rounded-xl bg-slate-900 text-white flex items-center justify-center shadow-lg shadow-slate-900/20">
