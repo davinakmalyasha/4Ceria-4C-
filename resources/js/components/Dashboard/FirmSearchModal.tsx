@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { X, Search, UserPlus, Loader2, ArrowDownAZ, ArrowUpZA, Hash } from 'lucide-react';
+import { X, Search, UserPlus, Loader2, ArrowDownAZ, ArrowUpZA, Hash, TrendingUp } from 'lucide-react';
 import { ContractorSubspecialty } from '../../types/sub_professional.types';
 
 interface FirmSearchModalProps {
@@ -21,10 +21,12 @@ export default function FirmSearchModal({ userRoleType, onClose, onInvited }: Fi
     const [query, setQuery] = useState('');
     const [sort, setSort] = useState<'a-z' | 'z-a'>('a-z');
     const [results, setResults] = useState<SearchResult[]>([]);
+    const [suggestions, setSuggestions] = useState<SearchResult[]>([]);
     const [isSearching, setIsSearching] = useState(false);
+    const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(true);
     const [invitingId, setInvitingId] = useState<number | null>(null);
     const [subspecialties, setSubspecialties] = useState<ContractorSubspecialty[]>([]);
-    const [selectedRole, setSelectedRole] = useState('');
+    const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
     const [rolePickerId, setRolePickerId] = useState<number | null>(null);
     const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
@@ -35,6 +37,7 @@ export default function FirmSearchModal({ userRoleType, onClose, onInvited }: Fi
         { value: 'interior', label: 'Interior Designer' },
     ];
 
+    // Load subspecialties for contractors
     useEffect(() => {
         if (isContractor) {
             axios.get<{ data: ContractorSubspecialty[] }>('/contractor-subspecialties')
@@ -43,6 +46,16 @@ export default function FirmSearchModal({ userRoleType, onClose, onInvited }: Fi
         }
     }, [isContractor]);
 
+    // Load suggestions on mount
+    useEffect(() => {
+        setIsLoadingSuggestions(true);
+        axios.get<{ data: SearchResult[] }>('/firm-members/suggestions')
+            .then(res => setSuggestions(res.data?.data || []))
+            .catch(() => setSuggestions([]))
+            .finally(() => setIsLoadingSuggestions(false));
+    }, []);
+
+    // Search with debounce
     useEffect(() => {
         if (query.length < 2) { setResults([]); return; }
         clearTimeout(debounceRef.current);
@@ -58,14 +71,15 @@ export default function FirmSearchModal({ userRoleType, onClose, onInvited }: Fi
     }, [query, sort]);
 
     const handleInvite = async (userId: number) => {
-        if (!selectedRole) return;
+        if (selectedRoles.length === 0) return;
         setInvitingId(userId);
         try {
-            await axios.post('/firm-members/invite', { member_user_id: userId, role_in_firm: selectedRole });
+            await axios.post('/firm-members/invite', { member_user_id: userId, roles_in_firm: selectedRoles });
             onInvited();
             setRolePickerId(null);
-            setSelectedRole('');
+            setSelectedRoles([]);
             setResults(prev => prev.filter(r => r.id !== userId));
+            setSuggestions(prev => prev.filter(r => r.id !== userId));
         } catch (err: unknown) {
             const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to invite';
             alert(msg);
@@ -80,6 +94,11 @@ export default function FirmSearchModal({ userRoleType, onClose, onInvited }: Fi
         const map: Record<string, string> = { structural: 'Structural', mep: 'MEP', interior: 'Interior', kontraktor: 'Contractor' };
         return map[rt] || rt;
     };
+
+    // Show suggestions when no query, show search results when query >= 2
+    const showingSuggestions = query.length < 2;
+    const displayList = showingSuggestions ? suggestions : results;
+    const isLoading = showingSuggestions ? isLoadingSuggestions : isSearching;
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
@@ -114,62 +133,135 @@ export default function FirmSearchModal({ userRoleType, onClose, onInvited }: Fi
                         </button>
                     </div>
 
-                    <div className="max-h-[300px] overflow-y-auto space-y-2">
-                        {isSearching ? (
-                            <div className="text-center py-8 text-slate-400 text-sm font-bold flex items-center justify-center gap-2">
-                                <Loader2 size={16} className="animate-spin" /> Searching...
-                            </div>
-                        ) : results.length === 0 && query.length >= 2 ? (
-                            <div className="text-center py-8 text-slate-400 text-sm font-bold">No professionals found.</div>
-                        ) : (
-                            results.map(r => (
-                                <div key={r.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:border-indigo-200 transition-all">
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-indigo-600 font-black text-sm">
-                                                {r.pic ? <img src={r.pic} alt="" className="w-full h-full rounded-xl object-cover" /> : r.name.charAt(0).toUpperCase()}
-                                            </div>
-                                            <div>
-                                                <h5 className="text-sm font-black text-slate-900">{r.name}</h5>
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest">{roleLabel(r.role_type)}</span>
-                                                    <span className="text-[9px] font-mono text-slate-400 flex items-center gap-0.5"><Hash size={8} />{r.unique_code}</span>
-                                                </div>
-                                            </div>
-                                        </div>
+                    {/* Section label */}
+                    {showingSuggestions && !isLoading && displayList.length > 0 && (
+                        <div className="flex items-center gap-2 text-[10px] font-black text-amber-600 uppercase tracking-widest">
+                            <TrendingUp size={12} />
+                            Suggested for You
+                        </div>
+                    )}
 
-                                        {rolePickerId === r.id ? (
-                                            <div className="flex items-center gap-2">
-                                                <select
-                                                    value={selectedRole} onChange={e => setSelectedRole(e.target.value)}
-                                                    className="text-xs font-bold bg-white border border-slate-200 rounded-lg px-2 py-1.5 outline-none"
-                                                >
-                                                    <option value="">Role...</option>
-                                                    {roleOptions.map(ro => <option key={ro.value} value={ro.value}>{ro.label}</option>)}
-                                                </select>
-                                                <button
-                                                    onClick={() => handleInvite(r.id)}
-                                                    disabled={!selectedRole || invitingId === r.id}
-                                                    className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all disabled:opacity-50"
-                                                >
-                                                    {invitingId === r.id ? <Loader2 size={12} className="animate-spin" /> : 'Send'}
-                                                </button>
-                                            </div>
-                                        ) : (
-                                            <button
-                                                onClick={() => { setRolePickerId(r.id); setSelectedRole(''); }}
-                                                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all"
-                                            >
-                                                <UserPlus size={12} /> Invite
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
+                    <div className="max-h-[300px] overflow-y-auto space-y-2">
+                        {isLoading ? (
+                            <div className="text-center py-8 text-slate-400 text-sm font-bold flex items-center justify-center gap-2">
+                                <Loader2 size={16} className="animate-spin" /> {showingSuggestions ? 'Loading suggestions...' : 'Searching...'}
+                            </div>
+                        ) : displayList.length === 0 ? (
+                            <div className="text-center py-8 text-slate-400 text-sm font-bold">
+                                {showingSuggestions ? 'No suggestions available.' : 'No professionals found.'}
+                            </div>
+                        ) : (
+                            displayList.map(r => (
+                                <ResultCard
+                                    key={r.id}
+                                    result={r}
+                                    roleLabel={roleLabel}
+                                    rolePickerId={rolePickerId}
+                                    setRolePickerId={setRolePickerId}
+                                    selectedRoles={selectedRoles}
+                                    setSelectedRoles={setSelectedRoles}
+                                    roleOptions={roleOptions}
+                                    invitingId={invitingId}
+                                    onInvite={handleInvite}
+                                />
                             ))
                         )}
                     </div>
                 </div>
             </div>
+        </div>
+    );
+}
+
+/* ─── Extracted Result Card ─── */
+
+interface ResultCardProps {
+    result: SearchResult;
+    roleLabel: (rt: string) => string;
+    rolePickerId: number | null;
+    setRolePickerId: (id: number | null) => void;
+    selectedRoles: string[];
+    setSelectedRoles: (roles: string[]) => void;
+    roleOptions: { value: string; label: string }[];
+    invitingId: number | null;
+    onInvite: (userId: number) => void;
+}
+
+function ResultCard({ result: r, roleLabel, rolePickerId, setRolePickerId, selectedRoles, setSelectedRoles, roleOptions, invitingId, onInvite }: ResultCardProps) {
+    const isPicking = rolePickerId === r.id;
+
+    const toggleRole = (val: string) => {
+        if (selectedRoles.includes(val)) {
+            setSelectedRoles(selectedRoles.filter(v => v !== val));
+        } else {
+            setSelectedRoles([...selectedRoles, val]);
+        }
+    };
+
+    return (
+        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:border-indigo-200 transition-all">
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-indigo-600 font-black text-sm shrink-0">
+                        {r.pic ? <img src={r.pic} alt="" className="w-full h-full rounded-xl object-cover" /> : r.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                        <h5 className="text-sm font-black text-slate-900">{r.name}</h5>
+                        <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest">{roleLabel(r.role_type)}</span>
+                            <span className="text-[9px] font-mono text-slate-400 flex items-center gap-0.5"><Hash size={8} />{r.unique_code}</span>
+                        </div>
+                    </div>
+                </div>
+
+                {!isPicking && (
+                    <button
+                        onClick={() => { setRolePickerId(r.id); setSelectedRoles([]); }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all"
+                    >
+                        <UserPlus size={12} /> Invite
+                    </button>
+                )}
+            </div>
+
+            {isPicking && (
+                <div className="mt-4 pt-3 border-t border-slate-200">
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Select Roles for Firm</p>
+                    <div className="flex flex-wrap gap-2 mb-3">
+                        {roleOptions.map(ro => {
+                            const selected = selectedRoles.includes(ro.value);
+                            return (
+                                <button
+                                    key={ro.value}
+                                    onClick={() => toggleRole(ro.value)}
+                                    className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-colors ${
+                                        selected 
+                                            ? 'bg-indigo-100 text-indigo-700 border-2 border-indigo-500' 
+                                            : 'bg-white text-slate-500 border border-slate-200 hover:border-indigo-300'
+                                    }`}
+                                >
+                                    {ro.label}
+                                </button>
+                            );
+                        })}
+                    </div>
+                    <div className="flex justify-end gap-2">
+                        <button
+                            onClick={() => { setRolePickerId(null); setSelectedRoles([]); }}
+                            className="px-3 py-1.5 bg-slate-200 text-slate-600 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-slate-300 transition-all"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={() => onInvite(r.id)}
+                            disabled={selectedRoles.length === 0 || invitingId === r.id}
+                            className="flex items-center gap-1.5 px-4 py-1.5 bg-indigo-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all disabled:opacity-50"
+                        >
+                            {invitingId === r.id ? <Loader2 size={12} className="animate-spin" /> : 'Send Invite'}
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

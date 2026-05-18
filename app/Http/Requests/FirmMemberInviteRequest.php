@@ -19,8 +19,9 @@ class FirmMemberInviteRequest extends FormRequest
         $validRoles = $this->getValidRoles();
 
         return [
-            'member_user_id' => ['required', 'integer', Rule::exists('users', 'id')],
-            'role_in_firm'   => ['required', 'string', 'max:50', Rule::in($validRoles)],
+            'member_user_id'  => ['required', 'integer', Rule::exists('users', 'id')],
+            'roles_in_firm'   => ['required', 'array', 'min:1'],
+            'roles_in_firm.*' => ['required', 'string', 'max:50', Rule::in($validRoles)],
         ];
     }
 

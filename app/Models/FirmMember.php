@@ -16,11 +16,13 @@ class FirmMember extends Model
         'status',
         'invited_at',
         'accepted_at',
+        'requested_at',
     ];
 
     protected $casts = [
-        'invited_at'  => 'datetime',
-        'accepted_at' => 'datetime',
+        'invited_at'   => 'datetime',
+        'accepted_at'  => 'datetime',
+        'requested_at' => 'datetime',
     ];
 
     /* ── Relations ── */
@@ -45,5 +47,10 @@ class FirmMember extends Model
     public function scopeInvited($query)
     {
         return $query->where('status', 'invited');
+    }
+
+    public function scopeRequested($query)
+    {
+        return $query->where('status', 'requested');
     }
 }
