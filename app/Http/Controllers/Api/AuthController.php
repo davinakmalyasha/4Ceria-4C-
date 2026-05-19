@@ -30,7 +30,7 @@ class AuthController extends Controller
                 'message' => 'Invalid login credentials',
             ], 401);
         }
-        $user = User::where('email', $request->email)->firstOrFail();
+        $user = User::where('email', $request->email)->with('roles')->firstOrFail();
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([

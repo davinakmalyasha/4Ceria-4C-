@@ -29,6 +29,7 @@ class UserResource extends JsonResource
             'structural_engineer' => $this->whenLoaded('structural_engineer'),
             'mep_engineer' => $this->whenLoaded('mep_engineer'),
             'team_members' => $this->whenLoaded('teamMembers'),
+            'roles' => $this->whenLoaded('roles'),
         ];
     }
 }

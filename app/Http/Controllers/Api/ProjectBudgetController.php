@@ -265,6 +265,13 @@ class ProjectBudgetController extends Controller
                 $title = 'Paid Addendum: ' . $addendum->title;
                 $referenceModel = 'App\Models\ProjectAddendum';
 
+                if ($addendum->procurement_request_id) {
+                    $procReq = ProjectProcurementRequest::find($addendum->procurement_request_id);
+                    if ($procReq) {
+                        $procReq->update(['status' => 'authorized']);
+                    }
+                }
+
                 // Finalize specialist assignment if this was a specialist hiring addendum
                 if (in_array($addendum->type, ['specialist_assignment', 'specialist_request']) && ($addendum->team_member_id || $addendum->assigned_user_id)) {
                     $subRole = $addendum->specialist_type ?: $addendum->role_type;
