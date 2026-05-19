@@ -196,7 +196,7 @@ class ProjectHandoverController extends Controller
         }
 
         $request->validate([
-            'phase' => 'required|string|in:design,build,interior',
+            'phase' => 'required|string|in:design,build,interior,legal',
             'notes' => 'required|string|max:1000'
         ]);
 

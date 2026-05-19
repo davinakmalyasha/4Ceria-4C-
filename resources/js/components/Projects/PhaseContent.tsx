@@ -60,6 +60,31 @@ export default function PhaseContent({
         user?.id === project.interior_profile?.user?.id
     );
 
+    const isHiredContractor = user?.role_type === 'kontraktor' && (
+        (project.selected_kontraktor_id && user?.kontraktor?.id === project.selected_kontraktor_id) ||
+        (project.kontraktor?.user?.id === user?.id) ||
+        (project.kontraktor?.user_id === user?.id) ||
+        (project.bids_kontraktor?.some((b: any) => b.status === 'accepted' && (b.bidder?.user?.id === user?.id || b.bidder?.user_id === user?.id)))
+    );
+
+    const isHiredArchitect = user?.role_type === 'arsitek' && (
+        (project.selected_arsitek_id && user?.arsitek?.id === project.selected_arsitek_id) ||
+        (project.arsitek?.user?.id === user?.id) ||
+        (project.arsitek?.user_id === user?.id) ||
+        (project.bids_arsitek?.some((b: any) => b.status === 'accepted' && (b.bidder?.user?.id === user?.id || b.bidder?.user_id === user?.id)))
+    );
+
+    const isHiredInterior = user?.role_type === 'interior' && (
+        (project.selected_interior_id && (
+            user?.interior_profile?.id === project.selected_interior_id || 
+            user?.id === project.interior?.user_id || 
+            user?.id === project.interior?.user?.id ||
+            user?.id === project.interior_profile?.user_id || 
+            user?.id === project.interior_profile?.user?.id
+        )) ||
+        (project.bids_interior?.some((b: any) => b.status === 'accepted' && (b.bidder?.user?.id === user?.id || b.bidder?.user_id === user?.id)))
+    );
+
     if (!project) {
         return (
             <div className="py-20 text-center animate-pulse">
@@ -476,7 +501,7 @@ export default function PhaseContent({
                         {(currentHasPro || isMaterialsPhase || isPublished || !currentRoleKey || isSpecialistWithBid) && (
                             <>
                                 {/* Architecture & Built Phase Pro Workspace */}
-                                {(currentHasPro || isMaterialsPhase || (phase.key === 'interior' && user?.role_type === 'kontraktor' && project.selected_kontraktor_id === user?.id)) && (engineeringSubTab === 'architecture') && (!isBuildPhase || constructionSubTab === 'general') && (
+                                {(currentHasPro || isMaterialsPhase || (phase.key === 'interior' && isHiredContractor)) && (engineeringSubTab === 'architecture') && (!isBuildPhase || constructionSubTab === 'general') && (
                                     <ErrorBoundary name="PhaseAssignedPro">
                                         <PhaseAssignedPro 
                                             project={project} 
@@ -484,12 +509,13 @@ export default function PhaseContent({
                                             activeSubRole={(phase.key === 'design' || phase.key === 'technical') ? engineeringSubTab : undefined}
                                             user={user}
                                             config={currentConfig} 
-                                            isContractor={user?.role_type === 'kontraktor' && project.selected_kontraktor_id === user?.id}
+                                            isContractor={isHiredContractor}
                                             onRefresh={onRefresh}
                                             onPhaseComplete={onPhaseComplete}
                                             onOpenChat={onOpenChat} 
                                             onViewProfile={onViewProfile} 
                                             onGoToPayments={() => onSwitchTab?.('payments')}
+                                            onGoToInterviews={() => onSwitchTab?.('interviews')}
                                             onShortlist={onShortlist}
                                             onRecommend={onRecommend}
                                         />
@@ -521,7 +547,7 @@ export default function PhaseContent({
                                             <TechnicalResourcing 
                                                 project={project} 
                                                 user={user} 
-                                                isArchitect={user?.role_type === 'arsitek' && project.selected_arsitek_id === user?.id} 
+                                                isArchitect={isHiredArchitect} 
                                                 onRefresh={onRefresh} 
                                                 onShortlist={onShortlist}
                                                 onRecommend={onRecommend}
@@ -540,7 +566,7 @@ export default function PhaseContent({
                                             user={user}
                                             activeSubRole={constructionSubTab}
                                             onRefresh={onRefresh}
-                                            isContractor={user?.role_type === 'kontraktor' && project.selected_kontraktor_id === user?.id}
+                                            isContractor={isHiredContractor}
                                         />
                                     </ErrorBoundary>
                                 )}

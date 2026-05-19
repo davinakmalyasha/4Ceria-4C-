@@ -298,6 +298,10 @@ class ProjectPhaseController extends Controller
             return response()->json(['message' => 'Only the Project Owner or PM can verify the legal phase.'], 403);
         }
 
+        if (!$project->legal_handover_submitted_at) {
+            return response()->json(['message' => 'Legal handover has not been submitted for verification yet.'], 422);
+        }
+
         $this->lifecycleService->verifyPhase($project, 'legal');
         return new ProjectResource($this->loadFullProject($project));
     }
@@ -355,6 +359,44 @@ class ProjectPhaseController extends Controller
                 'body' => $body,
                 'data' => ['project_id' => $project->id],
             ]);
+        }
+    }
+
+    public function authorizePhase(Request $request, Project $project)
+    {
+        if (!$this->isProjectOwner($project, Auth::user()) && !$this->isProjectManager($project, Auth::user())) {
+            return response()->json(['message' => 'Unauthorized. Only the Project Owner or PM can authorize phases.'], 403);
+        }
+
+        $request->validate([
+            'phase' => 'required|string|in:design,build',
+            'authorize' => 'required|boolean'
+        ]);
+
+        $phase = $request->input('phase');
+        $isAuthorized = $request->input('authorize');
+
+        try {
+            DB::beginTransaction();
+            
+            if ($phase === 'design') {
+                $project->design_authorized_at = $isAuthorized ? now() : null;
+            } elseif ($phase === 'build') {
+                $project->construction_authorized_at = $isAuthorized ? now() : null;
+            }
+
+            $project->save();
+            
+            $this->logActivity($project, "phase_{$phase}_authorization", "PM " . ($isAuthorized ? "authorized" : "revoked authorization for") . " the $phase phase.");
+            
+            DB::commit();
+            return response()->json([
+                'message' => 'Phase authorization updated successfully.',
+                'data' => new ProjectResource($this->loadFullProject($project))
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['message' => 'Failed to update phase authorization.'], 500);
         }
     }
 }

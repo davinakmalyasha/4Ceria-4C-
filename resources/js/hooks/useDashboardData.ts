@@ -32,7 +32,7 @@ export const useDashboardData = () => {
             const [housesRes, projectsRes, feedRes, archRes, constRes, interiorRes, notaryRes, pmRes, structuralRes, mepRes] = await Promise.all([
                 axios.get('/houses').catch(() => ({ data: { data: [] } })),
                 axios.get('/projects?all=true&with_bids=true').catch(() => ({ data: { data: [] } })),
-                axios.get('/projects?feed=true').catch(() => ({ data: { data: [] } })),
+                axios.get('/projects?feed=true&with_bids=true').catch(() => ({ data: { data: [] } })),
                 axios.get('/arsitek').catch(() => ({ data: { data: [] } })),
                 axios.get('/kontraktor').catch(() => ({ data: { data: [] } })),
                 axios.get('/interior').catch(() => ({ data: { data: [] } })),
@@ -92,7 +92,7 @@ export const useDashboardData = () => {
     const refreshProjects = async () => {
         setIsLoading(true);
         try {
-            const res = await axios.get('/projects?all=true');
+            const res = await axios.get('/projects?all=true&with_bids=true');
             setProjects(res.data.data);
         } catch (err) {
             showToast('Failed to refresh projects', 'error');

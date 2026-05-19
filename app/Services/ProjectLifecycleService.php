@@ -50,13 +50,12 @@ class ProjectLifecycleService
                     break;
                 case 'legal':
                     $updateData = [
-                        'owner_legal_approved_at' => now(),
-                        'legal_locked_at' => now(),
-                        'legal_completed_at' => now(),
+                        'legal_handover_submitted_at' => null,
+                        'legal_handover_notes' => null,
                     ];
-                    $action = 'legal_verified';
-                    $details = "PM/Owner formally verified and approved the Legal Phase.";
-                    break;
+                    $project->update($updateData);
+                    $this->logActivity($project, 'legal_progress_acknowledged', "PM/Owner acknowledged the Notary's latest legal progress update.");
+                    return true;
                 default:
                     return false;
             }
@@ -109,17 +108,20 @@ class ProjectLifecycleService
     }
     private function notifyProfessionalsOfVerification(Project $project, string $phase): void
     {
-        $professionalUserId = match($phase) {
-            'design' => $project->selected_arsitek_id,
-            'construction' => $project->selected_kontraktor_id,
-            'interior' => $project->selected_interior_id,
-            'legal' => $project->selected_notaris_id,
-            default => null
-        };
+        $userId = null;
+        if ($phase === 'design' && $project->arsitek) {
+            $userId = $project->arsitek->user_id;
+        } elseif ($phase === 'construction' && $project->kontraktor) {
+            $userId = $project->kontraktor->user_id;
+        } elseif ($phase === 'interior' && $project->interior) {
+            $userId = $project->interior->user_id;
+        } elseif ($phase === 'legal' && $project->notaris) {
+            $userId = $project->notaris->user_id;
+        }
 
-        if ($professionalUserId) {
+        if ($userId) {
             Notification::create([
-                'user_id' => $professionalUserId,
+                'user_id' => $userId,
                 'type' => 'phase_verified',
                 'title' => "Phase Approved!",
                 'body' => "The " . ucfirst($phase) . " phase of project \"{$project->title}\" has been officially verified and locked.",
