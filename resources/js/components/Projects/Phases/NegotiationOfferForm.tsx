@@ -171,7 +171,10 @@ export const NegotiationOfferForm: React.FC<Props> = ({ bid, project, proType, o
     const hasTeamCapability = proType === 'arsitek' || proType === 'kontraktor' || !!bid.arsitek_id || !!bid.kontraktor_id;
     const initialTeam = useMemo((): ProposedTeamMember[] => {
         if (Array.isArray(bid.proposed_team) && bid.proposed_team.length > 0) {
-            return bid.proposed_team;
+            return bid.proposed_team.map(m => ({
+                ...m,
+                fee_type: m.fee_type || 'fixed'
+            }));
         }
         return [];
     }, [bid]);
@@ -313,7 +316,20 @@ export const NegotiationOfferForm: React.FC<Props> = ({ bid, project, proType, o
     const baseOfferValue = getBaseOfferValue();
     const allServices = useMemo(() => milestones.flatMap(m => m.services || []), [milestones]);
     const servicesTotal = useMemo(() => allServices.reduce((sum, s) => sum + (Number(s.price) || 0), 0), [allServices]);
-    const teamTotal = useMemo(() => proposedTeam.reduce((sum, t) => sum + (Number(t.fee) || 0), 0), [proposedTeam]);
+    
+    const teamTotal = useMemo(() => {
+        return proposedTeam.reduce((sum, t) => {
+            const feeVal = Number(t.fee) || 0;
+            let actualFee = feeVal;
+
+            if (t.fee_type === 'percentage') {
+                actualFee = (feeVal / 100) * baseOfferValue;
+            }
+
+            return sum + Math.round(actualFee);
+        }, 0);
+    }, [proposedTeam, baseOfferValue]);
+
     const grandTotal = baseOfferValue + servicesTotal + teamTotal;
     
     const totalPercentage = termins.reduce((acc, curr) => acc + Number(curr.percentage || 0), 0);
@@ -413,7 +429,7 @@ export const NegotiationOfferForm: React.FC<Props> = ({ bid, project, proType, o
                         milestones={milestones}
                         onChange={setTermins}
                         totalOfferValue={baseOfferValue}
-                        availableServices={profileServices}
+                        availableServices={(user?.role_type === 'notaris' || proType === 'notaris') ? profileServices : []}
                         onMilestoneUpdate={updateMilestone}
                         onMilestoneDelete={handleMilestoneDelete}
                         readOnly={isClient}

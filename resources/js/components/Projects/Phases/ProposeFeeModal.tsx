@@ -46,7 +46,7 @@ export const ProposeFeeModal: React.FC<ProposeFeeModalProps> = ({
     };
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/90">
             <div className="bg-white w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-[2.5rem] shadow-2xl">
                 <ErrorBoundary name="ProposeFeeModalContent">
                     <div className="p-8">

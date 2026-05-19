@@ -82,6 +82,18 @@ export const ContractSignModal: React.FC<ContractSignModalProps> = ({ isOpen, on
         ? Math.max(0, agreedFee - servicesTotal) 
         : fallbackBaseFee;
 
+    const projectArea = React.useMemo(() => {
+        const dims = project?.project_dimensions;
+        if (!dims) return 0;
+        return Number(dims.building_area) || 
+               Number(dims.building_size) || 
+               Number(dims.renovation_area) || 
+               Number(dims.area_size) || 
+               Number(dims.land_area) || 
+               Number(dims.land_size) || 
+               Number(project?.design_details?.targetArea) || 0;
+    }, [project]);
+
     const totalPercentage = termins.reduce((sum, t) => sum + Number(t.percentage), 0);
 
     const handleSubmit = async () => {
@@ -138,7 +150,7 @@ export const ContractSignModal: React.FC<ContractSignModalProps> = ({ isOpen, on
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/90">
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
                 {/* Header */}
                 <div className="p-6 border-b border-zinc-800 flex items-center justify-between bg-zinc-900/50">
@@ -325,15 +337,21 @@ export const ContractSignModal: React.FC<ContractSignModalProps> = ({ isOpen, on
 
                                         <div className="flex flex-col sm:items-end gap-1 shrink-0">
                                             <span className="text-xs font-black text-white">
-                                                Rp {member.fee.toLocaleString()} {member.fee_type === 'percentage' ? '% of Project' : ''}
+                                                Rp {(() => {
+                                                    const feeVal = member.fee || 0;
+                                                    if (member.fee_type === 'percentage') {
+                                                        return Math.round((feeVal / 100) * baseFeeAmount).toLocaleString();
+                                                    }
+                                                    return feeVal.toLocaleString();
+                                                })()}
                                             </span>
-                                            {member.note ? (
-                                                <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider max-w-[200px] truncate block">
+                                            <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">
+                                                {member.fee_type === 'percentage' ? `${member.fee}% of Project` :
+                                                 'Fixed Amount'}
+                                            </span>
+                                            {member.note && (
+                                                <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider max-w-[200px] truncate block mt-0.5">
                                                     {member.note}
-                                                </span>
-                                            ) : (
-                                                <span className="text-[8px] font-bold text-zinc-600 uppercase italic block">
-                                                    No special notes
                                                 </span>
                                             )}
                                         </div>

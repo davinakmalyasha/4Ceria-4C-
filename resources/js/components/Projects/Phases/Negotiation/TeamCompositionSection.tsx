@@ -147,25 +147,33 @@ const TeamMemberEntry: React.FC<EntryProps> = ({ member, index, onUpdate, onRemo
         {/* Fee & Note inputs */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider mb-1.5">Fee (IDR)</label>
+                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider mb-1.5">
+                    {member.fee_type === 'percentage' ? 'Fee Percentage' : 'Fee (IDR)'}
+                </label>
                 <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xs font-black text-gray-400">Rp</span>
+                    {member.fee_type !== 'percentage' && (
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xs font-black text-gray-400">Rp</span>
+                    )}
                     <input 
                         type="number" 
                         required
                         min="0"
+                        step="any"
                         value={member.fee || ''} 
                         onChange={e => onUpdate(index, { fee: Number(e.target.value) })}
-                        className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 focus:border-slate-900 rounded-2xl text-xs font-black text-slate-900 outline-none transition-all"
+                        className={`w-full ${member.fee_type === 'percentage' ? 'px-4' : 'pl-10 pr-4'} py-3 bg-white border border-slate-200 focus:border-slate-900 rounded-2xl text-xs font-black text-slate-900 outline-none transition-all`}
                         placeholder="0" 
                     />
+                    {member.fee_type === 'percentage' && (
+                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-black text-gray-400">%</span>
+                    )}
                 </div>
             </div>
             <div>
                 <label className="block text-[9px] font-black text-gray-400 uppercase tracking-wider mb-1.5">Fee Structure</label>
                 <select 
                     value={member.fee_type || 'fixed'} 
-                    onChange={e => onUpdate(index, { fee_type: e.target.value as 'fixed' | 'percentage' })}
+                    onChange={e => onUpdate(index, { fee_type: e.target.value as any })}
                     className="w-full px-4 py-3 bg-white border border-slate-200 focus:border-slate-900 rounded-2xl text-xs font-black text-slate-700 outline-none transition-all cursor-pointer"
                 >
                     <option value="fixed">Fixed Amount</option>

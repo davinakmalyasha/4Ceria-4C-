@@ -625,13 +625,13 @@ export const BidReviewCard: React.FC<BidReviewCardProps> = ({
                                     </button>
                                     
                                     {bid.fee_agreed_at ? (
-                                    <button 
-                                        onClick={() => onAction?.(bid.id, 'accept')}
-                                        disabled={isActioning}
-                                        className="flex-1 py-2.5 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 shadow-lg shadow-emerald-200 transition-all flex items-center justify-center gap-2"
-                                    >
-                                        <Check size={16} /> {(user?.role_type === 'project_manager' && !isThePro) ? (bid.fee_agreed_at ? 'Recommended' : 'Approve Fee') : 'Confirm & Hire'}
-                                    </button>
+                                        <button 
+                                            onClick={() => onAction?.(bid.id, 'accept')}
+                                            disabled={isActioning}
+                                            className="flex-1 py-2.5 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 shadow-lg shadow-emerald-200 transition-all flex items-center justify-center gap-2"
+                                        >
+                                            <Check size={16} /> Confirm & Hire
+                                        </button>
                                     ) : (
                                         <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 text-center">
                                         <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest">
