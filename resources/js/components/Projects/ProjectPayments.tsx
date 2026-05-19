@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-    CreditCard, CheckCircle2, AlertCircle, Loader2, DollarSign, 
+    CreditCard, CheckCircle2, AlertCircle, Loader2, DollarSign, Lock,
     ExternalLink, ShieldCheck, Upload, Eye, Check, MessageSquare, 
     MessageCircle, Info, Landmark, Paperclip, FileText, Image as ImageIcon,
     Plus, Trash2, Save, X, DollarSign as DollarIcon
@@ -479,6 +479,21 @@ export default function ProjectPayments({ project, user, onRefresh }: ProjectPay
 
                                             const isHighlighted = highlightId === payment.id.toString();
 
+                                            // Sequential payment lock:
+                                            // Only lock if it is NOT a subcontractor/team payment ('other').
+                                            // And only check preceding unpaid termins of the EXACT SAME role_type.
+                                            let isSequentialLocked = false;
+                                            if (payment.isTermin && !isPaid && !isVerifying && payment.role_type !== 'other') {
+                                                isSequentialLocked = group.payments.slice(0, index).some((p: any) => 
+                                                    p.isTermin && 
+                                                    p.role_type === payment.role_type && 
+                                                    p.payment_status !== 'paid' && 
+                                                    p.payment_status !== 'verifying'
+                                                );
+                                            }
+
+                                            const isVisuallyLocked = isLocked || isSequentialLocked;
+
                                             return (
                                                 <div 
                                                     key={payment.id}
@@ -487,11 +502,11 @@ export default function ProjectPayments({ project, user, onRefresh }: ProjectPay
                                                         isHighlighted ? 'ring-4 ring-emerald-400 shadow-2xl shadow-emerald-200 scale-[1.02] z-10' : ''
                                                     } ${
                                                         isPaid ? 'bg-emerald-50/30 border-emerald-100' : 
-                                                        isLocked ? 'bg-slate-50 border-slate-100 opacity-70 grayscale-[0.5]' :
+                                                        isVisuallyLocked ? 'bg-slate-50 border-slate-100 opacity-70 grayscale-[0.5]' :
                                                         'bg-gray-50/50 border-gray-100 hover:bg-white hover:shadow-lg'
                                                     }`}
                                                 >
-                                                    {isLocked && (
+                                                    {isVisuallyLocked && (
                                                         <div className="absolute top-3 right-3 bg-white/80 p-1 rounded-lg border border-slate-200">
                                                             <AlertCircle size={14} className="text-slate-400" />
                                                         </div>
@@ -589,12 +604,14 @@ export default function ProjectPayments({ project, user, onRefresh }: ProjectPay
                                                     <div className="flex items-center gap-3 mb-5">
                                                         <div className={`w-2 h-2 rounded-full ${
                                                             isPaid ? 'bg-emerald-500' : 
+                                                            isSequentialLocked ? 'bg-slate-300' :
                                                             isLocked ? 'bg-slate-300' :
                                                             hasProof ? 'bg-emerald-500 animate-pulse' : 
                                                             'bg-amber-400'
                                                         }`} />
                                                         <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
                                                             {isPaid ? 'Paid & Verified' : 
+                                                             isSequentialLocked ? 'Pay previous stages first' :
                                                              isLocked ? 'Locked until approval' :
                                                              hasProof ? (isVerifying ? 'Verifying Proof' : 'Proof Submitted') : 
                                                              'Awaiting Payment'}
@@ -625,6 +642,10 @@ export default function ProjectPayments({ project, user, onRefresh }: ProjectPay
                                                     {isPaid ? (
                                                         <div className="w-full py-3 bg-emerald-100/50 border border-emerald-200 text-emerald-700 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2">
                                                             <CheckCircle2 size={14} /> Completed
+                                                        </div>
+                                                    ) : isSequentialLocked ? (
+                                                        <div className="w-full py-3 bg-slate-100 border border-slate-200 text-slate-400 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 cursor-not-allowed">
+                                                            <Lock size={14} /> Pay Previous Stages First
                                                         </div>
                                                     ) : isLocked ? (
                                                         <div className="w-full py-3 bg-slate-100 border border-slate-200 text-slate-400 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 cursor-not-allowed">

@@ -4,7 +4,7 @@ import {
     Star, MessageCircle, ExternalLink, Settings,
     FileText, Box, Check, Briefcase, BookOpen, Package,
     ShieldCheck, Clock, Pencil, Layers, Hammer, Wallet, Users, AlertTriangle, LogOut,
-    FolderOpen, Plus, DollarSign, UserPlus
+    FolderOpen, Plus, DollarSign, UserPlus, ArrowRight
 } from 'lucide-react';
 import LifecycleActionModal from '../Details/LifecycleActionModal';
 import AddendumProposalModal from './AddendumProposalModal';
@@ -43,13 +43,14 @@ interface PhaseAssignedProProps {
     onViewProfile?: (pro: any, phaseKey: PhaseKey) => void;
     isContractor?: boolean;
     onGoToPayments?: () => void;
+    onGoToInterviews?: () => void;
     onShortlist?: (bidId: number, role: string) => void;
     onRecommend?: (bidId: number, role: string) => void;
 }
 export default function PhaseAssignedPro({
     project, phaseKey, activeSubRole, user, config,
     onRefresh, onPhaseComplete, onOpenChat, onViewProfile,
-    onGoToPayments, onShortlist, onRecommend
+    onGoToPayments, onGoToInterviews, onShortlist, onRecommend
 }: PhaseAssignedProProps) {
     const { showToast } = useToast();
     const ROLE_MAP: Record<string, string> = {
@@ -63,13 +64,39 @@ export default function PhaseAssignedPro({
         mep: 'mep'
     };
     const roleKey = activeSubRole || ROLE_MAP[phaseKey] || phaseKey;
-    const bidKey = config.bidKey;
     const acceptedBid = bidKey ? project?.[bidKey]?.find((b: any) => 
         ['accepted', 'contract_pending', 'active', 'awaiting_payment'].includes(b.status)
     ) : null;
+    const isPMAuthorized = 
+        phaseKey === 'design' ? !!project.design_authorized_at :
+        phaseKey === 'build' ? !!project.construction_authorized_at : true;
+    const isWorkspaceLocked = (acceptedBid && ['contract_pending', 'awaiting_payment'].includes(acceptedBid.status)) || !isPMAuthorized;
     const pro = (config.profileKey ? project?.[config.profileKey] : null) || acceptedBid?.bidder;
     const externalVendor = project.external_vendors?.find((v: any) => v.phase_role === roleKey);
-    const isHiredContractor = user?.role_type === 'kontraktor' && project.selected_kontraktor_id === user?.id;
+    const isHiredContractor = user?.role_type === 'kontraktor' && (
+        (project.selected_kontraktor_id && user?.kontraktor?.id === project.selected_kontraktor_id) ||
+        (project.kontraktor?.user?.id === user?.id) ||
+        (project.kontraktor?.user_id === user?.id) ||
+        (project.bids_kontraktor?.some((b: any) => b.status === 'accepted' && (b.bidder?.user?.id === user?.id || b.bidder?.user_id === user?.id)))
+    );
+
+    const isHiredArchitect = user?.role_type === 'arsitek' && (
+        (project.selected_arsitek_id && user?.arsitek?.id === project.selected_arsitek_id) ||
+        (project.arsitek?.user?.id === user?.id) ||
+        (project.arsitek?.user_id === user?.id) ||
+        (project.bids_arsitek?.some((b: any) => b.status === 'accepted' && (b.bidder?.user?.id === user?.id || b.bidder?.user_id === user?.id)))
+    );
+
+    const isHiredInterior = user?.role_type === 'interior' && (
+        (project.selected_interior_id && (
+            user?.interior_profile?.id === project.selected_interior_id || 
+            user?.id === project.interior?.user_id || 
+            user?.id === project.interior?.user?.id ||
+            user?.id === project.interior_profile?.user_id || 
+            user?.id === project.interior_profile?.user?.id
+        )) ||
+        (project.bids_interior?.some((b: any) => b.status === 'accepted' && (b.bidder?.user?.id === user?.id || b.bidder?.user_id === user?.id)))
+    );
 
     if (!pro && !externalVendor && phaseKey !== 'materials' && !(phaseKey === 'interior' && isHiredContractor)) return null;
 
@@ -113,12 +140,14 @@ export default function PhaseAssignedPro({
     const submittedAt = 
         phaseKey === 'design' ? project.design_handover_submitted_at :
         phaseKey === 'build' ? project.construction_handover_submitted_at :
-        phaseKey === 'interior' ? project.interior_handover_submitted_at : null;
+        phaseKey === 'interior' ? project.interior_handover_submitted_at :
+        phaseKey === 'legal' ? project.legal_handover_submitted_at : null;
 
     const revisionNotes = 
         phaseKey === 'design' ? project.design_handover_notes :
         phaseKey === 'build' ? project.construction_handover_notes :
-        phaseKey === 'interior' ? project.interior_handover_notes : null;
+        phaseKey === 'interior' ? project.interior_handover_notes :
+        phaseKey === 'legal' ? project.legal_handover_notes : null;
 
 
 
@@ -187,6 +216,23 @@ export default function PhaseAssignedPro({
     return (
         <div className="bg-white border border-gray-100 rounded-[2.5rem] p-8 shadow-sm relative">
 
+            {/* PM Authorization Lockout */}
+            {!isPMAuthorized && isHiredPro && (
+                <div className="mb-8 p-8 bg-red-50 border border-red-100 rounded-[3rem] shadow-sm flex flex-col items-center text-center gap-4 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-red-500/10 rounded-full blur-[100px] opacity-50 -translate-y-1/2 translate-x-1/2" />
+                    <div className="w-16 h-16 bg-white text-red-500 rounded-3xl flex items-center justify-center shadow-lg mb-2 relative z-10">
+                        <Lock size={32} />
+                    </div>
+                    <div className="relative z-10 max-w-lg">
+                        <h4 className="text-xl font-black text-red-950 tracking-tight">Awaiting PM Authorization</h4>
+                        <p className="text-xs text-red-700 font-bold mt-2 leading-relaxed uppercase tracking-wider">
+                            The Project Manager has not yet authorized the start of this phase. Please wait until they have verified the necessary prerequisites before commencing work.
+                        </p>
+                    </div>
+                </div>
+            )}
+
+
             {/* ACTIVE NEGOTIATIONS SECTION — Visible across all phases for the hired pro */}
             {isHiredPro && project.addendums?.some((a: any) => a.status === 'negotiating' && a.user_id === user.id) && (
                 <div className="mb-8 space-y-6">
@@ -242,7 +288,7 @@ export default function PhaseAssignedPro({
             )}
 
             {/* Owner Decision Panel — Only show after brief is locked */}
-            {isOwner && !(project.completed_phases || []).includes(phaseKey) && (
+            {isOwner && !isWorkspaceLocked && !(project.completed_phases || []).includes(phaseKey) && (
                 (phaseKey === 'design' && project.design_locked_at) ||
                 (phaseKey === 'build' && project.construction_locked_at) ||
                 !['design', 'build'].includes(phaseKey)
@@ -271,7 +317,7 @@ export default function PhaseAssignedPro({
 
 
             {/* Contractor Handover Workshop Button */}
-            {isHiredPro && phaseKey === 'build' && !project.construction_completed_at && (
+            {isHiredPro && !isWorkspaceLocked && phaseKey === 'build' && !project.construction_completed_at && (
                 <div className="mb-8 p-8 bg-slate-900 border border-slate-800 rounded-[3rem] shadow-sm flex flex-col items-center text-center gap-6">
                     <div className="max-w-md">
                         <h4 className="text-xl font-black text-white tracking-tight">Construction Handover Site</h4>
@@ -322,7 +368,7 @@ export default function PhaseAssignedPro({
             )}
 
             {/* PM HANDOVER REDIRECT */}
-            {isPM && submittedAt && !(project.completed_phases || []).includes(phaseKey) && (
+            {isPM && !isWorkspaceLocked && submittedAt && !(project.completed_phases || []).includes(phaseKey) && (
                 <div className="mb-8 p-8 bg-emerald-50 border-2 border-emerald-100 rounded-[3rem] shadow-sm flex items-center gap-6">
                     <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-[2rem] flex items-center justify-center shadow-inner">
                         <ShieldCheck size={32} />
@@ -337,7 +383,7 @@ export default function PhaseAssignedPro({
             )}
 
             {/* Interior Designer Handover Workshop Button */}
-            {isHiredPro && phaseKey === 'interior' && !project.interior_completed_at && (
+            {isHiredPro && !isWorkspaceLocked && phaseKey === 'interior' && !project.interior_completed_at && (
                 <div className="mb-8 p-8 bg-purple-900 border border-purple-800 rounded-[3rem] shadow-sm flex flex-col items-center text-center gap-6">
                     <div className="max-w-md">
                         <h4 className="text-xl font-black text-white tracking-tight">Interior Design Handover</h4>
@@ -384,6 +430,57 @@ export default function PhaseAssignedPro({
                     >
                         <ShieldCheck size={20} className={!submittedAt ? "group-hover:rotate-12 transition-transform" : ""} />
                         {isUpdating ? 'SUBMITTING...' : submittedAt ? 'PENDING PM REVIEW' : revisionNotes ? 'RESUBMIT INTERIOR' : 'SUBMIT INTERIOR HANDOVER'}
+                    </button>
+                </div>
+            )}
+
+            {/* Legal Notary Progress Loop */}
+            {isHiredPro && phaseKey === 'legal' && !project.legal_completed_at && (
+                <div className="mb-8 p-8 bg-zinc-900 border border-zinc-800 rounded-[3rem] shadow-sm flex flex-col items-center text-center gap-6">
+                    <div className="max-w-md">
+                        <h4 className="text-xl font-black text-white tracking-tight">Legal Progress Update</h4>
+                        <p className="text-xs text-zinc-400 font-bold mt-2 leading-relaxed uppercase tracking-wider">
+                            Notify the PM about your recent legal documentation progress (e.g., uploading the AJB). The PM will review your updates.
+                        </p>
+                    </div>
+
+                    {submittedAt && (
+                        <div className="px-6 py-3 bg-white/10 rounded-2xl flex items-center gap-3 animate-pulse">
+                            <Clock size={16} className="text-zinc-300" />
+                            <span className="text-[10px] font-black text-white/70 uppercase tracking-widest">Awaiting PM Review Since {new Date(submittedAt).toLocaleDateString()}</span>
+                        </div>
+                    )}
+
+                    {revisionNotes && !submittedAt && (
+                        <div className="p-5 bg-red-500/10 border border-red-500/20 rounded-2xl text-left w-full">
+                            <div className="flex items-center gap-2 mb-2 text-red-400">
+                                <AlertTriangle size={16} />
+                                <span className="text-[10px] font-black uppercase tracking-widest">PM Revision Requested</span>
+                            </div>
+                            <p className="text-xs font-bold text-red-200">{revisionNotes}</p>
+                        </div>
+                    )}
+
+                    <button
+                        onClick={async () => {
+                            if (!window.confirm("Submit your legal progress for PM review?")) return;
+                            setIsUpdating(true);
+                            try {
+                                await axios.post(`/projects/${project.id}/seal-legal`);
+                                showToast('Legal Progress Submitted', 'success');
+                                onRefresh();
+                            } catch (error: any) {
+                                const message = error.response?.data?.message || 'Submit failed.';
+                                showToast(message, 'error');
+                            } finally {
+                                setIsUpdating(false);
+                            }
+                        }}
+                        disabled={isUpdating || !!submittedAt}
+                        className="group relative px-12 py-5 bg-white text-zinc-900 rounded-[2rem] font-black text-xs uppercase tracking-[0.25em] shadow-2xl hover:bg-zinc-50 transition-all flex items-center gap-4 overflow-hidden disabled:opacity-50"
+                    >
+                        <ShieldCheck size={20} className={!submittedAt ? "group-hover:rotate-12 transition-transform" : ""} />
+                        {isUpdating ? 'SUBMITTING...' : submittedAt ? 'PENDING PM REVIEW' : revisionNotes ? 'RESUBMIT PROGRESS' : 'SUBMIT LEGAL PROGRESS'}
                     </button>
                 </div>
             )}
@@ -466,6 +563,76 @@ export default function PhaseAssignedPro({
                 onRefresh={onRefresh}
             />
 
+            {isWorkspaceLocked ? (
+                <div className="p-12 text-center bg-slate-50 border-2 border-slate-100 rounded-[2rem] space-y-6 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-slate-200/50 rounded-full blur-[80px] opacity-40 -translate-y-1/2 translate-x-1/2" />
+                    
+                    <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center mx-auto shadow-xl shadow-slate-100/50 border border-slate-100 transition-transform duration-500 group-hover:scale-110">
+                        {acceptedBid?.status === 'contract_pending' ? (
+                            <FileText size={36} className="text-amber-500 animate-pulse" />
+                        ) : (
+                            <Wallet size={36} className="text-emerald-500" />
+                        )}
+                    </div>
+                    
+                    <div className="space-y-2">
+                        <h3 className="text-2xl font-black text-slate-900 tracking-tight">
+                            {acceptedBid?.status === 'contract_pending' 
+                                ? 'Contract Signature Pending' 
+                                : 'Milestone Payment Pending'
+                            }
+                        </h3>
+                        <p className="text-sm text-slate-500 font-bold max-w-lg mx-auto leading-relaxed">
+                            {acceptedBid?.status === 'contract_pending' ? (
+                                isHiredPro ? (
+                                    'Congratulations! You have been selected for this phase. Please sign the contract to unlock your active workspace and start collaborating.'
+                                ) : (
+                                    `The contract has been generated and sent to ${name}. The active workspace will unlock immediately once they sign the agreement.`
+                                )
+                            ) : (
+                                isOwner ? (
+                                    'The contract has been signed by both parties! To unlock the workspace and authorize the professional to begin, please complete the initial milestone payment.'
+                                ) : (
+                                    "The contract is fully signed! The active workspace will unlock as soon as the owner's initial down payment is verified."
+                                )
+                            )}
+                        </p>
+                    </div>
+
+                    <div className="pt-4 flex justify-center gap-4">
+                        {acceptedBid?.status === 'contract_pending' ? (
+                            isHiredPro ? (
+                                <button
+                                    onClick={onGoToInterviews}
+                                    className="px-8 py-4 bg-slate-900 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-black transition-all shadow-xl shadow-slate-900/10 flex items-center gap-2"
+                                >
+                                    Sign Contract in Interviews
+                                    <ArrowRight size={14} />
+                                </button>
+                            ) : (
+                                <div className="px-6 py-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-[10px] font-black uppercase tracking-widest">
+                                    Waiting for Professional's Signature
+                                </div>
+                            )
+                        ) : (
+                            isOwner ? (
+                                <button
+                                    onClick={onGoToPayments}
+                                    className="px-8 py-4 bg-emerald-500 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-emerald-600 transition-all shadow-xl shadow-emerald-500/10 flex items-center gap-2"
+                                >
+                                    Go to Payments Hub
+                                    <ArrowRight size={14} />
+                                </button>
+                            ) : (
+                                <div className="px-6 py-3 bg-emerald-50 border border-emerald-100 rounded-xl text-emerald-800 text-[10px] font-black uppercase tracking-widest animate-pulse">
+                                    Waiting for Owner Payment Verification
+                                </div>
+                            )
+                        )}
+                    </div>
+                </div>
+            ) : (
+                <>
             {/* If Legal Phase, show the Legal Workspace Navigation */}
             {phaseKey === 'legal' && (
                 <div className="space-y-8">
@@ -757,13 +924,14 @@ export default function PhaseAssignedPro({
                         {activeSubTab === 'bom' && (() => {
                             const isOwner = user?.id === project?.user_id;
                             const isPM = user?.role_type === 'project_manager' && project?.pm_id === user?.id;
-                            const canMutateBOM = isOwner || isPM || isHiredPro;
+                            const canMutateBOM = isOwner || isPM || isHiredContractor || isHiredArchitect || isHiredInterior;
                             
                             return (
                                 <ProjectRequirements 
                                     project={project} 
                                     onUpdate={onRefresh} 
                                     canMutate={canMutateBOM}
+                                    currentUser={user}
                                 />
                             );
                         })()}
@@ -819,6 +987,8 @@ export default function PhaseAssignedPro({
                         )}
                     </div>
                 </div>
+            )}
+                </>
             )}
 
             <LifecycleActionModal

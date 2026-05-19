@@ -113,20 +113,14 @@ export default function ProjectInterviews({ project, onRefresh, onOpenChat, onRe
             
             let endpoint: string;
             if (action === 'accept') {
-                const confirmMsg = isPM && !isPMBidding
-                    ? "Are you sure you want to approve these terms and recommend this professional to the owner?"
-                    : "Are you sure you want to hire this professional? This will allocate budget and finalize the contract.";
+                const confirmMsg = "Are you sure you want to hire this professional? This will generate the contract for their signature.";
 
                 if (!window.confirm(confirmMsg)) {
                     setActioningId(null);
                     return;
                 }
 
-                if (isPM && !isPMBidding) {
-                    endpoint = `bids/${bidId}/confirm-fee`;
-                } else {
-                    endpoint = isPMBidding ? `pm-bids/${bidId}/accept` : 'accept-bid';
-                }
+                endpoint = isPMBidding ? `pm-bids/${bidId}/accept` : 'accept-bid';
             } else {
                 if (!window.confirm("Are you sure you want to decline this professional?")) {
                     setActioningId(null);
@@ -155,7 +149,7 @@ export default function ProjectInterviews({ project, onRefresh, onOpenChat, onRe
                 await axios.post(`/projects/${project.id}/${endpoint}`, postData);
             }
 
-            showToast(action === 'accept' ? (isPM && !isPMBidding ? 'Professional recommended to owner!' : 'Professional hired!') : 'Proposal declined.', 'success');
+            showToast(action === 'accept' ? 'Professional hired!' : 'Proposal declined.', 'success');
             onRefresh();
         } catch (error: any) {
             showToast(error.response?.data?.message || 'Action failed', 'error');

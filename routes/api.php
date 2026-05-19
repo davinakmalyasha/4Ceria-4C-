@@ -84,6 +84,7 @@ Route::middleware('auth:sanctum')->group(function () {
         $relations = [
             'phoneNumber', 'arsitek', 'kontraktor',
             'notaris_profile.services', 'interior_profile', 'project_manager',
+            'roles',
             // 'structural_engineer', 'mep_engineer',
         ];
         if (in_array($user->role_type, ['arsitek', 'kontraktor'])) {
@@ -111,7 +112,17 @@ Route::middleware('auth:sanctum')->group(function () {
             'username' => $validated['username'],
         ]);
 
-        if ($request->has('phone_numbers')) {
+        if ($request->has('phone_numbers') && !empty($validated['phone_numbers'])) {
+            $firstPhone = $validated['phone_numbers'][0];
+
+            // Update arsitek/kontraktor phone if profile exists
+            if ($user->arsitek) {
+                $user->arsitek->update(['no_telp' => $firstPhone]);
+            }
+            if ($user->kontraktor) {
+                $user->kontraktor->update(['no_telepon' => $firstPhone]);
+            }
+
             // Delete numbers that are not in the provided list
             $user->phoneNumber()->whereNotIn('contact', $validated['phone_numbers'])->delete();
 
@@ -124,9 +135,18 @@ Route::middleware('auth:sanctum')->group(function () {
             }
         }
 
+        $relations = [
+            'phoneNumber', 'arsitek', 'kontraktor',
+            'notaris_profile.services', 'interior_profile', 'project_manager',
+            'roles',
+        ];
+        if (in_array($user->role_type, ['arsitek', 'kontraktor'])) {
+            $relations[] = 'teamMembers';
+        }
+
         return response()->json([
             'message' => 'Profile updated successfully',
-            'user' => $user->load('phoneNumber'),
+            'user' => new \App\Http\Resources\UserResource($user->load($relations)),
         ]);
     });
 
@@ -213,6 +233,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/projects/{project}/seal-construction', [ProjectPhaseController::class, 'sealConstruction']);
     Route::post('/projects/{project}/seal-interior', [ProjectPhaseController::class, 'sealInterior']);
     Route::post('/projects/{project}/seal-legal', [ProjectPhaseController::class, 'sealLegal']);
+    Route::post('/projects/{project}/authorize-phase', [ProjectPhaseController::class, 'authorizePhase']);
     Route::post('/projects/{project}/kickoff', [ProjectPhaseController::class, 'issueKickoff']);
     Route::post('/projects/{project}/verify-design', [ProjectPhaseController::class, 'verifyDesign']);
     Route::post('/projects/{project}/verify-construction', [ProjectPhaseController::class, 'verifyConstruction']);
@@ -342,7 +363,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/projects/{project}/material-folders', [\App\Http\Controllers\Api\ProjectMaterialFolderController::class, 'store']);
     Route::put('/projects/{project}/material-folders/{folder}', [\App\Http\Controllers\Api\ProjectMaterialFolderController::class, 'update']);
     Route::delete('/projects/{project}/material-folders/{folder}', [\App\Http\Controllers\Api\ProjectMaterialFolderController::class, 'destroy']);
-    Route::post('/projects/{project}/procurement-requests/{procurementRequest}/reject', [ProjectRequirementController::class, 'pmRejectProcurement']);
+    Route::post('/projects/{project}/procurement-requests/{procurementRequest}/verify', [\App\Http\Controllers\Api\ProjectFeatureController::class, 'pmVerifyProcurement']);
+    Route::post('/projects/{project}/procurement-requests/{procurementRequest}/reject', [\App\Http\Controllers\Api\ProjectFeatureController::class, 'pmRejectProcurement']);
     Route::post('/projects/{project}/procurement-requests/{procurementRequest}/owner-approve', [ProjectRequirementController::class, 'ownerApproveProcurement']);
     Route::post('/projects/{project}/procurement-requests/{procurementRequest}/owner-reject', [ProjectRequirementController::class, 'ownerRejectProcurement']);
 

@@ -31,25 +31,30 @@ class PaymentVerificationService
             $model = $this->getModel($type, $id, $project->id);
 
             if ($type === 'termin') {
-                $unpaidPrevious = ProjectPaymentTermin::where('project_id', $project->id)
-                    ->where('role_type', $model->role_type)
-                    ->where('id', '<', $model->id)
-                    ->whereNotIn('status', ['paid', 'verifying'])
-                    ->where(function($q) use ($model) {
-                        // COs (percentage 0) should not be blocked by LATER regular termins
-                        if ($model->percentage == 0) {
-                            if ($model->milestone_id) {
-                                $q->where(function($sq) use ($model) {
-                                    $sq->where('milestone_id', '<=', $model->milestone_id)
-                                       ->orWhereNull('milestone_id');
-                                });
+                $isSubProfessional = ($model->milestone && $model->milestone->type === 'sub_professional') 
+                    || !in_array($model->role_type, ['arsitek', 'kontraktor', 'notaris', 'interior', 'project_manager']);
+
+                if (!$isSubProfessional) {
+                    $unpaidPrevious = ProjectPaymentTermin::where('project_id', $project->id)
+                        ->where('role_type', $model->role_type)
+                        ->where('id', '<', $model->id)
+                        ->whereNotIn('status', ['paid', 'verifying'])
+                        ->where(function($q) use ($model) {
+                            // COs (percentage 0) should not be blocked by LATER regular termins
+                            if ($model->percentage == 0) {
+                                if ($model->milestone_id) {
+                                    $q->where(function($sq) use ($model) {
+                                        $sq->where('milestone_id', '<=', $model->milestone_id)
+                                           ->orWhereNull('milestone_id');
+                                    });
+                                }
                             }
-                        }
-                    })
-                    ->exists();
-                
-                if ($unpaidPrevious) {
-                    throw new Exception("Please complete the previous payment milestones (e.g. Down Payment) before paying for this one.", 422);
+                        })
+                        ->exists();
+                    
+                    if ($unpaidPrevious) {
+                        throw new Exception("Please complete the previous payment milestones (e.g. Down Payment) before paying for this one.", 422);
+                    }
                 }
             }
 
@@ -182,6 +187,10 @@ class PaymentVerificationService
             if ($type === 'termin' || $type === 'addendum' || $type === 'material') {
                 $model->status = 'paid';
                 $model->verification_notes = null; // Clear old rejection notes on success
+                
+                if ($type === 'termin') {
+                    $this->checkAndActivateBid($project, $model);
+                }
                 
                 // CRITICAL FIX: Record transaction in budget ledger for termins/addendums
                 $financialService = app(\App\Services\ProjectFinancialService::class);
@@ -332,6 +341,36 @@ class PaymentVerificationService
              } else {
                  $project->update(['status' => 'accepted_kontraktor']);
              }
+        }
+    }
+
+    private function checkAndActivateBid(Project $project, ProjectPaymentTermin $termin)
+    {
+        $bidModel = match ($termin->role_type) {
+            'arsitek' => \App\Models\BidArsitek::class,
+            'kontraktor' => \App\Models\BidKontraktor::class,
+            'notaris' => \App\Models\BidNotaris::class,
+            'interior' => \App\Models\BidInterior::class,
+            'project_manager' => \App\Models\BidProjectManager::class,
+            'structural' => \App\Models\BidStructural::class,
+            'mep' => \App\Models\BidMep::class,
+            default => null,
+        };
+
+        if (!$bidModel) return;
+
+        $bid = $bidModel::where('project_id', $project->id)
+            ->where('status', 'awaiting_payment')
+            ->first();
+
+        if ($bid) {
+            $bid->update(['status' => 'accepted']);
+            
+            if ($termin->role_type === 'arsitek') $project->update(['selected_arsitek_id' => $bid->arsitek_id]);
+            if ($termin->role_type === 'kontraktor') $project->update(['selected_kontraktor_id' => $bid->kontraktor_id]);
+            if ($termin->role_type === 'project_manager') $project->update(['pm_id' => $bid->pm->user_id]);
+            if ($termin->role_type === 'notaris') $project->update(['selected_notaris_id' => $bid->notaris_id]);
+            if ($termin->role_type === 'interior') $project->update(['selected_interior_id' => $bid->interior_id]);
         }
     }
 

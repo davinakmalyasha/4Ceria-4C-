@@ -72,11 +72,13 @@ class ProjectController extends Controller
             return ProjectResource::collection($query->paginate(50));
         }
 
-        // Professional Discovery Logic - ONLY if specifically requested
-        if ($user->role_type !== 'user' && ($request->query('feed') === 'true' || $request->query('discovery') === 'true')) {
-            $query->where('user_id', '!=', $user->id); // Exclude own projects
+        // Professional Discovery Logic / Bidding Board Feed
+        if ($request->query('feed') === 'true' || $request->query('discovery') === 'true' || $request->query('bidding_board') === 'true') {
+            if ($user) {
+                $query->where('user_id', '!=', $user->id); // Exclude own projects
+            }
 
-            if ($user->role_type === 'arsitek') {
+            if ($user && $user->role_type === 'arsitek') {
                 $arsitekId = optional($user->arsitek)->id;
                 $query->whereIn('target_role', ['both', 'arsitek'])
                     ->whereJsonContains('published_bidding_roles', 'arsitek')
@@ -85,7 +87,7 @@ class ProjectController extends Controller
                     ->whereDoesntHave('bidsArsitek', function ($q) use ($arsitekId) {
                         $q->where('arsitek_id', $arsitekId);
                     });
-            } elseif ($user->role_type === 'kontraktor') {
+            } elseif ($user && $user->role_type === 'kontraktor') {
                 $kontraktorId = optional($user->kontraktor)->id;
                 $query->where(function ($q) {
                     $q->where('target_role', 'kontraktor')
@@ -103,7 +105,7 @@ class ProjectController extends Controller
                     ->whereDoesntHave('bidsKontraktor', function ($q) use ($kontraktorId) {
                         $q->where('kontraktor_id', $kontraktorId);
                     });
-            } elseif ($user->role_type === 'notaris') {
+            } elseif ($user && $user->role_type === 'notaris') {
                 $notarisId = optional($user->notaris_profile)->id;
                 $query->where(function ($q) {
                     $q->whereJsonContains('needed_phases', 'legal')
@@ -116,7 +118,7 @@ class ProjectController extends Controller
                     ->whereDoesntHave('bidsNotaris', function ($q) use ($notarisId) {
                         $q->where('notaris_id', $notarisId);
                     });
-            } elseif ($user->role_type === 'structural') {
+            } elseif ($user && $user->role_type === 'structural') {
                 $structuralId = optional($user->structural_engineer)->id;
                 $query->where('requires_structural', true)
                     ->whereJsonContains('published_bidding_roles', 'structural')
@@ -125,7 +127,7 @@ class ProjectController extends Controller
                     ->whereDoesntHave('bidsStructural', function ($q) use ($structuralId) {
                         $q->where('structural_id', $structuralId);
                     });
-            } elseif ($user->role_type === 'mep') {
+            } elseif ($user && $user->role_type === 'mep') {
                 $mepId = optional($user->mep_engineer)->id;
                 $query->where('requires_mep', true)
                     ->whereJsonContains('published_bidding_roles', 'mep')
@@ -134,7 +136,7 @@ class ProjectController extends Controller
                     ->whereDoesntHave('bidsMep', function ($q) use ($mepId) {
                         $q->where('mep_id', $mepId);
                     });
-            } elseif ($user->role_type === 'interior') {
+            } elseif ($user && $user->role_type === 'interior') {
                 $interiorId = optional($user->interior_profile)->id;
                 $query->where(function ($q) {
                     $q->whereJsonContains('needed_phases', 'interior')
@@ -147,7 +149,7 @@ class ProjectController extends Controller
                     ->whereDoesntHave('bidsInterior', function ($q) use ($interiorId) {
                         $q->where('interior_id', $interiorId);
                     });
-            } elseif ($user->role_type === 'project_manager') {
+            } elseif ($user && $user->role_type === 'project_manager') {
                 $pmId = optional($user->project_manager)->id;
                 $query->where('wants_project_manager', true)
                     ->whereJsonContains('published_bidding_roles', 'project_manager')
@@ -156,6 +158,9 @@ class ProjectController extends Controller
                     ->whereDoesntHave('bidsProjectManager', function ($q) use ($pmId) {
                         $q->where('pm_id', $pmId);
                     });
+            } else {
+                // For normal users viewing the Bidding Board, show all open projects accepting bids
+                $query->whereIn('status', ['open', 'accepted_arsitek', 'accepted_kontraktor', 'procurement', 'in_progress', 'awaiting_payment', 'contract_pending', 'planning']);
             }
 
             return ProjectResource::collection($query->latest()->limit(50)->get());
@@ -836,7 +841,16 @@ class ProjectController extends Controller
             $proposedTeam = $validated['proposed_team'] ?? null;
             if (is_array($proposedTeam)) {
                 foreach ($proposedTeam as $tm) {
-                    $teamTotal += (float) ($tm['fee'] ?? 0);
+                    $feeVal = (float) ($tm['fee'] ?? 0);
+                    $feeType = $tm['fee_type'] ?? 'fixed';
+
+                    if ($feeType === 'percentage') {
+                        $actualFee = ($feeVal / 100) * $calc['calculated_total'];
+                    } else {
+                        $actualFee = $feeVal;
+                    }
+
+                    $teamTotal += round($actualFee);
                 }
             }
 
@@ -1136,8 +1150,8 @@ class ProjectController extends Controller
             $isOwner = $project->user_id === $user->id;
             $isPM = $project->pm_id && $user->role_type === 'project_manager' && $user->id === $project->pm_id;
 
-            if (!$isOwner) {
-                return response()->json(['message' => 'Unauthorized. Only the Project Owner can finalize hiring and allocate budget.'], 403);
+            if (!$isOwner && !$isPM) {
+                return response()->json(['message' => 'Unauthorized. Only the Project Owner or Hired Project Manager can finalize hiring.'], 403);
             }
 
             $request->validate([
@@ -2453,12 +2467,20 @@ class ProjectController extends Controller
         }
 
         return DB::transaction(function () use ($bid, $user) {
-            $bid->update([
-                'fee_agreed_at' => now(),
-                // If owner is confirming, move to shortlisted to allow hiring.
-                // If professional is confirming, keep in negotiating so owner sees the acceptance in the negotiation box.
-                'status' => ($bid->project->user_id === $user->id) ? 'shortlisted' : 'negotiating',
-            ]);
+            $updateData = [
+                'fee_agreed_at' => now()
+            ];
+
+            // Only transition the status if it's currently in the negotiating or invited phase.
+            // Prevent demoting active professionals if button was clicked via legacy data.
+            if ($bid->status === 'negotiating' || $bid->status === 'invited') {
+                // If the PM or Owner confirms, we push it to 'shortlisted' so the Owner can proceed to hire.
+                if ($bid->project->user_id === $user->id || $bid->project->pm_id === $user->id) {
+                    $updateData['status'] = 'shortlisted';
+                }
+            }
+
+            $bid->update($updateData);
 
             return response()->json(['message' => 'Fee agreement confirmed.', 'bid' => $bid]);
         });

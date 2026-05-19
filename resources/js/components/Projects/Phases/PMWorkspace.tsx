@@ -116,6 +116,20 @@ export default function PMWorkspace({ project, user, onRefresh, phaseKey }: PMWo
         }
     };
 
+    const handleAuthorizePhase = async (phase: string, authorize: boolean) => {
+        if (isLoading) return;
+        setIsLoading(true);
+        try {
+            await axios.post(`/projects/${project.id}/authorize-phase`, { phase, authorize });
+            showToast(`Phase ${phase} ${authorize ? 'authorized' : 'authorization revoked'}.`, 'success');
+            onRefresh();
+        } catch (error: any) {
+            showToast(error.response?.data?.message || 'Failed to update phase authorization.', 'error');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     return (
         <div className="space-y-8 animate-in fade-in duration-700">
             {/* PM Sub-Navigation - Only in Management Phase */}
@@ -349,6 +363,7 @@ export default function PMWorkspace({ project, user, onRefresh, phaseKey }: PMWo
                                         project={project} 
                                         onUpdate={onRefresh}
                                         canMutate={canMutateBOM}
+                                        currentUser={user}
                                     />
                                 </div>
                             </div>
@@ -365,10 +380,46 @@ export default function PMWorkspace({ project, user, onRefresh, phaseKey }: PMWo
                                             <LayoutDashboard size={24} className="text-red-500" />
                                             Operational Directive
                                         </h3>
-                                        <p className="text-neutral-400 text-sm max-w-xl leading-relaxed">
+                                        <p className="text-neutral-400 text-sm max-w-xl leading-relaxed mb-6">
                                             As the Project Manager, you have full oversight across all professional tracks. 
                                             Use the **Budget** tab for financial audits and the **Reports** tab for project coordination.
                                         </p>
+
+                                        {/* Phase Authorization Switches */}
+                                        <div className="flex flex-col gap-4 bg-neutral-800/50 p-6 rounded-2xl border border-white/5 w-fit">
+                                            <h4 className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2">
+                                                <ShieldCheck size={14} className="text-emerald-500" />
+                                                Phase Authorizations
+                                            </h4>
+                                            
+                                            <div className="flex items-center justify-between gap-12">
+                                                <div>
+                                                    <p className="text-sm font-bold text-white">Design Phase</p>
+                                                    <p className="text-[10px] text-neutral-400">Permit Architect to begin drawing</p>
+                                                </div>
+                                                <button 
+                                                    onClick={() => handleAuthorizePhase('design', !project.design_authorized_at)}
+                                                    disabled={isLoading}
+                                                    className={`w-12 h-6 rounded-full transition-colors relative ${project.design_authorized_at ? 'bg-emerald-500' : 'bg-neutral-600'}`}
+                                                >
+                                                    <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-transform ${project.design_authorized_at ? 'translate-x-7' : 'translate-x-1'}`} />
+                                                </button>
+                                            </div>
+
+                                            <div className="flex items-center justify-between gap-12">
+                                                <div>
+                                                    <p className="text-sm font-bold text-white">Construction Phase</p>
+                                                    <p className="text-[10px] text-neutral-400">Permit Contractor to begin building</p>
+                                                </div>
+                                                <button 
+                                                    onClick={() => handleAuthorizePhase('build', !project.construction_authorized_at)}
+                                                    disabled={isLoading}
+                                                    className={`w-12 h-6 rounded-full transition-colors relative ${project.construction_authorized_at ? 'bg-emerald-500' : 'bg-neutral-600'}`}
+                                                >
+                                                    <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-transform ${project.construction_authorized_at ? 'translate-x-7' : 'translate-x-1'}`} />
+                                                </button>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 
