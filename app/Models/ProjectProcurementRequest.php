@@ -14,6 +14,7 @@ class ProjectProcurementRequest extends Model
         'requirement_id',
         'requested_by',
         'quantity_needed',
+        'estimated_unit_cost',
         'estimated_cost',
         'message',
         'offer_to_buy',
@@ -23,6 +24,7 @@ class ProjectProcurementRequest extends Model
 
     protected $casts = [
         'quantity_needed' => 'decimal:2',
+        'estimated_unit_cost' => 'decimal:2',
         'estimated_cost' => 'decimal:2',
         'offer_to_buy' => 'boolean',
     ];

@@ -6,14 +6,16 @@ import { useToast } from '../../context/ToastContext';
 import RequirementAddForm from './Requirements/RequirementAddForm';
 import RequirementCard from './Requirements/RequirementCard';
 import LogActionModal from './Requirements/LogActionModal';
+import RequestProcurementModal from './Requirements/RequestProcurementModal';
 
 interface ProjectRequirementsProps {
     project: any;
     onUpdate: () => void;
     canMutate?: boolean;
+    currentUser?: any;
 }
 
-export default function ProjectRequirements({ project, onUpdate, canMutate = false }: ProjectRequirementsProps) {
+export default function ProjectRequirements({ project, onUpdate, canMutate = false, currentUser = null }: ProjectRequirementsProps) {
     const { showToast } = useToast();
     const [bomTab, setBomTab] = useState<'raw' | 'finishing'>('raw');
     const [isAdding, setIsAdding] = useState(false);
@@ -27,6 +29,15 @@ export default function ProjectRequirements({ project, onUpdate, canMutate = fal
     }>({
         isOpen: false,
         mode: 'restock',
+        requirement: null
+    });
+
+    // Procurement modal state
+    const [procurementState, setProcurementState] = useState<{
+        isOpen: boolean;
+        requirement: any | null;
+    }>({
+        isOpen: false,
         requirement: null
     });
 
@@ -164,6 +175,39 @@ export default function ProjectRequirements({ project, onUpdate, canMutate = fal
         }
     };
 
+    const isContractorOrHelper = () => {
+        if (!currentUser) return false;
+        
+        // Check primary contractor role
+        if (currentUser.role_type === 'kontraktor') return true;
+        
+        // Check if the user is a hired sub-professional helper with contractor parent role
+        if (project?.project_sub_professionals) {
+            return project.project_sub_professionals.some(
+                (sp: any) => sp.user_id === currentUser.id && 
+                            sp.parent_role === 'kontraktor' && 
+                            sp.status === 'hired'
+            );
+        }
+        
+        return false;
+    };
+
+    const handleOpenLogModal = (mode: 'restock' | 'use', requirement: any) => {
+        if (mode === 'restock' && isContractorOrHelper()) {
+            setProcurementState({
+                isOpen: true,
+                requirement
+            });
+        } else {
+            setLogState({
+                isOpen: true,
+                mode,
+                requirement
+            });
+        }
+    };
+
     const handleStockSubmit = async (quantity: number, notes: string) => {
         setIsMutating(true);
         try {
@@ -173,6 +217,27 @@ export default function ProjectRequirements({ project, onUpdate, canMutate = fal
             
             setLogState({ isOpen: false, mode: 'restock', requirement: null });
             showToast(`Logged stock ${logState.mode} successfully.`, 'success');
+            onUpdate?.();
+            fetchRequirements();
+        } finally {
+            setIsMutating(false);
+        }
+    };
+
+    const handleProcurementSubmit = async (data: {
+        quantity_needed: number;
+        estimated_unit_cost: number;
+        message: string;
+        offer_to_buy: boolean;
+    }) => {
+        setIsMutating(true);
+        try {
+            const reqId = procurementState.requirement?.id;
+            const endpoint = `/projects/${project.id}/requirements/${reqId}/request-procurement`;
+            await axios.post(endpoint, data);
+            
+            setProcurementState({ isOpen: false, requirement: null });
+            showToast('Procurement request submitted successfully.', 'success');
             onUpdate?.();
             fetchRequirements();
         } finally {
@@ -299,7 +364,7 @@ export default function ProjectRequirements({ project, onUpdate, canMutate = fal
                                                             req={req} 
                                                             onDelete={handleDelete}
                                                             onEdit={() => setEditState({ isOpen: true, requirement: req })}
-                                                            onOpenLogModal={(mode, requirement) => setLogState({ isOpen: true, mode, requirement })}
+                                                            onOpenLogModal={handleOpenLogModal}
                                                             folders={folders}
                                                             canMutate={canMutate}
                                                         />
@@ -335,7 +400,7 @@ export default function ProjectRequirements({ project, onUpdate, canMutate = fal
                                                             req={req} 
                                                             onDelete={handleDelete}
                                                             onEdit={() => setEditState({ isOpen: true, requirement: req })}
-                                                            onOpenLogModal={(mode, requirement) => setLogState({ isOpen: true, mode, requirement })}
+                                                            onOpenLogModal={handleOpenLogModal}
                                                             folders={folders}
                                                             canMutate={canMutate}
                                                         />
@@ -436,6 +501,19 @@ export default function ProjectRequirements({ project, onUpdate, canMutate = fal
                         isLoading={isMutating}
                         onClose={() => setLogState({ isOpen: false, mode: 'restock', requirement: null })}
                         onSubmit={handleStockSubmit}
+                    />
+                )}
+            </AnimatePresence>
+
+            {/* Request Procurement Modal */}
+            <AnimatePresence>
+                {procurementState.isOpen && (
+                    <RequestProcurementModal 
+                        isOpen={procurementState.isOpen}
+                        requirement={procurementState.requirement}
+                        isLoading={isMutating}
+                        onClose={() => setProcurementState({ isOpen: false, requirement: null })}
+                        onSubmit={handleProcurementSubmit}
                     />
                 )}
             </AnimatePresence>

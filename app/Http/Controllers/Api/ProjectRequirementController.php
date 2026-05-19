@@ -235,27 +235,94 @@ class ProjectRequirementController extends Controller
     public function requestProcurement(Request $request, Project $project, ProjectRequirement $requirement)
     {
         $user = Auth::user();
+
+        // Enforce Zero Frontend Trust Auth
+        $isHiredKontraktor = $user->role_type === 'kontraktor' && $project->selected_kontraktor_id === $user->kontraktor?->id;
+        $isSubContractor = \App\Models\ProjectSubProfessional::where('project_id', $project->id)
+            ->where('user_id', $user->id)
+            ->where('parent_role', 'kontraktor')
+            ->where('status', 'hired')
+            ->exists();
+        $isPM = $user->role_type === 'project_manager' && $project->pm_id === $user->id;
+        $isOwner = $project->user_id === $user->id;
+
+        if (!$isHiredKontraktor && !$isSubContractor && !$isPM && !$isOwner) {
+            return response()->json(['message' => 'Unauthorized. Only contractors, hired helper sub-professionals, or managers can request procurement.'], 403);
+        }
+
         $validated = $request->validate([
             'quantity_needed' => 'required|numeric|min:0.01',
+            'estimated_unit_cost' => 'nullable|numeric|min:0',
             'message' => 'nullable|string|max:500',
             'offer_to_buy' => 'nullable|boolean',
         ]);
 
-        $procReq = $project->procurementRequests()->create([
-            'requirement_id' => $requirement->id,
-            'requested_by' => $user->id,
-            'quantity_needed' => $validated['quantity_needed'],
-            'message' => $validated['message'] ?? '',
-            'offer_to_buy' => $validated['offer_to_buy'] ?? false,
-            'status' => 'pending_pm',
-        ]);
+        DB::beginTransaction();
+        try {
+            $hasPM = !empty($project->pm_id);
+            $estimatedUnitCost = $validated['estimated_unit_cost'] ?? $requirement->estimated_unit_cost ?? 0;
+            $estimatedTotalCost = $validated['quantity_needed'] * $estimatedUnitCost;
 
-        $this->logActivity($project, 'procurement_requested', "Requested procurement for {$requirement->name}");
+            $status = $hasPM ? 'pending_pm' : 'pending_owner';
 
-        // Notify Reviewers
-        $this->notifyReviewers($project, "Material Procurement Requested", "A new request for {$requirement->name} ({$validated['quantity_needed']} {$requirement->unit}) is pending your review.");
+            $procReq = $project->procurementRequests()->create([
+                'requirement_id' => $requirement->id,
+                'requested_by' => $user->id,
+                'quantity_needed' => $validated['quantity_needed'],
+                'estimated_unit_cost' => $estimatedUnitCost,
+                'estimated_cost' => $hasPM ? null : $estimatedTotalCost,
+                'message' => $validated['message'] ?? '',
+                'offer_to_buy' => $validated['offer_to_buy'] ?? false,
+                'status' => $status,
+            ]);
 
-        return response()->json(['data' => $procReq]);
+            $this->logActivity($project, 'procurement_requested', "Requested procurement for {$requirement->name} ({$validated['quantity_needed']} {$requirement->unit})");
+
+            if ($hasPM) {
+                // Notify PM
+                \App\Models\Notification::create([
+                    'user_id' => $project->pm_id,
+                    'type' => 'verification_required',
+                    'title' => 'Material Procurement Requested',
+                    'body' => "A new request for {$requirement->name} ({$validated['quantity_needed']} {$requirement->unit}) is pending your review.",
+                    'data' => [
+                        'project_id' => $project->id,
+                        'request_id' => $procReq->id
+                    ],
+                ]);
+            } else {
+                // No PM: auto-create the budget addendum for Owner
+                $addendum = \App\Models\ProjectAddendum::create([
+                    'project_id' => $project->id,
+                    'role_type' => 'pm_material',
+                    'user_id' => $user->id,
+                    'title' => "Material Procurement: {$requirement->name}",
+                    'description' => "Direct request for {$validated['quantity_needed']} {$requirement->unit} of {$requirement->name} (No PM assigned). Cost: Rp " . number_format($estimatedTotalCost, 0, ',', '.') . ". Reason: " . ($validated['message'] ?? 'N/A'),
+                    'amount' => $estimatedTotalCost,
+                    'status' => 'pending_approval',
+                    'procurement_request_id' => $procReq->id,
+                ]);
+
+                // Notify Owner
+                \App\Models\Notification::create([
+                    'user_id' => $project->user_id,
+                    'type' => 'budget_approval_needed',
+                    'title' => 'Budget Authorization Needed',
+                    'body' => "Direct procurement request for {$requirement->name}. Authorize Rp " . number_format($estimatedTotalCost, 0, ',', '.') . " to proceed.",
+                    'data' => [
+                        'project_id' => $project->id,
+                        'addendum_id' => $addendum->id,
+                        'request_id' => $procReq->id
+                    ],
+                ]);
+            }
+
+            DB::commit();
+            return response()->json(['data' => $procReq]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['message' => 'Request failed: ' . $e->getMessage()], 500);
+        }
     }
 
     public function pmVerifyProcurement(Request $request, Project $project, ProjectProcurementRequest $procurementRequest)
@@ -297,7 +364,7 @@ class ProjectRequirementController extends Controller
         DB::beginTransaction();
         try {
             $procurementRequest->update([
-                'status' => 'approved',
+                'status' => 'authorized',
                 'owner_note' => $request->owner_note,
             ]);
 
