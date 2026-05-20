@@ -4,7 +4,7 @@ import {
     Star, MessageCircle, ExternalLink, Settings,
     FileText, Box, Check, Briefcase, BookOpen, Package,
     ShieldCheck, Clock, Pencil, Layers, Hammer, Wallet, Users, AlertTriangle, LogOut,
-    FolderOpen, Plus, DollarSign, UserPlus, ArrowRight
+    FolderOpen, Plus, DollarSign, UserPlus, ArrowRight, Lock
 } from 'lucide-react';
 import LifecycleActionModal from '../Details/LifecycleActionModal';
 import AddendumProposalModal from './AddendumProposalModal';
@@ -36,7 +36,7 @@ interface PhaseAssignedProProps {
     phaseKey: PhaseKey;
     activeSubRole?: string;
     user: any;
-    config: { selectedKey: string; profileKey: string };
+    config: { bidKey?: string; selectedKey: string; profileKey: string };
     onRefresh: () => void;
     onPhaseComplete?: (nextPhase: PhaseKey) => void;
     onOpenChat?: (user: any) => void;
@@ -64,6 +64,7 @@ export default function PhaseAssignedPro({
         mep: 'mep'
     };
     const roleKey = activeSubRole || ROLE_MAP[phaseKey] || phaseKey;
+    const bidKey = config?.bidKey;
     const acceptedBid = bidKey ? project?.[bidKey]?.find((b: any) => 
         ['accepted', 'contract_pending', 'active', 'awaiting_payment'].includes(b.status)
     ) : null;
@@ -213,8 +214,10 @@ export default function PhaseAssignedPro({
         }
     };
 
+    const hasSubTabs = ['legal', 'design', 'build', 'materials', 'interior'].includes(phaseKey);
+
     return (
-        <div className="bg-white border border-gray-100 rounded-[2.5rem] p-8 shadow-sm relative">
+        <div className={`bg-white border border-gray-100 shadow-sm relative ${hasSubTabs ? 'p-8 rounded-[2.5rem]' : 'p-5 rounded-3xl'}`}>
 
             {/* PM Authorization Lockout */}
             {!isPMAuthorized && isHiredPro && (
@@ -486,51 +489,51 @@ export default function PhaseAssignedPro({
             )}
 
             {pro && (
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 pb-8 border-b border-gray-50">
-                    <div className="flex items-center gap-4">
-                        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center overflow-hidden shadow-inner">
+                <div className={`flex flex-col md:flex-row md:items-center justify-between gap-4 ${hasSubTabs ? 'mb-6 pb-6 border-b border-gray-50' : ''}`}>
+                    <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center overflow-hidden shadow-inner flex-shrink-0">
                             {pro?.foto ? (
                                 <img src={`/storage/${pro.foto}`} alt={name} className="w-full h-full object-cover" />
                             ) : (
-                                <span className="text-xl font-black text-gray-400">{name.charAt(0)}</span>
+                                <span className="text-lg font-black text-gray-400">{name.charAt(0)}</span>
                             )}
                         </div>
                         <div>
-                            <div className="flex items-center gap-2 mb-0.5">
-                                <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Assigned Professional</p>
+                            <div className="flex items-center gap-1.5 mb-0.5">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Assigned Professional</p>
                                 {isExternal && (
-                                    <span className="px-2 py-0.5 bg-slate-900 text-white text-[8px] font-black rounded-md tracking-tighter">EXTERNAL</span>
+                                    <span className="px-1.5 py-0.5 bg-slate-900 text-white text-[7px] font-black rounded-md tracking-tighter">EXTERNAL</span>
                                 )}
                             </div>
-                            <h3 className="text-xl font-black text-slate-900 tracking-tight">{name}</h3>
-                            <div className="flex items-center gap-2 mt-1">
-                                <Star size={14} className="text-amber-400 fill-amber-400" />
-                                <span className="text-sm text-slate-500 font-bold">{rating}</span>
+                            <h3 className="text-base font-black text-slate-900 tracking-tight leading-none">{name}</h3>
+                            <div className="flex items-center gap-1.5 mt-1">
+                                <Star size={12} className="text-amber-400 fill-amber-400" />
+                                <span className="text-xs text-slate-500 font-bold">{rating}</span>
                             </div>
                         </div>
                     </div>
 
-                    <div className="flex gap-3 items-center flex-wrap">
+                    <div className="flex gap-2 items-center flex-wrap">
                         <a
                             href={pro?.user?.phone_number ? `https://wa.me/${String(pro.user.phone_number).replace(/\D/g, '').replace(/^0/, '62')}` : '#'}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className={`flex items-center gap-2 px-6 py-3 bg-[#25D366] text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-lg ${!pro?.user?.phone_number ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            className={`flex items-center gap-1.5 px-4 py-2 bg-[#25D366] text-white rounded-xl text-[9px] font-black uppercase tracking-wider hover:scale-105 active:scale-95 transition-all shadow-sm ${!pro?.user?.phone_number ? 'opacity-50 cursor-not-allowed' : ''}`}
                             onClick={(e) => !pro?.user?.phone_number && e.preventDefault()}
                         >
-                            <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg> WhatsApp
+                            <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg> WhatsApp
                         </a>
                         <button
                             onClick={() => onOpenChat && pro?.user && onOpenChat(pro.user)}
-                            className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-lg"
+                            className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white rounded-xl text-[9px] font-black uppercase tracking-wider hover:scale-105 active:scale-95 transition-all shadow-sm"
                         >
-                            <MessageCircle size={14} /> Open Channel
+                            <MessageCircle size={12} /> Open Channel
                         </button>
                         <button
                             onClick={() => onViewProfile && onViewProfile(pro, phaseKey)}
-                            className="p-3 bg-slate-50 text-slate-400 hover:text-slate-900 rounded-2xl transition-all"
+                            className="p-2 bg-slate-50 hover:bg-slate-100 text-slate-400 hover:text-slate-900 rounded-xl transition-all"
                         >
-                            <ExternalLink size={20} />
+                            <ExternalLink size={16} />
                         </button>
                         {isHiredPro && (
                             <button
@@ -538,17 +541,17 @@ export default function PhaseAssignedPro({
                                     setInitialAddendumType('specialist_assignment');
                                     setIsAddendumModalOpen(true);
                                 }}
-                                className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white hover:bg-black rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg"
+                                className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white hover:bg-black rounded-xl text-[9px] font-black uppercase tracking-wider transition-all shadow-sm"
                             >
-                                <UserPlus size={14} /> Bring Own Team
+                                <UserPlus size={12} /> Bring Own Team
                             </button>
                         )}
                         {isHiredPro && (
                             <button
                                 onClick={() => setIsResignModalOpen(true)}
-                                className="flex items-center gap-2 px-6 py-3 bg-red-50 text-red-600 hover:bg-red-100 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm"
+                                className="flex items-center gap-1.5 px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all shadow-xs"
                             >
-                                <LogOut size={14} /> Resign Proyek
+                                <LogOut size={12} /> Resign Proyek
                             </button>
                         )}
                     </div>
@@ -568,7 +571,9 @@ export default function PhaseAssignedPro({
                     <div className="absolute top-0 right-0 w-32 h-32 bg-slate-200/50 rounded-full blur-[80px] opacity-40 -translate-y-1/2 translate-x-1/2" />
                     
                     <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center mx-auto shadow-xl shadow-slate-100/50 border border-slate-100 transition-transform duration-500 group-hover:scale-110">
-                        {acceptedBid?.status === 'contract_pending' ? (
+                        {!isPMAuthorized ? (
+                            <Lock size={36} className="text-red-500 animate-pulse" />
+                        ) : acceptedBid?.status === 'contract_pending' ? (
                             <FileText size={36} className="text-amber-500 animate-pulse" />
                         ) : (
                             <Wallet size={36} className="text-emerald-500" />
@@ -577,13 +582,21 @@ export default function PhaseAssignedPro({
                     
                     <div className="space-y-2">
                         <h3 className="text-2xl font-black text-slate-900 tracking-tight">
-                            {acceptedBid?.status === 'contract_pending' 
-                                ? 'Contract Signature Pending' 
-                                : 'Milestone Payment Pending'
+                            {!isPMAuthorized 
+                                ? 'Awaiting Phase Authorization'
+                                : acceptedBid?.status === 'contract_pending' 
+                                    ? 'Contract Signature Pending' 
+                                    : 'Milestone Payment Pending'
                             }
                         </h3>
                         <p className="text-sm text-slate-500 font-bold max-w-lg mx-auto leading-relaxed">
-                            {acceptedBid?.status === 'contract_pending' ? (
+                            {!isPMAuthorized ? (
+                                isHiredPro ? (
+                                    'The Project Manager has not yet authorized the start of this phase. Please wait until they have verified the necessary prerequisites before commencing work.'
+                                ) : (
+                                    'The Project Manager has not yet authorized the start of this phase. The active workspace will unlock once the PM grants authorization.'
+                                )
+                            ) : acceptedBid?.status === 'contract_pending' ? (
                                 isHiredPro ? (
                                     'Congratulations! You have been selected for this phase. Please sign the contract to unlock your active workspace and start collaborating.'
                                 ) : (
@@ -600,7 +613,11 @@ export default function PhaseAssignedPro({
                     </div>
 
                     <div className="pt-4 flex justify-center gap-4">
-                        {acceptedBid?.status === 'contract_pending' ? (
+                        {!isPMAuthorized ? (
+                            <div className="px-6 py-3 bg-red-50 border border-red-100 rounded-xl text-red-800 text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+                                <Lock size={12} /> Pending Project Manager Signal
+                            </div>
+                        ) : acceptedBid?.status === 'contract_pending' ? (
                             isHiredPro ? (
                                 <button
                                     onClick={onGoToInterviews}

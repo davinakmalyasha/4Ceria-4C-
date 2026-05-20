@@ -101,7 +101,7 @@ export default function ProjectPayments({ project, user, onRefresh }: ProjectPay
             const roleBids = role.bids && Array.isArray(role.bids) ? role.bids : [];
             roleBids.forEach((bid: any) => {
                 // Only show payment groups for professionals who have signed the contract (status is awaiting_payment or active)
-                if (bid.status === 'awaiting_payment' || bid.status === 'active') {
+                if (['accepted', 'awaiting_payment', 'active', 'contract_pending', 'completed'].includes(bid.status)) {
                     const roleTermins = (project.payment_termins || []).filter((t: any) => {
                         if (role.roleType === 'engineering') {
                             return t.role_type === 'structural' || t.role_type === 'mep';
