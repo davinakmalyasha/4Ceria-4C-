@@ -10,19 +10,21 @@ export default function MarketplaceTab({
     onOpenChat, 
     onOpenDetails,
     onOpenCart,
-    onOpenStore
+    onOpenStore,
+    initialMarketType = 'materials'
 }: { 
     onOpenChat?: (profOrId: any) => void,
     onOpenDetails?: (material: any) => void,
     onOpenCart?: () => void,
-    onOpenStore?: (storeId: number) => void
+    onOpenStore?: (storeId: number) => void,
+    initialMarketType?: 'materials' | 'furniture'
 }) {
     const { itemCount, totalAmount } = useCart();
     const [materials, setMaterials] = useState<any[]>([]);
     const [suppliers, setSuppliers] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
-    const [marketType, setMarketType] = useState<'materials' | 'furniture'>('materials');
+    const [marketType, setMarketType] = useState<'materials' | 'furniture'>(initialMarketType);
     const [activeCategory, setActiveCategory] = useState('All');
     
     // Categories for filtering
@@ -69,6 +71,11 @@ export default function MarketplaceTab({
         fetchData();
     }, []);
 
+    useEffect(() => {
+        setMarketType(initialMarketType);
+        setActiveCategory('All');
+    }, [initialMarketType]);
+
     const filteredMaterials = (materials || []).filter((m: any) => {
         // Enforce top-level type separation
         const isActuallyFurniture = FURNITURE_CATEGORIES.includes(m.category) || m.category === 'Furniture & Decor';
@@ -96,21 +103,6 @@ export default function MarketplaceTab({
             className="w-full"
         >
             <div className="flex flex-col gap-2 mb-8">
-                {/* Top Level Toggle */}
-                <div className="flex bg-gray-200/50 p-1.5 rounded-2xl w-fit mb-4">
-                    <button 
-                        onClick={() => { setMarketType('materials'); setActiveCategory('All'); }} 
-                        className={`px-8 py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${marketType === 'materials' ? 'bg-white shadow-sm text-red-600' : 'text-gray-500 hover:text-gray-900'}`}
-                    >
-                        Construction Materials
-                    </button>
-                    <button 
-                        onClick={() => { setMarketType('furniture'); setActiveCategory('All'); }} 
-                        className={`px-8 py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${marketType === 'furniture' ? 'bg-white shadow-sm text-red-600' : 'text-gray-500 hover:text-gray-900'}`}
-                    >
-                        Furniture & Decor
-                    </button>
-                </div>
 
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                     <div className="flex items-center justify-between w-full">

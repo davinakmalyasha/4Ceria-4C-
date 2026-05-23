@@ -37,7 +37,10 @@ export default function ProjectWizard({ onCancel, onSuccess }: ProjectWizardProp
         fd.append('needed_phases', JSON.stringify(w.neededPhases));
         fd.append('project_category', w.form.project_category);
         fd.append('project_dimensions', JSON.stringify(w.form.project_dimensions));
-        fd.append('legal_detail', (w.answers as any).legalDetail || '');
+        const legalDetailStr = w.answers.legalDocuments && w.answers.legalDocuments.length > 0
+            ? w.answers.legalDocuments.join(', ')
+            : (w.answers.legalDetail || '');
+        fd.append('legal_detail', legalDetailStr);
         fd.append('wants_to_discuss_later', w.answers.discussLater ? '1' : '0');
         fd.append('external_vendors', JSON.stringify(w.answers.externalVendors || {}));
         fd.append('bidding_choices', JSON.stringify({

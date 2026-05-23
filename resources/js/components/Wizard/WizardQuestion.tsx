@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Shield, Pencil, Hammer, Armchair, Check, CheckCircle } from 'lucide-react';
+import { Shield, Pencil, Hammer, Armchair, Check, CheckCircle, Plus, X } from 'lucide-react';
 import { WizardAnswers } from '../../hooks/useProjectWizard';
 
 const QUESTIONS = [
@@ -196,6 +196,36 @@ export default function WizardQuestion({ questionKey, answers, onAnswer, categor
 }
 
 function LegalDetailForm({ answers, onAnswer }: any) {
+    const [inputValue, setInputValue] = React.useState('');
+
+    const handleAddDocument = () => {
+        const docName = inputValue.trim();
+        if (!docName) return;
+
+        const currentDocs = answers.legalDocuments || [];
+        if (currentDocs.includes(docName)) {
+            setInputValue('');
+            return;
+        }
+
+        const newDocs = [...currentDocs, docName];
+        onAnswer('legalDocuments', newDocs);
+        setInputValue('');
+    };
+
+    const handleRemoveDocument = (indexToRemove: number) => {
+        const currentDocs = answers.legalDocuments || [];
+        const newDocs = currentDocs.filter((_: any, idx: number) => idx !== indexToRemove);
+        onAnswer('legalDocuments', newDocs);
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            handleAddDocument();
+        }
+    };
+
     return (
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="p-6 bg-zinc-900 rounded-[2rem] space-y-5 shadow-2xl">
             <div className="space-y-4">
@@ -203,15 +233,50 @@ function LegalDetailForm({ answers, onAnswer }: any) {
                     <label className={`text-[10px] font-black uppercase tracking-widest transition-colors ${answers.discussLater ? 'text-zinc-600' : 'text-zinc-400'}`}>
                         Dokumen apa yang Anda miliki?
                     </label>
-                    <input 
-                        type="text" disabled={answers.discussLater}
-                        placeholder={answers.discussLater ? 'Akan didiskusikan nanti...' : 'Contoh: Sertifikat SHM, PBB 2023...'}
-                        className={`w-full border-none rounded-xl px-4 py-3 text-sm transition-all focus:ring-2 focus:ring-[#FF2D20] ${
-                            answers.discussLater ? 'bg-zinc-800/30 text-zinc-600 placeholder:text-zinc-700' : 'bg-zinc-800 text-white placeholder:text-zinc-600'
-                        }`}
-                        value={(answers as any).legalDetail || ''}
-                        onChange={(e) => onAnswer('legalDetail' as any, e.target.value)}
-                    />
+                    <div className="flex gap-2">
+                        <input 
+                            type="text" 
+                            disabled={answers.discussLater}
+                            placeholder={answers.discussLater ? 'Akan didiskusikan nanti...' : 'Contoh: AJB, Sertifikat SHM, PBB...'}
+                            className={`flex-1 border-none rounded-xl px-4 py-3 text-sm transition-all focus:ring-2 focus:ring-[#FF2D20] ${
+                                answers.discussLater ? 'bg-zinc-800/30 text-zinc-600 placeholder:text-zinc-700' : 'bg-zinc-800 text-white placeholder:text-zinc-600'
+                            }`}
+                            value={inputValue}
+                            onChange={(e) => setInputValue(e.target.value)}
+                            onKeyDown={handleKeyDown}
+                        />
+                        <button
+                            type="button"
+                            disabled={answers.discussLater || !inputValue.trim()}
+                            onClick={handleAddDocument}
+                            className="p-3 rounded-xl bg-[#FF2D20] hover:bg-[#E0241B] disabled:bg-zinc-800 disabled:text-zinc-600 text-white transition-all flex items-center justify-center shadow-lg"
+                        >
+                            <Plus size={18} strokeWidth={3} />
+                        </button>
+                    </div>
+
+                    {/* Dynamic Tag List */}
+                    {!answers.discussLater && answers.legalDocuments && answers.legalDocuments.length > 0 && (
+                        <div className="flex flex-wrap gap-2 pt-2">
+                            {answers.legalDocuments.map((doc: string, idx: number) => (
+                                <motion.div 
+                                    key={idx}
+                                    initial={{ opacity: 0, scale: 0.8 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 border border-zinc-700 text-white text-xs font-bold rounded-xl"
+                                >
+                                    <span>{doc}</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleRemoveDocument(idx)}
+                                        className="text-zinc-400 hover:text-red-400 transition-colors p-0.5 rounded-full hover:bg-zinc-700/50"
+                                    >
+                                        <X size={12} strokeWidth={2.5} />
+                                    </button>
+                                </motion.div>
+                            ))}
+                        </div>
+                    )}
                 </div>
                 <div className="relative">
                     <div className="absolute inset-0 flex items-center" aria-hidden="true"><div className="w-full border-t border-zinc-800"></div></div>

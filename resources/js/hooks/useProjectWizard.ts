@@ -10,6 +10,7 @@ export interface WizardAnswers {
     needsInterior: boolean | string | null;
     needsPM: boolean | string | null;
     legalDetail?: string;
+    legalDocuments?: string[];
     discussLater?: boolean;
     externalVendors?: Record<string, { contact_person: string; phone_number: string; company_name?: string }>;
 }
@@ -62,7 +63,14 @@ const INITIAL_FORM: WizardFormData = {
 export function useProjectWizard() {
     const [mode, setMode] = useState<'easy' | 'advanced'>('easy');
     const [step, setStep] = useState(0);
-    const [answers, setAnswers] = useState<WizardAnswers>({ hasLegal: null, hasDesign: null, hasConstructor: null, needsInterior: null, needsPM: null });
+    const [answers, setAnswers] = useState<WizardAnswers>({ 
+        hasLegal: null, 
+        hasDesign: null, 
+        hasConstructor: null, 
+        needsInterior: null, 
+        needsPM: null,
+        legalDocuments: [],
+    });
     const [manualPhases, setManualPhases] = useState<PhaseKey[]>(['design', 'build']);
     const [form, setForm] = useState<WizardFormData>(INITIAL_FORM);
     const [images, setImages] = useState<File[]>([]);
