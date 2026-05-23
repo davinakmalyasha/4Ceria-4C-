@@ -134,14 +134,74 @@ class ProjectController extends Controller
 
     public function destroy($id)
     {
-        $project = Project::findOrFail($id);
+        $project = Project::with([
+            'bidsArsitek',
+            'bidsKontraktor',
+            'bidsNotaris',
+            'bidsInterior',
+            'bidsProjectManager',
+            'bidsStructural',
+            'bidsMep',
+            'paymentTermins',
+            'dailyLogs',
+            'subProfessionals'
+        ])->findOrFail($id);
+
         if ($project->user_id !== Auth::id()) {
             return back()->with('error', 'Anda tidak bisa menghapus proyek ini.');
         }
 
-        $project->delete();
+        // GATE 1: Active Hires Check
+        $hasHiredProfessionals = $project->selected_arsitek_id
+            || $project->selected_kontraktor_id
+            || $project->selected_notaris_id
+            || $project->selected_interior_id
+            || $project->pm_id
+            || $project->structural_id
+            || $project->mep_id;
 
-        return back()->with('success', 'Proyek berhasil dihapus!');
+        if ($hasHiredProfessionals) {
+            return back()->with('error', 'Proyek tidak bisa dihapus karena sudah ada profesional yang disewa. Silakan lakukan pengajuan Pembatalan Bersama (Mutual Termination).');
+        }
+
+        // GATE 2: Proof-of-Payment Financial Check (Paid or Verifying Termins)
+        $hasFinancialTransactions = $project->paymentTermins()
+            ->whereIn('status', ['paid', 'verifying'])
+            ->exists();
+
+        if ($hasFinancialTransactions) {
+            return back()->with('error', 'Proyek tidak bisa dihapus karena terdapat transaksi pembayaran yang sudah diverifikasi atau sedang dalam proses verifikasi bukti transfer.');
+        }
+
+        // GATE 3: Work-in-Progress Check (Daily Logs or Active Subcontractors)
+        $hasWorkProgress = $project->dailyLogs()->exists()
+            || $project->subProfessionals()->where('status', 'active')->exists();
+
+        if ($hasWorkProgress) {
+            return back()->with('error', 'Proyek tidak bisa dihapus karena progress pembangunan lapangan sudah berjalan.');
+        }
+
+        // GATE 4 & 5: Pre-hire Clean-up & Soft Deletion
+        \Illuminate\Support\Facades\DB::beginTransaction();
+        try {
+            // Cancel and archive all outstanding proposals
+            $project->bidsArsitek()->where('status', 'pending')->update(['status' => 'cancelled']);
+            $project->bidsKontraktor()->where('status', 'pending')->update(['status' => 'cancelled']);
+            $project->bidsNotaris()->where('status', 'pending')->update(['status' => 'cancelled']);
+            $project->bidsInterior()->where('status', 'pending')->update(['status' => 'cancelled']);
+            $project->bidsProjectManager()->where('status', 'pending')->update(['status' => 'cancelled']);
+            $project->bidsStructural()->where('status', 'pending')->update(['status' => 'cancelled']);
+            $project->bidsMep()->where('status', 'pending')->update(['status' => 'cancelled']);
+
+            // Soft delete the project to preserve audit trail
+            $project->delete();
+
+            \Illuminate\Support\Facades\DB::commit();
+            return back()->with('success', 'Proyek dan semua bid pending berhasil dihapus dan diarsipkan.');
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\DB::rollBack();
+            return back()->with('error', 'Gagal menghapus proyek: ' . $e->getMessage());
+        }
     }
 
     public function updateStatusKontraktor(Request $request, $projectId)
