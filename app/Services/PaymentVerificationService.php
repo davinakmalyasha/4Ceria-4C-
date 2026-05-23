@@ -371,6 +371,32 @@ class PaymentVerificationService
             if ($termin->role_type === 'project_manager') $project->update(['pm_id' => $bid->pm->user_id]);
             if ($termin->role_type === 'notaris') $project->update(['selected_notaris_id' => $bid->notaris_id]);
             if ($termin->role_type === 'interior') $project->update(['selected_interior_id' => $bid->interior_id]);
+
+            // Auto-activate all sub-professionals for this parent role
+            $subs = \App\Models\ProjectSubProfessional::where('project_id', $project->id)
+                ->where('parent_role', $termin->role_type)
+                ->whereIn('status', ['invited', 'accepted'])
+                ->get();
+
+            foreach ($subs as $sub) {
+                $sub->update([
+                    'status' => 'active',
+                    'accepted_at' => $sub->accepted_at ?? now(),
+                    'hired_at' => now(),
+                ]);
+
+                // Create a notification to let them know they are active
+                \App\Models\Notification::create([
+                    'user_id' => $sub->user_id,
+                    'type' => 'sub_professional_activated',
+                    'title' => 'Project Assignment Active',
+                    'body' => "The first payment has been verified! You are now active on project \"{$project->title}\" as a " . ($sub->sub_role) . ".",
+                    'data' => [
+                        'project_id' => $project->id,
+                        'sub_professional_id' => $sub->id,
+                    ],
+                ]);
+            }
         }
     }
 

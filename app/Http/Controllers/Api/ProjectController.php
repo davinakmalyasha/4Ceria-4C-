@@ -76,6 +76,11 @@ class ProjectController extends Controller
         if ($request->query('feed') === 'true' || $request->query('discovery') === 'true' || $request->query('bidding_board') === 'true') {
             if ($user) {
                 $query->where('user_id', '!=', $user->id); // Exclude own projects
+                
+                // Exclude projects where the user is already assigned/invited as a sub-professional
+                $query->whereDoesntHave('subProfessionals', function ($sq) use ($user) {
+                    $sq->where('user_id', $user->id);
+                });
             }
 
             if ($user && $user->role_type === 'arsitek') {
@@ -205,7 +210,7 @@ class ProjectController extends Controller
                 }
                 $q->orWhereHas('subProfessionals', function ($sq) use ($user) {
                     $sq->where('user_id', $user->id)
-                       ->whereIn('status', ['invited', 'accepted', 'interviewing', 'recommended']);
+                       ->whereIn('status', ['invited', 'accepted', 'interviewing', 'recommended', 'active']);
                 });
             });
             $query->latest();
@@ -222,7 +227,7 @@ class ProjectController extends Controller
                 }
                 $q->orWhereHas('subProfessionals', function ($sq) use ($user) {
                     $sq->where('user_id', $user->id)
-                       ->whereIn('status', ['invited', 'accepted', 'interviewing', 'recommended']);
+                       ->whereIn('status', ['invited', 'accepted', 'interviewing', 'recommended', 'active']);
                 });
             });
             $query->latest();
@@ -236,8 +241,14 @@ class ProjectController extends Controller
                 }
                 $q->orWhereHas('subProfessionals', function ($sq) use ($user) {
                     $sq->where('user_id', $user->id)
-                       ->whereIn('status', ['invited', 'accepted', 'interviewing', 'recommended']);
+                       ->whereIn('status', ['invited', 'accepted', 'interviewing', 'recommended', 'active']);
                 });
+            });
+            $query->latest();
+        } elseif (in_array($user->role_type, ['civil', 'mechanical', 'electrical', 'plumbing', 'roofing', 'finishing', 'general'])) {
+            $query->whereHas('subProfessionals', function ($sq) use ($user) {
+                $sq->where('user_id', $user->id)
+                   ->whereIn('status', ['invited', 'accepted', 'interviewing', 'recommended', 'active']);
             });
             $query->latest();
         } else {
@@ -1984,9 +1995,81 @@ class ProjectController extends Controller
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        $project->delete();
+        // Load necessary relationships for checks
+        $project->load([
+            'bidsArsitek',
+            'bidsKontraktor',
+            'bidsNotaris',
+            'bidsInterior',
+            'bidsProjectManager',
+            'bidsStructural',
+            'bidsMep',
+            'paymentTermins',
+            'dailyLogs',
+            'subProfessionals'
+        ]);
 
-        return response()->json(['message' => 'Project deleted successfully']);
+        // GATE 1: Active Hires Check
+        $hasHiredProfessionals = $project->selected_arsitek_id
+            || $project->selected_kontraktor_id
+            || $project->selected_notaris_id
+            || $project->selected_interior_id
+            || $project->pm_id
+            || $project->structural_id
+            || $project->mep_id;
+
+        if ($hasHiredProfessionals) {
+            return response()->json([
+                'message' => 'Proyek tidak bisa dihapus karena sudah ada profesional yang disewa. Silakan gunakan pengajuan Pembatalan Bersama (Mutual Termination).'
+            ], 422);
+        }
+
+        // GATE 2: Proof-of-Payment Financial Check (Paid or Verifying Termins)
+        $hasFinancialTransactions = $project->paymentTermins()
+            ->whereIn('status', ['paid', 'verifying'])
+            ->exists();
+
+        if ($hasFinancialTransactions) {
+            return response()->json([
+                'message' => 'Proyek tidak bisa dihapus karena terdapat transaksi pembayaran yang sudah diverifikasi atau sedang dalam proses verifikasi bukti transfer.'
+            ], 422);
+        }
+
+        // GATE 3: Work-in-Progress Check (Daily Logs or Active Subcontractors)
+        $hasWorkProgress = $project->dailyLogs()->exists()
+            || $project->subProfessionals()->where('status', 'active')->exists();
+
+        if ($hasWorkProgress) {
+            return response()->json([
+                'message' => 'Proyek tidak bisa dihapus karena progress pembangunan lapangan sudah berjalan.'
+            ], 422);
+        }
+
+        // GATE 4 & 5: Pre-hire Clean-up & Soft Deletion
+        DB::beginTransaction();
+        try {
+            // Cancel and archive all outstanding proposals
+            $project->bidsArsitek()->where('status', 'pending')->update(['status' => 'cancelled']);
+            $project->bidsKontraktor()->where('status', 'pending')->update(['status' => 'cancelled']);
+            $project->bidsNotaris()->where('status', 'pending')->update(['status' => 'cancelled']);
+            $project->bidsInterior()->where('status', 'pending')->update(['status' => 'cancelled']);
+            $project->bidsProjectManager()->where('status', 'pending')->update(['status' => 'cancelled']);
+            $project->bidsStructural()->where('status', 'pending')->update(['status' => 'cancelled']);
+            $project->bidsMep()->where('status', 'pending')->update(['status' => 'cancelled']);
+
+            // Soft delete the project to preserve audit trail
+            $project->delete();
+
+            DB::commit();
+            return response()->json([
+                'message' => 'Proyek dan semua bid pending berhasil dihapus dan diarsipkan.'
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'message' => 'Gagal menghapus proyek: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     public function myBids()
@@ -2630,18 +2713,39 @@ class ProjectController extends Controller
             $proposedTeam = is_array($bid->proposed_team) ? $bid->proposed_team : [];
             foreach ($proposedTeam as $tmIndex => $tm) {
                 $subRole = $tm['role'] ?? 'other';
-                if ($subRole === 'other') {
-                    $roleTitle = strtolower($tm['role_title'] ?? '');
-                    if (str_contains($roleTitle, 'structural') || str_contains($roleTitle, 'sipil') || str_contains($roleTitle, 'structure')) {
-                        $subRole = 'structural';
-                    } elseif (str_contains($roleTitle, 'mep') || str_contains($roleTitle, 'mechanical') || str_contains($roleTitle, 'plumbing') || str_contains($roleTitle, 'electrical') || str_contains($roleTitle, 'mep')) {
-                        $subRole = 'mep';
-                    } elseif (str_contains($roleTitle, 'interior')) {
-                        $subRole = 'interior';
+                if ($request->bid_type === 'kontraktor') {
+                    $roleTitle = strtolower($tm['role_title'] ?? $tm['role'] ?? '');
+                    if (str_contains($roleTitle, 'structural') || str_contains($roleTitle, 'sipil') || str_contains($roleTitle, 'structure') || str_contains($roleTitle, 'civil') || str_contains($roleTitle, 'fondasi') || str_contains($roleTitle, 'foundation') || str_contains($roleTitle, 'beton') || str_contains($roleTitle, 'concrete')) {
+                        $subRole = 'civil';
+                    } elseif (str_contains($roleTitle, 'mechanical') || str_contains($roleTitle, 'hvac') || str_contains($roleTitle, 'ac') || str_contains($roleTitle, 'lift') || str_contains($roleTitle, 'elevator') || str_contains($roleTitle, 'mekanikal')) {
+                        $subRole = 'mechanical';
+                    } elseif (str_contains($roleTitle, 'electrical') || str_contains($roleTitle, 'listrik') || str_contains($roleTitle, 'power') || str_contains($roleTitle, 'wiring') || str_contains($roleTitle, 'elektrikal') || str_contains($roleTitle, 'lampu')) {
+                        $subRole = 'electrical';
+                    } elseif (str_contains($roleTitle, 'plumbing') || str_contains($roleTitle, 'drainage') || str_contains($roleTitle, 'piping') || str_contains($roleTitle, 'pipa') || str_contains($roleTitle, 'plumber') || str_contains($roleTitle, 'air')) {
+                        $subRole = 'plumbing';
+                    } elseif (str_contains($roleTitle, 'roofing') || str_contains($roleTitle, 'atap') || str_contains($roleTitle, 'truss') || str_contains($roleTitle, 'genteng')) {
+                        $subRole = 'roofing';
+                    } elseif (str_contains($roleTitle, 'finishing') || str_contains($roleTitle, 'facade') || str_contains($roleTitle, 'painting') || str_contains($roleTitle, 'cat') || str_contains($roleTitle, 'tiling') || str_contains($roleTitle, 'keramik') || str_contains($roleTitle, 'plaster') || str_contains($roleTitle, 'dinding') || str_contains($roleTitle, 'lantai')) {
+                        $subRole = 'finishing';
                     } else {
-                        $assignedUser = !empty($tm['team_member_id']) ? \App\Models\User::find($tm['team_member_id']) : null;
-                        if ($assignedUser && in_array($assignedUser->role_type, ['structural', 'mep', 'interior'])) {
-                            $subRole = $assignedUser->role_type;
+                        if (!in_array($subRole, ['civil', 'mechanical', 'electrical', 'plumbing', 'roofing', 'finishing'])) {
+                            $subRole = 'general';
+                        }
+                    }
+                } else {
+                    if ($subRole === 'other') {
+                        $roleTitle = strtolower($tm['role_title'] ?? '');
+                        if (str_contains($roleTitle, 'structural') || str_contains($roleTitle, 'sipil') || str_contains($roleTitle, 'structure')) {
+                            $subRole = 'structural';
+                        } elseif (str_contains($roleTitle, 'mep') || str_contains($roleTitle, 'mechanical') || str_contains($roleTitle, 'plumbing') || str_contains($roleTitle, 'electrical') || str_contains($roleTitle, 'mep')) {
+                            $subRole = 'mep';
+                        } elseif (str_contains($roleTitle, 'interior')) {
+                            $subRole = 'interior';
+                        } else {
+                            $assignedUser = !empty($tm['team_member_id']) ? \App\Models\User::find($tm['team_member_id']) : null;
+                            if ($assignedUser && in_array($assignedUser->role_type, ['structural', 'mep', 'interior'])) {
+                                $subRole = $assignedUser->role_type;
+                            }
                         }
                     }
                 }
@@ -2660,6 +2764,11 @@ class ProjectController extends Controller
                     $actualSubRole = substr($subRole . '-' . $tmIndex, 0, 50);
                 }
 
+                // If assignedUserId matches current contractor user id, make active. Otherwise invited.
+                $status = ($assignedUserId !== $user->id) ? 'invited' : 'active';
+                $acceptedAt = ($assignedUserId !== $user->id) ? null : now();
+                $hiredAt = ($assignedUserId !== $user->id) ? null : now();
+
                 // Create sub-professional record
                 $sub = \App\Models\ProjectSubProfessional::create([
                     'project_id'  => $project->id,
@@ -2667,13 +2776,27 @@ class ProjectController extends Controller
                     'parent_role' => $request->bid_type,
                     'sub_role'    => $actualSubRole,
                     'assigned_by' => $user->id,
-                    'status'      => 'active',
+                    'status'      => $status,
                     'rate'        => $teamFee,
                     'scope_notes' => $tm['note'] ?? null,
                     'lead_pro_notes' => "Team: " . $teamName . " (" . ($tm['role_title'] ?? $subRole) . ")",
-                    'hired_at'    => now(),
-                    'accepted_at' => now(),
+                    'hired_at'    => $hiredAt,
+                    'accepted_at' => $acceptedAt,
                 ]);
+
+                // Create notification if invited
+                if ($status === 'invited') {
+                    \App\Models\Notification::create([
+                        'user_id' => $assignedUserId,
+                        'type' => 'sub_professional_invite',
+                        'title' => 'Project Team Invitation',
+                        'body' => "You have been proposed/invited as a " . ($tm['role_title'] ?? $subRole) . " for \"{$project->title}\" by the General Contractor.",
+                        'data' => [
+                            'project_id' => $project->id,
+                            'sub_professional_id' => $sub->id,
+                        ],
+                    ]);
+                }
 
                 // Link to project main fields if applicable
                 if ($subRole === 'structural') {

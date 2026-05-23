@@ -22,12 +22,33 @@ class ProjectDailyLogController extends Controller
     {
         $user = Auth::user();
         
-        // Authorization: Only the hired contractor or PM can log site activity
+        // Authorization: Only the hired contractor, PM, or active sub-professional can log site activity
         $isHiredKontraktor = $user->role_type === 'kontraktor' && $project->selected_kontraktor_id === $user->kontraktor?->id;
         $isHiredPM = $user->role_type === 'project_manager' && $project->pm_id === $user->id;
+        $isSubPro = DB::table('project_sub_professionals')
+            ->where('project_id', $project->id)
+            ->where('user_id', $user->id)
+            ->where('status', 'active')
+            ->exists();
 
-        if (!$isHiredKontraktor && !$isHiredPM) {
-            return response()->json(['message' => 'Unauthorized. Only the hired contractor or PM can log site activity.'], 403);
+        if (!$isHiredKontraktor && !$isHiredPM && !$isSubPro) {
+            return response()->json(['message' => 'Unauthorized. Only the hired contractor, PM, or active sub-professionals can log site activity.'], 403);
+        }
+
+        // PBG Gate: Only applies to new_build and renovation categories during physical build/construction phase
+        $needsPBG = in_array($project->project_category, ['new_build', 'renovation']);
+        if ($needsPBG) {
+            $isPBGApproved = $project->pbg_verified_at !== null || $project->milestones()
+                ->where('approval_status', 'approved')
+                ->where(function($q) {
+                    $q->where('title', 'like', '%PBG%')
+                      ->orWhere('title', 'like', '%IMB%');
+                })
+                ->exists();
+                
+            if (!$isPBGApproved) {
+                return response()->json(['message' => 'Physical site work is locked. PBG permit is missing or unverified.'], 403);
+            }
         }
 
         $validated = $request->validate([

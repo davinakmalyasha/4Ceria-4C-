@@ -28,6 +28,13 @@ class ProjectMilestoneController extends Controller
         if ($user->role_type === 'structural' && $project->structural_id === $user->structural_engineer?->id) $isHiredPro = true;
         if ($user->role_type === 'mep' && $project->mep_id === $user->mep_engineer?->id) $isHiredPro = true;
 
+        $isSubPro = DB::table('project_sub_professionals')
+            ->where('project_id', $project->id)
+            ->where('user_id', $user->id)
+            ->where('status', 'active')
+            ->exists();
+        if ($isSubPro) $isHiredPro = true;
+
         if (!$isOwner && !$isPM && !$isHiredPro) {
             return response()->json(['message' => 'Unauthorized. You must be assigned to this project to view files.'], 403);
         }
@@ -64,9 +71,24 @@ class ProjectMilestoneController extends Controller
     {
         $user = Auth::user();
         $isOwner = $project->user_id === $user->id;
-        
-        if ($user->role_type === 'user' && !$isOwner) {
-            return response()->json(['message' => 'Only hired professionals or the Project Owner can add milestones.'], 403);
+
+        $activeSub = DB::table('project_sub_professionals')
+            ->where('project_id', $project->id)
+            ->where('user_id', $user->id)
+            ->where('status', 'active')
+            ->first();
+            
+        $isHiredPro = false;
+        if ($user->role_type === 'arsitek' && $project->selected_arsitek_id === $user->arsitek?->id) $isHiredPro = true;
+        if ($user->role_type === 'kontraktor' && $project->selected_kontraktor_id === $user->kontraktor?->id) $isHiredPro = true;
+        if ($user->role_type === 'notaris' && $project->selected_notaris_id === $user->notaris_profile?->id) $isHiredPro = true;
+        if ($user->role_type === 'interior' && $project->selected_interior_id === $user->interior_profile?->id) $isHiredPro = true;
+        if ($user->role_type === 'structural' && $project->structural_id === $user->structural_engineer?->id) $isHiredPro = true;
+        if ($user->role_type === 'mep' && $project->mep_id === $user->mep_engineer?->id) $isHiredPro = true;
+        $isPM = $user->role_type === 'project_manager' && $project->pm_id === $user->id;
+
+        if (!$isOwner && !$isPM && !$isHiredPro && !$activeSub) {
+            return response()->json(['message' => 'Only hired professionals, active sub-professionals, or the Project Owner can add milestones.'], 403);
         }
 
         // NTP Gates removed as requested. Professionals can now start immediately after SPK.
@@ -97,6 +119,24 @@ class ProjectMilestoneController extends Controller
         }
 
         $phase = $validated['phase_context'] ?? 'design';
+        
+        // PBG Gate: Only applies to new_build and renovation categories during physical build/construction phase
+        if (in_array($phase, ['build', 'construction'])) {
+            $needsPBG = in_array($project->project_category, ['new_build', 'renovation']);
+            if ($needsPBG) {
+                $isPBGApproved = $project->pbg_verified_at !== null || $project->milestones()
+                    ->where('approval_status', 'approved')
+                    ->where(function($q) {
+                        $q->where('title', 'like', '%PBG%')
+                          ->orWhere('title', 'like', '%IMB%');
+                    })
+                    ->exists();
+
+                if (!$isPBGApproved) {
+                    return response()->json(['message' => 'Physical site work is locked. PBG permit is missing or unverified.'], 403);
+                }
+            }
+        }
         
         // Check if phase is locked to tag as additional work
         $isLocked = false;
@@ -131,7 +171,7 @@ class ProjectMilestoneController extends Controller
             'description' => $validated['description'] ?? null,
             'start_date' => $validated['start_date'] ?? null,
             'due_date' => $validated['due_date'] ?? null,
-            'type' => $validated['type'] ?? 'milestone',
+            'type' => $activeSub ? $activeSub->sub_role : ($validated['type'] ?? 'milestone'),
             'sort_order' => $validated['sort_order'] ?? 0,
             'phase_context' => $validated['phase_context'] ?? 'design',
             'content' => $content,
@@ -451,6 +491,16 @@ class ProjectMilestoneController extends Controller
         if ($milestone->pm_id && $milestone->pm_id === $user->project_manager?->id) return true;
         if ($milestone->structural_id && $milestone->structural_id === $user->structural_engineer?->id) return true;
         if ($milestone->mep_id && $milestone->mep_id === $user->mep_engineer?->id) return true;
+
+        $activeSub = DB::table('project_sub_professionals')
+            ->where('project_id', $project->id)
+            ->where('user_id', $user->id)
+            ->where('status', 'active')
+            ->first();
+        if ($activeSub && $milestone->type === $activeSub->sub_role) {
+            return true;
+        }
+
         return false;
     }
 

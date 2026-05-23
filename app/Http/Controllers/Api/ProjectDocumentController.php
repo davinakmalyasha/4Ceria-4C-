@@ -24,10 +24,31 @@ class ProjectDocumentController extends Controller
             'file' => 'required|file|mimes:pdf,doc,docx,jpg,png,xlsx,xls,dwg,zip|max:20480',
             'category' => 'nullable|string|max:50',
             'status' => 'nullable|string|in:uploaded,under_review,awaiting_signature,legally_binding',
-            'target_role' => 'nullable|string|in:structural,mep,architect,contractor,notary,interior,pm',
+            'target_role' => 'nullable|string|in:structural,mep,architect,contractor,notary,interior,pm,civil,mechanical,electrical,plumbing,roofing,finishing,general',
             'version_label' => 'nullable|string|max:50',
             'parent_id' => 'nullable|integer|exists:project_documents,id',
         ]);
+
+        $user = Auth::user();
+        $isOwner = $project->user_id === $user->id;
+        $isPM = $user->role_type === 'project_manager' && $project->pm_id === $user->id;
+        $isHiredPro = false;
+        if ($user->role_type === 'arsitek' && $project->selected_arsitek_id === $user->arsitek?->id) $isHiredPro = true;
+        if ($user->role_type === 'kontraktor' && $project->selected_kontraktor_id === $user->kontraktor?->id) $isHiredPro = true;
+        if ($user->role_type === 'notaris' && $project->selected_notaris_id === $user->notaris_profile?->id) $isHiredPro = true;
+        if ($user->role_type === 'interior' && $project->selected_interior_id === $user->interior_profile?->id) $isHiredPro = true;
+        if ($user->role_type === 'structural' && $project->structural_id === $user->structural_engineer?->id) $isHiredPro = true;
+        if ($user->role_type === 'mep' && $project->mep_id === $user->mep_engineer?->id) $isHiredPro = true;
+        
+        $isSubPro = DB::table('project_sub_professionals')
+            ->where('project_id', $project->id)
+            ->where('user_id', $user->id)
+            ->where('status', 'active')
+            ->exists();
+
+        if (!$isOwner && !$isPM && !$isHiredPro && !$isSubPro) {
+            return response()->json(['message' => 'Unauthorized. You must be assigned to this project to upload documents.'], 403);
+        }
 
         $parentId = $request->parent_id;
         $category = $request->category ?? 'general';
