@@ -7,6 +7,7 @@ import ExploreHouses from '../ExploreHouses';
 import SavedItemsDashboard from '../SavedItemsDashboard';
 import ProjectBoard from '../Projects/ProjectBoard';
 import ProjectDetailPage from '../Projects/ProjectDetailPage';
+import ProjectBiddingBrief from '../Projects/ProjectBiddingBrief';
 import MyBidsList from '../Projects/MyBidsList';
 import ProjectWizard from '../Wizard/ProjectWizard';
 import MyHousesContent from '../MyHousesContent';
@@ -175,18 +176,43 @@ export const DashboardTabs: React.FC<TabsProps> = (props) => {
                         mergedProject.has_submitted_bid = true;
                     }
 
+                    const isOwner = user?.id === mergedProject.user_id;
+                    const isHiredPM = mergedProject.pm_id && user?.id === mergedProject.pm_id;
+                    
+                    const isHiredPro = 
+                        (mergedProject.selected_arsitek_id && (user?.id === mergedProject.selected_arsitek_id || mergedProject.arsitek?.user_id === user?.id)) ||
+                        (mergedProject.selected_kontraktor_id && (user?.id === mergedProject.selected_kontraktor_id || mergedProject.kontraktor?.user_id === user?.id)) ||
+                        (mergedProject.selected_notaris_id && (user?.id === mergedProject.selected_notaris_id || mergedProject.notaris?.user_id === user?.id)) ||
+                        (mergedProject.selected_interior_id && (user?.id === mergedProject.selected_interior_id || mergedProject.interior_profile?.user_id === user?.id)) ||
+                        (mergedProject.structural_id && (user?.id === mergedProject.structural_engineer?.user_id || user?.structural_engineer?.id === mergedProject.structural_id)) ||
+                        (mergedProject.mep_id && (user?.id === mergedProject.mep_engineer?.user_id || user?.mep_engineer?.id === mergedProject.mep_id)) ||
+                        (!!mergedProject.sub_professionals && mergedProject.sub_professionals.some((s: any) => s.user_id === user?.id && s.status === 'active'));
+
+                    const showWorkspace = isOwner || isHiredPM || isHiredPro;
+
+                    if (showWorkspace) {
+                        return (
+                            <ProjectDetailPage 
+                                project={mergedProject}
+                                user={user}
+                                onBack={() => { setSelectedProject(null); setActiveTab('projects'); }}
+                                onRefresh={() => onRefresh?.()}
+                                onOpenChat={handleOpenChat}
+                                onViewProfile={(pro, phaseKey) => {
+                                    setSelectedProfessional(pro);
+                                    const tabMap: any = { design: 'architects', build: 'constructors', legal: 'notaris', interior: 'interior', management: 'project_manager' };
+                                    setActiveTab(tabMap[phaseKey] || 'architects');
+                                }}
+                            />
+                        );
+                    }
+
                     return (
-                        <ProjectDetailPage 
+                        <ProjectBiddingBrief 
                             project={mergedProject}
                             user={user}
                             onBack={() => { setSelectedProject(null); setActiveTab('projects'); }}
                             onRefresh={() => onRefresh?.()}
-                            onOpenChat={handleOpenChat}
-                            onViewProfile={(pro, phaseKey) => {
-                                setSelectedProfessional(pro);
-                                const tabMap: any = { design: 'architects', build: 'constructors', legal: 'notaris', interior: 'interior', management: 'project_manager' };
-                                setActiveTab(tabMap[phaseKey] || 'architects');
-                            }}
                         />
                     );
                 })()}
@@ -259,12 +285,18 @@ export const DashboardTabs: React.FC<TabsProps> = (props) => {
                         onSelectConstructor={(c) => { setActiveTab('constructors'); setSelectedProfessional({ type: 'constructor', data: c }); }} />
                 )}
 
-                {activeTab === 'marketplace' && (
+                {(activeTab === 'marketplace' || activeTab === 'marketplace-materials' || activeTab === 'marketplace-furniture') && (
                     <>
                         {selectedStoreId ? (
                             <StoreDetailView storeId={selectedStoreId} onBack={() => setSelectedStoreId(null)} onOpenChat={handleOpenChat} onOpenDetails={setSelectedMaterial} />
                         ) : (
-                            <MarketplaceTab onOpenChat={handleOpenChat} onOpenDetails={setSelectedMaterial} onOpenCart={() => {}} onOpenStore={setSelectedStoreId} />
+                            <MarketplaceTab 
+                                onOpenChat={handleOpenChat} 
+                                onOpenDetails={setSelectedMaterial} 
+                                onOpenCart={() => {}} 
+                                onOpenStore={setSelectedStoreId} 
+                                initialMarketType={activeTab === 'marketplace-furniture' ? 'furniture' : 'materials'}
+                            />
                         )}
                         <AnimatePresence>{selectedMaterial && <MaterialDetailsModal material={selectedMaterial} onClose={() => setSelectedMaterial(null)} onOpenChat={handleOpenChat} />}</AnimatePresence>
                     </>

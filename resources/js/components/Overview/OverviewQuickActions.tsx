@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, Compass, ShoppingBag, Shield, Pencil, Armchair } from 'lucide-react';
+import { Plus, Compass, ShoppingBag, Shield, Pencil, Armchair, Building } from 'lucide-react';
 
 interface OverviewQuickActionsProps {
     isUser: boolean;
@@ -11,6 +11,7 @@ export default function OverviewQuickActions({ isUser, setActiveTab, onPostProje
     const actions = isUser
         ? [
             { label: 'Start Project', icon: Plus, onClick: onPostProject, color: 'bg-red-50 text-[#FF2D20] hover:bg-red-100' },
+            { label: 'Sell Property', icon: Building, onClick: () => setActiveTab('my-houses'), color: 'bg-orange-50 text-orange-600 hover:bg-orange-100' },
             { label: 'Find Notaris', icon: Shield, onClick: () => setActiveTab('explore'), color: 'bg-blue-50 text-blue-600 hover:bg-blue-100' },
             { label: 'Browse Designs', icon: Pencil, onClick: () => setActiveTab('explore'), color: 'bg-purple-50 text-purple-600 hover:bg-purple-100' },
             { label: 'Interior Design', icon: Armchair, onClick: () => setActiveTab('explore'), color: 'bg-amber-50 text-amber-600 hover:bg-amber-100' },
