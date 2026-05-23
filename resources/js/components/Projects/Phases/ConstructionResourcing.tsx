@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Users, UserPlus, ShieldCheck, CheckCircle, Clock, HardHat } from 'lucide-react';
+import SubContractorWorkspace from './SubContractorWorkspace';
 import { useToast } from '../../../context/ToastContext';
 import { CONSTRUCTION_SUB_ROLES, ConstructionSubRoleKey } from '../../../constants/ConstructionSubRolePresets';
 import { ProjectSubProfessional } from '../../../types/sub_professional.types';
@@ -75,39 +76,15 @@ export default function ConstructionResourcing({
             </div>
 
             {activeSub ? (
-                <div className="space-y-4">
-                    <div className="p-5 bg-slate-50 border border-slate-100 rounded-3xl flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-2xl bg-white border border-slate-200 flex items-center justify-center text-lg font-black text-slate-600 shadow-sm">
-                                {activeSub.user?.name?.charAt(0) || '?'}
-                            </div>
-                            <div>
-                                <h5 className="text-sm font-black text-slate-900">{activeSub.user?.name || 'Sub-Contractor'}</h5>
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{roleConfig.labelId}</p>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <CheckCircle size={14} className="text-emerald-500" />
-                            <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Active</span>
-                        </div>
-                    </div>
-
-                    {activeSub.scope_notes && (
-                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Scope Notes</p>
-                            <p className="text-xs text-slate-600 font-medium leading-relaxed">{activeSub.scope_notes}</p>
-                        </div>
-                    )}
-
-                    {activeSub.rate > 0 && (
-                        <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Agreed Rate</span>
-                            <span className="text-sm font-black text-slate-900">
-                                Rp {Number(activeSub.rate).toLocaleString('id-ID')}
-                            </span>
-                        </div>
-                    )}
-                </div>
+                <SubContractorWorkspace
+                    project={project}
+                    currentUser={user}
+                    activeSub={activeSub}
+                    activeSubRole={activeSubRole}
+                    roleLabel={roleConfig.labelId}
+                    scopeNotes={activeSub.scope_notes}
+                    rate={Number(activeSub.rate)}
+                />
             ) : (
                 <div className="space-y-6">
                     {subPros.length > 0 ? (

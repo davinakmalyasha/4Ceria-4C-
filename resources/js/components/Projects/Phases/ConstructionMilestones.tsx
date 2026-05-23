@@ -13,6 +13,7 @@ interface ConstructionMilestonesProps {
     currentUser: any;
     isContractor: boolean;
     isPM?: boolean;
+    filterType?: string;
 }
 
 interface Milestone {
@@ -35,12 +36,16 @@ interface Milestone {
     change_orders?: any[];
 }
 
-export default function ConstructionMilestones({ project, currentUser, isContractor, isPM = false }: ConstructionMilestonesProps) {
+export default function ConstructionMilestones({ project, currentUser, isContractor, isPM = false, filterType }: ConstructionMilestonesProps) {
     const [milestones, setMilestones] = useState<Milestone[]>([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
     const { showToast } = useToast();
+
+    const displayedMilestones = filterType 
+        ? milestones.filter(m => m.type === filterType)
+        : milestones;
 
     // Form state
     const [formTitle, setFormTitle] = useState('');
@@ -108,7 +113,7 @@ export default function ConstructionMilestones({ project, currentUser, isContrac
         setSubmitting(true);
         const formData = new FormData();
         formData.append('title', formTitle);
-        formData.append('type', formType);
+        formData.append('type', filterType || formType);
         formData.append('description', formDesc);
         formData.append('phase_context', 'build');
         formData.append('content', JSON.stringify({ checklist: formChecklist }));
@@ -269,7 +274,7 @@ export default function ConstructionMilestones({ project, currentUser, isContrac
             )}
 
             <div className="space-y-4">
-                {milestones.map((m, idx) => (
+                {displayedMilestones.map((m, idx) => (
                     <div key={m.id} className="bg-white border-2 border-slate-100 rounded-2xl p-6 flex flex-col md:flex-row gap-6">
                         <div className="flex-1">
                             <h5 className="text-xs font-black text-slate-900 uppercase tracking-widest">{m.title}</h5>
