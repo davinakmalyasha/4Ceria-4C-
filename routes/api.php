@@ -74,7 +74,7 @@ Route::get('/marketplace/materials', [MaterialController::class, 'index']);
 // Public Construction Brief (no auth — accessed via share link)
 Route::get('/brief/{token}', [ProjectController::class, 'getPublicBrief']);
 
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', 'freeze_pending_termination'])->group(function () {
     Route::get('/hire-history', [HireHistoryController::class, 'index']);
     Route::get('/projects', [ProjectController::class, 'index']);
     Route::get('/projects/{project}', [ProjectController::class, 'show']);
@@ -184,6 +184,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/projects/{project}/bids/{bid}/upload-payment-proof', [ProjectController::class, 'uploadBidPaymentProof']);
     Route::post('/projects/{project}/terminate', [\App\Http\Controllers\Api\ProjectTerminationController::class, 'fireProfessional']);
     Route::post('/projects/{project}/resign', [\App\Http\Controllers\Api\ProjectTerminationController::class, 'resignFromProject']);
+    
+    // Mutual Termination Routes
+    Route::post('/projects/{project}/mutual-termination/initiate', [\App\Http\Controllers\Api\ProjectMutualTerminationController::class, 'initiate']);
+    Route::post('/projects/{project}/mutual-termination/{termination}/respond', [\App\Http\Controllers\Api\ProjectMutualTerminationController::class, 'respond']);
+    Route::post('/projects/{project}/mutual-termination/{termination}/escalate', [\App\Http\Controllers\Api\ProjectMutualTerminationController::class, 'escalate']);
 
     // Project Manager Bidding
     Route::post('/projects/{project}/pm-bids', [\App\Http\Controllers\Api\BidProjectManagerController::class, 'store']);

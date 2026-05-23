@@ -1,0 +1,131 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Models\Project;
+use App\Models\ProjectTermination;
+use App\Models\ProjectActivityLog;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+
+class ProjectMutualTerminationController extends Controller
+{
+    /**
+     * Initiate a mutual project termination request.
+     */
+    public function initiate(Request $request, Project $project)
+    {
+        $request->validate([
+            'reason' => 'required|string|max:1000',
+            'settlement_terms' => 'nullable|string|max:1000',
+        ]);
+
+        $user = Auth::user();
+        $isParticipant = $project->user_id === $user->id 
+            || $project->selected_arsitek_id === $user->id 
+            || $project->selected_kontraktor_id === $user->id 
+            || $project->selected_notaris_id === $user->id
+            || $project->selected_interior_id === $user->id 
+            || $project->pm_id === $user->id;
+
+        if (!$isParticipant) abort(403, 'Unauthorized.');
+        if (in_array($project->status, ['cancelled', 'completed', 'termination_pending'])) {
+            return response()->json(['message' => 'Proyek tidak dalam status aktif untuk dibatalkan.'], 422);
+        }
+
+        return DB::transaction(function () use ($project, $request, $user) {
+            $term = ProjectTermination::create([
+                'project_id' => $project->id,
+                'initiator_id' => $user->id,
+                'reason' => $request->reason,
+                'settlement_terms' => $request->settlement_terms,
+                'status' => 'pending',
+            ]);
+
+            $project->update(['status' => 'termination_pending']);
+
+            ProjectActivityLog::create([
+                'project_id' => $project->id,
+                'user_id' => $user->id,
+                'action' => 'termination_initiated',
+                'details' => "Pengajuan pembatalan proyek diajukan oleh {$user->name}. Alasan: {$request->reason}",
+            ]);
+
+            return response()->json([
+                'message' => 'Pengajuan pembatalan bersama berhasil dibuat. Workspace dibekukan sementara.',
+                'data' => $term
+            ]);
+        });
+    }
+
+    /**
+     * Respond (Accept/Reject) to a pending mutual termination request.
+     */
+    public function respond(Request $request, Project $project, ProjectTermination $termination)
+    {
+        $request->validate([
+            'action' => 'required|in:accept,reject',
+            'resolution_notes' => 'nullable|string|max:1000',
+        ]);
+
+        $user = Auth::user();
+        if ($termination->initiator_id === $user->id) {
+            abort(403, 'Anda tidak bisa menanggapi pengajuan yang Anda buat sendiri.');
+        }
+
+        if ($termination->status !== 'pending') {
+            return response()->json(['message' => 'Pengajuan ini sudah diproses.'], 422);
+        }
+
+        return DB::transaction(function () use ($project, $termination, $request, $user) {
+            $isAccept = $request->action === 'accept';
+            $termination->update([
+                'status' => $isAccept ? 'accepted' : 'rejected',
+                'resolved_at' => $isAccept ? now() : null,
+                'resolution_notes' => $request->resolution_notes ?? 'Diselesaikan secara kekeluargaan.',
+            ]);
+
+            // Revert project to in_progress if rejected, or cancel it if accepted
+            $project->update(['status' => $isAccept ? 'cancelled' : 'in_progress']);
+
+            ProjectActivityLog::create([
+                'project_id' => $project->id,
+                'user_id' => $user->id,
+                'action' => 'termination_responded',
+                'details' => "Pengajuan pembatalan " . ($isAccept ? 'disetujui' : 'ditolak') . " oleh {$user->name}.",
+            ]);
+
+            return response()->json([
+                'message' => $isAccept ? 'Proyek dibatalkan secara bersama.' : 'Pengajuan pembatalan ditolak. Proyek kembali aktif.',
+                'data' => $termination
+            ]);
+        });
+    }
+
+    /**
+     * Escalate a rejected mutual termination to administrative dispute/arbitration.
+     */
+    public function escalate(Project $project, ProjectTermination $termination)
+    {
+        $user = Auth::user();
+        if ($termination->project_id !== $project->id || $termination->status !== 'rejected') {
+            return response()->json(['message' => 'Status pengajuan tidak valid untuk dieskalasi.'], 422);
+        }
+
+        $termination->update(['status' => 'escalated']);
+
+        ProjectActivityLog::create([
+            'project_id' => $project->id,
+            'user_id' => $user->id,
+            'action' => 'termination_escalated',
+            'details' => "Perselisihan pembatalan proyek dieskalasi ke admin oleh {$user->name}.",
+        ]);
+
+        return response()->json([
+            'message' => 'Perselisihan berhasil dieskalasi ke Admin Platform. Admin akan melakukan review menyeluruh.',
+            'data' => $termination
+        ]);
+    }
+}
