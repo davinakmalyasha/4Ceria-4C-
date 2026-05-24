@@ -9,6 +9,8 @@ interface User {
     email: string;
     role_type: string;
     username: string;
+    pic?: string | null;
+    unique_code?: string;
     phone_number?: { id: number; contact: string }[];
     arsitek?: { 
         id: number;
