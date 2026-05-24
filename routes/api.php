@@ -93,6 +93,39 @@ Route::middleware(['auth:sanctum', 'freeze_pending_termination'])->group(functio
         return new \App\Http\Resources\UserResource($user->load($relations));
     });
     Route::post('/me/professional', [ProfileController::class, 'updateProfessional']);
+    Route::post('/me/avatar', function (Request $request) {
+        $request->validate([
+            'pic' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+        ]);
+
+        $user = $request->user();
+
+        if ($user->pic && \Illuminate\Support\Facades\Storage::disk('public')->exists($user->pic)) {
+            \Illuminate\Support\Facades\Storage::disk('public')->delete($user->pic);
+        }
+
+        $path = $request->file('pic')->store('profileUser', 'public');
+        $user->update(['pic' => $path]);
+
+        return response()->json([
+            'message' => 'Avatar updated successfully',
+            'pic' => asset('storage/' . $path),
+        ]);
+    });
+
+    Route::delete('/me/avatar', function (Request $request) {
+        $user = $request->user();
+
+        if ($user->pic && \Illuminate\Support\Facades\Storage::disk('public')->exists($user->pic)) {
+            \Illuminate\Support\Facades\Storage::disk('public')->delete($user->pic);
+        }
+
+        $user->update(['pic' => null]);
+
+        return response()->json([
+            'message' => 'Avatar deleted successfully',
+        ]);
+    });
     Route::get('/portfolios', [\App\Http\Controllers\Api\PortfolioController::class, 'index']);
     Route::post('/portfolios', [\App\Http\Controllers\Api\PortfolioController::class, 'store']);
     Route::delete('/portfolios/{id}', [\App\Http\Controllers\Api\PortfolioController::class, 'destroy']);

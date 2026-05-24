@@ -20,6 +20,7 @@ class UserResource extends JsonResource
             'email' => $this->email,
             'username' => $this->username,
             'role_type' => $this->role_type,
+            'pic' => $this->pic ? asset('storage/' . $this->pic) : null,
             'phone_number' => $this->whenLoaded('phoneNumber'),
             'arsitek' => $this->whenLoaded('arsitek'),
             'kontraktor' => $this->whenLoaded('kontraktor'),
