@@ -17,17 +17,17 @@ export default function WizardBudgetStep({
     budget, onBudgetChange, neededPhases, form 
 }: WizardBudgetStepProps) {
     return (
-        <motion.div initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="space-y-6">
+        <motion.div initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="space-y-5">
             <div>
-                <label className="block text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
-                    <Coins size={16} className="text-[#FF2D20]" /> Anggaran (Budget Rp)
+                <label className="block text-xs font-bold text-gray-900 mb-1.5 flex items-center gap-2">
+                    <Coins size={14} className="text-[#FF2D20]" /> Anggaran (Budget Rp)
                 </label>
                 <input
                     type="number" value={budget} onChange={e => onBudgetChange(e.target.value)} required
-                    className="w-full px-4 py-4 bg-gray-50 border border-gray-200 rounded-xl focus:border-[#FF2D20] focus:ring-4 focus:ring-red-100 outline-none transition-all text-2xl font-black text-gray-900"
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-[#FF2D20] focus:ring-4 focus:ring-red-100 outline-none transition-all text-xl font-black text-gray-900"
                     placeholder="Rp 0"
                 />
-                <p className="text-sm font-semibold text-[#FF2D20] mt-2">
+                <p className="text-xs font-semibold text-[#FF2D20] mt-1.5">
                     {Number(budget || 0).toLocaleString('id-ID', { style: 'currency', currency: 'IDR' })}
                 </p>
                 {(() => {

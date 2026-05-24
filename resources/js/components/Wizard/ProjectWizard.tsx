@@ -60,9 +60,9 @@ export default function ProjectWizard({ onCancel, onSuccess }: ProjectWizardProp
     return (
         <div className="max-w-2xl mx-auto bg-white rounded-[2rem] shadow-xl border border-gray-100/60 overflow-hidden">
             <WizardHeader mode={w.mode} onToggle={() => { w.setMode(w.mode === 'easy' ? 'advanced' : 'easy'); w.setStep(0); }} step={w.step} totalSteps={w.totalSteps} />
-            <form onSubmit={handleSubmit} className="p-6 sm:p-8">
+            <form onSubmit={handleSubmit} className="p-5 sm:p-6">
                 {error && <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-xl text-sm font-semibold border border-red-200">{error}</div>}
-                <div className="min-h-[360px]">
+                <div className="min-h-[280px]">
                     <AnimatePresence mode="wait">
                         {w.step === 0 && (
                             <WizardCategoryStep form={w.form} updateForm={w.updateForm} />
@@ -97,7 +97,7 @@ export default function ProjectWizard({ onCancel, onSuccess }: ProjectWizardProp
 
 function WizardHeader({ mode, onToggle, step, totalSteps }: { mode: string; onToggle: () => void; step: number; totalSteps: number }) {
     return (
-        <div className="bg-gray-900 px-6 sm:px-8 py-5 flex items-center justify-between">
+        <div className="bg-gray-900 px-6 sm:px-8 py-4 flex items-center justify-between">
             <div>
                 <h2 className="text-xl font-black text-white">Mulai Proyek Baru</h2>
                 <p className="text-gray-400 text-xs mt-1">Step {step + 1} / {totalSteps}</p>
@@ -118,11 +118,11 @@ function WizardHeader({ mode, onToggle, step, totalSteps }: { mode: string; onTo
 
 function WizardFooter({ step, canAdvance, isLast, isLoading, onBack }: any) {
     return (
-        <div className="mt-6 flex items-center justify-between border-t border-gray-100 pt-5">
-            <button type="button" onClick={onBack} className="px-4 py-2.5 rounded-xl font-bold text-gray-500 hover:bg-gray-100 transition-colors flex items-center gap-1.5 text-sm">
+        <div className="mt-5 flex items-center justify-between border-t border-gray-100 pt-4">
+            <button type="button" onClick={onBack} className="px-4 py-2 rounded-xl font-bold text-gray-500 hover:bg-gray-100 transition-colors flex items-center gap-1.5 text-sm">
                 <ChevronLeft size={16} /> {step === 0 ? 'Batal' : 'Kembali'}
             </button>
-            <button type="submit" disabled={!canAdvance || isLoading} className="px-6 py-2.5 rounded-xl font-bold text-white bg-gray-900 hover:bg-[#FF2D20] disabled:bg-gray-200 disabled:text-gray-400 transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 flex items-center gap-2 text-sm">
+            <button type="submit" disabled={!canAdvance || isLoading} className="px-6 py-2 rounded-xl font-bold text-white bg-gray-900 hover:bg-[#FF2D20] disabled:bg-gray-200 disabled:text-gray-400 transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 flex items-center gap-2 text-sm">
                 {isLoading ? 'Memproses...' : isLast ? <><CheckCircle size={16} /> Publikasikan</> : <>Lanjut <ChevronRight size={16} /></>}
             </button>
         </div>
