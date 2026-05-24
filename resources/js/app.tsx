@@ -17,6 +17,7 @@ import AdminVerification from './pages/admin/AdminVerification';
 import AdminHouses from './pages/admin/AdminHouses';
 import AdminProjects from './pages/admin/AdminProjects';
 import PublicBrief from './pages/PublicBrief';
+import Docs from './pages/Docs';
 
 const AdminRoute = ({ children }: { children: React.ReactNode }) => {
     const { user, isLoading } = useAuth();
@@ -36,6 +37,7 @@ function App() {
                     <Route path="/pro/login" element={<Navigate to="/login" replace />} />
                     <Route path="/pro/register" element={<ProfessionalRegister />} />
                     <Route path="/dashboard" element={<Dashboard />} />
+                    <Route path="/help" element={<Docs />} />
                     
                     {/* Admin Routes */}
                     <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
