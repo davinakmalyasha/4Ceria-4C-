@@ -85,18 +85,18 @@ function DashboardContent() {
         const handleOpenHouse = (e: any) => setSelectedHouseId(e.detail);
         const handleSwitchTab = (e: any) => {
             if (typeof e.detail === 'object') {
-                setActiveTab(e.detail.tab);
+                handleSetActiveTab(e.detail.tab);
                 if (e.detail.subTab) setActiveSubTab(e.detail.subTab);
                 if (e.detail.chatUserId) setChatUserId(e.detail.chatUserId);
             } else {
-                setActiveTab(e.detail);
+                handleSetActiveTab(e.detail);
                 setActiveSubTab(null);
             }
         };
         const handleViewProfile = (e: any) => {
             const { type, data } = e.detail;
             setSelectedProfessional(data);
-            setActiveTab(type === 'arsitek' ? 'architects' : type === 'kontraktor' ? 'constructors' : type);
+            handleSetActiveTab(type === 'arsitek' ? 'architects' : type === 'kontraktor' ? 'constructors' : type);
         };
         
         window.addEventListener('openHouseDetails', handleOpenHouse);
@@ -111,20 +111,55 @@ function DashboardContent() {
     }, []);
 
 
+    // Read URL search params on mount to support links like /dashboard?tab=houses
+    useEffect(() => {
+        if (isAuthLoading) return;
+
+        const params = new URLSearchParams(window.location.search);
+        const tabParam = params.get('tab');
+        
+        // Enforce guest access redirection for protected tabs/entries
+        if (!user) {
+            const publicTabs = [
+                'houses', 'marketplace-materials', 'marketplace-furniture', 
+                'architects', 'constructors', 'interior', 'notaris', 'project_manager'
+            ];
+            if (!tabParam || !publicTabs.includes(tabParam)) {
+                window.location.href = '/login';
+                return;
+            }
+        }
+        
+        if (tabParam) {
+            handleSetActiveTab(tabParam);
+        }
+    }, [user, isAuthLoading]);
+
+    const handleSetActiveTab = (tab: string) => {
+        const protectedTabs = [
+            'overview', 'post-project', 'post-house', 'chat', 'saved', 'material-orders', 
+            'projects', 'management', 'my-bids', 'my-houses', 'profile', 'profile-edit'
+        ];
+        if (!user && protectedTabs.includes(tab)) {
+            window.location.href = '/login';
+        } else {
+            setActiveTab(tab);
+        }
+    };
+
     if (isAuthLoading) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div></div>;
-    if (!user) return <Navigate to="/login" replace />;
 
     return (
         <div className="min-h-screen bg-neutral-100 flex overflow-hidden font-sans">
             <DashboardSidebar 
                 sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} 
-                activeTab={activeTab} setActiveTab={setActiveTab} 
+                activeTab={activeTab} setActiveTab={handleSetActiveTab} 
             />
 
             <main className="flex-1 flex flex-col h-screen overflow-hidden">
                 <DashboardHeader 
                     activeTab={activeTab} 
-                    setActiveTab={setActiveTab}
+                    setActiveTab={handleSetActiveTab}
                     onMenuClick={() => setSidebarOpen(true)} 
                 />
 

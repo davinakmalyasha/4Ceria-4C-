@@ -2,7 +2,7 @@ import React from 'react';
 import { 
     Home, Building, Users, ShoppingBag, Paintbrush, ShieldCheck, 
     Briefcase, Building2, Package, Search, CheckSquare, FileText, 
-    Truck, User, MessageSquare
+    Truck, User, MessageSquare, FolderKanban
 } from 'lucide-react';
 
 export interface NavItem {
@@ -14,6 +14,7 @@ export interface NavItem {
 
 const USER_NAV: NavItem[] = [
     { id: 'overview', label: 'Dashboard', icon: Home },
+    { id: 'projects', label: 'My Projects', icon: FolderKanban },
     {
         id: 'properties_group',
         label: 'Properties',
@@ -102,7 +103,43 @@ const LOGISTICS_NAV: NavItem[] = [
     { id: 'profile', label: 'Profile', icon: User },
 ];
 
-export function getNavItems(role?: string): NavItem[] {
+const GUEST_NAV: NavItem[] = [
+    {
+        id: 'properties_group',
+        label: 'Properties',
+        icon: Building,
+        children: [
+            { id: 'houses', label: 'Browse Houses', icon: Building },
+            { id: 'my-houses', label: 'My Properties', icon: Building2 },
+        ],
+    },
+    {
+        id: 'hire_professionals',
+        label: 'Hire Professionals',
+        icon: Users,
+        children: [
+            { id: 'architects', label: 'Hire Architect', icon: Users },
+            { id: 'constructors', label: 'Hire Constructor', icon: Users },
+            { id: 'interior', label: 'Hire Interior', icon: Paintbrush },
+            { id: 'notaris', label: 'Legal, Notary & PPAT', icon: ShieldCheck },
+            { id: 'project_manager', label: 'Hire Project Manager', icon: Briefcase },
+            { id: 'hire-history', label: 'Hire History', icon: Users },
+        ],
+    },
+    {
+        id: 'marketplace_group',
+        label: 'Marketplace',
+        icon: ShoppingBag,
+        children: [
+            { id: 'marketplace-materials', label: 'Construction Materials', icon: ShoppingBag },
+            { id: 'marketplace-furniture', label: 'Furniture & Decor', icon: Paintbrush },
+            { id: 'material-orders', label: 'My Orders', icon: Package },
+        ],
+    },
+];
+
+export function getNavItems(role?: string, isAuthenticated: boolean = true): NavItem[] {
+    if (!isAuthenticated) return GUEST_NAV;
     if (!role || role === 'user') return USER_NAV;
     if (role === 'supplier') return SUPPLIER_NAV;
     if (role === 'logistics') return LOGISTICS_NAV;

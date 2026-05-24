@@ -303,10 +303,16 @@ export const DashboardTabs: React.FC<TabsProps> = (props) => {
                 )}
 
                 {activeTab === 'profile' && (
-                    isEditingProfile ? (
+                    (isEditingProfile || user?.role_type === 'user') ? (
                         <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 max-w-4xl">
                             <h3 className="text-2xl font-black text-gray-900 mb-8">Edit Profile</h3>
-                            <EditProfileForm onCancel={() => setIsEditingProfile(false)} />
+                            <EditProfileForm onCancel={() => {
+                                if (user?.role_type === 'user') {
+                                    setActiveTab('overview');
+                                } else {
+                                    setIsEditingProfile(false);
+                                }
+                            }} />
                         </div>
                     ) : (
                         <div className="space-y-10">

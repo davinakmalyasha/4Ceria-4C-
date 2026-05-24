@@ -24,6 +24,7 @@ interface NavItem {
 
 const USER_NAV: NavItem[] = [
     { id: 'overview', label: 'Dashboard', icon: Home },
+    { id: 'projects', label: 'My Projects', icon: FolderKanban },
     {
         id: 'properties_group',
         label: 'Properties',
@@ -137,7 +138,7 @@ function getNavItems(role?: string): NavItem[] {
 
 export const DashboardSidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen, activeTab, setActiveTab }) => {
     const { user, logout } = useAuth();
-    const navItems = getNavItems(user?.role_type);
+    const navItems = getNavItems(user?.role_type, !!user);
     const [openMenus, setOpenMenus] = React.useState<Record<string, boolean>>({});
 
     const toggleMenu = (menuId: string) => {
@@ -173,16 +174,18 @@ export const DashboardSidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSideb
                 <div className="p-5 flex items-center justify-between border-b border-gray-100 shrink-0">
                     <div className="flex items-center gap-3 min-w-0">
                         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center text-white font-black text-sm shadow-lg shadow-red-200 shrink-0">
-                            {user?.name?.charAt(0).toUpperCase()}
+                            {user ? user.name?.charAt(0).toUpperCase() : 'G'}
                         </div>
                         <div className="min-w-0">
-                            <p className="text-sm font-bold text-gray-900 truncate">{user?.name}</p>
-                            <p className="text-[11px] text-gray-400 capitalize font-medium">{user?.role_type}</p>
+                            <p className="text-sm font-bold text-gray-900 truncate">{user ? user.name : 'Guest'}</p>
+                            <p className="text-[11px] text-gray-400 capitalize font-medium">{user ? user.role_type : 'Visitor'}</p>
                         </div>
                     </div>
-                    <div className="shrink-0 ml-2">
-                        <NotificationsDropdown />
-                    </div>
+                    {user && (
+                        <div className="shrink-0 ml-2">
+                            <NotificationsDropdown />
+                        </div>
+                    )}
                 </div>
 
                 <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
@@ -260,10 +263,17 @@ export const DashboardSidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSideb
                 </nav>
 
                 <div className="p-3 border-t border-gray-100 shrink-0">
-                    <button onClick={logout} className="flex items-center gap-3 px-3.5 py-2.5 w-full rounded-xl text-[13px] text-gray-400 hover:bg-red-50 hover:text-red-500 font-semibold transition-all">
-                        <LogOut className="w-[18px] h-[18px] shrink-0" />
-                        Sign Out
-                    </button>
+                    {user ? (
+                        <button onClick={logout} className="flex items-center gap-3 px-3.5 py-2.5 w-full rounded-xl text-[13px] text-gray-400 hover:bg-red-50 hover:text-red-500 font-semibold transition-all">
+                            <LogOut className="w-[18px] h-[18px] shrink-0" />
+                            Sign Out
+                        </button>
+                    ) : (
+                        <button onClick={() => window.location.href = '/login'} className="flex items-center gap-3 px-3.5 py-2.5 w-full rounded-xl text-[13px] text-gray-400 hover:bg-red-50 hover:text-red-500 font-semibold transition-all">
+                            <LogOut className="w-[18px] h-[18px] shrink-0" />
+                            Sign In/Up
+                        </button>
+                    )}
                 </div>
             </motion.aside>
         </>
