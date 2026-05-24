@@ -41,6 +41,60 @@ interface FAQItem {
 
 export default function LandingPage(): React.ReactElement {
     const { user, isLoading } = useAuth();
+    const hasToken = !!localStorage.getItem('auth_token');
+
+    if (isLoading && hasToken) {
+        return (
+            <div className="min-h-screen bg-neutral-900 flex flex-col items-center justify-center relative overflow-hidden select-none">
+                {/* Background Glows */}
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-red-500/10 rounded-full blur-[120px] pointer-events-none" />
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-indigo-500/5 rounded-full blur-[80px] pointer-events-none" />
+
+                {/* Content Wrapper */}
+                <div className="relative flex flex-col items-center gap-6 text-center px-6">
+                    {/* Logo Outer Ring */}
+                    <div className="relative p-6 bg-white/5 backdrop-blur-xl border border-white/10 rounded-[2.5rem] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.5)]">
+                        {/* Pulse Ring */}
+                        <div className="absolute inset-0 bg-gradient-to-tr from-red-500 to-amber-500 rounded-[2.5rem] opacity-20 blur-md animate-pulse" />
+                        
+                        <div className="relative w-16 h-16 flex items-center justify-center">
+                            <img className="w-16 h-16 object-contain" src="/storage/Assets/Logo4C.png" alt="4C Logo" />
+                        </div>
+                    </div>
+
+                    {/* Text Details */}
+                    <div className="space-y-1.5 mt-2">
+                        <h2 className="text-lg font-black text-white tracking-tight flex items-center gap-2 justify-center">
+                            4Ceria<span className="text-[#FF2D20]">.</span>
+                        </h2>
+                        <p className="text-[11px] font-bold text-neutral-400 uppercase tracking-widest leading-none">
+                            Creative Comprehensive Construction
+                        </p>
+                    </div>
+
+                    {/* Progress Indicator */}
+                    <div className="w-24 h-1 bg-white/10 rounded-full overflow-hidden mt-2 relative">
+                        <div className="absolute inset-y-0 left-0 bg-gradient-to-r from-[#FF2D20] to-red-500 rounded-full w-1/2 animate-[loading-slide_1.5s_infinite_ease-in-out]" style={{
+                            animationName: 'loading-slide',
+                            animationDuration: '1.5s',
+                            animationIterationCount: 'infinite',
+                            animationTimingFunction: 'ease-in-out'
+                        }} />
+                    </div>
+                </div>
+
+                {/* Inline CSS for the loading animation keyframe */}
+                <style dangerouslySetInnerHTML={{__html: `
+                    @keyframes loading-slide {
+                        0% { transform: translateX(-100%); }
+                        50% { transform: translateX(100%); }
+                        100% { transform: translateX(200%); }
+                    }
+                `}} />
+            </div>
+        );
+    }
+
     const [openFaq, setOpenFaq] = useState<number | null>(null);
 
     const toggleFaq = (index: number): void => {
@@ -239,7 +293,7 @@ export default function LandingPage(): React.ReactElement {
                 <div className="max-w-7xl mx-auto px-6 space-y-24">
                     
                     {/* Showcase 1: Roster & Ahli */}
-                    <div className="flex flex-col lg:flex-row items-center gap-12 lg:gap-20">
+                    <div id="showcase-professionals" className="flex flex-col lg:flex-row items-center gap-12 lg:gap-20">
                         <motion.div 
                             initial={{ opacity: 0, y: 30 }}
                             whileInView={{ opacity: 1, y: 0 }}
@@ -276,7 +330,7 @@ export default function LandingPage(): React.ReactElement {
                     </div>
 
                     {/* Showcase 2: Project Hub */}
-                    <div className="flex flex-col lg:flex-row-reverse items-center gap-12 lg:gap-20">
+                    <div id="showcase-properties" className="flex flex-col lg:flex-row-reverse items-center gap-12 lg:gap-20">
                         <motion.div 
                             initial={{ opacity: 0, y: 30 }}
                             whileInView={{ opacity: 1, y: 0 }}
@@ -312,7 +366,7 @@ export default function LandingPage(): React.ReactElement {
                     </div>
 
                     {/* Showcase 3: Marketplace */}
-                    <div className="flex flex-col lg:flex-row items-center gap-12 lg:gap-20">
+                    <div id="showcase-marketplace" className="flex flex-col lg:flex-row items-center gap-12 lg:gap-20">
                         <motion.div 
                             initial={{ opacity: 0, y: 30 }}
                             whileInView={{ opacity: 1, y: 0 }}
@@ -491,7 +545,7 @@ export default function LandingPage(): React.ReactElement {
             </section>
 
             {/* FAQ Section */}
-            <section className="py-24 bg-white border-y border-neutral-100">
+            <section id="faq" className="py-24 bg-white border-y border-neutral-100">
                 <div className="max-w-4xl mx-auto px-6">
                     <div className="text-center mb-16">
                         <span className="text-xs font-black uppercase tracking-widest text-[#FD1D1D] mb-3 block">FAQ</span>
