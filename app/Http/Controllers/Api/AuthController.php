@@ -47,7 +47,7 @@ class AuthController extends Controller
             'username' => 'required|string|max:255|unique:users',
             'email' => 'required|string|lowercase|email|max:255|unique:users',
             'password' => 'required|string|min:6',
-            'role_type' => 'required|in:user,arsitek,kontraktor,admin,notaris,interior,structural,mep',
+            'role_type' => 'required|in:user,arsitek,kontraktor,admin,notaris,interior,structural,mep,project_manager,supplier,logistics,civil,mechanical,electrical,plumbing,roofing,finishing',
         ]);
 
         $user = User::create([
@@ -136,6 +136,66 @@ class AuthController extends Controller
                 'body' => 'Add your certifications and specialization to start receiving project invitations.',
                 'data' => ['tab' => 'profile', 'action' => 'edit_profile'],
             ]);
+        } elseif ($request->role_type === 'project_manager') {
+            \App\Models\ProjectManager::create([
+                'user_id' => $user->id,
+                'nama' => $user->name,
+                'rate_harga' => 0,
+                'pengalaman_tahun' => 0,
+                'verification_status' => 'pending',
+            ]);
+
+            Notification::create([
+                'user_id' => $user->id,
+                'type' => 'onboarding',
+                'title' => 'Complete Your Project Manager Profile',
+                'body' => 'Add your skills, rate, and certifications to start managing real estate projects.',
+                'data' => ['tab' => 'profile', 'action' => 'edit_profile'],
+            ]);
+        } elseif ($request->role_type === 'supplier') {
+            \App\Models\Supplier::create([
+                'user_id' => $user->id,
+                'store_name' => $user->name."'s Store",
+                'verification_status' => 'pending',
+            ]);
+
+            Notification::create([
+                'user_id' => $user->id,
+                'type' => 'onboarding',
+                'title' => 'Set Up Your Store Profile',
+                'body' => 'Add your store address, category, and bio to start listing construction materials.',
+                'data' => ['tab' => 'profile', 'action' => 'edit_profile'],
+            ]);
+        } elseif ($request->role_type === 'logistics') {
+            \App\Models\CourierProfile::create([
+                'user_id' => $user->id,
+                'vehicle_type' => 'Not Specified',
+                'license_plate' => 'Not Specified',
+                'is_active' => true,
+            ]);
+
+            Notification::create([
+                'user_id' => $user->id,
+                'type' => 'onboarding',
+                'title' => 'Complete Your Driver Profile',
+                'body' => 'Add your vehicle details and license plate to start accepting delivery orders.',
+                'data' => ['tab' => 'profile', 'action' => 'edit_profile'],
+            ]);
+        } elseif (in_array($request->role_type, ['civil', 'mechanical', 'electrical', 'plumbing', 'roofing', 'finishing'])) {
+            Kontraktor::create([
+                'user_id' => $user->id,
+                'nama' => $user->name,
+                'jenis' => 'Sub-Contractor',
+                'verification_status' => 'verified',
+            ]);
+
+            Notification::create([
+                'user_id' => $user->id,
+                'type' => 'onboarding',
+                'title' => 'Complete Your Trade Profile',
+                'body' => 'Add your specialty details and pricing rate to start accepting sub-contracts.',
+                'data' => ['tab' => 'profile', 'action' => 'edit_profile'],
+            ]);
         }
 
         if ($request->role_type === 'arsitek') {
@@ -152,6 +212,14 @@ class AuthController extends Controller
             $user->assignRole('structural');
         } elseif ($request->role_type === 'mep') {
             $user->assignRole('mep');
+        } elseif ($request->role_type === 'project_manager') {
+            $user->assignRole('project_manager');
+        } elseif ($request->role_type === 'supplier') {
+            $user->assignRole('supplier');
+        } elseif ($request->role_type === 'logistics') {
+            $user->assignRole('logistics');
+        } elseif (in_array($request->role_type, ['civil', 'mechanical', 'electrical', 'plumbing', 'roofing', 'finishing'])) {
+            $user->assignRole($request->role_type);
         } else {
             $user->assignRole('user');
         }

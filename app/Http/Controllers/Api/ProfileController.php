@@ -86,7 +86,7 @@ class ProfileController extends Controller
                 if ($arsitek->foto) {
                     Storage::disk('public')->delete($arsitek->foto);
                 }
-                $validatedArsitek['foto'] = $request->file('foto')->store('portfolios/photos', 'public');
+                $validatedArsitek['foto'] = \App\Services\ImageService::convertToWebp($request->file('foto'), 'portfolios/photos');
             } else {
                 unset($validatedArsitek['foto']);
             }
@@ -149,7 +149,7 @@ class ProfileController extends Controller
                 if ($kontraktor->foto) {
                     Storage::disk('public')->delete($kontraktor->foto);
                 }
-                $validatedKontraktor['foto'] = $request->file('foto')->store('portfolios/photos', 'public');
+                $validatedKontraktor['foto'] = \App\Services\ImageService::convertToWebp($request->file('foto'), 'portfolios/photos');
             } else {
                 unset($validatedKontraktor['foto']);
             }
@@ -197,7 +197,7 @@ class ProfileController extends Controller
                 if ($interior->foto) {
                     Storage::disk('public')->delete($interior->foto);
                 }
-                $validatedInterior['foto'] = $request->file('foto')->store('portfolios/photos', 'public');
+                $validatedInterior['foto'] = \App\Services\ImageService::convertToWebp($request->file('foto'), 'portfolios/photos');
             } else {
                 unset($validatedInterior['foto']);
             }
@@ -238,7 +238,7 @@ class ProfileController extends Controller
                 if ($notaris->foto) {
                     Storage::disk('public')->delete($notaris->foto);
                 }
-                $validatedNotaris['foto'] = $request->file('foto')->store('portfolios/photos', 'public');
+                $validatedNotaris['foto'] = \App\Services\ImageService::convertToWebp($request->file('foto'), 'portfolios/photos');
             } else {
                 unset($validatedNotaris['foto']);
             }
@@ -316,7 +316,11 @@ class ProfileController extends Controller
                 if ($profile->$field) {
                     Storage::disk('public')->delete($profile->$field);
                 }
-                $validated[$field] = $request->file($field)->store($dir, 'public');
+                if ($field === 'foto') {
+                    $validated[$field] = \App\Services\ImageService::convertToWebp($request->file($field), $dir);
+                } else {
+                    $validated[$field] = $request->file($field)->store($dir, 'public');
+                }
             } else {
                 unset($validated[$field]);
             }

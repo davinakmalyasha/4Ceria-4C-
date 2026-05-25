@@ -39,7 +39,7 @@ class RegisteredUserController extends Controller
             'username' => ['required', 'string', 'max:255', 'unique:users'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:users'],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
-            'role_type' => ['required', 'in:user,arsitek,kontraktor,admin,notaris,interior,structural,mep'],
+            'role_type' => ['required', 'in:user,arsitek,kontraktor,admin,notaris,interior,structural,mep,project_manager,supplier,logistics,civil,mechanical,electrical,plumbing,roofing,finishing'],
         ]);
 
         $user = User::create([
@@ -156,6 +156,56 @@ class RegisteredUserController extends Controller
             ]);
         }
 
+        if ($request->role_type === 'project_manager') {
+            \App\Models\ProjectManager::create([
+                'user_id' => $user->id,
+                'nama' => $user->name,
+                'no_telp' => null,
+                'foto' => null,
+                'file_portofolio' => null,
+                'file_sertifikat' => null,
+                'spesialisasi' => null,
+                'deskripsi' => null,
+                'lokasi' => null,
+                'pengalaman_tahun' => 0,
+                'rate_harga' => 0,
+                'verification_status' => 'pending',
+            ]);
+        }
+
+        if ($request->role_type === 'supplier') {
+            \App\Models\Supplier::create([
+                'user_id' => $user->id,
+                'store_name' => $user->name."'s Store",
+                'verification_status' => 'pending',
+            ]);
+        }
+
+        if ($request->role_type === 'logistics') {
+            \App\Models\CourierProfile::create([
+                'user_id' => $user->id,
+                'vehicle_type' => 'Not Specified',
+                'license_plate' => 'Not Specified',
+                'is_active' => true,
+            ]);
+        }
+
+        if (in_array($request->role_type, ['civil', 'mechanical', 'electrical', 'plumbing', 'roofing', 'finishing'])) {
+            Kontraktor::create([
+                'user_id' => $user->id,
+                'nama' => $user->name,
+                'email' => null,
+                'no_telepon' => null,
+                'alamat' => null,
+                'jenis' => 'Sub-Contractor',
+                'nama_perusahaan' => null,
+                'npwp' => null,
+                'siup' => null,
+                'pengalaman' => null,
+                'verification_status' => 'verified',
+            ]);
+        }
+
         switch ($request->role_type) {
             case 'arsitek':
                 $user->assignRole('arsitek');
@@ -178,6 +228,23 @@ class RegisteredUserController extends Controller
             case 'mep':
                 $user->assignRole('mep');
                 break;
+            case 'project_manager':
+                $user->assignRole('project_manager');
+                break;
+            case 'supplier':
+                $user->assignRole('supplier');
+                break;
+            case 'logistics':
+                $user->assignRole('logistics');
+                break;
+            case 'civil':
+            case 'mechanical':
+            case 'electrical':
+            case 'plumbing':
+            case 'roofing':
+            case 'finishing':
+                $user->assignRole($request->role_type);
+                break;
             default:
                 $user->assignRole('user');
                 break;
@@ -197,6 +264,10 @@ class RegisteredUserController extends Controller
             'interior' => redirect()->route('index'),
             'structural' => redirect()->route('index'),
             'mep' => redirect()->route('index'),
+            'project_manager' => redirect()->route('index'),
+            'supplier' => redirect()->route('index'),
+            'logistics' => redirect()->route('index'),
+            'civil', 'mechanical', 'electrical', 'plumbing', 'roofing', 'finishing' => redirect()->route('index'),
             default => redirect()->route('index'),
         };
     }

@@ -104,7 +104,7 @@ Route::middleware(['auth:sanctum', 'freeze_pending_termination'])->group(functio
             \Illuminate\Support\Facades\Storage::disk('public')->delete($user->pic);
         }
 
-        $path = $request->file('pic')->store('profileUser', 'public');
+        $path = \App\Services\ImageService::convertToWebp($request->file('pic'), 'profileUser');
         $user->update(['pic' => $path]);
 
         return response()->json([
@@ -137,6 +137,9 @@ Route::middleware(['auth:sanctum', 'freeze_pending_termination'])->group(functio
             'username' => 'required|string|max:255|unique:users,username,'.$user->id,
             'phone_numbers' => 'nullable|array',
             'phone_numbers.*' => 'required|string|max:20',
+        ], [
+            'phone_numbers.*.max' => 'Each phone number must not be greater than 20 characters.',
+            'phone_numbers.*.required' => 'Phone numbers cannot be blank.',
         ]);
 
         $user->update([
