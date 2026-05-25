@@ -18,6 +18,7 @@ interface LocationPickerMapProps {
     longitude: number;
     onChange: (lat: number, lng: number, geoData?: ReverseGeoData) => void;
     label?: string;
+    heightClass?: string;
 }
 
 async function reverseGeocode(lat: number, lng: number): Promise<ReverseGeoData> {
@@ -42,7 +43,7 @@ async function reverseGeocode(lat: number, lng: number): Promise<ReverseGeoData>
     }
 }
 
-export default function LocationPickerMap({ latitude, longitude, onChange, label }: LocationPickerMapProps) {
+export default function LocationPickerMap({ latitude, longitude, onChange, label, heightClass = 'h-[300px]' }: LocationPickerMapProps) {
     const mapRef = useRef<MapRef>(null);
     const [isGeocoding, setIsGeocoding] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -107,7 +108,7 @@ export default function LocationPickerMap({ latitude, longitude, onChange, label
     };
 
     return (
-        <div className="h-[300px] w-full rounded-2xl overflow-hidden shadow-sm border border-gray-200 relative group">
+        <div className={`${heightClass} w-full rounded-2xl overflow-hidden shadow-sm border border-gray-200 relative group`}>
             {/* Search Overlay */}
             <div className="absolute top-4 left-4 right-14 z-20">
                 <form onSubmit={handleSearch} className="relative">

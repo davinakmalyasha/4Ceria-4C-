@@ -25,7 +25,7 @@ export default function ExploreHouses({ houses = [], isLoading = false, onSelect
     const s = useExploreHouses({ houses, onSelectHouse });
 
     return (
-        <div className="flex flex-col gap-8">
+        <div className="flex flex-col gap-4">
             {/* Map */}
             <ExploreMap
                 processedHouses={s.processedHouses} allHouses={houses} mapRef={s.mapRef as any}
@@ -35,27 +35,11 @@ export default function ExploreHouses({ houses = [], isLoading = false, onSelect
                 dropdownRef={s.dropdownRef as any} cities={s.cities}
                 popupInfo={s.popupInfo} setPopupInfo={s.setPopupInfo}
                 onFlyToUser={s.flyToUser} onSelectHouse={s.fetchHouseDetails}
+                showFilters={s.showFilters} setShowFilters={s.setShowFilters}
+                activeFilterCount={s.activeFilterCount}
+                sortBy={s.sortBy} setSortBy={s.setSortBy}
+                viewMode={s.viewMode} setViewMode={s.setViewMode}
             />
-
-            {/* Quick Search - Above Stats */}
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="relative group">
-                <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#FF2D20] transition-colors" />
-                <input 
-                    type="text" 
-                    placeholder="Search properties by name, city, or street address..."
-                    value={s.searchQuery}
-                    onChange={(e) => s.setSearchQuery(e.target.value)}
-                    className="w-full pl-12 pr-12 py-3.5 bg-white border border-gray-200 rounded-2xl text-sm font-semibold text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-4 focus:ring-[#FF2D20]/5 focus:border-[#FF2D20] transition-all shadow-sm group-hover:border-gray-300"
-                />
-                {s.searchQuery && (
-                    <button 
-                        onClick={() => s.setSearchQuery('')}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-gray-100 text-gray-400 transition-colors"
-                    >
-                        <X size={14} />
-                    </button>
-                )}
-            </motion.div>
 
             {/* Quick Stats */}
             {s.quickStats && (
@@ -94,36 +78,10 @@ export default function ExploreHouses({ houses = [], isLoading = false, onSelect
                 </div>
             )}
 
-            {/* Toolbar */}
-            <div className="flex flex-col gap-4">
-                <div className="flex flex-wrap items-center justify-between gap-4">
-                    <h3 className="text-2xl font-bold text-gray-900">Featured Listings</h3>
-                    <div className="flex items-center gap-3">
-                        <button onClick={() => s.setShowFilters(!s.showFilters)}
-                            className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-bold border transition-all ${s.showFilters ? 'bg-[#FF2D20] text-white border-[#FF2D20] shadow-[0_4px_14px_rgba(255,45,32,0.3)]' : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300 shadow-sm'}`}>
-                            <SlidersHorizontal size={15} /> Filters
-                            {s.activeFilterCount > 0 && <span className="bg-white/20 text-[10px] font-black px-1.5 py-0.5 rounded-full">{s.activeFilterCount}</span>}
-                        </button>
-                        <select value={s.sortBy} onChange={(e) => s.setSortBy(e.target.value as typeof s.sortBy)}
-                            className="px-5 py-3 rounded-2xl text-sm font-bold bg-white border border-gray-200 text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#FF2D20]/20 cursor-pointer hover:border-gray-300 transition-all appearance-none pr-10"
-                            style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}>
-                            <option value="default">Sort: Default</option>
-                            <option value="price_asc">Price: Low → High</option>
-                            <option value="price_desc">Price: High → Low</option>
-                            <option value="newest">Newest First</option>
-                            <option value="most_viewed">Most Viewed</option>
-                            {s.userLocation && <option value="nearest">Nearest to Me</option>}
-                        </select>
-                        <div className="flex bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden p-1">
-                            <button onClick={() => s.setViewMode('grid')} className={`p-2 rounded-xl transition-all ${s.viewMode === 'grid' ? 'bg-[#FF2D20] text-white shadow-md' : 'text-gray-400 hover:text-gray-600'}`}><LayoutGrid size={16} /></button>
-                            <button onClick={() => s.setViewMode('list')} className={`p-2 rounded-xl transition-all ${s.viewMode === 'list' ? 'bg-[#FF2D20] text-white shadow-md' : 'text-gray-400 hover:text-gray-600'}`}><List size={16} /></button>
-                        </div>
-                    </div>
-                </div>
-                <FilterPanel showFilters={s.showFilters} priceRange={s.priceRange} setPriceRange={s.setPriceRange} priceBounds={s.priceBounds}
-                    minBedrooms={s.minBedrooms} setMinBedrooms={s.setMinBedrooms} minBathrooms={s.minBathrooms} setMinBathrooms={s.setMinBathrooms}
-                    minArea={s.minArea} setMinArea={s.setMinArea} activeFilterCount={s.activeFilterCount} processedCount={s.processedHouses.length} onReset={s.resetAllFilters} />
-            </div>
+            {/* Filter Panel (Expands directly below map) */}
+            <FilterPanel showFilters={s.showFilters} priceRange={s.priceRange} setPriceRange={s.setPriceRange} priceBounds={s.priceBounds}
+                minBedrooms={s.minBedrooms} setMinBedrooms={s.setMinBedrooms} minBathrooms={s.minBathrooms} setMinBathrooms={s.setMinBathrooms}
+                minArea={s.minArea} setMinArea={s.setMinArea} activeFilterCount={s.activeFilterCount} processedCount={s.processedHouses.length} onReset={s.resetAllFilters} />
 
             {/* House Grid / List */}
             <div>
