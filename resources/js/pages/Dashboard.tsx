@@ -5,6 +5,7 @@ import { useDashboardData } from '../hooks/useDashboardData';
 import { DashboardSidebar } from '../components/Dashboard/DashboardSidebar';
 import { DashboardHeader } from '../components/Dashboard/DashboardHeader';
 import { DashboardTabs } from '../components/Dashboard/DashboardTabs';
+import ChatOverlay from '../components/Chat/ChatOverlay';
 import ProjectPreviewModal from '../components/Projects/ProjectPreviewModal';
 import HouseDetailsModal from '../components/Explore/HouseDetailsModal';
 import EditProjectModal from '../components/Projects/EditProjectModal';
@@ -163,7 +164,7 @@ function DashboardContent() {
                     onMenuClick={() => setSidebarOpen(true)} 
                 />
 
-                <div className="flex-1 overflow-y-auto p-4 sm:p-8 relative z-0">
+                <div className={`flex-1 overflow-y-auto px-4 sm:px-8 relative z-0 ${activeTab === 'houses' ? 'py-3 sm:py-4' : 'py-4 sm:py-8'}`}>
                     <div className="max-w-7xl mx-auto">
                         <DashboardTabs 
                             activeTab={activeTab} setActiveTab={setActiveTab}
@@ -248,6 +249,11 @@ function DashboardContent() {
                     />
                 )}
             </AnimatePresence>
+
+            <ChatOverlay 
+                activeTab={activeTab}
+                onMaximize={() => handleSetActiveTab('chat')} 
+            />
         </div>
     );
 }

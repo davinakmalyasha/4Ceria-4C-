@@ -9,7 +9,7 @@ interface EditProfileFormProps {
 }
 
 export default function UserProfileForm({ onCancel }: EditProfileFormProps) {
-    const { user } = useAuth();
+    const { user, refreshUser } = useAuth();
     const [name, setName] = useState(user?.name || '');
     const [email, setEmail] = useState(user?.email || '');
     const [username, setUsername] = useState(user?.username || '');
@@ -24,8 +24,13 @@ export default function UserProfileForm({ onCancel }: EditProfileFormProps) {
     };
 
     const handlePhoneChange = (index: number, value: string) => {
+        // Strip everything except numbers and a single optional leading '+'
+        let sanitized = value.replace(/[^\d+]/g, '');
+        if (sanitized.includes('+')) {
+            sanitized = sanitized[0] === '+' ? '+' + sanitized.slice(1).replace(/\+/g, '') : sanitized.replace(/\+/g, '');
+        }
         const updated = [...phoneNumbers];
-        updated[index] = value;
+        updated[index] = sanitized;
         setPhoneNumbers(updated);
     };
 
@@ -48,9 +53,12 @@ export default function UserProfileForm({ onCancel }: EditProfileFormProps) {
             });
             
             setSuccess(true);
+            if (refreshUser) {
+                await refreshUser();
+            }
             setTimeout(() => {
-                window.location.reload();
-            }, 1000);
+                setSuccess(false);
+            }, 3000);
         } catch (err: any) {
             setError(err.response?.data?.message || 'Failed to update profile');
         } finally {

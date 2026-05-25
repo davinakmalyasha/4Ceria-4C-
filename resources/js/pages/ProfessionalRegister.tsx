@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { useNavigate, Link, Navigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
-import { Briefcase, Building2, HardHat, CheckCircle2, Shield, Armchair, Zap, Wrench } from 'lucide-react';
+import { Briefcase, Building2, HardHat, CheckCircle2, Shield, Armchair, Zap, Wrench, Store, Truck } from 'lucide-react';
 
 export default function ProfessionalRegister() {
     const [formData, setFormData] = useState({
@@ -14,13 +14,16 @@ export default function ProfessionalRegister() {
         password: '',
         password_confirmation: ''
     });
+    const [subcontractorRole, setSubcontractorRole] = useState<'civil' | 'mechanical' | 'electrical' | 'plumbing' | 'roofing' | 'finishing'>('civil');
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const { login, logout, user, isLoading: isAuthLoading } = useAuth();
     const navigate = useNavigate();
 
+    const isSubcontractorRole = ['civil', 'mechanical', 'electrical', 'plumbing', 'roofing', 'finishing'].includes(formData.role_type);
+
     if (!isAuthLoading && user) {
-        if (['arsitek','kontraktor','notaris','interior','structural','mep'].includes(user.role_type)) {
+        if (['arsitek','kontraktor','notaris','interior','structural','mep','project_manager','supplier','logistics','civil','mechanical','electrical','plumbing','roofing','finishing'].includes(user.role_type)) {
             return <Navigate to="/dashboard" replace />;
         }
         return (
@@ -50,8 +53,12 @@ export default function ProfessionalRegister() {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
-    const handleRoleSelect = (role: 'arsitek' | 'kontraktor' | 'notaris' | 'interior' | 'structural' | 'mep') => {
-        setFormData({ ...formData, role_type: role });
+    const handleRoleSelect = (role: string) => {
+        if (role === 'subcontractor') {
+            setFormData({ ...formData, role_type: subcontractorRole });
+        } else {
+            setFormData({ ...formData, role_type: role });
+        }
     };
 
     const handleRegister = async (e: React.FormEvent) => {
@@ -134,10 +141,14 @@ export default function ProfessionalRegister() {
 
                     <div className="mb-8">
                         <h1 className="text-3xl font-extrabold text-neutral-900 tracking-tight">Create your business profile</h1>
-                        <p className="mt-2 text-neutral-500">
-                            Already a partner?{' '}
-                            <Link to="/login" className="font-semibold text-[#FF2D20] hover:text-red-700 transition">Log in</Link>
-                        </p>
+                        <div className="mt-3 flex flex-col gap-2 text-sm">
+                            <Link to="/login" className="font-semibold text-[#FF2D20] hover:text-red-700 transition flex items-center gap-1.5">
+                                <span>← Back to Login</span>
+                            </Link>
+                            <Link to="/register" className="text-neutral-500 hover:text-neutral-800 transition">
+                                Looking to buy or hire instead? <span className="font-bold text-[#FF2D20] hover:underline">Create a user account →</span>
+                            </Link>
+                        </div>
                     </div>
 
                     <form onSubmit={handleRegister} className="space-y-6">
@@ -167,30 +178,36 @@ export default function ProfessionalRegister() {
                         {/* Role Selection */}
                         <div>
                             <label className="block text-sm font-semibold text-neutral-700 mb-2">I am signing up as</label>
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-2 lg:grid-cols-3 gap-2.5">
                                 {[
-                                    { id: 'arsitek' as const, label: 'Architect', desc: 'Design homes & submit visual plans', icon: Building2 },
-                                    { id: 'kontraktor' as const, label: 'Constructor', desc: 'Quote & execute physical builds', icon: HardHat },
-                                    { id: 'notaris' as const, label: 'Notaris', desc: 'Land certificates & building permits', icon: Shield },
-                                    { id: 'interior' as const, label: 'Interior Designer', desc: 'Kitchen sets, furniture & finishing', icon: Armchair },
-                                    { id: 'structural' as const, label: 'Structural Engineer', desc: 'Foundation, steel & concrete calcs', icon: Wrench },
-                                    { id: 'mep' as const, label: 'MEP Engineer', desc: 'Mechanical, electrical & plumbing', icon: Zap },
+                                    { id: 'arsitek', label: 'Architect', desc: 'Design homes & submit plans', icon: Building2 },
+                                    { id: 'kontraktor', label: 'Constructor', desc: 'Quote & execute physical builds', icon: HardHat },
+                                    { id: 'notaris', label: 'Notaris', desc: 'Land certificates & permits', icon: Shield },
+                                    { id: 'interior', label: 'Interior Designer', desc: 'Furniture & space layouts', icon: Armchair },
+                                    { id: 'structural', label: 'Structural Engineer', desc: 'Foundation & steel calcs', icon: Wrench },
+                                    { id: 'mep', label: 'MEP Engineer', desc: 'Mechanical, electrical & plumbing', icon: Zap },
+                                    { id: 'project_manager', label: 'Project Manager', desc: 'Coordinate and manage execution', icon: Briefcase },
+                                    { id: 'supplier', label: 'Material Supplier', desc: 'Supply materials to marketplace', icon: Store },
+                                    { id: 'logistics', label: 'Logistics / Courier', desc: 'Fulfill deliveries & cargo shipping', icon: Truck },
+                                    { id: 'subcontractor', label: 'Specialty Subcontractor', desc: 'Concrete, wiring, piping & trades', icon: HardHat },
                                 ].map(role => {
                                     const Icon = role.icon;
-                                    const isSelected = formData.role_type === role.id;
+                                    const isSelected = role.id === 'subcontractor'
+                                        ? isSubcontractorRole
+                                        : formData.role_type === role.id;
                                     return (
                                         <label
                                             key={role.id}
-                                            className={`relative cursor-pointer rounded-xl border-2 p-3.5 flex flex-col items-center gap-2 transition-all ${
-                                                isSelected ? 'border-[#FF2D20] bg-red-50/50 shadow-sm' : 'border-neutral-200 bg-white hover:border-neutral-300 hover:bg-neutral-50'
+                                            className={`relative cursor-pointer rounded-xl border-2 p-2 flex items-center gap-2.5 transition-all ${
+                                                isSelected ? 'border-[#FF2D20] bg-red-50/50 shadow-sm font-medium' : 'border-neutral-200 bg-white hover:border-neutral-300 hover:bg-neutral-50'
                                             }`}
                                         >
-                                            <div className={`p-2.5 rounded-full ${isSelected ? 'bg-[#FF2D20] text-white' : 'bg-neutral-100 text-neutral-500'}`}>
-                                                <Icon className="w-5 h-5" />
+                                            <div className={`p-1.5 rounded-full shrink-0 ${isSelected ? 'bg-[#FF2D20] text-white' : 'bg-neutral-100 text-neutral-500'}`}>
+                                                <Icon className="w-4 h-4" />
                                             </div>
-                                            <div className="text-center">
-                                                <div className={`font-bold text-sm ${isSelected ? 'text-[#FF2D20]' : 'text-neutral-700'}`}>{role.label}</div>
-                                                <div className="text-[10px] text-neutral-500 mt-0.5 leading-snug">{role.desc}</div>
+                                            <div className="text-left min-w-0 flex-1">
+                                                <div className={`font-bold text-xs truncate ${isSelected ? 'text-[#FF2D20]' : 'text-neutral-700'}`}>{role.label}</div>
+                                                <div className="text-[9px] text-neutral-400 truncate leading-none mt-0.5" title={role.desc}>{role.desc}</div>
                                             </div>
                                             <input type="radio" name="role_type" value={role.id} checked={isSelected} onChange={() => handleRoleSelect(role.id)} className="sr-only" />
                                         </label>
@@ -198,6 +215,35 @@ export default function ProfessionalRegister() {
                                 })}
                             </div>
                         </div>
+
+                        {/* Special Subcontractor Selector dropdown */}
+                        {isSubcontractorRole && (
+                            <motion.div
+                                initial={{ opacity: 0, y: -10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="p-4 rounded-xl border-2 border-[#FF2D20]/30 bg-red-50/30"
+                            >
+                                <label className="block text-xs font-black text-neutral-500 uppercase tracking-wider mb-2">
+                                    Select Your Specialized Trade Option
+                                </label>
+                                <select
+                                    value={formData.role_type}
+                                    onChange={(e) => {
+                                        const val = e.target.value as any;
+                                        setSubcontractorRole(val);
+                                        setFormData({ ...formData, role_type: val });
+                                    }}
+                                    className="block w-full px-4 py-3 bg-white border border-neutral-200 rounded-xl focus:ring-[#FF2D20]/20 focus:border-[#FF2D20] sm:text-sm transition-all shadow-sm font-semibold text-neutral-700 cursor-pointer"
+                                >
+                                    <option value="civil">Civil & Concrete Specialist</option>
+                                    <option value="mechanical">Mechanical Specialist (HVAC, Elevators, Fire)</option>
+                                    <option value="electrical">Electrical Specialist (Wiring, Panels)</option>
+                                    <option value="plumbing">Plumbing Specialist (Water supply, Drainage)</option>
+                                    <option value="roofing">Roofing & Waterproofing Specialist</option>
+                                    <option value="finishing">Finishing Specialist (Tiling, Painting, Facade)</option>
+                                </select>
+                            </motion.div>
+                        )}
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
@@ -217,14 +263,7 @@ export default function ProfessionalRegister() {
                         </div>
                     </form>
 
-                    <div className="mt-8 pt-6 border-t border-neutral-100 text-center flex flex-col gap-3">
-                        <Link to="/login" className="text-sm text-[#FF2D20] hover:text-red-700 font-semibold transition">
-                            ← Back to Login
-                        </Link>
-                        <Link to="/register" className="text-sm text-neutral-500 hover:text-neutral-800 transition">
-                            Looking to buy or hire instead? Create a user account →
-                        </Link>
-                    </div>
+
                 </div>
             </div>
         </div>

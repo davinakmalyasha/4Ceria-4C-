@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Menu, ChevronDown, User, LogOut, FolderKanban, Heart, MessageSquare } from 'lucide-react';
+import { Menu, ChevronDown, User, LogOut, FolderKanban, Heart, MessageSquare, HelpCircle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { Link } from 'react-router-dom';
 import NotificationsDropdown from '../NotificationsDropdown';
@@ -90,13 +90,6 @@ export const DashboardHeader: React.FC<HeaderProps> = ({ activeTab, setActiveTab
                             </button>
                         );
                     })}
-                    
-                    <Link
-                        to="/help"
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[13px] font-bold text-neutral-500 hover:text-neutral-800 hover:bg-neutral-50 transition-all focus:outline-none"
-                    >
-                        Help Center
-                    </Link>
                 </nav>
             </div>
 
@@ -143,9 +136,16 @@ export const DashboardHeader: React.FC<HeaderProps> = ({ activeTab, setActiveTab
                                     </div>
                                     
                                     <button onClick={() => { setActiveTab('profile'); setProfileOpen(false); }} className={`w-full flex items-center gap-2 px-4 py-2 text-left text-xs font-bold transition-colors ${activeTab === 'profile' ? 'bg-red-50 text-red-500' : 'text-neutral-600 hover:bg-red-50 hover:text-[#FF2D20]'}`}><User className="w-4 h-4 shrink-0" />My Profile</button>
-                                    <button onClick={() => { setActiveTab('projects'); setProfileOpen(false); }} className={`w-full flex items-center gap-2 px-4 py-2 text-left text-xs font-bold transition-colors ${activeTab === 'projects' ? 'bg-red-50 text-red-500' : 'text-neutral-600 hover:bg-red-50 hover:text-[#FF2D20]'}`}><FolderKanban className="w-4 h-4 shrink-0" />My Projects</button>
                                     <button onClick={() => { setActiveTab('chat'); setProfileOpen(false); }} className={`w-full flex items-center gap-2 px-4 py-2 text-left text-xs font-bold transition-colors ${activeTab === 'chat' ? 'bg-red-50 text-red-500' : 'text-neutral-600 hover:bg-red-50 hover:text-[#FF2D20]'}`}><MessageSquare className="w-4 h-4 shrink-0" />Inbox</button>
                                     <button onClick={() => { setActiveTab('saved'); setProfileOpen(false); }} className={`w-full flex items-center gap-2 px-4 py-2 text-left text-xs font-bold transition-colors ${activeTab === 'saved' ? 'bg-red-50 text-red-500' : 'text-neutral-600 hover:bg-red-50 hover:text-[#FF2D20]'}`}><Heart className="w-4 h-4 shrink-0" />Saved Items</button>
+                                    <Link 
+                                        to="/help" 
+                                        onClick={() => setProfileOpen(false)} 
+                                        className="w-full flex items-center gap-2 px-4 py-2 text-left text-xs font-bold text-neutral-600 hover:bg-red-50 hover:text-[#FF2D20] transition-colors"
+                                    >
+                                        <HelpCircle className="w-4 h-4 shrink-0" />
+                                        Help Center
+                                    </Link>
                                     <button onClick={logout} className="w-full flex items-center gap-2 px-4 py-2 text-left text-xs font-bold text-red-500 hover:bg-red-50/70 transition-colors border-t border-neutral-100 mt-1.5 pt-2"><LogOut className="w-4 h-4 shrink-0" />Sign Out</button>
                                 </div>
                             )}
