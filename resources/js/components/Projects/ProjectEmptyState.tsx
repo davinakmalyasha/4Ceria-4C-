@@ -14,13 +14,13 @@ export default function ProjectEmptyState({ hasQuery, onClearFilters, onPostProj
         <motion.div 
             initial={{ opacity: 0, scale: 0.98 }} 
             animate={{ opacity: 1, scale: 1 }} 
-            className="w-full flex flex-col items-center justify-center p-12 text-center bg-gradient-to-b from-white to-zinc-50/50 rounded-[2.5rem] border-2 border-dashed border-zinc-100 shadow-xl shadow-zinc-100/20 min-h-[450px] relative overflow-hidden"
+            className="w-full flex flex-col items-center justify-center p-8 text-center bg-gradient-to-b from-white to-zinc-50/50 rounded-[2.5rem] border-2 border-dashed border-zinc-100 shadow-xl shadow-zinc-100/20 min-h-[350px] relative overflow-hidden"
         >
             {/* Background Accent */}
             <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 w-64 h-64 bg-red-50/30 rounded-full blur-3xl pointer-events-none" />
             <div className="absolute bottom-0 left-0 translate-y-1/2 -translate-x-1/2 w-64 h-64 bg-zinc-100/50 rounded-full blur-3xl pointer-events-none" />
 
-            <div className="relative mb-8">
+            <div className="relative mb-5">
                 <div className="w-28 h-28 bg-white rounded-3xl shadow-2xl shadow-red-100/50 flex items-center justify-center ring-1 ring-zinc-50 group">
                     <FileSearch className="w-12 h-12 text-zinc-900 group-hover:scale-110 transition-transform duration-500" />
                 </div>
@@ -37,7 +37,7 @@ export default function ProjectEmptyState({ hasQuery, onClearFilters, onPostProj
                 {hasQuery ? "No Results Found" : "Starting Fresh?"}
             </h3>
             
-            <p className="text-zinc-500 max-w-sm mx-auto mb-10 leading-relaxed font-medium">
+            <p className="text-zinc-500 max-w-sm mx-auto mb-6 leading-relaxed font-medium">
                 {hasQuery 
                     ? "We couldn't find any projects matching your current filters. Try broadening your search parameters." 
                     : userRole === 'user'

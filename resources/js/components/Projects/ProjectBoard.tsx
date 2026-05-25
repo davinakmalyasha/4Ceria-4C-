@@ -122,15 +122,6 @@ export default function ProjectBoard({
                 </motion.div>
             )}
 
-            <ProjectStatsDashboard 
-                totalBudget={stats.totalBudget}
-                activeBids={userRole !== 'user' && myBidsCount !== undefined ? myBidsCount : stats.activeBids}
-                completed={stats.completed}
-                userRole={userRole}
-                onViewMyBids={onViewMyBids}
-                onViewActiveBids={onViewActiveBids}
-            />
-
             <ProjectToolbar 
                 search={search} onSearchChange={setSearch}
                 statusFilter={statusFilter} onStatusChange={setStatusFilter}
@@ -139,10 +130,16 @@ export default function ProjectBoard({
                 stats={stats} totalCount={totalCount}
                 showPostButton={userRole === 'user'}
                 onPostProject={onPostProject}
+                totalBudget={stats.totalBudget}
+                activeBidsCount={userRole !== 'user' && myBidsCount !== undefined ? myBidsCount : stats.activeBids}
+                completedCount={stats.completed}
+                userRole={userRole}
+                onViewMyBids={onViewMyBids}
+                onViewActiveBids={onViewActiveBids}
             />
 
             {/* Main Content Area */}
-            <div className="w-full min-h-[400px] relative">
+            <div className="w-full min-h-[350px] relative">
                 {isLoading ? (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                         {[1, 2, 3, 4].map(i => <ProjectCardSkeleton key={i} />)}
