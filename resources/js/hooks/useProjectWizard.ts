@@ -31,6 +31,7 @@ export interface ProjectDimensions {
     renovation_width?: number;
     area_length?: number;
     area_width?: number;
+    min_budget?: string;
 }
 
 export interface WizardFormData {
@@ -128,7 +129,7 @@ export function useProjectWizard() {
 }
 
 export function getActiveQuestions(category: string): QuestionKey[] {
-    if (category === 'new_build') return ['needsPM', 'hasLegal', 'hasDesign', 'hasConstructor', 'needsInterior'];
+    if (category === 'new_build') return ['needsPM', 'hasLegal', 'hasDesign', 'hasConstructor'];
     if (category === 'renovation' || category === 'interior') return ['needsPM', 'hasDesign', 'hasConstructor'];
     return []; // maintenance skips questions
 }

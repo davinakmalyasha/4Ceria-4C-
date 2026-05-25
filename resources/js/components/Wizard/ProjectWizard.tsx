@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import { AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronLeft, ChevronRight, CheckCircle, Wand2, Settings2 } from 'lucide-react';
 import { useProjectWizard, WizardAnswers } from '../../hooks/useProjectWizard';
 import WizardQuestion from './WizardQuestion';
@@ -20,6 +20,34 @@ export default function ProjectWizard({ onCancel, onSuccess }: ProjectWizardProp
     const qLen = w.activeQuestions?.length || 0;
     const detailsStep = w.mode === 'easy' ? 2 + qLen : 3;
     const budgetStep = w.mode === 'easy' ? 3 + qLen : 4;
+
+    const getStepLabel = () => {
+        if (w.mode === 'easy') {
+            if (w.step === 0) return 'Kategori';
+            if (w.step === 1) return 'Dimensi';
+            if (w.step >= 2 && w.step < 2 + qLen) {
+                const qKey = w.activeQuestions[w.step - 2];
+                if (qKey === 'needsPM') return 'Project Manager';
+                if (qKey === 'hasLegal') return 'Legalitas';
+                if (qKey === 'hasDesign') return 'Arsitek';
+                if (qKey === 'hasConstructor') return 'Kontraktor';
+                if (qKey === 'needsInterior') return 'Interior';
+                return '';
+            }
+            if (w.step === detailsStep) return 'Detail Informasi';
+            if (w.step === budgetStep) return 'Confirmation / Validation';
+            return '';
+        } else {
+            if (w.step === 0) return 'Kategori';
+            if (w.step === 1) return 'Dimensi';
+            if (w.step === 2) return 'Konstruksi & Layanan';
+            if (w.step === 3) return 'Detail Informasi';
+            if (w.step === 4) return 'Confirmation / Validation';
+            return '';
+        }
+    };
+
+    const activeLabel = getStepLabel();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -58,8 +86,8 @@ export default function ProjectWizard({ onCancel, onSuccess }: ProjectWizardProp
     };
 
     return (
-        <div className="max-w-2xl mx-auto bg-white rounded-[2rem] shadow-xl border border-gray-100/60 overflow-hidden">
-            <WizardHeader mode={w.mode} onToggle={() => { w.setMode(w.mode === 'easy' ? 'advanced' : 'easy'); w.setStep(0); }} step={w.step} totalSteps={w.totalSteps} />
+        <div className="max-w-3xl sm:max-w-4xl mx-auto bg-white rounded-[2rem] shadow-xl border border-gray-100/60 overflow-hidden transition-all duration-300">
+            <WizardHeader mode={w.mode} onToggle={() => { w.setMode(w.mode === 'easy' ? 'advanced' : 'easy'); w.setStep(0); }} step={w.step} totalSteps={w.totalSteps} activeLabel={activeLabel} />
             <form onSubmit={handleSubmit} className="p-5 sm:p-6">
                 {error && <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-xl text-sm font-semibold border border-red-200">{error}</div>}
                 <div className="min-h-[280px]">
@@ -83,6 +111,7 @@ export default function ProjectWizard({ onCancel, onSuccess }: ProjectWizardProp
                             <WizardBudgetStep 
                                 budget={w.form.budget} 
                                 onBudgetChange={v => w.updateForm('budget', v)} 
+                                updateDimensions={w.updateDimensions}
                                 neededPhases={w.neededPhases} 
                                 form={w.form}
                             />
@@ -95,21 +124,62 @@ export default function ProjectWizard({ onCancel, onSuccess }: ProjectWizardProp
     );
 }
 
-function WizardHeader({ mode, onToggle, step, totalSteps }: { mode: string; onToggle: () => void; step: number; totalSteps: number }) {
+function WizardHeader({ mode, onToggle, step, totalSteps, activeLabel }: { mode: string; onToggle: () => void; step: number; totalSteps: number; activeLabel: string }) {
     return (
-        <div className="bg-gray-900 px-6 sm:px-8 py-4 flex items-center justify-between">
+        <div className="bg-gray-900 px-6 sm:px-8 py-5 flex flex-col sm:flex-row gap-4 sm:items-center justify-between min-h-[96px] pb-7 sm:pb-6 border-b border-gray-800">
             <div>
                 <h2 className="text-xl font-black text-white">Mulai Proyek Baru</h2>
-                <p className="text-gray-400 text-xs mt-1">Step {step + 1} / {totalSteps}</p>
+                <p className="text-gray-400 text-xs mt-1 font-bold">Step {step + 1} / {totalSteps}</p>
             </div>
-            <div className="flex items-center gap-3">
-                <button type="button" onClick={onToggle} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 text-white text-[11px] font-bold hover:bg-white/20 transition-colors">
+            <div className="flex items-center justify-between sm:justify-end gap-5 sm:gap-7 w-full sm:w-auto">
+                <button type="button" onClick={onToggle} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 text-white text-[11px] font-bold hover:bg-white/20 transition-colors shrink-0">
                     {mode === 'easy' ? <><Settings2 size={12} /> Lanjutan</> : <><Wand2 size={12} /> Panduan</>}
                 </button>
-                <div className="flex gap-1.5">
-                    {Array.from({ length: totalSteps }).map((_, i) => (
-                        <div key={i} className={`w-2.5 h-2.5 rounded-full transition-colors ${step >= i ? 'bg-[#FF2D20]' : 'bg-gray-700'}`} />
-                    ))}
+                <div className="flex gap-2 sm:gap-3 items-center relative w-[220px] sm:w-[420px] md:w-[480px] h-8 shrink-0">
+                    {/* Connecting background track line */}
+                    <div className="absolute left-1 right-1 h-[2.5px] bg-gray-800 rounded-full top-[12px] z-0" />
+                    
+                    {/* Connecting active track line */}
+                    <div 
+                        className="absolute left-1 h-[2.5px] bg-[#FF2D20] rounded-full top-[12px] z-0 transition-all duration-300" 
+                        style={{ width: `${(step / (totalSteps - 1)) * 100}%` }}
+                    />
+                    
+                    {Array.from({ length: totalSteps }).map((_, i) => {
+                        const isActive = step === i;
+                        const isCompleted = step > i;
+                        return (
+                            <div key={i} className="flex flex-col items-center flex-1 z-10 relative">
+                                <div 
+                                    className={`w-2.5 h-2.5 rounded-full flex items-center justify-center transition-all duration-300 ${
+                                        isActive 
+                                            ? 'bg-[#FF2D20] ring-4 ring-red-500/30 scale-110' 
+                                            : isCompleted 
+                                                ? 'bg-[#FF2D20]' 
+                                                : 'bg-gray-700'
+                                    }`}
+                                />
+                                <AnimatePresence>
+                                    {isActive && activeLabel && (
+                                        <motion.span 
+                                            initial={{ opacity: 0, y: 3, scale: 0.9 }}
+                                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                                            exit={{ opacity: 0 }}
+                                            className={`absolute top-5 text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-[#FF2D20] whitespace-nowrap bg-gray-900/95 px-2.5 py-0.75 rounded-md border border-gray-800 shadow-md ${
+                                                i <= 1 
+                                                    ? 'left-[10%] origin-left translate-x-[-15%]' 
+                                                    : i >= totalSteps - 2 
+                                                        ? 'right-[10%] origin-right translate-x-[15%]' 
+                                                        : 'left-1/2 -translate-x-1/2'
+                                            }`}
+                                        >
+                                            {activeLabel}
+                                        </motion.span>
+                                    )}
+                                </AnimatePresence>
+                            </div>
+                        );
+                    })}
                 </div>
             </div>
         </div>

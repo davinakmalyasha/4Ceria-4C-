@@ -140,56 +140,75 @@ export default function WizardQuestion({ questionKey, answers, onAnswer, categor
 
     return (
         <AnimatePresence mode="wait">
-            <motion.div key={q.key} initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="space-y-6">
-                <div className={`w-16 h-16 rounded-2xl ${c.bg} flex items-center justify-center mx-auto shadow-sm`}>
-                    <Icon size={28} className={c.icon} />
-                </div>
-                <div className="text-center max-w-sm mx-auto">
-                    <h3 className="text-xl font-black text-gray-900 leading-tight tracking-tight">{q.title}</h3>
-                    <p className="text-sm font-medium text-gray-400 mt-2">{q.subtitle}</p>
+            <motion.div key={q.key} initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="space-y-5">
+                {/* Compact Horizontal Info Card */}
+                <div className="flex items-center gap-4 bg-gray-50 border border-gray-150/60 rounded-2xl p-4 w-full">
+                    <div className={`w-11 h-11 rounded-xl ${c.bg} flex items-center justify-center shrink-0 shadow-xs`}>
+                        <Icon size={20} className={c.icon} />
+                    </div>
+                    <div className="text-left min-w-0">
+                        <h3 className="text-xs sm:text-sm font-black text-gray-900 leading-snug tracking-tight">{q.title}</h3>
+                        <p className="text-[10px] sm:text-[11px] font-bold text-gray-400 mt-0.5 leading-normal">{q.subtitle}</p>
+                    </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-3 max-w-md mx-auto">
+                <div className={`grid gap-4 mx-auto w-full transition-all ${
+                    q.options.length === 2 
+                        ? 'grid-cols-1 sm:grid-cols-2 max-w-2xl' 
+                        : 'grid-cols-1 sm:grid-cols-3 max-w-3xl'
+                }`}>
                     {q.options.map((opt: any, idx: number) => (
-                        <React.Fragment key={idx}>
-                            <button
-                                type="button"
-                                onClick={() => onAnswer(q.key, opt.value)}
-                                className={`p-5 rounded-[2rem] border-2 text-left transition-all relative group ${
-                                    current === opt.value ? 'border-zinc-900 bg-white shadow-xl ring-4 ring-zinc-900/5' : 'border-gray-100 hover:border-gray-200 bg-white'
-                                }`}
-                            >
-                                <div className="flex items-center justify-between mb-1">
-                                    <span className={`text-sm font-black uppercase tracking-tight ${current === opt.value ? 'text-zinc-900' : 'text-gray-400'}`}>
-                                        {opt.label}
-                                    </span>
-                                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
-                                        current === opt.value ? 'bg-zinc-900 border-zinc-900 text-white' : 'border-gray-100'
-                                    }`}>
-                                        {current === opt.value && <Check size={14} strokeWidth={3} />}
-                                    </div>
+                        <button
+                            key={idx}
+                            type="button"
+                            onClick={() => onAnswer(q.key, opt.value)}
+                            className={`p-5 rounded-[2rem] border-2 text-left transition-all relative group flex flex-col justify-between min-h-[130px] ${
+                                current === opt.value ? 'border-zinc-900 bg-white shadow-xl ring-4 ring-zinc-900/5' : 'border-gray-100 hover:border-gray-200 bg-white'
+                            }`}
+                        >
+                            <div className="flex items-start justify-between w-full gap-2 mb-2">
+                                <span className={`text-xs font-black uppercase tracking-tight leading-snug ${current === opt.value ? 'text-zinc-900' : 'text-gray-400'}`}>
+                                    {opt.label}
+                                </span>
+                                <div className={`w-5.5 h-5.5 rounded-full border-2 flex items-center justify-center transition-all shrink-0 ${
+                                    current === opt.value ? 'bg-zinc-900 border-zinc-900 text-white' : 'border-gray-100'
+                                }`}>
+                                    {current === opt.value && <Check size={11} strokeWidth={3} />}
                                 </div>
-                                <p className="text-[10px] font-bold text-gray-400 leading-relaxed group-hover:text-gray-500 transition-colors">
-                                    {opt.sublabel}
-                                </p>
-                            </button>
-
-                            {/* Legal Detail Form */}
-                            {current === opt.value && opt.showInput && (
-                                <LegalDetailForm answers={answers} onAnswer={onAnswer} />
-                            )}
-
-                            {/* External Vendor Form */}
-                            {current === opt.value && opt.showExternalForm && (
-                                <ExternalVendorForm 
-                                    role={q.key} 
-                                    data={(answers.externalVendors || {})[q.key === 'needsPM' ? 'project_manager' : q.key === 'hasDesign' ? 'arsitek' : q.key === 'hasConstructor' ? 'kontraktor' : 'interior'] || {}} 
-                                    onChange={updateExternal} 
-                                />
-                            )}
-                        </React.Fragment>
+                            </div>
+                            <p className="text-[10px] font-bold text-gray-400 leading-relaxed group-hover:text-gray-500 transition-colors">
+                                {opt.sublabel}
+                            </p>
+                        </button>
                     ))}
                 </div>
+
+                <AnimatePresence mode="wait">
+                    {(() => {
+                        const selectedOpt = q.options.find((opt: any) => opt.value === current);
+                        if (!selectedOpt) return null;
+
+                        if (selectedOpt.showInput) {
+                            return <LegalDetailForm key="legal" answers={answers} onAnswer={onAnswer} />;
+                        }
+
+                        if (selectedOpt.showExternalForm) {
+                            const role = q.key === 'needsPM' ? 'project_manager' : 
+                                         q.key === 'hasDesign' ? 'arsitek' : 
+                                         q.key === 'hasConstructor' ? 'kontraktor' : 
+                                         q.key === 'needsInterior' ? 'interior' : '';
+                            return (
+                                <ExternalVendorForm 
+                                    key="external"
+                                    role={q.key} 
+                                    data={(answers.externalVendors || {})[role] || {}} 
+                                    onChange={updateExternal} 
+                                />
+                            );
+                        }
+                        return null;
+                    })()}
+                </AnimatePresence>
             </motion.div>
         </AnimatePresence>
     );

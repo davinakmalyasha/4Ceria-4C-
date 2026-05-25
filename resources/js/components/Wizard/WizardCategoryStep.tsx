@@ -50,10 +50,6 @@ const CATEGORIES = [
 export default function WizardCategoryStep({ form, updateForm }: WizardCategoryStepProps) {
     return (
         <motion.div initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="space-y-4">
-            <div className="text-center mb-4">
-                <h3 className="text-lg font-black text-gray-900 leading-tight">Apa jenis proyek Anda?</h3>
-                <p className="text-xs text-gray-400 mt-1">Pilih kategori utama agar kami bisa menyesuaikan formulir ini untuk Anda.</p>
-            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 {CATEGORIES.map(c => {
                     const isSelected = form.project_category === c.id;

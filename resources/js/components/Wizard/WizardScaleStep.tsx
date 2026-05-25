@@ -77,10 +77,6 @@ export default function WizardScaleStep({ form, updateDimensions }: WizardScaleS
 
     return (
         <motion.div initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="space-y-4">
-            <div className="text-center mb-4">
-                <h3 className="text-lg font-black text-gray-900 leading-tight">Spesifikasi Dimensi Proyek</h3>
-                <p className="text-xs text-gray-400 mt-1.5">Bantu para profesional memahami skala {form.project_category === 'new_build' ? 'pembangunan' : form.project_category === 'renovation' ? 'renovasi' : 'pekerjaan'} Anda.</p>
-            </div>
 
             {form.project_category === 'new_build' && (
                 <div className="space-y-4">
