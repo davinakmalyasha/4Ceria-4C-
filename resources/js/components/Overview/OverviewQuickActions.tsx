@@ -1,41 +1,84 @@
 import React from 'react';
 import { Plus, Compass, ShoppingBag, Shield, Pencil, Armchair, Building } from 'lucide-react';
 
-interface OverviewQuickActionsProps {
+interface Props {
     isUser: boolean;
     setActiveTab: (tab: string) => void;
     onPostProject?: () => void;
 }
 
-export default function OverviewQuickActions({ isUser, setActiveTab, onPostProject }: OverviewQuickActionsProps) {
+export default function OverviewQuickActions({ isUser, setActiveTab, onPostProject }: Props) {
     const actions = isUser
         ? [
-            { label: 'Start Project', icon: Plus, onClick: onPostProject, color: 'bg-red-50 text-[#FF2D20] hover:bg-red-100' },
-            { label: 'Sell Property', icon: Building, onClick: () => setActiveTab('my-houses'), color: 'bg-orange-50 text-orange-600 hover:bg-orange-100' },
-            { label: 'Find Notaris', icon: Shield, onClick: () => setActiveTab('explore'), color: 'bg-blue-50 text-blue-600 hover:bg-blue-100' },
-            { label: 'Browse Designs', icon: Pencil, onClick: () => setActiveTab('explore'), color: 'bg-purple-50 text-purple-600 hover:bg-purple-100' },
-            { label: 'Interior Design', icon: Armchair, onClick: () => setActiveTab('explore'), color: 'bg-amber-50 text-amber-600 hover:bg-amber-100' },
-            { label: 'Marketplace', icon: ShoppingBag, onClick: () => setActiveTab('explore'), color: 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100' },
+            { 
+                label: 'Start Project', 
+                desc: 'Post bidding tenders', 
+                icon: Plus, 
+                onClick: onPostProject, 
+            },
+            { 
+                label: 'Sell Property', 
+                desc: 'List your real estate', 
+                icon: Building, 
+                onClick: () => setActiveTab('my-houses'), 
+            },
+            { 
+                label: 'Find Notaris', 
+                desc: 'Get legal PPAT support', 
+                icon: Shield, 
+                onClick: () => setActiveTab('explore'), 
+            },
+            { 
+                label: 'Browse Designs', 
+                desc: 'Explore floor plans', 
+                icon: Pencil, 
+                onClick: () => setActiveTab('explore'), 
+            },
+            { 
+                label: 'Interior Design', 
+                desc: 'Get premium styling', 
+                icon: Armchair, 
+                onClick: () => setActiveTab('explore'), 
+            },
+            { 
+                label: 'Marketplace', 
+                desc: 'Direct shop materials', 
+                icon: ShoppingBag, 
+                onClick: () => setActiveTab('explore'), 
+            },
         ]
         : [
-            { label: 'Browse Tenders', icon: Compass, onClick: () => setActiveTab('projects'), color: 'bg-blue-50 text-blue-600 hover:bg-blue-100' },
-            { label: 'My Profile', icon: Pencil, onClick: () => setActiveTab('profile'), color: 'bg-purple-50 text-purple-600 hover:bg-purple-100' },
+            { 
+                label: 'Browse Tenders', 
+                desc: 'Find jobs & submit proposals', 
+                icon: Compass, 
+                onClick: () => setActiveTab('projects'), 
+            },
+            { 
+                label: 'My Profile', 
+                desc: 'Manage portfolio & rating', 
+                icon: Pencil, 
+                onClick: () => setActiveTab('profile'), 
+            },
         ];
 
     return (
-        <div>
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Quick Actions</p>
-            <div className="flex flex-wrap gap-2">
-                {actions.map(a => {
+        <div className="space-y-3">
+            <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Quick Shortcuts</p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {actions.map((a) => {
                     const Icon = a.icon;
                     return (
                         <button
                             key={a.label}
                             onClick={a.onClick}
-                            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all active:scale-[0.97] ${a.color}`}
+                            className="flex flex-col text-left p-4 rounded-3xl bg-white border border-neutral-200/80 shadow-sm select-none transition-all hover:bg-neutral-50/50 hover:border-neutral-400 active:scale-[0.97]"
                         >
-                            <Icon size={14} />
-                            {a.label}
+                            <div className="p-2 bg-neutral-50 rounded-xl border border-neutral-200 text-neutral-600 self-start mb-3">
+                                <Icon size={16} />
+                            </div>
+                            <span className="text-xs font-extrabold text-neutral-900 tracking-tight">{a.label}</span>
+                            <span className="text-[10px] text-neutral-500 font-semibold mt-0.5">{a.desc}</span>
                         </button>
                     );
                 })}
