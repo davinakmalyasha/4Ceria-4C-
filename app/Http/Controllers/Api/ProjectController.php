@@ -49,7 +49,8 @@ class ProjectController extends Controller
             'paymentTermins',
             'subProfessionals.user',
             'structuralEngineer.user',
-            'mepEngineer.user'
+            'mepEngineer.user',
+            'comments.user'
         ])
             ->withCount(['bidsArsitek', 'bidsKontraktor', 'bidsNotaris', 'bidsInterior', 'bidsProjectManager', 'bidsStructural', 'bidsMep']);
 
@@ -68,8 +69,9 @@ class ProjectController extends Controller
         if (!$user) {
             // Public failsafe: only show open projects tagged for 'both' (or just don't show any)
             $query->where('status', 'open');
-
-            return ProjectResource::collection($query->paginate(50));
+            $paginator = $query->paginate(50);
+            $this->attachClientHistory($paginator->getCollection());
+            return ProjectResource::collection($paginator);
         }
 
         // Professional Discovery Logic / Bidding Board Feed
@@ -168,7 +170,9 @@ class ProjectController extends Controller
                 $query->whereIn('status', ['open', 'accepted_arsitek', 'accepted_kontraktor', 'procurement', 'in_progress', 'awaiting_payment', 'contract_pending', 'planning']);
             }
 
-            return ProjectResource::collection($query->latest()->limit(50)->get());
+            $projects = $query->latest()->limit(50)->get();
+            $this->attachClientHistory($projects);
+            return ProjectResource::collection($projects);
         }
 
         if ($user->role_type === 'user') {
@@ -257,10 +261,14 @@ class ProjectController extends Controller
         }
 
         if ($request->query('all') === 'true') {
-            return ProjectResource::collection($query->latest()->get());
+            $projects = $query->latest()->get();
+            $this->attachClientHistory($projects);
+            return ProjectResource::collection($projects);
         }
 
-        return ProjectResource::collection($query->latest()->paginate(50));
+        $paginator = $query->latest()->paginate(50);
+        $this->attachClientHistory($paginator->getCollection());
+        return ProjectResource::collection($paginator);
     }
 
     public function store(StoreProjectRequest $request)
@@ -400,8 +408,11 @@ class ProjectController extends Controller
             'documents.uploader',
             'activityLogs',
             'subProfessionals.user',
-            'subProfessionals.assignedByUser'
+            'subProfessionals.assignedByUser',
+            'comments.user'
         ])->loadCount(['bidsArsitek', 'bidsKontraktor', 'bidsNotaris', 'bidsInterior', 'bidsProjectManager', 'bidsStructural', 'bidsMep']);
+
+        $this->attachClientHistory($project);
 
         return new ProjectResource($project);
     }
@@ -3042,5 +3053,66 @@ class ProjectController extends Controller
         }
 
         return response()->json(['message' => 'File upload failed.'], 400);
+    }
+
+    private function attachClientHistory($projects)
+    {
+        $isSingle = $projects instanceof Project;
+        $collection = $isSingle ? collect([$projects]) : $projects;
+        
+        $userIds = $collection->pluck('user_id')->unique()->filter()->toArray();
+        if (empty($userIds)) {
+            return $projects;
+        }
+
+        $postedCounts = Project::whereIn('user_id', $userIds)
+            ->groupBy('user_id')
+            ->select('user_id', DB::raw('count(*) as count'))
+            ->pluck('count', 'user_id');
+
+        $hiredCounts = Project::whereIn('user_id', $userIds)
+            ->where(function($q) {
+                $q->whereNotNull('selected_arsitek_id')
+                    ->orWhereNotNull('selected_kontraktor_id')
+                    ->orWhereNotNull('selected_notaris_id')
+                    ->orWhereNotNull('selected_interior_id')
+                    ->orWhereNotNull('pm_id')
+                    ->orWhereNotNull('structural_id')
+                    ->orWhereNotNull('mep_id');
+            })
+            ->groupBy('user_id')
+            ->select('user_id', DB::raw('count(*) as count'))
+            ->pluck('count', 'user_id');
+
+        $activeCounts = Project::whereIn('user_id', $userIds)
+            ->whereIn('status', ['in_progress', 'planning', 'awaiting_payment', 'contract_pending', 'accepted_arsitek', 'accepted_kontraktor', 'procurement'])
+            ->groupBy('user_id')
+            ->select('user_id', DB::raw('count(*) as count'))
+            ->pluck('count', 'user_id');
+
+        $totalSpent = ProjectBudgetTransaction::whereIn('project_id', function($q) use ($userIds) {
+                $q->select('id')->from('projects')->whereIn('user_id', $userIds);
+            })
+            ->where('transaction_type', 'payment')
+            ->join('projects', 'project_budget_transactions.project_id', '=', 'projects.id')
+            ->groupBy('projects.user_id')
+            ->select('projects.user_id', DB::raw('sum(project_budget_transactions.amount) as total'))
+            ->pluck('total', 'projects.user_id');
+
+        foreach ($collection as $project) {
+            $uid = $project->user_id;
+            $pPosted = $postedCounts[$uid] ?? 0;
+            $pHired = $hiredCounts[$uid] ?? 0;
+            $project->client_history = [
+                'projects_posted' => $pPosted,
+                'projects_hired' => $pHired,
+                'hire_rate' => $pPosted > 0 ? round(($pHired / $pPosted) * 100) : 0,
+                'active_projects' => $activeCounts[$uid] ?? 0,
+                'total_spent' => (float) ($totalSpent[$uid] ?? 0),
+                'member_since' => $project->user?->created_at ? $project->user->created_at->format('M Y') : null,
+            ];
+        }
+
+        return $projects;
     }
 }

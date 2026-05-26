@@ -47,6 +47,29 @@ class ProjectResource extends JsonResource
             }
         }
 
+        $canViewPhone = false;
+        if ($user) {
+            if ($user->id === $this->user_id) {
+                $canViewPhone = true;
+            } elseif ($this->pm_id && $user->id === $this->pm_id) {
+                $canViewPhone = true;
+            } elseif ($this->selected_arsitek_id && $user->arsitek && $user->arsitek->id === $this->selected_arsitek_id) {
+                $canViewPhone = true;
+            } elseif ($this->selected_kontraktor_id && $user->kontraktor && $user->kontraktor->id === $this->selected_kontraktor_id) {
+                $canViewPhone = true;
+            } elseif ($this->selected_notaris_id && $user->notaris_profile && $user->notaris_profile->id === $this->selected_notaris_id) {
+                $canViewPhone = true;
+            } elseif ($this->selected_interior_id && $user->interior_profile && $user->interior_profile->id === $this->selected_interior_id) {
+                $canViewPhone = true;
+            } elseif ($this->structural_id && $user->structural_engineer && $user->structural_engineer->id === $this->structural_id) {
+                $canViewPhone = true;
+            } elseif ($this->mep_id && $user->mep_engineer && $user->mep_engineer->id === $this->mep_id) {
+                $canViewPhone = true;
+            } elseif ($this->subProfessionals()->where('user_id', $user->id)->where('status', 'active')->exists()) {
+                $canViewPhone = true;
+            }
+        }
+
         return [
             'id' => $this->id,
             'has_submitted_bid' => $hasSubmittedBid,
@@ -70,11 +93,11 @@ class ProjectResource extends JsonResource
             'attachment' => $this->attachment,
             'owner_id' => $this->user_id,
             'user_id' => $this->user_id,
-            'owner' => [
+            'owner' => $this->user ? [
                 'id' => $this->user->id,
                 'name' => $this->user->name,
-                'phone' => $this->user->phone_number ?? $this->user->phone ?? ($this->user->phoneNumber->first()?->contact),
-            ],
+                'phone' => $canViewPhone ? ($this->user->phone_number ?? $this->user->phone ?? ($this->user->phoneNumber->first()?->contact)) : null,
+            ] : null,
             'selected_arsitek_id' => $this->selected_arsitek_id,
             'selected_kontraktor_id' => $this->selected_kontraktor_id,
             'selected_notaris_id' => $this->selected_notaris_id,
@@ -149,6 +172,7 @@ class ProjectResource extends JsonResource
                 'pending_count' => $this->changeOrders()->whereNotIn('status', ['rejected', 'implemented'])->count(),
             ],
             'budget_summary' => $this->calculateBudgetSummary(),
+            'client_history' => $this->when(isset($this->client_history), $this->client_history),
             'wants_project_manager' => (bool) $this->wants_project_manager,
             'requires_structural' => $this->requires_structural,
             'requires_mep' => $this->requires_mep,
@@ -258,6 +282,23 @@ class ProjectResource extends JsonResource
                     'verification_notes' => $a->verification_notes,
                     'payment_proof_path' => $a->payment_proof_path ? asset('storage/' . $a->payment_proof_path) : null,
                     'created_at' => $a->created_at,
+                ]);
+            }),
+            'comments' => $this->whenLoaded('comments', function () {
+                return $this->comments->map(fn ($c) => [
+                    'id' => $c->id,
+                    'user_id' => $c->user_id,
+                    'project_id' => $c->project_id,
+                    'message' => $c->message,
+                    'content' => $c->message, // Keep both content and message for frontend safety!
+                    'parent_id' => $c->parent_id,
+                    'user' => $c->user ? [
+                        'id' => $c->user->id,
+                        'name' => $c->user->name,
+                        'profile_picture' => $c->user->profile_picture ? asset('storage/' . $c->user->profile_picture) : null,
+                    ] : null,
+                    'created_at' => $c->created_at,
+                    'updated_at' => $c->updated_at,
                 ]);
             }),
             'images' => $this->whenLoaded('images', function () {

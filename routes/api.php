@@ -84,8 +84,8 @@ Route::middleware(['auth:sanctum', 'freeze_pending_termination'])->group(functio
         $relations = [
             'phoneNumber', 'arsitek', 'kontraktor',
             'notaris_profile.services', 'interior_profile', 'project_manager',
+            'structural_engineer', 'mep_engineer', 'supplier',
             'roles',
-            // 'structural_engineer', 'mep_engineer',
         ];
         if (in_array($user->role_type, ['arsitek', 'kontraktor'])) {
             $relations[] = 'teamMembers';
