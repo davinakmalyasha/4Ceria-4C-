@@ -20,6 +20,10 @@ class AdminMiddleware
             return $next($request);
         }
 
+        if ($request->expectsJson() || $request->is('api/*')) {
+            return response()->json(['message' => 'Unauthorized access.'], 403);
+        }
+
         return redirect('/')->with('error', 'Unauthorized access.');
     }
 }
