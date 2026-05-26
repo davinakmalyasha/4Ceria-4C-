@@ -6,9 +6,10 @@ import PostProjectWidget from './widgets/PostProjectWidget';
 import SellHouseWidget from './widgets/SellHouseWidget';
 import HireProWidget from './widgets/HireProWidget';
 import BuyMaterialWidget from './widgets/BuyMaterialWidget';
+import VerificationWidget from './widgets/VerificationWidget';
 
 interface InteractiveWidgetsProps {
-    name: 'bidding' | 'milestone' | 'radar' | 'postproject' | 'sellhouse' | 'hirepro' | 'buymaterial';
+    name: 'bidding' | 'milestone' | 'radar' | 'postproject' | 'sellhouse' | 'hirepro' | 'buymaterial' | 'verification';
 }
 
 export default function InteractiveWidgets({ name }: InteractiveWidgetsProps) {
@@ -20,6 +21,7 @@ export default function InteractiveWidgets({ name }: InteractiveWidgetsProps) {
         case 'sellhouse': return <SellHouseWidget />;
         case 'hirepro': return <HireProWidget />;
         case 'buymaterial': return <BuyMaterialWidget />;
+        case 'verification': return <VerificationWidget />;
         default: return null;
     }
 }

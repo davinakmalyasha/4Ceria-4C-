@@ -22,6 +22,22 @@ export const proDocs: DocArticle[] = [
                 ]
             },
             {
+                type: 'list',
+                title: 'Verification Step-by-Step Flow:',
+                items: [
+                    'Step 1: Go to Edit Profile on your dashboard, or click "I Want to Verify" on active bidding pages.',
+                    'Step 2: Locate the sticky "Verification Panel" on the right side of the profile page.',
+                    'Step 3: Select and upload your Profile Photo, Portfolio PDF, and Certificate (SIUP / NPWP).',
+                    'Step 4: Click "Save Profile" to submit. Your status will update to "Pending Verification".',
+                    'Step 5: The admin team will manually review your credentials within 24 hours.',
+                    'Step 6: Upon approval, you will receive a notification and gain full privileges to submit bids.'
+                ]
+            },
+            {
+                type: 'widget',
+                widgetName: 'verification'
+            },
+            {
                 type: 'alert',
                 alertType: 'warning',
                 body: 'Unverified professionals can explore the site but are locked from submitting bids or accepting project contracts.'
