@@ -214,78 +214,67 @@ export default function ProjectDetailPage({ project, user, onBack, onRefresh, on
                 </motion.div>
             )}
             
-            {/* Header */}
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-                <div className="flex items-start gap-4">
-                    <button onClick={onBack} className="mt-1 p-2 rounded-xl hover:bg-gray-100 text-gray-400 transition-colors">
-                        <ArrowLeft size={20} />
-                    </button>
-                    <div className="flex-1 min-w-0">
-                        <h1 className="text-2xl font-black text-gray-900 tracking-tight truncate">{project?.title}</h1>
-                        <ProjectMetaRow project={project} />
+            {/* Split layout: Vertical Nav + Content Area */}
+            <div className="flex flex-col lg:flex-row gap-8 items-start">
+                {/* Vertical Navigation Bar */}
+                <div className="w-full lg:w-64 shrink-0 bg-white p-4 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-4 sticky top-6">
+                    {/* Project Context Header */}
+                    <div className="space-y-1.5 pb-3 border-b border-gray-100">
+                        <button onClick={onBack} className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-955 font-bold transition-colors">
+                            <ArrowLeft size={14} />
+                            <span>Back to Projects</span>
+                        </button>
+                        <div className="min-w-0">
+                            <h2 className="text-base font-black text-gray-900 tracking-tight leading-tight truncate" title={project?.title}>{project?.title}</h2>
+                        </div>
+                    </div>
+
+                    {/* Navigation Links */}
+                    <div className="space-y-1">
+                        <div className="px-2 pb-1.5">
+                            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Workspace Menu</p>
+                        </div>
+                        {TABS.map(tab => (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id)}
+                                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl text-xs font-bold transition-all ${
+                                    activeTab === tab.id 
+                                    ? 'bg-gray-900 text-white shadow-md' 
+                                    : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
+                                }`}
+                            >
+                                <tab.icon size={15} />
+                                <span>{tab.label}</span>
+                            </button>
+                        ))}
                     </div>
                 </div>
 
-                {/* Tab Navigation */}
-                <div className="flex items-center gap-1 bg-gray-50 p-1 rounded-2xl border border-gray-100">
-                    {TABS.map(tab => (
-                        <button
-                            key={tab.id}
-                            onClick={() => setActiveTab(tab.id)}
-                            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                                activeTab === tab.id 
-                                ? 'bg-white text-gray-900 shadow-sm border border-gray-100' 
-                                : 'text-gray-400 hover:text-gray-600'
-                            }`}
-                        >
-                            <tab.icon size={14} />
-                            <span className="hidden sm:inline">{tab.label}</span>
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            {/* Tab Search Area / Content */}
-            <div className="min-h-[500px]">
-                <AnimatePresence mode="wait">
-                    {activeTab === 'overview' && (
-                        <motion.div
-                            key="overview"
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -10 }}
-                        >
-                            <ProjectBrief 
-                                project={project} 
-                                user={user}
-                                onRefresh={onRefresh}
-                                onSwitchTab={setActiveTab}
-                                onOpenChat={onOpenChat}
-                                onSwitchToProcess={(phase) => {
-                                    setActiveTab('process');
-                                    setActivePhase(phase);
-                                }} 
-                            />
-
-                            {/* Sub-Professionals Panel */}
-                            <SubProfessionalPanel
-                                subs={subs}
-                                isLoading={subsLoading}
-                                canManage={canManageSubs}
-                                onAddClick={() => setShowAssignModal(true)}
-                                onAccept={async (subId) => { await acceptSub(subId); refreshSubs(); }}
-                                onDecline={async (subId) => { await declineSub(subId); refreshSubs(); }}
-                                onRemove={async (subId) => { await removeSub(subId); refreshSubs(); }}
-                                onHire={async (subId) => { await hireSub(subId); refreshSubs(); }}
-                                onInterview={async (subId) => { await interviewSub(subId); refreshSubs(); }}
-                                onRecommend={(sub) => setRecommendingSub(sub)}
-                                currentUserId={user?.id}
-                                isOwner={user?.id === project.user_id}
-                                isPM={project.pm_id && user?.id === project.pm_id}
-                            />
-
-                        </motion.div>
-                    )}
+                {/* Tab Search Area / Content */}
+                <div className="flex-1 w-full min-w-0">
+                    <div className="min-h-[500px]">
+                        <AnimatePresence mode="wait">
+                            {activeTab === 'overview' && (
+                                <motion.div
+                                    key="overview"
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -10 }}
+                                >
+                                    <ProjectBrief 
+                                        project={project} 
+                                        user={user}
+                                        onRefresh={onRefresh}
+                                        onSwitchTab={setActiveTab}
+                                        onOpenChat={onOpenChat}
+                                        onSwitchToProcess={(phase) => {
+                                            setActiveTab('process');
+                                            setActivePhase(phase);
+                                        }} 
+                                    />
+                                </motion.div>
+                            )}
 
                     {activeTab === 'process' && (
                         <ErrorBoundary name="ProjectProcess">
@@ -459,6 +448,8 @@ export default function ProjectDetailPage({ project, user, onBack, onRefresh, on
                     )}
                 </AnimatePresence>
             </div>
+        </div>
+    </div>
 
             {/* Modals */}
             {showAssignModal && (
@@ -516,24 +507,4 @@ export default function ProjectDetailPage({ project, user, onBack, onRefresh, on
     );
 }
 
-function ProjectMetaRow({ project }: { project: any }) {
-    return (
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1.5">
-            <span className="flex items-center gap-1.5 text-xs text-gray-400 font-medium">
-                <DollarSign size={12} className="text-emerald-500" />
-                Remaining: <span className="text-emerald-600 font-bold">Rp {Number(project?.budget_summary?.remaining ?? project?.budget ?? 0).toLocaleString('id-ID')}</span>
-                <span className="text-[10px] text-gray-300 ml-1">/ Rp {Number(project?.budget || 0).toLocaleString('id-ID')}</span>
-            </span>
-            <span className="flex items-center gap-1.5 text-xs text-gray-400 font-medium">
-                <MapPin size={12} className="text-red-400" />
-                {project?.city || project?.lokasi || 'Unknown'}
-            </span>
-            {project?.deadline && (
-                <span className="flex items-center gap-1.5 text-xs text-gray-400 font-medium">
-                    <Calendar size={12} className="text-blue-400" />
-                    {new Date(project.deadline).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
-                </span>
-            )}
-        </div>
-    );
-}
+

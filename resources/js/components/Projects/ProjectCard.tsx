@@ -147,8 +147,8 @@ export default function ProjectCard({ project, onClick, userRole, viewMode = 'gr
                         <TypeIcon size={12} /> {typeCfg.label}
                     </span>
                     {categoryCfg && (
-                        <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-500/90 text-white backdrop-blur-md shadow-md w-fit">
-                            <span>{categoryCfg.emoji}</span> {categoryCfg.label}
+                        <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-zinc-900/80 text-white backdrop-blur-md shadow-md w-fit">
+                            {categoryCfg.label}
                         </span>
                     )}
                     {project.has_submitted_bid && (

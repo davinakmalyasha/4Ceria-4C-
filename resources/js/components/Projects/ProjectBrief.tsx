@@ -13,6 +13,7 @@ import LifecycleActionModal from './Details/LifecycleActionModal';
 import RatingModal from './RatingModal';
 import OwnerSpecialistAlert from './OwnerSpecialistAlert';
 import { Star } from 'lucide-react';
+import ClientContactCard from './Details/ClientContactCard';
 
 interface ProjectBriefProps {
     project: any;
@@ -20,14 +21,14 @@ interface ProjectBriefProps {
     onRefresh: () => void;
     onSwitchToProcess: (phase: PhaseKey) => void;
     onSwitchTab?: (tab: string) => void;
-    onOpenChat?: () => void;
+    onOpenChat?: (user: any) => void;
 }
 
 const ICON_MAP: Record<string, any> = {
     Shield, Pencil, Hammer, Package, Sofa, Key: KeyRound
 };
 
-export default function ProjectBrief({ project, user, onRefresh, onSwitchToProcess }: ProjectBriefProps) {
+export default function ProjectBrief({ project, user, onRefresh, onSwitchToProcess, onSwitchTab, onOpenChat }: ProjectBriefProps) {
     const { showToast } = useToast();
     const [terminationModal, setTerminationModal] = React.useState<{
         isOpen: boolean;
@@ -93,11 +94,7 @@ export default function ProjectBrief({ project, user, onRefresh, onSwitchToProce
         }
     };
 
-    const stats = [
-        { icon: DollarSign, label: 'Budget', value: `Rp ${Number(project.budget || 0).toLocaleString('id-ID')}`, color: 'emerald' },
-        { icon: MapPin, label: 'Location', value: project.city || project.lokasi || 'Unknown', color: 'red' },
-        { icon: Calendar, label: 'Target Date', value: project.deadline ? new Date(project.deadline).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : 'ASAP', color: 'blue' },
-    ];
+
 
     const allTeamPhases: PhaseKey[] = ['legal', 'design', 'build', 'materials', 'interior'];
     const teamPhases = allTeamPhases.filter(k => 
@@ -121,85 +118,135 @@ export default function ProjectBrief({ project, user, onRefresh, onSwitchToProce
                 />
             )}
 
-            {/* Quick Stats Grid */}
+            {/* Compact Stats Bar */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {stats.map((stat, idx) => (
-                    <motion.div
-                        key={stat.label}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: idx * 0.1 }}
-                        className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4"
-                    >
-                        <div className={`p-3 rounded-xl ${
-                            stat.color === 'emerald' ? 'bg-emerald-50 text-emerald-600' :
-                            stat.color === 'red' ? 'bg-red-50 text-red-600' :
-                            'bg-blue-50 text-blue-600'
-                        }`}>
-                            <stat.icon size={20} />
-                        </div>
-                        <div>
-                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{stat.label}</p>
-                            <p className="text-sm font-black text-gray-900 mt-0.5">{stat.value}</p>
-                        </div>
-                    </motion.div>
-                ))}
+                <div className="bg-white px-4 py-3 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                        <DollarSign size={15} />
+                    </div>
+                    <div className="min-w-0">
+                        <span className="text-[9px] text-gray-400 font-bold block uppercase tracking-wide leading-none">Remaining Budget</span>
+                        <span className="text-xs font-black text-gray-950 mt-0.5 block">
+                            Rp {Number(project?.budget_summary?.remaining ?? project?.budget ?? 0).toLocaleString('id-ID')}
+                            <span className="text-[9px] text-gray-400 font-normal ml-1">/ Rp {Number(project?.budget || 0).toLocaleString('id-ID')}</span>
+                        </span>
+                    </div>
+                </div>
+
+                <div className="bg-white px-4 py-3 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-red-50 text-red-600 flex items-center justify-center shrink-0">
+                        <MapPin size={15} />
+                    </div>
+                    <div className="min-w-0">
+                        <span className="text-[9px] text-gray-400 font-bold block uppercase tracking-wide leading-none">Location</span>
+                        <span className="text-xs font-black text-gray-955 mt-0.5 block truncate" title={project?.city || project?.lokasi}>
+                            {project?.city || project?.lokasi || 'Unknown'}
+                        </span>
+                    </div>
+                </div>
+
+                <div className="bg-white px-4 py-3 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                        <Calendar size={15} />
+                    </div>
+                    <div className="min-w-0">
+                        <span className="text-[9px] text-gray-400 font-bold block uppercase tracking-wide leading-none">Target Date</span>
+                        <span className="text-xs font-black text-gray-955 mt-0.5 block">
+                            {project?.deadline ? new Date(project.deadline).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : 'ASAP'}
+                        </span>
+                    </div>
+                </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Left Column: Brief & Gallery */}
-                <div className="lg:col-span-2 space-y-8">
-                    {/* Description */}
-                    <section className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm">
-                        <div className="flex items-center gap-3 mb-6">
-                            <div className="w-1.5 h-6 bg-red-500 rounded-full" />
-                            <h3 className="text-xl font-black text-gray-900 tracking-tight">Project Information</h3>
+            {/* Top Row: Picture (Left Top) & Map (Right Top) */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
+                {/* Left Top: Project Gallery */}
+                <div className="lg:col-span-2">
+                    <section className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm h-full flex flex-col justify-between">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-xs font-black text-gray-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                                Project Gallery <span className="text-gray-300">({(project.images || []).length})</span>
+                            </h3>
                         </div>
-                        <p className="text-gray-500 text-sm leading-relaxed whitespace-pre-wrap font-medium">
-                            {project.description || 'No detailed description provided for this project.'}
-                        </p>
-                    </section>
-
-                    {/* Gallery */}
-                    {project.images && project.images.length > 0 && (
-                        <section className="space-y-4">
-                            <div className="flex items-center justify-between px-2">
-                                <h3 className="text-xs font-black text-gray-400 uppercase tracking-[0.2em] flex items-center gap-2">
-                                    Project Gallery <span className="text-gray-300">({project.images.length})</span>
-                                </h3>
-                            </div>
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                                {project.images.map((img: any, idx: number) => (
+                        {project.images && project.images.length > 0 ? (
+                            <div className="grid grid-cols-3 gap-3 flex-1">
+                                {project.images.slice(0, 3).map((img: any, idx: number) => (
                                     <motion.div
                                         key={img.id}
                                         initial={{ opacity: 0, scale: 0.9 }}
                                         animate={{ opacity: 1, scale: 1 }}
                                         transition={{ delay: idx * 0.05 }}
-                                        className="aspect-[4/3] rounded-2xl overflow-hidden border border-gray-100 group relative cursor-pointer"
+                                        className="aspect-[4/3] rounded-xl overflow-hidden border border-gray-50 group relative cursor-pointer"
                                     >
-                                        <img src={img.url} alt="Project" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
-                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                                        <img src={img.url} alt="Project" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors" />
                                     </motion.div>
                                 ))}
                             </div>
-                        </section>
-                    )}
+                        ) : (
+                            <div className="flex items-center justify-center border border-dashed border-gray-100 rounded-2xl flex-1 py-8">
+                                <span className="text-xs text-gray-400 font-bold">No project images uploaded</span>
+                            </div>
+                        )}
+                    </section>
                 </div>
 
-                {/* Right Column: Team Status & Map */}
-                <div className="space-y-8">
-                    {/* The Team Grid */}
-                    <section className="bg-gray-900 rounded-[2.5rem] p-7 shadow-2xl relative overflow-hidden">
+                {/* Right Top: Map */}
+                <div>
+                    {(project.latitude && project.longitude) ? (
+                        <div className="h-full min-h-[220px]">
+                            <ProjectLocationMap 
+                                latitude={project.latitude} 
+                                longitude={project.longitude} 
+                                title={project.title} 
+                                showGoToLocationButton={true}
+                            />
+                        </div>
+                    ) : (
+                        <div className="flex flex-col items-center justify-center bg-white border border-gray-100 rounded-[2rem] shadow-sm p-6 h-full min-h-[220px]">
+                            <span className="text-xs text-gray-400 font-bold">No map location available</span>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Bottom Row: Brief (Left) & Team (Right) */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+                {/* Bottom Left: Project Information */}
+                <div className="lg:col-span-2">
+                    <section className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-1 h-5 bg-red-500 rounded-full" />
+                            <h3 className="text-sm font-black text-gray-900 tracking-tight">Project Information</h3>
+                        </div>
+                        <p className="text-gray-500 text-xs leading-relaxed whitespace-pre-wrap font-medium">
+                            {project.description || 'No detailed description provided for this project.'}
+                        </p>
+                    </section>
+                </div>
+
+                {/* Bottom Right: The Team */}
+                <div className="space-y-6">
+                    {project.owner && (
+                        <ClientContactCard 
+                            owner={project.owner} 
+                            user={user}
+                            onOpenChat={onOpenChat} 
+                            isOwner={isOwner}
+                            onRefresh={onRefresh}
+                        />
+                    )}
+                    <section className="bg-gray-900 rounded-[2rem] p-6 shadow-xl relative overflow-hidden">
                         {/* Decorative background element */}
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/10 blur-[60px] rounded-full translate-x-12 -translate-y-12" />
+                        <div className="absolute top-0 right-0 w-24 h-24 bg-red-500/5 blur-[50px] rounded-full translate-x-8 -translate-y-8 pointer-events-none" />
                         
-                        <div className="relative z-10 space-y-6">
-                            <div className="flex items-center justify-between">
-                                <h3 className="text-sm font-black text-white tracking-widest uppercase">The Team</h3>
-                                <Users size={16} className="text-gray-500" />
+                        <div className="relative z-10 space-y-4">
+                            <div className="flex items-center justify-between pb-2 border-b border-white/5">
+                                <h3 className="text-xs font-black text-white tracking-widest uppercase">The Team</h3>
+                                <Users size={14} className="text-gray-500" />
                             </div>
 
-                            <div className="space-y-3">
+                            <div className="space-y-2">
                                 {teamPhases.map(key => {
                                     const cfg = PHASE_CONFIG[key];
                                     const roleInfo = PHASE_ROLE_MAP[key];
@@ -217,30 +264,30 @@ export default function ProjectBrief({ project, user, onRefresh, onSwitchToProce
                                                 role="button"
                                                 tabIndex={0}
                                                 onKeyDown={(e) => { if (e.key === 'Enter') onSwitchToProcess(key); }}
-                                                className="w-full bg-white/5 hover:bg-white/10 border border-white/5 rounded-2xl p-4 flex items-center gap-4 transition-all hover:translate-x-1 cursor-pointer"
+                                                className="w-full bg-white/5 hover:bg-white/10 border border-white/5 rounded-xl p-3 flex items-center gap-3 transition-all hover:translate-x-0.5 cursor-pointer"
                                             >
-                                                <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-white shrink-0">
-                                                    <Icon size={18} />
+                                                <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-white shrink-0">
+                                                    <Icon size={14} />
                                                 </div>
                                                 <div className="flex-1 text-left min-w-0">
-                                                    <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest leading-none mb-1">
+                                                    <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest leading-none mb-0.5">
                                                         {getCategoryPhaseLabel(key, project?.project_category).label}
                                                     </p>
                                                     {hiredPro ? (
-                                                        <div className="flex items-center gap-1.5">
-                                                            <CheckCircle2 size={10} className="text-emerald-400" />
-                                                            <p className="text-xs font-bold text-white truncate">{hiredPro.nama || hiredPro.user?.name || 'Assigned'}</p>
+                                                        <div className="flex items-center gap-1">
+                                                            <CheckCircle2 size={9} className="text-emerald-400" />
+                                                            <p className="text-[11px] font-bold text-white truncate">{hiredPro.nama || hiredPro.user?.name || 'Assigned'}</p>
                                                         </div>
                                                     ) : bidCount > 0 ? (
-                                                        <p className="text-xs font-bold text-amber-400">{bidCount} Proposals Sent</p>
+                                                        <p className="text-[11px] font-bold text-amber-400">{bidCount} Proposals Sent</p>
                                                     ) : (
-                                                        <p className="text-xs font-bold text-gray-400">Searching...</p>
+                                                        <p className="text-[11px] font-bold text-gray-400">Searching...</p>
                                                     )}
                                                 </div>
                                                 
                                                 {/* Action Buttons for Lifecycle */}
                                                 {hiredPro && (isOwner || isHiredPro) && (
-                                                    <div className="flex items-center gap-2 mr-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <div className="flex items-center gap-1.5 mr-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                                         <button
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
@@ -256,11 +303,11 @@ export default function ProjectBrief({ project, user, onRefresh, onSwitchToProce
                                                                 });
                                                             }}
                                                             title={isOwner ? 'Putus Kontrak' : 'Mengundurkan Diri'}
-                                                            className={`p-2 rounded-lg transition-colors ${
+                                                            className={`p-1.5 rounded-md transition-colors ${
                                                                 isOwner ? 'bg-red-500/10 text-red-400 hover:bg-red-500/20' : 'bg-amber-500/10 text-amber-400 hover:bg-amber-500/20'
                                                             }`}
                                                         >
-                                                            {isOwner ? <Shield size={14} /> : <LogOut size={14} />}
+                                                            {isOwner ? <Shield size={12} /> : <LogOut size={12} />}
                                                         </button>
 
                                                         {/* Rate button if project is completed */}
@@ -278,15 +325,15 @@ export default function ProjectBrief({ project, user, onRefresh, onSwitchToProce
                                                                     });
                                                                 }}
                                                                 title="Beri Penilaian"
-                                                                className="p-2 rounded-lg bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-colors"
+                                                                className="p-1.5 rounded-md bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-colors"
                                                             >
-                                                                <Star size={14} className="fill-amber-400/20" />
+                                                                <Star size={12} className="fill-amber-400/20" />
                                                             </button>
                                                         )}
                                                     </div>
                                                 )}
 
-                                                <ArrowUpRight size={14} className="text-gray-600 group-hover:text-white transition-colors shrink-0" />
+                                                <ArrowUpRight size={12} className="text-gray-600 group-hover:text-white transition-colors shrink-0" />
                                             </div>
                                         </div>
                                     );
@@ -294,17 +341,6 @@ export default function ProjectBrief({ project, user, onRefresh, onSwitchToProce
                             </div>
                         </div>
                     </section>
-
-                    {/* Location Map Summary */}
-                    {(project.latitude && project.longitude) && (
-                        <section className="bg-white rounded-[2rem] p-1 border border-gray-100 shadow-sm overflow-hidden">
-                            <ProjectLocationMap 
-                                latitude={project.latitude} 
-                                longitude={project.longitude} 
-                                title={project.title} 
-                            />
-                        </section>
-                    )}
                 </div>
             </div>
 

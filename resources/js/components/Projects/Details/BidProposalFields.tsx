@@ -13,29 +13,27 @@ interface Props {
     setFeeType?: (v: string) => void;
     price?: number;
     setPrice?: (v: number | undefined) => void;
-    priceMax?: number;
-    setPriceMax?: (v: number | undefined) => void;
 }
 
 export const BidProposalFields: React.FC<Props> = ({ 
     proposal, setProposal, attachments, onFileChange, onRemoveAttachment, isLoading,
     buttonText = "Submit Official Proposal",
-    feeType, setFeeType, price, setPrice, priceMax, setPriceMax
+    feeType, setFeeType, price, setPrice
 }) => (
     <>
         {/* Proposal Text & Files */}
         <div className="space-y-10">
-            {setFeeType && setPrice && setPriceMax && (
+            {setFeeType && setPrice && (
                 <div className="bg-zinc-50 rounded-[2.5rem] p-8 border border-zinc-100 space-y-6">
                     <div>
                         <h4 className="text-sm font-black text-gray-900 uppercase tracking-widest flex items-center gap-2">
                             <DollarSign size={16} className="text-emerald-500" />
                             Commercial Alignment <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-tight">(Optional)</span>
                         </h4>
-                        <p className="text-xs text-zinc-500 mt-1 font-medium">Provide a ballpark fee range to align budget expectations with the client upfront.</p>
+                        <p className="text-xs text-zinc-500 mt-1 font-medium">Provide your estimated fee to align budget expectations with the client upfront.</p>
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
                             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Estimated Fee Type</label>
                             <select 
@@ -44,7 +42,6 @@ export const BidProposalFields: React.FC<Props> = ({
                                     setFeeType(e.target.value);
                                     if (!e.target.value) {
                                         setPrice(undefined);
-                                        setPriceMax(undefined);
                                     }
                                 }}
                                 className="w-full px-5 py-4 bg-white border-2 border-zinc-150 focus:border-slate-900 rounded-2xl font-bold text-sm text-gray-700 outline-none transition-all cursor-pointer"
@@ -56,37 +53,22 @@ export const BidProposalFields: React.FC<Props> = ({
                         </div>
 
                         {feeType ? (
-                            <>
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                                        Min Estimate {feeType === 'percentage' ? '(%)' : '(IDR)'}
-                                    </label>
-                                    <input 
-                                        type="number" 
-                                        min="0"
-                                        value={price !== undefined ? price : ''} 
-                                        onChange={(e) => setPrice(e.target.value ? Number(e.target.value) : undefined)}
-                                        placeholder={feeType === 'percentage' ? 'e.g. 5' : 'e.g. 20000000'}
-                                        className="w-full px-5 py-4 bg-white border-2 border-zinc-150 focus:border-slate-900 rounded-2xl font-bold text-sm text-gray-700 outline-none transition-all"
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                                        Max Estimate {feeType === 'percentage' ? '(%)' : '(IDR)'}
-                                    </label>
-                                    <input 
-                                        type="number" 
-                                        min="0"
-                                        value={priceMax !== undefined ? priceMax : ''} 
-                                        onChange={(e) => setPriceMax(e.target.value ? Number(e.target.value) : undefined)}
-                                        placeholder={feeType === 'percentage' ? 'e.g. 8' : 'e.g. 30000000'}
-                                        className="w-full px-5 py-4 bg-white border-2 border-zinc-150 focus:border-slate-900 rounded-2xl font-bold text-sm text-gray-700 outline-none transition-all"
-                                    />
-                                </div>
-                            </>
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                                    Estimated Fee {feeType === 'percentage' ? '(%)' : '(IDR)'}
+                                </label>
+                                <input 
+                                    type="number" 
+                                    min="0"
+                                    value={price !== undefined ? price : ''} 
+                                    onChange={(e) => setPrice(e.target.value ? Number(e.target.value) : undefined)}
+                                    placeholder={feeType === 'percentage' ? 'e.g. 5' : 'e.g. 20000000'}
+                                    className="w-full px-5 py-4 bg-white border-2 border-zinc-150 focus:border-slate-900 rounded-2xl font-bold text-sm text-gray-700 outline-none transition-all"
+                                />
+                            </div>
                         ) : (
-                            <div className="md:col-span-2 hidden md:flex items-center text-xs font-semibold text-zinc-400 italic">
-                                Select a fee type to specify your ballpark price range.
+                            <div className="hidden md:flex items-center text-xs font-semibold text-zinc-400 italic">
+                                Select a fee type to specify your estimated fee.
                             </div>
                         )}
                     </div>

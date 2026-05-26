@@ -1,5 +1,6 @@
 import React from 'react';
-import { Calendar, Users, ShieldCheck, CheckCircle2, Lock, ArrowUpRight } from 'lucide-react';
+import { Calendar, Users, ShieldCheck, CheckCircle2, Lock, ArrowUpRight, ShieldAlert } from 'lucide-react';
+import { getProfile } from '../../Shared/ProfilePreviewHelpers';
 
 interface BiddingSidebarCardProps {
     project: any;
@@ -13,6 +14,9 @@ export const BiddingSidebarCard: React.FC<BiddingSidebarCardProps> = ({
 }) => {
     const isOwner = user?.id === project?.user_id;
     const canBid = !isOwner && ['arsitek', 'kontraktor', 'notaris', 'interior', 'structural', 'mep', 'project_manager'].includes(user?.role_type);
+
+    const profile = user ? getProfile(user) : null;
+    const isVerified = profile?.verification_status === 'verified' || profile?.verification_status === 'approved';
 
     const totalBidsCount = 
         (project?.bids_arsitek?.length || project?.bids_arsitek_count || 0) +
@@ -33,9 +37,9 @@ export const BiddingSidebarCard: React.FC<BiddingSidebarCardProps> = ({
     };
 
     return (
-        <div className="space-y-6 sticky top-6">
+        <div className="space-y-6 sticky top-8">
             {/* Stats Card */}
-            <div className="bg-white p-7 rounded-[2rem] border border-gray-100 shadow-sm space-y-6">
+            <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm space-y-6">
                 <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest px-1">Tendering Status</h3>
                 
                 <div className="space-y-4">
@@ -58,7 +62,7 @@ export const BiddingSidebarCard: React.FC<BiddingSidebarCardProps> = ({
             {/* Dynamic CTA Card */}
             {userBid ? (
                 /* Proposal Submitted View */
-                <div className="bg-gradient-to-br from-emerald-900 to-zinc-950 text-white p-7 rounded-[2rem] border border-emerald-500/20 shadow-xl space-y-6 relative overflow-hidden">
+                <div className="bg-gradient-to-br from-emerald-900 to-zinc-950 text-white p-6 rounded-[2rem] border border-emerald-500/20 shadow-xl space-y-6 relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 blur-[40px] rounded-full translate-x-8 -translate-y-8" />
                     
                     <div className="relative z-10 space-y-4">
@@ -89,25 +93,55 @@ export const BiddingSidebarCard: React.FC<BiddingSidebarCardProps> = ({
                 </div>
             ) : canBid ? (
                 /* Bidding Open CTA */
-                <div className="bg-zinc-950 text-white p-7 rounded-[2rem] border border-zinc-800 shadow-xl space-y-6 relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/10 blur-[40px] rounded-full translate-x-8 -translate-y-8 pointer-events-none" />
-                    
-                    <div className="relative z-10 space-y-4">
-                        <div className="space-y-1">
-                            <h4 className="text-sm font-black uppercase tracking-widest text-red-500">Bidding Open</h4>
-                            <p className="text-xs text-zinc-400 leading-relaxed font-semibold">
-                                Submit a professional proposal to offer your services for this project.
-                            </p>
-                        </div>
+                <div className="bg-zinc-950 text-white p-6 rounded-[2rem] border border-zinc-800 shadow-xl space-y-6 relative overflow-hidden">
+                    {isVerified ? (
+                        <>
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/10 blur-[40px] rounded-full translate-x-8 -translate-y-8 pointer-events-none" />
+                            
+                            <div className="relative z-10 space-y-4">
+                                <div className="space-y-1">
+                                    <h4 className="text-sm font-black uppercase tracking-widest text-red-500">Bidding Open</h4>
+                                    <p className="text-xs text-zinc-400 leading-relaxed font-semibold">
+                                        Submit a professional proposal to offer your services for this project.
+                                    </p>
+                                </div>
 
-                        <button 
-                            onClick={onOpenBidDrawer}
-                            className="w-full bg-red-600 hover:bg-red-500 text-white py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all duration-300 hover:scale-[1.02] shadow-lg shadow-red-600/20 flex items-center justify-center gap-2 group"
-                        >
-                            Submit Proposal
-                            <ArrowUpRight size={14} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-                        </button>
-                    </div>
+                                <button 
+                                    onClick={onOpenBidDrawer}
+                                    className="w-full bg-red-600 hover:bg-red-500 text-white py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all duration-300 hover:scale-[1.02] shadow-lg shadow-red-600/20 flex items-center justify-center gap-2 group"
+                                >
+                                    Submit Proposal
+                                    <ArrowUpRight size={14} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                                </button>
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 blur-[40px] rounded-full translate-x-8 -translate-y-8 pointer-events-none" />
+                            
+                            <div className="relative z-10 space-y-4">
+                                <div className="space-y-1">
+                                    <h4 className="text-sm font-black uppercase tracking-widest text-amber-500 flex items-center gap-1.5">
+                                        <ShieldAlert size={16} className="animate-pulse" />
+                                        Verification Required
+                                    </h4>
+                                    <p className="text-xs text-zinc-400 leading-relaxed font-semibold">
+                                        You must verify your professional profile before you can submit a proposal.
+                                    </p>
+                                </div>
+
+                                <button 
+                                    onClick={() => {
+                                        window.dispatchEvent(new CustomEvent('switchDashboardTab', { detail: 'profile' }));
+                                    }}
+                                    className="w-full bg-white hover:bg-zinc-100 text-zinc-950 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all duration-300 hover:scale-[1.02] shadow-lg flex items-center justify-center gap-2 group"
+                                >
+                                    I Want to Verify
+                                    <ArrowUpRight size={14} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                                </button>
+                            </div>
+                        </>
+                    )}
                 </div>
             ) : (
                 /* Closed / Non-Eligible View */

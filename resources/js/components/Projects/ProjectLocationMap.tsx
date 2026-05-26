@@ -7,9 +7,10 @@ interface ProjectLocationMapProps {
     latitude: string | number;
     longitude: string | number;
     title: string;
+    showGoToLocationButton?: boolean;
 }
 
-export default function ProjectLocationMap({ latitude, longitude, title }: ProjectLocationMapProps) {
+export default function ProjectLocationMap({ latitude, longitude, title, showGoToLocationButton = false }: ProjectLocationMapProps) {
     // Ensure we have numbers for the map coordinates
     const lat = typeof latitude === 'string' ? parseFloat(latitude) : latitude;
     const lng = typeof longitude === 'string' ? parseFloat(longitude) : longitude;
@@ -57,6 +58,19 @@ export default function ProjectLocationMap({ latitude, longitude, title }: Proje
             <div className="absolute top-4 left-4 z-10">
                 <span className="bg-gray-900/10 backdrop-blur-md text-[10px] font-bold text-gray-900 px-3 py-1 rounded-full uppercase tracking-widest border border-gray-900/5">Project Site</span>
             </div>
+            {showGoToLocationButton && (
+                <div className="absolute top-[82px] right-[10px] z-10">
+                    <a
+                        href={`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-[29px] h-[29px] bg-white hover:bg-gray-55 flex items-center justify-center rounded-md shadow-md border border-gray-200/80 transition-all hover:scale-105"
+                        title="Go to Google Maps Location"
+                    >
+                        <MapPin size={14} className="text-[#FF2D20] fill-[#FF2D20]/10" />
+                    </a>
+                </div>
+            )}
         </div>
     );
 }

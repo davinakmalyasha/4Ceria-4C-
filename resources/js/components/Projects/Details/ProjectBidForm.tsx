@@ -22,7 +22,6 @@ export const ProjectBidForm: React.FC<Props> = ({ project, user, onSuccess }) =>
     const [portfolios, setPortfolios] = useState<PortfolioProject[]>([]);
     const [feeType, setFeeType] = useState('');
     const [price, setPrice] = useState<number | undefined>(undefined);
-    const [priceMax, setPriceMax] = useState<number | undefined>(undefined);
 
     useEffect(() => {
         if (user?.id) {
@@ -61,9 +60,6 @@ export const ProjectBidForm: React.FC<Props> = ({ project, user, onSuccess }) =>
                 formData.append('fee_type', feeType);
                 if (price !== undefined) {
                     formData.append('price', price.toString());
-                }
-                if (priceMax !== undefined) {
-                    formData.append('price_max', priceMax.toString());
                 }
             }
             
@@ -125,7 +121,6 @@ export const ProjectBidForm: React.FC<Props> = ({ project, user, onSuccess }) =>
                     buttonText={user?.role_type === 'project_manager' ? "Submit Official Enterprise Bid" : "Submit Professional Proposal"}
                     feeType={feeType} setFeeType={setFeeType}
                     price={price} setPrice={setPrice}
-                    priceMax={priceMax} setPriceMax={setPriceMax}
                 />
             </form>
         </div>

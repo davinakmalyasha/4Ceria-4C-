@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
-import { BriefHeader } from './BiddingBrief/BriefHeader';
 import { BriefDetailPanel } from './BiddingBrief/BriefDetailPanel';
 import { BiddingSidebarCard } from './BiddingBrief/BiddingSidebarCard';
 import { ProjectBidForm } from './Details/ProjectBidForm';
@@ -51,12 +50,10 @@ export default function ProjectBiddingBrief({
 
     return (
         <div className="w-full space-y-8 pb-16">
-            <BriefHeader project={project} onBack={onBack} />
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
                 {/* Left Column: Rich Project brief requirements & Q&A */}
                 <div className="lg:col-span-2">
-                    <BriefDetailPanel project={project} onRefresh={onRefresh} />
+                    <BriefDetailPanel project={project} onRefresh={onRefresh} onBack={onBack} />
                 </div>
 
                 {/* Right Column: Sticky bidding card */}

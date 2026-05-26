@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
     Wallet, TrendingDown, TrendingUp, Plus, Minus, 
     CheckCircle, Clock, ShieldAlert, Zap, AlertTriangle, Scale, Target, Banknote,
-    Edit3, Trash2, Save, X, Users, Mail, Phone, ExternalLink, ShieldCheck
+    Edit3, Trash2, Save, X, Users, Mail, Phone, ExternalLink, ShieldCheck, Upload
 } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 import ChangeOrderPanel from './Phases/ChangeOrderPanel';
@@ -166,49 +166,49 @@ export default function ProjectBudgetManager({ project, user }: ProjectBudgetMan
     const simulatedPercentage = actualAvailablePool > 0 ? ((realPayments + activeSandboxCosts) / actualAvailablePool) * 100 : 0;
 
     return (
-        <div className="space-y-8 animate-fade-in">
+        <div className="space-y-6 animate-fade-in">
             {/* VAULT: MASTER BUDGET OVERVIEW */}
-            <div className="bg-slate-900 rounded-[3rem] p-8 md:p-12 relative overflow-hidden shadow-2xl">
-                <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-emerald-500/20 rounded-full blur-[120px] -translate-y-1/2 translate-x-1/3" />
-                <div className="relative z-10 flex flex-col md:flex-row justify-between items-start gap-8">
+            <div className="bg-slate-900 rounded-3xl p-6 md:p-8 relative overflow-hidden shadow-2xl">
+                <div className="absolute top-0 right-0 w-[350px] h-[350px] bg-emerald-500/20 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/3" />
+                <div className="relative z-10 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
                     
                     {/* Main Counter */}
-                    <div className="space-y-2">
-                        <div className="inline-flex items-center gap-2 px-4 py-2 bg-slate-800 border border-slate-700/50 rounded-xl mb-4">
-                            <Wallet size={16} className="text-emerald-400" />
+                    <div className="space-y-1">
+                        <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-800 border border-slate-700/50 rounded-xl mb-2">
+                            <Wallet size={14} className="text-emerald-400" />
                             <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest">Master Budget Vault</span>
                         </div>
-                        <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Initial Proposed Budget: <span className="text-slate-300">Rp {initialBudget.toLocaleString('id-ID')}</span></h2>
-                        <h1 className="text-5xl md:text-6xl font-black text-white tracking-tighter">
-                            <span className="text-2xl text-slate-500 mr-2 relative -top-4">Rp</span>
+                        <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Initial Proposed Budget: <span className="text-slate-300">Rp {initialBudget.toLocaleString('id-ID')}</span></h2>
+                        <h1 className="text-3xl md:text-4xl lg:text-5xl font-black text-white tracking-tighter">
+                            <span className="text-xl text-slate-500 mr-1.5 relative -top-3">Rp</span>
                             {actualRemaining.toLocaleString('id-ID')}
                         </h1>
-                        <p className="text-xs font-bold text-emerald-400 flex items-center gap-2 mt-4">
-                            <Scale size={14} /> Available Funds After All Actual Payments
+                        <p className="text-[11px] font-bold text-emerald-400 flex items-center gap-1.5 mt-2">
+                            <Scale size={12} /> Available Funds After All Actual Payments
                         </p>
                     </div>
 
                     {/* Simulation & Actions */}
-                    <div className="flex flex-col gap-4 w-full md:w-auto">
-                        <div className={`p-6 rounded-3xl border-2 ${simulatedRemaining < 0 ? 'bg-red-500/10 border-red-500/30 text-red-100' : 'bg-slate-800/80 border-slate-700/50 text-white'} backdrop-blur-xl transition-all`}>
-                            <p className="text-[10px] font-black uppercase tracking-widest mb-2 opacity-60">Simulated Safe Balance</p>
-                            <h3 className="text-3xl font-black">
+                    <div className="flex flex-col sm:flex-row lg:flex-col gap-3 w-full lg:w-auto items-stretch sm:items-center lg:items-stretch">
+                        <div className={`p-4 rounded-2xl border-2 ${simulatedRemaining < 0 ? 'bg-red-500/10 border-red-500/30 text-red-100' : 'bg-slate-800/80 border-slate-700/50 text-white'} backdrop-blur-xl transition-all flex-1`}>
+                            <p className="text-[9px] font-black uppercase tracking-widest mb-1 opacity-60">Simulated Safe Balance</p>
+                            <h3 className="text-xl md:text-2xl font-black">
                                 Rp {simulatedRemaining.toLocaleString('id-ID')}
                             </h3>
                             {simulatedRemaining < 0 && (
-                                <p className="text-[10px] font-bold text-red-400 uppercase tracking-widest mt-2 flex items-center gap-1">
-                                    <AlertTriangle size={12} /> Deficit Warning. Sandbox costs exceed budget.
+                                <p className="text-[9px] font-bold text-red-400 uppercase tracking-widest mt-1 flex items-center gap-1">
+                                    <AlertTriangle size={10} /> Deficit Warning. Sandbox costs exceed budget.
                                 </p>
                             )}
                         </div>
 
                         {isOwner && (
-                            <div className="flex gap-2">
-                                <button onClick={() => { setIsAdjusting(true); setAdjustType('deposit'); }} className="flex-1 py-4 bg-emerald-500 hover:bg-emerald-400 text-slate-900 rounded-2xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2">
-                                    <TrendingUp size={16} /> Add Funds
+                            <div className="flex gap-2 sm:w-auto w-full shrink-0">
+                                <button onClick={() => { setIsAdjusting(true); setAdjustType('deposit'); }} className="flex-1 px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-900 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-1.5">
+                                    <TrendingUp size={14} /> Add Funds
                                 </button>
-                                <button onClick={() => { setIsAdjusting(true); setAdjustType('adjustment_down'); }} className="flex-1 py-4 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-2xl text-xs font-black uppercase tracking-widest transition-all border border-slate-700 hover:border-slate-600 flex items-center justify-center gap-2">
-                                    <TrendingDown size={16} /> Limit
+                                <button onClick={() => { setIsAdjusting(true); setAdjustType('adjustment_down'); }} className="flex-1 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-slate-700 hover:border-slate-600 flex items-center justify-center gap-1.5">
+                                    <TrendingDown size={14} /> Limit
                                 </button>
                             </div>
                         )}
@@ -216,12 +216,12 @@ export default function ProjectBudgetManager({ project, user }: ProjectBudgetMan
                 </div>
 
                 {/* Live Progress Bar */}
-                <div className="mt-12 space-y-3 relative z-10">
-                    <div className="flex justify-between text-[10px] font-black uppercase tracking-widest">
+                <div className="mt-8 space-y-2 relative z-10">
+                    <div className="flex justify-between text-[9px] font-black uppercase tracking-widest">
                         <span className="text-white">Fund Utilization</span>
                         <span className="text-slate-400">Total Pool: Rp {actualAvailablePool.toLocaleString('id-ID')}</span>
                     </div>
-                    <div className="h-4 bg-slate-800 rounded-full overflow-hidden flex relative">
+                    <div className="h-3 bg-slate-800 rounded-full overflow-hidden flex relative">
                         {/* The Actual Spent Bar */}
                         <motion.div 
                             initial={{ width: 0 }}
@@ -359,9 +359,9 @@ export default function ProjectBudgetManager({ project, user }: ProjectBudgetMan
                     )}
 
             {dashboardData.addendums && (dashboardData.addendums || []).filter((a:any) => ['pending_approval', 'negotiating', 'accepted_by_pro'].includes(a.status)).length > 0 && (
-                <div className="p-8 bg-amber-50/50 border border-amber-200 rounded-[2.5rem] shadow-sm relative overflow-hidden">
-                    <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
-                        <ShieldAlert size={120} className="text-amber-500" />
+                <div className="p-6 bg-amber-50/50 border border-amber-200 rounded-3xl shadow-sm relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-6 opacity-10 pointer-events-none">
+                        <ShieldAlert size={80} className="text-amber-500" />
                     </div>
                     
                     <h4 className="text-sm font-black text-amber-900 uppercase tracking-widest mb-6 flex items-center gap-2 relative z-10">
@@ -617,7 +617,7 @@ export default function ProjectBudgetManager({ project, user }: ProjectBudgetMan
 
                 {/* RIGHT COL: SANDBOX & SIMULATION */}
                 <div className="space-y-6">
-                    <div className="p-8 bg-amber-50/50 border border-amber-100 rounded-[2.5rem]">
+                    <div className="p-6 bg-amber-50/50 border border-amber-100 rounded-3xl">
                         <h3 className="text-lg font-black text-slate-900 flex items-center gap-2 mb-2">
                             <Target size={20} className="text-amber-500" /> Sandbox Simulator
                         </h3>
@@ -715,7 +715,7 @@ export default function ProjectBudgetManager({ project, user }: ProjectBudgetMan
                     </div>
                     
                     {/* FULL TRANSACTION LEDGER */}
-                    <div className="p-8 bg-white border border-slate-100 rounded-[2.5rem] shadow-sm">
+                    <div className="p-6 bg-white border border-slate-100 rounded-3xl shadow-sm">
                         <h3 className="text-lg font-black text-slate-900 mb-6 flex items-center gap-2">
                             <Clock size={20} className="text-blue-500" /> Transaction Ledger
                         </h3>
@@ -746,7 +746,7 @@ export default function ProjectBudgetManager({ project, user }: ProjectBudgetMan
             </div>
 
             {/* CHANGE ORDERS — Scope Changes with Cost Impact */}
-            <div className="bg-white border border-slate-100 rounded-[2.5rem] p-8 shadow-sm">
+            <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm">
                 <ChangeOrderPanel project={project} user={user} />
             </div>
 
