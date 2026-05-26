@@ -6,6 +6,17 @@ import { WizardFormData } from '../../hooks/useProjectWizard';
 
 const ICON_MAP: Record<string, React.ElementType> = { Shield, Pencil, Hammer, Package, Sofa: Armchair, Key: KeyRound };
 
+const formatRupiah = (val: string | number) => {
+    if (val === undefined || val === null || val === '') return '';
+    const num = val.toString().replace(/\D/g, '');
+    if (!num) return '';
+    return num.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+};
+
+const parseRupiah = (val: string) => {
+    return val.replace(/\D/g, '');
+};
+
 interface WizardBudgetStepProps {
     budget: string;
     onBudgetChange: (val: string) => void;
@@ -21,9 +32,20 @@ export default function WizardBudgetStep({
     
     const minBudget = form.project_dimensions?.min_budget || '';
     const maxBudget = budget;
+    const isInvalid = minBudget && maxBudget && Number(minBudget) > Number(maxBudget);
 
     const handleMinBudgetChange = (val: string) => {
         updateDimensions('min_budget', val);
+    };
+
+    const handleMinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const raw = parseRupiah(e.target.value);
+        handleMinBudgetChange(raw);
+    };
+
+    const handleMaxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const raw = parseRupiah(e.target.value);
+        onBudgetChange(raw);
     };
 
     return (
@@ -31,45 +53,56 @@ export default function WizardBudgetStep({
             <div className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1.5 flex items-center gap-1.5">
-                            <Coins size={13} className="text-gray-400" /> Anggaran Minimum (Rp)
-                        </label>
-                        <input
-                            type="number" 
-                            value={minBudget} 
-                            onChange={e => handleMinBudgetChange(e.target.value)} 
-                            required
-                            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-[#FF2D20] focus:ring-4 focus:ring-red-100 outline-none transition-all text-lg font-black text-gray-900"
-                            placeholder="Rp 0"
-                        />
-                        <p className="text-[10px] font-semibold text-gray-500 mt-1">
-                            {minBudget ? Number(minBudget).toLocaleString('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }) : 'Rp 0'}
-                        </p>
+                        <div className="flex justify-between items-center mb-1.5 flex-wrap gap-1">
+                            <label className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
+                                <Coins size={13} className="text-gray-400" /> Anggaran Minimum (Rp)
+                            </label>
+                        </div>
+                        <div className="relative flex items-center">
+                            <span className="absolute left-4 text-gray-400 font-extrabold text-base select-none">Rp</span>
+                            <input
+                                type="text" 
+                                value={formatRupiah(minBudget)} 
+                                onChange={handleMinChange} 
+                                required
+                                className={`no-spinner w-full pl-11 pr-4 py-3 bg-gray-50 border rounded-xl outline-none transition-all text-lg font-black text-gray-900 ${
+                                    isInvalid 
+                                        ? 'border-red-400/80 focus:border-red-500 focus:ring-4 focus:ring-red-100' 
+                                        : 'border-gray-200 focus:border-[#FF2D20] focus:ring-4 focus:ring-red-100'
+                                }`}
+                                placeholder="0"
+                            />
+                        </div>
                     </div>
 
                     <div>
-                        <label className="block text-xs font-bold text-gray-750 mb-1.5 flex items-center gap-1.5">
-                            <Coins size={13} className="text-[#FF2D20]" /> Anggaran Maksimum (Rp)
-                        </label>
-                        <input
-                            type="number" 
-                            value={maxBudget} 
-                            onChange={e => onBudgetChange(e.target.value)} 
-                            required
-                            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-[#FF2D20] focus:ring-4 focus:ring-red-100 outline-none transition-all text-lg font-black text-gray-900"
-                            placeholder="Rp 0"
-                        />
-                        <p className="text-[10px] font-semibold text-[#FF2D20] mt-1">
-                            {maxBudget ? Number(maxBudget).toLocaleString('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }) : 'Rp 0'}
-                        </p>
+                        <div className="flex justify-between items-center mb-1.5 flex-wrap gap-1">
+                            <label className="text-xs font-bold text-gray-750 flex items-center gap-1.5">
+                                <Coins size={13} className="text-[#FF2D20]" /> Anggaran Maksimum (Rp)
+                            </label>
+                            {isInvalid && (
+                                <span className="text-[10px] font-black text-red-650 flex items-center gap-1 bg-red-50/90 px-2 py-0.5 rounded-lg border border-red-200/60 animate-pulse">
+                                    <AlertTriangle size={11} className="shrink-0" /> Maks kurang dari min!
+                                </span>
+                            )}
+                        </div>
+                        <div className="relative flex items-center">
+                            <span className="absolute left-4 text-gray-400 font-extrabold text-base select-none">Rp</span>
+                            <input
+                                type="text" 
+                                value={formatRupiah(maxBudget)} 
+                                onChange={handleMaxChange} 
+                                required
+                                className={`no-spinner w-full pl-11 pr-4 py-3 bg-gray-50 border rounded-xl outline-none transition-all text-lg font-black text-gray-900 ${
+                                    isInvalid 
+                                        ? 'border-red-400/80 focus:border-red-500 focus:ring-4 focus:ring-red-100' 
+                                        : 'border-gray-200 focus:border-[#FF2D20] focus:ring-4 focus:ring-red-100'
+                                }`}
+                                placeholder="0"
+                            />
+                        </div>
                     </div>
                 </div>
-
-                {minBudget && maxBudget && Number(minBudget) > Number(maxBudget) && (
-                    <div className="p-3 bg-amber-500/10 border border-amber-500/20 text-amber-800 text-xs font-bold rounded-xl flex items-center gap-2">
-                        <AlertTriangle size={14} className="shrink-0" /> Anggaran minimum tidak boleh melebihi anggaran maksimum.
-                    </div>
-                )}
 
                 <AnimatePresence mode="wait">
                     {showTip && (() => {

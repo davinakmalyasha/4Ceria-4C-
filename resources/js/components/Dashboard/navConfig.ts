@@ -55,8 +55,6 @@ const PRO_NAV = (role: string): NavItem[] => {
         { id: 'projects', label: 'Bidding Board', icon: Search },
         { id: 'management', label: 'My Projects', icon: CheckSquare },
         { id: 'my-bids', label: 'My Proposals', icon: FileText },
-        { id: 'chat', label: 'Inbox', icon: MessageSquare },
-        { id: 'profile', label: 'Profile', icon: User },
     ];
 
     if (role === 'kontraktor') {
@@ -67,6 +65,7 @@ const PRO_NAV = (role: string): NavItem[] => {
                 { id: 'find-sub-contractors', label: 'Hire Sub-Contractors', icon: Users }
             );
         }
+        nav.push({ id: 'my-firm', label: 'My Firm', icon: Building2 });
     }
 
     if (role === 'arsitek') {
@@ -74,13 +73,11 @@ const PRO_NAV = (role: string): NavItem[] => {
         if (idx !== -1) {
             nav.splice(idx + 1, 0, { id: 'find-engineers', label: 'Hire Specialists', icon: Users });
         }
+        nav.push({ id: 'my-firm', label: 'My Firm', icon: Building2 });
     }
 
     if (['structural', 'mep', 'interior', 'civil', 'mechanical', 'electrical', 'plumbing', 'roofing', 'finishing'].includes(role)) {
-        const chatIdx = nav.findIndex(item => item.id === 'chat');
-        if (chatIdx !== -1) {
-            nav.splice(chatIdx, 0, { id: 'my-firms', label: 'My Firms', icon: Building2 });
-        }
+        nav.push({ id: 'my-firms', label: 'My Firms', icon: Building2 });
     }
 
     return nav;
@@ -91,16 +88,12 @@ const SUPPLIER_NAV: NavItem[] = [
     { id: 'store', label: 'My Store', icon: Building },
     { id: 'inventory', label: 'Inventory', icon: Package },
     { id: 'orders', label: 'Orders', icon: Truck },
-    { id: 'chat', label: 'Inbox', icon: MessageSquare },
-    { id: 'profile', label: 'Profile', icon: User },
 ];
 
 const LOGISTICS_NAV: NavItem[] = [
     { id: 'overview', label: 'Dashboard', icon: Home },
     { id: 'job-radar', label: 'Job Radar', icon: Search },
     { id: 'my-deliveries', label: 'Deliveries', icon: Truck },
-    { id: 'chat', label: 'Inbox', icon: MessageSquare },
-    { id: 'profile', label: 'Profile', icon: User },
 ];
 
 const GUEST_NAV: NavItem[] = [

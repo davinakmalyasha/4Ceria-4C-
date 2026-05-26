@@ -3,7 +3,7 @@ import axios from 'axios';
 
 axios.defaults.baseURL = '/api';
 
-interface User {
+export interface User {
     id: number;
     name: string;
     email: string;

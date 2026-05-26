@@ -8,70 +8,116 @@ interface WizardScaleStepProps {
     updateDimensions: (key: keyof ProjectDimensions, value: any) => void;
 }
 
+const sanitizeDecimalInput = (val: string) => {
+    let clean = val.replace(',', '.');
+    clean = clean.replace(/[^0-9.]/g, '');
+    const parts = clean.split('.');
+    if (parts.length > 2) {
+        clean = parts[0] + '.' + parts.slice(1).join('');
+    }
+    return clean;
+};
+
+const sanitizeIntegerInput = (val: string) => {
+    return val.replace(/[^0-9]/g, '');
+};
+
 export default function WizardScaleStep({ form, updateDimensions }: WizardScaleStepProps) {
     const dim = form.project_dimensions;
 
     // Land calculation
-    const handleLandLengthChange = (val: number) => {
+    const handleLandLengthChange = (val: string) => {
         updateDimensions('land_length', val);
-        const w = dim.land_width || 0;
-        if (val && w) {
-            updateDimensions('land_size', val * w);
+        const lNum = parseFloat(val) || 0;
+        const wNum = parseFloat(dim.land_width?.toString() || '0') || 0;
+        if (lNum > 0 && wNum > 0) {
+            const size = Math.round(lNum * wNum * 100) / 100;
+            updateDimensions('land_size', size);
+        } else {
+            updateDimensions('land_size', 0);
         }
     };
-    const handleLandWidthChange = (val: number) => {
+    const handleLandWidthChange = (val: string) => {
         updateDimensions('land_width', val);
-        const l = dim.land_length || 0;
-        if (val && l) {
-            updateDimensions('land_size', l * val);
+        const wNum = parseFloat(val) || 0;
+        const lNum = parseFloat(dim.land_length?.toString() || '0') || 0;
+        if (lNum > 0 && wNum > 0) {
+            const size = Math.round(lNum * wNum * 100) / 100;
+            updateDimensions('land_size', size);
+        } else {
+            updateDimensions('land_size', 0);
         }
     };
 
     // Building calculation
-    const handleBuildingLengthChange = (val: number) => {
+    const handleBuildingLengthChange = (val: string) => {
         updateDimensions('building_length', val);
-        const w = dim.building_width || 0;
-        if (val && w) {
-            updateDimensions('building_size', val * w);
+        const lNum = parseFloat(val) || 0;
+        const wNum = parseFloat(dim.building_width?.toString() || '0') || 0;
+        if (lNum > 0 && wNum > 0) {
+            const size = Math.round(lNum * wNum * 100) / 100;
+            updateDimensions('building_size', size);
+        } else {
+            updateDimensions('building_size', 0);
         }
     };
-    const handleBuildingWidthChange = (val: number) => {
+    const handleBuildingWidthChange = (val: string) => {
         updateDimensions('building_width', val);
-        const l = dim.building_length || 0;
-        if (val && l) {
-            updateDimensions('building_size', l * val);
+        const wNum = parseFloat(val) || 0;
+        const lNum = parseFloat(dim.building_length?.toString() || '0') || 0;
+        if (lNum > 0 && wNum > 0) {
+            const size = Math.round(lNum * wNum * 100) / 100;
+            updateDimensions('building_size', size);
+        } else {
+            updateDimensions('building_size', 0);
         }
     };
 
     // Renovation calculation
-    const handleRenovationLengthChange = (val: number) => {
+    const handleRenovationLengthChange = (val: string) => {
         updateDimensions('renovation_length', val);
-        const w = dim.renovation_width || 0;
-        if (val && w) {
-            updateDimensions('renovation_area', val * w);
+        const lNum = parseFloat(val) || 0;
+        const wNum = parseFloat(dim.renovation_width?.toString() || '0') || 0;
+        if (lNum > 0 && wNum > 0) {
+            const size = Math.round(lNum * wNum * 100) / 100;
+            updateDimensions('renovation_area', size);
+        } else {
+            updateDimensions('renovation_area', 0);
         }
     };
-    const handleRenovationWidthChange = (val: number) => {
+    const handleRenovationWidthChange = (val: string) => {
         updateDimensions('renovation_width', val);
-        const l = dim.renovation_length || 0;
-        if (val && l) {
-            updateDimensions('renovation_area', l * val);
+        const wNum = parseFloat(val) || 0;
+        const lNum = parseFloat(dim.renovation_length?.toString() || '0') || 0;
+        if (lNum > 0 && wNum > 0) {
+            const size = Math.round(lNum * wNum * 100) / 100;
+            updateDimensions('renovation_area', size);
+        } else {
+            updateDimensions('renovation_area', 0);
         }
     };
 
     // Interior calculation
-    const handleInteriorLengthChange = (val: number) => {
+    const handleInteriorLengthChange = (val: string) => {
         updateDimensions('area_length', val);
-        const w = dim.area_width || 0;
-        if (val && w) {
-            updateDimensions('area_size', val * w);
+        const lNum = parseFloat(val) || 0;
+        const wNum = parseFloat(dim.area_width?.toString() || '0') || 0;
+        if (lNum > 0 && wNum > 0) {
+            const size = Math.round(lNum * wNum * 100) / 100;
+            updateDimensions('area_size', size);
+        } else {
+            updateDimensions('area_size', 0);
         }
     };
-    const handleInteriorWidthChange = (val: number) => {
+    const handleInteriorWidthChange = (val: string) => {
         updateDimensions('area_width', val);
-        const l = dim.area_length || 0;
-        if (val && l) {
-            updateDimensions('area_size', l * val);
+        const wNum = parseFloat(val) || 0;
+        const lNum = parseFloat(dim.area_length?.toString() || '0') || 0;
+        if (lNum > 0 && wNum > 0) {
+            const size = Math.round(lNum * wNum * 100) / 100;
+            updateDimensions('area_size', size);
+        } else {
+            updateDimensions('area_size', 0);
         }
     };
 
@@ -89,15 +135,37 @@ export default function WizardScaleStep({ form, updateDimensions }: WizardScaleS
                         <div className="grid grid-cols-3 gap-3">
                             <div>
                                 <label className="block text-[9px] font-bold text-gray-500 uppercase mb-1">Panjang (m)</label>
-                                <input type="number" value={dim.land_length || ''} onChange={e => handleLandLengthChange(parseInt(e.target.value))} required min="1" className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:border-blue-500 outline-none transition-all font-bold text-xs" placeholder="15" />
+                                <input 
+                                    type="text" 
+                                    inputMode="decimal"
+                                    value={dim.land_length || ''} 
+                                    onChange={e => handleLandLengthChange(sanitizeDecimalInput(e.target.value))} 
+                                    required 
+                                    className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:border-blue-500 outline-none transition-all font-bold text-xs" 
+                                    placeholder="15" 
+                                />
                             </div>
                             <div>
                                 <label className="block text-[9px] font-bold text-gray-500 uppercase mb-1">Lebar (m)</label>
-                                <input type="number" value={dim.land_width || ''} onChange={e => handleLandWidthChange(parseInt(e.target.value))} required min="1" className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:border-blue-500 outline-none transition-all font-bold text-xs" placeholder="8" />
+                                <input 
+                                    type="text" 
+                                    inputMode="decimal"
+                                    value={dim.land_width || ''} 
+                                    onChange={e => handleLandWidthChange(sanitizeDecimalInput(e.target.value))} 
+                                    required 
+                                    className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:border-blue-500 outline-none transition-all font-bold text-xs" 
+                                    placeholder="8" 
+                                />
                             </div>
                             <div>
                                 <label className="block text-[9px] font-bold text-gray-500 uppercase mb-1">Luas (m²)</label>
-                                <input type="number" value={dim.land_size || ''} onChange={e => updateDimensions('land_size', parseInt(e.target.value))} required min="1" className="w-full px-3 py-2 bg-zinc-100 border border-zinc-200 rounded-xl outline-none font-bold text-xs text-zinc-600" placeholder="120" />
+                                <input 
+                                    type="text" 
+                                    value={dim.land_size || ''} 
+                                    readOnly 
+                                    className="w-full px-3 py-2 bg-zinc-100 border border-zinc-200 rounded-xl outline-none font-bold text-xs text-zinc-655 cursor-not-allowed select-none" 
+                                    placeholder="120" 
+                                />
                             </div>
                         </div>
                     </div>
@@ -111,15 +179,37 @@ export default function WizardScaleStep({ form, updateDimensions }: WizardScaleS
                         <div className="grid grid-cols-3 gap-3">
                             <div>
                                 <label className="block text-[9px] font-bold text-gray-500 uppercase mb-1">Panjang (m)</label>
-                                <input type="number" value={dim.building_length || ''} onChange={e => handleBuildingLengthChange(parseInt(e.target.value))} required min="1" className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:border-indigo-500 outline-none transition-all font-bold text-xs" placeholder="10" />
+                                <input 
+                                    type="text" 
+                                    inputMode="decimal"
+                                    value={dim.building_length || ''} 
+                                    onChange={e => handleBuildingLengthChange(sanitizeDecimalInput(e.target.value))} 
+                                    required 
+                                    className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:border-indigo-500 outline-none transition-all font-bold text-xs" 
+                                    placeholder="10" 
+                                />
                             </div>
                             <div>
                                 <label className="block text-[9px] font-bold text-gray-500 uppercase mb-1">Lebar (m)</label>
-                                <input type="number" value={dim.building_width || ''} onChange={e => handleBuildingWidthChange(parseInt(e.target.value))} required min="1" className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:border-indigo-500 outline-none transition-all font-bold text-xs" placeholder="8" />
+                                <input 
+                                    type="text" 
+                                    inputMode="decimal"
+                                    value={dim.building_width || ''} 
+                                    onChange={e => handleBuildingWidthChange(sanitizeDecimalInput(e.target.value))} 
+                                    required 
+                                    className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:border-indigo-500 outline-none transition-all font-bold text-xs" 
+                                    placeholder="8" 
+                                />
                             </div>
                             <div>
                                 <label className="block text-[9px] font-bold text-gray-500 uppercase mb-1">Luas (m²)</label>
-                                <input type="number" value={dim.building_size || ''} onChange={e => updateDimensions('building_size', parseInt(e.target.value))} required min="1" className="w-full px-3 py-2 bg-zinc-100 border border-zinc-200 rounded-xl outline-none font-bold text-xs text-zinc-600" placeholder="80" />
+                                <input 
+                                    type="text" 
+                                    value={dim.building_size || ''} 
+                                    readOnly 
+                                    className="w-full px-3 py-2 bg-zinc-100 border border-zinc-200 rounded-xl outline-none font-bold text-xs text-zinc-655 cursor-not-allowed select-none" 
+                                    placeholder="80" 
+                                />
                             </div>
                         </div>
                     </div>
@@ -144,15 +234,37 @@ export default function WizardScaleStep({ form, updateDimensions }: WizardScaleS
                         <div className="grid grid-cols-3 gap-3">
                             <div>
                                 <label className="block text-[9px] font-bold text-gray-500 uppercase mb-1">Panjang (m)</label>
-                                <input type="number" value={dim.renovation_length || ''} onChange={e => handleRenovationLengthChange(parseInt(e.target.value))} required min="1" className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:border-amber-500 outline-none transition-all font-bold text-xs" placeholder="6" />
+                                <input 
+                                    type="text" 
+                                    inputMode="decimal"
+                                    value={dim.renovation_length || ''} 
+                                    onChange={e => handleRenovationLengthChange(sanitizeDecimalInput(e.target.value))} 
+                                    required 
+                                    className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:border-amber-500 outline-none transition-all font-bold text-xs" 
+                                    placeholder="6" 
+                                />
                             </div>
                             <div>
                                 <label className="block text-[9px] font-bold text-gray-500 uppercase mb-1">Lebar (m)</label>
-                                <input type="number" value={dim.renovation_width || ''} onChange={e => handleRenovationWidthChange(parseInt(e.target.value))} required min="1" className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:border-amber-500 outline-none transition-all font-bold text-xs" placeholder="5" />
+                                <input 
+                                    type="text" 
+                                    inputMode="decimal"
+                                    value={dim.renovation_width || ''} 
+                                    onChange={e => handleRenovationWidthChange(sanitizeDecimalInput(e.target.value))} 
+                                    required 
+                                    className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:border-amber-500 outline-none transition-all font-bold text-xs" 
+                                    placeholder="5" 
+                                />
                             </div>
                             <div>
                                 <label className="block text-[9px] font-bold text-gray-500 uppercase mb-1">Luas (m²)</label>
-                                <input type="number" value={dim.renovation_area || ''} onChange={e => updateDimensions('renovation_area', parseInt(e.target.value))} required min="1" className="w-full px-3 py-2 bg-zinc-100 border border-zinc-200 rounded-xl outline-none font-bold text-xs text-zinc-600" placeholder="30" />
+                                <input 
+                                    type="text" 
+                                    value={dim.renovation_area || ''} 
+                                    readOnly 
+                                    className="w-full px-3 py-2 bg-zinc-100 border border-zinc-200 rounded-xl outline-none font-bold text-xs text-zinc-655 cursor-not-allowed select-none" 
+                                    placeholder="30" 
+                                />
                             </div>
                         </div>
                     </div>
@@ -192,22 +304,52 @@ export default function WizardScaleStep({ form, updateDimensions }: WizardScaleS
                         <div className="grid grid-cols-3 gap-3">
                             <div>
                                 <label className="block text-[9px] font-bold text-gray-500 uppercase mb-1">Panjang (m)</label>
-                                <input type="number" value={dim.area_length || ''} onChange={e => handleInteriorLengthChange(parseInt(e.target.value))} required min="1" className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:border-purple-500 outline-none transition-all font-bold text-xs" placeholder="8" />
+                                <input 
+                                    type="text" 
+                                    inputMode="decimal"
+                                    value={dim.area_length || ''} 
+                                    onChange={e => handleInteriorLengthChange(sanitizeDecimalInput(e.target.value))} 
+                                    required 
+                                    className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:border-purple-500 outline-none transition-all font-bold text-xs" 
+                                    placeholder="8" 
+                                />
                             </div>
                             <div>
                                 <label className="block text-[9px] font-bold text-gray-500 uppercase mb-1">Lebar (m)</label>
-                                <input type="number" value={dim.area_width || ''} onChange={e => handleInteriorWidthChange(parseInt(e.target.value))} required min="1" className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:border-purple-500 outline-none transition-all font-bold text-xs" placeholder="5" />
+                                <input 
+                                    type="text" 
+                                    inputMode="decimal"
+                                    value={dim.area_width || ''} 
+                                    onChange={e => handleInteriorWidthChange(sanitizeDecimalInput(e.target.value))} 
+                                    required 
+                                    className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:border-purple-500 outline-none transition-all font-bold text-xs" 
+                                    placeholder="5" 
+                                />
                             </div>
                             <div>
                                 <label className="block text-[9px] font-bold text-gray-500 uppercase mb-1">Luas (m²)</label>
-                                <input type="number" value={dim.area_size || ''} onChange={e => updateDimensions('area_size', parseInt(e.target.value))} required min="1" className="w-full px-3 py-2 bg-zinc-100 border border-zinc-200 rounded-xl outline-none font-bold text-xs text-zinc-600" placeholder="40" />
+                                <input 
+                                    type="text" 
+                                    value={dim.area_size || ''} 
+                                    readOnly 
+                                    className="w-full px-3 py-2 bg-zinc-100 border border-zinc-200 rounded-xl outline-none font-bold text-xs text-zinc-655 cursor-not-allowed select-none" 
+                                    placeholder="40" 
+                                />
                             </div>
                         </div>
                     </div>
 
                     <div>
                         <label className="block text-[11px] font-bold text-gray-700 mb-1 flex items-center gap-1.5"><Layers size={13} className="text-purple-500" /> Jumlah Ruangan</label>
-                        <input type="number" value={dim.room_count || ''} onChange={e => updateDimensions('room_count', parseInt(e.target.value))} required min="1" className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:border-purple-500 outline-none transition-all font-bold text-xs" placeholder="Cth: 2" />
+                        <input 
+                                type="text" 
+                                inputMode="numeric"
+                                value={dim.room_count || ''} 
+                                onChange={e => updateDimensions('room_count', sanitizeIntegerInput(e.target.value))} 
+                                required 
+                                className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:border-purple-500 outline-none transition-all font-bold text-xs" 
+                                placeholder="Cth: 2" 
+                            />
                     </div>
                 </div>
             )}

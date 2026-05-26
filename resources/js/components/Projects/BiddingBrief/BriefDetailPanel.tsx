@@ -2,14 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ProjectQA from '../ProjectQA';
 import { Layers, ArrowLeft, DollarSign, MapPin, Calendar, X, ZoomIn } from 'lucide-react';
+import { User } from '../../../context/AuthContext';
+import { Project } from '../../../types/project.types';
 
 interface BriefDetailPanelProps {
-    project: any;
+    project: Project;
+    user?: User | null;
     onRefresh: () => void;
     onBack: () => void;
 }
 
-export const BriefDetailPanel: React.FC<BriefDetailPanelProps> = ({ project, onRefresh, onBack }) => {
+export const BriefDetailPanel: React.FC<BriefDetailPanelProps> = ({ project, user, onRefresh, onBack }) => {
     const [selectedImgUrl, setSelectedImgUrl] = useState<string | null>(null);
     const images = project?.images || [];
     const neededPhases = project?.needed_phases || [];
@@ -140,7 +143,7 @@ export const BriefDetailPanel: React.FC<BriefDetailPanelProps> = ({ project, onR
 
             {/* Public Discussion Board */}
             <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
-                <ProjectQA project={project} onRefresh={onRefresh} />
+                <ProjectQA project={project} onRefresh={onRefresh} user={user} />
             </div>
 
             {/* Image Zoom Modal */}

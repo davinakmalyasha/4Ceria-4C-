@@ -367,7 +367,7 @@ export default function ProjectDetailPage({ project, user, onBack, onRefresh, on
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -10 }}
                         >
-                            <ProjectQA project={project} onRefresh={onRefresh} />
+                            <ProjectQA project={project} user={user} onRefresh={onRefresh} />
                         </motion.div>
                     )}
 

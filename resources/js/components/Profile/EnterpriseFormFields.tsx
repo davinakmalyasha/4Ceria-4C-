@@ -11,12 +11,14 @@ interface Props {
     hasNewPhoto: boolean;
     hasNewPortfolio: boolean;
     hasNewCert: boolean;
+    excludeFiles?: boolean;
 }
 
 export const EnterpriseFormFields: React.FC<Props> = ({
     formData, onChange, onFile,
     currentPhoto, currentPortfolio, currentCert,
     hasNewPhoto, hasNewPortfolio, hasNewCert,
+    excludeFiles = false,
 }) => (
     <>
         {/* Professional Identity */}
@@ -59,14 +61,16 @@ export const EnterpriseFormFields: React.FC<Props> = ({
         </div>
 
         {/* Files & Documents */}
-        <div className="bg-gray-50 p-5 rounded-2xl border border-gray-100 space-y-4">
-            <h3 className="font-bold text-gray-800 border-b pb-2 text-sm">Documents & Gallery</h3>
-            <div className="grid grid-cols-3 gap-4">
-                <FileField label="Profile Photo" accept="image/*" onChange={(e) => onFile(e, 'foto')} hasExisting={!!currentPhoto} hasNew={hasNewPhoto} />
-                <FileField label="Portfolio PDF" accept=".pdf,.zip,.jpg,.png" onChange={(e) => onFile(e, 'file_portofolio')} hasExisting={!!currentPortfolio} hasNew={hasNewPortfolio} />
-                <FileField label="Certificate" accept=".pdf,.jpg,.png" onChange={(e) => onFile(e, 'file_sertifikat')} hasExisting={!!currentCert} hasNew={hasNewCert} />
+        {!excludeFiles && (
+            <div className="bg-gray-50 p-5 rounded-2xl border border-gray-100 space-y-4">
+                <h3 className="font-bold text-gray-800 border-b pb-2 text-sm">Documents & Gallery</h3>
+                <div className="grid grid-cols-3 gap-4">
+                    <FileField label="Profile Photo" accept="image/*" onChange={(e) => onFile(e, 'foto')} hasExisting={!!currentPhoto} hasNew={hasNewPhoto} />
+                    <FileField label="Portfolio PDF" accept=".pdf,.zip,.jpg,.png" onChange={(e) => onFile(e, 'file_portofolio')} hasExisting={!!currentPortfolio} hasNew={hasNewPortfolio} />
+                    <FileField label="Certificate" accept=".pdf,.jpg,.png" onChange={(e) => onFile(e, 'file_sertifikat')} hasExisting={!!currentCert} hasNew={hasNewCert} />
+                </div>
             </div>
-        </div>
+        )}
     </>
 );
 

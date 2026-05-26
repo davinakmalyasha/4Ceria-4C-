@@ -218,6 +218,7 @@ export default function Login() {
                             </h3>
                             <div className="grid grid-cols-3 gap-2">
                                 {[
+                                    { name: 'Admin', email: 'admin@4c.id' },
                                     { name: 'Owner', email: 'davin@gmail.com' },
                                     { name: 'Arsitek', email: 'giska@gmail.com' },
                                     { name: 'Constructor', email: 'anindia@gmail.com' },

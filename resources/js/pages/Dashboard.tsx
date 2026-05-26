@@ -41,7 +41,6 @@ function DashboardContent() {
     const [selectedStoreId, setSelectedStoreId] = useState<number | null>(null);
     const [selectedMaterial, setSelectedMaterial] = useState<any>(null);
     const [selectedHouseId, setSelectedHouseId] = useState<number | null>(null);
-    const [isEditingProfile, setIsEditingProfile] = useState(false);
     const [chatUserId, setChatUserId] = useState<number | null>(null);
 
     // Wishlist logic for modal
@@ -109,7 +108,7 @@ function DashboardContent() {
             window.removeEventListener('switchDashboardTab', handleSwitchTab);
             window.removeEventListener('viewProfessionalProfile', handleViewProfile);
         };
-    }, []);
+    }, [user]);
 
 
     // Read URL search params on mount to support links like /dashboard?tab=houses
@@ -167,7 +166,7 @@ function DashboardContent() {
                 <div className={`flex-1 overflow-y-auto px-4 sm:px-8 relative z-0 ${activeTab === 'houses' ? 'py-3 sm:py-4' : 'py-4 sm:py-8'}`}>
                     <div className="max-w-7xl mx-auto">
                         <DashboardTabs 
-                            activeTab={activeTab} setActiveTab={setActiveTab}
+                            activeTab={activeTab} setActiveTab={handleSetActiveTab}
                             activeSubTab={activeSubTab} setActiveSubTab={setActiveSubTab}
                             user={user} houses={data.houses} projects={data.projects}
                             projectFeed={data.projectFeed} latestBids={data.latestBids}
@@ -188,8 +187,6 @@ function DashboardContent() {
                             setProjectToEdit={setProjectToEdit}
                             setProjectToDelete={setProjectToDelete}
                             handleViewActiveBids={() => {}}
-                            setIsEditingProfile={setIsEditingProfile}
-                            isEditingProfile={isEditingProfile}
                             onRefresh={data.fetchData}
                             chatUserId={chatUserId}
                             onClearChatUser={() => setChatUserId(null)}

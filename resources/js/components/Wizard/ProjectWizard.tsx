@@ -87,7 +87,7 @@ export default function ProjectWizard({ onCancel, onSuccess }: ProjectWizardProp
 
     return (
         <div className="max-w-3xl sm:max-w-4xl mx-auto bg-white rounded-[2rem] shadow-xl border border-gray-100/60 overflow-hidden transition-all duration-300">
-            <WizardHeader mode={w.mode} onToggle={() => { w.setMode(w.mode === 'easy' ? 'advanced' : 'easy'); w.setStep(0); }} step={w.step} totalSteps={w.totalSteps} activeLabel={activeLabel} />
+            <WizardHeader w={w} mode={w.mode} onToggle={() => { w.setMode(w.mode === 'easy' ? 'advanced' : 'easy'); w.setStep(0); }} step={w.step} totalSteps={w.totalSteps} activeLabel={activeLabel} />
             <form onSubmit={handleSubmit} className="p-5 sm:p-6">
                 {error && <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-xl text-sm font-semibold border border-red-200">{error}</div>}
                 <div className="min-h-[280px]">
@@ -124,7 +124,48 @@ export default function ProjectWizard({ onCancel, onSuccess }: ProjectWizardProp
     );
 }
 
-function WizardHeader({ mode, onToggle, step, totalSteps, activeLabel }: { mode: string; onToggle: () => void; step: number; totalSteps: number; activeLabel: string }) {
+function WizardHeader({ 
+    w, mode, onToggle, step, totalSteps, activeLabel 
+}: { 
+    w: any; mode: string; onToggle: () => void; step: number; totalSteps: number; activeLabel: string 
+}) {
+    const isStepValid = (stepIndex: number): boolean => {
+        const form = w.form;
+        const answers = w.answers;
+        const activeQuestions = w.activeQuestions || [];
+        const manualPhases = w.manualPhases || [];
+        
+        if (mode === 'easy') {
+            if (stepIndex === 0) return !!form.project_category; // Category Step
+            if (stepIndex === 1) { // Scale Step
+                if (form.project_category === 'new_build') return !!form.project_dimensions.land_size && !!form.project_dimensions.building_size;
+                if (form.project_category === 'renovation') return !!form.project_dimensions.renovation_area;
+                if (form.project_category === 'interior') return !!form.project_dimensions.room_count && !!form.project_dimensions.area_size;
+                return true; // maintenance
+            }
+            if (stepIndex >= 2 && stepIndex < 2 + activeQuestions.length) { // Questions
+                const questionKey = activeQuestions[stepIndex - 2];
+                return answers[questionKey] !== null;
+            }
+            if (stepIndex === 2 + activeQuestions.length) return !!form.title.trim() && !!form.desc.trim() && !!form.loc.trim() && !!form.deadline; // Details
+            return !!form.budget.trim(); // Budget
+        } else {
+            if (stepIndex === 0) return !!form.project_category;
+            if (stepIndex === 1) return true; // scale
+            if (stepIndex === 2) return manualPhases.length > 0;
+            if (stepIndex === 3) return !!form.title.trim() && !!form.desc.trim() && !!form.loc.trim() && !!form.deadline;
+            return !!form.budget.trim();
+        }
+    };
+
+    const canGoToStep = (targetStep: number): boolean => {
+        if (targetStep === 0) return true;
+        for (let i = 0; i < targetStep; i++) {
+            if (!isStepValid(i)) return false;
+        }
+        return true;
+    };
+
     return (
         <div className="bg-gray-900 px-6 sm:px-8 py-5 flex flex-col sm:flex-row gap-4 sm:items-center justify-between min-h-[96px] pb-7 sm:pb-6 border-b border-gray-800">
             <div>
@@ -148,15 +189,21 @@ function WizardHeader({ mode, onToggle, step, totalSteps, activeLabel }: { mode:
                     {Array.from({ length: totalSteps }).map((_, i) => {
                         const isActive = step === i;
                         const isCompleted = step > i;
+                        const clickable = canGoToStep(i);
                         return (
                             <div key={i} className="flex flex-col items-center flex-1 z-10 relative">
-                                <div 
-                                    className={`w-2.5 h-2.5 rounded-full flex items-center justify-center transition-all duration-300 ${
+                                <button 
+                                    type="button"
+                                    disabled={!clickable}
+                                    onClick={() => clickable && w.setStep(i)}
+                                    className={`w-2.5 h-2.5 rounded-full flex items-center justify-center transition-all duration-300 outline-none ${
                                         isActive 
-                                            ? 'bg-[#FF2D20] ring-4 ring-red-500/30 scale-110' 
+                                            ? 'bg-[#FF2D20] ring-4 ring-red-500/30 scale-110 z-20' 
                                             : isCompleted 
-                                                ? 'bg-[#FF2D20]' 
-                                                : 'bg-gray-700'
+                                                ? 'bg-[#FF2D20] hover:scale-125 cursor-pointer z-20' 
+                                                : clickable 
+                                                    ? 'bg-gray-400 hover:scale-125 hover:bg-[#FF2D20]/50 cursor-pointer z-20'
+                                                    : 'bg-gray-700 opacity-50 cursor-not-allowed'
                                     }`}
                                 />
                                 <AnimatePresence>

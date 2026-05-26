@@ -78,8 +78,6 @@ const PRO_NAV = (role: string): NavItem[] => {
         { id: 'projects', label: 'Bidding Board', icon: Search },
         { id: 'management', label: 'My Projects', icon: CheckSquare },
         { id: 'my-bids', label: 'My Proposals', icon: FileText },
-        { id: 'chat', label: 'Inbox', icon: MessageSquare },
-        { id: 'profile', label: `${label} Profile`, icon: UserIcon },
     ];
 
     // Add marketplace for contractors
@@ -91,6 +89,7 @@ const PRO_NAV = (role: string): NavItem[] => {
                 { id: 'find-sub-contractors', label: 'Hire Sub-Contractors', icon: Users },
             );
         }
+        nav.push({ id: 'my-firm', label: 'My Firm', icon: Building2 });
     }
 
     // Add Find Engineers for architects
@@ -99,14 +98,12 @@ const PRO_NAV = (role: string): NavItem[] => {
         if (index !== -1) {
             nav.splice(index + 1, 0, { id: 'find-engineers', label: 'Hire Specialists', icon: Users });
         }
+        nav.push({ id: 'my-firm', label: 'My Firm', icon: Building2 });
     }
 
     // Add My Firms for specialists (structural, mep, interior, civil, mechanical, electrical, plumbing, roofing, finishing)
     if (['structural', 'mep', 'interior', 'civil', 'mechanical', 'electrical', 'plumbing', 'roofing', 'finishing'].includes(role)) {
-        const chatIdx = nav.findIndex(item => item.id === 'chat');
-        if (chatIdx !== -1) {
-            nav.splice(chatIdx, 0, { id: 'my-firms', label: 'My Firms', icon: Building2 });
-        }
+        nav.push({ id: 'my-firms', label: 'My Firms', icon: Building2 });
     }
 
     return nav;
@@ -117,16 +114,12 @@ const SUPPLIER_NAV: NavItem[] = [
     { id: 'store', label: 'My Store', icon: Building },
     { id: 'inventory', label: 'Inventory', icon: Package },
     { id: 'orders', label: 'Orders', icon: Truck },
-    { id: 'chat', label: 'Inbox', icon: MessageSquare },
-    { id: 'profile', label: 'Profile', icon: UserIcon },
 ];
 
 const LOGISTICS_NAV: NavItem[] = [
     { id: 'overview', label: 'Dashboard', icon: Home },
     { id: 'job-radar', label: 'Job Radar', icon: Search },
     { id: 'my-deliveries', label: 'Deliveries', icon: Truck },
-    { id: 'chat', label: 'Inbox', icon: MessageSquare },
-    { id: 'profile', label: 'Profile', icon: UserIcon },
 ];
 
 function getNavItems(role?: string): NavItem[] {
@@ -244,7 +237,15 @@ export const DashboardSidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSideb
                             );
                         }
 
-                        const isActive = activeTab === item.id;
+                        const isPro = user && user.role_type !== 'user';
+                        const isActive = activeTab === item.id || 
+                            (activeTab === 'project-detail' && (
+                                (isPro && item.id === 'management') ||
+                                (!isPro && item.id === 'projects')
+                            )) ||
+                            (activeTab === 'bidding-brief' && (
+                                item.id === 'projects'
+                            ));
                         return (
                             <button
                                 key={item.id}

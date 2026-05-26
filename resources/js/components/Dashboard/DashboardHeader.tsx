@@ -74,7 +74,15 @@ export const DashboardHeader: React.FC<HeaderProps> = ({ activeTab, setActiveTab
                             );
                         }
                         const Icon = item.icon;
-                        const isActive = activeTab === item.id;
+                        const isPro = user && user.role_type !== 'user';
+                        const isActive = activeTab === item.id || 
+                            (activeTab === 'project-detail' && (
+                                (isPro && item.id === 'management') ||
+                                (!isPro && item.id === 'projects')
+                            )) ||
+                            (activeTab === 'bidding-brief' && (
+                                item.id === 'projects'
+                            ));
                         return (
                             <button
                                 key={item.id}

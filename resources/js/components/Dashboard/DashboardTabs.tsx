@@ -77,8 +77,6 @@ interface TabsProps {
     setProjectToEdit: (p: any) => void;
     setProjectToDelete: (p: any) => void;
     handleViewActiveBids: () => void;
-    setIsEditingProfile: (v: boolean) => void;
-    isEditingProfile: boolean;
     onRefresh?: () => void;
     chatUserId?: number | null;
     onClearChatUser?: (v: null) => void;
@@ -91,8 +89,8 @@ export const DashboardTabs: React.FC<TabsProps> = (props) => {
         selectedProfessional, setSelectedProfessional, 
         selectedProject, setSelectedProject, selectedStoreId, setSelectedStoreId, 
         selectedMaterial, setSelectedMaterial, handleOpenChat, handleProjectStatusChange,
-        setProjectToEdit, setProjectToDelete, handleViewActiveBids, setIsEditingProfile, 
-        isEditingProfile, onRefresh, chatUserId, onClearChatUser } = props;
+        setProjectToEdit, setProjectToDelete, handleViewActiveBids, 
+        onRefresh, chatUserId, onClearChatUser } = props;
 
     const [selectedPMBid, setSelectedPMBid] = useState<PMBid | null>(null);
 
@@ -101,7 +99,31 @@ export const DashboardTabs: React.FC<TabsProps> = (props) => {
 
     const handleViewProject = (project: any) => {
         setSelectedProject(project);
-        setActiveTab('project-detail');
+        
+        const baseProject = 
+            projects.find(p => p.id === project.id) || 
+            projectFeed.find(p => p.id === project.id) || 
+            myBids.find(b => b.project_id === project.id || b.project?.id === project.id)?.project ||
+            project;
+
+        const isOwner = user?.id === baseProject.user_id;
+        const isHiredPM = baseProject.pm_id && user?.id === baseProject.pm_id;
+        const isHiredPro = 
+            (baseProject.selected_arsitek_id && (user?.id === baseProject.selected_arsitek_id || baseProject.arsitek?.user_id === user?.id)) ||
+            (baseProject.selected_kontraktor_id && (user?.id === baseProject.selected_kontraktor_id || baseProject.kontraktor?.user_id === user?.id)) ||
+            (baseProject.selected_notaris_id && (user?.id === baseProject.selected_notaris_id || baseProject.notaris?.user_id === user?.id)) ||
+            (baseProject.selected_interior_id && (user?.id === baseProject.selected_interior_id || baseProject.interior_profile?.user_id === user?.id)) ||
+            (baseProject.structural_id && (user?.id === baseProject.structural_engineer?.user_id || user?.structural_engineer?.id === baseProject.structural_id)) ||
+            (baseProject.mep_id && (user?.id === baseProject.mep_engineer?.user_id || user?.mep_engineer?.id === baseProject.mep_id)) ||
+            (!!baseProject.sub_professionals && baseProject.sub_professionals.some((s: any) => s.user_id === user?.id && s.status === 'active'));
+
+        const showWorkspace = isOwner || isHiredPM || isHiredPro;
+        
+        if (showWorkspace) {
+            setActiveTab('project-detail');
+        } else {
+            setActiveTab('bidding-brief');
+        }
     };
 
     return (
@@ -155,7 +177,7 @@ export const DashboardTabs: React.FC<TabsProps> = (props) => {
                     />
                 )}
 
-                {activeTab === 'project-detail' && selectedProject && (() => {
+                {(activeTab === 'project-detail' || activeTab === 'bidding-brief') && selectedProject && (() => {
                     const baseProject = 
                         projects.find(p => p.id === selectedProject.id) || 
                         projectFeed.find(p => p.id === selectedProject.id) || 
@@ -303,25 +325,12 @@ export const DashboardTabs: React.FC<TabsProps> = (props) => {
                 )}
 
                 {activeTab === 'profile' && (
-                    (isEditingProfile || user?.role_type === 'user') ? (
-                        <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 max-w-4xl">
-                            <h3 className="text-2xl font-black text-gray-900 mb-8">Edit Profile</h3>
-                            <EditProfileForm onCancel={() => {
-                                if (user?.role_type === 'user') {
-                                    setActiveTab('overview');
-                                } else {
-                                    setIsEditingProfile(false);
-                                }
-                            }} />
-                        </div>
-                    ) : (
-                        <div className="space-y-10">
-                            <UserProfileView user={user} setIsEditingProfile={setIsEditingProfile} />
-                            {(user?.role_type === 'arsitek' || user?.role_type === 'kontraktor') && (
-                                <FirmHub onOpenChat={handleOpenChat} />
-                            )}
-                        </div>
-                    )
+                    <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 max-w-7xl w-full">
+                        <h3 className="text-2xl font-black text-gray-900 mb-8">Edit Profile</h3>
+                        <EditProfileForm onCancel={() => {
+                            setActiveTab('overview');
+                        }} />
+                    </div>
                 )}
 
                 {activeTab === 'material-orders' && <MaterialOrdersTab />}
@@ -421,6 +430,10 @@ export const DashboardTabs: React.FC<TabsProps> = (props) => {
 
                 {activeTab === 'management' && (
                     <ProfessionalProjects projects={projects} isLoading={isLoadingData} onViewProject={handleViewProject} formatCurrency={formatCurrency} />
+                )}
+
+                {activeTab === 'my-firm' && (user?.role_type === 'arsitek' || user?.role_type === 'kontraktor') && (
+                    <FirmHub onOpenChat={handleOpenChat} />
                 )}
 
                 {activeTab === 'my-firms' && ['structural', 'mep', 'interior', 'civil', 'mechanical', 'electrical', 'plumbing', 'roofing', 'finishing'].includes(user?.role_type) && (

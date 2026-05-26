@@ -84,18 +84,8 @@ export default function ProjectBoard({
     }, [allFilteredProjects, search, selectedCity, mapRef]);
     
     return (
-        <div className="w-full flex flex-col space-y-6">
-            {/* Header Area */}
-            {userRole !== 'user' && (
-                <div className="flex flex-col gap-2">
-                    <h2 className="text-3xl font-black text-gray-900 tracking-tight">
-                        Project Bidding Board
-                    </h2>
-                    <p className="text-gray-500 text-sm font-medium">
-                        Browse available projects, submit proposals, and grow your business.
-                    </p>
-                </div>
-            )}
+        <div className="w-full flex flex-col space-y-4">
+
 
             {/* Map Integration for Professionals */}
             {userRole !== 'user' && projects.length > 0 && (
@@ -118,25 +108,36 @@ export default function ProjectBoard({
                         setPopupInfo={setPopupInfo}
                         onFlyToUser={flyToUser}
                         onSelectProject={onViewProject}
+                        search={search}
+                        onSearchChange={setSearch}
+                        sortBy={sortBy}
+                        onSortChange={setSortBy}
+                        viewMode={viewMode}
+                        onViewModeChange={setViewMode}
+                        totalBudget={stats.totalBudget}
+                        activeBidsCount={myBidsCount}
+                        completedCount={stats.completed}
+                        onViewMyBids={onViewMyBids}
+                        onViewActiveBids={onViewActiveBids}
+                        userRole={userRole}
                     />
                 </motion.div>
             )}
 
-            <ProjectToolbar 
-                search={search} onSearchChange={setSearch}
-                statusFilter={statusFilter} onStatusChange={setStatusFilter}
-                sortBy={sortBy} onSortChange={setSortBy}
-                viewMode={viewMode} onViewModeChange={setViewMode}
-                stats={stats} totalCount={totalCount}
-                showPostButton={userRole === 'user'}
-                onPostProject={onPostProject}
-                totalBudget={stats.totalBudget}
-                activeBidsCount={userRole !== 'user' && myBidsCount !== undefined ? myBidsCount : stats.activeBids}
-                completedCount={stats.completed}
-                userRole={userRole}
-                onViewMyBids={onViewMyBids}
-                onViewActiveBids={onViewActiveBids}
-            />
+            {userRole === 'user' && (
+                <ProjectToolbar 
+                    search={search} onSearchChange={setSearch}
+                    statusFilter={statusFilter} onStatusChange={setStatusFilter}
+                    sortBy={sortBy} onSortChange={setSortBy}
+                    viewMode={viewMode} onViewModeChange={setViewMode}
+                    stats={stats} totalCount={totalCount}
+                    showPostButton={true}
+                    onPostProject={onPostProject}
+                    totalBudget={stats.totalBudget}
+                    completedCount={stats.completed}
+                    userRole={userRole}
+                />
+            )}
 
             {/* Main Content Area */}
             <div className="w-full min-h-[350px] relative">

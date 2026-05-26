@@ -20,17 +20,17 @@ export interface ProjectDimensions {
     building_size?: number;
     floors?: number;
     renovation_area?: number;
-    room_count?: number;
+    room_count?: number | string;
     area_size?: number;
     scope_tags?: string[];
-    building_length?: number;
-    building_width?: number;
-    land_length?: number;
-    land_width?: number;
-    renovation_length?: number;
-    renovation_width?: number;
-    area_length?: number;
-    area_width?: number;
+    building_length?: number | string;
+    building_width?: number | string;
+    land_length?: number | string;
+    land_width?: number | string;
+    renovation_length?: number | string;
+    renovation_width?: number | string;
+    area_length?: number | string;
+    area_width?: number | string;
     min_budget?: string;
 }
 

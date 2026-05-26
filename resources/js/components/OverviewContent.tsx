@@ -4,6 +4,7 @@ import OverviewStats from './Overview/OverviewStats';
 import OverviewProjectTimeline from './Overview/OverviewProjectTimeline';
 import OverviewQuickActions from './Overview/OverviewQuickActions';
 import OverviewSearch from './Overview/OverviewSearch';
+import ProfileCompletenessCard from './Overview/ProfileCompletenessCard';
 
 interface Props {
     user: any;
@@ -41,16 +42,10 @@ export default function OverviewContent({
 
     return (
         <motion.div variants={container} initial="hidden" animate="show" className="space-y-6 pb-12">
-            {/* Sleek Welcome Header */}
-            <motion.div variants={item} className="space-y-1.5 py-1 select-none">
-                <h1 className="text-3xl font-black text-neutral-800 tracking-tight">
-                    {user ? `Welcome back, ${user.name?.split(' ')[0]}!` : 'Welcome to 4Ceria'}
-                </h1>
-                <p className="text-[12px] font-bold text-neutral-400">
-                    {user 
-                        ? 'Manage your construction projects, view proposals, or browse properties and professionals.' 
-                        : 'Explore public properties, discover verified professionals, or shop in the materials marketplace.'}
-                </p>
+
+            {/* Profile Completeness Reminder Card */}
+            <motion.div variants={item}>
+                <ProfileCompletenessCard user={user} setActiveTab={setActiveTab} />
             </motion.div>
 
             {/* Smart Search Bar */}

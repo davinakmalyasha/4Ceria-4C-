@@ -4,10 +4,12 @@ import { X } from 'lucide-react';
 import { BriefDetailPanel } from './BiddingBrief/BriefDetailPanel';
 import { BiddingSidebarCard } from './BiddingBrief/BiddingSidebarCard';
 import { ProjectBidForm } from './Details/ProjectBidForm';
+import { User } from '../../context/AuthContext';
+import { Project } from '../../types/project.types';
 
 interface ProjectBiddingBriefProps {
-    project: any;
-    user: any;
+    project: Project;
+    user: User | null;
     onBack: () => void;
     onRefresh: () => void;
 }
@@ -53,7 +55,7 @@ export default function ProjectBiddingBrief({
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
                 {/* Left Column: Rich Project brief requirements & Q&A */}
                 <div className="lg:col-span-2">
-                    <BriefDetailPanel project={project} onRefresh={onRefresh} onBack={onBack} />
+                    <BriefDetailPanel project={project} user={user} onRefresh={onRefresh} onBack={onBack} />
                 </div>
 
                 {/* Right Column: Sticky bidding card */}

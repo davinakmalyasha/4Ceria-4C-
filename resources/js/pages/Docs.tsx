@@ -18,6 +18,17 @@ export default function Docs() {
     const [mobileSidebar, setMobileSidebar] = useState(false);
     const [sidebarOpen, setSidebarOpen] = useState(false);
 
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const articleId = params.get('article') || params.get('id');
+        if (articleId) {
+            const article = allDocArticles.find(art => art.id === articleId);
+            if (article) {
+                setSelectedArticle(article);
+            }
+        }
+    }, []);
+
     const handleSetActiveTab = (tab: string) => {
         navigate(`/dashboard?tab=${tab}`);
     };

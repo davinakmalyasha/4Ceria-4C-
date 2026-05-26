@@ -38,12 +38,7 @@ export default function ProjectToolbar({
     const isUser = userRole === 'user';
     const isClickable = (isUser && (activeBidsCount || 0) > 0 && onViewActiveBids) || (!isUser && onViewMyBids);
 
-    const tabs = [
-        { id: 'all', label: 'All Projects', count: stats.all },
-        { id: 'open', label: 'Open', count: stats.open },
-        { id: 'in_progress', label: 'In Progress', count: stats.inProgress },
-        { id: 'completed', label: 'Completed', count: stats.completed },
-    ];
+
 
     return (
         <div className="space-y-5 w-full">
@@ -190,35 +185,7 @@ export default function ProjectToolbar({
                 </div>
             </div>
 
-            {/* Filter Tabs & Showing Count Row */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-150 w-full">
-                {/* Tabs */}
-                <div className="flex items-center gap-1 overflow-x-auto overflow-y-hidden scrollbar-hide">
-                    {tabs.map(tab => (
-                        <button
-                            key={tab.id}
-                            onClick={() => onStatusChange(tab.id)}
-                            className={`flex items-center gap-2 px-3 py-2.5 border-b-2 -mb-[1px] font-bold text-xs sm:text-sm transition-colors whitespace-nowrap ${
-                                statusFilter === tab.id 
-                                    ? 'border-[#FF2D20] text-[#FF2D20]' 
-                                    : 'border-transparent text-gray-500 hover:text-gray-955 hover:border-gray-300'
-                            }`}
-                        >
-                            {tab.label}
-                            <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold transition-colors ${
-                                statusFilter === tab.id ? 'bg-red-50 text-[#FF2D20] border border-red-100' : 'bg-gray-100 text-gray-500'
-                            }`}>
-                                {tab.count}
-                            </span>
-                        </button>
-                    ))}
-                </div>
 
-                {/* Showing Count */}
-                <div className="text-[10px] sm:text-[11px] text-gray-400 font-extrabold uppercase tracking-wider shrink-0 pb-2 sm:pb-0 pl-3 sm:pl-0">
-                    Showing <span className="text-zinc-800 font-black">{totalCount}</span> matching {totalCount === 1 ? 'project' : 'projects'}
-                </div>
-            </div>
         </div>
     );
 }

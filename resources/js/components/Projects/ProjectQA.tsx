@@ -1,17 +1,24 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { MessageSquare, Send, User, Edit2, Trash2, Check, X } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '../../context/ToastContext';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth, User as AuthUser } from '../../context/AuthContext';
+import { Project, ProjectComment } from '../../types/project.types';
 
 interface ProjectQAProps {
-    project: any;
+    project: Project;
     onRefresh: () => void;
+    user?: AuthUser | null;
 }
 
-export default function ProjectQA({ project, onRefresh }: ProjectQAProps) {
-    const { user } = useAuth();
+interface ExtendedProjectComment extends ProjectComment {
+    content?: string;
+}
+
+export default function ProjectQA({ project, onRefresh, user: propUser }: ProjectQAProps) {
+    const { user: contextUser } = useAuth();
+    const user = propUser !== undefined ? propUser : contextUser;
     const comments = project?.comments || [];
     const [newComment, setNewComment] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -24,7 +31,7 @@ export default function ProjectQA({ project, onRefresh }: ProjectQAProps) {
     
     const { showToast } = useToast();
 
-    const formatDate = (dateStr: any) => {
+    const formatDate = (dateStr: string | null | undefined) => {
         if (!dateStr) return 'Recently';
         const d = new Date(dateStr);
         if (isNaN(d.getTime())) return 'Recently';
@@ -49,8 +56,7 @@ export default function ProjectQA({ project, onRefresh }: ProjectQAProps) {
             setIsSubmitting(false);
         }
     };
-
-    const handleEditStart = (comment: any) => {
+    const handleEditStart = (comment: ExtendedProjectComment) => {
         setEditingCommentId(comment.id);
         setEditingText(comment.message || comment.content || '');
     };
@@ -134,7 +140,8 @@ export default function ProjectQA({ project, onRefresh }: ProjectQAProps) {
                         <p className="text-gray-400 text-xs mt-1">Be the first to start a conversation about this project.</p>
                     </div>
                 ) : (
-                    comments.map((comment: any, idx: number) => {
+                    comments.map((comment: ExtendedProjectComment | null, idx: number) => {
+                        if (!comment) return null;
                         const isAuthor = user && comment.user_id === user.id;
                         const isProjectOwner = user && project.user_id === user.id;
                         const canEdit = isAuthor;
