@@ -131,8 +131,17 @@ const GUEST_NAV: NavItem[] = [
     },
 ];
 
+const ADMIN_NAV: NavItem[] = [
+    { id: 'overview', label: 'Dashboard', icon: Home },
+    { id: 'users', label: 'User Directory', icon: Users },
+    { id: 'verifications', label: 'Verification Queue', icon: ShieldCheck },
+    { id: 'properties_moderation', label: 'Properties Moderation', icon: Building2 },
+    { id: 'projects_moderation', label: 'Projects Audit', icon: Briefcase },
+];
+
 export function getNavItems(role?: string, isAuthenticated: boolean = true): NavItem[] {
     if (!isAuthenticated) return GUEST_NAV;
+    if (role === 'admin') return ADMIN_NAV;
     if (!role || role === 'user') return USER_NAV;
     if (role === 'supplier') return SUPPLIER_NAV;
     if (role === 'logistics') return LOGISTICS_NAV;

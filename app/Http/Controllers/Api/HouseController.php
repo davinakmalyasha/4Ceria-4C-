@@ -20,7 +20,7 @@ class HouseController extends Controller
 {
     public function index(Request $request)
     {
-        $query = House::with(['housePic', 'user.phoneNumber', 'room.roomPic']);
+        $query = House::with(['housePic', 'user.phoneNumber', 'room.roomPic'])->where('is_suspended', false);
 
         $houses = $query->paginate(10);
 

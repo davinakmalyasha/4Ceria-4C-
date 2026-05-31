@@ -23,12 +23,18 @@ class MepEngineer extends Model
         'file_portofolio',
         'file_sertifikat',
         'pendidikan',
+        'alasan_hire',
         'verification_status',
         'rejection_reason',
         'foto',
         'entity_type',
         'company_name',
         'company_license',
+        'identity_number',
+        'npwp_number',
+        'siup_number',
+        'npwp',
+        'siup',
     ];
 
     public function user()

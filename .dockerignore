@@ -1,0 +1,38 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Local environment and caches
+.env
+.env*.local
+.env.backup
+.idea
+.vscode
+.phpunit.cache
+.agents
+GEMINI.md
+README.md
+
+# Application development artifacts
+node_modules
+vendor
+npm-debug.log
+yarn-error.log
+composer.lock
+package-lock.json
+
+# Laravel specific ignores
+storage/framework/cache/data/*
+storage/framework/sessions/*
+storage/framework/testing/*
+storage/framework/views/*
+storage/logs/*
+bootstrap/cache/*
+public/build
+public/storage
+
+# Docker
+Dockerfile
+docker
+.dockerignore

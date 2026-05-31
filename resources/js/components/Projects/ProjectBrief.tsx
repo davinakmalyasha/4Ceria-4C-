@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { 
     DollarSign, MapPin, Calendar, Info, Users, 
     ArrowUpRight, Shield, Pencil, Hammer, Package, Sofa, KeyRound,
-    CheckCircle2, Clock, LogOut
+    CheckCircle2, Clock, LogOut, Ruler, Maximize, Layers
 } from 'lucide-react';
 import ProjectLocationMap from './ProjectLocationMap';
 import { PHASE_CONFIG, PHASE_ROLE_MAP, PhaseKey, getCategoryPhaseLabel } from '../../types/phase.types';
@@ -30,6 +30,17 @@ const ICON_MAP: Record<string, any> = {
 
 export default function ProjectBrief({ project, user, onRefresh, onSwitchToProcess, onSwitchTab, onOpenChat }: ProjectBriefProps) {
     const { showToast } = useToast();
+    const dims = React.useMemo(() => {
+        if (!project?.project_dimensions) return null;
+        try {
+            return typeof project.project_dimensions === 'string' 
+                ? JSON.parse(project.project_dimensions) 
+                : project.project_dimensions;
+        } catch (e) {
+            console.error('Failed to parse project_dimensions', e);
+            return null;
+        }
+    }, [project?.project_dimensions]);
     const [terminationModal, setTerminationModal] = React.useState<{
         isOpen: boolean;
         type: 'fire' | 'resign';
@@ -213,7 +224,7 @@ export default function ProjectBrief({ project, user, onRefresh, onSwitchToProce
             {/* Bottom Row: Brief (Left) & Team (Right) */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
                 {/* Bottom Left: Project Information */}
-                <div className="lg:col-span-2">
+                <div className="lg:col-span-2 space-y-6">
                     <section className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm">
                         <div className="flex items-center gap-3 mb-4">
                             <div className="w-1 h-5 bg-red-500 rounded-full" />
@@ -223,6 +234,149 @@ export default function ProjectBrief({ project, user, onRefresh, onSwitchToProce
                             {project.description || 'No detailed description provided for this project.'}
                         </p>
                     </section>
+
+                    {/* Project Specifications */}
+                    {dims && (
+                        <section className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm space-y-4">
+                            <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                                <Ruler size={14} className="text-gray-400" /> Spesifikasi Proyek
+                            </h3>
+                            
+                            {project.project_category === 'new_build' && (
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    {/* Spesifikasi Tanah */}
+                                    {dims.land_size ? (
+                                        <div className="p-4 bg-slate-50/70 border border-slate-100 rounded-2xl space-y-2">
+                                            <div className="flex items-center gap-2 text-blue-600 font-bold text-xs uppercase tracking-wide">
+                                                <Maximize size={14} />
+                                                <span>Spesifikasi Tanah</span>
+                                            </div>
+                                            <div className="space-y-0.5">
+                                                <p className="text-[10px] text-gray-400 font-bold uppercase">Luas Tanah</p>
+                                                <p className="text-lg font-black text-slate-800">{dims.land_size} m²</p>
+                                                {dims.land_length && dims.land_width && (
+                                                    <p className="text-xs font-semibold text-slate-500">Dimensi: {dims.land_length}m x {dims.land_width}m</p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ) : null}
+
+                                    {/* Spesifikasi Bangunan */}
+                                    {dims.building_size ? (
+                                        <div className="p-4 bg-slate-50/70 border border-slate-100 rounded-2xl space-y-2">
+                                            <div className="flex items-center gap-2 text-indigo-600 font-bold text-xs uppercase tracking-wide">
+                                                <Ruler size={14} />
+                                                <span>Spesifikasi Bangunan</span>
+                                            </div>
+                                            <div className="space-y-0.5">
+                                                <p className="text-[10px] text-gray-400 font-bold uppercase">Luas Bangunan</p>
+                                                <p className="text-lg font-black text-slate-800">{dims.building_size} m²</p>
+                                                {dims.building_length && dims.building_width && (
+                                                    <p className="text-xs font-semibold text-slate-500">Dimensi: {dims.building_length}m x {dims.building_width}m</p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ) : null}
+
+                                    {/* Jumlah Lantai */}
+                                    {dims.floors ? (
+                                        <div className="p-4 bg-slate-50/70 border border-slate-100 rounded-2xl space-y-2">
+                                            <div className="flex items-center gap-2 text-zinc-600 font-bold text-xs uppercase tracking-wide">
+                                                <Layers size={14} />
+                                                <span>Tingkat Bangunan</span>
+                                            </div>
+                                            <div className="space-y-0.5">
+                                                <p className="text-[10px] text-gray-400 font-bold uppercase">Jumlah Lantai</p>
+                                                <p className="text-lg font-black text-slate-800">{dims.floors} Lantai</p>
+                                                <p className="text-xs font-semibold text-slate-500">Struktur Standar</p>
+                                            </div>
+                                        </div>
+                                    ) : null}
+                                </div>
+                            )}
+
+                            {project.project_category === 'renovation' && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {/* Area Renovasi */}
+                                    {dims.renovation_area ? (
+                                        <div className="p-4 bg-slate-50/70 border border-slate-100 rounded-2xl space-y-2">
+                                            <div className="flex items-center gap-2 text-amber-600 font-bold text-xs uppercase tracking-wide">
+                                                <Maximize size={14} />
+                                                <span>Area Renovasi</span>
+                                            </div>
+                                            <div className="space-y-0.5">
+                                                <p className="text-[10px] text-gray-400 font-bold uppercase">Estimasi Luas Area</p>
+                                                <p className="text-lg font-black text-slate-800">{dims.renovation_area} m²</p>
+                                                {dims.renovation_length && dims.renovation_width && (
+                                                    <p className="text-xs font-semibold text-slate-500">Dimensi: {dims.renovation_length}m x {dims.renovation_width}m</p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ) : null}
+
+                                    {/* Bagian yang Direnovasi */}
+                                    {Array.isArray(dims.scope_tags) && dims.scope_tags.length > 0 ? (
+                                        <div className="p-4 bg-slate-50/70 border border-slate-100 rounded-2xl space-y-3">
+                                            <div className="flex items-center gap-2 text-zinc-600 font-bold text-xs uppercase tracking-wide">
+                                                <Layers size={14} />
+                                                <span>Bagian Direnovasi</span>
+                                            </div>
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {dims.scope_tags.map((tag: string) => (
+                                                    <span key={tag} className="px-2.5 py-1 rounded-lg bg-amber-100/50 border border-amber-200/50 text-[10px] font-bold text-amber-800 uppercase tracking-wide">
+                                                        {tag}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ) : null}
+                                </div>
+                            )}
+
+                            {project.project_category === 'interior' && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {/* Area Interior */}
+                                    {dims.area_size ? (
+                                        <div className="p-4 bg-slate-50/70 border border-slate-100 rounded-2xl space-y-2">
+                                            <div className="flex items-center gap-2 text-purple-600 font-bold text-xs uppercase tracking-wide">
+                                                <Maximize size={14} />
+                                                <span>Dimensi Ruangan</span>
+                                            </div>
+                                            <div className="space-y-0.5">
+                                                <p className="text-[10px] text-gray-400 font-bold uppercase">Estimasi Luas Ruangan</p>
+                                                <p className="text-lg font-black text-slate-800">{dims.area_size} m²</p>
+                                                {dims.area_length && dims.area_width && (
+                                                    <p className="text-xs font-semibold text-slate-500">Dimensi: {dims.area_length}m x {dims.area_width}m</p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ) : null}
+
+                                    {/* Jumlah Ruangan */}
+                                    {dims.room_count ? (
+                                        <div className="p-4 bg-slate-50/70 border border-slate-100 rounded-2xl space-y-2">
+                                            <div className="flex items-center gap-2 text-zinc-600 font-bold text-xs uppercase tracking-wide">
+                                                <Layers size={14} />
+                                                <span>Kapasitas Interior</span>
+                                            </div>
+                                            <div className="space-y-0.5">
+                                                <p className="text-[10px] text-gray-400 font-bold uppercase">Jumlah Ruangan</p>
+                                                <p className="text-lg font-black text-slate-800">{dims.room_count} Ruangan</p>
+                                                <p className="text-xs font-semibold text-slate-500">Desain Komprehensif</p>
+                                            </div>
+                                        </div>
+                                    ) : null}
+                                </div>
+                            )}
+
+                            {project.project_category === 'maintenance' && (
+                                <div className="p-4 bg-slate-50/70 border border-slate-100 rounded-2xl text-center">
+                                    <p className="text-xs font-bold text-slate-700">Tidak membutuhkan spesifikasi ukuran untuk perbaikan.</p>
+                                    <p className="text-[10px] text-slate-400 mt-1">Tim professional akan menilai kebutuhan berdasarkan foto dan deskripsi yang dicantumkan.</p>
+                                </div>
+                            )}
+                        </section>
+                    )}
                 </div>
 
                 {/* Bottom Right: The Team */}

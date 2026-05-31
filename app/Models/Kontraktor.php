@@ -33,6 +33,11 @@ class Kontraktor extends Model
         'entity_type',
         'company_name',
         'company_license',
+        'identity_number',
+        'npwp_number',
+        'siup_number',
+        'file_portofolio',
+        'file_sertifikat',
     ];
 
     protected $casts = [

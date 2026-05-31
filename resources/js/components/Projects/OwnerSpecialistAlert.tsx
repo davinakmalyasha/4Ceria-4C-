@@ -3,6 +3,7 @@ import axios from 'axios';
 import { ShieldCheck, UserCheck, Clock, AlertTriangle } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 import { formatCurrency } from '../../types/project.types';
+import ConfirmModal from './ConfirmModal';
 
 interface RecommendedBid {
     id: number;
@@ -29,6 +30,7 @@ interface OwnerSpecialistAlertProps {
 export default function OwnerSpecialistAlert({ projectId, projectBudget, bids, onRefresh }: OwnerSpecialistAlertProps) {
     const { showToast } = useToast();
     const [processingId, setProcessingId] = useState<number | null>(null);
+    const [confirmBid, setConfirmBid] = useState<RecommendedBid | null>(null);
 
     const getDisplayPrice = (bid: RecommendedBid) => {
         if (bid.fee_type === 'percentage' && (!bid.calculated_total || bid.calculated_total === 0) && bid.price > 0 && projectBudget && projectBudget > 0) {
@@ -40,7 +42,13 @@ export default function OwnerSpecialistAlert({ projectId, projectBudget, bids, o
     if (bids.length === 0) return null;
 
     const handleAuthorize = async (bid: RecommendedBid) => {
-        if (!window.confirm('Authorize this specialist hire and commit budget?')) return;
+        setConfirmBid(bid);
+    };
+
+    const executeAuthorize = async () => {
+        if (!confirmBid) return;
+        const bid = confirmBid;
+        setConfirmBid(null);
         setProcessingId(bid.id);
         try {
             await axios.post(`/projects/${projectId}/authorize-specialist`, {
@@ -116,6 +124,17 @@ export default function OwnerSpecialistAlert({ projectId, projectBudget, bids, o
                     ))}
                 </div>
             </div>
+
+            <ConfirmModal
+                isOpen={confirmBid !== null}
+                title="Authorize Specialist Hire"
+                description="Authorize this specialist hire and commit budget?"
+                confirmText="Authorize Hire"
+                variant="success"
+                onConfirm={executeAuthorize}
+                onCancel={() => setConfirmBid(null)}
+                isLoading={processingId !== null}
+            />
         </div>
     );
 }

@@ -76,7 +76,7 @@ export default function ProfessionalProfileView({ type, data, projects = [], onC
             const roleKey = user?.role_type === 'arsitek' ? 'arsitek' : 'kontraktor';
             const subRole = isStructural ? 'structural' : isMep ? 'mep' : type;
             
-            await axios.post(`/api/projects/${project.id}/sub-professionals`, {
+            await axios.post(`/projects/${project.id}/sub-professionals`, {
                 user_id: data.user_id || data.user?.id,
                 parent_role: roleKey,
                 sub_role: subRole,
@@ -144,7 +144,7 @@ export default function ProfessionalProfileView({ type, data, projects = [], onC
     const profileImage = getImageUrl(data.user?.pic || data.foto || data.path_img);
 
     // Initials for fallback
-    const initials = name.split(' ').map((n: any) => n[0]).join('').toUpperCase().slice(0, 2);
+    const initials = name.split(' ').filter(Boolean).map((n: any) => n[0]).join('').toUpperCase().slice(0, 2);
 
     return (
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} className="bg-white rounded-3xl overflow-hidden relative border border-gray-100">
@@ -288,7 +288,7 @@ export default function ProfessionalProfileView({ type, data, projects = [], onC
                                 </h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     {data.user.team_members.map((tm: any) => {
-                                        const initials = tm.name?.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) || '??';
+                                        const initials = tm.name?.split(' ').filter(Boolean).map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) || '??';
                                         return (
                                             <div key={tm.id} className="flex items-start gap-4 p-4 bg-gray-50 rounded-2xl border border-gray-100 hover:border-blue-200 transition-all">
                                                 <div className="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 bg-blue-50 flex items-center justify-center shadow-sm">

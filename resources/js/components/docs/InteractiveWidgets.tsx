@@ -7,9 +7,10 @@ import SellHouseWidget from './widgets/SellHouseWidget';
 import HireProWidget from './widgets/HireProWidget';
 import BuyMaterialWidget from './widgets/BuyMaterialWidget';
 import VerificationWidget from './widgets/VerificationWidget';
+import ShortlistInterviewWidget from './widgets/ShortlistInterviewWidget';
 
 interface InteractiveWidgetsProps {
-    name: 'bidding' | 'milestone' | 'radar' | 'postproject' | 'sellhouse' | 'hirepro' | 'buymaterial' | 'verification';
+    name: 'bidding' | 'milestone' | 'radar' | 'postproject' | 'sellhouse' | 'hirepro' | 'buymaterial' | 'verification' | 'shortlistinterview';
 }
 
 export default function InteractiveWidgets({ name }: InteractiveWidgetsProps) {
@@ -22,6 +23,7 @@ export default function InteractiveWidgets({ name }: InteractiveWidgetsProps) {
         case 'hirepro': return <HireProWidget />;
         case 'buymaterial': return <BuyMaterialWidget />;
         case 'verification': return <VerificationWidget />;
+        case 'shortlistinterview': return <ShortlistInterviewWidget />;
         default: return null;
     }
 }

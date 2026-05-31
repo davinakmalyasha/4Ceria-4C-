@@ -150,12 +150,39 @@ export const ProfilePreviewCard: React.FC<Props> = ({
                             <div className="space-y-4">
                                 {education && (
                                     <div className="flex items-start gap-3">
-                                        <div className="p-2 bg-blue-100 rounded-lg text-blue-600 mt-0.5">
+                                        <div className="p-2 bg-blue-100 rounded-lg text-blue-600 mt-0.5 shrink-0">
                                             <GraduationCap size={16} />
                                         </div>
-                                        <div>
+                                        <div className="min-w-0 flex-1">
                                             <p className="text-xs font-black text-gray-400 uppercase tracking-wider mb-1">Education</p>
-                                            <p className="text-sm font-bold text-gray-800">{education}</p>
+                                            {(() => {
+                                                let parsed: any = null;
+                                                if (typeof education === 'object' && education !== null) {
+                                                    parsed = education;
+                                                } else if (typeof education === 'string') {
+                                                    try {
+                                                        parsed = JSON.parse(education);
+                                                    } catch (e) {
+                                                        // fallback to plain string
+                                                    }
+                                                }
+
+                                                if (Array.isArray(parsed) && parsed.length > 0) {
+                                                    return (
+                                                        <div className="space-y-2.5 mt-1.5">
+                                                            {parsed.map((edu: any, i: number) => (
+                                                                <div key={i} className="flex flex-col bg-white border border-gray-100/60 p-2.5 rounded-xl shadow-xs">
+                                                                    <span className="text-[11px] font-black text-slate-800 leading-tight">{edu.school || edu.institution}</span>
+                                                                    <span className="text-[9px] text-gray-500 font-bold mt-0.5 leading-none">{edu.degree || 'Degree'}{edu.year ? ` • ${edu.year}` : ''}</span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    );
+                                                }
+
+                                                const textValue = typeof education === 'object' ? JSON.stringify(education) : String(education);
+                                                return <p className="text-sm font-bold text-gray-800 whitespace-pre-wrap">{textValue}</p>;
+                                            })()}
                                         </div>
                                     </div>
                                 )}

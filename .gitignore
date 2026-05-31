@@ -32,3 +32,29 @@ dist/
 
 # Mobile PA Project
 /mobile/
+
+# Safety & Security Ignores
+*.sql
+*.log
+*.txt
+*.orig.*
+.agents/
+/tmp/
+/scratch/
+/resources/js/scratch/
+
+# Temporary / Scratch Debug Scripts (PHP)
+check_*.php
+fix_*.php
+test_*.php
+scratch_*.php
+seed_*.php
+inspect_*.php
+restore_*.php
+cleanup_*.php
+final_*.php
+deep_*.php
+verify_*.php
+debug_*.php
+tmp_*.php
+

@@ -25,12 +25,12 @@ export const proDocs: DocArticle[] = [
                 type: 'list',
                 title: 'Verification Step-by-Step Flow:',
                 items: [
-                    'Step 1: Go to Edit Profile on your dashboard, or click "I Want to Verify" on active bidding pages.',
-                    'Step 2: Locate the sticky "Verification Panel" on the right side of the profile page.',
-                    'Step 3: Select and upload your Profile Photo, Portfolio PDF, and Certificate (SIUP / NPWP).',
-                    'Step 4: Click "Save Profile" to submit. Your status will update to "Pending Verification".',
-                    'Step 5: The admin team will manually review your credentials within 24 hours.',
-                    'Step 6: Upon approval, you will receive a notification and gain full privileges to submit bids.'
+                    'Step 1: Navigate to the "Edit Profile" section on your dashboard.',
+                    'Step 2: In the "Verification Required" alert banner at the top of your profile settings, click the "Verify Account" button to launch the dedicated verification console.',
+                    'Step 3: Select your entity type: choose "Individual Professional" to verify personal credentials, or "Company / Studio" to verify as a corporate firm or agency.',
+                    'Step 4: Provide your identity numbers: Individuals enter KTP or Professional License numbers. Companies enter Registered Company Name, NIB Registration License, NPWP Tax ID, and SIUP number.',
+                    'Step 5: Upload your high-resolution scan documents: Individuals upload KTP scans and Professional Licenses. Companies upload NPWP Tax Cards and SIUP/NIB Certificates.',
+                    'Step 6: Click "Save & Request Verification" at the bottom of the page. Your account will automatically enter the administrative review queue. Verification manual audits take roughly 24 hours.'
                 ]
             },
             {

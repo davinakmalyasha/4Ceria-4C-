@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class CourierProfile extends Model
 {
-    protected $fillable = ['user_id', 'vehicle_type', 'license_plate', 'is_active'];
+    protected $fillable = ['user_id', 'vehicle_type', 'license_plate', 'is_active', 'verification_status', 'rejection_reason'];
 
     public function user()
     {

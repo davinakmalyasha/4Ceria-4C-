@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Users, Info, MessageCircle, ExternalLink, Check, ListChecks } from 'lucide-react';
 import { BidReviewCard } from './Phases/BidReviewCard';
+import ConfirmModal from './ConfirmModal';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
@@ -16,6 +17,21 @@ export default function ProjectInterviews({ project, onRefresh, onOpenChat, onRe
     const { user } = useAuth();
     const { showToast } = useToast();
     const [actioningId, setActioningId] = useState<number | null>(null);
+    const [confirmState, setConfirmState] = useState<{
+        isOpen: boolean;
+        bidId: number | null;
+        action: 'shortlist' | 'accept' | 'decline' | 'recommend' | null;
+        title: string;
+        description: string;
+        variant: 'info' | 'success' | 'danger';
+    }>({
+        isOpen: false,
+        bidId: null,
+        action: null,
+        title: '',
+        description: '',
+        variant: 'info'
+    });
 
     // Filter all relevant bids (shortlisted, invited, negotiating)
     const interviewBids = useMemo(() => {
@@ -77,55 +93,85 @@ export default function ProjectInterviews({ project, onRefresh, onOpenChat, onRe
     }, [project, user?.id]);
 
     const handleAction = async (bidId: number, action: 'shortlist' | 'accept' | 'decline' | 'recommend') => {
-        const isArchitect = user?.role_type === 'arsitek';
         const currentBid = interviewBids.find(b => b.id === bidId);
-        const isSpecialist = currentBid?.phaseKey === 'engineering';
+        if (!currentBid) return;
 
-        if (action === 'recommend' || (action === 'accept' && isArchitect && isSpecialist)) {
-            const bid = interviewBids.find(b => b.id === bidId);
-            if (bid && onRecommend) {
-                const role = bid.structural_id ? 'structural' : 'mep';
-                
-                if (action === 'accept') {
-                    if (!window.confirm("Are you sure you want to accept terms and recommend this specialist?")) return;
-                    
-                    try {
-                        await axios.post(`/projects/${project.id}/bids/${bidId}/confirm-fee`, {
-                            bid_type: role
-                        });
-                        showToast("Terms accepted. Now you can recommend this specialist.", "success");
-                    } catch (err: any) {
-                        showToast(err.response?.data?.message || "Action failed", "error");
-                        return;
-                    }
-                }
-                
+        let title = '';
+        let description = '';
+        let variant: 'info' | 'success' | 'danger' = 'info';
+
+        if (action === 'recommend') {
+            if (onRecommend) {
+                const role = currentBid.structural_id ? 'structural' : 'mep';
                 onRecommend(bidId, role);
             }
             return;
         }
-        
+
+        if (action === 'accept') {
+            const isArchitect = user?.role_type === 'arsitek';
+            const isSpecialist = currentBid.phaseKey === 'engineering';
+
+            title = isArchitect && isSpecialist ? 'Recommend Specialist' : 'Hire Professional';
+            description = isArchitect && isSpecialist
+                ? 'Are you sure you want to accept terms and recommend this specialist?'
+                : 'Are you sure you want to hire this professional? This will generate the contract for their signature.';
+            variant = 'success';
+        } else if (action === 'decline') {
+            title = 'Decline Professional';
+            description = 'Are you sure you want to decline this professional?';
+            variant = 'danger';
+        } else {
+            return;
+        }
+
+        setConfirmState({
+            isOpen: true,
+            bidId,
+            action,
+            title,
+            description,
+            variant
+        });
+    };
+
+    const executeConfirmAction = async () => {
+        const { bidId, action } = confirmState;
+        if (!bidId || !action) return;
+
+        setConfirmState(prev => ({ ...prev, isOpen: false }));
         setActioningId(bidId);
+
         try {
-            const isPMBidding = currentBid?.phaseKey === 'management';
-            
-            const isPM = user?.role_type === 'project_manager' && project.pm_id === user.id;
-            
+            const currentBid = interviewBids.find(b => b.id === bidId);
+            if (!currentBid) return;
+
+            const isArchitect = user?.role_type === 'arsitek';
+            const isSpecialist = currentBid.phaseKey === 'engineering';
+
+            if (action === 'accept' && isArchitect && isSpecialist) {
+                const role = currentBid.structural_id ? 'structural' : 'mep';
+                try {
+                    await axios.post(`/projects/${project.id}/bids/${bidId}/confirm-fee`, {
+                        bid_type: role
+                    });
+                    showToast("Terms accepted. Now you can recommend this specialist.", "success");
+                    if (onRecommend) {
+                        onRecommend(bidId, role);
+                    }
+                } catch (err: any) {
+                    showToast(err.response?.data?.message || "Action failed", "error");
+                } finally {
+                    setActioningId(null);
+                }
+                return;
+            }
+
+            const isPMBidding = currentBid.phaseKey === 'management';
             let endpoint: string;
             if (action === 'accept') {
-                const confirmMsg = "Are you sure you want to hire this professional? This will generate the contract for their signature.";
-
-                if (!window.confirm(confirmMsg)) {
-                    setActioningId(null);
-                    return;
-                }
-
                 endpoint = isPMBidding ? `pm-bids/${bidId}/accept` : 'accept-bid';
             } else {
-                if (!window.confirm("Are you sure you want to decline this professional?")) {
-                    setActioningId(null);
-                    return;
-                }
                 endpoint = isPMBidding ? `pm-bids/${bidId}/decline` : 'decline-bid';
             }
 
@@ -145,7 +191,6 @@ export default function ProjectInterviews({ project, onRefresh, onOpenChat, onRe
                     bid_type: bidTypeMap[currentBid.phaseKey]
                 };
 
-                // For confirm-fee, bid_type is also needed
                 await axios.post(`/projects/${project.id}/${endpoint}`, postData);
             }
 
@@ -160,19 +205,6 @@ export default function ProjectInterviews({ project, onRefresh, onOpenChat, onRe
 
     return (
         <div className="space-y-6">
-            <div className="bg-amber-50 border border-amber-100 rounded-[2rem] p-6 flex items-start gap-4 shadow-sm">
-                <div className="p-3 bg-amber-100 text-amber-700 rounded-2xl">
-                    <Info size={24} />
-                </div>
-                <div>
-                    <h3 className="text-amber-900 font-black text-lg">Interview Workspace</h3>
-                    <p className="text-amber-700 text-sm font-medium leading-relaxed max-w-2xl mt-1">
-                        Review and chat with your shortlisted candidates. Use the internal chat or WhatsApp to discuss terms. 
-                        Once you're satisfied, click "Hire" to finalize.
-                    </p>
-                </div>
-            </div>
-
             {interviewBids.length > 0 ? (
                 <div className="grid grid-cols-1 gap-6">
                     {interviewBids.map(bid => (
@@ -205,6 +237,16 @@ export default function ProjectInterviews({ project, onRefresh, onOpenChat, onRe
                     </p>
                 </div>
             )}
+
+            <ConfirmModal
+                isOpen={confirmState.isOpen}
+                title={confirmState.title}
+                description={confirmState.description}
+                variant={confirmState.variant}
+                onConfirm={executeConfirmAction}
+                onCancel={() => setConfirmState(prev => ({ ...prev, isOpen: false }))}
+                isLoading={actioningId !== null}
+            />
         </div>
     );
 }

@@ -143,6 +143,16 @@ export default function ProjectMap({
                 )}
             </Map>
 
+            {userLocation && (
+                <button 
+                    onClick={onFlyToUser} 
+                    className="absolute bottom-4 left-4 z-10 p-3 bg-white/95 backdrop-blur-md hover:bg-white active:scale-95 rounded-2xl border border-zinc-200/80 text-[#FF2D20] transition-all shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex items-center justify-center hover:scale-105" 
+                    title="My location"
+                >
+                    <Locate size={16} />
+                </button>
+            )}
+
             {/* Floating Control Dock at Map Top */}
             <div className="absolute top-4 left-4 right-4 bg-white/95 backdrop-blur-md p-2 rounded-2xl border border-zinc-200/80 shadow-[0_8px_30px_rgb(0,0,0,0.12)] z-10 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 select-none">
                 {/* City Dropdown, Search & Locate */}
@@ -197,11 +207,6 @@ export default function ProjectMap({
                             className="w-full pl-9 pr-3 py-1.5 bg-zinc-50 border border-zinc-200/60 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#FF2D20]/15 focus:border-[#FF2D20] transition-all font-semibold text-gray-800"
                         />
                     </div>
-                    {userLocation && (
-                        <button onClick={onFlyToUser} className="p-2 bg-zinc-50 hover:bg-zinc-100 rounded-xl border border-zinc-200 text-[#FF2D20] transition-colors" title="My location">
-                            <Locate size={14} />
-                        </button>
-                    )}
                 </div>
 
                 {/* Dense Stats Capsule */}

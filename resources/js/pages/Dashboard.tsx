@@ -5,6 +5,7 @@ import { useDashboardData } from '../hooks/useDashboardData';
 import { DashboardSidebar } from '../components/Dashboard/DashboardSidebar';
 import { DashboardHeader } from '../components/Dashboard/DashboardHeader';
 import { DashboardTabs } from '../components/Dashboard/DashboardTabs';
+import { VerificationAlert } from '../components/Dashboard/VerificationAlert';
 import ChatOverlay from '../components/Chat/ChatOverlay';
 import ProjectPreviewModal from '../components/Projects/ProjectPreviewModal';
 import HouseDetailsModal from '../components/Explore/HouseDetailsModal';
@@ -24,6 +25,11 @@ export default function Dashboard() {
 
 function DashboardContent() {
     const { user, isLoading: isAuthLoading } = useAuth();
+    
+    if (!isAuthLoading && user && user.role_type === 'admin') {
+        return <Navigate to="/admin" replace />;
+    }
+
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [activeTab, setActiveTab] = useState('overview');
     const [activeSubTab, setActiveSubTab] = useState<string | null>(null);
@@ -83,11 +89,45 @@ function DashboardContent() {
 
     useEffect(() => {
         const handleOpenHouse = (e: any) => setSelectedHouseId(e.detail);
-        const handleSwitchTab = (e: any) => {
+        const handleSwitchTab = async (e: any) => {
             if (typeof e.detail === 'object') {
                 handleSetActiveTab(e.detail.tab);
                 if (e.detail.subTab) setActiveSubTab(e.detail.subTab);
                 if (e.detail.chatUserId) setChatUserId(e.detail.chatUserId);
+                
+                if (e.detail.projectId) {
+                    const projectId = Number(e.detail.projectId);
+                    let foundProject = 
+                        data.projects.find(p => p.id === projectId) || 
+                        data.projectFeed.find(p => p.id === projectId) || 
+                        data.myBids.find(b => b.project_id === projectId || b.project?.id === projectId)?.project;
+                    
+                    if (!foundProject) {
+                        try {
+                            const res = await axios.get(`/projects/${projectId}`);
+                            foundProject = res.data.data;
+                        } catch (err) {
+                            console.error('Failed to fetch project for notification routing:', err);
+                        }
+                    }
+                    
+                    if (foundProject) {
+                        setSelectedProject(foundProject);
+                        const isOwner = user?.id === foundProject.user_id;
+                        const isHiredPM = foundProject.pm_id && user?.id === foundProject.pm_id;
+                        const isHiredPro = 
+                            (foundProject.selected_arsitek_id && (user?.id === foundProject.selected_arsitek_id || foundProject.arsitek?.user_id === user?.id)) ||
+                            (foundProject.selected_kontraktor_id && (user?.id === foundProject.selected_kontraktor_id || foundProject.kontraktor?.user_id === user?.id)) ||
+                            (foundProject.selected_notaris_id && (user?.id === foundProject.selected_notaris_id || foundProject.notaris?.user_id === user?.id)) ||
+                            (foundProject.selected_interior_id && (user?.id === foundProject.selected_interior_id || foundProject.interior_profile?.user_id === user?.id)) ||
+                            (foundProject.structural_id && (user?.id === foundProject.structural_engineer?.user_id || user?.structural_engineer?.id === foundProject.structural_id)) ||
+                            (foundProject.mep_id && (user?.id === foundProject.mep_engineer?.user_id || user?.mep_engineer?.id === foundProject.mep_id)) ||
+                            (!!foundProject.sub_professionals && foundProject.sub_professionals.some((s: any) => s.user_id === user?.id && s.status === 'active'));
+                        
+                        const showWorkspace = isOwner || isHiredPM || isHiredPro;
+                        handleSetActiveTab(showWorkspace ? 'project-detail' : 'bidding-brief');
+                    }
+                }
             } else {
                 handleSetActiveTab(e.detail);
                 setActiveSubTab(null);
@@ -108,7 +148,7 @@ function DashboardContent() {
             window.removeEventListener('switchDashboardTab', handleSwitchTab);
             window.removeEventListener('viewProfessionalProfile', handleViewProfile);
         };
-    }, [user]);
+    }, [user, data.projects, data.projectFeed, data.myBids]);
 
 
     // Read URL search params on mount to support links like /dashboard?tab=houses
@@ -165,6 +205,13 @@ function DashboardContent() {
 
                 <div className={`flex-1 overflow-y-auto px-4 sm:px-8 relative z-0 ${activeTab === 'houses' ? 'py-3 sm:py-4' : 'py-4 sm:py-8'}`}>
                     <div className="max-w-7xl mx-auto">
+                        {user && (
+                            <VerificationAlert 
+                                user={user} 
+                                activeTab={activeTab} 
+                                setActiveTab={handleSetActiveTab} 
+                            />
+                        )}
                         <DashboardTabs 
                             activeTab={activeTab} setActiveTab={handleSetActiveTab}
                             activeSubTab={activeSubTab} setActiveSubTab={setActiveSubTab}

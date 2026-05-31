@@ -125,7 +125,17 @@ export default function NotificationsDropdown() {
                                         key={n.id}
                                         onClick={() => {
                                             if (!n.read_at) markRead(n.id);
-                                            if (n.type === 'project_invitation') {
+                                            
+                                            const projectId = n.data?.project_id || n.data?.projectId;
+                                            if (projectId) {
+                                                window.dispatchEvent(new CustomEvent('switchDashboardTab', { 
+                                                    detail: { 
+                                                        tab: 'project-detail', 
+                                                        projectId: projectId 
+                                                    } 
+                                                }));
+                                                setOpen(false);
+                                            } else if (n.type === 'project_invitation') {
                                                 window.dispatchEvent(new CustomEvent('switchDashboardTab', { detail: { tab: 'my-bids', subTab: 'invitations' } }));
                                                 setOpen(false);
                                             }

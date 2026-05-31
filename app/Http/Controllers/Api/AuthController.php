@@ -31,6 +31,11 @@ class AuthController extends Controller
             ], 401);
         }
         $user = User::where('email', $request->email)->with('roles')->firstOrFail();
+        if ($user->is_suspended) {
+            return response()->json([
+                'message' => 'Your account has been suspended by the administrator.',
+            ], 403);
+        }
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([

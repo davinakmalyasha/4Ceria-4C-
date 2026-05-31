@@ -27,6 +27,15 @@ class NotarisProfile extends Model
         'verification_status',
         'rejection_reason',
         'reliability_score',
+        'entity_type',
+        'company_name',
+        'company_license',
+        'identity_number',
+        'npwp_number',
+        'siup_number',
+        'file_portofolio',
+        'npwp',
+        'siup',
     ];
 
     protected $appends = ['average_rating', 'review_count', 'is_verified'];

@@ -4,7 +4,8 @@ import {
     Clock, DollarSign, Check, X, Loader2, 
     Shield, Users, Hammer, CreditCard, 
     ChevronDown, ChevronUp, Construction, Info, Activity, Star,
-    FileText, ExternalLink, Box, Layout, Zap, Grid, Eye, Sofa, CheckCircle2, ListChecks, MessageCircle, Smartphone, Upload, CheckCircle
+    FileText, ExternalLink, Box, Layout, Zap, Grid, Eye, Sofa, CheckCircle2, ListChecks, MessageCircle, Smartphone, Upload, CheckCircle,
+    MapPin, ShieldCheck
 } from 'lucide-react';
 import { ARCHITECT_SERVICE_SCOPES, ARCHITECT_DELIVERABLES } from '../../../constants/ArchitectStandardPresets';
 import { CONSTRUCTION_METHODS, PAYMENT_SCHEDULE_OPTIONS } from '../../../constants/ContractorStandardPresets';
@@ -20,9 +21,39 @@ import axios from 'axios';
 import { ContractSignModal } from '../Contracts/ContractSignModal';
 import { PaymentProofModal } from '../Contracts/PaymentProofModal';
 import { ProfilePreviewCard } from '../../Shared/ProfilePreviewCard';
+import { getProfile, ROLE_LABELS } from '../../Shared/ProfilePreviewHelpers';
+import ConfirmModal from '../ConfirmModal';
 import { NegotiationHistory } from './NegotiationHistory';
 import { ProposeFeeModal } from './ProposeFeeModal';
 import { PortfolioProject } from '../../../types/project.types';
+
+const ensureArray = (value: any): any[] => {
+    if (!value) return [];
+    if (Array.isArray(value)) return value;
+    if (typeof value === 'string') {
+        const trimmed = value.trim();
+        if (!trimmed) return [];
+        if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+            try {
+                const parsed = JSON.parse(trimmed);
+                if (Array.isArray(parsed)) {
+                    return parsed.map(item => {
+                        if (typeof item === 'string') {
+                            try {
+                                const subParsed = JSON.parse(item);
+                                if (Array.isArray(subParsed)) return subParsed;
+                                return item;
+                            } catch(e) {}
+                        }
+                        return item;
+                    }).flat();
+                }
+            } catch (e) {}
+        }
+        return trimmed.split(',').map(x => x.trim()).filter(Boolean);
+    }
+    return [];
+};
 
 interface BidReviewCardProps {
     bid: any;
@@ -61,6 +92,7 @@ export const BidReviewCard: React.FC<BidReviewCardProps> = ({
     const [isVerifyingProof, setIsVerifyingProof] = useState(false);
     const [portfolios, setPortfolios] = useState<PortfolioProject[]>([]);
     const [isLoadingPortfolios, setIsLoadingPortfolios] = useState(false);
+    const [isConfirmFeeModalOpen, setIsConfirmFeeModalOpen] = useState(false);
 
     const isContractor = phaseKey === 'build';
     const hasHistory = bid.negotiation_logs && bid.negotiation_logs.length > 0;
@@ -123,7 +155,38 @@ export const BidReviewCard: React.FC<BidReviewCardProps> = ({
     const proInitial = proName?.charAt(0).toUpperCase() || 'P';
 
     const professionalUser = bid.arsitek?.user || bid.kontraktor?.user || bid.notaris?.user || bid.interior?.user || bid.pm?.user || bid.structural?.user || bid.mep?.user || bid.bidder?.user || bid.user;
+    const profile = React.useMemo(() => {
+        // Fallback directly to bidder object if it has filled profile fields
+        const directBidder = bid.bidder;
+        if (directBidder && (directBidder.deskripsi || directBidder.lokasi || directBidder.pengalaman_tahun || directBidder.spesialisasi || directBidder.specialization || directBidder.location)) {
+            return {
+                ...directBidder,
+                rate_harga: directBidder.rate_harga ?? directBidder.rate,
+                lokasi: directBidder.lokasi ?? directBidder.location,
+                pengalaman_tahun: directBidder.pengalaman_tahun ?? directBidder.experience_years,
+                spesialisasi: directBidder.spesialisasi ?? directBidder.specialization,
+            };
+        }
 
+        // Check direct profile relations
+        const directProfile = bid.pm || bid.arsitek || bid.kontraktor || bid.notaris || bid.interior || bid.structural || bid.structuralEngineer || bid.mep || bid.mepEngineer;
+        if (directProfile && (directProfile.deskripsi || directProfile.alasan_hire || directProfile.pengalaman_tahun || directProfile.pengalaman)) {
+            return directProfile;
+        }
+
+        if (!professionalUser) return null;
+        return getProfile({
+            ...professionalUser,
+            role_type: professionalUser?.role_type || proType,
+            arsitek: bid.arsitek || professionalUser?.arsitek || (proType === 'arsitek' ? bid.bidder : null),
+            kontraktor: bid.kontraktor || professionalUser?.kontraktor || (proType === 'kontraktor' ? bid.bidder : null),
+            notaris_profile: bid.notaris || professionalUser?.notaris_profile || (proType === 'notaris' ? bid.bidder : null),
+            interior_profile: bid.interior || professionalUser?.interior_profile || (proType === 'interior' ? bid.bidder : null),
+            project_manager: bid.pm || professionalUser?.project_manager || (proType === 'project_manager' ? bid.bidder : null),
+            structural_engineer: bid.structural || bid.structuralEngineer || professionalUser?.structural_engineer || (proType === 'structural' ? bid.bidder : null),
+            mep_engineer: bid.mep || bid.mepEngineer || professionalUser?.mep_engineer || (proType === 'mep' ? bid.bidder : null)
+        }) || getProfile(bid) || getProfile(professionalUser || {});
+    }, [professionalUser, proType, bid]);
     useEffect(() => {
         if (isExpanded && professionalUser?.id && portfolios.length === 0 && !isLoadingPortfolios) {
             setIsLoadingPortfolios(true);
@@ -176,7 +239,11 @@ export const BidReviewCard: React.FC<BidReviewCardProps> = ({
     };
 
     const handleConfirmFee = async () => {
-        if (!window.confirm("Are you sure you want to confirm this fee? This will finalize the agreed price.")) return;
+        setIsConfirmFeeModalOpen(true);
+    };
+
+    const executeConfirmFeeAction = async () => {
+        setIsConfirmFeeModalOpen(false);
         setIsSubmitting(true);
         try {
             await axios.post(`/projects/${projectId}/bids/${bid.id}/confirm-fee`, {
@@ -287,6 +354,11 @@ export const BidReviewCard: React.FC<BidReviewCardProps> = ({
     };
 
     const proPhone = getProPhone();
+    
+    const scopesList = React.useMemo(() => ensureArray(bid.scopes), [bid.scopes]);
+    const deliverablesList = React.useMemo(() => ensureArray(bid.deliverables), [bid.deliverables]);
+    const terminsList = React.useMemo(() => ensureArray(bid.proposed_termins), [bid.proposed_termins]);
+    const milestonesList = React.useMemo(() => ensureArray(bid.proposed_milestones), [bid.proposed_milestones]);
     
     // Format WhatsApp Message
     const getWhatsAppMessage = (termin?: any) => {
@@ -409,6 +481,58 @@ export const BidReviewCard: React.FC<BidReviewCardProps> = ({
                                 <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-700 rounded-full border border-amber-100 shadow-sm">
                                     <Info size={13} className="text-amber-500" />
                                     <span className="text-amber-900 font-black uppercase text-[9px]">Est. Tax: Rp {Number(bid.tax_estimate).toLocaleString('id-ID')}</span>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Simple Data Preview (Fee Structure, Schedule, Scopes) */}
+                        <div className="flex flex-wrap gap-2 items-center mt-3 text-xs font-semibold text-zinc-600">
+                            {/* Fee Structure Summary */}
+                            <span className="px-2 py-0.5 bg-zinc-50 text-[10px] rounded-md border border-zinc-200/50 text-zinc-500 font-black uppercase tracking-wider">
+                                {bid.fee_type === 'percentage' ? 'Percentage' : bid.fee_type === 'sqm' ? 'Sqm-based' : 'Fixed Fee'}
+                            </span>
+
+                            {/* Termins summary */}
+                            {terminsList && terminsList.length > 0 && (
+                                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50/50 text-indigo-700 rounded-lg border border-indigo-100/30 text-[10px]">
+                                    <span className="text-[9px] font-black uppercase text-indigo-400">Schedule:</span>
+                                    <div className="flex items-center gap-1 font-bold">
+                                        {terminsList.map((t: any, idx: number) => {
+                                            const name = t.name || t.label || `Termin ${idx + 1}`;
+                                            const percentage = t.percentage ?? t.bobot ?? 0;
+                                            return (
+                                                <span key={idx} className="whitespace-nowrap">
+                                                    {name} ({percentage}%)
+                                                    {idx < terminsList.length - 1 && <span className="text-zinc-300 mx-1">➔</span>}
+                                                </span>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Milestones summary if no termins */}
+                            {(!terminsList || terminsList.length === 0) && milestonesList && milestonesList.length > 0 && (
+                                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50/50 text-indigo-750 rounded-lg border border-indigo-100/30 text-[10px]">
+                                    <span className="text-[9px] font-black uppercase text-indigo-400">Milestones:</span>
+                                    <div className="flex items-center gap-1 font-bold">
+                                        {milestonesList.map((m: any, idx: number) => (
+                                            <span key={idx} className="whitespace-nowrap">
+                                                {m.title || m.label}
+                                                {idx < milestonesList.length - 1 && <span className="text-zinc-300 mx-1">➔</span>}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Scopes summary */}
+                            {scopesList && scopesList.length > 0 && (
+                                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-zinc-50 text-zinc-600 rounded-lg border border-zinc-150 text-[10px] max-w-[280px] truncate">
+                                    <span className="text-[9px] font-black uppercase text-zinc-400">Scopes:</span>
+                                    <span className="truncate" title={scopesList.join(', ')}>
+                                        {scopesList.length} Items ({scopesList.slice(0, 2).join(', ')}{scopesList.length > 2 && '...'})
+                                    </span>
                                 </div>
                             )}
                         </div>
@@ -802,7 +926,7 @@ export const BidReviewCard: React.FC<BidReviewCardProps> = ({
                     >
                         {/* Proposal Snippet - Universally Cleaned */}
                         {bid.proposal && (phaseKey !== 'legal' || !Array.isArray(bid.selected_services) || bid.selected_services.length === 0) && (() => {
-                            const hasStructuredData = (bid.scopes && bid.scopes.length > 0) || (bid.deliverables && bid.deliverables.length > 0);
+                            const hasStructuredData = scopesList.length > 0 || deliverablesList.length > 0;
                             
                             let cleanProposal = bid.proposal;
                             if (isPM) {
@@ -841,13 +965,13 @@ export const BidReviewCard: React.FC<BidReviewCardProps> = ({
                                         </p>
 
                                         {/* Deliverables Grid */}
-                                        {bid.deliverables && bid.deliverables.length > 0 && (
+                                        {deliverablesList.length > 0 && (
                                             <div className="pt-4 border-t border-zinc-200/40">
                                                 <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
                                                     <CheckCircle2 size={12} className="text-emerald-500" /> Promised Deliverables
                                                 </p>
                                                 <div className="grid grid-cols-2 gap-2">
-                                                    {bid.deliverables.map((id: string) => {
+                                                    {deliverablesList.map((id: string) => {
                                                         const del = ARCHITECT_DELIVERABLES.find(d => d.id === id);
                                                         const label = del ? del.label : id;
                                                         const IconMap: Record<string, any> = { Box, Layout, Zap, Grid, Eye, Sofa };
@@ -867,13 +991,13 @@ export const BidReviewCard: React.FC<BidReviewCardProps> = ({
                                         )}
 
                                         {/* Scopes Badges */}
-                                        {bid.scopes && bid.scopes.length > 0 && (
+                                        {scopesList.length > 0 && (
                                             <div className="flex flex-wrap gap-1.5 mt-4">
-                                                {bid.scopes.map((id: string) => {
+                                                {scopesList.map((sId: string) => {
                                                     const scope = ARCHITECT_SERVICE_SCOPES.find(s => s.id === sId);
                                                     return (
-                                                        <span key={id} className="px-2 py-1 bg-zinc-900/5 text-zinc-500 text-[8px] font-black uppercase tracking-widest rounded-md border border-zinc-950/5">
-                                                            {scope?.label || id}
+                                                        <span key={sId} className="px-2 py-1 bg-zinc-900/5 text-zinc-500 text-[8px] font-black uppercase tracking-widest rounded-md border border-zinc-950/5">
+                                                            {scope?.label || sId}
                                                         </span>
                                                     );
                                                 })}
@@ -983,7 +1107,7 @@ export const BidReviewCard: React.FC<BidReviewCardProps> = ({
                                                 <ListChecks size={12} className="text-zinc-400" /> Included Services
                                             </label>
                                             <div className="flex flex-wrap gap-1.5">
-                                                {bid.selected_services.scopes?.map((sId: string) => {
+                                                {ensureArray(bid.selected_services?.scopes).map((sId: string) => {
                                                     const scope = NOTARY_SERVICE_SCOPES.find(s => s.id === sId);
                                                     return (
                                                         <span key={sId} className="px-3 py-1.5 bg-white border border-zinc-200 text-zinc-600 text-[9px] font-black uppercase tracking-wider rounded-lg shadow-sm">
@@ -999,7 +1123,7 @@ export const BidReviewCard: React.FC<BidReviewCardProps> = ({
                                                 <Shield size={12} className="text-zinc-400" /> Legal Deliverables
                                             </label>
                                             <div className="flex flex-wrap gap-1.5">
-                                                {bid.selected_services.deliverables?.map((dId: string) => {
+                                                {ensureArray(bid.selected_services?.deliverables).map((dId: string) => {
                                                     const delLabel = dId.replace(/_/g, ' ');
                                                     return (
                                                         <span key={dId} className="px-3 py-1.5 bg-zinc-900 text-white text-[9px] font-black uppercase tracking-wider rounded-lg shadow-lg shadow-zinc-200">
@@ -1016,53 +1140,55 @@ export const BidReviewCard: React.FC<BidReviewCardProps> = ({
                         
                         {/* Always Visible PM Details */}
                         {isPM && (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-gray-100">
-                                <div className="space-y-3">
-                                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
-                                        <Users size={12} /> Management Scope
-                                    </label>
-                                    <div className="space-y-2">
-                                        {(bid.scopes || []).length > 0 ? (bid.scopes || []).map((sId: string) => {
-                                            const scope = PM_SERVICE_SCOPES.find(x => x.id === sId);
-                                            return (
-                                                <div key={sId} className="flex items-center gap-2 p-3 bg-zinc-50 rounded-xl border border-zinc-100">
-                                                    <div className="w-1.5 h-1.5 bg-zinc-900 rounded-full" />
-                                                    <span className="text-[11px] font-bold text-gray-700">{scope?.label || sId}</span>
+                            <div className="pt-6 border-t border-gray-100 space-y-4">
+                                {(scopesList.length > 0 || deliverablesList.length > 0) && (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        {scopesList.length > 0 && (
+                                            <div className="space-y-3">
+                                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                                                    <Users size={12} /> Management Scope
+                                                </label>
+                                                <div className="space-y-2">
+                                                    {scopesList.map((sId: string) => {
+                                                        const scope = PM_SERVICE_SCOPES.find(x => x.id === sId);
+                                                        return (
+                                                            <div key={sId} className="flex items-center gap-2 p-3 bg-zinc-50 rounded-xl border border-zinc-100">
+                                                                <div className="w-1.5 h-1.5 bg-zinc-900 rounded-full animate-pulse" />
+                                                                <span className="text-[11px] font-bold text-gray-700">{scope?.label || sId}</span>
+                                                            </div>
+                                                        );
+                                                    })}
                                                 </div>
-                                            );
-                                        }) : (
-                                            <div className="text-[11px] font-bold text-gray-400 italic p-3 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-                                                No specific management scopes defined.
+                                            </div>
+                                        )}
+
+                                        {deliverablesList.length > 0 && (
+                                            <div className="space-y-3">
+                                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                                                    <Shield size={12} /> Key Deliverables
+                                                </label>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {deliverablesList.map((dId: string) => {
+                                                        const del = PM_DELIVERABLES.find(x => x.id === dId);
+                                                        return (
+                                                            <span key={dId} className="px-3 py-1.5 bg-zinc-900 text-white text-[9px] font-black uppercase tracking-wider rounded-lg shadow-sm">
+                                                                {del?.label || dId}
+                                                            </span>
+                                                        );
+                                                    })}
+                                                </div>
                                             </div>
                                         )}
                                     </div>
-                                </div>
+                                )}
 
-                                <div className="space-y-4">
-                                    <div className="space-y-3">
-                                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
-                                            <Shield size={12} /> Key Deliverables
-                                        </label>
-                                        <div className="flex flex-wrap gap-2">
-                                            {(bid.deliverables || []).length > 0 ? (bid.deliverables || []).map((dId: string) => {
-                                                const del = PM_DELIVERABLES.find(x => x.id === dId);
-                                                return (
-                                                    <span key={dId} className="px-3 py-1.5 bg-zinc-900 text-white text-[9px] font-black uppercase tracking-wider rounded-lg">
-                                                        {del?.label || dId}
-                                                    </span>
-                                                );
-                                            }) : (
-                                                <span className="text-[11px] font-bold text-gray-400 italic">No key deliverables listed.</span>
-                                            )}
-                                        </div>
-                                    </div>
-
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     {showFinancials && (
-                                        <div className="bg-zinc-100 p-4 rounded-2xl">
-                                            <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-2">Fee Structure</label>
-                                            <div className="flex items-center gap-2 text-zinc-900">
-                                                <CreditCard size={16} />
-                                                <span className="text-xs font-black uppercase tracking-tight">
+                                        <div className="bg-zinc-50 p-4 rounded-2xl border border-gray-100 flex flex-col justify-center shadow-sm">
+                                            <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest block mb-1">Fee Structure</label>
+                                            <div className="flex items-center gap-2 text-zinc-950">
+                                                <CreditCard size={14} className="text-zinc-500" />
+                                                <span className="text-[10px] font-black uppercase tracking-tight">
                                                     {PM_FEE_TYPES.find(f => f.id === bid.fee_type)?.label || 'Professional Fee'}
                                                 </span>
                                             </div>
@@ -1070,23 +1196,22 @@ export const BidReviewCard: React.FC<BidReviewCardProps> = ({
                                     )}
 
                                     {/* PM Value Proposition Note */}
-                                    <div className="bg-[#FF2D20]/5 border border-[#FF2D20]/10 p-5 rounded-[2rem] space-y-3">
-                                        <div className="flex items-center gap-2">
-                                            <Zap size={14} className="text-[#FF2D20]" />
-                                            <span className="text-[10px] font-black text-[#FF2D20] uppercase tracking-widest">Why hire this PM?</span>
+                                    <div className="bg-[#FF2D20]/5 border border-[#FF2D20]/10 p-4 rounded-2xl md:col-span-2 flex items-center gap-4 shadow-sm">
+                                        <div className="w-8 h-8 rounded-lg bg-[#FF2D20]/10 flex items-center justify-center shrink-0 text-[#FF2D20]">
+                                            <Zap size={16} />
                                         </div>
-                                        <div className="space-y-2">
-                                            <div className="flex items-start gap-2">
-                                                <div className="mt-1"><CheckCircle2 size={10} className="text-[#FF2D20]" /></div>
-                                                <p className="text-[10px] font-bold text-gray-600 leading-tight">100% Budget & Financial Security</p>
+                                        <div className="flex flex-wrap gap-x-4 gap-y-1">
+                                            <div className="flex items-center gap-1.5">
+                                                <CheckCircle2 size={10} className="text-[#FF2D20] shrink-0" />
+                                                <span className="text-[9px] font-bold text-gray-600 uppercase tracking-tight">100% Budget Security</span>
                                             </div>
-                                            <div className="flex items-start gap-2">
-                                                <div className="mt-1"><CheckCircle2 size={10} className="text-[#FF2D20]" /></div>
-                                                <p className="text-[10px] font-bold text-gray-600 leading-tight">Professional Quality & Site Inspector</p>
+                                            <div className="flex items-center gap-1.5">
+                                                <CheckCircle2 size={10} className="text-[#FF2D20] shrink-0" />
+                                                <span className="text-[9px] font-bold text-gray-600 uppercase tracking-tight">Quality Inspection</span>
                                             </div>
-                                            <div className="flex items-start gap-2">
-                                                <div className="mt-1"><CheckCircle2 size={10} className="text-[#FF2D20]" /></div>
-                                                <p className="text-[10px] font-bold text-gray-600 leading-tight">Single Point of Coordination Hub</p>
+                                            <div className="flex items-center gap-1.5">
+                                                <CheckCircle2 size={10} className="text-[#FF2D20] shrink-0" />
+                                                <span className="text-[9px] font-bold text-gray-600 uppercase tracking-tight">Single Point Coordination</span>
                                             </div>
                                         </div>
                                     </div>
@@ -1136,7 +1261,7 @@ export const BidReviewCard: React.FC<BidReviewCardProps> = ({
                                             <Activity size={12} className="text-emerald-500" /> Analysis Scope
                                         </label>
                                         <div className="flex flex-wrap gap-2">
-                                            {(bid.scopes || []).map((sId: string) => {
+                                            {scopesList.map((sId: string) => {
                                                 const scope = (bid.structural_id ? STRUCTURAL_SERVICE_SCOPES : MEP_SERVICE_SCOPES).find(x => x.id === sId);
                                                 return (
                                                     <span key={sId} className="px-3 py-1.5 bg-white border border-gray-100 text-gray-600 text-[9px] font-black uppercase tracking-wider rounded-lg shadow-sm">
@@ -1153,7 +1278,7 @@ export const BidReviewCard: React.FC<BidReviewCardProps> = ({
                                             <Box size={12} className="text-zinc-900" /> Deliverables
                                         </label>
                                         <div className="flex flex-wrap gap-2">
-                                            {(bid.deliverables || []).map((dId: string) => {
+                                            {deliverablesList.map((dId: string) => {
                                                 const del = (bid.structural_id ? STRUCTURAL_DELIVERABLES : MEP_DELIVERABLES).find(x => x.id === dId);
                                                 return (
                                                     <span key={dId} className="px-3 py-1.5 bg-zinc-900 text-white text-[9px] font-black uppercase tracking-wider rounded-lg shadow-lg shadow-zinc-200">
@@ -1175,11 +1300,11 @@ export const BidReviewCard: React.FC<BidReviewCardProps> = ({
                         )}
 
                         {/* Proposed Payment Phases & Milestones Display */}
-                        {bid.proposed_termins && bid.proposed_termins.length > 0 && (
+                        {terminsList.length > 0 && (
                             <div className="mt-4 p-4 bg-gradient-to-br from-slate-50 to-zinc-50 rounded-2xl border border-slate-100 space-y-4">
                                 <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Proposed Payment Phases</h5>
                                 <div className="space-y-2">
-                                    {bid.proposed_termins.map((t: { trigger_description: string; percentage: number; milestone_index?: number }, i: number) => (
+                                    {terminsList.map((t: { trigger_description: string; percentage: number; milestone_index?: number }, i: number) => (
                                         <div key={i} className="flex items-center justify-between bg-white p-3 rounded-xl border border-slate-100">
                                             <div className="flex items-center gap-3">
                                                 <span className="w-6 h-6 bg-slate-900 text-white rounded-lg flex items-center justify-center text-[9px] font-black">{i + 1}</span>
@@ -1196,11 +1321,11 @@ export const BidReviewCard: React.FC<BidReviewCardProps> = ({
                                         </div>
                                     ))}
                                 </div>
-                                {bid.proposed_milestones && bid.proposed_milestones.length > 0 && (
+                                {milestonesList.length > 0 && (
                                     <div className="pt-3 border-t border-slate-100">
                                         <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Proposed Milestones</h5>
                                         <div className="space-y-2">
-                                            {bid.proposed_milestones.map((m: { title: string; description?: string }, i: number) => (
+                                            {milestonesList.map((m: { title: string; description?: string }, i: number) => (
                                                 <div key={i} className="flex items-start gap-2 bg-white p-3 rounded-xl border border-slate-100">
                                                     <div className="w-2 h-2 bg-emerald-400 rounded-full mt-1.5 flex-shrink-0" />
                                                     <div>
@@ -1216,50 +1341,177 @@ export const BidReviewCard: React.FC<BidReviewCardProps> = ({
                         )}
 
                         {/* Professional Credentials Section */}
-                        <div className="space-y-4 pt-4 border-t border-zinc-100">
+                        <div className="space-y-4 pt-4 border-t border-zinc-100 animate-in fade-in duration-500">
                             <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] flex items-center gap-2">
                                 <Shield size={14} className="text-zinc-900" /> Professional Credentials
                             </label>
-                            {professionalUser ? (
-                                <div className="space-y-6">
-                                    <div className="bg-gray-50/50 rounded-[2rem] p-1 border border-dashed border-gray-200">
-                                        <ProfilePreviewCard 
-                                            user={{
-                                                ...professionalUser,
-                                                role_type: professionalUser?.role_type || proType,
-                                                // Explicitly map profile relations to ensure getProfile finds them
-                                                // We prioritize the bid's direct profile object as it's more likely to be fully hydrated
-                                                arsitek: bid.arsitek || professionalUser?.arsitek,
-                                                kontraktor: bid.kontraktor || professionalUser?.kontraktor,
-                                                notaris_profile: bid.notaris || professionalUser?.notaris_profile,
-                                                interior_profile: bid.interior || professionalUser?.interior_profile,
-                                                project_manager: bid.pm || professionalUser?.project_manager,
-                                                structural_engineer: bid.structural || bid.structuralEngineer || professionalUser?.structural_engineer,
-                                                mep_engineer: bid.mep || bid.mepEngineer || professionalUser?.mep_engineer
-                                            }} 
-                                            portfolios={portfolios} 
-                                        />
+                            {profile ? (
+                                <div className="space-y-5">
+                                    <div className="bg-white rounded-3xl border border-gray-150 p-6 shadow-sm space-y-5">
+                                        {/* Profile Header (Compact) */}
+                                        <div className="flex items-center gap-4">
+                                            {profile.foto ? (
+                                                <img 
+                                                    src={`/storage/${profile.foto}`} 
+                                                    alt={proName} 
+                                                    className="w-12 h-12 rounded-xl object-cover border border-gray-200 shadow-sm shrink-0" 
+                                                />
+                                            ) : (
+                                                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-zinc-800 to-zinc-950 flex items-center justify-center text-white text-lg font-black shrink-0 shadow-md">
+                                                    {proInitial}
+                                                </div>
+                                            )}
+                                            <div className="min-w-0">
+                                                <div className="flex items-center gap-2">
+                                                    <h4 className="font-black text-gray-900 text-sm tracking-tight truncate">{proName}</h4>
+                                                    {profile.verification_status && ['verified', 'approved'].includes(profile.verification_status) && (
+                                                        <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-600 rounded-md text-[7px] font-black uppercase tracking-widest border border-emerald-100 shrink-0">
+                                                            Verified
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-0.5">
+                                                    {ROLE_LABELS[proType as string] || proType}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* Stats Grid (Compact, only show non-empty) */}
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[10px]">
+                                            {(profile.pengalaman_tahun || profile.pengalaman) && (
+                                                <div className="bg-gray-50/50 px-3 py-2 rounded-xl border border-gray-100 flex items-center gap-2">
+                                                    <Clock size={12} className="text-zinc-500 shrink-0" />
+                                                    <div>
+                                                        <span className="text-[8px] text-gray-400 font-bold block uppercase tracking-wider">Experience</span>
+                                                        <span className="font-black text-gray-900">{profile.pengalaman_tahun || profile.pengalaman} yr{Number(profile.pengalaman_tahun || profile.pengalaman) !== 1 ? 's' : ''}</span>
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {(profile.lokasi || profile.alamat) && (
+                                                <div className="bg-gray-50/50 px-3 py-2 rounded-xl border border-gray-100 flex items-center gap-2">
+                                                    <MapPin size={12} className="text-zinc-500 shrink-0" />
+                                                    <div className="min-w-0">
+                                                        <span className="text-[8px] text-gray-400 font-bold block uppercase tracking-wider">Location</span>
+                                                        <span className="font-black text-gray-900 truncate block">{profile.lokasi || profile.alamat}</span>
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {(profile.nomor_sk || profile.no_kta || profile.nisp || profile.sk_nomor) && (
+                                                <div className="bg-gray-50/50 px-3 py-2 rounded-xl border border-gray-100 flex items-center gap-2 min-w-0">
+                                                    <ShieldCheck size={12} className="text-zinc-500 shrink-0" />
+                                                    <div className="min-w-0">
+                                                        <span className="text-[8px] text-gray-400 font-bold block uppercase tracking-wider">License / SK</span>
+                                                        <span className="font-black text-gray-900 truncate block">{profile.nomor_sk || profile.no_kta || profile.nisp || profile.sk_nomor}</span>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Bio / Description */}
+                                        {(profile.deskripsi || profile.alasan_hire) && (
+                                            <div className="space-y-1.5">
+                                                <span className="text-[8px] text-gray-400 font-black uppercase tracking-wider block">About Professional</span>
+                                                <p className="text-xs text-gray-600 leading-relaxed italic bg-gray-50/30 p-3.5 rounded-xl border border-gray-100/60 whitespace-pre-wrap">
+                                                    "{profile.deskripsi || profile.alasan_hire}"
+                                                </p>
+                                            </div>
+                                        )}
+
+                                        {/* Education Block */}
+                                        {profile.pendidikan && (
+                                            <div className="space-y-1.5 pt-3 border-t border-gray-100">
+                                                <span className="text-[8px] text-gray-400 font-black uppercase tracking-wider block">Education & Credentials</span>
+                                                {(() => {
+                                                    let parsed: any = null;
+                                                    if (typeof profile.pendidikan === 'object' && profile.pendidikan !== null) {
+                                                        parsed = profile.pendidikan;
+                                                    } else if (typeof profile.pendidikan === 'string') {
+                                                        try {
+                                                            parsed = JSON.parse(profile.pendidikan);
+                                                        } catch (e) {
+                                                            // fallback to plain string
+                                                        }
+                                                    }
+
+                                                    if (Array.isArray(parsed) && parsed.length > 0) {
+                                                        return (
+                                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                                {parsed.map((edu: any, i: number) => (
+                                                                    <div key={i} className="flex flex-col bg-gray-50/50 p-3 rounded-xl border border-gray-100/60">
+                                                                        <span className="text-[10px] font-black text-gray-800 uppercase tracking-tight">{edu.school || edu.institution || 'Institution'}</span>
+                                                                        <span className="text-[9px] text-gray-500 font-bold mt-0.5">{edu.degree || 'Degree'}{edu.year ? ` • ${edu.year}` : ''}</span>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        );
+                                                    }
+
+                                                    const textValue = typeof profile.pendidikan === 'object' ? JSON.stringify(profile.pendidikan) : String(profile.pendidikan);
+                                                    return (
+                                                        <p className="text-xs text-gray-600 leading-relaxed font-bold bg-gray-50/30 p-3 rounded-xl border border-gray-100/60">
+                                                            {textValue}
+                                                        </p>
+                                                    );
+                                                })()}
+                                            </div>
+                                        )}
+
+                                        {/* Specializations / Skills */}
+                                        {profile.spesialisasi && profile.spesialisasi.split(',').map(s => s.trim()).filter(Boolean).length > 0 && (
+                                            <div className="space-y-1.5">
+                                                <span className="text-[8px] text-gray-400 font-black uppercase tracking-wider block">Specializations</span>
+                                                <div className="flex flex-wrap gap-1">
+                                                    {profile.spesialisasi.split(',').map(s => s.trim()).filter(Boolean).map((skill, idx) => (
+                                                        <span key={idx} className="px-2.5 py-1 bg-zinc-900/5 text-zinc-600 text-[8px] font-black uppercase tracking-widest rounded-md border border-zinc-950/5">
+                                                            {skill}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Portfolio Highlights */}
+                                        {portfolios.length > 0 && (
+                                            <div className="space-y-2 pt-3 border-t border-gray-100">
+                                                <span className="text-[8px] text-gray-400 font-black uppercase tracking-wider block">Portfolio Highlights</span>
+                                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                                    {portfolios.slice(0, 4).map(p => (
+                                                        <div key={p.id} className="rounded-xl overflow-hidden border border-gray-100 bg-white group shadow-sm hover:border-zinc-300 transition-all">
+                                                            {p.image_path ? (
+                                                                <img src={`/storage/${p.image_path}`} alt={p.title} className="w-full h-16 object-cover" />
+                                                            ) : (
+                                                                <div className="w-full h-16 bg-gray-50 flex items-center justify-center text-gray-300 text-[8px] font-bold">No Image</div>
+                                                            )}
+                                                            <div className="p-2 min-w-0">
+                                                                <h6 className="text-[9px] font-black text-gray-900 truncate">{p.title}</h6>
+                                                                {p.duration && <p className="text-[8px] text-gray-400 mt-0.5 truncate">{p.duration}</p>}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
 
                                     {/* Legal/Professional Attachments */}
                                     {(bid.attachment_1 || bid.attachment_2 || bid.attachment_3 || (bid.attachments && bid.attachments.length > 0)) && (
-                                        <div className="space-y-3">
-                                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                                        <div className="space-y-2 pt-2">
+                                            <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
                                                 <FileText size={14} className="text-zinc-900" /> Supporting Documents
                                             </label>
                                             <div className="flex flex-wrap gap-2">
                                                 {[bid.attachment_1, bid.attachment_2, bid.attachment_3].filter(Boolean).map((url, i) => (
                                                     <a key={i} href={`/storage/${url}`} target="_blank" rel="noopener noreferrer" 
-                                                        className="flex items-center gap-2 px-4 py-2 bg-zinc-50 border border-zinc-100 rounded-xl hover:bg-zinc-900 hover:text-white transition-all group">
-                                                        <FileText size={14} className="text-zinc-400 group-hover:text-white" />
-                                                        <span className="text-[10px] font-black uppercase">Document {i + 1}</span>
+                                                        className="flex items-center gap-2 px-3.5 py-2 bg-zinc-50 border border-zinc-100 rounded-xl hover:bg-zinc-900 hover:text-white transition-all group">
+                                                        <FileText size={12} className="text-zinc-400 group-hover:text-white" />
+                                                        <span className="text-[9px] font-black uppercase">Document {i + 1}</span>
                                                     </a>
                                                 ))}
                                                 {Array.isArray(bid.attachments) && bid.attachments.map((url, i) => (
                                                     <a key={`extra-${i}`} href={url} target="_blank" rel="noopener noreferrer" 
-                                                        className="flex items-center gap-2 px-4 py-2 bg-zinc-50 border border-zinc-100 rounded-xl hover:bg-zinc-900 hover:text-white transition-all group">
-                                                        <FileText size={14} className="text-zinc-400 group-hover:text-white" />
-                                                        <span className="text-[10px] font-black uppercase">Extra Doc {i + 1}</span>
+                                                        className="flex items-center gap-2 px-3.5 py-2 bg-zinc-50 border border-zinc-100 rounded-xl hover:bg-zinc-900 hover:text-white transition-all group">
+                                                        <FileText size={12} className="text-zinc-400 group-hover:text-white" />
+                                                        <span className="text-[9px] font-black uppercase">Extra Doc {i + 1}</span>
                                                     </a>
                                                 ))}
                                             </div>
@@ -1267,8 +1519,8 @@ export const BidReviewCard: React.FC<BidReviewCardProps> = ({
                                     )}
                                 </div>
                             ) : (
-                                <div className="p-10 bg-gray-50 rounded-[2rem] border border-dashed border-gray-200 text-center">
-                                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Full profile data unavailable</p>
+                                <div className="p-8 bg-gray-50 rounded-2xl border border-dashed border-gray-200 text-center">
+                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Full profile data unavailable</p>
                                 </div>
                             )}
                         </div>
@@ -1369,6 +1621,17 @@ export const BidReviewCard: React.FC<BidReviewCardProps> = ({
                     }}
                 />
             )}
+
+            <ConfirmModal
+                isOpen={isConfirmFeeModalOpen}
+                title="Confirm Fee Agreement"
+                description="Are you sure you want to confirm this fee? This will finalize the agreed price."
+                confirmText="Confirm Fee"
+                variant="success"
+                onConfirm={executeConfirmFeeAction}
+                onCancel={() => setIsConfirmFeeModalOpen(false)}
+                isLoading={isSubmitting}
+            />
         </div>
     );
 };

@@ -2592,6 +2592,7 @@ class ProjectController extends Controller
             'milestones' => 'nullable|array',
             'milestones.*.title' => 'required|string|max:255',
             'milestones.*.description' => 'nullable|string',
+            'signature' => 'nullable|string',
         ]);
 
         $bidModel = $this->getBidModel($request->bid_type);
@@ -2645,6 +2646,24 @@ class ProjectController extends Controller
             // 0. Update Project Payment Instructions if provided
             if ($request->payment_instructions) {
                 $project->update(['payment_instructions' => $request->payment_instructions]);
+            }
+
+            // Save professional signature if provided
+            if ($request->signature) {
+                $signatureData = $request->signature;
+                if (preg_match('/^data:image\/(\w+);base64,/', $signatureData, $type)) {
+                    $signatureData = substr($signatureData, strpos($signatureData, ',') + 1);
+                    $signatureData = base64_decode($signatureData);
+                    
+                    if ($signatureData !== false) {
+                        if (!Storage::disk('public')->exists('signatures')) {
+                            Storage::disk('public')->makeDirectory('signatures');
+                        }
+                        
+                        $fileName = "signature_{$request->bid_type}_{$bid->id}.png";
+                        Storage::disk('public')->put("signatures/" . $fileName, $signatureData);
+                    }
+                }
             }
 
             // 1. Clear any existing termins for this specific role

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Menu, ChevronDown, User, LogOut, FolderKanban, Heart, MessageSquare, HelpCircle } from 'lucide-react';
+import { Menu, ChevronDown, User, LogOut, FolderKanban, Heart, MessageSquare, HelpCircle, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { Link } from 'react-router-dom';
 import NotificationsDropdown from '../NotificationsDropdown';
@@ -142,6 +142,17 @@ export const DashboardHeader: React.FC<HeaderProps> = ({ activeTab, setActiveTab
                                             <p className="text-[10px] text-neutral-400 capitalize font-semibold truncate">{user.role_type}</p>
                                         </div>
                                     </div>
+                                    
+                                    {user.role_type === 'admin' && (
+                                        <Link 
+                                            to="/admin" 
+                                            onClick={() => setProfileOpen(false)}
+                                            className="w-full flex items-center gap-2 px-4 py-2 text-left text-xs font-bold text-[#FF2D20] hover:bg-red-50 transition-colors border-b border-neutral-100 pb-2 mb-1"
+                                        >
+                                            <ShieldCheck className="w-4 h-4 shrink-0" />
+                                            Admin Panel
+                                        </Link>
+                                    )}
                                     
                                     <button onClick={() => { setActiveTab('profile'); setProfileOpen(false); }} className={`w-full flex items-center gap-2 px-4 py-2 text-left text-xs font-bold transition-colors ${activeTab === 'profile' ? 'bg-red-50 text-red-500' : 'text-neutral-600 hover:bg-red-50 hover:text-[#FF2D20]'}`}><User className="w-4 h-4 shrink-0" />My Profile</button>
                                     <button onClick={() => { setActiveTab('chat'); setProfileOpen(false); }} className={`w-full flex items-center gap-2 px-4 py-2 text-left text-xs font-bold transition-colors ${activeTab === 'chat' ? 'bg-red-50 text-red-500' : 'text-neutral-600 hover:bg-red-50 hover:text-[#FF2D20]'}`}><MessageSquare className="w-4 h-4 shrink-0" />Inbox</button>

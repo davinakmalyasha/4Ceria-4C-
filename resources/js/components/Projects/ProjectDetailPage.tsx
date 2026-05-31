@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
     ArrowLeft, DollarSign, MapPin, Calendar, 
     MessageSquare, Activity, FolderOpen, 
-    LayoutDashboard, ClipboardList, ShieldCheck, FileText, CalendarRange, Box, HardHat, Users, CreditCard 
+    LayoutDashboard, ClipboardList, ShieldCheck, FileText, CalendarRange, Box, HardHat, Users, CreditCard, ListChecks, Lock 
 } from 'lucide-react';
 import { PhaseKey, getProjectPhases, Phase } from '../../types/phase.types';
 import PhaseTimeline from './PhaseTimeline';
@@ -25,8 +25,9 @@ import { useSubProfessionals } from '../../hooks/useSubProfessionals';
 import { ParentRole, ProjectSubProfessional } from '../../types/sub_professional.types';
 import { InvitationBanner } from './InvitationBanner';
 import { ContractSignModal } from './Contracts/ContractSignModal';
+import ProjectProposals from './ProjectProposals';
 
-type TabId = 'overview' | 'budget' | 'process' | 'interviews' | 'payments' | 'qa' | 'activity' | 'files' | 'pm_legal' | 'engineering';
+type TabId = 'overview' | 'proposals' | 'budget' | 'process' | 'interviews' | 'payments' | 'qa' | 'activity' | 'files' | 'pm_legal' | 'engineering';
 
 interface ProjectDetailPageProps {
     project: any;
@@ -45,6 +46,7 @@ export default function ProjectDetailPage({ project, user, onBack, onRefresh, on
     const [recommendingSub, setRecommendingSub] = useState<ProjectSubProfessional | null>(null);
     const [isAssigning, setIsAssigning] = useState(false);
     const [isSignModalOpen, setIsSignModalOpen] = useState(false);
+    const [proposalsSubTab, setProposalsSubTab] = useState<'pending' | 'interviews' | 'payments' | 'archived'>('pending');
 
     const handleRecommendFromBid = (bidId: number, role: string) => {
         const bids = role === 'structural' ? project.bids_structural : (role === 'mep' ? project.bids_mep : []);
@@ -89,13 +91,6 @@ export default function ProjectDetailPage({ project, user, onBack, onRefresh, on
         refresh: refreshSubs 
     } = useSubProfessionals(project?.id);
 
-    const isOwner = user?.id === project?.user_id;
-    const isHiredPM = project?.pm_id && user?.id === project?.pm_id;
-    const isLeadArchitect = user?.role_type === 'arsitek' && project?.arsitek?.user_id === user?.id;
-    const isLeadContractor = user?.role_type === 'kontraktor' && project?.kontraktor?.user_id === user?.id;
-    const canManageSubs = isOwner || isLeadArchitect || isLeadContractor;
-    const assignParentRole: ParentRole = isLeadContractor ? 'kontraktor' : 'arsitek';
-
     const pendingContractBid = useMemo(() => {
         if (!project || !user) return null;
         const bidTypeMap: any = {
@@ -130,25 +125,111 @@ export default function ProjectDetailPage({ project, user, onBack, onRefresh, on
         return null;
     }, [project, user]);
 
+    const isOwner = user?.id === project?.user_id;
+    const isHiredPM = useMemo(() => {
+        return !!project?.pm_id && user?.id === project?.pm_id && !pendingContractBid;
+    }, [project?.pm_id, user?.id, pendingContractBid]);
+    const isLeadArchitect = user?.role_type === 'arsitek' && project?.arsitek?.user_id === user?.id;
+    const isLeadContractor = user?.role_type === 'kontraktor' && project?.kontraktor?.user_id === user?.id;
+    const canManageSubs = isOwner || isHiredPM || isLeadArchitect || isLeadContractor;
+    const assignParentRole: ParentRole = isLeadContractor ? 'kontraktor' : 'arsitek';
+
+    const isHiredPro = useMemo(() => {
+        if (!project || !user) return false;
+        return (
+            (project.selected_arsitek_id && (user.id === project.selected_arsitek_id || project.arsitek?.user_id === user.id)) ||
+            (project.selected_kontraktor_id && (user.id === project.selected_kontraktor_id || project.kontraktor?.user_id === user.id)) ||
+            (project.selected_notaris_id && (user.id === project.selected_notaris_id || project.notaris?.user_id === user.id)) ||
+            (project.selected_interior_id && (user.id === project.selected_interior_id || project.interior_profile?.user_id === user.id)) ||
+            (project.structural_id && (user.id === project.structural_engineer?.user_id || user.structural_engineer?.id === project.structural_id)) ||
+            (project.mep_id && (user.id === project.mep_engineer?.user_id || user.mep_engineer?.id === project.mep_id)) ||
+            (!!project.sub_professionals && project.sub_professionals.some((s: any) => s.user_id === user.id && s.status === 'active'))
+        );
+    }, [project, user]);
+
+    const userBid = useMemo(() => {
+        if (!project || !user) return null;
+        const bidKeys = [
+            'bids_arsitek',
+            'bids_kontraktor',
+            'bids_notaris',
+            'bids_interior',
+            'bids_structural',
+            'bids_mep',
+            'bids_project_manager'
+        ];
+        for (const key of bidKeys) {
+            const bids = project[key] || [];
+            const found = bids.find((b: any) => {
+                const bidderUserId = b.user_id || 
+                                     b.bidder?.user_id || 
+                                     b.bidder?.user?.id ||
+                                     b.arsitek?.user_id || 
+                                     b.kontraktor?.user_id || 
+                                     b.notaris?.user_id || 
+                                     b.interior?.user_id ||
+                                     b.structural_engineer?.user_id || 
+                                     b.mep_engineer?.user_id;
+                return String(bidderUserId) === String(user.id);
+            });
+            if (found) return found;
+        }
+        return null;
+    }, [project, user]);
+
+    const isShortlistedPro = useMemo(() => {
+        return !!userBid && ['shortlisted', 'negotiating', 'contract_pending'].includes(userBid.status);
+    }, [userBid]);
+
+    const handleSwitchTab = (tabId: TabId, subTab?: 'pending' | 'interviews' | 'payments' | 'archived') => {
+        if (isOwner || isHiredPM) {
+            if (tabId === 'interviews') {
+                setActiveTab('proposals');
+                setProposalsSubTab('interviews');
+                return;
+            }
+            if (tabId === 'payments') {
+                setActiveTab('proposals');
+                setProposalsSubTab('payments');
+                return;
+            }
+        }
+        setActiveTab(tabId);
+        if (subTab) {
+            setProposalsSubTab(subTab);
+        }
+    };
+
+
+
     const currentPhase = phases.find(p => p.key === activePhase) || phases[0];
 
     const TABS = useMemo(() => {
-        if (pendingContractBid) {
-            return [
-                { id: 'overview' as const, label: 'Overview', icon: LayoutDashboard }
-            ];
-        }
-
         const tabs = [
             { id: 'overview' as const, label: 'Overview', icon: LayoutDashboard },
+        ];
+
+        if (isOwner || isHiredPM) {
+            tabs.push({ id: 'proposals' as const, label: 'Tendering Hub', icon: ListChecks });
+        }
+
+        tabs.push(
             { id: 'budget' as const, label: 'Budget', icon: DollarSign },
             { id: 'process' as const, label: 'Process', icon: ClipboardList },
-            { id: 'interviews' as const, label: 'Interviews', icon: Users },
-            { id: 'payments' as const, label: 'Payments', icon: CreditCard },
+        );
+
+        if (!isOwner && !isHiredPM) {
+            tabs.push(
+                { id: 'interviews' as const, label: 'Tendering Hub', icon: ListChecks },
+                { id: 'payments' as const, label: 'Payments', icon: CreditCard }
+            );
+        }
+
+        tabs.push(
             { id: 'qa' as const, label: 'Q&A', icon: MessageSquare },
             { id: 'activity' as const, label: 'Activity', icon: Activity },
             { id: 'files' as const, label: 'Document Vault', icon: FolderOpen },
-        ];
+        );
 
         // Dynamic PM Tabs removed from main header - moved to PMWorkspace (Process > Manajemen)
 
@@ -171,48 +252,31 @@ export default function ProjectDetailPage({ project, user, onBack, onRefresh, on
         return tabs;
     }, [user?.id, user?.role_type, project?.user_id, project?.pm_id, project?.accepted_pm_bid, isOwner, isHiredPM, pendingContractBid]);
 
-    // Auto-switch to payments tab if status is awaiting_payment, ONLY for owner or hired PM
+    // Auto-switch to Tendering Hub (proposals) -> payments sub-tab if status is awaiting_payment, ONLY for owner or hired PM
     React.useEffect(() => {
-        if (project?.status === 'awaiting_payment' && (isOwner || isHiredPM)) {
-            setActiveTab('payments');
+        if (project?.status === 'awaiting_payment') {
+            if (isOwner || isHiredPM) {
+                setActiveTab('proposals');
+                setProposalsSubTab('payments');
+            } else {
+                setActiveTab('payments');
+            }
         }
     }, [project?.status, isOwner, isHiredPM]);
+
+    // Auto-redirect shortlisted professionals to the Tendering Hub (interviews) tab
+    React.useEffect(() => {
+        const shouldRedirect = (isShortlistedPro && !isHiredPro) || !!pendingContractBid;
+        if (shouldRedirect && activeTab !== 'interviews') {
+            setActiveTab('interviews');
+        }
+    }, [isShortlistedPro, isHiredPro, pendingContractBid]);
 
     return (
         <div className="w-full space-y-6">
             <InvitationBanner project={project} user={user} onRefresh={onRefresh} />
             
-            {pendingContractBid && (
-                <motion.div 
-                    initial={{ opacity: 0, y: -20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="mb-8 bg-gradient-to-r from-emerald-950 to-zinc-950 rounded-[2.5rem] border border-emerald-500/20 p-8 shadow-xl flex flex-col md:flex-row items-center justify-between gap-6 overflow-hidden relative"
-                >
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 blur-[80px] rounded-full translate-x-1/2 -translate-y-1/2 pointer-events-none" />
-                    
-                    <div className="flex items-start gap-5 relative z-10">
-                        <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0 shadow-lg">
-                            <ShieldCheck size={28} />
-                        </div>
-                        <div>
-                            <h3 className="text-xl font-black text-white tracking-tight uppercase">Contract Signature Required</h3>
-                            <p className="text-emerald-200/80 text-sm font-medium mt-1 leading-relaxed max-w-xl">
-                                You have been selected as the lead {pendingContractBid.bidType === 'arsitek' ? 'Architect' : pendingContractBid.bidType === 'kontraktor' ? 'Contractor' : pendingContractBid.bidType === 'notaris' ? 'Notary' : pendingContractBid.bidType === 'interior' ? 'Interior Designer' : pendingContractBid.bidType}! Please sign the contract to unlock your professional workspace.
-                            </p>
-                        </div>
-                    </div>
 
-                    <div className="flex items-center gap-3 w-full md:w-auto relative z-10 shrink-0">
-                        <button
-                            onClick={() => setIsSignModalOpen(true)}
-                            className="w-full md:w-auto px-8 py-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase tracking-widest hover:shadow-lg hover:shadow-emerald-500/20 transition-all flex items-center justify-center gap-2"
-                        >
-                            <ShieldCheck size={16} />
-                            Sign Contract
-                        </button>
-                    </div>
-                </motion.div>
-            )}
             
             {/* Split layout: Vertical Nav + Content Area */}
             <div className="flex flex-col lg:flex-row gap-8 items-start">
@@ -234,20 +298,33 @@ export default function ProjectDetailPage({ project, user, onBack, onRefresh, on
                         <div className="px-2 pb-1.5">
                             <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Workspace Menu</p>
                         </div>
-                        {TABS.map(tab => (
-                            <button
-                                key={tab.id}
-                                onClick={() => setActiveTab(tab.id)}
-                                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl text-xs font-bold transition-all ${
-                                    activeTab === tab.id 
-                                    ? 'bg-gray-900 text-white shadow-md' 
-                                    : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
-                                }`}
-                            >
-                                <tab.icon size={15} />
-                                <span>{tab.label}</span>
-                            </button>
-                        ))}
+                        {TABS.map(tab => {
+                            const isTabDisabled = ((isShortlistedPro && !isHiredPro) || !!pendingContractBid) && tab.id !== 'interviews';
+                            return (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => {
+                                        if (!isTabDisabled) {
+                                            setActiveTab(tab.id);
+                                        }
+                                    }}
+                                    disabled={isTabDisabled}
+                                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-2xl text-xs font-bold transition-all ${
+                                        activeTab === tab.id 
+                                        ? 'bg-gray-900 text-white shadow-md' 
+                                        : isTabDisabled
+                                        ? 'text-gray-300 cursor-not-allowed opacity-50 bg-gray-50/50'
+                                        : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
+                                    }`}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <tab.icon size={15} />
+                                        <span>{tab.label}</span>
+                                    </div>
+                                    {isTabDisabled && <Lock size={12} className="text-gray-400" />}
+                                </button>
+                            );
+                        })}
                     </div>
                 </div>
 
@@ -266,7 +343,7 @@ export default function ProjectDetailPage({ project, user, onBack, onRefresh, on
                                         project={project} 
                                         user={user}
                                         onRefresh={onRefresh}
-                                        onSwitchTab={setActiveTab}
+                                        onSwitchTab={handleSwitchTab}
                                         onOpenChat={onOpenChat}
                                         onSwitchToProcess={(phase) => {
                                             setActiveTab('process');
@@ -274,6 +351,28 @@ export default function ProjectDetailPage({ project, user, onBack, onRefresh, on
                                         }} 
                                     />
                                 </motion.div>
+                            )}
+
+                            {activeTab === 'proposals' && (
+                                <ErrorBoundary name="ProjectProposals">
+                                    <motion.div
+                                        key="proposals"
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, y: -10 }}
+                                    >
+                                        <ProjectProposals 
+                                            project={project} 
+                                            user={user}
+                                            onRefresh={onRefresh}
+                                            onOpenChat={onOpenChat!}
+                                            onSwitchTab={handleSwitchTab}
+                                            onViewProfile={onViewProfile}
+                                            onRecommend={handleRecommendFromBid}
+                                            defaultSubTab={proposalsSubTab}
+                                        />
+                                    </motion.div>
+                                </ErrorBoundary>
                             )}
 
                     {activeTab === 'process' && (
@@ -303,38 +402,39 @@ export default function ProjectDetailPage({ project, user, onBack, onRefresh, on
                                             if (ok) {
                                                 onRefresh();
                                                 refreshSubs();
-                                                setActiveTab('interviews');
+                                                handleSwitchTab('interviews');
                                             }
                                         }}
                                         onRecommend={handleRecommendFromBid}
                                         subs={subs}
-                                        onSwitchTab={setActiveTab}
+                                        onSwitchTab={handleSwitchTab}
                                     />
                                 </div>
                             </motion.div>
                         </ErrorBoundary>
                     )}
 
-                    {activeTab === 'interviews' && (
+                    {activeTab === 'interviews' && !isOwner && !isHiredPM && (
                         <ErrorBoundary name="ProjectInterviews">
                             <motion.div
                                 key="interviews"
                                 initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -10 }}
+                                className="space-y-6"
                             >
+
                                 <ProjectInterviews 
                                     project={project} 
                                     onRefresh={onRefresh}
                                     onOpenChat={onOpenChat!}
                                     onRecommend={handleRecommendFromBid}
-
                                 />
                             </motion.div>
                         </ErrorBoundary>
                     )}
 
-                    {activeTab === 'payments' && (
+                    {activeTab === 'payments' && !isOwner && !isHiredPM && (
                         <motion.div
                             key="payments"
                             initial={{ opacity: 0, y: 10 }}

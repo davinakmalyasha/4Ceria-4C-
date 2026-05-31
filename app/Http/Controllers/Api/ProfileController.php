@@ -54,9 +54,6 @@ class ProfileController extends Controller
                 'deskripsi' => 'nullable|string',
                 'pendidikan' => 'nullable|string',
                 'alasan_hire' => 'nullable|string',
-                'foto' => 'nullable|file|mimes:jpg,png,jpeg|max:5120',
-                'file_portofolio' => 'nullable|file|mimes:pdf,zip,jpg,png|max:10240',
-                'file_sertifikat' => 'nullable|file|mimes:pdf,jpg,png|max:5120',
             ]);
 
             $arsitek = $user->arsitek;
@@ -64,34 +61,8 @@ class ProfileController extends Controller
                 $arsitek = Arsitek::create(['user_id' => $user->id, 'nama' => $user->name]);
             }
 
-            if ($request->hasFile('file_portofolio')) {
-                if ($arsitek->file_portofolio) {
-                    Storage::disk('public')->delete($arsitek->file_portofolio);
-                }
-                $validatedArsitek['file_portofolio'] = $request->file('file_portofolio')->store('portfolios', 'public');
-            } else {
-                unset($validatedArsitek['file_portofolio']);
-            }
-
-            if ($request->hasFile('file_sertifikat')) {
-                if ($arsitek->file_sertifikat) {
-                    Storage::disk('public')->delete($arsitek->file_sertifikat);
-                }
-                $validatedArsitek['file_sertifikat'] = $request->file('file_sertifikat')->store('certificates', 'public');
-            } else {
-                unset($validatedArsitek['file_sertifikat']);
-            }
-
-            if ($request->hasFile('foto')) {
-                if ($arsitek->foto) {
-                    Storage::disk('public')->delete($arsitek->foto);
-                }
-                $validatedArsitek['foto'] = \App\Services\ImageService::convertToWebp($request->file('foto'), 'portfolios/photos');
-            } else {
-                unset($validatedArsitek['foto']);
-            }
-
             $arsitek->update($validatedArsitek);
+            $this->processVerificationDetails($request, $arsitek);
         }
 
         if (in_array($user->role_type, ['kontraktor', 'civil', 'mechanical', 'electrical', 'plumbing', 'roofing', 'finishing'])) {
@@ -117,9 +88,6 @@ class ProfileController extends Controller
                 'pendidikan' => 'nullable|string',
                 'alasan_hire' => 'nullable|string',
                 'spesialisasi' => 'nullable|string',
-                'foto' => 'nullable|file|mimes:jpg,png,jpeg|max:5120',
-                'npwp' => 'nullable|file|mimes:pdf,jpg,png|max:5120',
-                'siup' => 'nullable|file|mimes:pdf,jpg,png|max:5120',
             ]);
 
             $kontraktor = $user->kontraktor;
@@ -127,34 +95,8 @@ class ProfileController extends Controller
                 $kontraktor = Kontraktor::create(['user_id' => $user->id, 'nama' => $user->name]);
             }
 
-            if ($request->hasFile('npwp')) {
-                if ($kontraktor->npwp) {
-                    Storage::disk('public')->delete($kontraktor->npwp);
-                }
-                $validatedKontraktor['npwp'] = $request->file('npwp')->store('documents', 'public');
-            } else {
-                unset($validatedKontraktor['npwp']);
-            }
-
-            if ($request->hasFile('siup')) {
-                if ($kontraktor->siup) {
-                    Storage::disk('public')->delete($kontraktor->siup);
-                }
-                $validatedKontraktor['siup'] = $request->file('siup')->store('documents', 'public');
-            } else {
-                unset($validatedKontraktor['siup']);
-            }
-
-            if ($request->hasFile('foto')) {
-                if ($kontraktor->foto) {
-                    Storage::disk('public')->delete($kontraktor->foto);
-                }
-                $validatedKontraktor['foto'] = \App\Services\ImageService::convertToWebp($request->file('foto'), 'portfolios/photos');
-            } else {
-                unset($validatedKontraktor['foto']);
-            }
-
             $kontraktor->update($validatedKontraktor);
+            $this->processVerificationDetails($request, $kontraktor);
         }
 
         if ($user->role_type === 'interior') {
@@ -165,9 +107,6 @@ class ProfileController extends Controller
                 'lokasi' => 'nullable|string',
                 'no_telp' => 'nullable|string',
                 'deskripsi' => 'nullable|string',
-                'foto' => 'nullable|file|mimes:jpg,png,jpeg|max:5120',
-                'file_portofolio' => 'nullable|file|mimes:pdf,zip,jpg,png|max:10240',
-                'file_sertifikat' => 'nullable|file|mimes:pdf,jpg,png|max:5120',
             ]);
 
             $interior = $user->interior_profile;
@@ -175,34 +114,8 @@ class ProfileController extends Controller
                 $interior = \App\Models\InteriorProfile::create(['user_id' => $user->id, 'nama' => $user->name]);
             }
 
-            if ($request->hasFile('file_portofolio')) {
-                if ($interior->file_portofolio) {
-                    Storage::disk('public')->delete($interior->file_portofolio);
-                }
-                $validatedInterior['file_portofolio'] = $request->file('file_portofolio')->store('portfolios', 'public');
-            } else {
-                unset($validatedInterior['file_portofolio']);
-            }
-
-            if ($request->hasFile('file_sertifikat')) {
-                if ($interior->file_sertifikat) {
-                    Storage::disk('public')->delete($interior->file_sertifikat);
-                }
-                $validatedInterior['file_sertifikat'] = $request->file('file_sertifikat')->store('certificates', 'public');
-            } else {
-                unset($validatedInterior['file_sertifikat']);
-            }
-
-            if ($request->hasFile('foto')) {
-                if ($interior->foto) {
-                    Storage::disk('public')->delete($interior->foto);
-                }
-                $validatedInterior['foto'] = \App\Services\ImageService::convertToWebp($request->file('foto'), 'portfolios/photos');
-            } else {
-                unset($validatedInterior['foto']);
-            }
-
             $interior->update($validatedInterior);
+            $this->processVerificationDetails($request, $interior);
         }
 
         if ($user->role_type === 'notaris') {
@@ -216,8 +129,6 @@ class ProfileController extends Controller
                 'deskripsi' => 'nullable|string',
                 'pengalaman_tahun' => 'nullable|numeric',
                 'rate_harga' => 'nullable|numeric',
-                'foto' => 'nullable|file|mimes:jpg,png,jpeg|max:5120',
-                'file_sertifikat' => 'nullable|file|mimes:pdf,jpg,png|max:5120',
             ]);
 
             $notaris = $user->notaris_profile;
@@ -225,25 +136,8 @@ class ProfileController extends Controller
                 $notaris = \App\Models\NotarisProfile::create(['user_id' => $user->id, 'nama' => $user->name]);
             }
 
-            if ($request->hasFile('file_sertifikat')) {
-                if ($notaris->file_sertifikat) {
-                    Storage::disk('public')->delete($notaris->file_sertifikat);
-                }
-                $validatedNotaris['file_sertifikat'] = $request->file('file_sertifikat')->store('certificates', 'public');
-            } else {
-                unset($validatedNotaris['file_sertifikat']);
-            }
-
-            if ($request->hasFile('foto')) {
-                if ($notaris->foto) {
-                    Storage::disk('public')->delete($notaris->foto);
-                }
-                $validatedNotaris['foto'] = \App\Services\ImageService::convertToWebp($request->file('foto'), 'portfolios/photos');
-            } else {
-                unset($validatedNotaris['foto']);
-            }
-
             $notaris->update($validatedNotaris);
+            $this->processVerificationDetails($request, $notaris);
 
             if ($request->has('services')) {
                 $services = json_decode($request->services, true);
@@ -280,7 +174,7 @@ class ProfileController extends Controller
     }
 
     /**
-     * Shared handler for PM / Structural / MEP profiles (identical DB schema).
+     * Shared handler for PM / Structural / MEP profiles.
      */
     private function updateEnterpriseProfile(Request $request, $user): void
     {
@@ -292,9 +186,7 @@ class ProfileController extends Controller
             'no_telp'          => 'nullable|string',
             'deskripsi'        => 'nullable|string',
             'pendidikan'       => 'nullable|string',
-            'foto'             => 'nullable|file|mimes:jpg,png,jpeg|max:5120',
-            'file_portofolio'  => 'nullable|file|mimes:pdf,zip,jpg,png|max:10240',
-            'file_sertifikat'  => 'nullable|file|mimes:pdf,jpg,png|max:5120',
+            'alasan_hire'      => 'nullable|string',
         ]);
 
         $modelMap = [
@@ -310,22 +202,82 @@ class ProfileController extends Controller
             $profile = $modelClass::create(['user_id' => $user->id, 'nama' => $user->name]);
         }
 
-        $fileFields = ['foto' => 'portfolios/photos', 'file_portofolio' => 'portfolios', 'file_sertifikat' => 'certificates'];
-        foreach ($fileFields as $field => $dir) {
-            if ($request->hasFile($field)) {
-                if ($profile->$field) {
-                    Storage::disk('public')->delete($profile->$field);
-                }
-                if ($field === 'foto') {
-                    $validated[$field] = \App\Services\ImageService::convertToWebp($request->file($field), $dir);
-                } else {
-                    $validated[$field] = $request->file($field)->store($dir, 'public');
-                }
-            } else {
-                unset($validated[$field]);
+        $profile->update($validated);
+        $this->processVerificationDetails($request, $profile);
+    }
+
+    /**
+     * Standardise and store verification files and numbers for any professional profile.
+     */
+    private function processVerificationDetails(Request $request, $profile): void
+    {
+        $validated = $request->validate([
+            'entity_type'      => 'nullable|in:individual,company',
+            'company_name'     => 'nullable|string|max:255',
+            'company_license'  => 'nullable|string|max:255',
+            'identity_number'  => 'nullable|string|max:100',
+            'npwp_number'      => 'nullable|string|max:100',
+            'siup_number'      => 'nullable|string|max:100',
+            'foto'             => 'nullable|file|mimes:jpg,png,jpeg|max:5120',
+            'file_portofolio'  => 'nullable|file|mimes:pdf,zip,jpg,png|max:10240',
+            'file_sertifikat'  => 'nullable|file|mimes:pdf,jpg,png|max:5120',
+            'npwp'             => 'nullable|file|mimes:pdf,jpg,png|max:5120',
+            'siup'             => 'nullable|file|mimes:pdf,jpg,png|max:5120',
+        ]);
+
+        $updates = [];
+
+        // Save text metadata fields if present
+        foreach (['entity_type', 'company_name', 'company_license', 'identity_number', 'npwp_number', 'siup_number'] as $field) {
+            if ($request->has($field)) {
+                $updates[$field] = $validated[$field];
             }
         }
 
-        $profile->update($validated);
+        // Save Photo / Headshot / Logo
+        if ($request->hasFile('foto')) {
+            if ($profile->foto) {
+                Storage::disk('public')->delete($profile->foto);
+            }
+            $updates['foto'] = \App\Services\ImageService::convertToWebp($request->file('foto'), 'portfolios/photos');
+        }
+
+        // Save Portfolio / NPWP document (equivalent)
+        $portfolioFile = $request->file('file_portofolio') ?? $request->file('npwp');
+        if ($portfolioFile) {
+            if ($profile->file_portofolio) {
+                Storage::disk('supabase')->delete($profile->file_portofolio);
+            }
+            if ($profile->npwp && $profile->npwp !== $profile->file_portofolio) {
+                Storage::disk('supabase')->delete($profile->npwp);
+            }
+            $path = $portfolioFile->store('portfolios', 'supabase');
+            $updates['file_portofolio'] = $path;
+            $updates['npwp'] = $path; // keep both in sync for backward compatibility
+        }
+
+        // Save Certificate / SIUP document (equivalent)
+        $sertifikatFile = $request->file('file_sertifikat') ?? $request->file('siup');
+        if ($sertifikatFile) {
+            if ($profile->file_sertifikat) {
+                Storage::disk('supabase')->delete($profile->file_sertifikat);
+            }
+            if ($profile->siup && $profile->siup !== $profile->file_sertifikat) {
+                Storage::disk('supabase')->delete($profile->siup);
+            }
+            $path = $sertifikatFile->store('certificates', 'supabase');
+            $updates['file_sertifikat'] = $path;
+            $updates['siup'] = $path; // keep both in sync for backward compatibility
+        }
+
+        // Auto-transition to pending verification if files or numbers are uploaded/updated
+        $hasNewDoc = $portfolioFile || $sertifikatFile || $request->hasFile('foto') ||
+                     $request->filled('identity_number') || $request->filled('npwp_number') || $request->filled('siup_number');
+
+        if ($hasNewDoc && $profile->verification_status !== 'verified') {
+            $updates['verification_status'] = 'pending';
+        }
+
+        $profile->update($updates);
     }
 }

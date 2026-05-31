@@ -7,8 +7,12 @@ import {
     AlertCircle,
     CheckCircle2,
     Clock,
-    DollarSign
+    DollarSign,
+    ShieldAlert,
+    RefreshCw,
+    XCircle
 } from 'lucide-react';
+import { useToast } from '../../context/ToastContext';
 
 interface Project {
     id: number;
@@ -24,75 +28,139 @@ interface Project {
 const AdminProjects: React.FC = () => {
     const [projects, setProjects] = useState<Project[]>([]);
     const [loading, setLoading] = useState(true);
+    const [terminatingProjectId, setTerminatingProjectId] = useState<number | null>(null);
+    const { showToast } = useToast();
 
-    useEffect(() => {
+    const fetchProjects = () => {
+        setLoading(true);
         axios.get('/admin/projects')
             .then(res => setProjects(res.data))
             .catch(err => console.error(err))
             .finally(() => setLoading(false));
+    };
+
+    useEffect(() => {
+        fetchProjects();
     }, []);
+
+    const handleForceTerminate = (project: Project) => {
+        if (!window.confirm(`Are you absolutely sure you want to force-terminate project "${project.title}"? This cannot be undone.`)) {
+            return;
+        }
+
+        setTerminatingProjectId(project.id);
+        axios.post(`/admin/projects/${project.id}/force-terminate`)
+            .then(res => {
+                showToast(res.data.message, 'success');
+                setProjects(prev => prev.map(p => p.id === project.id ? { ...p, status: 'cancelled' } : p));
+            })
+            .catch(err => showToast(err.response?.data?.message || 'Termination failed', 'error'))
+            .finally(() => setTerminatingProjectId(null));
+    };
 
     const getStatusIcon = (status: string) => {
         switch (status) {
-            case 'completed': return <CheckCircle2 className="text-green-500" size={16} />;
-            case 'active': return <Clock className="text-blue-500" size={16} />;
-            default: return <AlertCircle className="text-gray-400" size={16} />;
+            case 'completed': return <CheckCircle2 className="text-neutral-900" size={14} />;
+            case 'active': return <Clock className="text-neutral-500" size={14} />;
+            case 'cancelled': return <XCircle className="text-neutral-400" size={14} />;
+            default: return <AlertCircle className="text-neutral-300" size={14} />;
         }
     };
 
-    if (loading) return <AdminLayout><div>Loading...</div></AdminLayout>;
-
     return (
         <AdminLayout>
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                <table className="w-full text-left">
-                    <thead className="bg-gray-50 text-gray-400 font-bold text-xs uppercase tracking-wider">
-                        <tr>
-                            <th className="px-6 py-4">Project</th>
-                            <th className="px-6 py-4">Client</th>
-                            <th className="px-6 py-4">Professional</th>
-                            <th className="px-6 py-4">Budget</th>
-                            <th className="px-6 py-4">Status</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                        {projects.map((project) => (
-                            <tr key={project.id} className="hover:bg-gray-50 transition-colors">
-                                <td className="px-6 py-4">
-                                    <div className="flex items-center space-x-3">
-                                        <div className="w-10 h-10 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center">
-                                            <Briefcase size={20} />
-                                        </div>
-                                        <p className="font-bold text-gray-900 truncate max-w-xs">{project.title}</p>
-                                    </div>
-                                </td>
-                                <td className="px-6 py-4">
-                                    <div className="flex items-center space-x-2 text-gray-600">
-                                        <User size={14} />
-                                        <span className="text-sm">{project.user.name}</span>
-                                    </div>
-                                </td>
-                                <td className="px-6 py-4">
-                                    <span className="text-xs font-medium text-gray-500 italic">
-                                        {project.selected_arsitek?.nama || project.selected_kontraktor?.nama_perusahaan || 'Unassigned'}
-                                    </span>
-                                </td>
-                                <td className="px-6 py-4">
-                                    <p className="text-sm font-bold text-gray-900 flex items-center">
-                                        <DollarSign size={14} className="text-green-500 mr-1" />
-                                        {Number(project.budget).toLocaleString()}
-                                    </p>
-                                </td>
-                                <td className="px-6 py-4">
-                                    <div className="flex items-center space-x-2">
-                                        {getStatusIcon(project.status)}
-                                        <span className="text-xs font-bold uppercase tracking-wide text-gray-600">{project.status}</span>
-                                    </div>
-                                </td>
+            <div className="space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <h3 className="text-sm font-bold uppercase tracking-widest text-neutral-900">Projects Operations Audit</h3>
+                        <p className="text-[11px] text-neutral-400 font-semibold mt-0.5">Audit live building contracts, view fee structures, and force terminate disputed items.</p>
+                    </div>
+
+                    <button onClick={fetchProjects} className="p-2 border border-neutral-200 bg-[#fafafa] hover:bg-neutral-50 rounded-xl text-neutral-500 hover:text-neutral-900 transition-colors">
+                        <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+                    </button>
+                </div>
+
+                <div className="bg-white rounded-2xl border border-neutral-200 shadow-[0_1px_3px_rgba(0,0,0,0.02)] overflow-hidden">
+                    <table className="w-full text-left border-collapse">
+                        <thead>
+                            <tr className="bg-neutral-50 text-[10px] font-black uppercase tracking-wider text-neutral-400 border-b border-neutral-100">
+                                <th className="px-6 py-3.5">Contract Operations</th>
+                                <th className="px-6 py-3.5">Client</th>
+                                <th className="px-6 py-3.5">Assigned Specialist</th>
+                                <th className="px-6 py-3.5">Budget</th>
+                                <th className="px-6 py-3.5">Lifecycle Status</th>
+                                <th className="px-6 py-3.5 text-right">Moderator Controls</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody className="divide-y divide-neutral-100 text-xs">
+                            {loading ? (
+                                <tr>
+                                    <td colSpan={6} className="px-6 py-12 text-center text-neutral-400 italic">
+                                        Loading platform operational logs...
+                                    </td>
+                                </tr>
+                            ) : projects.length === 0 ? (
+                                <tr>
+                                    <td colSpan={6} className="px-6 py-12 text-center text-neutral-400 italic">
+                                        No active building projects found.
+                                    </td>
+                                </tr>
+                            ) : (
+                                projects.map((project) => (
+                                    <tr key={project.id} className="hover:bg-neutral-50/50 transition-colors">
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center space-x-3">
+                                                <div className="w-9 h-9 rounded bg-neutral-50 border border-neutral-100 text-neutral-700 flex items-center justify-center shrink-0">
+                                                    <Briefcase size={16} />
+                                                </div>
+                                                <p className="font-extrabold text-neutral-900 truncate max-w-xs">{project.title}</p>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center space-x-2 text-neutral-700 font-bold">
+                                                <User size={13} className="text-neutral-400" />
+                                                <span>{project.user?.name}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 font-semibold text-neutral-500 italic">
+                                            {project.selected_arsitek?.nama || project.selected_kontraktor?.nama_perusahaan || 'No Specialist Hired'}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <p className="font-extrabold text-neutral-900 flex items-center">
+                                                <DollarSign size={13} className="text-neutral-400 mr-0.5" />
+                                                {Number(project.budget).toLocaleString()}
+                                            </p>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center space-x-2">
+                                                {getStatusIcon(project.status)}
+                                                <span className={`text-[10px] font-black uppercase tracking-wider ${project.status === 'cancelled' ? 'text-neutral-400' : 'text-neutral-800'}`}>
+                                                    {project.status}
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 text-right">
+                                            {project.status !== 'cancelled' && project.status !== 'completed' ? (
+                                                <button
+                                                    disabled={project.id === terminatingProjectId}
+                                                    onClick={() => handleForceTerminate(project)}
+                                                    className="px-3 py-1.5 bg-neutral-950 hover:bg-neutral-900 text-white rounded-xl font-bold uppercase tracking-wider text-[10px] shadow-sm disabled:opacity-50 inline-flex items-center gap-1"
+                                                >
+                                                    <ShieldAlert size={11} /> Force Terminate
+                                                </button>
+                                            ) : (
+                                                <span className="text-[10px] text-neutral-300 font-black uppercase tracking-wider select-none">
+                                                    Archived
+                                                </span>
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </AdminLayout>
     );

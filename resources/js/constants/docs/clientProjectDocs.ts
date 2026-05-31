@@ -80,5 +80,64 @@ export const clientProjectDocs: DocArticle[] = [
                 ]
             }
         ]
+    },
+    {
+        id: 'client-shortlist-pro',
+        title: 'Shortlist Feature',
+        role: 'client',
+        summary: 'Shortlist bids to start the private interview phase and unlock the project workspace.',
+        sections: [
+            {
+                type: 'text',
+                body: 'The shortlisting feature bridges public bidding and active negotiation. As a project owner or PM, when you see a proposal that catches your eye on your Bidding Board, you can click "Shortlist for Interview" to start a private negotiation.'
+            },
+            {
+                type: 'alert',
+                alertType: 'tip',
+                body: 'Shortlisting a bid automatically unlocks the project workspace for the professional, but locks all unrelated features until you officially hire them.'
+            },
+            {
+                type: 'widget',
+                widgetName: 'shortlistinterview'
+            },
+            {
+                type: 'list',
+                title: 'Shortlisting Highlights:',
+                items: [
+                    'Review all submissions under the Bidding Board.',
+                    'Filter out unneeded proposals by shortlisting only key candidates.',
+                    'Unlocks a secure channel for private negotiation.'
+                ]
+            }
+        ]
+    },
+    {
+        id: 'client-interview-fee',
+        title: 'Interview & Fee Proposal',
+        role: 'client',
+        summary: 'Negotiate project costs and set payment milestones with counter-offers.',
+        sections: [
+            {
+                type: 'text',
+                body: 'Once a professional is shortlisted, the interview phase begins. In the Tendering Hub, you can chat with the professional, review their past portfolios, and negotiate the project fee.'
+            },
+            {
+                type: 'text',
+                body: 'Professionals can submit a formal Fee & Payment Milestone Proposal. If the proposed fee is outside your budget, you can send a Counter-Offer. Once both parties agree on the terms, the client can officially hire the professional.'
+            },
+            {
+                type: 'widget',
+                widgetName: 'shortlistinterview'
+            },
+            {
+                type: 'list',
+                title: 'Interview & Fee Negotiation Guidelines:',
+                items: [
+                    'Awaiting Quote: The shortlisted professional must propose a fee and milestone schedule first.',
+                    'Counter-Offer Console: Seamlessly pitch custom counter-rates to reach a mutual agreement.',
+                    'Escrow Security: Standardizing milestone schedules protects budgets and ensures progress before payout.'
+                ]
+            }
+        ]
     }
 ];

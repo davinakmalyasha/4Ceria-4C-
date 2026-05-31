@@ -1,5 +1,6 @@
 import React from 'react';
 import { AlertCircle, Phone } from 'lucide-react';
+import { EducationManager } from './EducationManager';
 
 interface Props {
     formData: Record<string, string>;
@@ -50,8 +51,7 @@ export const EnterpriseFormFields: React.FC<Props> = ({
             </div>
             <div className="grid grid-cols-2 gap-4">
                 <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Education</label>
-                    <textarea name="pendidikan" value={formData.pendidikan} onChange={onChange} rows={2} className="w-full px-4 py-3 bg-white border rounded-xl focus:ring-2 focus:ring-red-500/20 resize-none outline-none font-medium" placeholder="Degrees, certifications..." />
+                    <EducationManager value={formData.pendidikan} onChange={onChange} />
                 </div>
                 <div>
                     <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Why Hire Me</label>

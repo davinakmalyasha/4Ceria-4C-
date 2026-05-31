@@ -16,14 +16,17 @@ class ProfessionalStatusNotification extends Notification
 
     protected $reason;
 
+    protected $channels;
+
     /**
      * Create a new notification instance.
      */
-    public function __construct($status, $professionalType, $reason = null)
+    public function __construct($status, $professionalType, $reason = null, $channels = ['mail', 'database'])
     {
         $this->status = $status;
         $this->professionalType = $professionalType;
         $this->reason = $reason;
+        $this->channels = $channels;
     }
 
     /**
@@ -33,7 +36,7 @@ class ProfessionalStatusNotification extends Notification
      */
     public function via(object $notifiable): array
     {
-        return ['mail', 'database'];
+        return $this->channels;
     }
 
     /**

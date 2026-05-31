@@ -40,6 +40,7 @@ import { HireHistoryTab } from './HireHistoryTab';
 import FirmHub from './FirmHub';
 import FirmInvitations from './FirmInvitations';
 import SpecialistFirmHub from './SpecialistFirmHub';
+import VerificationPage from './VerificationPage';
 
 import { Project } from '../../types/project.types';
 import { House } from '../../types/explore';
@@ -97,6 +98,36 @@ export const DashboardTabs: React.FC<TabsProps> = (props) => {
     const formatCurrency = (amount: number) => 
         new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount);
 
+    const getIsShortlistedPro = (proj: any) => {
+        if (!user) return false;
+        const bidKeys = [
+            'bids_arsitek',
+            'bids_kontraktor',
+            'bids_notaris',
+            'bids_interior',
+            'bids_structural',
+            'bids_mep',
+            'bids_project_manager'
+        ];
+        for (const key of bidKeys) {
+            const bids = proj[key] || [];
+            const found = bids.find((b: any) => {
+                const bidderUserId = b.user_id || 
+                                     b.bidder?.user_id || 
+                                     b.bidder?.user?.id ||
+                                     b.arsitek?.user_id || 
+                                     b.kontraktor?.user_id || 
+                                     b.notaris?.user_id || 
+                                     b.interior?.user_id ||
+                                     b.structural_engineer?.user_id || 
+                                     b.mep_engineer?.user_id;
+                return String(bidderUserId) === String(user.id);
+            });
+            if (found && ['shortlisted', 'negotiating', 'contract_pending'].includes(found.status)) return true;
+        }
+        return false;
+    };
+
     const handleViewProject = (project: any) => {
         setSelectedProject(project);
         
@@ -117,7 +148,9 @@ export const DashboardTabs: React.FC<TabsProps> = (props) => {
             (baseProject.mep_id && (user?.id === baseProject.mep_engineer?.user_id || user?.mep_engineer?.id === baseProject.mep_id)) ||
             (!!baseProject.sub_professionals && baseProject.sub_professionals.some((s: any) => s.user_id === user?.id && s.status === 'active'));
 
-        const showWorkspace = isOwner || isHiredPM || isHiredPro;
+        const isShortlistedPro = getIsShortlistedPro(baseProject);
+
+        const showWorkspace = isOwner || isHiredPM || isHiredPro || isShortlistedPro;
         
         if (showWorkspace) {
             setActiveTab('project-detail');
@@ -210,7 +243,9 @@ export const DashboardTabs: React.FC<TabsProps> = (props) => {
                         (mergedProject.mep_id && (user?.id === mergedProject.mep_engineer?.user_id || user?.mep_engineer?.id === mergedProject.mep_id)) ||
                         (!!mergedProject.sub_professionals && mergedProject.sub_professionals.some((s: any) => s.user_id === user?.id && s.status === 'active'));
 
-                    const showWorkspace = isOwner || isHiredPM || isHiredPro;
+                    const isShortlistedPro = getIsShortlistedPro(mergedProject);
+
+                    const showWorkspace = isOwner || isHiredPM || isHiredPro || isShortlistedPro;
 
                     if (showWorkspace) {
                         return (
@@ -326,11 +361,17 @@ export const DashboardTabs: React.FC<TabsProps> = (props) => {
 
                 {activeTab === 'profile' && (
                     <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 max-w-7xl w-full">
-                        <h3 className="text-2xl font-black text-gray-900 mb-8">Edit Profile</h3>
+                        {!['project_manager', 'structural', 'mep', 'civil', 'mechanical', 'electrical', 'plumbing', 'roofing', 'finishing'].includes(user?.role_type) && (
+                            <h3 className="text-2xl font-black text-gray-900 mb-8">Edit Profile</h3>
+                        )}
                         <EditProfileForm onCancel={() => {
                             setActiveTab('overview');
                         }} />
                     </div>
+                )}
+
+                {activeTab === 'verification' && (
+                    <VerificationPage onBack={() => setActiveTab('overview')} />
                 )}
 
                 {activeTab === 'material-orders' && <MaterialOrdersTab />}

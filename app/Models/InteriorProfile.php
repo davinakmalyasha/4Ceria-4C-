@@ -26,6 +26,14 @@ class InteriorProfile extends Model
         'verification_status',
         'rejection_reason',
         'reliability_score',
+        'entity_type',
+        'company_name',
+        'company_license',
+        'identity_number',
+        'npwp_number',
+        'siup_number',
+        'npwp',
+        'siup',
     ];
 
     protected $appends = ['average_rating', 'review_count'];

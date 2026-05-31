@@ -79,6 +79,7 @@ Route::middleware(['auth:sanctum', 'freeze_pending_termination'])->group(functio
     Route::get('/projects', [ProjectController::class, 'index']);
     Route::get('/projects/{project}', [ProjectController::class, 'show']);
     Route::post('/logout', [AuthController::class, 'logout']);
+    Route::get('/verifications/documents/{type}/{id}/{field}', [\App\Http\Controllers\Api\SecureVerificationDocumentController::class, 'getSignedUrl']);
     Route::get('/me', function (Request $request) {
         $user = $request->user();
         $relations = [
@@ -474,9 +475,17 @@ Route::middleware(['auth:sanctum', 'freeze_pending_termination'])->group(functio
     Route::middleware('admin')->prefix('admin')->group(function () {
         Route::get('/stats', [\App\Http\Controllers\Api\Admin\AdminDashboardController::class, 'stats']);
         Route::get('/professionals', [\App\Http\Controllers\Api\Admin\VerificationController::class, 'index']);
+        Route::get('/professionals/history', [\App\Http\Controllers\Api\Admin\VerificationController::class, 'history']);
         Route::patch('/professionals/{type}/{id}/status', [\App\Http\Controllers\Api\Admin\VerificationController::class, 'updateStatus']);
         Route::get('/houses', [\App\Http\Controllers\Api\Admin\AdminDashboardController::class, 'houses']);
+        Route::patch('/houses/{id}/suspend', [\App\Http\Controllers\Api\Admin\AdminDashboardController::class, 'toggleHouseSuspend']);
         Route::get('/projects', [\App\Http\Controllers\Api\Admin\AdminDashboardController::class, 'projects']);
+        Route::post('/projects/{project}/force-terminate', [\App\Http\Controllers\Api\Admin\AdminDashboardController::class, 'terminateProject']);
+
+        // User Management
+        Route::get('/users', [\App\Http\Controllers\Api\Admin\AdminUserController::class, 'index']);
+        Route::patch('/users/{user}/suspend', [\App\Http\Controllers\Api\Admin\AdminUserController::class, 'toggleSuspend']);
+        Route::patch('/users/{user}/role', [\App\Http\Controllers\Api\Admin\AdminUserController::class, 'updateRole']);
 
         // Supplier Verification
         Route::get('/suppliers', function () {

@@ -28,8 +28,6 @@ export default function ArchitectProfileForm({ onCancel }: EditProfileFormProps)
             ? user.phone_number.map((p: any) => p.contact) 
             : []
     );
-    const [filePorto, setFilePorto] = useState<File | null>(null);
-    const [fileSertif, setFileSertif] = useState<File | null>(null);
     const [fileFoto, setFileFoto] = useState<File | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
@@ -50,8 +48,6 @@ export default function ArchitectProfileForm({ onCancel }: EditProfileFormProps)
             const data = new FormData();
             Object.entries(formData).forEach(([key, value]) => data.append(key, value.toString()));
             data.append('phone_numbers', JSON.stringify(phoneNumbers.filter(p => p.trim() !== '')));
-            if (filePorto) data.append('file_portofolio', filePorto);
-            if (fileSertif) data.append('file_sertifikat', fileSertif);
             if (fileFoto) data.append('foto', fileFoto);
 
             await axios.post('/me/professional', data, { headers: { 'Content-Type': 'multipart/form-data' } });
@@ -72,8 +68,46 @@ export default function ArchitectProfileForm({ onCancel }: EditProfileFormProps)
         }
     };
 
+    const isVerified = (user?.arsitek?.verification_status === 'verified' || user?.arsitek?.verification_status === 'approved');
+
+    const renderVerificationBanner = () => {
+        if (isVerified) {
+            return (
+                <div className="bg-white border border-neutral-200 rounded-2xl p-5 text-neutral-900 flex items-center justify-between gap-4 relative overflow-hidden shadow-sm">
+                    <div className="space-y-1">
+                        <h4 className="text-xs font-black uppercase tracking-widest text-neutral-900 flex items-center gap-1.5">
+                            <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                            Account Verified
+                        </h4>
+                        <p className="text-[11px] text-neutral-500 font-semibold leading-relaxed">Your professional credentials are fully authenticated. Bidding board is unlocked.</p>
+                    </div>
+                </div>
+            );
+        }
+
+        return (
+            <div className="bg-white border border-neutral-200 rounded-2xl p-5 text-neutral-900 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 relative overflow-hidden shadow-sm">
+                <div className="space-y-1">
+                    <h4 className="text-xs font-black uppercase tracking-widest text-neutral-900 flex items-center gap-1.5">
+                        <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                        Verification Required
+                    </h4>
+                    <p className="text-[11px] text-neutral-500 font-semibold leading-relaxed">Your professional account is not verified yet. Secure bidding access by uploading files.</p>
+                </div>
+                <button
+                    type="button"
+                    onClick={() => window.dispatchEvent(new CustomEvent('switchDashboardTab', { detail: 'verification' }))}
+                    className="py-2.5 px-4 bg-neutral-900 hover:bg-black text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-200 active:scale-95 shadow-sm shrink-0 self-start sm:self-auto animate-pulse"
+                >
+                    Verify Account
+                </button>
+            </div>
+        );
+    };
+
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
+            {renderVerificationBanner()}
             {error && <div className="p-3 bg-red-50 text-red-600 rounded-xl text-sm border border-red-100">{error}</div>}
             {success && <div className="p-3 bg-green-50 text-green-600 rounded-xl text-sm border border-green-100">Profile updated successfully!</div>}
             
@@ -146,23 +180,11 @@ export default function ArchitectProfileForm({ onCancel }: EditProfileFormProps)
             </div>
 
             <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 space-y-4">
-                <h3 className="font-bold text-gray-800 border-b border-gray-200 pb-2">Documents & Gallery</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Main Portfolio Image</label>
-                        <input type="file" accept="image/*" onChange={(e) => handleFile(e, setFileFoto)} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200" />
-                        {user?.arsitek?.foto && !fileFoto && <span className="text-xs text-[#FF2D20] mt-1 block font-medium">✓ Current image saved</span>}
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Portfolio PDF Details</label>
-                        <input type="file" accept=".pdf,.zip" onChange={(e) => handleFile(e, setFilePorto)} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200" />
-                        {user?.arsitek?.file_portofolio && !filePorto && <span className="text-xs text-[#FF2D20] mt-1 block font-medium">✓ Current PDF saved</span>}
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Certificate</label>
-                        <input type="file" accept=".pdf,.jpg,.png" onChange={(e) => handleFile(e, setFileSertif)} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200" />
-                        {user?.arsitek?.file_sertifikat && !fileSertif && <span className="text-xs text-[#FF2D20] mt-1 block font-medium">✓ Current file saved</span>}
-                    </div>
+                <h3 className="font-bold text-gray-800 border-b border-gray-200 pb-2">Main Gallery Cover</h3>
+                <div className="max-w-md">
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Profile Cover Image</label>
+                    <input type="file" accept="image/*" onChange={(e) => handleFile(e, setFileFoto)} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200" />
+                    {user?.arsitek?.foto && !fileFoto && <span className="text-xs text-[#FF2D20] mt-1 block font-medium">✓ Current image saved</span>}
                 </div>
             </div>
 

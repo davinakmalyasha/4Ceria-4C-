@@ -41,6 +41,12 @@ export class ErrorBoundary extends Component<Props, State> {
           <p className="text-sm text-gray-500 mb-4 max-w-xs">
             Something went wrong while rendering this section ({this.props.name || 'Component'}).
           </p>
+          {this.state.error && (
+            <div className="mb-4 max-w-lg text-left">
+              <p className="text-xs font-mono text-red-600 break-all">{this.state.error.message}</p>
+              <pre className="mt-2 text-[10px] text-gray-400 font-mono overflow-auto max-h-40 bg-gray-50 p-2 rounded border">{this.state.error.stack}</pre>
+            </div>
+          )}
           <button
             onClick={() => this.setState({ hasError: false, error: null })}
             className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50 transition-all shadow-sm"

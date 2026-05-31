@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MapPin, Calendar, Clock, MessageSquare, Briefcase, Eye, Wallet, MoreHorizontal, Edit2, Copy, Share2, Trash2, ChevronLeft, ChevronRight, CheckCircle } from 'lucide-react';
+import { MapPin, Calendar, Clock, MessageSquare, Briefcase, Eye, Wallet, MoreHorizontal, Edit2, Copy, Share2, Trash2, ChevronLeft, ChevronRight, CheckCircle, Ruler, Maximize, Layers } from 'lucide-react';
 import { Project, getStatusConfig, getProjectTypeConfig, formatCurrency } from '../../types/project.types';
 
 export const ProjectCardSkeleton = () => (
@@ -27,6 +27,18 @@ export default function ProjectCard({ project, onClick, userRole, viewMode = 'gr
     const [activeImageIndex, setActiveImageIndex] = useState(0);
     
     const images = project.images || [];
+
+    const dims = React.useMemo(() => {
+        if (!project.project_dimensions) return null;
+        try {
+            return typeof project.project_dimensions === 'string' 
+                ? JSON.parse(project.project_dimensions) 
+                : project.project_dimensions;
+        } catch (e) {
+            console.error('Failed to parse project_dimensions', e);
+            return null;
+        }
+    }, [project.project_dimensions]);
 
     const nextImage = (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -182,6 +194,65 @@ export default function ProjectCard({ project, onClick, userRole, viewMode = 'gr
                             </div>
                         </div>
                         <p className={`text-sm text-zinc-500 leading-relaxed md:pr-4 break-words mt-2 ${isList ? 'line-clamp-2 md:line-clamp-1' : 'line-clamp-2'}`}>{project.description}</p>
+                        
+                        {/* Project Specifications Summary Row */}
+                        {dims && (
+                            <div className="flex flex-wrap gap-x-2 gap-y-1.5 mt-3 text-[10px] text-zinc-500 font-bold border-t border-dashed border-zinc-200/60 pt-2.5">
+                                {project.project_category === 'new_build' && (
+                                    <>
+                                        {dims.land_size ? (
+                                            <span className="flex items-center gap-1 bg-blue-50/70 text-blue-700 px-2 py-0.5 rounded-lg border border-blue-100/50">
+                                                <Maximize size={11} className="text-blue-500 shrink-0" />
+                                                <span>Tanah: {dims.land_size} m² {dims.land_length && dims.land_width && `(${dims.land_length}x{dims.land_width}m)`}</span>
+                                            </span>
+                                        ) : null}
+                                        {dims.building_size ? (
+                                            <span className="flex items-center gap-1 bg-indigo-50/70 text-indigo-700 px-2 py-0.5 rounded-lg border border-indigo-100/50">
+                                                <Ruler size={11} className="text-indigo-500 shrink-0" />
+                                                <span>Bangunan: {dims.building_size} m² {dims.building_length && dims.building_width && `(${dims.building_length}x{dims.building_width}m)`}</span>
+                                            </span>
+                                        ) : null}
+                                        {dims.floors ? (
+                                            <span className="flex items-center gap-1 bg-slate-50 text-slate-700 px-2 py-0.5 rounded-lg border border-slate-100">
+                                                <Layers size={11} className="text-slate-500 shrink-0" />
+                                                <span>{dims.floors} Lantai</span>
+                                            </span>
+                                        ) : null}
+                                    </>
+                                )}
+                                {project.project_category === 'renovation' && (
+                                    <>
+                                        {dims.renovation_area ? (
+                                            <span className="flex items-center gap-1 bg-amber-50/70 text-amber-700 px-2 py-0.5 rounded-lg border border-amber-100/50">
+                                                <Maximize size={11} className="text-amber-500 shrink-0" />
+                                                <span>Renovasi: {dims.renovation_area} m² {dims.renovation_length && dims.renovation_width && `(${dims.renovation_length}x{dims.renovation_width}m)`}</span>
+                                            </span>
+                                        ) : null}
+                                        {Array.isArray(dims.scope_tags) && dims.scope_tags.length > 0 ? (
+                                            <span className="flex items-center gap-1 bg-slate-50 text-slate-600 px-2 py-0.5 rounded-lg border border-slate-150 max-w-[200px] truncate" title={dims.scope_tags.join(', ')}>
+                                                <span>Scope: {dims.scope_tags.join(', ')}</span>
+                                            </span>
+                                        ) : null}
+                                    </>
+                                )}
+                                {project.project_category === 'interior' && (
+                                    <>
+                                        {dims.area_size ? (
+                                            <span className="flex items-center gap-1 bg-purple-50/70 text-purple-700 px-2 py-0.5 rounded-lg border border-purple-100/50">
+                                                <Maximize size={11} className="text-purple-500 shrink-0" />
+                                                <span>Area: {dims.area_size} m² {dims.area_length && dims.area_width && `(${dims.area_length}x{dims.area_width}m)`}</span>
+                                            </span>
+                                        ) : null}
+                                        {dims.room_count ? (
+                                            <span className="flex items-center gap-1 bg-slate-50 text-slate-700 px-2 py-0.5 rounded-lg border border-slate-100">
+                                                <Layers size={11} className="text-slate-500 shrink-0" />
+                                                <span>{dims.room_count} Ruangan</span>
+                                            </span>
+                                        ) : null}
+                                    </>
+                                )}
+                            </div>
+                        )}
                         
                         {/* Milestone Progress Bar */}
                         {milestones.length > 0 && (
