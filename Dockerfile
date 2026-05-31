@@ -15,7 +15,8 @@ RUN apk add --no-cache \
     oniguruma-dev \
     postgresql-dev \
     libzip-dev \
-    mysql-client
+    mysql-client \
+    mariadb-connector-c
 
 # Install PHP extensions
 RUN docker-php-ext-install pdo pdo_mysql pdo_pgsql mbstring exif pcntl bcmath gd xml zip
