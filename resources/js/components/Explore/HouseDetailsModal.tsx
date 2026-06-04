@@ -8,6 +8,9 @@ import {
 import type { House } from '../../types/explore';
 import { formatCurrency } from '../../types/explore';
 import ScheduleVisitModal from './ScheduleVisitModal';
+import FirmSquadProfile from '../Dashboard/FirmSquadProfile';
+import { Shield } from 'lucide-react';
+
 
 const ManualSlider = ({ images, altText }: { images?: { dir: string }[]; altText: string }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
@@ -48,6 +51,8 @@ interface Props {
 export default function HouseDetailsModal({ house, allHouses, wishlist, currentUser, onClose, onToggleWishlist, onSelectHouse, onOpenChat }: Props) {
     const isOwner = house.user_id === currentUser?.id;
     const [showSchedule, setShowSchedule] = useState(false);
+    const [showSquadProfile, setShowSquadProfile] = useState(false);
+
     const area = (house.dimensions?.width || 0) * (house.dimensions?.length || 0);
     const pricePerM2 = area > 0 ? house.price / area : 0;
     const similarHouses = allHouses.filter(h => h.id !== house.id && (h.address?.city === house.address?.city || (h.price >= house.price * 0.7 && h.price <= house.price * 1.3))).slice(0, 3);
@@ -162,6 +167,14 @@ export default function HouseDetailsModal({ house, allHouses, wishlist, currentU
                                                 </a>
                                             )}
                                         </div>
+                                        {house.owner.role_type && ['arsitek', 'kontraktor'].includes(house.owner.role_type) && (
+                                            <button
+                                                onClick={() => setShowSquadProfile(true)}
+                                                className="w-full relative z-10 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs transition-all shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-2"
+                                            >
+                                                <Shield size={14} /> View Squad Profile
+                                            </button>
+                                        )}
                                     </div>
                                 )}
 
@@ -221,6 +234,19 @@ export default function HouseDetailsModal({ house, allHouses, wishlist, currentU
                 <AnimatePresence>
                     {showSchedule && <ScheduleVisitModal house={house} onClose={() => setShowSchedule(false)} onOpenChat={onOpenChat} />}
                 </AnimatePresence>
+
+                {showSquadProfile && (
+                    <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md overflow-y-auto" onClick={() => setShowSquadProfile(false)}>
+                        <div className="w-full max-w-5xl my-8 relative pointer-events-auto" onClick={(e) => e.stopPropagation()}>
+                            <FirmSquadProfile 
+                                ownerId={house.owner.id || house.user_id || 0} 
+                                isGuestMode={true} 
+                                onCloseGuest={() => setShowSquadProfile(false)} 
+                                onOpenChat={(userObj) => onOpenChat(userObj.id)} 
+                            />
+                        </div>
+                    </div>
+                )}
             </motion.div>
         </motion.div>
     );

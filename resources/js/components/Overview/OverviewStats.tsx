@@ -7,9 +7,10 @@ interface Props {
     bidCount: number;
     openTenders: number;
     setActiveTab: (tab: string) => void;
+    availableProsCount?: number;
 }
 
-export default function OverviewStats({ isUser, projectCount, bidCount, openTenders, setActiveTab }: Props) {
+export default function OverviewStats({ isUser, projectCount, bidCount, openTenders, setActiveTab, availableProsCount = 0 }: Props) {
     const stats = isUser
         ? [
             { 
@@ -26,7 +27,7 @@ export default function OverviewStats({ isUser, projectCount, bidCount, openTend
             },
             { 
                 label: 'Available Pros', 
-                value: '100+', 
+                value: availableProsCount, 
                 icon: Search, 
                 tab: 'explore' 
             },

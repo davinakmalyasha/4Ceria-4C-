@@ -130,21 +130,17 @@ export default function ConstructorProfileForm({ onCancel }: EditProfileFormProp
             </div>
             
             <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 space-y-4">
-                <h3 className="font-bold text-gray-800 border-b pb-2">Company Information</h3>
+                <h3 className="font-bold text-gray-800 border-b pb-2">Contractor Information</h3>
                 <div className="grid grid-cols-2 gap-4">
-                    <div className="col-span-2">
-                        <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Company Name</label>
-                        <input type="text" name="nama_perusahaan" value={formData.nama_perusahaan} onChange={handleChange} className="w-full px-4 py-3 bg-white border rounded-xl focus:ring-[#FF2D20]/20" placeholder="PT. Pembangunan Jaya" />
-                    </div>
                     <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Company Type (Jenis)</label>
+                        <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Contractor Type (Jenis)</label>
                         <input type="text" name="jenis" value={formData.jenis} onChange={handleChange} className="w-full px-4 py-3 bg-white border rounded-xl focus:ring-[#FF2D20]/20" placeholder="e.g. SIPIL" />
                     </div>
                     <div>
                         <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Experience (Years)</label>
                         <input type="text" name="pengalaman" value={formData.pengalaman} onChange={handleChange} className="w-full px-4 py-3 bg-white border rounded-xl focus:ring-[#FF2D20]/20" placeholder="e.g. 10" />
                     </div>
-                    <div>
+                    <div className="col-span-2">
                         <label className="flex items-center gap-2 text-xs font-bold text-gray-500 uppercase mb-2">
                             Est. Rate (Rate Harga)
                             {!formData.rate_harga && <AlertCircle size={14} className="text-[#FF2D20] animate-pulse" />}
@@ -165,16 +161,16 @@ export default function ConstructorProfileForm({ onCancel }: EditProfileFormProp
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                     <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Company Background</label>
-                        <textarea name="pendidikan" value={formData.pendidikan} onChange={handleChange} rows={2} className="w-full px-4 py-3 bg-white border rounded-xl focus:ring-[#FF2D20]/20 resize-none" placeholder="Company history, team credentials, etc."></textarea>
+                        <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Personal Background / Bio</label>
+                        <textarea name="pendidikan" value={formData.pendidikan} onChange={handleChange} rows={2} className="w-full px-4 py-3 bg-white border rounded-xl focus:ring-[#FF2D20]/20 resize-none" placeholder="History, credentials, etc."></textarea>
                     </div>
                     <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Why Hire Us? (Value Prop)</label>
-                        <textarea name="alasan_hire" value={formData.alasan_hire} onChange={handleChange} rows={2} className="w-full px-4 py-3 bg-white border rounded-xl focus:ring-[#FF2D20]/20 resize-none" placeholder="What makes your company the best choice?"></textarea>
+                        <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Why Hire Me? (Value Prop)</label>
+                        <textarea name="alasan_hire" value={formData.alasan_hire} onChange={handleChange} rows={2} className="w-full px-4 py-3 bg-white border rounded-xl focus:ring-[#FF2D20]/20 resize-none" placeholder="What makes you the best choice?"></textarea>
                     </div>
                 </div>
                 <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Company Address</label>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Personal / Business Address</label>
                     <textarea name="alamat" value={formData.alamat} onChange={handleChange} rows={2} className="w-full px-4 py-3 bg-white border rounded-xl focus:ring-[#FF2D20]/20 resize-none"></textarea>
                 </div>
             </div>
@@ -187,9 +183,6 @@ export default function ConstructorProfileForm({ onCancel }: EditProfileFormProp
                     {user?.kontraktor?.foto && !fileFoto && <span className="text-xs text-[#FF2D20] mt-1 block font-medium">✓ Current image saved</span>}
                 </div>
             </div>
-
-            {/* Interactive Portfolio Management inside Edit Mode */}
-            <PortfolioManager isEmbedded={true} />
 
             <div className="pt-4 flex items-center gap-4">
                 <button type="submit" disabled={isLoading} className="flex-1 bg-neutral-900 text-white py-3 rounded-xl font-bold hover:bg-neutral-800 transition-all shadow-lg disabled:opacity-50">

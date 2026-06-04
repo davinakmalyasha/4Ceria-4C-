@@ -22,6 +22,7 @@ interface Props {
     myProjectsCount?: number;
     onPostProject?: () => void;
     onViewProject?: (project: any) => void;
+    availableProsCount?: number;
 }
 
 const container: Variants = { 
@@ -37,6 +38,7 @@ export default function OverviewContent({
     user, relevantProjects, setActiveTab,
     openTendersCount = 0, myBidsCount = 0,
     myProjectsCount = 0, onPostProject, onViewProject,
+    availableProsCount = 0,
 }: Props) {
     const isUser = user?.role_type === 'user';
 
@@ -61,6 +63,7 @@ export default function OverviewContent({
                     bidCount={myBidsCount}
                     openTenders={openTendersCount}
                     setActiveTab={setActiveTab}
+                    availableProsCount={availableProsCount}
                 />
             </motion.div>
 

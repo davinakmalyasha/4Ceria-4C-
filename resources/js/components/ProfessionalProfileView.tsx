@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Star, CheckCircle, MapPin, Briefcase, Calendar, Award, Phone, ShieldCheck, FileText, MessageSquare, ArrowLeft, User as UserIcon, Scale, Smartphone, X, Users } from 'lucide-react';
+import { Star, CheckCircle, MapPin, Briefcase, Calendar, Award, Phone, ShieldCheck, FileText, MessageSquare, ArrowLeft, User as UserIcon, Scale, Smartphone, X, Users, Shield } from 'lucide-react';
 import axios from 'axios';
 import { Project } from '../types/project.types';
 import HireProfessionalModal from './HireProfessionalModal';
@@ -9,6 +9,7 @@ import ProjectDetailModal from './ProjectDetailModal';
 import { useAuth } from '../context/AuthContext';
 import LegalServiceCard from './Notaris/LegalServiceCard';
 import ConsultationModal from './Notaris/ConsultationModal';
+import FirmSquadProfile from './Dashboard/FirmSquadProfile';
 
 interface ProfessionalProfileViewProps {
     type: 'architect' | 'constructor' | 'interior' | 'notaris' | 'project_manager' | 'structural' | 'mep';
@@ -26,6 +27,7 @@ export default function ProfessionalProfileView({ type, data, projects = [], onC
     const [selectedProject, setSelectedProject] = useState<Project | null>(null);
     const [showProjectPicker, setShowProjectPicker] = useState(false);
     const [isAssigning, setIsAssigning] = useState(false);
+    const [showSquadProfile, setShowSquadProfile] = useState(false);
 
     const isOwnProfile = (type === 'architect' && user?.arsitek?.id === data.id) || 
                          (type === 'constructor' && user?.kontraktor?.id === data.id) ||
@@ -351,6 +353,14 @@ export default function ProfessionalProfileView({ type, data, projects = [], onC
                                                         <Users size={18} /> Assign to My Project
                                                     </button>
                                                 )}
+                                                {(type === 'architect' || type === 'constructor') && (
+                                                    <button 
+                                                        onClick={() => setShowSquadProfile(true)} 
+                                                        className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-4 rounded-2xl transition-all shadow-lg hover:-translate-y-0.5 uppercase tracking-widest text-sm flex items-center justify-center gap-2"
+                                                    >
+                                                        <Shield size={18} /> View Squad Profile
+                                                    </button>
+                                                )}
                                                 <button onClick={() => setShowHireModal(true)} className="w-full bg-red-600 hover:bg-red-700 text-white font-black py-4 rounded-2xl transition-all shadow-lg hover:-translate-y-0.5 uppercase tracking-widest text-sm">
                                                     {isPM ? 'Hire Project Manager' : 'Hire Professional'}
                                                 </button>
@@ -482,6 +492,19 @@ export default function ProfessionalProfileView({ type, data, projects = [], onC
                     </div>
                 )}
             </AnimatePresence>
+
+            {showSquadProfile && (
+                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md overflow-y-auto">
+                    <div className="w-full max-w-5xl my-8">
+                        <FirmSquadProfile 
+                            ownerId={data.user_id || data.user?.id} 
+                            isGuestMode={true} 
+                            onCloseGuest={() => setShowSquadProfile(false)} 
+                            onOpenChat={onOpenChat} 
+                        />
+                    </div>
+                </div>
+            )}
 
             </AnimatePresence>
         </motion.div>

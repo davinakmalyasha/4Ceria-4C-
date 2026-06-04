@@ -3,6 +3,7 @@ import axios from 'axios';
 import { Bell, CheckCircle, XCircle, Loader2, Inbox, Eye, MessageSquare, Smartphone } from 'lucide-react';
 import { FirmInvitation } from '../../types/sub_professional.types';
 import { useToast } from '../../context/ToastContext';
+import ConfirmModal from '../Projects/ConfirmModal';
 
 interface FirmInvitationsProps {
     isFullPage?: boolean;
@@ -15,6 +16,17 @@ export default function FirmInvitations({ isFullPage = false, onOpenChat }: Firm
     const [isLoading, setIsLoading] = useState(true);
     const [respondingId, setRespondingId] = useState<number | null>(null);
     const [isBulkResponding, setIsBulkResponding] = useState(false);
+    const [confirmState, setConfirmState] = useState<{
+        isOpen: boolean;
+        title: string;
+        description: string;
+        onConfirm: () => void;
+    }>({
+        isOpen: false,
+        title: '',
+        description: '',
+        onConfirm: () => {}
+    });
 
     useEffect(() => {
         axios.get<{ data: FirmInvitation[] }>('/firm-members/invitations')
@@ -130,7 +142,17 @@ export default function FirmInvitations({ isFullPage = false, onOpenChat }: Firm
                                 {groupInvs.length > 1 && (
                                     <div className="flex gap-2 shrink-0">
                                         <button
-                                            onClick={() => handleRespondBulk(groupInvs.map(i => i.id), 'accept')}
+                                            onClick={() => {
+                                                setConfirmState({
+                                                    isOpen: true,
+                                                    title: 'Accept All Invitations?',
+                                                    description: `Are you sure you want to join ${firm_owner?.name || 'this'} firm for all offered roles (${groupInvs.map(i => roleLabel(i.role_in_firm)).join(', ')})? This will add you to their active member roster.`,
+                                                    onConfirm: () => {
+                                                        setConfirmState(prev => ({ ...prev, isOpen: false }));
+                                                        handleRespondBulk(groupInvs.map(i => i.id), 'accept');
+                                                    }
+                                                });
+                                            }}
                                             disabled={respondingId !== null || isBulkResponding}
                                             className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-emerald-100 transition disabled:opacity-50"
                                         >
@@ -159,7 +181,17 @@ export default function FirmInvitations({ isFullPage = false, onOpenChat }: Firm
                                         </div>
                                         <div className="flex gap-2 shrink-0">
                                             <button
-                                                onClick={() => handleRespond(inv.id, 'accept')}
+                                                onClick={() => {
+                                                    setConfirmState({
+                                                        isOpen: true,
+                                                        title: 'Join Firm?',
+                                                        description: `Are you sure you want to join ${firm_owner?.name || 'this'} firm as a ${roleLabel(inv.role_in_firm)}? This will add you to their active member roster.`,
+                                                        onConfirm: () => {
+                                                            setConfirmState(prev => ({ ...prev, isOpen: false }));
+                                                            handleRespond(inv.id, 'accept');
+                                                        }
+                                                    });
+                                                }}
                                                 disabled={respondingId !== null || isBulkResponding}
                                                 className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-emerald-700 transition disabled:opacity-50 shadow-md shadow-emerald-100"
                                             >
@@ -209,6 +241,17 @@ export default function FirmInvitations({ isFullPage = false, onOpenChat }: Firm
                     </div>
                 );
             })}
+
+            <ConfirmModal
+                isOpen={confirmState.isOpen}
+                title={confirmState.title}
+                description={confirmState.description}
+                confirmText="Join Firm"
+                cancelText="Cancel"
+                variant="success"
+                onConfirm={confirmState.onConfirm}
+                onCancel={() => setConfirmState(prev => ({ ...prev, isOpen: false }))}
+            />
         </div>
     );
 }

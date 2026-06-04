@@ -164,8 +164,8 @@ export default function ArchitectProfileForm({ onCancel }: EditProfileFormProps)
                     </div>
                 </div>
                 <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Company / Bio Description</label>
-                    <textarea name="deskripsi" value={formData.deskripsi} onChange={handleChange} rows={2} className="w-full px-4 py-3 bg-white border rounded-xl focus:ring-[#FF2D20]/20 resize-none" placeholder="Give an overview of your architectural path..."></textarea>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Personal Bio Description</label>
+                    <textarea name="deskripsi" value={formData.deskripsi} onChange={handleChange} rows={2} className="w-full px-4 py-3 bg-white border rounded-xl focus:ring-[#FF2D20]/20 resize-none" placeholder="Give an overview of your personal architectural path..."></textarea>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -187,9 +187,6 @@ export default function ArchitectProfileForm({ onCancel }: EditProfileFormProps)
                     {user?.arsitek?.foto && !fileFoto && <span className="text-xs text-[#FF2D20] mt-1 block font-medium">✓ Current image saved</span>}
                 </div>
             </div>
-
-            {/* Interactive Portfolio Management inside Edit Mode */}
-            <PortfolioManager isEmbedded={true} />
 
             <div className="pt-4 flex items-center gap-4">
                 <button type="submit" disabled={isLoading} className="flex-1 bg-[#FF2D20] text-white py-3 rounded-xl font-bold hover:bg-red-700 transition-all shadow-lg disabled:opacity-50">
