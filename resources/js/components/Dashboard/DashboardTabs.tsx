@@ -140,13 +140,14 @@ export const DashboardTabs: React.FC<TabsProps> = (props) => {
         const isOwner = user?.id === baseProject.user_id;
         const isHiredPM = baseProject.pm_id && user?.id === baseProject.pm_id;
         const isHiredPro = 
-            (baseProject.selected_arsitek_id && (user?.id === baseProject.selected_arsitek_id || baseProject.arsitek?.user_id === user?.id)) ||
-            (baseProject.selected_kontraktor_id && (user?.id === baseProject.selected_kontraktor_id || baseProject.kontraktor?.user_id === user?.id)) ||
-            (baseProject.selected_notaris_id && (user?.id === baseProject.selected_notaris_id || baseProject.notaris?.user_id === user?.id)) ||
-            (baseProject.selected_interior_id && (user?.id === baseProject.selected_interior_id || baseProject.interior_profile?.user_id === user?.id)) ||
-            (baseProject.structural_id && (user?.id === baseProject.structural_engineer?.user_id || user?.structural_engineer?.id === baseProject.structural_id)) ||
-            (baseProject.mep_id && (user?.id === baseProject.mep_engineer?.user_id || user?.mep_engineer?.id === baseProject.mep_id)) ||
+            (baseProject.selected_arsitek_id && (user?.arsitek?.id === baseProject.selected_arsitek_id || baseProject.arsitek?.user_id === user?.id || baseProject.arsitek?.user?.id === user?.id)) ||
+            (baseProject.selected_kontraktor_id && (user?.kontraktor?.id === baseProject.selected_kontraktor_id || baseProject.kontraktor?.user_id === user?.id || baseProject.kontraktor?.user?.id === user?.id)) ||
+            (baseProject.selected_notaris_id && (user?.notaris_profile?.id === baseProject.selected_notaris_id || baseProject.notaris?.user_id === user?.id || baseProject.notaris?.user?.id === user?.id || baseProject.notaris_profile?.user_id === user?.id)) ||
+            (baseProject.selected_interior_id && (user?.interior_profile?.id === baseProject.selected_interior_id || baseProject.interior_profile?.user_id === user?.id || baseProject.interior?.user?.id === user?.id || baseProject.interior_profile?.user?.id === user?.id)) ||
+            (baseProject.structural_id && (user?.structural_engineer?.id === baseProject.structural_id || baseProject.structural_engineer?.user_id === user?.id || baseProject.structural_engineer?.user?.id === user?.id)) ||
+            (baseProject.mep_id && (user?.mep_engineer?.id === baseProject.mep_id || baseProject.mep_engineer?.user_id === user?.id || baseProject.mep_engineer?.user?.id === user?.id)) ||
             (!!baseProject.sub_professionals && baseProject.sub_professionals.some((s: any) => s.user_id === user?.id && s.status === 'active'));
+
 
         const isShortlistedPro = getIsShortlistedPro(baseProject);
 
@@ -158,6 +159,15 @@ export const DashboardTabs: React.FC<TabsProps> = (props) => {
             setActiveTab('bidding-brief');
         }
     };
+
+    const availableProsCount = 
+        (architects?.length || 0) + 
+        (constructors?.length || 0) + 
+        (interiors?.length || 0) + 
+        (notaries?.length || 0) + 
+        (projectManagers?.length || 0) + 
+        (structuralEngineers?.length || 0) + 
+        (mepEngineers?.length || 0);
 
     return (
         <AnimatePresence mode="wait">
@@ -183,6 +193,7 @@ export const DashboardTabs: React.FC<TabsProps> = (props) => {
                             myProjectsCount={projects.length}
                             onPostProject={() => setActiveTab('post-project')}
                             onViewProject={handleViewProject}
+                            availableProsCount={availableProsCount}
                         />
                     )}
                     </>
@@ -235,13 +246,14 @@ export const DashboardTabs: React.FC<TabsProps> = (props) => {
                     const isHiredPM = mergedProject.pm_id && user?.id === mergedProject.pm_id;
                     
                     const isHiredPro = 
-                        (mergedProject.selected_arsitek_id && (user?.id === mergedProject.selected_arsitek_id || mergedProject.arsitek?.user_id === user?.id)) ||
-                        (mergedProject.selected_kontraktor_id && (user?.id === mergedProject.selected_kontraktor_id || mergedProject.kontraktor?.user_id === user?.id)) ||
-                        (mergedProject.selected_notaris_id && (user?.id === mergedProject.selected_notaris_id || mergedProject.notaris?.user_id === user?.id)) ||
-                        (mergedProject.selected_interior_id && (user?.id === mergedProject.selected_interior_id || mergedProject.interior_profile?.user_id === user?.id)) ||
-                        (mergedProject.structural_id && (user?.id === mergedProject.structural_engineer?.user_id || user?.structural_engineer?.id === mergedProject.structural_id)) ||
-                        (mergedProject.mep_id && (user?.id === mergedProject.mep_engineer?.user_id || user?.mep_engineer?.id === mergedProject.mep_id)) ||
+                        (mergedProject.selected_arsitek_id && (user?.arsitek?.id === mergedProject.selected_arsitek_id || mergedProject.arsitek?.user_id === user?.id || mergedProject.arsitek?.user?.id === user?.id)) ||
+                        (mergedProject.selected_kontraktor_id && (user?.kontraktor?.id === mergedProject.selected_kontraktor_id || mergedProject.kontraktor?.user_id === user?.id || mergedProject.kontraktor?.user?.id === user?.id)) ||
+                        (mergedProject.selected_notaris_id && (user?.notaris_profile?.id === mergedProject.selected_notaris_id || mergedProject.notaris?.user_id === user?.id || mergedProject.notaris?.user?.id === user?.id || mergedProject.notaris_profile?.user_id === user?.id)) ||
+                        (mergedProject.selected_interior_id && (user?.interior_profile?.id === mergedProject.selected_interior_id || mergedProject.interior_profile?.user_id === user?.id || mergedProject.interior?.user?.id === user?.id || mergedProject.interior_profile?.user?.id === user?.id)) ||
+                        (mergedProject.structural_id && (user?.structural_engineer?.id === mergedProject.structural_id || mergedProject.structural_engineer?.user_id === user?.id || mergedProject.structural_engineer?.user?.id === user?.id)) ||
+                        (mergedProject.mep_id && (user?.mep_engineer?.id === mergedProject.mep_id || mergedProject.mep_engineer?.user_id === user?.id || mergedProject.mep_engineer?.user?.id === user?.id)) ||
                         (!!mergedProject.sub_professionals && mergedProject.sub_professionals.some((s: any) => s.user_id === user?.id && s.status === 'active'));
+
 
                     const isShortlistedPro = getIsShortlistedPro(mergedProject);
 

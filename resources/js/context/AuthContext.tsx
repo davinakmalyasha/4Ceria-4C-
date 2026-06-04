@@ -8,6 +8,9 @@ export interface User {
     role_type: string;
     username: string;
     pic?: string | null;
+    bank_name?: string | null;
+    bank_account_number?: string | null;
+    bank_account_name?: string | null;
     unique_code?: string;
     phone_number?: { id: number; contact: string }[];
     arsitek?: { 

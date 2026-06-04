@@ -21,7 +21,7 @@ export interface House {
     dimensions?: { width: number; length: number; floors: number };
     rooms?: { bedrooms: number; bathrooms: number };
     housePic?: { dir: string }[];
-    owner?: { name: string; email: string; phones: string[] };
+    owner?: { id?: number; name: string; email: string; phones: string[]; role_type?: string };
     roomList?: {
         name: string;
         width: number;

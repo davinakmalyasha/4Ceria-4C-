@@ -116,13 +116,14 @@ function DashboardContent() {
                         const isOwner = user?.id === foundProject.user_id;
                         const isHiredPM = foundProject.pm_id && user?.id === foundProject.pm_id;
                         const isHiredPro = 
-                            (foundProject.selected_arsitek_id && (user?.id === foundProject.selected_arsitek_id || foundProject.arsitek?.user_id === user?.id)) ||
-                            (foundProject.selected_kontraktor_id && (user?.id === foundProject.selected_kontraktor_id || foundProject.kontraktor?.user_id === user?.id)) ||
-                            (foundProject.selected_notaris_id && (user?.id === foundProject.selected_notaris_id || foundProject.notaris?.user_id === user?.id)) ||
-                            (foundProject.selected_interior_id && (user?.id === foundProject.selected_interior_id || foundProject.interior_profile?.user_id === user?.id)) ||
-                            (foundProject.structural_id && (user?.id === foundProject.structural_engineer?.user_id || user?.structural_engineer?.id === foundProject.structural_id)) ||
-                            (foundProject.mep_id && (user?.id === foundProject.mep_engineer?.user_id || user?.mep_engineer?.id === foundProject.mep_id)) ||
+                            (foundProject.selected_arsitek_id && (user?.arsitek?.id === foundProject.selected_arsitek_id || foundProject.arsitek?.user_id === user?.id || foundProject.arsitek?.user?.id === user?.id)) ||
+                            (foundProject.selected_kontraktor_id && (user?.kontraktor?.id === foundProject.selected_kontraktor_id || foundProject.kontraktor?.user_id === user?.id || foundProject.kontraktor?.user?.id === user?.id)) ||
+                            (foundProject.selected_notaris_id && (user?.notaris_profile?.id === foundProject.selected_notaris_id || foundProject.notaris?.user_id === user?.id || foundProject.notaris?.user?.id === user?.id || foundProject.notaris_profile?.user_id === user?.id)) ||
+                            (foundProject.selected_interior_id && (user?.interior_profile?.id === foundProject.selected_interior_id || foundProject.interior_profile?.user_id === user?.id || foundProject.interior?.user?.id === user?.id || foundProject.interior_profile?.user?.id === user?.id)) ||
+                            (foundProject.structural_id && (user?.structural_engineer?.id === foundProject.structural_id || foundProject.structural_engineer?.user_id === user?.id || foundProject.structural_engineer?.user?.id === user?.id)) ||
+                            (foundProject.mep_id && (user?.mep_engineer?.id === foundProject.mep_id || foundProject.mep_engineer?.user_id === user?.id || foundProject.mep_engineer?.user?.id === user?.id)) ||
                             (!!foundProject.sub_professionals && foundProject.sub_professionals.some((s: any) => s.user_id === user?.id && s.status === 'active'));
+
                         
                         const showWorkspace = isOwner || isHiredPM || isHiredPro;
                         handleSetActiveTab(showWorkspace ? 'project-detail' : 'bidding-brief');
@@ -187,6 +188,18 @@ function DashboardContent() {
         }
     };
 
+    const activeProjectsCount = data.projects.filter(p => p.status !== 'completed' && p.status !== 'cancelled').length;
+    const biddingBoardCount = data.projectFeed.length;
+    const proposalsCount = data.myBids.filter(b => b.status === 'pending' || b.status === 'invited').length;
+    const myHousesCount = user ? data.houses.filter(h => h.user_id === user.id).length : 0;
+
+    const navCounts = {
+        projects: user?.role_type === 'user' ? activeProjectsCount : biddingBoardCount,
+        management: activeProjectsCount,
+        'my-bids': proposalsCount,
+        'my-houses': myHousesCount,
+    };
+
     if (isAuthLoading) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div></div>;
 
     return (
@@ -194,6 +207,7 @@ function DashboardContent() {
             <DashboardSidebar 
                 sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} 
                 activeTab={activeTab} setActiveTab={handleSetActiveTab} 
+                counts={navCounts}
             />
 
             <main className="flex-1 flex flex-col h-screen overflow-hidden">
@@ -201,6 +215,7 @@ function DashboardContent() {
                     activeTab={activeTab} 
                     setActiveTab={handleSetActiveTab}
                     onMenuClick={() => setSidebarOpen(true)} 
+                    counts={navCounts}
                 />
 
                 <div className={`flex-1 overflow-y-auto px-4 sm:px-8 relative z-0 ${activeTab === 'houses' ? 'py-3 sm:py-4' : 'py-4 sm:py-8'}`}>

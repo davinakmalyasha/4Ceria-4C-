@@ -131,3 +131,49 @@ export interface MyFirmEntry {
     };
 }
 
+export interface FirmPortfolio {
+    id: number;
+    user_id: number;
+    role_type: string;
+    title: string;
+    description: string;
+    image_path: string | null;
+    duration: string | null;
+    client_review: string | null;
+    created_at: string;
+}
+
+export interface JobPosting {
+    id: string;
+    role: string;
+    title: string;
+    description: string;
+    budget: string;
+    duration: string;
+}
+
+export interface FirmSquadProfileData {
+    owner: {
+        id: number;
+        name: string;
+        username: string;
+        pic: string | null;
+        role_type: string;
+        unique_code: string;
+    };
+    firm_name: string;
+    firm_slogan: string | null;
+    firm_banner_url: string | null;
+    firm_description: string | null;
+    stats: {
+        experience_years: number;
+        base_rate: number;
+        average_rating: number;
+        review_count: number;
+        active_members_count: number;
+    };
+    roster: FirmMember[];
+    portfolios: any[];
+    firm_is_hiring?: boolean;
+    firm_needed_roles?: (string | JobPosting)[];
+}

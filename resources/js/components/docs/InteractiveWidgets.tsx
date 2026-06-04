@@ -8,9 +8,17 @@ import HireProWidget from './widgets/HireProWidget';
 import BuyMaterialWidget from './widgets/BuyMaterialWidget';
 import VerificationWidget from './widgets/VerificationWidget';
 import ShortlistInterviewWidget from './widgets/ShortlistInterviewWidget';
+import ChatWidget from './widgets/ChatWidget';
+import ContractWidget from './widgets/ContractWidget';
+import PhaseTimelineWidget from './widgets/PhaseTimelineWidget';
+import ProjectBoardWidget from './widgets/ProjectBoardWidget';
+import FirmSquadWidget from './widgets/FirmSquadWidget';
+import CheckoutWidget from './widgets/CheckoutWidget';
+import PMScheduleWidget from './widgets/PMScheduleWidget';
+import NotificationWidget from './widgets/NotificationWidget';
 
 interface InteractiveWidgetsProps {
-    name: 'bidding' | 'milestone' | 'radar' | 'postproject' | 'sellhouse' | 'hirepro' | 'buymaterial' | 'verification' | 'shortlistinterview';
+    name: string;
 }
 
 export default function InteractiveWidgets({ name }: InteractiveWidgetsProps) {
@@ -24,6 +32,14 @@ export default function InteractiveWidgets({ name }: InteractiveWidgetsProps) {
         case 'buymaterial': return <BuyMaterialWidget />;
         case 'verification': return <VerificationWidget />;
         case 'shortlistinterview': return <ShortlistInterviewWidget />;
+        case 'chat': return <ChatWidget />;
+        case 'contract': return <ContractWidget />;
+        case 'phasetimeline': return <PhaseTimelineWidget />;
+        case 'projectboard': return <ProjectBoardWidget />;
+        case 'firmsquad': return <FirmSquadWidget />;
+        case 'checkout': return <CheckoutWidget />;
+        case 'pmschedule': return <PMScheduleWidget />;
+        case 'notification': return <NotificationWidget />;
         default: return null;
     }
 }

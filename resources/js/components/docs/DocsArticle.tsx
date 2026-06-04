@@ -1,5 +1,5 @@
 import React from 'react';
-import { HelpCircle, AlertCircle, Info, Lightbulb } from 'lucide-react';
+import { HelpCircle, AlertCircle, Info, Lightbulb, CheckCircle2 } from 'lucide-react';
 import { DocArticle } from '../../constants/docsData';
 import InteractiveWidgets from './InteractiveWidgets';
 
@@ -23,11 +23,23 @@ export default function DocsArticle({ article }: DocsArticleProps) {
         );
     }
 
+    const roleLabelMap: Record<string, string> = {
+        'client': 'Clients',
+        'professional': 'Professionals',
+        'merchant': 'Suppliers',
+        'courier': 'Couriers',
+        'common': 'Trust & Safety',
+        'getting-started': 'Getting Started',
+        'workspace': 'Project Workspace',
+        'admin': 'Admin Panel',
+        'faq': 'FAQ',
+    };
+
     return (
         <article className="bg-white rounded-3xl border border-neutral-100 p-6 sm:p-8 shadow-[0_4px_25px_rgba(0,0,0,0.01)] space-y-6 animate-fade-in flex-grow">
             <div>
                 <span className="text-[9px] font-black uppercase text-red-500 tracking-wider">
-                    Help Center &gt; {article.role}
+                    Help Center &gt; {roleLabelMap[article.role] || article.role}
                 </span>
                 <h1 className="text-xl sm:text-2xl font-black text-neutral-800 tracking-tight mt-1 mb-2">
                     {article.title}
@@ -60,6 +72,37 @@ export default function DocsArticle({ article }: DocsArticleProps) {
                                         <li key={itemIdx} className="leading-relaxed font-semibold">{item}</li>
                                     ))}
                                 </ul>
+                            </div>
+                        );
+                    case 'step':
+                        return (
+                            <div key={idx} className="space-y-3" id={sectionId}>
+                                {sec.title && (
+                                    <h4 className="text-xs sm:text-sm font-black text-neutral-700 tracking-tight">
+                                        {sec.title}
+                                    </h4>
+                                )}
+                                <div className="space-y-2">
+                                    {sec.steps?.map((step) => (
+                                        <div
+                                            key={step.stepNumber}
+                                            className="flex gap-3.5 p-3.5 rounded-2xl border border-neutral-100 bg-neutral-50/50 hover:bg-neutral-50 transition-all group"
+                                        >
+                                            <div className="flex items-center justify-center w-8 h-8 rounded-xl bg-gradient-to-br from-red-500 to-red-600 text-white text-xs font-black shrink-0 shadow-sm group-hover:scale-105 transition-transform">
+                                                {step.stepNumber}
+                                            </div>
+                                            <div className="flex-grow min-w-0">
+                                                <h5 className="text-xs font-extrabold text-neutral-800 leading-snug">
+                                                    {step.title}
+                                                </h5>
+                                                <p className="text-[11px] text-neutral-500 leading-relaxed mt-0.5 font-semibold">
+                                                    {step.description}
+                                                </p>
+                                            </div>
+                                            <CheckCircle2 className="w-4 h-4 text-neutral-200 shrink-0 mt-0.5 group-hover:text-green-400 transition-colors" />
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         );
                     case 'alert':

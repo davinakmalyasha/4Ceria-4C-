@@ -13,6 +13,7 @@ interface SidebarProps {
     setSidebarOpen: (open: boolean) => void;
     activeTab: string;
     setActiveTab: (tab: string) => void;
+    counts?: Record<string, number>;
 }
 
 interface NavItem {
@@ -129,7 +130,7 @@ function getNavItems(role?: string): NavItem[] {
     return PRO_NAV(role);
 }
 
-export const DashboardSidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen, activeTab, setActiveTab }) => {
+export const DashboardSidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen, activeTab, setActiveTab, counts }) => {
     const { user, logout } = useAuth();
     const navItems = getNavItems(user?.role_type, !!user);
     const [openMenus, setOpenMenus] = React.useState<Record<string, boolean>>({});
@@ -187,6 +188,7 @@ export const DashboardSidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSideb
                         if (item.children) {
                             const isExpanded = !!openMenus[item.id];
                             const hasActiveChild = item.children.some(child => child.id === activeTab);
+                            const childrenCountsSum = item.children.reduce((acc, child) => acc + (counts?.[child.id] || 0), 0);
                             return (
                                 <div key={item.id} className="space-y-1">
                                     <button
@@ -201,11 +203,20 @@ export const DashboardSidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSideb
                                             <Icon className="w-[18px] h-[18px] shrink-0" />
                                             {item.label}
                                         </div>
-                                        <ChevronDown
-                                            className={`w-4 h-4 transition-transform duration-200 shrink-0 ${
-                                                isExpanded ? 'rotate-180 text-[#FF2D20]' : 'text-gray-400'
-                                            }`}
-                                        />
+                                        <div className="flex items-center gap-1.5 shrink-0">
+                                            {childrenCountsSum > 0 && (
+                                                <span className={`px-1.5 py-0.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full text-[9px] font-black tracking-tight ${
+                                                    hasActiveChild ? 'bg-[#FF2D20] text-white shadow-sm' : 'bg-red-50 text-[#FF2D20]'
+                                                }`}>
+                                                    {childrenCountsSum}
+                                                </span>
+                                            )}
+                                            <ChevronDown
+                                                className={`w-4 h-4 transition-transform duration-200 shrink-0 ${
+                                                    isExpanded ? 'rotate-180 text-[#FF2D20]' : 'text-gray-400'
+                                                }`}
+                                            />
+                                        </div>
                                     </button>
                                     
                                     {isExpanded && (
@@ -213,6 +224,7 @@ export const DashboardSidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSideb
                                             {item.children.map((child) => {
                                                 const ChildIcon = child.icon;
                                                 const isChildActive = activeTab === child.id;
+                                                const count = counts?.[child.id];
                                                 return (
                                                     <button
                                                         key={child.id}
@@ -220,14 +232,23 @@ export const DashboardSidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSideb
                                                             setActiveTab(child.id);
                                                             setSidebarOpen(false);
                                                         }}
-                                                        className={`w-full flex items-center gap-3 px-3.5 py-2 rounded-xl text-[12px] font-semibold transition-all ${
+                                                        className={`w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-[12px] font-semibold transition-all ${
                                                             isChildActive
                                                                 ? 'bg-red-50 text-[#FF2D20] shadow-sm'
                                                                 : 'text-gray-500 hover:bg-gray-50/70 hover:text-gray-800'
                                                         }`}
                                                     >
-                                                        <ChildIcon className="w-[15px] h-[15px] shrink-0" />
-                                                        {child.label}
+                                                        <div className="flex items-center gap-3">
+                                                            <ChildIcon className="w-[15px] h-[15px] shrink-0" />
+                                                            {child.label}
+                                                        </div>
+                                                        {count !== undefined && count > 0 && (
+                                                            <span className={`px-1.5 py-0.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full text-[9px] font-black tracking-tight shrink-0 ${
+                                                                isChildActive ? 'bg-[#FF2D20] text-white shadow-sm' : 'bg-red-50 text-[#FF2D20]'
+                                                            }`}>
+                                                                {count}
+                                                            </span>
+                                                        )}
                                                     </button>
                                                 );
                                             })}
@@ -246,18 +267,28 @@ export const DashboardSidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSideb
                             (activeTab === 'bidding-brief' && (
                                 item.id === 'projects'
                             ));
+                        const count = counts?.[item.id];
                         return (
                             <button
                                 key={item.id}
                                 onClick={() => { setActiveTab(item.id); setSidebarOpen(false); }}
-                                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[13px] font-semibold transition-all ${
+                                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-[13px] font-semibold transition-all ${
                                     isActive
                                         ? 'bg-red-50 text-[#FF2D20] shadow-sm'
                                         : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800'
                                 }`}
                             >
-                                <Icon className="w-[18px] h-[18px] shrink-0" />
-                                {item.label}
+                                <div className="flex items-center gap-3">
+                                    <Icon className="w-[18px] h-[18px] shrink-0" />
+                                    {item.label}
+                                </div>
+                                {count !== undefined && count > 0 && (
+                                    <span className={`px-1.5 py-0.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full text-[9px] font-black tracking-tight shrink-0 ${
+                                        isActive ? 'bg-[#FF2D20] text-white shadow-sm' : 'bg-red-50 text-[#FF2D20]'
+                                    }`}>
+                                        {count}
+                                    </span>
+                                )}
                             </button>
                         );
                     })}

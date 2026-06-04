@@ -59,6 +59,7 @@ export interface ProjectDocument {
     uploader_id: number;
     file_name: string;
     file_path: string;
+    file_url?: string;
     file_type?: string;
     category?: string;
     status?: 'pending' | 'approved' | 'revision_requested' | string;
@@ -119,6 +120,7 @@ export interface ProjectDocument {
     uploader_id: number;
     file_name: string;
     file_path: string;
+    file_url?: string;
     file_type: string;
     category?: 'general' | 'blueprint' | 'render' | 'technical' | 'src' | 'technical_handoff' | 'structural_calc' | 'mep_layout' | 'others';
     status?: 'uploaded' | 'under_review' | 'awaiting_signature' | 'legally_binding' | 'revision_requested' | 'verified';

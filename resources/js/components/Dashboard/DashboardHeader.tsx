@@ -5,11 +5,13 @@ import { Link } from 'react-router-dom';
 import NotificationsDropdown from '../NotificationsDropdown';
 import { getNavItems } from './navConfig';
 import { HeaderDropdown } from './HeaderDropdown';
+import axios from 'axios';
 
 interface HeaderProps {
     activeTab: string;
     setActiveTab: (tab: string) => void;
     onMenuClick: () => void;
+    counts?: Record<string, number>;
 }
 
 const BrandLogo: React.FC<{ onClick: () => void }> = ({ onClick }) => (
@@ -19,14 +21,33 @@ const BrandLogo: React.FC<{ onClick: () => void }> = ({ onClick }) => (
     </button>
 );
 
-export const DashboardHeader: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onMenuClick }) => {
+export const DashboardHeader: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onMenuClick, counts }) => {
     const { user, logout } = useAuth();
     const [profileOpen, setProfileOpen] = useState(false);
     const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+    const [unreadMessages, setUnreadMessages] = useState(0);
     const profileRef = useRef<HTMLDivElement>(null);
     const navRef = useRef<HTMLDivElement>(null);
 
     const navItems = getNavItems(user?.role_type, !!user);
+
+    useEffect(() => {
+        if (!user) return;
+        const fetchUnreadMessages = async () => {
+            try {
+                const res = await axios.get('/conversations');
+                const convs = res.data.data || [];
+                const totalUnread = convs.reduce((acc: number, c: any) => acc + (c.unread_count || 0), 0);
+                setUnreadMessages(totalUnread);
+            } catch (err) {
+                console.error('Failed to fetch unread messages count', err);
+            }
+        };
+
+        fetchUnreadMessages();
+        const interval = setInterval(fetchUnreadMessages, 10000);
+        return () => clearInterval(interval);
+    }, [user]);
 
     useEffect(() => {
         const handler = (e: MouseEvent) => {
@@ -70,6 +91,7 @@ export const DashboardHeader: React.FC<HeaderProps> = ({ activeTab, setActiveTab
                                     isOpen={openDropdownId === item.id}
                                     onToggle={() => setOpenDropdownId(openDropdownId === item.id ? null : item.id)}
                                     onClose={() => setOpenDropdownId(null)}
+                                    counts={counts}
                                 />
                             );
                         }
@@ -83,11 +105,12 @@ export const DashboardHeader: React.FC<HeaderProps> = ({ activeTab, setActiveTab
                             (activeTab === 'bidding-brief' && (
                                 item.id === 'projects'
                             ));
+                        const count = counts?.[item.id];
                         return (
                             <button
                                 key={item.id}
                                 onClick={() => setActiveTab(item.id)}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[13px] font-bold transition-all focus:outline-none ${
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[13px] font-bold transition-all focus:outline-none group ${
                                     isActive 
                                         ? 'text-[#FF2D20] bg-red-50/50' 
                                         : 'text-neutral-500 hover:text-neutral-800 hover:bg-neutral-50'
@@ -95,6 +118,15 @@ export const DashboardHeader: React.FC<HeaderProps> = ({ activeTab, setActiveTab
                             >
                                 <Icon className="w-[15px] h-[15px]" />
                                 <span>{item.label}</span>
+                                {count !== undefined && count > 0 && (
+                                    <span className={`ml-1.5 px-1.5 py-0.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full text-[9px] font-black tracking-tight transition-all duration-200 shrink-0 ${
+                                        isActive 
+                                            ? 'bg-[#FF2D20] text-white shadow-sm' 
+                                            : 'bg-red-50 text-[#FF2D20] group-hover:bg-red-100'
+                                    }`}>
+                                        {count}
+                                    </span>
+                                )}
                             </button>
                         );
                     })}
@@ -155,7 +187,17 @@ export const DashboardHeader: React.FC<HeaderProps> = ({ activeTab, setActiveTab
                                     )}
                                     
                                     <button onClick={() => { setActiveTab('profile'); setProfileOpen(false); }} className={`w-full flex items-center gap-2 px-4 py-2 text-left text-xs font-bold transition-colors ${activeTab === 'profile' ? 'bg-red-50 text-red-500' : 'text-neutral-600 hover:bg-red-50 hover:text-[#FF2D20]'}`}><User className="w-4 h-4 shrink-0" />My Profile</button>
-                                    <button onClick={() => { setActiveTab('chat'); setProfileOpen(false); }} className={`w-full flex items-center gap-2 px-4 py-2 text-left text-xs font-bold transition-colors ${activeTab === 'chat' ? 'bg-red-50 text-red-500' : 'text-neutral-600 hover:bg-red-50 hover:text-[#FF2D20]'}`}><MessageSquare className="w-4 h-4 shrink-0" />Inbox</button>
+                                    <button onClick={() => { setActiveTab('chat'); setProfileOpen(false); }} className={`w-full flex items-center justify-between px-4 py-2 text-left text-xs font-bold transition-colors ${activeTab === 'chat' ? 'bg-red-50 text-red-500' : 'text-neutral-600 hover:bg-red-50 hover:text-[#FF2D20]'}`}>
+                                        <span className="flex items-center gap-2">
+                                            <MessageSquare className="w-4 h-4 shrink-0" />
+                                            Inbox
+                                        </span>
+                                        {unreadMessages > 0 && (
+                                            <span className="px-1.5 py-0.5 text-[9px] font-black rounded-full bg-[#FF2D20] text-white shrink-0">
+                                                {unreadMessages}
+                                            </span>
+                                        )}
+                                    </button>
                                     <button onClick={() => { setActiveTab('saved'); setProfileOpen(false); }} className={`w-full flex items-center gap-2 px-4 py-2 text-left text-xs font-bold transition-colors ${activeTab === 'saved' ? 'bg-red-50 text-red-500' : 'text-neutral-600 hover:bg-red-50 hover:text-[#FF2D20]'}`}><Heart className="w-4 h-4 shrink-0" />Saved Items</button>
                                     <Link 
                                         to="/help" 
