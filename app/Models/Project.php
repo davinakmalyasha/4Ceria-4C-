@@ -12,6 +12,31 @@ class Project extends Model
 
     protected $table = 'projects';
 
+    protected static function booted(): void
+    {
+        static::saving(function (Project $project): void {
+            $choices = $project->bidding_choices ?? [];
+            $published = $project->published_bidding_roles ?? [];
+
+            $roleMap = [
+                'project_manager' => 'project_manager',
+                'notaris' => 'notaris',
+                'arsitek' => 'arsitek',
+                'kontraktor' => 'kontraktor',
+                'interior' => 'interior'
+            ];
+
+            foreach ($choices as $key => $value) {
+                $role = $roleMap[$key] ?? null;
+                if ($role && ($value === 'find' || ($role === 'notaris' && $value === 'cert_only')) && !in_array($role, $published)) {
+                    $published[] = $role;
+                }
+            }
+
+            $project->published_bidding_roles = $published;
+        });
+    }
+
     protected $fillable = [
         'user_id',
         'title',

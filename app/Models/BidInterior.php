@@ -19,7 +19,7 @@ class BidInterior extends Model
         'payment_status', 'paid_at', 'scopes', 'deliverables',
         'fee_type', 'unit_price', 'quantity', 'calculated_total',
         'offered_by_id', 'fee_agreed_at', 'negotiation_count',
-        'verification_notes', 'payment_proof_path',
+        'verification_notes', 'payment_proof_path', 'is_recommended',
         'proposed_termins', 'proposed_milestones'
     ];
 
@@ -30,6 +30,7 @@ class BidInterior extends Model
         'proposed_milestones' => 'array',
         'fee_agreed_at' => 'datetime',
         'price_max' => 'decimal:2',
+        'is_recommended' => 'boolean',
     ];
 
     public function offeredBy()

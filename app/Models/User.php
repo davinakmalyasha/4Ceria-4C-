@@ -29,6 +29,15 @@ class User extends Authenticatable
         'role_type',
         'unique_code',
         'pic',
+        'bank_name',
+        'bank_account_number',
+        'bank_account_name',
+        'firm_name',
+        'firm_slogan',
+        'firm_banner_path',
+        'firm_description',
+        'firm_is_hiring',
+        'firm_needed_roles',
     ];
 
     protected static function booted(): void
@@ -73,6 +82,8 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'firm_is_hiring' => 'boolean',
+            'firm_needed_roles' => 'array',
         ];
     }
 
@@ -150,6 +161,11 @@ class User extends Authenticatable
     public function teamMembers()
     {
         return $this->hasMany(TeamMember::class, 'owner_user_id');
+    }
+
+    public function portfolios()
+    {
+        return $this->hasMany(ProfessionalPortfolio::class, 'user_id');
     }
 
     /** Firm members I own (as Architect/Contractor) */

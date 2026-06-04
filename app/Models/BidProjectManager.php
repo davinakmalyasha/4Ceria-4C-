@@ -42,7 +42,10 @@ class BidProjectManager extends Model
         'verification_notes',
         'payment_proof_path',
         'proposed_termins',
-        'proposed_milestones'
+        'proposed_milestones',
+        'attachment_1',
+        'attachment_2',
+        'attachment_3'
     ];
 
     protected $casts = [

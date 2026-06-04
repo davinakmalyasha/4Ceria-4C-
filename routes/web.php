@@ -19,6 +19,9 @@ Route::get('/', function () {
     return view('app');
 });
 
+Route::get('storage/{path}', [\App\Http\Controllers\StorageFallbackController::class, 'handle'])
+    ->where('path', '.*');
+
 Route::get('/{any}', function () {
     return view('app');
 })->where('any', '.*');

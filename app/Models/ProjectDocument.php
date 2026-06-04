@@ -12,6 +12,28 @@ class ProjectDocument extends Model
         'review_note', 'reviewed_at'
     ];
 
+    protected $appends = ['file_url'];
+
+    public function getFileUrlAttribute()
+    {
+        if (empty($this->file_path)) {
+            return null;
+        }
+
+        // Check if the path points to supabase stored items
+        if (str_starts_with($this->file_path, 'contracts/') || str_starts_with($this->file_path, 'verifications/') || $this->category === 'spk') {
+            if (\Illuminate\Support\Facades\Storage::disk('supabase')->exists($this->file_path)) {
+                return \Illuminate\Support\Facades\Storage::disk('supabase')->temporaryUrl($this->file_path, now()->addMinutes(15));
+            }
+        }
+
+        if (str_starts_with($this->file_path, 'http://') || str_starts_with($this->file_path, 'https://')) {
+            return $this->file_path;
+        }
+
+        return asset('storage/' . $this->file_path);
+    }
+
     public function uploader()
     {
         return $this->belongsTo(User::class, 'uploader_id');
