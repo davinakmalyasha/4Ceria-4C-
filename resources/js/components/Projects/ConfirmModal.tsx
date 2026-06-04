@@ -8,10 +8,12 @@ interface ConfirmModalProps {
     description: string;
     confirmText?: string;
     cancelText?: string;
-    onConfirm: () => void;
+    onConfirm: (inputValue?: string) => void;
     onCancel: () => void;
     isLoading?: boolean;
     variant?: 'info' | 'success' | 'danger' | 'warning';
+    showInput?: boolean;
+    inputPlaceholder?: string;
 }
 
 const VARIANT_MAP = {
@@ -46,9 +48,28 @@ export default function ConfirmModal({
     onConfirm,
     onCancel,
     isLoading = false,
-    variant = 'info'
+    variant = 'info',
+    showInput = false,
+    inputPlaceholder = 'Specify details here...'
 }: ConfirmModalProps) {
+    const [inputValue, setInputValue] = React.useState('');
+
+    React.useEffect(() => {
+        if (isOpen) {
+            setInputValue('');
+        }
+    }, [isOpen]);
+
     const styles = VARIANT_MAP[variant];
+
+    const handleConfirm = () => {
+        if (showInput) {
+            if (!inputValue.trim()) return;
+            onConfirm(inputValue);
+        } else {
+            onConfirm();
+        }
+    };
 
     return (
         <AnimatePresence>
@@ -67,6 +88,16 @@ export default function ConfirmModal({
                             </div>
                             <h2 className="text-xl font-black text-gray-900 mb-2">{title}</h2>
                             <p className="text-sm text-gray-500 leading-relaxed">{description}</p>
+                            
+                            {showInput && (
+                                <textarea
+                                    required
+                                    value={inputValue}
+                                    onChange={(e) => setInputValue(e.target.value)}
+                                    placeholder={inputPlaceholder}
+                                    className="w-full min-h-[90px] p-3 mt-4 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-slate-200 transition-all resize-none text-left"
+                                />
+                            )}
                         </div>
 
                         <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex gap-3">
@@ -80,8 +111,8 @@ export default function ConfirmModal({
                             </button>
                             <button 
                                 type="button" 
-                                onClick={onConfirm} 
-                                disabled={isLoading} 
+                                onClick={handleConfirm} 
+                                disabled={isLoading || (showInput && !inputValue.trim())} 
                                 className={`flex-1 px-4 py-2.5 text-sm font-bold text-white rounded-xl transition-all shadow-md disabled:opacity-50 flex items-center justify-center gap-2 ${styles.confirmBtn}`}
                             >
                                 {isLoading && <span className="w-4 h-4 rounded-full border-2 border-white/20 border-t-white animate-spin"></span>}

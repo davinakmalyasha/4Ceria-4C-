@@ -1,5 +1,6 @@
 import React from 'react';
 import { FileText, Upload, X, CheckCircle2, DollarSign } from 'lucide-react';
+import { NotaryFeeSelector } from './NotaryFeeSelector';
 
 interface Props {
     proposal: string;
@@ -13,66 +14,83 @@ interface Props {
     setFeeType?: (v: string) => void;
     price?: number;
     setPrice?: (v: number | undefined) => void;
+    notarisProfile?: {
+        rate_harga?: string | number;
+        services?: Array<{ title: string; price: number; description?: string }>;
+    };
+    isConsultationChecked?: boolean;
+    setIsConsultationChecked?: (v: boolean) => void;
+    selectedServices?: any[];
+    setSelectedServices?: (v: any[]) => void;
 }
 
 export const BidProposalFields: React.FC<Props> = ({ 
     proposal, setProposal, attachments, onFileChange, onRemoveAttachment, isLoading,
     buttonText = "Submit Official Proposal",
-    feeType, setFeeType, price, setPrice
+    feeType, setFeeType, price, setPrice,
+    notarisProfile,
+    isConsultationChecked, setIsConsultationChecked,
+    selectedServices, setSelectedServices
 }) => (
     <>
         {/* Proposal Text & Files */}
         <div className="space-y-10">
             {setFeeType && setPrice && (
-                <div className="bg-zinc-50 rounded-[2.5rem] p-8 border border-zinc-100 space-y-6">
-                    <div>
-                        <h4 className="text-sm font-black text-gray-900 uppercase tracking-widest flex items-center gap-2">
-                            <DollarSign size={16} className="text-emerald-500" />
-                            Commercial Alignment <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-tight">(Optional)</span>
-                        </h4>
-                        <p className="text-xs text-zinc-500 mt-1 font-medium">Provide your estimated fee to align budget expectations with the client upfront.</p>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Estimated Fee Type</label>
-                            <select 
-                                value={feeType || ''} 
-                                onChange={(e) => {
-                                    setFeeType(e.target.value);
-                                    if (!e.target.value) {
-                                        setPrice(undefined);
-                                    }
-                                }}
-                                className="w-full px-5 py-4 bg-white border-2 border-zinc-150 focus:border-slate-900 rounded-2xl font-bold text-sm text-gray-700 outline-none transition-all cursor-pointer"
-                            >
-                                <option value="">Specify During Negotiation</option>
-                                <option value="fixed">Fixed Rupiah Amount (IDR)</option>
-                                <option value="percentage">Percentage of Project Budget (%)</option>
-                            </select>
+                notarisProfile ? (
+                    <NotaryFeeSelector 
+                        rateHarga={notarisProfile.rate_harga}
+                        services={notarisProfile.services}
+                        isConsultationChecked={isConsultationChecked || false}
+                        setIsConsultationChecked={setIsConsultationChecked || (() => {})}
+                        selectedServices={selectedServices || []}
+                        setSelectedServices={setSelectedServices || (() => {})}
+                    />
+                ) : (
+                    <div className="bg-zinc-50 rounded-[2.5rem] p-8 border border-zinc-100 space-y-6">
+                        <div>
+                            <h4 className="text-sm font-black text-gray-900 uppercase tracking-widest flex items-center gap-2">
+                                <DollarSign size={16} className="text-emerald-500" />
+                                Commercial Alignment <span className="text-[10px] text-red-600 font-bold uppercase tracking-tight">(Required)</span>
+                            </h4>
+                            <p className="text-xs text-zinc-500 mt-1 font-medium">Please specify your estimated fee to proceed with your proposal.</p>
                         </div>
-
-                        {feeType ? (
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                                    Estimated Fee {feeType === 'percentage' ? '(%)' : '(IDR)'}
-                                </label>
-                                <input 
-                                    type="number" 
-                                    min="0"
-                                    value={price !== undefined ? price : ''} 
-                                    onChange={(e) => setPrice(e.target.value ? Number(e.target.value) : undefined)}
-                                    placeholder={feeType === 'percentage' ? 'e.g. 5' : 'e.g. 20000000'}
-                                    className="w-full px-5 py-4 bg-white border-2 border-zinc-150 focus:border-slate-900 rounded-2xl font-bold text-sm text-gray-700 outline-none transition-all"
-                                />
+                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Estimated Fee Type</label>
+                                <select 
+                                    value={feeType || ''} 
+                                    onChange={(e) => setFeeType(e.target.value)}
+                                    className="w-full px-5 py-4 bg-white border-2 border-zinc-150 focus:border-slate-900 rounded-2xl font-bold text-sm text-gray-700 outline-none transition-all cursor-pointer"
+                                >
+                                    <option value="fixed">Fixed Rupiah Amount (IDR)</option>
+                                    <option value="percentage">Percentage of Project Budget (%)</option>
+                                </select>
                             </div>
-                        ) : (
-                            <div className="hidden md:flex items-center text-xs font-semibold text-zinc-400 italic">
-                                Select a fee type to specify your estimated fee.
-                            </div>
-                        )}
+ 
+                            {feeType ? (
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                                        Estimated Fee {feeType === 'percentage' ? '(%)' : '(IDR)'}
+                                    </label>
+                                    <input 
+                                        type="number" 
+                                        min="1"
+                                        required
+                                        value={price !== undefined ? price : ''} 
+                                        onChange={(e) => setPrice(e.target.value ? Number(e.target.value) : undefined)}
+                                        placeholder={feeType === 'percentage' ? 'e.g. 5' : 'e.g. 20000000'}
+                                        className="w-full px-5 py-4 bg-white border-2 border-zinc-150 focus:border-slate-900 rounded-2xl font-bold text-sm text-gray-700 outline-none transition-all"
+                                    />
+                                </div>
+                            ) : (
+                                <div className="hidden md:flex items-center text-xs font-semibold text-zinc-400 italic">
+                                    Select a fee type to specify your estimated fee.
+                                </div>
+                            )}
+                        </div>
                     </div>
-                </div>
+                )
             )}
             <div className="space-y-4">
                 <div className="flex items-center gap-3 mb-2">

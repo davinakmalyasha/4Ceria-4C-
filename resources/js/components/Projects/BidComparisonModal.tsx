@@ -21,6 +21,7 @@ interface Bid {
     duration_unit?: string;
     bidder: Bidder | null;
     type: 'arsitek' | 'kontraktor';
+    calculated_total?: number | string;
 }
 
 interface BidComparisonModalProps {
@@ -33,7 +34,8 @@ interface BidComparisonModalProps {
 }
 
 export default function BidComparisonModal({ bids, onClose, onAccept, onChat, formatCurrency, projectBudget }: BidComparisonModalProps) {
-    const lowestPrice = Math.min(...bids.map(b => b.price));
+    const getBidPrice = (b: Bid) => b.calculated_total && Number(b.calculated_total) > 0 ? Number(b.calculated_total) : b.price;
+    const lowestPrice = Math.min(...bids.map(getBidPrice));
     const highestRating = Math.max(...bids.map(b => b.bidder?.average_rating || 0));
 
     return (
@@ -75,7 +77,7 @@ export default function BidComparisonModal({ bids, onClose, onAccept, onChat, fo
                                     {bids.map(bid => (
                                         <th key={bid.id} className="pb-6">
                                             <div className="flex flex-col items-center text-center p-6 bg-gray-50 rounded-3xl border border-gray-100 shadow-sm relative group">
-                                                {bid.price === lowestPrice && bids.length > 1 && (
+                                                {getBidPrice(bid) === lowestPrice && bids.length > 1 && (
                                                     <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#FF2D20] text-white text-[9px] px-3 py-1 rounded-full font-black uppercase tracking-widest shadow-lg animate-bounce">
                                                         Best Value
                                                     </div>
@@ -103,7 +105,7 @@ export default function BidComparisonModal({ bids, onClose, onAccept, onChat, fo
                                     </td>
                                     {bids.map(bid => (
                                         <td key={bid.id} className="py-6 text-center border-b border-gray-50">
-                                            <div className={`text-2xl font-black ${bid.price === lowestPrice ? 'text-[#FF2D20]' : 'text-gray-900'}`}>
+                                            <div className={`text-2xl font-black ${getBidPrice(bid) === lowestPrice ? 'text-[#FF2D20]' : 'text-gray-900'}`}>
                                                 {bid.fee_type === 'percentage' ? (
                                                     bid.price_max && Number(bid.price_max) > 0 ? (
                                                         projectBudget ? (
@@ -118,7 +120,7 @@ export default function BidComparisonModal({ bids, onClose, onAccept, onChat, fo
                                                     bid.price_max && Number(bid.price_max) > 0 ? (
                                                         `${formatCurrency(bid.price)} - ${formatCurrency(bid.price_max)}`
                                                     ) : (
-                                                        formatCurrency(bid.price)
+                                                        formatCurrency(bid.calculated_total && Number(bid.calculated_total) > 0 ? Number(bid.calculated_total) : bid.price)
                                                     )
                                                 )}
                                             </div>

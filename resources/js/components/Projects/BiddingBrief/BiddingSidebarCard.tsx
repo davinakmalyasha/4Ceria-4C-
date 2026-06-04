@@ -73,7 +73,24 @@ export const BiddingSidebarCard: React.FC<BiddingSidebarCardProps> = ({
 
                         <div className="space-y-2">
                             <p className="text-[10px] font-black text-emerald-400/70 uppercase tracking-widest">Your Offer Rate</p>
-                            <p className="text-xl font-black">{userBid.price ? formatPrice(userBid.price) : 'Reviewing Rate'}</p>
+                            <p className="text-xl font-black">
+                                {userBid.fee_type === 'percentage' ? (
+                                    userBid.calculated_total && Number(userBid.calculated_total) > 0 ? (
+                                        `${userBid.price}% (${formatPrice(Number(userBid.calculated_total))})`
+                                    ) : (
+                                        `${userBid.price}%`
+                                    )
+                                ) : (
+                                    userBid.calculated_total && Number(userBid.calculated_total) > 0 
+                                        ? formatPrice(Number(userBid.calculated_total)) 
+                                        : userBid.price ? formatPrice(Number(userBid.price)) : 'Reviewing Rate'
+                                )}
+                            </p>
+                            {userBid.fee_type === 'percentage' && (
+                                <p className="text-[9px] font-bold text-emerald-400/60 uppercase tracking-wider">
+                                    Percentage of project budget
+                                </p>
+                            )}
                         </div>
 
                         <div className="pt-2 border-t border-white/5 space-y-1">

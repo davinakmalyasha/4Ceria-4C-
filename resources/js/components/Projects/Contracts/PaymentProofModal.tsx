@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { 
     X, Check, Loader2, Upload, 
     CreditCard, Eye, AlertCircle, 
@@ -7,6 +8,7 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 import { useToast } from '../../../context/ToastContext';
+import FilePreviewModal from '../../Common/FilePreviewModal';
 
 interface PaymentProofModalProps {
     isOpen: boolean;
@@ -21,8 +23,13 @@ export const PaymentProofModal: React.FC<PaymentProofModalProps> = ({ isOpen, on
     const { showToast } = useToast();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [file, setFile] = useState<File | null>(null);
-    const [preview, setPreview] = useState<string | null>(null);
+    const [preview, setPreview] = useState<string | null>(
+        termin.payment_proof_path 
+            ? (termin.payment_proof_path.startsWith('http') ? termin.payment_proof_path : `/storage/${termin.payment_proof_path}`) 
+            : null
+    );
     const [notes, setNotes] = useState('');
+    const [previewFile, setPreviewFile] = useState<{ path: string; name: string } | null>(null);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -70,8 +77,8 @@ export const PaymentProofModal: React.FC<PaymentProofModalProps> = ({ isOpen, on
 
     if (!isOpen) return null;
 
-    return (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+    return createPortal(
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col">
                 {/* Header */}
                 <div className="p-6 border-b border-zinc-800 flex items-center justify-between">
@@ -140,13 +147,41 @@ export const PaymentProofModal: React.FC<PaymentProofModalProps> = ({ isOpen, on
                                 className={`relative border-2 border-dashed rounded-3xl p-8 flex flex-col items-center justify-center gap-3 transition-all ${preview ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-zinc-700 hover:border-zinc-500 bg-zinc-800/30'}`}
                             >
                                 {preview ? (
-                                    <div className="relative group">
-                                        <img src={preview} alt="Proof preview" className="max-h-48 rounded-xl shadow-lg" />
-                                        <button 
-                                            onClick={() => { setFile(null); setPreview(null); }}
-                                            className="absolute -top-2 -right-2 p-1.5 bg-red-500 text-white rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                                    <div className="relative group flex flex-col items-center">
+                                        <div className="relative">
+                                            {preview.toLowerCase().endsWith('.pdf') ? (
+                                                <div className="flex flex-col items-center justify-center p-4 bg-zinc-800 rounded-xl border border-zinc-700 h-32 w-48 shadow-lg">
+                                                    <FileText size={40} className="text-emerald-500 mb-2" />
+                                                    <span className="text-[10px] text-zinc-300 font-bold uppercase tracking-wider">PDF Document</span>
+                                                </div>
+                                            ) : (
+                                                <img 
+                                                    src={preview} 
+                                                    alt="Proof preview" 
+                                                    className="max-h-48 rounded-xl shadow-lg cursor-pointer hover:opacity-90 transition-opacity" 
+                                                    onClick={() => document.getElementById('payment-proof-file-input')?.click()}
+                                                />
+                                            )}
+                                            <button 
+                                                type="button"
+                                                onClick={(e) => { 
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    setFile(null); 
+                                                    setPreview(null); 
+                                                }}
+                                                className="absolute -top-3 -right-3 p-2 bg-rose-600 hover:bg-rose-500 text-white rounded-full shadow-xl hover:scale-110 transition-all z-30 flex items-center justify-center border-2 border-zinc-900"
+                                                title="Remove Photo"
+                                            >
+                                                <X size={12} className="stroke-[3]" />
+                                            </button>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => document.getElementById('payment-proof-file-input')?.click()}
+                                            className="mt-3 px-4 py-1.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 hover:text-white rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all shadow-md"
                                         >
-                                            <X size={12} />
+                                            Change Photo
                                         </button>
                                     </div>
                                 ) : (
@@ -161,10 +196,11 @@ export const PaymentProofModal: React.FC<PaymentProofModalProps> = ({ isOpen, on
                                     </>
                                 )}
                                 <input 
+                                    id="payment-proof-file-input"
                                     type="file" 
                                     accept="image/*,application/pdf"
                                     onChange={handleFileChange}
-                                    className="absolute inset-0 opacity-0 cursor-pointer"
+                                    className={preview ? "hidden" : "absolute inset-0 opacity-0 cursor-pointer"}
                                 />
                             </div>
 
@@ -196,14 +232,16 @@ export const PaymentProofModal: React.FC<PaymentProofModalProps> = ({ isOpen, on
                                                 className="w-full h-auto max-h-64 object-contain"
                                             />
                                         )}
-                                        <a 
-                                            href={termin.payment_proof_path?.startsWith('http') ? termin.payment_proof_path : `/storage/${termin.payment_proof_path}`} 
-                                            target="_blank" 
-                                            rel="noopener noreferrer"
-                                            className="absolute top-3 right-3 p-2 bg-black/60 backdrop-blur-md text-white rounded-lg hover:bg-black/80 transition-all shadow-lg flex items-center gap-2 text-[10px] font-black uppercase tracking-widest"
+                                        <button 
+                                            type="button"
+                                            onClick={() => setPreviewFile({
+                                                path: termin.payment_proof_path,
+                                                name: `${termin.label} Proof`
+                                            })}
+                                            className="absolute top-3 right-3 p-2 bg-black/60 backdrop-blur-md text-white rounded-lg hover:bg-black/80 transition-all shadow-lg flex items-center gap-2 text-[10px] font-black uppercase tracking-widest cursor-pointer border-none"
                                         >
-                                            <ExternalLink size={14} /> Open Full
-                                        </a>
+                                            <Eye size={14} /> Open Full
+                                        </button>
                                     </div>
 
                                     <div>
@@ -244,6 +282,13 @@ export const PaymentProofModal: React.FC<PaymentProofModalProps> = ({ isOpen, on
                     )}
                 </div>
             </div>
-        </div>
+            <FilePreviewModal
+                isOpen={!!previewFile}
+                onClose={() => setPreviewFile(null)}
+                filePath={previewFile?.path || null}
+                fileName={previewFile?.name || ''}
+            />
+        </div>,
+        document.body
     );
 };

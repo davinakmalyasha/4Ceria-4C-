@@ -30,6 +30,7 @@ export default function ProjectProposals({
     defaultSubTab = 'pending'
 }: ProjectProposalsProps) {
     const { showToast } = useToast();
+    const isOwner = user?.id === project?.user_id;
     const [actioningId, setActioningId] = useState<number | null>(null);
     const [activeSubTab, setActiveSubTab] = useState<'pending' | 'interviews' | 'payments' | 'archived'>(defaultSubTab);
     const [roleFilter, setRoleFilter] = useState<string>('all');
@@ -68,9 +69,9 @@ export default function ProjectProposals({
             proName: bid.arsitek?.nama || bid.kontraktor?.nama || bid.notaris?.nama || bid.interior?.nama || bid.pm?.nama || bid.structural?.nama || bid.mep?.nama || bid.bidder?.name || bid.user?.name || 'Professional'
         });
 
-        (project.bids_arsitek || []).forEach((b: any) => list.push(formatBid(b, 'design', 'Arsitek', 'arsitek')));
-        (project.bids_kontraktor || []).forEach((b: any) => list.push(formatBid(b, 'build', 'Kontraktor', 'kontraktor')));
-        (project.bids_notaris || []).forEach((b: any) => list.push(formatBid(b, 'legal', 'Notaris', 'notaris')));
+        (project.bids_arsitek || []).forEach((b: any) => list.push(formatBid(b, 'design', 'Architect', 'arsitek')));
+        (project.bids_kontraktor || []).forEach((b: any) => list.push(formatBid(b, 'build', 'Contractor', 'kontraktor')));
+        (project.bids_notaris || []).forEach((b: any) => list.push(formatBid(b, 'legal', 'Notary', 'notaris')));
         (project.bids_interior || []).forEach((b: any) => list.push(formatBid(b, 'interior', 'Interior Designer', 'interior')));
         (project.bids_project_manager || []).forEach((b: any) => list.push(formatBid(b, 'management', 'Project Manager', 'project_manager')));
         (project.bids_structural || []).forEach((b: any) => list.push(formatBid(b, 'engineering', 'Structural Engineer', 'structural')));
@@ -93,8 +94,11 @@ export default function ProjectProposals({
             description = `Shortlist ${currentBid.proName} for interview? You will be able to discuss terms before finalized hiring.`;
             variant = 'info';
         } else if (action === 'accept') {
-            title = 'Hire Professional';
-            description = `Are you sure you want to hire ${currentBid.proName}? This will generate contract documents.`;
+            const isPM = user?.role_type === 'project_manager';
+            title = isPM ? 'Recommend Professional' : 'Hire Professional';
+            description = isPM 
+                ? `Are you sure you want to recommend ${currentBid.proName} to the owner? This will forward the terms to the owner for final approval.`
+                : `Are you sure you want to hire ${currentBid.proName}? This will generate contract documents.`;
             variant = 'success';
         } else if (action === 'decline') {
             title = 'Decline Proposal';
@@ -148,7 +152,7 @@ export default function ProjectProposals({
                 action === 'shortlist' 
                     ? 'Candidate shortlisted! You can view them in the Interviews sub-tab.' 
                     : action === 'accept' 
-                        ? 'Professional hired successfully!' 
+                        ? (user?.role_type === 'project_manager' ? 'Successfully recommended to the owner!' : 'Professional hired successfully!') 
                         : 'Proposal declined.', 
                 action === 'decline' ? 'info' : 'success'
             );
@@ -198,6 +202,128 @@ export default function ProjectProposals({
         const active = allProposals.filter(b => ['awaiting_payment', 'accepted'].includes(b.status)).length;
         return { total, pending, shortlisted, active };
     }, [allProposals]);
+
+    const tabCounts = useMemo(() => {
+        const pendingCount = allProposals.filter(b => ['pending', 'invited'].includes(b.status)).length;
+        const archivedCount = allProposals.filter(b => ['rejected', 'declined', 'cancelled'].includes(b.status)).length;
+
+        const roles = [
+            { key: 'design', bids: project.bids_arsitek || [] },
+            { key: 'build', bids: project.bids_kontraktor || [] },
+            { key: 'legal', bids: project.bids_notaris || [] },
+            { key: 'interior', bids: project.bids_interior || [] },
+            { key: 'management', bids: project.bids_project_manager || [] },
+            { key: 'engineering', bids: [...(project.bids_structural || []), ...(project.bids_mep || [])] },
+        ];
+
+        const interviewStatuses = ['shortlisted', 'invited', 'negotiating', 'contract_pending', 'awaiting_payment', 'accepted', 'active'];
+        const isHiredPM = project.pm_id && (user?.project_manager?.id === project.pm_id || user?.id === project.pm_id);
+        
+        const isHiredArsitek = (user?.role_type === 'arsitek') && (
+            (project.selected_arsitek_id && user?.arsitek?.id === project.selected_arsitek_id) ||
+            (project.arsitek?.user_id === user?.id) ||
+            (project.arsitek?.user?.id === user?.id)
+        );
+
+        let interviewsCount = 0;
+        roles.forEach(role => {
+            role.bids.forEach((bid: any) => {
+                if (interviewStatuses.includes(bid.status)) {
+                    if (!isOwner && !isHiredPM) {
+                        const proId = bid.bidder?.id || bid.bidder_id || bid.arsitek_id || bid.kontraktor_id || bid.notaris_id || bid.interior_id || bid.pm_id || bid.structural_id || bid.mep_id;
+                        const proUserId = bid.bidder?.user?.id || bid.bidder?.user_id || bid.user_id || bid.arsitek?.user_id || bid.kontraktor?.user_id || bid.notaris?.user_id || bid.interior?.user_id || bid.pm_id || bid.structural_engineer?.user_id || bid.mep_engineer?.user_id;
+                        
+                        const isOwnBid = (user?.id === proUserId) || (
+                            (role.key === 'design' && user?.arsitek?.id === proId) ||
+                            (role.key === 'build' && user?.kontraktor?.id === proId) ||
+                            (role.key === 'legal' && user?.notaris_profile?.id === proId) ||
+                            (role.key === 'engineering' && (user?.structural_engineer?.id === proId || user?.mep_engineer?.id === proId)) ||
+                            (role.key === 'interior' && user?.interior_profile?.id === proId) ||
+                            (role.key === 'management' && user?.project_manager?.id === proId)
+                        );
+                        const isSpecialist = role.key === 'engineering';
+
+                        if (isHiredArsitek && isSpecialist) {
+                            // Allow lead architect
+                        } else if (!isOwnBid) {
+                            return;
+                        }
+                    }
+                    interviewsCount++;
+                }
+            });
+        });
+
+        const pmRoles = [
+            { key: 'design', bids: project.bids_arsitek || [], roleType: 'arsitek' },
+            { key: 'build', bids: project.bids_kontraktor || [], roleType: 'kontraktor' },
+            { key: 'legal', bids: project.bids_notaris || [], roleType: 'notaris' },
+            { key: 'interior', bids: project.bids_interior || [], roleType: 'interior' },
+            { key: 'management', bids: project.bids_project_manager || [], roleType: 'project_manager' },
+            { key: 'engineering', bids: (project.bids_structural || []).concat(project.bids_mep || []), roleType: 'engineering' },
+        ];
+
+        const isProjectPM = user?.id && project?.pm_id && String(user.id) === String(project.pm_id);
+        const isGlobalPM = user?.role_type === 'project_manager';
+
+        const finalPaymentsGroups = [];
+        const paymentRoleTypesSeen = new Set<string>();
+
+        pmRoles.forEach(role => {
+            const roleBids = role.bids && Array.isArray(role.bids) ? role.bids : [];
+            roleBids.forEach((bid: any) => {
+                const isSignedByPro = !!bid.pro_signature_url;
+                const isSignedByClient = !!bid.client_signature_url;
+                const isReadyForPayment = ['accepted', 'awaiting_payment', 'active', 'completed'].includes(bid.status) && 
+                    (!isSignedByPro || isSignedByClient);
+
+                if (isReadyForPayment) {
+                    const bidProId = bid.bidder?.user?.id ? String(bid.bidder.user.id) : null;
+                    const isProForThisGroup = user?.id && bidProId && String(user.id) === bidProId;
+                    const hasAccess = isOwner || isProForThisGroup || isProjectPM || isGlobalPM;
+
+                    if (hasAccess) {
+                        finalPaymentsGroups.push(bid);
+                        paymentRoleTypesSeen.add(role.roleType);
+                    }
+                }
+            });
+        });
+
+        if (project.addendums && Array.isArray(project.addendums)) {
+            project.addendums.forEach((addendum: any) => {
+                if (Number(addendum.amount) <= 0) return;
+                if (addendum.status === 'approved_unpaid' || addendum.status === 'verifying' || addendum.status === 'paid') {
+                    const isSpecialistSelf = user?.role_type === addendum.role_type || (addendum.assigned_user_id && user?.id === addendum.assigned_user_id);
+                    const targetRoleType = (isSpecialistSelf)
+                        ? addendum.role_type
+                        : ((addendum.role_type === 'structural' || addendum.role_type === 'mep' || addendum.role_type === 'interior')
+                            ? 'arsitek'
+                            : addendum.role_type);
+
+                    if (!paymentRoleTypesSeen.has(targetRoleType)) {
+                        const proUserId = addendum.assigned_user_id || addendum.user_id;
+                        const isProForThisGroup = user?.id && proUserId && String(user.id) === String(proUserId);
+                        const hasAccess = isOwner || isProForThisGroup || isProjectPM || isGlobalPM;
+
+                        if (hasAccess) {
+                            finalPaymentsGroups.push(addendum);
+                            paymentRoleTypesSeen.add(targetRoleType);
+                        }
+                    }
+                }
+            });
+        }
+
+        const paymentsCount = finalPaymentsGroups.length;
+
+        return {
+            pending: pendingCount,
+            interviews: interviewsCount,
+            payments: paymentsCount,
+            archived: archivedCount
+        };
+    }, [allProposals, project, user, isOwner]);
 
     const ROLE_LABELS = [
         { value: 'all', label: 'All Roles' },
@@ -261,19 +387,32 @@ export default function ProjectProposals({
             <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm flex flex-col lg:flex-row gap-4 items-center justify-between">
                 {/* Sub Tab Filter Buttons */}
                 <div className="flex bg-gray-50 p-1 rounded-2xl border border-gray-100 shrink-0 w-full lg:w-auto overflow-x-auto">
-                    {(['pending', 'interviews', 'payments', 'archived'] as const).map(tab => (
-                        <button
-                            key={tab}
-                            onClick={() => setActiveSubTab(tab)}
-                            className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap ${
-                                activeSubTab === tab 
-                                ? 'bg-white text-zinc-955 shadow-sm font-black' 
-                                : 'text-gray-400 hover:text-gray-700'
-                            }`}
-                        >
-                            {tab === 'pending' ? 'Pending Bids' : tab === 'interviews' ? 'Interviews' : tab === 'payments' ? 'Payments & Active' : 'Archived'}
-                        </button>
-                    ))}
+                    {(['pending', 'interviews', 'payments', 'archived'] as const).map(tab => {
+                        const count = tabCounts[tab];
+                        const label = tab === 'pending' ? 'Pending Bids' : tab === 'interviews' ? 'Interviews' : tab === 'payments' ? 'Payments & Active' : 'Archived';
+                        return (
+                            <button
+                                key={tab}
+                                onClick={() => setActiveSubTab(tab)}
+                                className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                                    activeSubTab === tab 
+                                    ? 'bg-white text-zinc-955 shadow-sm font-black' 
+                                    : 'text-gray-400 hover:text-gray-700'
+                                }`}
+                            >
+                                <span>{label}</span>
+                                {count > 0 && (
+                                    <span className={`px-1.5 py-0.5 text-[9px] font-black rounded-md ${
+                                        activeSubTab === tab
+                                        ? 'bg-slate-900 text-white'
+                                        : 'bg-gray-200 text-gray-600'
+                                    }`}>
+                                        {count}
+                                    </span>
+                                )}
+                            </button>
+                        );
+                    })}
                 </div>
 
                 {showFilters && (
@@ -329,6 +468,7 @@ export default function ProjectProposals({
                                 project={project} 
                                 user={user}
                                 onRefresh={onRefresh}
+                                onOpenChat={onOpenChat}
                             />
                         </motion.div>
                     )}
@@ -352,6 +492,7 @@ export default function ProjectProposals({
                                                 onAction={handleAction}
                                                 isActioning={actioningId === bid.id}
                                                 isPM={bid.phaseKey === 'management'}
+                                                readOnly={isOwner && !!project.pm_id && bid.phaseKey !== 'management'}
                                                 onOpenChat={onOpenChat}
                                                 onRefresh={onRefresh}
                                                 projectId={project.id}

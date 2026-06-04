@@ -20,8 +20,12 @@ export const ProjectBidForm: React.FC<Props> = ({ project, user, onSuccess }) =>
     const [proposal, setProposal] = useState('');
     const [attachments, setAttachments] = useState<File[]>([]);
     const [portfolios, setPortfolios] = useState<PortfolioProject[]>([]);
-    const [feeType, setFeeType] = useState('');
+    const [feeType, setFeeType] = useState('fixed');
     const [price, setPrice] = useState<number | undefined>(undefined);
+    
+    // Notary multi-select fee states
+    const [isConsultationChecked, setIsConsultationChecked] = useState<boolean>(true);
+    const [selectedServices, setSelectedServices] = useState<Array<{ title: string; price: number; description?: string }>>([]);
 
     useEffect(() => {
         if (user?.id) {
@@ -56,11 +60,26 @@ export const ProjectBidForm: React.FC<Props> = ({ project, user, onSuccess }) =>
             formData.append('estimated_duration', '1');
             formData.append('duration_unit', 'weeks');
             
-            if (feeType) {
-                formData.append('fee_type', feeType);
-                if (price !== undefined) {
-                    formData.append('price', price.toString());
+            if (user?.role_type === 'notaris') {
+                formData.append('fee_type', 'fixed');
+                const consultationFeeVal = isConsultationChecked ? Number(profile?.rate_harga || 0) : 0;
+                const servicesTotal = selectedServices.reduce((sum, s) => sum + Number(s.price || 0), 0);
+                const totalFee = consultationFeeVal + servicesTotal;
+                if (totalFee <= 0) {
+                    showToast('Please select at least one service or enable consultation fee to submit a proposal.', 'error');
+                    setIsLoading(false);
+                    return;
                 }
+                formData.append('price', consultationFeeVal.toString());
+                formData.append('selected_services', JSON.stringify(selectedServices));
+            } else if (feeType) {
+                formData.append('fee_type', feeType);
+                if (price === undefined || price === null || isNaN(price) || price <= 0) {
+                    showToast('Please specify a valid estimated fee amount.', 'error');
+                    setIsLoading(false);
+                    return;
+                }
+                formData.append('price', price.toString());
             }
             
             await axios.post(`/projects/${project.id}/bids`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
@@ -121,6 +140,11 @@ export const ProjectBidForm: React.FC<Props> = ({ project, user, onSuccess }) =>
                     buttonText={user?.role_type === 'project_manager' ? "Submit Official Enterprise Bid" : "Submit Professional Proposal"}
                     feeType={feeType} setFeeType={setFeeType}
                     price={price} setPrice={setPrice}
+                    notarisProfile={user?.role_type === 'notaris' ? profile : undefined}
+                    isConsultationChecked={isConsultationChecked}
+                    setIsConsultationChecked={setIsConsultationChecked}
+                    selectedServices={selectedServices}
+                    setSelectedServices={setSelectedServices}
                 />
             </form>
         </div>

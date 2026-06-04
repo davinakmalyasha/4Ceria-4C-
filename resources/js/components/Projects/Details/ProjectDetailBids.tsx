@@ -21,6 +21,7 @@ interface Bid {
     attachments?: string[];
     scopes?: string[];
     deliverables?: string[];
+    calculated_total?: number | string;
 }
 
 interface Props {
@@ -66,7 +67,8 @@ export const ProjectDetailBids: React.FC<Props> = ({
     const canBid = isProfessional && !hasAlreadyBid && isTargetRole && 
         ['open', 'accepted_arsitek', 'accepted_kontraktor', 'procurement', 'in_progress', 'awaiting_payment', 'contract_pending', 'planning'].includes(detail?.status);
 
-    const lowestPrice = allBids.length > 0 ? Math.min(...allBids.map(b => b.price)) : 0;
+    const getBidPrice = (b: Bid) => b.calculated_total && Number(b.calculated_total) > 0 ? Number(b.calculated_total) : b.price;
+    const lowestPrice = allBids.length > 0 ? Math.min(...allBids.map(getBidPrice)) : 0;
     const maxExperience = allBids.length > 0 ? Math.max(...allBids.map(b => b.bidder?.experience_years || 0)) : 0;
 
     const getStatusColor = (status?: string) => {
@@ -143,7 +145,7 @@ export const ProjectDetailBids: React.FC<Props> = ({
                                             </div>
                                         )}
                                         {/* Smart Badges */}
-                                        {bid.price === lowestPrice && allBids.length > 1 && (
+                                        {getBidPrice(bid) === lowestPrice && allBids.length > 1 && (
                                             <span className="bg-emerald-50 text-emerald-600 text-[9px] px-3 py-1 rounded-full font-black uppercase tracking-[0.1em] border border-emerald-100">Lowest Bid</span>
                                         )}
                                     </div>
@@ -304,7 +306,7 @@ export const ProjectDetailBids: React.FC<Props> = ({
                                             bid.price_max && Number(bid.price_max) > 0 ? (
                                                 `${formatCurrency(bid.price)} - ${formatCurrency(bid.price_max)}`
                                             ) : (
-                                                formatCurrency(bid.price)
+                                                formatCurrency(bid.calculated_total && Number(bid.calculated_total) > 0 ? Number(bid.calculated_total) : bid.price)
                                             )
                                         )}
                                     </p>

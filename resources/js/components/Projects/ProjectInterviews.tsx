@@ -85,7 +85,16 @@ export default function ProjectInterviews({ project, onRefresh, onOpenChat, onRe
                             return;
                         }
                     }
-                    all.push({ ...bid, phaseKey: role.key });
+                    const getRoleLabel = (b: any, key: string) => {
+                        if (key === 'design') return 'Architect';
+                        if (key === 'build') return 'Contractor';
+                        if (key === 'legal') return 'Notary';
+                        if (key === 'interior') return 'Interior Designer';
+                        if (key === 'management') return 'Project Manager';
+                        if (key === 'engineering') return b.structural_id ? 'Structural Engineer' : 'MEP Specialist';
+                        return 'Professional';
+                    };
+                    all.push({ ...bid, phaseKey: role.key, roleLabel: getRoleLabel(bid, role.key) });
                 }
             });
         });
@@ -111,11 +120,18 @@ export default function ProjectInterviews({ project, onRefresh, onOpenChat, onRe
         if (action === 'accept') {
             const isArchitect = user?.role_type === 'arsitek';
             const isSpecialist = currentBid.phaseKey === 'engineering';
+            const isPM = user?.role_type === 'project_manager';
 
-            title = isArchitect && isSpecialist ? 'Recommend Specialist' : 'Hire Professional';
-            description = isArchitect && isSpecialist
-                ? 'Are you sure you want to accept terms and recommend this specialist?'
-                : 'Are you sure you want to hire this professional? This will generate the contract for their signature.';
+            if (isArchitect && isSpecialist) {
+                title = 'Recommend Specialist';
+                description = 'Are you sure you want to accept terms and recommend this specialist?';
+            } else if (isPM) {
+                title = 'Recommend Professional';
+                description = 'Are you sure you want to recommend this professional to the owner? This will forward the terms to the owner for final approval.';
+            } else {
+                title = 'Hire Professional';
+                description = 'Are you sure you want to hire this professional? This will generate the contract for their signature.';
+            }
             variant = 'success';
         } else if (action === 'decline') {
             title = 'Decline Professional';
@@ -194,7 +210,12 @@ export default function ProjectInterviews({ project, onRefresh, onOpenChat, onRe
                 await axios.post(`/projects/${project.id}/${endpoint}`, postData);
             }
 
-            showToast(action === 'accept' ? 'Professional hired!' : 'Proposal declined.', 'success');
+            showToast(
+                action === 'accept' 
+                    ? (user?.role_type === 'project_manager' ? 'Successfully recommended to the owner!' : 'Professional hired!') 
+                    : 'Proposal declined.', 
+                'success'
+            );
             onRefresh();
         } catch (error: any) {
             showToast(error.response?.data?.message || 'Action failed', 'error');
@@ -209,8 +230,9 @@ export default function ProjectInterviews({ project, onRefresh, onOpenChat, onRe
                 <div className="grid grid-cols-1 gap-6">
                     {interviewBids.map(bid => (
                         <div key={bid.id} className="relative">
-                            <div className="absolute -top-3 left-6 px-4 py-1 bg-zinc-900 text-white text-[10px] font-black uppercase tracking-widest rounded-full z-10 shadow-lg">
-                                {bid.phaseKey}
+                            <div className="absolute -top-3 left-6 px-4 py-1 bg-zinc-900 text-white text-[9px] font-black uppercase tracking-widest rounded-full z-10 shadow-lg flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
+                                {bid.roleLabel}
                             </div>
                             <BidReviewCard 
                                 bid={bid}
