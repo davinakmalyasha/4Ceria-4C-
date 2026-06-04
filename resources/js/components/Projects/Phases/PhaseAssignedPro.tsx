@@ -4,7 +4,7 @@ import {
     Star, MessageCircle, ExternalLink, Settings,
     FileText, Box, Check, Briefcase, BookOpen, Package,
     ShieldCheck, Clock, Pencil, Layers, Hammer, Wallet, Users, AlertTriangle, LogOut,
-    FolderOpen, Plus, DollarSign, UserPlus, ArrowRight, Lock
+    FolderOpen, Plus, DollarSign, UserPlus, ArrowRight, Lock, X
 } from 'lucide-react';
 import LifecycleActionModal from '../Details/LifecycleActionModal';
 import AddendumProposalModal from './AddendumProposalModal';
@@ -22,7 +22,6 @@ import DailySiteLog from './DailySiteLog';
 import MaterialOrderTracker from './MaterialOrderTracker';
 import InteriorProgress from './InteriorProgress';
 import InteriorBriefManager from './InteriorBriefManager';
-import LegalBriefManager from './LegalBriefManager';
 import LegalVault from './LegalVault';
 import { ErrorBoundary } from '../../Common/ErrorBoundary';
 import StickyNotesLayer from './StickyNotesLayer';
@@ -30,6 +29,7 @@ import ProfessionalNegotiationCard from './ProfessionalNegotiationCard';
 import SpecialistActionCenter from './SpecialistActionCenter';
 import { useToast } from '../../../context/ToastContext';
 import { PHASE_ORDER } from '../../../types/phase.types';
+import ConfirmModal from '../ConfirmModal';
 
 interface PhaseAssignedProProps {
     project: any;
@@ -114,7 +114,7 @@ export default function PhaseAssignedPro({
     const isExternal = !!externalVendor && !pro;
 
     const [activeSubTab, setActiveSubTab] = React.useState(
-        phaseKey === 'legal' ? 'planning' :
+        phaseKey === 'legal' ? 'vault' :
             phaseKey === 'build' ? 'site_command' :
                 phaseKey === 'materials' ? 'bom' :
                     phaseKey === 'interior' ? 'planning' :
@@ -123,7 +123,7 @@ export default function PhaseAssignedPro({
 
     React.useEffect(() => {
         setActiveSubTab(
-            phaseKey === 'legal' ? 'planning' :
+            phaseKey === 'legal' ? 'vault' :
                 phaseKey === 'build' ? 'site_command' :
                     phaseKey === 'materials' ? 'bom' :
                         phaseKey === 'interior' ? 'planning' :
@@ -135,6 +135,32 @@ export default function PhaseAssignedPro({
     const [isAddendumModalOpen, setIsAddendumModalOpen] = React.useState(false);
     const [initialAddendumType, setInitialAddendumType] = React.useState<'extra_fee' | 'specialist_assignment'>('extra_fee');
     const [isResignModalOpen, setIsResignModalOpen] = React.useState(false);
+    const [confirmModal, setConfirmModal] = React.useState<{
+        isOpen: boolean;
+        title: string;
+        description: string;
+        onConfirm: () => void;
+        variant: 'info' | 'success' | 'danger' | 'warning';
+    }>({
+        isOpen: false,
+        title: '',
+        description: '',
+        onConfirm: () => {},
+        variant: 'info'
+    });
+
+    const showConfirm = (title: string, description: string, onConfirm: () => void, variant: 'info' | 'success' | 'danger' | 'warning' = 'info') => {
+        setConfirmModal({
+            isOpen: true,
+            title,
+            description,
+            onConfirm: () => {
+                onConfirm();
+                setConfirmModal(prev => ({ ...prev, isOpen: false }));
+            },
+            variant
+        });
+    };
 
     const isPM = user?.role_type === 'project_manager' && project.pm_id === user.id;
 
@@ -152,56 +178,60 @@ export default function PhaseAssignedPro({
 
 
 
-    const handleMarkComplete = async () => {
+    const handleMarkComplete = () => {
         if (!isOwner) return;
 
-        const confirmMsg = `Are you sure you want to mark ${phaseKey} as completed? This will move your project forward.`;
-        if (!window.confirm(confirmMsg)) return;
+        showConfirm(
+            "Mark Phase as Completed",
+            `Are you sure you want to mark ${phaseKey} as completed? This will move your project forward.`,
+            async () => {
+                setIsUpdating(true);
+                try {
+                    const currentCompleted = project.completed_phases || [];
+                    if (!currentCompleted.includes(phaseKey)) {
+                        const nextCompleted = [...currentCompleted, phaseKey];
 
-        setIsUpdating(true);
-        try {
-            const currentCompleted = project.completed_phases || [];
-            if (!currentCompleted.includes(phaseKey)) {
-                const nextCompleted = [...currentCompleted, phaseKey];
+                        // Prepare data for update
+                        const updateData: any = {
+                            completed_phases: nextCompleted
+                        };
 
-                // Prepare data for update
-                const updateData: any = {
-                    completed_phases: nextCompleted
-                };
+                        // Logic for transitioning from design to build
+                        if (phaseKey === 'design') {
+                            updateData.target_role = 'both';
+                        }
 
-                // Logic for transitioning from design to build
-                if (phaseKey === 'design') {
-                    updateData.target_role = 'both';
-                }
+                        await axios.put(`/projects/${project.id}`, updateData);
 
-                await axios.put(`/projects/${project.id}`, updateData);
+                        showToast(`${phaseKey.charAt(0).toUpperCase() + phaseKey.slice(1)} phase completed!`, 'success');
 
-                showToast(`${phaseKey.charAt(0).toUpperCase() + phaseKey.slice(1)} phase completed!`, 'success');
+                        // 1. Refresh global project state
+                        onRefresh();
 
-                // 1. Refresh global project state
-                onRefresh();
+                        // 2. Calculate next phase automatically
+                        if (typeof onPhaseComplete === 'function') {
+                            const neededPhases = project.needed_phases && project.needed_phases.length > 0
+                                ? project.needed_phases
+                                : PHASE_ORDER;
 
-                // 2. Calculate next phase automatically
-                if (typeof onPhaseComplete === 'function') {
-                    const neededPhases = project.needed_phases && project.needed_phases.length > 0
-                        ? project.needed_phases
-                        : PHASE_ORDER;
+                            const currentIndex = neededPhases.indexOf(phaseKey);
 
-                    const currentIndex = neededPhases.indexOf(phaseKey);
-
-                    if (currentIndex !== -1 && currentIndex < neededPhases.length - 1) {
-                        const nextPhase = neededPhases[currentIndex + 1] as PhaseKey;
-                        // Small delay to ensure state reflects completion if needed
-                        setTimeout(() => onPhaseComplete(nextPhase), 100);
+                            if (currentIndex !== -1 && currentIndex < neededPhases.length - 1) {
+                                const nextPhase = neededPhases[currentIndex + 1] as PhaseKey;
+                                // Small delay to ensure state reflects completion if needed
+                                setTimeout(() => onPhaseComplete(nextPhase), 100);
+                            }
+                        }
                     }
+                } catch (err: any) {
+                    console.error('Failed to complete phase:', err);
+                    showToast(err.response?.data?.message || 'Failed to update phase.', 'error');
+                } finally {
+                    setIsUpdating(false);
                 }
-            }
-        } catch (err: any) {
-            console.error('Failed to complete phase:', err);
-            showToast(err.response?.data?.message || 'Failed to update phase.', 'error');
-        } finally {
-            setIsUpdating(false);
-        }
+            },
+            "warning"
+        );
     };
     const handleResign = async (reason: string) => {
         try {
@@ -217,7 +247,7 @@ export default function PhaseAssignedPro({
     const hasSubTabs = ['legal', 'design', 'build', 'materials', 'interior'].includes(phaseKey);
 
     return (
-        <div className={`bg-white border border-gray-100 shadow-sm relative ${hasSubTabs ? 'p-8 rounded-[2.5rem]' : 'p-5 rounded-3xl'}`}>
+        <div className="relative">
 
             {/* PM Authorization Lockout */}
             {!isPMAuthorized && isHiredPro && (
@@ -294,7 +324,7 @@ export default function PhaseAssignedPro({
             {isOwner && !isWorkspaceLocked && !(project.completed_phases || []).includes(phaseKey) && (
                 (phaseKey === 'design' && project.design_locked_at) ||
                 (phaseKey === 'build' && project.construction_locked_at) ||
-                !['design', 'build'].includes(phaseKey)
+                !['design', 'build', 'management'].includes(phaseKey)
             ) && (
                     <div className="mb-8 p-6 bg-emerald-50 border-2 border-emerald-100 rounded-[2rem] flex flex-col md:flex-row items-center justify-between gap-4">
                         <div className="flex items-center gap-4">
@@ -347,19 +377,25 @@ export default function PhaseAssignedPro({
                     )}
 
                     <button
-                        onClick={async () => {
-                            if (!window.confirm("Submit construction handover for PM verification?")) return;
-                            setIsUpdating(true);
-                            try {
-                                await axios.post(`/projects/${project.id}/seal-construction`);
-                                showToast('Handover Request Sent to PM', 'success');
-                                onRefresh();
-                            } catch (error: any) {
-                                const message = error.response?.data?.message || 'Handover failed.';
-                                showToast(message, 'error');
-                            } finally {
-                                setIsUpdating(false);
-                            }
+                        onClick={() => {
+                            showConfirm(
+                                "Submit Site Handover",
+                                "Submit construction handover for PM verification?",
+                                async () => {
+                                    setIsUpdating(true);
+                                    try {
+                                        await axios.post(`/projects/${project.id}/seal-construction`);
+                                        showToast('Handover Request Sent to PM', 'success');
+                                        onRefresh();
+                                    } catch (error: any) {
+                                        const message = error.response?.data?.message || 'Handover failed.';
+                                        showToast(message, 'error');
+                                    } finally {
+                                        setIsUpdating(false);
+                                    }
+                                },
+                                "info"
+                            );
                         }}
                         disabled={isUpdating || !!submittedAt}
                         className="group relative px-12 py-5 bg-white text-slate-900 rounded-[2rem] font-black text-xs uppercase tracking-[0.25em] shadow-2xl hover:bg-slate-50 transition-all flex items-center gap-4 overflow-hidden disabled:opacity-50"
@@ -371,7 +407,7 @@ export default function PhaseAssignedPro({
             )}
 
             {/* PM HANDOVER REDIRECT */}
-            {isPM && !isWorkspaceLocked && submittedAt && !(project.completed_phases || []).includes(phaseKey) && (
+            {isPM && !isWorkspaceLocked && submittedAt && phaseKey !== 'legal' && !(project.completed_phases || []).includes(phaseKey) && (
                 <div className="mb-8 p-8 bg-emerald-50 border-2 border-emerald-100 rounded-[3rem] shadow-sm flex items-center gap-6">
                     <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-[2rem] flex items-center justify-center shadow-inner">
                         <ShieldCheck size={32} />
@@ -414,19 +450,25 @@ export default function PhaseAssignedPro({
                     )}
 
                     <button
-                        onClick={async () => {
-                            if (!window.confirm("Submit interior design for verification?")) return;
-                            setIsUpdating(true);
-                            try {
-                                await axios.post(`/projects/${project.id}/seal-interior`);
-                                showToast('Interior Handover Submitted', 'success');
-                                onRefresh();
-                            } catch (error: any) {
-                                const message = error.response?.data?.message || 'Seal failed.';
-                                showToast(message, 'error');
-                            } finally {
-                                setIsUpdating(false);
-                            }
+                        onClick={() => {
+                            showConfirm(
+                                "Submit Interior Handover",
+                                "Submit interior design for verification?",
+                                async () => {
+                                    setIsUpdating(true);
+                                    try {
+                                        await axios.post(`/projects/${project.id}/seal-interior`);
+                                        showToast('Interior Handover Submitted', 'success');
+                                        onRefresh();
+                                    } catch (error: any) {
+                                        const message = error.response?.data?.message || 'Seal failed.';
+                                        showToast(message, 'error');
+                                    } finally {
+                                        setIsUpdating(false);
+                                    }
+                                },
+                                "info"
+                            );
                         }}
                         disabled={isUpdating || !!submittedAt}
                         className="group relative px-12 py-5 bg-white text-purple-900 rounded-[2rem] font-black text-xs uppercase tracking-[0.25em] shadow-2xl hover:bg-purple-50 transition-all flex items-center gap-4 overflow-hidden disabled:opacity-50"
@@ -437,58 +479,8 @@ export default function PhaseAssignedPro({
                 </div>
             )}
 
-            {/* Legal Notary Progress Loop */}
-            {isHiredPro && phaseKey === 'legal' && !project.legal_completed_at && (
-                <div className="mb-8 p-8 bg-zinc-900 border border-zinc-800 rounded-[3rem] shadow-sm flex flex-col items-center text-center gap-6">
-                    <div className="max-w-md">
-                        <h4 className="text-xl font-black text-white tracking-tight">Legal Progress Update</h4>
-                        <p className="text-xs text-zinc-400 font-bold mt-2 leading-relaxed uppercase tracking-wider">
-                            Notify the PM about your recent legal documentation progress (e.g., uploading the AJB). The PM will review your updates.
-                        </p>
-                    </div>
 
-                    {submittedAt && (
-                        <div className="px-6 py-3 bg-white/10 rounded-2xl flex items-center gap-3 animate-pulse">
-                            <Clock size={16} className="text-zinc-300" />
-                            <span className="text-[10px] font-black text-white/70 uppercase tracking-widest">Awaiting PM Review Since {new Date(submittedAt).toLocaleDateString()}</span>
-                        </div>
-                    )}
-
-                    {revisionNotes && !submittedAt && (
-                        <div className="p-5 bg-red-500/10 border border-red-500/20 rounded-2xl text-left w-full">
-                            <div className="flex items-center gap-2 mb-2 text-red-400">
-                                <AlertTriangle size={16} />
-                                <span className="text-[10px] font-black uppercase tracking-widest">PM Revision Requested</span>
-                            </div>
-                            <p className="text-xs font-bold text-red-200">{revisionNotes}</p>
-                        </div>
-                    )}
-
-                    <button
-                        onClick={async () => {
-                            if (!window.confirm("Submit your legal progress for PM review?")) return;
-                            setIsUpdating(true);
-                            try {
-                                await axios.post(`/projects/${project.id}/seal-legal`);
-                                showToast('Legal Progress Submitted', 'success');
-                                onRefresh();
-                            } catch (error: any) {
-                                const message = error.response?.data?.message || 'Submit failed.';
-                                showToast(message, 'error');
-                            } finally {
-                                setIsUpdating(false);
-                            }
-                        }}
-                        disabled={isUpdating || !!submittedAt}
-                        className="group relative px-12 py-5 bg-white text-zinc-900 rounded-[2rem] font-black text-xs uppercase tracking-[0.25em] shadow-2xl hover:bg-zinc-50 transition-all flex items-center gap-4 overflow-hidden disabled:opacity-50"
-                    >
-                        <ShieldCheck size={20} className={!submittedAt ? "group-hover:rotate-12 transition-transform" : ""} />
-                        {isUpdating ? 'SUBMITTING...' : submittedAt ? 'PENDING PM REVIEW' : revisionNotes ? 'RESUBMIT PROGRESS' : 'SUBMIT LEGAL PROGRESS'}
-                    </button>
-                </div>
-            )}
-
-            {pro && (
+            {pro && phaseKey !== 'legal' && !(phaseKey === 'management' && isHiredPro) && (
                 <div className={`flex flex-col md:flex-row md:items-center justify-between gap-4 ${hasSubTabs ? 'mb-6 pb-6 border-b border-gray-50' : ''}`}>
                     <div className="flex items-center gap-3">
                         <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center overflow-hidden shadow-inner flex-shrink-0">
@@ -653,43 +645,94 @@ export default function PhaseAssignedPro({
             {/* If Legal Phase, show the Legal Workspace Navigation */}
             {phaseKey === 'legal' && (
                 <div className="space-y-8">
-                    <div className="flex items-center gap-1 p-1 bg-slate-50 rounded-2xl w-fit overflow-x-auto">
-                        {[
-                            { id: 'planning', label: 'Contract & Scope', icon: FileText },
-                            { id: 'vault', label: 'Document Vault & Progress', icon: ShieldCheck },
-                            { id: 'archive', label: 'Architect Technical Files', icon: FolderOpen },
-                        ].filter(Boolean).map((tab: any) => (
-                            <button
-                                key={tab.id}
-                                onClick={() => setActiveSubTab(tab.id)}
-                                className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeSubTab === tab.id
-                                    ? 'bg-white text-slate-900 shadow-sm'
-                                    : 'text-slate-400 hover:text-slate-600'
-                                    }`}
-                            >
-                                <tab.icon size={14} />
-                                {tab.label}
-                            </button>
-                        ))}
+                    <div className="flex items-center justify-between gap-4 border-b border-slate-50 pb-2">
+                        <div className="flex items-center gap-1 p-1 bg-slate-50 rounded-2xl w-fit overflow-x-auto">
+                            {[
+                                { id: 'vault', label: 'Document Vault & Scope', icon: ShieldCheck },
+                                { id: 'archive', label: 'Client ID & Reference Files', icon: FolderOpen },
+                            ].filter(Boolean).map((tab: any) => (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setActiveSubTab(tab.id)}
+                                    className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeSubTab === tab.id
+                                        ? 'bg-white text-slate-900 shadow-sm'
+                                        : 'text-slate-400 hover:text-slate-600'
+                                        }`}
+                                >
+                                    <tab.icon size={14} />
+                                    {tab.label}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Legal Phase Actions (Resign & Review Request) */}
+                        {isHiredPro && (
+                            <div className="flex items-center gap-3">
+                                <button
+                                    onClick={() => setIsResignModalOpen(true)}
+                                    className="flex items-center gap-1.5 px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all shadow-xs cursor-pointer"
+                                >
+                                    <LogOut size={12} /> Resign Proyek
+                                </button>
+
+                                {!project.legal_completed_at && (
+                                    <>
+                                        {revisionNotes && !submittedAt && (
+                                            <div className="px-3 py-1.5 bg-rose-50 border border-rose-100 rounded-xl text-[10px] font-bold text-rose-700 max-w-xs truncate" title={revisionNotes}>
+                                                Revision requested: {revisionNotes}
+                                            </div>
+                                        )}
+                                        {submittedAt ? (
+                                            <div className="flex items-center gap-1.5 px-3 py-2 bg-amber-50 border border-amber-200 text-amber-800 text-[10px] font-black uppercase tracking-widest rounded-xl animate-pulse">
+                                                <Clock size={12} className="text-amber-500" />
+                                                Awaiting PM Review
+                                            </div>
+                                        ) : (
+                                            <button
+                                                onClick={() => {
+                                                    showConfirm(
+                                                        "Submit Legal Progress",
+                                                        "Submit your legal progress for PM review?",
+                                                        async () => {
+                                                            setIsUpdating(true);
+                                                            try {
+                                                                await axios.post(`/projects/${project.id}/seal-legal`);
+                                                                showToast('Legal Progress Submitted', 'success');
+                                                                onRefresh();
+                                                            } catch (error: any) {
+                                                                showToast(error.response?.data?.message || 'Submit failed.', 'error');
+                                                            } finally {
+                                                                setIsUpdating(false);
+                                                            }
+                                                        },
+                                                        "info"
+                                                    );
+                                                }}
+                                                disabled={isUpdating}
+                                                className="flex items-center gap-1.5 px-4 py-2.5 bg-slate-900 hover:bg-black text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all shadow-sm disabled:opacity-50 active:scale-95 cursor-pointer"
+                                            >
+                                                <ShieldCheck size={14} />
+                                                {revisionNotes ? 'Resubmit Progress' : 'Request PM Review'}
+                                            </button>
+                                        )}
+                                    </>
+                                )}
+                            </div>
+                        )}
                     </div>
 
                     <div className="transition-all">
-                        {activeSubTab === 'planning' && (
-                            <LegalBriefManager
-                                project={project}
-                                onRefresh={onRefresh}
-                            />
-                        )}
                         {activeSubTab === 'vault' && (
                             <ErrorBoundary name="LegalVault">
                                 <LegalVault
                                     project={project}
                                     currentUser={user}
                                     isNotaris={isHiredPro}
-                                    isArchitect={user?.role_type === 'arsitek' && project.selected_arsitek_id === user?.id}
+                                    isArchitect={user?.role_type === 'arsitek' && ((project.selected_arsitek_id && user?.arsitek?.id === project.selected_arsitek_id) || project.arsitek?.user_id === user?.id)}
                                     isPM={isPM}
                                     isOwner={isOwner}
                                     onUpdate={onRefresh}
+                                    onGoToPayments={onGoToPayments}
                                 />
                             </ErrorBoundary>
                         )}
@@ -805,23 +848,25 @@ export default function PhaseAssignedPro({
                                         </p>
                                         {(user?.id === project.user_id || user?.id === project.pm_id) && (
                                             <button
-                                                onClick={async (e) => {
+                                                onClick={(e) => {
                                                     const btn = e.currentTarget;
-                                                    btn.disabled = true;
-                                                    btn.innerHTML = 'Verifying...';
-                                                    if (confirm('I confirm that the PBG has been issued. Unlock the construction phase?')) {
-                                                        try {
-                                                            await window.axios.post(`/projects/${project.id}/verify-pbg`);
-                                                            onRefresh();
-                                                        } catch (err) {
-                                                            console.error(err);
-                                                            btn.disabled = false;
-                                                            btn.innerHTML = 'Verify PBG & Unlock Construction';
-                                                        }
-                                                    } else {
-                                                        btn.disabled = false;
-                                                        btn.innerHTML = 'Verify PBG & Unlock Construction';
-                                                    }
+                                                    showConfirm(
+                                                        "Verify PBG & Unlock Construction",
+                                                        "I confirm that the PBG has been issued. Unlock the construction phase?",
+                                                        async () => {
+                                                            btn.disabled = true;
+                                                            btn.innerHTML = 'Verifying...';
+                                                            try {
+                                                                await window.axios.post(`/projects/${project.id}/verify-pbg`);
+                                                                onRefresh();
+                                                            } catch (err) {
+                                                                console.error(err);
+                                                                btn.disabled = false;
+                                                                btn.innerHTML = 'Verify PBG & Unlock Construction';
+                                                            }
+                                                        },
+                                                        "warning"
+                                                    );
                                                 }}
                                                 className="px-8 py-4 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-black text-xs tracking-widest uppercase rounded-2xl shadow-xl shadow-red-600/20 hover:-translate-y-1 transition-all"
                                             >
@@ -1015,6 +1060,15 @@ export default function PhaseAssignedPro({
                 type="resign"
                 title="Undur Diri dari Proyek"
                 description="Apakah Anda yakin ingin mengundurkan diri? Tindakan ini akan menghapus Anda dari proyek dan membuka kembali bidding untuk Project Owner."
+            />
+
+            <ConfirmModal
+                isOpen={confirmModal.isOpen}
+                title={confirmModal.title}
+                description={confirmModal.description}
+                onConfirm={confirmModal.onConfirm}
+                onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                variant={confirmModal.variant}
             />
         </div>
     );

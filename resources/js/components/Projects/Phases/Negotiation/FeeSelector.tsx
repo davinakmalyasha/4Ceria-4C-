@@ -2,6 +2,13 @@ import React from 'react';
 import { DollarSign, Percent, Ruler, Hash, Clock } from 'lucide-react';
 import { NegotiationOfferDTO } from '../../../../types/negotiation.types';
 
+const formatRupiah = (val: string | number) => {
+    if (val === undefined || val === null || val === '') return '';
+    const num = val.toString().replace(/\D/g, '');
+    if (!num) return '';
+    return num.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+};
+
 interface Props {
     feeType: NegotiationOfferDTO['fee_type'];
     amount: number;
@@ -28,7 +35,10 @@ export const FeeSelector: React.FC<Props> = ({
     feeType, amount, onTypeChange, onAmountChange, estimatedTotal, roleType, area, length, width, onLengthChange, onWidthChange
 }) => {
     const feeTypes = React.useMemo(() => {
-        if (roleType === 'project_manager' || roleType === 'notaris') {
+        if (roleType === 'notaris') {
+            return FEE_TYPE_CONFIG.filter(type => ['fixed'].includes(type.id));
+        }
+        if (roleType === 'project_manager') {
             return FEE_TYPE_CONFIG.filter(type => ['fixed', 'percentage'].includes(type.id));
         }
         if (roleType === 'arsitek' || roleType === 'architect' || roleType === 'interior') {
@@ -74,12 +84,19 @@ export const FeeSelector: React.FC<Props> = ({
                         <span className="absolute left-6 top-1/2 -translate-y-1/2 font-black text-gray-400">Rp</span>
                     )}
                     <input 
-                        type="number" 
+                        type={feeType === 'percentage' ? 'number' : 'text'}
                         required 
-                        min="0"
+                        min={roleType === 'notaris' ? "0" : (feeType === 'percentage' ? "0.01" : "1")}
                         step="any"
-                        value={amount || ''} 
-                        onChange={(e) => onAmountChange(Number(e.target.value))}
+                        value={feeType === 'percentage' ? (amount || '') : formatRupiah(amount)} 
+                        onChange={(e) => {
+                            if (feeType === 'percentage') {
+                                onAmountChange(Number(e.target.value));
+                            } else {
+                                const raw = e.target.value.replace(/\D/g, '');
+                                onAmountChange(raw ? parseInt(raw, 10) : 0);
+                            }
+                        }}
                         className={`w-full ${feeType === 'percentage' ? 'px-6' : 'pl-14 pr-6'} py-4 bg-gray-50 border-2 border-gray-100 focus:border-slate-900 rounded-2xl font-black text-2xl text-slate-900 outline-none transition-all`}
                         placeholder="0"
                     />

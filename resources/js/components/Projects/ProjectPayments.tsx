@@ -9,20 +9,23 @@ import {
 import axios from 'axios';
 import { useToast } from '../../context/ToastContext';
 import { PaymentProofModal } from './Contracts/PaymentProofModal';
+import FilePreviewModal from '../Common/FilePreviewModal';
 import { DEFAULT_TERMIN_TEMPLATE } from '../../constants/ContractorStandardPresets';
 
 interface ProjectPaymentsProps {
     project: any;
     user: any;
     onRefresh: () => void;
+    onOpenChat?: (user: any) => void;
 }
 
-export default function ProjectPayments({ project, user, onRefresh }: ProjectPaymentsProps) {
+export default function ProjectPayments({ project, user, onRefresh, onOpenChat }: ProjectPaymentsProps) {
     const { showToast } = useToast();
     const [selectedBid, setSelectedBid] = useState<any>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [addingToRole, setAddingToRole] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [previewFile, setPreviewFile] = useState<{ path: string; name: string } | null>(null);
     
     // Linking Modal State
     const [linkModal, setLinkModal] = useState<{isOpen: boolean, termin: any, roleType: string, milestones: any[]}>({
@@ -100,8 +103,14 @@ export default function ProjectPayments({ project, user, onRefresh }: ProjectPay
         roles.forEach(role => {
             const roleBids = role.bids && Array.isArray(role.bids) ? role.bids : [];
             roleBids.forEach((bid: any) => {
-                // Only show payment groups for professionals who have signed the contract (status is awaiting_payment or active)
-                if (['accepted', 'awaiting_payment', 'active', 'contract_pending', 'completed'].includes(bid.status)) {
+                const isSignedByPro = !!bid.pro_signature_url;
+                const isSignedByClient = !!bid.client_signature_url;
+                
+                // Only show payment groups for professionals who have signed and client has signed
+                const isReadyForPayment = ['accepted', 'awaiting_payment', 'active', 'completed'].includes(bid.status) && 
+                    (!isSignedByPro || isSignedByClient);
+
+                if (isReadyForPayment) {
                     const roleTermins = (project.payment_termins || []).filter((t: any) => {
                         if (role.roleType === 'engineering') {
                             return t.role_type === 'structural' || t.role_type === 'mep';
@@ -345,31 +354,26 @@ export default function ProjectPayments({ project, user, onRefresh }: ProjectPay
         }
     };
 
+    const visibleGroups = useMemo(() => {
+        return groupedPayments.filter(group => {
+            const bidProId = group.bidder?.user?.id ? String(group.bidder.user.id) : null;
+            const isProForThisGroup = user?.id && bidProId && String(user.id) === bidProId;
+
+            // Show if Owner, the specific Pro, or the Project PM
+            if (!isOwner && !isProForThisGroup && !isProjectPM && !isGlobalPM) return false;
+
+            return true;
+        });
+    }, [groupedPayments, user, isOwner, isProjectPM, isGlobalPM]);
+
     return (
         <div className="space-y-8">
-            <div className="bg-emerald-50 border border-emerald-100 rounded-[2.5rem] p-8 flex items-start gap-6 shadow-sm">
-                <div className="p-4 bg-emerald-100 text-emerald-700 rounded-2xl shadow-inner">
-                    <ShieldCheck size={32} />
-                </div>
-                <div>
-                    <h3 className="text-emerald-900 font-black text-xl uppercase tracking-tight">Payment Verification Hub</h3>
-                    <p className="text-emerald-700/80 text-sm font-medium leading-relaxed max-w-3xl mt-2 italic">
-                        {isOwner ? 
-                            "Once you've paid the professional outside the platform, please upload your proof of transfer here. The professional will verify it to start the project." :
-                            "Verify payment proofs from the owner here. Once verified, the project phase will officially commence."
-                        }
-                    </p>
-                </div>
-            </div>
 
-            {groupedPayments.length > 0 ? (
+            {visibleGroups.length > 0 ? (
                 <div className="grid grid-cols-1 gap-8">
-                    {groupedPayments.map(group => {
+                    {visibleGroups.map(group => {
                         const bidProId = group.bidder?.user?.id ? String(group.bidder.user.id) : null;
                         const isProForThisGroup = user?.id && bidProId && String(user.id) === bidProId;
-
-                        // Show if Owner, the specific Pro, or the Project PM
-                        if (!isOwner && !isProForThisGroup && !isProjectPM && !isGlobalPM) return null;
 
                         return (
                             <motion.div 
@@ -391,24 +395,42 @@ export default function ProjectPayments({ project, user, onRefresh }: ProjectPay
                                                     <span className="w-1 h-1 bg-gray-300 rounded-full" />
                                                     <span className="text-xs font-black text-emerald-600">Total: Rp {group.totalPrice.toLocaleString('id-ID')}</span>
                                                 </div>
-                                                <div className="flex gap-2 mt-4">
-                                                    <button 
-                                                        onClick={() => window.location.href = `/messages?user_id=${group.bidder?.user?.id}`}
-                                                        className="flex-1 py-3 bg-white border border-gray-200 text-gray-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-gray-50 flex items-center justify-center gap-2 transition-all shadow-sm"
-                                                    >
-                                                        <MessageSquare size={14} /> Chat
-                                                    </button>
-                                                    {group.bidder?.phone && (
-                                                        <a 
-                                                            href={`https://wa.me/${group.bidder.phone.replace(/[^0-9]/g, '')}`}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="flex-1 py-3 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-500 flex items-center justify-center gap-2 transition-all shadow-md shadow-emerald-100"
+                                                {!isProForThisGroup && (
+                                                    <div className="flex gap-2 mt-4">
+                                                        <button 
+                                                            onClick={() => {
+                                                                const proUser = group.rawBid?.arsitek?.user || 
+                                                                                group.rawBid?.kontraktor?.user || 
+                                                                                group.rawBid?.notaris?.user || 
+                                                                                group.rawBid?.interior?.user || 
+                                                                                group.rawBid?.pm?.user || 
+                                                                                group.rawBid?.structural?.user || 
+                                                                                group.rawBid?.mep?.user || 
+                                                                                group.bidder?.user || 
+                                                                                group.rawBid?.user;
+                                                                
+                                                                if (onOpenChat && (proUser || group.bidder?.user)) {
+                                                                    onOpenChat(proUser || group.bidder?.user);
+                                                                } else {
+                                                                    window.location.href = `/messages?user_id=${group.bidder?.user?.id}`;
+                                                                }
+                                                            }}
+                                                            className="flex-1 py-3 bg-white border border-gray-200 text-gray-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-gray-50 flex items-center justify-center gap-2 transition-all shadow-sm"
                                                         >
-                                                            <MessageCircle size={14} /> WhatsApp
-                                                        </a>
-                                                    )}
-                                                </div>
+                                                            <MessageSquare size={14} /> Chat
+                                                        </button>
+                                                        {group.bidder?.phone && (
+                                                            <a 
+                                                                href={`https://wa.me/${group.bidder.phone.replace(/[^0-9]/g, '')}`}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="flex-1 py-3 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-500 flex items-center justify-center gap-2 transition-all shadow-md shadow-emerald-100"
+                                                            >
+                                                                <MessageCircle size={14} /> WhatsApp
+                                                            </a>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
 
@@ -589,14 +611,14 @@ export default function ProjectPayments({ project, user, onRefresh }: ProjectPay
                                                     {(payment.attachment_1 || payment.attachment_2 || payment.attachment_3) && (
                                                         <div className="mb-4 flex flex-wrap gap-2">
                                                             {[payment.attachment_1, payment.attachment_2, payment.attachment_3].filter(Boolean).map((url, i) => (
-                                                                <a 
+                                                                <button 
                                                                     key={i} 
-                                                                    href={url} 
-                                                                    target="_blank" 
-                                                                    className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg text-[9px] font-black text-gray-600 hover:border-blue-500 hover:text-blue-600 transition-all shadow-sm"
+                                                                    type="button"
+                                                                    onClick={() => setPreviewFile({ path: url, name: `${payment.label} Doc ${i + 1}` })}
+                                                                    className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg text-[9px] font-black text-gray-600 hover:border-blue-500 hover:text-blue-600 transition-all shadow-sm cursor-pointer"
                                                                 >
                                                                     <Paperclip size={12} /> Doc {i+1}
-                                                                </a>
+                                                                </button>
                                                             ))}
                                                         </div>
                                                     )}
@@ -620,7 +642,16 @@ export default function ProjectPayments({ project, user, onRefresh }: ProjectPay
 
                                                     {hasProof && (
                                                         <div 
-                                                            onClick={() => handleActionClick(payment)}
+                                                            onClick={() => {
+                                                                if (isPaid) {
+                                                                    setPreviewFile({
+                                                                        path: payment.payment_proof_path,
+                                                                        name: `${payment.label} Proof`
+                                                                    });
+                                                                } else {
+                                                                    handleActionClick(payment);
+                                                                }
+                                                            }}
                                                             className="mb-5 relative group cursor-pointer"
                                                         >
                                                             <div className="aspect-video bg-gray-100 rounded-xl overflow-hidden border border-gray-200 shadow-inner group-hover:border-emerald-500/50 transition-all">
@@ -656,7 +687,7 @@ export default function ProjectPayments({ project, user, onRefresh }: ProjectPay
                                                             onClick={() => handleActionClick(payment)}
                                                             disabled={!isOwner && !isProjectPM && !isGlobalPM && !hasProof}
                                                             className={`w-full py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
-                                                                (isOwner && !isProForThisGroup) || (hasProof && (isProjectPM || isGlobalPM || isOwner))
+                                                                (isOwner && !isProForThisGroup) || (hasProof && (isProjectPM || isGlobalPM || isOwner) && !isProForThisGroup)
                                                                 ? (hasProof ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' : 'bg-[#FF2D20] text-white hover:bg-red-700 shadow-md shadow-red-200 ring-2 ring-red-100')
                                                                 : (hasProof ? 'bg-emerald-600 text-white hover:bg-emerald-500 shadow-md shadow-emerald-200' : 'bg-gray-100 text-gray-400 cursor-not-allowed')
                                                             }`}
@@ -798,7 +829,7 @@ export default function ProjectPayments({ project, user, onRefresh }: ProjectPay
             )}
             <AnimatePresence>
                 {linkModal.isOpen && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
                         <motion.div 
                             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                             className="absolute inset-0 bg-zinc-900/40 backdrop-blur-sm"
@@ -854,6 +885,12 @@ export default function ProjectPayments({ project, user, onRefresh }: ProjectPay
                     </div>
                 )}
             </AnimatePresence>
+            <FilePreviewModal
+                isOpen={!!previewFile}
+                onClose={() => setPreviewFile(null)}
+                filePath={previewFile?.path || null}
+                fileName={previewFile?.name || ''}
+            />
         </div>
     );
 }

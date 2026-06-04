@@ -23,7 +23,7 @@ export default function EngineeringManualLogs({ project, currentUser, onRefresh 
     const [logDesc, setLogDesc] = useState('');
     const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
-    const isArchitect = currentUser?.id === project?.selected_arsitek_id;
+    const isArchitect = (project?.selected_arsitek_id && currentUser?.arsitek?.id === project?.selected_arsitek_id) || (project?.arsitek?.user_id === currentUser?.id);
 
     const handleAddLog = async (e: React.FormEvent) => {
         e.preventDefault();

@@ -42,7 +42,7 @@ export default function ProjectFiles({ project }: ProjectFilesProps) {
                     documents.map((doc: any, idx: number) => (
                         <motion.a
                             key={doc.id}
-                            href={`/storage/${doc.file_path}`}
+                            href={doc.file_url || `/storage/${doc.file_path}`}
                             target="_blank"
                             rel="noreferrer"
                             initial={{ opacity: 0, scale: 0.95 }}

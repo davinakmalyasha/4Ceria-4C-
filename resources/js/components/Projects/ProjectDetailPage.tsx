@@ -137,15 +137,16 @@ export default function ProjectDetailPage({ project, user, onBack, onRefresh, on
     const isHiredPro = useMemo(() => {
         if (!project || !user) return false;
         return (
-            (project.selected_arsitek_id && (user.id === project.selected_arsitek_id || project.arsitek?.user_id === user.id)) ||
-            (project.selected_kontraktor_id && (user.id === project.selected_kontraktor_id || project.kontraktor?.user_id === user.id)) ||
-            (project.selected_notaris_id && (user.id === project.selected_notaris_id || project.notaris?.user_id === user.id)) ||
-            (project.selected_interior_id && (user.id === project.selected_interior_id || project.interior_profile?.user_id === user.id)) ||
+            (project.selected_arsitek_id && (user?.arsitek?.id === project.selected_arsitek_id || project.arsitek?.user_id === user.id)) ||
+            (project.selected_kontraktor_id && (user?.kontraktor?.id === project.selected_kontraktor_id || project.kontraktor?.user_id === user.id)) ||
+            (project.selected_notaris_id && (user?.notaris_profile?.id === project.selected_notaris_id || project.notaris?.user_id === user.id || user.notaris_profile?.id === project.selected_notaris_id || project.notaris?.user?.id === user.id)) ||
+            (project.selected_interior_id && (user?.interior_profile?.id === project.selected_interior_id || project.interior_profile?.user_id === user.id || user.interior_profile?.id === project.selected_interior_id || project.interior?.user?.id === user.id)) ||
             (project.structural_id && (user.id === project.structural_engineer?.user_id || user.structural_engineer?.id === project.structural_id)) ||
             (project.mep_id && (user.id === project.mep_engineer?.user_id || user.mep_engineer?.id === project.mep_id)) ||
             (!!project.sub_professionals && project.sub_professionals.some((s: any) => s.user_id === user.id && s.status === 'active'))
         );
     }, [project, user]);
+
 
     const userBid = useMemo(() => {
         if (!project || !user) return null;
@@ -445,6 +446,7 @@ export default function ProjectDetailPage({ project, user, onBack, onRefresh, on
                                 project={project} 
                                 user={user}
                                 onRefresh={onRefresh}
+                                onOpenChat={onOpenChat}
                             />
                         </motion.div>
                     )}
@@ -492,7 +494,17 @@ export default function ProjectDetailPage({ project, user, onBack, onRefresh, on
                             <ProjectDeliverables 
                                 project={project} 
                                 currentUser={user} 
-                                isPro={user?.id === project.selected_arsitek_id || user?.id === project.selected_notaris_id || user?.id === project.selected_kontraktor_id || user?.id === project.pm_id || user?.id === project.user_id} 
+                                isPro={
+                                    user?.id === project.user_id || 
+                                    user?.id === project.pm_id || 
+                                    (project.selected_arsitek_id && (user?.arsitek?.id === project.selected_arsitek_id || project.arsitek?.user_id === user?.id)) ||
+                                    (project.selected_kontraktor_id && (user?.kontraktor?.id === project.selected_kontraktor_id || project.kontraktor?.user_id === user?.id)) ||
+                                    (project.selected_notaris_id && (user?.notaris_profile?.id === project.selected_notaris_id || project.notaris?.user_id === user?.id)) ||
+                                    (project.selected_interior_id && (user?.interior_profile?.id === project.selected_interior_id || project.interior_profile?.user_id === user?.id)) ||
+                                    (project.structural_id && (user?.structural_engineer?.id === project.structural_id || project.structural_engineer?.user_id === user?.id)) ||
+                                    (project.mep_id && (user?.mep_engineer?.id === project.mep_id || project.mep_engineer?.user_id === user?.id)) ||
+                                    (project.sub_professionals && project.sub_professionals.some((s: any) => s.user_id === user?.id && s.status === 'active'))
+                                } 
                             />
                         </motion.div>
                     )}

@@ -7,6 +7,8 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '../../../context/ToastContext';
+import PMReportCard, { ProjectReport } from './PMReportCard';
+import PMReportFormModal from './PMReportFormModal';
 
 interface PMScheduleProps {
     project: any;
@@ -25,6 +27,22 @@ export default function PMSchedule({ project, user, onRefresh, onNavigateToRepor
     const [selectedPhase, setSelectedPhase] = useState<any>(null);
     const [submitting, setSubmitting] = useState(false);
 
+    // Reports integration states
+    const [reports, setReports] = useState<ProjectReport[]>([]);
+    const [reportsLoading, setReportsLoading] = useState(true);
+    const [expandedPhase, setExpandedPhase] = useState<string | null>(null);
+
+    const [editingReport, setEditingReport] = useState<ProjectReport | null>(null);
+    const [reportSummary, setReportSummary] = useState('');
+    const [reportProgress, setReportProgress] = useState(project.progress || 0);
+    const [reportHealth, setReportHealth] = useState('on_track');
+    const [reportPhaseSlug, setReportPhaseSlug] = useState('');
+    const [reportPhotos, setReportPhotos] = useState<File[]>([]);
+    const [reportAttachments, setReportAttachments] = useState<File[]>([]);
+    const [existingReportPhotos, setExistingReportPhotos] = useState<string[]>([]);
+
+    const timelinePhases = ['management', 'legal', 'design', 'build', 'materials', 'handover'];
+
     // Form States
     const [phaseData, setPhaseData] = useState<any>({
         target_start_date: '',
@@ -41,13 +59,6 @@ export default function PMSchedule({ project, user, onRefresh, onNavigateToRepor
         logged_at: new Date().toISOString().split('T')[0]
     });
 
-    const [reportData, setReportData] = useState({
-        summary: '',
-        progress_percentage: 0,
-        budget_health: 'on_track',
-        photos: [] as File[]
-    });
-
     const isPM = Number(project.pm_id) === Number(user?.id);
 
     const fetchTimeline = async () => {
@@ -61,8 +72,20 @@ export default function PMSchedule({ project, user, onRefresh, onNavigateToRepor
         }
     };
 
+    const fetchReports = async () => {
+        try {
+            const res = await axios.get(`/projects/${project.id}/reports`);
+            setReports(res.data);
+        } catch (err) {
+            console.error('Failed to fetch reports:', err);
+        } finally {
+            setReportsLoading(false);
+        }
+    };
+
     useEffect(() => {
         fetchTimeline();
+        fetchReports();
     }, [project.id]);
 
     const handleOpenManager = (phase: any) => {
@@ -129,28 +152,41 @@ export default function PMSchedule({ project, user, onRefresh, onNavigateToRepor
         }
     };
 
-    const handleCreateReport = async (e: React.FormEvent) => {
+    const handleSubmitReport = async (e: React.FormEvent) => {
         e.preventDefault();
         setSubmitting(true);
         try {
             const formData = new FormData();
-            formData.append('summary', reportData.summary);
-            formData.append('progress_percentage', reportData.progress_percentage.toString());
-            formData.append('budget_health', reportData.budget_health);
-            formData.append('phase_slug', selectedPhase.phase_slug);
-            reportData.photos.forEach(file => formData.append('photos[]', file));
+            formData.append('summary', reportSummary);
+            formData.append('progress_percentage', reportProgress.toString());
+            formData.append('budget_health', reportHealth);
+            formData.append('phase_slug', reportPhaseSlug);
+            
+            reportPhotos.forEach(file => formData.append('photos[]', file));
+            reportAttachments.forEach(file => formData.append('attachments[]', file));
 
-            await axios.post(`/projects/${project.id}/reports`, formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
-
-            showToast('Phase report published!', 'success');
-            setIsCreatingReport(false);
+            if (editingReport) {
+                formData.append('_method', 'PUT');
+                existingReportPhotos.forEach(path => formData.append('existing_photos[]', path));
+                
+                await axios.post(`/projects/${project.id}/reports/${editingReport.id}`, formData, {
+                    headers: { 'Content-Type': 'multipart/form-data' }
+                });
+                showToast('Report updated!', 'success');
+            } else {
+                await axios.post(`/projects/${project.id}/reports`, formData, {
+                    headers: { 'Content-Type': 'multipart/form-data' }
+                });
+                showToast('Executive report published!', 'success');
+            }
+            resetReportForm();
+            fetchReports();
             fetchTimeline();
+            onRefresh?.();
         } catch (err: any) {
-            console.error('Failed to publish report:', err);
+            console.error('Failed to save report:', err);
             const errors = err.response?.data?.errors;
-            let message = err.response?.data?.message || 'Failed to publish report';
+            let message = err.response?.data?.message || 'Failed to save report';
             
             if (errors) {
                 const firstError = Object.values(errors)[0];
@@ -165,19 +201,45 @@ export default function PMSchedule({ project, user, onRefresh, onNavigateToRepor
 
     const handleOpenReportBuilder = (phase: any) => {
         setSelectedPhase(phase);
-        setReportData({
-            summary: '',
-            progress_percentage: phase.progress_percentage,
-            budget_health: 'on_track',
-            photos: []
-        });
+        setEditingReport(null);
+        setReportSummary('');
+        setReportProgress(phase.progress_percentage);
+        setReportHealth('on_track');
+        setReportPhaseSlug(phase.phase_slug);
+        setReportPhotos([]);
+        setReportAttachments([]);
+        setExistingReportPhotos([]);
         setIsCreatingReport(true);
+    };
+
+    const handleEditReport = (report: ProjectReport) => {
+        setEditingReport(report);
+        setReportSummary(report.summary);
+        setReportProgress(report.progress_percentage);
+        setReportHealth(report.budget_health);
+        setReportPhaseSlug(report.phase_slug || '');
+        setReportPhotos([]);
+        setReportAttachments([]);
+        setExistingReportPhotos(report.site_photos || []);
+        setIsCreatingReport(true);
+    };
+
+    const handleDeleteReport = async (id: number) => {
+        if (!confirm('Permanently delete this executive report?')) return;
+        try {
+            await axios.delete(`/projects/${project.id}/reports/${id}`);
+            showToast('Report removed.', 'info');
+            fetchReports();
+            fetchTimeline();
+            onRefresh?.();
+        } catch (err) {
+            showToast('Failed to delete report', 'error');
+        }
     };
 
     const resetForm = () => {
         setIsManaging(false);
         setIsLoggingDelay(false);
-        setIsCreatingReport(false);
         setSelectedPhase(null);
         setPhaseData({
             target_start_date: '',
@@ -186,12 +248,18 @@ export default function PMSchedule({ project, user, onRefresh, onNavigateToRepor
             progress_percentage: 0,
             notes: ''
         });
-        setReportData({
-            summary: '',
-            progress_percentage: 0,
-            budget_health: 'on_track',
-            photos: []
-        });
+    };
+
+    const resetReportForm = () => {
+        setIsCreatingReport(false);
+        setEditingReport(null);
+        setReportSummary('');
+        setReportProgress(project.progress || 0);
+        setReportHealth('on_track');
+        setReportPhaseSlug('');
+        setReportPhotos([]);
+        setReportAttachments([]);
+        setExistingReportPhotos([]);
     };
 
     const handleLinkReport = async (reportId: number) => {
@@ -203,6 +271,7 @@ export default function PMSchedule({ project, user, onRefresh, onNavigateToRepor
             showToast('Report linked to timeline!', 'success');
             setIsCreatingReport(false);
             fetchTimeline();
+            fetchReports();
         } catch (err) {
             showToast('Failed to link report', 'error');
         } finally {
@@ -225,6 +294,25 @@ export default function PMSchedule({ project, user, onRefresh, onNavigateToRepor
                 </div>
 
                 <div className="flex items-center gap-6">
+                    {isPM && (
+                        <button
+                            onClick={() => {
+                                setEditingReport(null);
+                                setReportSummary('');
+                                setReportProgress(summary.completion_percentage || 0);
+                                setReportHealth('on_track');
+                                setReportPhaseSlug('');
+                                setReportPhotos([]);
+                                setReportAttachments([]);
+                                setExistingReportPhotos([]);
+                                setIsCreatingReport(true);
+                            }}
+                            className="flex items-center gap-2 px-5 py-2.5 bg-gray-900 text-white hover:bg-black rounded-xl shadow-lg shadow-gray-200 transition-all text-[10px] font-black uppercase tracking-widest cursor-pointer"
+                        >
+                            <Plus size={14} />
+                            Create Weekly Report
+                        </button>
+                    )}
                     <div className="text-right">
                         <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Project Progress</p>
                         <div className="flex items-center gap-3">
@@ -258,6 +346,8 @@ export default function PMSchedule({ project, user, onRefresh, onNavigateToRepor
                                 const isCompleted = phase.status === 'completed';
                                 const isActive = phase.status === 'active';
                                 const isDelayed = phase.status === 'delayed';
+                                const phaseReports = reports.filter(r => r.phase_slug === phase.phase_slug);
+                                const reportsCount = phaseReports.length;
 
                                 return (
                                     <div key={phase.id} className="relative pl-12 pb-12 last:pb-0">
@@ -296,13 +386,13 @@ export default function PMSchedule({ project, user, onRefresh, onNavigateToRepor
                                                         <TrendingUp size={12} />
                                                         <span>{phase.progress_percentage}% Done</span>
                                                     </div>
-                                                    {phase.report_count > 0 && (
+                                                    {reportsCount > 0 && (
                                                         <button
-                                                            onClick={() => onNavigateToReports?.(phase.phase_slug)}
+                                                            onClick={() => setExpandedPhase(expandedPhase === phase.phase_slug ? null : phase.phase_slug)}
                                                             className="flex items-center gap-1.5 text-indigo-600 font-black hover:text-indigo-800 hover:bg-indigo-50 px-2 py-0.5 rounded-md transition-all cursor-pointer group/link"
                                                         >
                                                             <FileText size={12} className="group-hover/link:scale-110 transition-transform" />
-                                                            <span>{phase.report_count} {phase.report_count === 1 ? 'Report' : 'Reports'} Linked</span>
+                                                            <span>{reportsCount} {reportsCount === 1 ? 'Report' : 'Reports'} Linked</span>
                                                         </button>
                                                     )}
                                                 </div>
@@ -335,10 +425,52 @@ export default function PMSchedule({ project, user, onRefresh, onNavigateToRepor
                                                 </div>
                                             )}
                                         </div>
+
+                                        {/* Accordion List of Reports for this phase */}
+                                        <AnimatePresence>
+                                            {expandedPhase === phase.phase_slug && (
+                                                <motion.div
+                                                    initial={{ opacity: 0, height: 0 }}
+                                                    animate={{ opacity: 1, height: 'auto' }}
+                                                    exit={{ opacity: 0, height: 0 }}
+                                                    className="overflow-hidden mt-4 pl-4 space-y-4"
+                                                >
+                                                    <div className="border-l-2 border-indigo-50 pl-4 space-y-4">
+                                                        {phaseReports.map(report => (
+                                                            <PMReportCard
+                                                                key={report.id}
+                                                                report={report}
+                                                                isPM={isPM}
+                                                                onEdit={handleEditReport}
+                                                                onDelete={handleDeleteReport}
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
                                     </div>
                                 );
                             })}
                         </div>
+
+                        {/* General Stakeholder Updates / Unlinked Reports */}
+                        {reports.filter(r => !r.phase_slug).length > 0 && (
+                            <div className="mt-12 pt-8 border-t border-slate-100 space-y-4">
+                                <h4 className="text-xs font-black uppercase tracking-widest text-slate-400">General Stakeholder Updates</h4>
+                                <div className="grid gap-4 md:grid-cols-2">
+                                    {reports.filter(r => !r.phase_slug).map((report) => (
+                                        <PMReportCard
+                                            key={report.id}
+                                            report={report}
+                                            isPM={isPM}
+                                            onEdit={handleEditReport}
+                                            onDelete={handleDeleteReport}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -360,6 +492,42 @@ export default function PMSchedule({ project, user, onRefresh, onNavigateToRepor
                                     ? `Project is currently delayed by ${summary.total_delay_days} days across phases.`
                                     : 'All systems green. Project is proceeding on schedule.'}
                             </p>
+                        </div>
+                    </div>
+
+                    {/* Executive Health Card */}
+                    <div className="bg-emerald-600 rounded-[2.5rem] p-8 text-white shadow-xl shadow-emerald-100">
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="p-2 bg-white/20 rounded-xl">
+                                <TrendingUp size={20} />
+                            </div>
+                            <h4 className="text-xs font-black uppercase tracking-widest">Executive Health</h4>
+                        </div>
+                        
+                        <div className="space-y-6">
+                            <div className="space-y-2">
+                                <div className="flex items-center justify-between text-sm">
+                                    <span className="opacity-80">Phase Completion</span>
+                                    <span className="font-black">{summary.completion_percentage}%</span>
+                                </div>
+                                <div className="h-1.5 bg-white/20 rounded-full overflow-hidden">
+                                    <motion.div 
+                                        initial={{ width: 0 }}
+                                        animate={{ width: `${summary.completion_percentage}%` }}
+                                        className="h-full bg-white"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="pt-6 border-t border-white/10 space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[10px] font-black uppercase tracking-widest opacity-60">Transparency Score</span>
+                                    <span className="text-xs font-black">{Math.min(reports.length * 20, 100)}%</span>
+                                </div>
+                                <p className="text-[10px] opacity-70 leading-relaxed italic">
+                                    "Transparent reporting builds trust and accelerates project decision-making."
+                                </p>
+                            </div>
                         </div>
                     </div>
 
@@ -583,158 +751,34 @@ export default function PMSchedule({ project, user, onRefresh, onNavigateToRepor
                     </div>
                 )}
             </AnimatePresence>
-            {/* Quick Report Modal */}
+
+            {/* Integrated Report Form Modal */}
             <AnimatePresence>
                 {isCreatingReport && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
-                        <motion.div
-                            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                            onClick={resetForm}
-                            className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm"
-                        />
-                        <motion.div
-                            initial={{ scale: 0.95, opacity: 0, y: 20 }}
-                            animate={{ scale: 1, opacity: 1, y: 0 }}
-                            exit={{ scale: 0.95, opacity: 0, y: 20 }}
-                            className="relative w-full max-w-2xl bg-white rounded-[2.5rem] shadow-2xl overflow-hidden"
-                        >
-                            <div className="p-8 border-b border-gray-100 flex items-center justify-between">
-                                <div>
-                                    <h3 className="text-xl font-black text-gray-900 uppercase tracking-tight">Phase Intelligence Report</h3>
-                                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">Linking Evidence to: {selectedPhase?.phase_slug.replace('_', ' ')}</p>
-                                </div>
-                                <button onClick={resetForm} className="p-2 hover:bg-gray-50 rounded-xl text-gray-400 transition-colors">
-                                    <X size={20} />
-                                </button>
-                            </div>
-
-                            <div className="p-8 space-y-8 max-h-[70vh] overflow-y-auto">
-                                {unlinked_reports.length > 0 && (
-                                    <div className="space-y-4">
-                                        <div className="flex items-center justify-between">
-                                            <label className="text-[10px] font-black uppercase tracking-widest text-indigo-600">Link Existing Reports</label>
-                                            <span className="px-2 py-0.5 bg-indigo-50 text-indigo-600 text-[8px] font-black rounded-full uppercase tracking-widest">{unlinked_reports.length} Available</span>
-                                        </div>
-                                        <div className="grid gap-3">
-                                            {unlinked_reports.map((report: any) => (
-                                                <div key={report.id} className="bg-gray-50/50 p-4 rounded-2xl border border-gray-100 flex items-center justify-between group hover:bg-white hover:shadow-lg hover:shadow-indigo-50/50 transition-all">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="p-2 bg-white rounded-xl text-indigo-500 shadow-sm">
-                                                            <FileText size={16} />
-                                                        </div>
-                                                        <div className="max-w-[200px]">
-                                                            <p className="text-xs font-black text-gray-900 truncate uppercase tracking-tight">{report.summary}</p>
-                                                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{new Date(report.created_at).toLocaleDateString()}</p>
-                                                        </div>
-                                                    </div>
-                                                    <button
-                                                        onClick={() => handleLinkReport(report.id)}
-                                                        className="px-4 py-2 bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-indigo-700 transition-all opacity-0 group-hover:opacity-100"
-                                                    >
-                                                        Link
-                                                    </button>
-                                                </div>
-                                            ))}
-                                        </div>
-                                        <div className="flex items-center gap-4 py-4">
-                                            <div className="flex-1 h-px bg-gray-100" />
-                                            <span className="text-[8px] font-black text-gray-300 uppercase tracking-[0.2em]">OR CREATE NEW</span>
-                                            <div className="flex-1 h-px bg-gray-100" />
-                                        </div>
-                                    </div>
-                                )}
-
-                                <form onSubmit={handleCreateReport} className="space-y-8">
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Executive Summary</label>
-                                        <textarea
-                                            required
-                                            value={reportData.summary}
-                                            onChange={e => setReportData({ ...reportData, summary: e.target.value })}
-                                            className="w-full h-32 p-5 bg-gray-50 rounded-2xl border-none text-sm font-medium resize-none focus:ring-2 focus:ring-indigo-500/10 transition-all"
-                                            placeholder="What happened in this phase this week?"
-                                        />
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-6">
-                                        <div className="space-y-2">
-                                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Phase Health</label>
-                                            <select
-                                                value={reportData.budget_health}
-                                                onChange={e => setReportData({ ...reportData, budget_health: e.target.value })}
-                                                className="w-full p-4 bg-gray-50 rounded-2xl border-none text-sm font-bold focus:ring-2 focus:ring-indigo-500/10 transition-all cursor-pointer"
-                                            >
-                                                <option value="on_track">🟢 On Track</option>
-                                                <option value="warning">🟡 Attention</option>
-                                                <option value="critical">🔴 Critical</option>
-                                            </select>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Progress ({reportData.progress_percentage}%)</label>
-                                            <div className="px-4 py-4 bg-gray-50 rounded-2xl">
-                                                <input
-                                                    type="range" min="0" max="100"
-                                                    value={reportData.progress_percentage}
-                                                    onChange={e => setReportData({ ...reportData, progress_percentage: Number(e.target.value) })}
-                                                    className="w-full accent-indigo-600 cursor-pointer"
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-4">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Site Evidence (Photos)</label>
-                                        <div className="flex flex-wrap gap-3">
-                                            {reportData.photos.map((file, idx) => (
-                                                <div key={idx} className="relative w-20 h-20 rounded-2xl overflow-hidden group border-2 border-indigo-100">
-                                                    <img 
-                                                        src={file instanceof File ? URL.createObjectURL(file) : ''} 
-                                                        className="w-full h-full object-cover" 
-                                                        onLoad={(e) => URL.revokeObjectURL((e.target as HTMLImageElement).src)}
-                                                    />
-                                                    <button
-                                                        type="button" onClick={() => setReportData({ ...reportData, photos: reportData.photos.filter((_, i) => i !== idx) })}
-                                                        className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all"
-                                                    >
-                                                        <X size={16} className="text-white" />
-                                                    </button>
-                                                </div>
-                                            ))}
-                                            <label className="w-20 h-20 rounded-2xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center cursor-pointer hover:border-indigo-500 hover:bg-indigo-50/30 transition-all group">
-                                                <ImageIcon className="text-gray-300 group-hover:text-indigo-500" size={20} />
-                                                <input
-                                                    type="file" multiple className="hidden"
-                                                    accept="image/*"
-                                                    onChange={e => {
-                                                        if (e.target.files) {
-                                                            const newPhotos = Array.from(e.target.files).filter(file => file.type.startsWith('image/'));
-                                                            setReportData({ ...reportData, photos: [...reportData.photos, ...newPhotos] });
-                                                        }
-                                                    }}
-                                                />
-                                            </label>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex items-center justify-end gap-3 pt-6 border-t border-gray-50">
-                                        <button
-                                            type="button" onClick={resetForm}
-                                            className="px-6 py-3 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-gray-900 transition-colors"
-                                        >
-                                            Discard
-                                        </button>
-                                        <button
-                                            type="submit" disabled={submitting}
-                                            className="px-8 py-3 bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 flex items-center gap-2"
-                                        >
-                                            {submitting ? <Activity className="animate-spin" size={16} /> : <CheckCircle2 size={16} />}
-                                            Publish Phase Report
-                                        </button>
-                                    </div>
-                                </form>
-                            </div>
-                        </motion.div>
-                    </div>
+                    <PMReportFormModal
+                        isOpen={isCreatingReport}
+                        onClose={resetReportForm}
+                        editingReport={editingReport}
+                        isSubmitting={submitting}
+                        onSubmit={handleSubmitReport}
+                        summary={reportSummary}
+                        setSummary={setReportSummary}
+                        health={reportHealth}
+                        setHealth={setReportHealth}
+                        phaseSlug={reportPhaseSlug}
+                        setPhaseSlug={setReportPhaseSlug}
+                        progress={reportProgress}
+                        setProgress={setReportProgress}
+                        photos={reportPhotos}
+                        setPhotos={setReportPhotos}
+                        attachments={reportAttachments}
+                        setAttachments={setReportAttachments}
+                        existingPhotos={existingReportPhotos}
+                        setExistingPhotos={setExistingReportPhotos}
+                        timelinePhases={timelinePhases}
+                        unlinkedReports={reports.filter(r => !r.phase_slug)}
+                        onLinkReport={handleLinkReport}
+                    />
                 )}
             </AnimatePresence>
         </div>

@@ -19,9 +19,10 @@ interface LegalVaultProps {
     isArchitect: boolean;
     defaultProRole?: 'notaris' | 'arsitek' | 'kontraktor' | 'interior';
     onUpdate?: () => void;
+    onGoToPayments?: () => void;
 }
 
-export default function LegalVault({ project, currentUser, isNotaris, isArchitect, defaultProRole, onUpdate }: LegalVaultProps) {
+export default function LegalVault({ project, currentUser, isNotaris, isArchitect, defaultProRole, onUpdate, onGoToPayments }: LegalVaultProps) {
     const [milestones, setMilestones] = useState<ProjectMilestone[]>([]);
     const [financials, setFinancials] = useState<any>(null);
     const [selectedReqId, setSelectedReqId] = useState<string | null>(null);
@@ -54,12 +55,12 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
     const isOwner = currentUser?.id === project?.user_id;
     const isPM = currentUser?.role_type === 'project_manager' && project?.pm_id === currentUser?.id;
     const isHiredPro = 
-        (currentUser?.role_type === 'arsitek' && project?.selected_arsitek_id === currentUser?.id) ||
-        (currentUser?.role_type === 'kontraktor' && project?.selected_kontraktor_id === currentUser?.id) ||
-        (currentUser?.role_type === 'notaris' && project?.selected_notaris_id === currentUser?.id) ||
-        (currentUser?.role_type === 'interior' && project?.selected_interior_id === currentUser?.id) ||
-        (currentUser?.role_type === 'structural' && project?.structural_id === currentUser?.id) ||
-        (currentUser?.role_type === 'mep' && project?.mep_id === currentUser?.id);
+        (currentUser?.role_type === 'arsitek' && ((project?.selected_arsitek_id && currentUser?.arsitek?.id === project?.selected_arsitek_id) || project?.arsitek?.user_id === currentUser?.id)) ||
+        (currentUser?.role_type === 'kontraktor' && ((project?.selected_kontraktor_id && currentUser?.kontraktor?.id === project?.selected_kontraktor_id) || project?.kontraktor?.user_id === currentUser?.id)) ||
+        (currentUser?.role_type === 'notaris' && ((project?.selected_notaris_id && currentUser?.notaris_profile?.id === project?.selected_notaris_id) || project?.notaris?.user_id === currentUser?.id)) ||
+        (currentUser?.role_type === 'interior' && ((project?.selected_interior_id && currentUser?.interior_profile?.id === project?.selected_interior_id) || project?.interior?.user_id === currentUser?.id || project?.interior_profile?.user_id === currentUser?.id)) ||
+        (currentUser?.role_type === 'structural' && ((project?.structural_id && currentUser?.structural_engineer?.id === project?.structural_id) || project?.structural_engineer?.user_id === currentUser?.id)) ||
+        (currentUser?.role_type === 'mep' && ((project?.mep_id && currentUser?.mep_engineer?.id === project?.mep_id) || project?.mep_engineer?.user_id === currentUser?.id));
     const canApprove = isOwner || isPM;
 
     const [termins, setTermins] = useState<any[]>([]);
@@ -248,6 +249,11 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
         return milestones.find(m => m.title === slot?.label || m.content?.req_id === selectedReqId) || null;
     }, [selectedReqId, milestones, templateSlots, activeProRole]);
 
+    const linkedTermin = useMemo(() => {
+        if (!activeMilestone) return null;
+        return Array.isArray(termins) ? termins.find(t => t.milestone_id === activeMilestone.id) : null;
+    }, [activeMilestone, termins]);
+
     // Check if the overall phase can be sealed
     const allMilestonesApproved = useMemo(() => {
         if (templateSlots.length === 0) return false;
@@ -298,7 +304,10 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
             if (activeMilestone) {
                 // Update existing
                 formData.append('_method', 'PUT');
-                if (file) formData.append('approval_status', 'pending');
+                if (file || activeMilestone.approval_status === 'revision') {
+                    formData.append('approval_status', 'pending');
+                    formData.append('revision_notes', '');
+                }
                 await axios.post(`/projects/${project.id}/milestones/${activeMilestone.id}`, formData);
                 showToast('Vault entry updated', 'success');
             } else {
@@ -317,6 +326,7 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
 
     const canUpload = useMemo(() => {
         if (isPhaseSealed) return false;
+        if (project.legal_handover_submitted_at) return false;
         if (!selectedReqId) return false;
         
         const slot = templateSlots.find(s => s.id === selectedReqId);
@@ -335,7 +345,7 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
         if (isArchitect && (role === 'Architect' || role === 'Architect & Notary')) return true;
         
         return false;
-    }, [selectedReqId, isPhaseSealed, isNotaris, isArchitect, isPM, isOwner, templateSlots]);
+    }, [selectedReqId, isPhaseSealed, isNotaris, isArchitect, isPM, isOwner, templateSlots, project.legal_handover_submitted_at]);
 
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files?.[0]) {
@@ -731,72 +741,10 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
                         requested by the client. Simply select a drawer and fill out the progress.
                     </p>
 
-                    {/* Vault Selector Toggle */}
-                    <div className="flex items-center p-1 bg-zinc-100 rounded-2xl w-fit border border-zinc-200">
-                        <button 
-                            onClick={() => setVaultView('deliverables')}
-                            className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${
-                                vaultView === 'deliverables' 
-                                ? 'bg-white text-zinc-900 shadow-sm border border-zinc-200' 
-                                : 'text-zinc-400 hover:text-zinc-600'
-                            }`}
-                        >
-                            <Box size={14} />
-                            Official Outcomes
-                        </button>
-                        <button 
-                            onClick={() => setVaultView('personal')}
-                            className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${
-                                vaultView === 'personal' 
-                                ? 'bg-white text-zinc-900 shadow-sm border border-zinc-200' 
-                                : 'text-zinc-400 hover:text-zinc-600'
-                            }`}
-                        >
-                            <ShieldCheck size={14} />
-                            Client Identification
-                        </button>
-                    </div>
+
                 </div>
 
-                {/* The Digital Ledger Header */}
-                {financials && (
-                    <div className="w-full xl:w-auto bg-zinc-900 text-white p-6 md:p-10 rounded-[3rem] shadow-2xl flex flex-col md:flex-row items-center gap-10 border border-white/10 relative overflow-hidden group">
-                        <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:scale-110 transition-transform duration-700 pointer-events-none">
-                            <Wallet size={120} />
-                        </div>
 
-                        <div className="space-y-1 relative z-10 text-left">
-                            <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em]">Gov Tax Escrow</p>
-                            <h4 className="text-3xl font-black">{formatIDR(financials.allocated_tax)}</h4>
-                            <div className="flex items-center gap-2">
-                                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                                <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">Funded & Reserved</p>
-                            </div>
-                        </div>
-
-                        <div className="w-px h-12 bg-white/20 hidden md:block" />
-
-                        <div className="flex flex-col gap-4 relative z-10 text-left">
-                            <div className="space-y-0.5">
-                                <p className="text-[9px] font-black text-white/40 uppercase tracking-widest">Total Disbursed</p>
-                                <p className="text-sm font-black text-emerald-400">-{formatIDR(financials.total_spent)}</p>
-                            </div>
-                            <div className="space-y-0.5">
-                                <p className="text-[9px] font-black text-white/40 uppercase tracking-widest">Pending Verification</p>
-                                <p className="text-sm font-black text-amber-400">{formatIDR(financials.pending_approval)}</p>
-                            </div>
-                        </div>
-
-                        {(isNotaris || isArchitect) && (
-                            <button 
-                                onClick={() => setIsRequestingDisbursement(true)}
-                                className="w-full md:w-auto px-8 py-4 bg-white text-zinc-900 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-100 transition-all flex items-center justify-center gap-2 shadow-xl relative z-10"
-                            >
-                                <Plus size={14} /> Request Fund
-                            </button>
-                        )}
-                    </div>
-                )}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -808,6 +756,14 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
                     {activeSlots.map((slot) => {
                         const preset = getLegalRequirementById(slot.id);
                         const m = milestones.find(item => {
+                            const isLegalPhase = item.phase_context === 'legal' || item.type === 'legal';
+                            if (!isLegalPhase) return false;
+
+                            if (slot.isManual) {
+                                const mId = parseInt(slot.id.replace('manual_', ''), 10);
+                                return item.id === mId;
+                            }
+
                             const baseMatch = item.title === slot.label || item.content?.req_id === slot.id;
                             if (!baseMatch) return false;
                             
@@ -830,6 +786,7 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
                         const isSelected = selectedReqId === slot.id;
                         const hasFile = m?.content?.gallery?.length > 0;
                         const isApproved = m?.approval_status === 'approved';
+                        const isRevised = m?.approval_status === 'revision';
 
                         return (
                             <button
@@ -844,19 +801,32 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
                                 <div className="flex items-center gap-4 text-left">
                                     <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-110 ${
                                         isApproved ? 'bg-emerald-50 text-emerald-600' : 
+                                        isRevised ? 'bg-rose-50 text-rose-600 border border-rose-100 shadow-sm' :
                                         m ? 'bg-zinc-900 text-white shadow-lg' : 'bg-zinc-50 text-zinc-300'
                                     }`}>
-                                        {isApproved ? <ShieldCheck size={22} /> : (m ? <FileText size={22} /> : <Box size={22} />)}
+                                        {isApproved ? <ShieldCheck size={22} /> : (isRevised ? <AlertCircle size={22} /> : (m ? <FileText size={22} /> : <Box size={22} />))}
                                     </div>
                                         <div>
                                             <p className="text-sm font-black text-zinc-900 truncate max-w-[200px]">{slot.label}</p>
-                                            <p className={`text-[9px] font-bold uppercase tracking-wider ${isApproved ? 'text-emerald-500' : 'text-zinc-400'}`}>
-                                                {slot.id === 'construction_contract' ? 'Unified SPK' : (isApproved ? 'Verified Result' : (hasFile ? 'Pending Review' : (m ? 'Drafting' : 'Empty Slot')))}
+                                            <p className={`text-[9px] font-bold uppercase tracking-wider ${
+                                                isApproved ? 'text-emerald-500' : 
+                                                isRevised ? 'text-rose-500' : 
+                                                'text-zinc-400'
+                                            }`}>
+                                                {slot.id === 'construction_contract' ? 'Unified SPK' : 
+                                                 isApproved ? 'Verified Result' : 
+                                                 isRevised ? 'Revision Requested' : 
+                                                 hasFile ? 'Pending Review' : 
+                                                 m ? 'Drafting' : 'Empty Slot'}
                                             </p>
                                         </div>
                                 </div>
                                 <div className={`flex items-center gap-2 ${isSelected ? 'opacity-100' : 'opacity-0'} transition-opacity`}>
-                                    {hasFile && <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />}
+                                    {hasFile && (
+                                        <span className={`w-2 h-2 rounded-full animate-pulse ${
+                                            isRevised ? 'bg-rose-500' : 'bg-emerald-500'
+                                        }`} />
+                                    )}
                                     <ChevronRight size={16} className="text-zinc-900" />
                                 </div>
                             </button>
@@ -924,11 +894,12 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
                                                 </span>
                                                 <span className={`px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest ${
                                                     activeMilestone?.approval_status === 'approved' ? 'bg-emerald-100 text-emerald-700' :
+                                                    activeMilestone?.approval_status === 'revision' ? 'bg-rose-50 text-rose-600 border border-rose-100' :
                                                     (activeMilestone?.approval_status === 'pending' || (activeMilestone?.content?.gallery?.length ?? 0) > 0) ? 'bg-amber-100 text-amber-700' :
-                                                    activeMilestone?.approval_status === 'revision' ? 'bg-red-100 text-red-700' :
                                                     'bg-zinc-100 text-zinc-400'
                                                 }`}>
                                                     {activeMilestone?.approval_status === 'approved' ? 'APPROVED' : 
+                                                     activeMilestone?.approval_status === 'revision' ? 'REVISION REQUESTED' :
                                                      ((activeMilestone?.content?.gallery?.length ?? 0) > 0 ? 'PENDING REVIEW' : (activeMilestone?.approval_status || 'NOT STARTED'))}
                                                 </span>
                                             </div>
@@ -1055,7 +1026,7 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
                                             </div>
                                         )}
 
-                                        {canUpload && (activeMilestone?.approval_status !== 'approved' || (isNotaris || isArchitect)) && (
+                                        {canUpload && activeMilestone?.approval_status !== 'approved' && (
                                             <div className="relative">
                                                 <input 
                                                     type="file" 
@@ -1075,6 +1046,30 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
                                         )}
                                     </div>
                                 </div>
+
+                                {activeMilestone?.approval_status === 'approved' && linkedTermin && linkedTermin.status !== 'paid' && (
+                                    <div className="p-6 bg-amber-50 border-2 border-amber-200 rounded-[2rem] flex flex-col sm:flex-row items-center justify-between gap-4">
+                                        <div className="flex items-center gap-4 text-left">
+                                            <div className="w-12 h-12 bg-amber-500 text-white rounded-2xl flex items-center justify-center shadow-md flex-shrink-0">
+                                                <Receipt size={24} />
+                                            </div>
+                                            <div>
+                                                <h4 className="text-sm font-black text-amber-900 uppercase tracking-widest">Pending Milestone Payment</h4>
+                                                <p className="text-[11px] text-amber-700 font-bold leading-relaxed max-w-md mt-0.5">
+                                                    This phase has been verified and approved. The Project Owner must settle the linked payment of <strong>{formatIDR(linkedTermin.amount)}</strong>.
+                                                </p>
+                                            </div>
+                                        </div>
+                                        {isOwner && onGoToPayments && (
+                                            <button
+                                                onClick={onGoToPayments}
+                                                className="w-full sm:w-auto px-6 py-3 bg-amber-500 hover:bg-amber-600 active:scale-95 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all shadow-md whitespace-nowrap"
+                                            >
+                                                Pay Now
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                     {/* Drawer Item: The File */}
@@ -1127,10 +1122,24 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
                                                 
                                                 <div className="mt-10 pt-6 border-t border-zinc-50 flex items-center justify-between">
                                                     <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest flex items-center gap-2">
-                                                        <CheckCircle2 size={12} className="text-emerald-500" />
+                                                        {activeMilestone?.approval_status === 'approved' ? (
+                                                            <CheckCircle2 size={12} className="text-emerald-500" />
+                                                        ) : activeMilestone?.approval_status === 'revision' ? (
+                                                            <AlertCircle size={12} className="text-rose-500" />
+                                                        ) : (
+                                                            <Clock size={12} className="text-amber-500" />
+                                                        )}
                                                         Stored in Vault
                                                     </span>
-                                                    <span className="px-3 py-1 bg-emerald-50 text-emerald-600 rounded text-[9px] font-black tracking-widest">VERIFIED</span>
+                                                    <span className={`px-3 py-1 rounded text-[9px] font-black tracking-widest ${
+                                                        activeMilestone?.approval_status === 'approved' ? 'bg-emerald-50 text-emerald-600' :
+                                                        activeMilestone?.approval_status === 'revision' ? 'bg-rose-50 text-rose-600 border border-rose-100' :
+                                                        'bg-amber-50 text-amber-600'
+                                                    }`}>
+                                                        {activeMilestone?.approval_status === 'approved' ? 'VERIFIED' :
+                                                         activeMilestone?.approval_status === 'revision' ? 'REVISED' :
+                                                         'PENDING REVIEW'}
+                                                    </span>
                                                 </div>
                                             </div>
                                         )}
@@ -1140,7 +1149,7 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
                                     <div className="space-y-4">
                                         <h5 className="text-[11px] font-black uppercase tracking-widest text-zinc-400 ml-2">Progress Comment</h5>
                                         <div className="bg-white p-8 rounded-[2.5rem] border border-zinc-200 shadow-sm space-y-6">
-                                            {canUpload && (activeMilestone?.approval_status !== 'approved' || (isNotaris || isArchitect)) ? (
+                                            {canUpload && activeMilestone?.approval_status !== 'approved' ? (
                                                 <>
                                                     <textarea 
                                                         value={editNote}
@@ -1177,78 +1186,7 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
                                     </div>
                                 </div>
                                 
-                                {/* Ledger Detail section */}
-                                {financials && (financials.disbursements || []).length > 0 && (
-                                    <div className="space-y-4">
-                                        <h5 className="text-[11px] font-black uppercase tracking-widest text-zinc-400 ml-2">Fee Disbursement History</h5>
-                                        <div className="bg-white rounded-[2.5rem] border border-zinc-200 overflow-hidden shadow-sm">
-                                            <div className="overflow-x-auto">
-                                                <table className="w-full text-left">
-                                                    <thead>
-                                                        <tr className="bg-zinc-50 border-b border-zinc-100">
-                                                            <th className="px-8 py-4 text-[9px] font-black uppercase tracking-widest text-zinc-400">Date</th>
-                                                            <th className="px-8 py-4 text-[9px] font-black uppercase tracking-widest text-zinc-400">Title / Description</th>
-                                                            <th className="px-8 py-4 text-[9px] font-black uppercase tracking-widest text-zinc-400">Amount</th>
-                                                            <th className="px-8 py-4 text-[9px] font-black uppercase tracking-widest text-zinc-400">Status</th>
-                                                            {canApprove && <th className="px-8 py-4 text-[9px] font-black uppercase tracking-widest text-zinc-400">Action</th>}
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody className="divide-y divide-zinc-50">
-                                                        {(financials.disbursements || []).map((d: any) => (
-                                                            <tr key={d.id} className="hover:bg-zinc-50/50 transition-colors">
-                                                                <td className="px-8 py-6 whitespace-nowrap">
-                                                                    <p className="text-[10px] font-bold text-zinc-400">{new Date(d.created_at).toLocaleDateString()}</p>
-                                                                </td>
-                                                                <td className="px-8 py-6">
-                                                                    <p className="text-sm font-black text-zinc-900 mb-1">{(d.label || '').replace('[Legal Disbursement] ', '')}</p>
-                                                                    <p className="text-[10px] text-zinc-400 font-medium leading-relaxed max-w-xs">{d.trigger_description || d.notes}</p>
-                                                                </td>
-                                                                <td className="px-8 py-6 whitespace-nowrap">
-                                                                    <p className="text-sm font-black text-zinc-900">{formatIDR(d.amount)}</p>
-                                                                </td>
-                                                                <td className="px-8 py-6 whitespace-nowrap">
-                                                                    <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
-                                                                        d.status === 'paid' ? 'bg-emerald-50 text-emerald-600' :
-                                                                        d.status === 'rejected' ? 'bg-red-50 text-red-600' :
-                                                                        'bg-amber-50 text-amber-600'
-                                                                    }`}>
-                                                                        {d.status === 'pending_approval' ? 'Pending' : d.status}
-                                                                    </span>
-                                                                </td>
-                                                                {canApprove && (
-                                                                    <td className="px-8 py-6 whitespace-nowrap">
-                                                                        {d.status === 'pending_approval' ? (
-                                                                            <div className="flex items-center gap-2">
-                                                                                <button 
-                                                                                    onClick={() => handleVerifyDisbursement(d.id, 'rejected')}
-                                                                                    className="p-2 text-red-400 hover:text-red-600 transition-colors"
-                                                                                    title="Reject"
-                                                                                >
-                                                                                    <Plus className="rotate-45" size={18} />
-                                                                                </button>
-                                                                                <button 
-                                                                                    onClick={() => handleVerifyDisbursement(d.id, 'paid')}
-                                                                                    className="flex items-center gap-1 px-4 py-2 bg-zinc-900 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-black transition-all"
-                                                                                >
-                                                                                    Approve
-                                                                                </button>
-                                                                            </div>
-                                                                        ) : (
-                                                                            <div className="flex items-center gap-2 text-zinc-300">
-                                                                                <History size={14} />
-                                                                                <span className="text-[9px] font-black uppercase tracking-widest">Locked</span>
-                                                                            </div>
-                                                                        )}
-                                                                    </td>
-                                                                )}
-                                                            </tr>
-                                                        ))}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
+
 
                                 {/* Verification Workflow */}
                                 {unapprovedHasFile && canApprove && (
@@ -1295,7 +1233,7 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
                                 )}
 
                                 {/* Legal Phase Sealing CTA */}
-                                {!isPhaseSealed && (allMilestonesApproved || isNotaris) && !unapprovedHasFile && (
+                                {!isPhaseSealed && !project.legal_handover_submitted_at && activeMilestone?.approval_status !== 'approved' && (allMilestonesApproved || isNotaris) && !unapprovedHasFile && (
                                     <motion.div 
                                         initial={{ opacity: 0, scale: 0.95 }}
                                         animate={{ opacity: 1, scale: 1 }}

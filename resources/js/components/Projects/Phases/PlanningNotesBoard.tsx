@@ -53,7 +53,7 @@ const PlanningNotesBoard: React.FC<PlanningNotesBoardProps> = ({ project, isArch
         user?.id === project.interior_profile?.user_id || 
         user?.id === project.interior_profile?.user?.id
     );
-    const isHiredArchitect = project.selected_arsitek_id && (user?.id === project.selected_arsitek_id || user?.arsitek_profile?.id === project.selected_arsitek_id);
+    const isHiredArchitect = project.selected_arsitek_id && (user?.arsitek?.id === project.selected_arsitek_id || user?.arsitek_profile?.id === project.selected_arsitek_id || project.arsitek?.user_id === user?.id);
     const isHiredSpecialist = isHiredStruc || isHiredMep || isHiredInterior || isHiredArchitect;
     
     const canAddFeedback = isPM || isOwner || isHiredSpecialist;

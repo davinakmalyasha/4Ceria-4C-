@@ -274,7 +274,7 @@ export default function RequirementCard({
             {/* Image Viewer Modal */}
             <AnimatePresence>
                 {isImageModalOpen && req.image_path && (
-                    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-4" onClick={() => setIsImageModalOpen(false)}>
+                    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-4" onClick={() => setIsImageModalOpen(false)}>
                         <motion.div 
                             initial={{ opacity: 0, scale: 0.95 }} 
                             animate={{ opacity: 1, scale: 1 }} 

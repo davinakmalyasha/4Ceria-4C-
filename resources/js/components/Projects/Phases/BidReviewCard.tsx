@@ -25,7 +25,10 @@ import { getProfile, ROLE_LABELS } from '../../Shared/ProfilePreviewHelpers';
 import ConfirmModal from '../ConfirmModal';
 import { NegotiationHistory } from './NegotiationHistory';
 import { ProposeFeeModal } from './ProposeFeeModal';
+import FilePreviewModal from '../../Common/FilePreviewModal';
 import { PortfolioProject } from '../../../types/project.types';
+import FirmSquadProfile from '../../Dashboard/FirmSquadProfile';
+
 
 const ensureArray = (value: any): any[] => {
     if (!value) return [];
@@ -93,6 +96,9 @@ export const BidReviewCard: React.FC<BidReviewCardProps> = ({
     const [portfolios, setPortfolios] = useState<PortfolioProject[]>([]);
     const [isLoadingPortfolios, setIsLoadingPortfolios] = useState(false);
     const [isConfirmFeeModalOpen, setIsConfirmFeeModalOpen] = useState(false);
+    const [previewFile, setPreviewFile] = useState<{ path: string; name: string } | null>(null);
+    const [showSquadProfile, setShowSquadProfile] = useState(false);
+
 
     const isContractor = phaseKey === 'build';
     const hasHistory = bid.negotiation_logs && bid.negotiation_logs.length > 0;
@@ -113,16 +119,30 @@ export const BidReviewCard: React.FC<BidReviewCardProps> = ({
         phaseKey === 'engineering' ? (bid.structural_id || bid.structuralEngineer ? 'structural' : 'mep') : 'interior'
     );
     
+    const roleLabelsMap: Record<string, string> = {
+        arsitek: 'Architect',
+        architect: 'Architect',
+        kontraktor: 'Contractor',
+        contractor: 'Contractor',
+        notaris: 'Notary',
+        notary: 'Notary',
+        interior: 'Interior Designer',
+        project_manager: 'Project Manager',
+        structural: 'Structural Engineer',
+        mep: 'MEP Specialist',
+    };
+    const roleLabel = roleLabelsMap[proType] || proType;
+    
     // Check if the current user is the professional of THIS bid
-    const isThePro = !!proId && (
+    const isThePro = (user?.id === proUserId) || (!!proId && (
         (proType === 'arsitek' && (user?.arsitek?.id === proId || user?.id === bid.arsitek?.user_id)) ||
         (proType === 'kontraktor' && (user?.kontraktor?.id === proId || user?.id === bid.kontraktor?.user_id)) ||
         (proType === 'notaris' && (user?.notaris_profile?.id === proId || user?.id === bid.notaris?.user_id)) ||
         (proType === 'interior' && (user?.interior_profile?.id === proId || user?.id === bid.interior?.user_id)) ||
-        (proType === 'project_manager' && (user?.project_manager?.id === proId || user?.id === proId)) ||
+        (proType === 'project_manager' && (user?.project_manager?.id === proId || user?.id === proUserId)) ||
         (proType === 'structural' && (user?.structural_engineer?.id === proId || user?.id === proUserId)) ||
         (proType === 'mep' && (user?.mep_engineer?.id === proId || user?.id === proUserId))
-    );
+    ));
 
     const isLeadArchitect = user?.role_type === 'arsitek' && (activeProject?.arsitek?.user?.id === user?.id || activeProject?.arsitek?.user_id === user?.id);
     const isLeadContractor = user?.role_type === 'kontraktor' && (activeProject?.kontraktor?.user?.id === user?.id || activeProject?.kontraktor?.user_id === user?.id);
@@ -130,6 +150,7 @@ export const BidReviewCard: React.FC<BidReviewCardProps> = ({
     const canRecommend = isSpecialist && (isLeadArchitect || isLeadContractor);
     const isOwnerOrPM = user?.id === activeProject?.user_id || user?.id === activeProject?.pm_id;
     const isProjectManager = activeProject?.pm_id && user?.id === activeProject?.pm_id;
+    const isReadOnly = readOnly || (isOwner && !!activeProject?.pm_id && !bid.is_recommended) || (user?.role_type === 'project_manager' && bid.is_recommended);
     const showFinancials = isThePro || (bid.status !== 'pending' && bid.status !== 'invited');
 
     const resolveProName = () => {
@@ -215,11 +236,7 @@ export const BidReviewCard: React.FC<BidReviewCardProps> = ({
     const formattedAgreedPrice = resolvedAgreedPrice.toLocaleString('id-ID');
     const formattedNegotiatedPrice = Number(getDisplayPrice(negotiatedFee)).toLocaleString('id-ID');
 
-    useEffect(() => {
-        if (bid.status !== 'contract_pending' && isSignModalOpen) {
-            setIsSignModalOpen(false);
-        }
-    }, [bid.status, isSignModalOpen]);
+
 
     const handleNegotiate = async (priceOverride?: number) => {
         setIsSubmitting(true);
@@ -406,8 +423,21 @@ export const BidReviewCard: React.FC<BidReviewCardProps> = ({
                         {proInitial}
                     </div>
                     <div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                             <h4 className="font-black text-gray-900 text-base">{proName}</h4>
+                            <span className="px-2 py-0.5 bg-slate-100 text-slate-700 text-[9px] font-black uppercase tracking-widest rounded-md shrink-0">
+                                {roleLabel}
+                            </span>
+                            {(proType === 'arsitek' || proType === 'architect' || proType === 'kontraktor' || proType === 'contractor') && (
+                                <button
+                                    type="button"
+                                    onClick={() => setShowSquadProfile(true)}
+                                    className="px-2 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[9px] font-black uppercase tracking-widest rounded-md border border-indigo-100 transition-all flex items-center gap-1 shrink-0 cursor-pointer"
+                                >
+                                    <Shield size={10} /> View Squad
+                                </button>
+                            )}
+
                             {isContractor && bid.construction_method && (
                                 <span className="px-2 py-0.5 bg-zinc-100 text-[10px] font-black uppercase text-zinc-500 rounded-md tracking-wider">
                                     {getMethodLabel(bid.construction_method)}
@@ -539,39 +569,42 @@ export const BidReviewCard: React.FC<BidReviewCardProps> = ({
                     </div>
                 </div>
 
-                {!readOnly && bid.status === 'pending' && (
+                {bid.status === 'pending' && (
                     <div className="flex flex-col gap-2">
-                        <div className="flex gap-2">
-                            <button 
-                                onClick={() => onAction(bid.id, 'decline')}
-                                disabled={isActioning}
-                                className="p-3 bg-gray-50 text-gray-400 rounded-xl hover:bg-red-50 hover:text-red-600 transition-all disabled:opacity-50"
-                                title="Decline"
-                            >
-                                <X size={18} />
-                            </button>
-                            <button 
-                                onClick={() => onAction(bid.id, 'shortlist')}
-                                disabled={isActioning}
-                                className="px-6 py-2.5 bg-blue-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all flex items-center gap-2 disabled:opacity-50"
-                            >
-                                {isActioning ? <Loader2 size={16} className="animate-spin" /> : <ListChecks size={16} />}
-                                Shortlist
-                            </button>
-                        </div>
-                        
-                        <div className="flex items-center gap-2 mt-2">
-                            {proPhone && (
-                                <a
-                                    href={`https://wa.me/${String(proPhone).replace(/[^0-9]/g, '')}?text=Halo%20${proName},%20saya%20pemilik%20proyek%20di%204Ceria.%20Ingin%20bertanya%20mengenai%20penawaran%20Anda.`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-[#25D366] text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-[#20bd5a] transition-all shadow-sm"
+                        {!isReadOnly && (
+                            <div className="flex gap-2">
+                                <button 
+                                    onClick={() => onAction(bid.id, 'decline')}
+                                    disabled={isActioning}
+                                    className="p-3 bg-gray-50 text-gray-400 rounded-xl hover:bg-red-50 hover:text-red-600 transition-all disabled:opacity-50"
+                                    title="Decline"
                                 >
-                                    <Smartphone size={12} />
-                                    WhatsApp
-                                </a>
-                            )}
+                                    <X size={18} />
+                                </button>
+                                <button 
+                                    onClick={() => onAction(bid.id, 'shortlist')}
+                                    disabled={isActioning}
+                                    className="px-6 py-2.5 bg-blue-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all flex items-center gap-2 disabled:opacity-50"
+                                >
+                                    {isActioning ? <Loader2 size={16} className="animate-spin" /> : <ListChecks size={16} />}
+                                    Shortlist
+                                </button>
+                            </div>
+                        )}
+                        
+                        {!isThePro && (
+                            <div className="flex items-center gap-2 mt-2">
+                                {proPhone && (
+                                    <a
+                                        href={`https://wa.me/${String(proPhone).replace(/[^0-9]/g, '')}?text=Halo%20${proName},%20saya%20pemilik%20proyek%20di%204Ceria.%20Ingin%20bertanya%20mengenai%20penawaran%20Anda.`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-[#25D366] text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-[#20bd5a] transition-all shadow-sm"
+                                    >
+                                        <Smartphone size={12} />
+                                        WhatsApp
+                                    </a>
+                                )}
                                 <button 
                                     onClick={() => onOpenChat?.(professionalUser)}
                                     className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-sm"
@@ -579,17 +612,18 @@ export const BidReviewCard: React.FC<BidReviewCardProps> = ({
                                     <MessageCircle size={12} />
                                     Chat
                                 </button>
-                        </div>
+                            </div>
+                        )}
                     </div>
                 )}
 
-                {!readOnly && bid.status === 'invited' && (
+                {bid.status === 'invited' && (
                     <div className="flex flex-col gap-2">
                         <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-full border border-blue-200 shadow-sm">
                             <Clock size={13} className="animate-pulse" />
                             <span className="text-[9px] font-black uppercase tracking-[0.15em]">Invited</span>
                         </div>
-                        {isThePro ? (
+                        {!isReadOnly && isThePro ? (
                             <div className="flex gap-2">
                                 <button 
                                     onClick={() => handleInviteResponse('reject')}
@@ -607,13 +641,13 @@ export const BidReviewCard: React.FC<BidReviewCardProps> = ({
                                     Accept
                                 </button>
                             </div>
-                        ) : (
+                        ) : !isThePro ? (
                             <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest text-center mt-2 italic">Waiting for professional</p>
-                        )}
+                        ) : null}
                     </div>
                 )}
 
-                {!readOnly && bid.status === 'negotiating' && (
+                {bid.status === 'negotiating' && (
                     <div className="flex flex-col gap-2 min-w-[220px]">
                         <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 text-amber-700 rounded-full border border-amber-200 shadow-sm">
@@ -643,7 +677,7 @@ export const BidReviewCard: React.FC<BidReviewCardProps> = ({
                                         ? 'Awaiting Owner confirmation to finalize hiring' 
                                         : 'Professional has accepted. You can now proceed to hire.'}
                                 </p>
-                                {isOwner && (
+                                {isOwner && !isReadOnly && (
                                     <button 
                                         onClick={() => onAction?.(bid.id, 'accept')}
                                         disabled={isActioning}
@@ -657,6 +691,11 @@ export const BidReviewCard: React.FC<BidReviewCardProps> = ({
                             <div className="bg-gray-50 border border-gray-100 rounded-2xl p-4 space-y-2">
                                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest text-center">Awaiting response from {isThePro ? 'Owner' : proName}</p>
                                 <p className="text-[8px] text-gray-300 text-center uppercase tracking-widest">The counter-party has been notified of your proposal</p>
+                            </div>
+                        ) : isReadOnly ? (
+                            <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 text-center">
+                                <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest">Awaiting Decision</p>
+                                <p className="text-[8px] text-amber-600 font-bold mt-1 uppercase">Negotiation is managed by the Project Manager</p>
                             </div>
                         ) : (
                             <div className="bg-red-50/50 border border-red-100 rounded-2xl p-4 space-y-3">
@@ -681,26 +720,28 @@ export const BidReviewCard: React.FC<BidReviewCardProps> = ({
                             </div>
                         )}
 
-                        <div className="flex items-center gap-2 mt-2">
-                            <button 
-                                onClick={() => onOpenChat?.(professionalUser)}
-                                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-sm"
-                            >
-                                <MessageCircle size={12} /> Chat
-                            </button>
-                            <a 
-                                href={`https://wa.me/${String(proPhone || '').replace(/[^0-9]/g, '')}?text=Halo%20${proName},%20saya%20pemilik%20proyek%20di%204Ceria.`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-[#25D366] text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-[#20bd5a] transition-all shadow-sm"
-                            >
-                                <Smartphone size={12} /> WhatsApp
-                            </a>
-                        </div>
+                        {!isThePro && (
+                            <div className="flex items-center gap-2 mt-2">
+                                <button 
+                                    onClick={() => onOpenChat?.(professionalUser)}
+                                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-sm"
+                                >
+                                    <MessageCircle size={12} /> Chat
+                                </button>
+                                <a 
+                                    href={`https://wa.me/${String(proPhone || '').replace(/[^0-9]/g, '')}?text=Halo%20${proName},%20saya%20pemilik%20proyek%20di%204Ceria.`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-[#25D366] text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-[#20bd5a] transition-all shadow-sm"
+                                >
+                                    <Smartphone size={12} /> WhatsApp
+                                </a>
+                            </div>
+                        )}
                     </div>
                 )}
 
-                {!readOnly && (bid.status === 'shortlisted' || bid.status === 'recommended') && (
+                {(bid.status === 'shortlisted' || bid.status === 'recommended') && (
                     <div className="flex flex-col gap-2">
                         <div className="flex flex-wrap gap-2">
                             {bid.status !== 'recommended' && !bid.is_recommended && (
@@ -727,13 +768,30 @@ export const BidReviewCard: React.FC<BidReviewCardProps> = ({
                                 {(!bid.price || bid.price <= 0 || !bid.proposed_termins) ? (
                                     <button 
                                         onClick={() => setIsProposeFeeModalOpen(true)}
-                                        className="w-full py-3 bg-zinc-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all flex items-center justify-center gap-2 shadow-lg"
+                                        disabled={isReadOnly}
+                                        className="w-full py-3 bg-zinc-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all flex items-center justify-center gap-2 shadow-lg disabled:opacity-50"
                                     >
                                         <DollarSign size={14} /> Propose Fee & Terms
                                     </button>
                                 ) : (
                                     <div className="bg-gray-50 border border-gray-100 rounded-xl p-3 text-center">
                                         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Awaiting Hiring Decision</p>
+                                    </div>
+                                )}
+                            </div>
+                        ) : isReadOnly ? (
+                            <div className="space-y-2 mt-2">
+                                {bid.fee_agreed_at ? (
+                                    <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3 text-center">
+                                        <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Fee Agreed</p>
+                                        <p className="text-[8px] text-emerald-600 font-bold mt-0.5 uppercase">
+                                            {bid.is_recommended ? "Awaiting Owner's hiring approval" : "Awaiting PM signaling to hire"}
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 text-center">
+                                        <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest">Awaiting Quote</p>
+                                        <p className="text-[8px] text-amber-600 font-bold mt-0.5 uppercase">Professional must propose fee & terms</p>
                                     </div>
                                 )}
                             </div>
@@ -754,59 +812,72 @@ export const BidReviewCard: React.FC<BidReviewCardProps> = ({
                                             disabled={isActioning}
                                             className="flex-1 py-2.5 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 shadow-lg shadow-emerald-200 transition-all flex items-center justify-center gap-2"
                                         >
-                                            <Check size={16} /> Confirm & Hire
+                                            <Check size={16} /> {user?.role_type === 'project_manager' ? 'Recommend Professional' : 'Confirm & Hire'}
                                         </button>
                                     ) : (
                                         <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 text-center">
-                                        <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest">
-                                            Awaiting Professional's Quote
-                                        </p>
-                                        <p className="text-[9px] text-amber-600 font-bold mt-1 uppercase tracking-tighter opacity-80">
-                                            The professional must propose fee & terms first
-                                        </p>
-                                    </div>
-                                )}
+                                            <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest">
+                                                Awaiting Professional's Quote
+                                            </p>
+                                            <p className="text-[9px] text-amber-600 font-bold mt-1 uppercase tracking-tighter opacity-80">
+                                                The professional must propose fee & terms first
+                                            </p>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         )}
                         
-                        <div className="flex items-center gap-2 mt-2">
-                            <button 
-                                onClick={() => onOpenChat?.(professionalUser)}
-                                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-sm"
-                            >
-                                <MessageCircle size={12} /> Chat
-                            </button>
-                            <a 
-                                href={`https://wa.me/${String(proPhone || '').replace(/[^0-9]/g, '')}?text=Halo%20${proName},%20saya%20pemilik%20proyek%20di%204Ceria.`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-[#25D366] text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-[#20bd5a] transition-all shadow-sm"
-                            >
-                                <Smartphone size={12} /> WhatsApp
-                            </a>
-                        </div>
+                        {!isThePro && (
+                            <div className="flex items-center gap-2 mt-2">
+                                <button 
+                                    onClick={() => onOpenChat?.(professionalUser)}
+                                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-sm"
+                                >
+                                    <MessageCircle size={12} /> Chat
+                                </button>
+                                <a 
+                                    href={`https://wa.me/${String(proPhone || '').replace(/[^0-9]/g, '')}?text=Halo%20${proName},%20saya%20pemilik%20proyek%20di%204Ceria.`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-[#25D366] text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-[#20bd5a] transition-all shadow-sm"
+                                >
+                                    <Smartphone size={12} /> WhatsApp
+                                </a>
+                            </div>
+                        )}
                     </div>
                 )}
 
-                {!readOnly && bid.status === 'accepted' && (
+                {bid.status === 'accepted' && (
                     <div className="flex flex-col gap-2">
                         <div className="flex items-center gap-2 px-4 py-2 bg-emerald-100 text-emerald-700 rounded-xl border border-emerald-200 shadow-sm shadow-emerald-50">
                             <CheckCircle2 size={16} strokeWidth={3} />
                             <span className="text-[10px] font-black uppercase tracking-[0.2em]">Hired & Active</span>
                         </div>
-                        <div className="flex items-center gap-2">
-                            {proPhone && (
-                                <a
-                                    href={`https://wa.me/${String(proPhone).replace(/[^0-9]/g, '')}?text=Halo%20${proName},%20saya%20pemilik%20proyek%20di%204Ceria.`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-[#25D366] text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-[#20bd5a] transition-all shadow-sm"
-                                >
-                                    <Smartphone size={12} />
-                                    WhatsApp
-                                </a>
-                            )}
+                        {bid.pro_signature_url && (
+                            <button 
+                                type="button"
+                                onClick={() => setIsSignModalOpen(true)}
+                                className="w-full py-2.5 bg-zinc-800 text-zinc-300 rounded-xl text-[9px] font-black uppercase tracking-widest border border-zinc-700 hover:bg-zinc-700 hover:text-white flex items-center justify-center gap-2 transition-all"
+                            >
+                                <FileText size={12} />
+                                Preview Signed Contract
+                            </button>
+                        )}
+                        {!isThePro && (
+                            <div className="flex items-center gap-2">
+                                {proPhone && (
+                                    <a
+                                        href={`https://wa.me/${String(proPhone).replace(/[^0-9]/g, '')}?text=Halo%20${proName},%20saya%20pemilik%20proyek%20di%204Ceria.`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-[#25D366] text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-[#20bd5a] transition-all shadow-sm"
+                                    >
+                                        <Smartphone size={12} />
+                                        WhatsApp
+                                    </a>
+                                )}
                                 <button 
                                     onClick={() => onOpenChat?.(professionalUser)}
                                     className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-sm"
@@ -814,38 +885,63 @@ export const BidReviewCard: React.FC<BidReviewCardProps> = ({
                                     <MessageCircle size={12} />
                                     Chat
                                 </button>
-                        </div>
+                            </div>
+                        )}
                     </div>
                 )}
 
-                {/* Status: Contract Pending (Awaiting Professional Sign) */}
-                {!readOnly && bid.status === 'contract_pending' && (
+                {(bid.status === 'contract_pending' || (bid.pro_signature_url && !bid.client_signature_url)) && (
                     <div className="flex flex-col gap-2">
                         <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 text-amber-700 rounded-xl border border-amber-200 shadow-sm animate-pulse">
                             <Clock size={16} />
                             <span className="text-[9px] font-black uppercase tracking-[0.2em]">Contract Pending</span>
                         </div>
                         
-                        {isThePro ? (
-                            <div className="space-y-2">
-                                <button 
-                                    onClick={() => setIsSignModalOpen(true)}
-                                    className="w-full py-3 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-500 shadow-lg shadow-emerald-900/40 flex items-center justify-center gap-2 transition-all"
-                                >
-                                    <Shield size={14} />
-                                    Sign Contract & Define Termins
-                                </button>
+                        {bid.pro_signature_url ? (
+                            isThePro ? (
+                                <div className="space-y-2">
+                                    <p className="text-[9px] font-bold text-zinc-400 uppercase text-center py-2">Awaiting client signature...</p>
+                                    <button 
+                                        type="button"
+                                        onClick={() => setIsSignModalOpen(true)}
+                                        className="w-full py-2.5 bg-zinc-800 text-zinc-300 rounded-xl text-[9px] font-black uppercase tracking-widest border border-zinc-700 hover:bg-zinc-700 hover:text-white flex items-center justify-center gap-2 transition-all"
+                                    >
+                                        <FileText size={12} />
+                                        Preview Signed Contract
+                                    </button>
                                 </div>
+                            ) : (
+                                <div className="space-y-2">
+                                    <button 
+                                        onClick={() => setIsSignModalOpen(true)}
+                                        className="w-full py-3 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-500 shadow-lg shadow-emerald-900/40 flex items-center justify-center gap-2 transition-all"
+                                    >
+                                        <Shield size={14} />
+                                        Review & Sign Contract
+                                    </button>
+                                </div>
+                            )
                         ) : (
-                            <div className="space-y-2">
-                                <p className="text-[9px] font-bold text-zinc-400 uppercase text-center py-2">Awaiting professional signature...</p>
-                            </div>
+                            isThePro ? (
+                                <div className="space-y-2">
+                                    <button 
+                                        onClick={() => setIsSignModalOpen(true)}
+                                        className="w-full py-3 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-500 shadow-lg shadow-emerald-900/40 flex items-center justify-center gap-2 transition-all"
+                                    >
+                                        <Shield size={14} />
+                                        Sign Contract & Define Termins
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="space-y-2">
+                                    <p className="text-[9px] font-bold text-zinc-400 uppercase text-center py-2">Awaiting professional signature...</p>
+                                </div>
+                            )
                         )}
                     </div>
                 )}
 
-                {/* Status: Awaiting Payment or In Progress (if milestones are started/paid) */}
-                {!readOnly && bid.status === 'awaiting_payment' && (() => {
+                {bid.status === 'awaiting_payment' && (!bid.pro_signature_url || bid.client_signature_url) && (() => {
                     const relatedTermins = activeProject?.payment_termins?.filter((t: any) => t.role_type === proType) || [];
                     const hasPaidTermin = bid.payment_status === 'paid' || relatedTermins.some((t: any) => t.status === 'paid');
                     const hasVerifyingTermin = bid.payment_status === 'verifying' || relatedTermins.some((t: any) => t.status === 'verifying');
@@ -868,31 +964,43 @@ export const BidReviewCard: React.FC<BidReviewCardProps> = ({
                                     <span className="text-[10px] font-black uppercase tracking-[0.2em]">Awaiting Payment</span>
                                 </div>
                             )}
-                            <div className="flex items-center gap-2">
-                                {proPhone && (
-                                    <a
-                                        href={`https://wa.me/${String(proPhone).replace(/[^0-9]/g, '')}?text=Halo%20${proName},%20saya%20pemilik%20proyek%20di%204Ceria.`}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-[#25D366] text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-[#20bd5a] transition-all shadow-sm"
-                                    >
-                                        <Smartphone size={12} />
-                                        WhatsApp
-                                    </a>
-                                )}
+                            {bid.pro_signature_url && (
                                 <button 
-                                    onClick={() => onOpenChat?.(professionalUser)}
-                                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-sm"
+                                    type="button"
+                                    onClick={() => setIsSignModalOpen(true)}
+                                    className="w-full py-2.5 bg-zinc-800 text-zinc-300 rounded-xl text-[9px] font-black uppercase tracking-widest border border-zinc-700 hover:bg-zinc-700 hover:text-white flex items-center justify-center gap-2 transition-all"
                                 >
-                                    <MessageCircle size={12} />
-                                    Chat
+                                    <FileText size={12} />
+                                    Preview Signed Contract
                                 </button>
-                            </div>
+                            )}
+                            {!isThePro && (
+                                <div className="flex items-center gap-2">
+                                    {proPhone && (
+                                        <a
+                                            href={`https://wa.me/${String(proPhone).replace(/[^0-9]/g, '')}?text=Halo%20${proName},%20saya%20pemilik%20proyek%20di%204Ceria.`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-[#25D366] text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-[#20bd5a] transition-all shadow-sm"
+                                        >
+                                            <Smartphone size={12} />
+                                            WhatsApp
+                                        </a>
+                                    )}
+                                    <button 
+                                        onClick={() => onOpenChat?.(professionalUser)}
+                                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-sm"
+                                    >
+                                        <MessageCircle size={12} />
+                                        Chat
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     );
                 })()}
 
-                {!readOnly && bid.status === 'rejected' && (
+                {bid.status === 'rejected' && (
                     <div className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-400 rounded-xl border border-gray-200">
                         <X size={16} strokeWidth={3} />
                         <span className="text-[10px] font-black uppercase tracking-[0.2em]">Declined</span>
@@ -1042,23 +1150,22 @@ export const BidReviewCard: React.FC<BidReviewCardProps> = ({
                         {phaseKey === 'legal' && Array.isArray(bid.attachments) && bid.attachments.length > 0 && (
                             <div className="flex flex-wrap gap-2">
                                 {bid.attachments.map((url: string, index: number) => (
-                                    <a 
+                                    <button 
                                         key={index}
-                                        href={url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="flex items-center gap-2 px-3 py-2 bg-zinc-50 border border-zinc-100 rounded-xl hover:bg-zinc-100 hover:border-zinc-900 transition-all group/doc"
+                                        type="button"
+                                        onClick={() => setPreviewFile({ path: url, name: `Legal Document ${index + 1}` })}
+                                        className="flex items-center gap-2 px-3 py-2 bg-zinc-50 border border-zinc-100 rounded-xl hover:bg-zinc-100 hover:border-zinc-900 transition-all group/doc cursor-pointer text-left font-sans"
                                     >
-                                        <div className="w-8 h-8 bg-zinc-900 text-white rounded-lg flex items-center justify-center shadow-lg shadow-zinc-200">
+                                        <div className="w-8 h-8 bg-zinc-900 text-white rounded-lg flex items-center justify-center shadow-lg shadow-zinc-200 animate-none">
                                             <FileText size={14} />
                                         </div>
                                         <div className="flex flex-col">
                                             <span className="text-[10px] font-black uppercase text-zinc-900 tracking-tight">Legal Document {index + 1}</span>
                                             <span className="text-[9px] font-bold text-gray-400 flex items-center gap-1">
-                                                View File <ExternalLink size={8} />
+                                                View File <Eye size={8} />
                                             </span>
                                         </div>
-                                    </a>
+                                    </button>
                                 ))}
                             </div>
                         )}
@@ -1501,18 +1608,18 @@ export const BidReviewCard: React.FC<BidReviewCardProps> = ({
                                             </label>
                                             <div className="flex flex-wrap gap-2">
                                                 {[bid.attachment_1, bid.attachment_2, bid.attachment_3].filter(Boolean).map((url, i) => (
-                                                    <a key={i} href={`/storage/${url}`} target="_blank" rel="noopener noreferrer" 
-                                                        className="flex items-center gap-2 px-3.5 py-2 bg-zinc-50 border border-zinc-100 rounded-xl hover:bg-zinc-900 hover:text-white transition-all group">
+                                                    <button key={i} type="button" onClick={() => setPreviewFile({ path: url, name: `Document ${i + 1}` })} 
+                                                        className="flex items-center gap-2 px-3.5 py-2 bg-zinc-50 border border-zinc-100 rounded-xl hover:bg-zinc-900 hover:text-white transition-all group cursor-pointer">
                                                         <FileText size={12} className="text-zinc-400 group-hover:text-white" />
                                                         <span className="text-[9px] font-black uppercase">Document {i + 1}</span>
-                                                    </a>
+                                                    </button>
                                                 ))}
                                                 {Array.isArray(bid.attachments) && bid.attachments.map((url, i) => (
-                                                    <a key={`extra-${i}`} href={url} target="_blank" rel="noopener noreferrer" 
-                                                        className="flex items-center gap-2 px-3.5 py-2 bg-zinc-50 border border-zinc-100 rounded-xl hover:bg-zinc-900 hover:text-white transition-all group">
+                                                    <button key={`extra-${i}`} type="button" onClick={() => setPreviewFile({ path: url, name: `Extra Doc ${i + 1}` })} 
+                                                        className="flex items-center gap-2 px-3.5 py-2 bg-zinc-50 border border-zinc-100 rounded-xl hover:bg-zinc-900 hover:text-white transition-all group cursor-pointer">
                                                         <FileText size={12} className="text-zinc-400 group-hover:text-white" />
                                                         <span className="text-[9px] font-black uppercase">Extra Doc {i + 1}</span>
-                                                    </a>
+                                                    </button>
                                                 ))}
                                             </div>
                                         </div>
@@ -1593,6 +1700,7 @@ export const BidReviewCard: React.FC<BidReviewCardProps> = ({
                     bid={bid}
                     bidType={proType}
                     onSuccess={() => onRefresh?.()}
+                    isClient={!isThePro}
                 />
             )}
 
@@ -1632,6 +1740,27 @@ export const BidReviewCard: React.FC<BidReviewCardProps> = ({
                 onCancel={() => setIsConfirmFeeModalOpen(false)}
                 isLoading={isSubmitting}
             />
+
+            <FilePreviewModal
+                isOpen={!!previewFile}
+                onClose={() => setPreviewFile(null)}
+                filePath={previewFile?.path || null}
+                fileName={previewFile?.name || ''}
+            />
+
+            {showSquadProfile && (
+                <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md overflow-y-auto">
+                    <div className="w-full max-w-5xl my-8 relative pointer-events-auto">
+                        <FirmSquadProfile 
+                            ownerId={professionalUser?.id || bid.arsitek?.user_id || bid.kontraktor?.user_id} 
+                            isGuestMode={true} 
+                            onCloseGuest={() => setShowSquadProfile(false)} 
+                            onOpenChat={onOpenChat} 
+                        />
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
+

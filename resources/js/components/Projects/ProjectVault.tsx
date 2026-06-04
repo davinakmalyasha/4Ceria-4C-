@@ -210,10 +210,10 @@ export default function ProjectVault({ project }: Props) {
                                     </p>
                                     
                                     <div className="flex gap-4 mt-4">
-                                        <a href={`/storage/${doc.file_path}`} target="_blank" rel="noopener noreferrer" className="text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-blue-900 flex items-center gap-1.5 transition-colors">
+                                        <a href={doc.file_url || `/storage/${doc.file_path}`} target="_blank" rel="noopener noreferrer" className="text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-blue-900 flex items-center gap-1.5 transition-colors">
                                             <ExternalLink className="w-3.5 h-3.5" /> View
                                         </a>
-                                        <a href={`/storage/${doc.file_path}`} download={doc.file_name} className="text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-blue-900 flex items-center gap-1.5 transition-colors">
+                                        <a href={doc.file_url || `/storage/${doc.file_path}`} download={doc.file_name} className="text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-blue-900 flex items-center gap-1.5 transition-colors">
                                             <Download className="w-3.5 h-3.5" /> Download
                                         </a>
                                     </div>

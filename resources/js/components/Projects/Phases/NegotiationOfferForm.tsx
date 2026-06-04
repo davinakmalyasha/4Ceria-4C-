@@ -9,6 +9,8 @@ import { PaymentSchedule } from './Negotiation/PaymentSchedule';
 import { TeamCompositionSection } from './Negotiation/TeamCompositionSection';
 import { useAuth } from '../../../context/AuthContext';
 
+import ConfirmModal from '../ConfirmModal';
+
 interface Props {
     bid: Bid;
     project: Project;
@@ -50,6 +52,7 @@ const getProjectWidth = (proj: any) => {
 export const NegotiationOfferForm: React.FC<Props> = ({ bid, project, proType, onSubmit, onCancel }) => {
     const { user } = useAuth();
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isConfirmOpen, setIsConfirmOpen] = useState(false);
     
     const [feeType, setFeeType] = useState<NegotiationOfferDTO['fee_type']>(
         (bid.fee_type as any) || 'fixed'
@@ -87,21 +90,34 @@ export const NegotiationOfferForm: React.FC<Props> = ({ bid, project, proType, o
 
     const isClient = user?.role_type === 'user';
     
+    const parsedSelectedServices = useMemo(() => {
+        if (Array.isArray(bid.selected_services)) return bid.selected_services;
+        if (typeof bid.selected_services === 'string') {
+            try { return JSON.parse(bid.selected_services); } catch (e) {}
+        }
+        return [];
+    }, [bid.selected_services]);
+
     // Map selected_services into milestones based on milestone_index on mount so they render selected correctly!
     const initialMilestones = useMemo(() => {
         if (Array.isArray(bid.proposed_milestones) && bid.proposed_milestones.length > 0) {
             return bid.proposed_milestones.map((m, idx) => {
-                const services = Array.isArray(bid.selected_services)
-                    ? bid.selected_services.filter((s: any) => Number(s.milestone_index) === idx)
-                    : [];
+                const services = parsedSelectedServices.filter((s: any) => {
+                    const sIndex = s.milestone_index !== undefined && s.milestone_index !== null ? Number(s.milestone_index) : 0;
+                    return sIndex === idx;
+                });
                 return {
                     ...m,
                     services
                 };
             });
         }
-        return [{ title: 'Initial Planning', description: '', services: [] }];
-    }, [bid]);
+        return [{ 
+            title: 'Initial Planning', 
+            description: '', 
+            services: parsedSelectedServices.map((s: any) => ({ ...s, milestone_index: 0 })) 
+        }];
+    }, [bid, parsedSelectedServices]);
     const [milestones, setMilestones] = useState<ProposedMilestone[]>(initialMilestones);
 
     const initialTermins = useMemo(() => {
@@ -234,17 +250,25 @@ export const NegotiationOfferForm: React.FC<Props> = ({ bid, project, proType, o
 
     // Resilient Services: Falls back to bid's own selected services when accessed by non-notary users (e.g. Clients/PMs)
     const profileServices = useMemo(() => {
-        if (user?.role_type === 'notaris' && Array.isArray(user?.notaris_profile?.services)) {
-            return user.notaris_profile.services;
+        let pServices: any[] = [];
+        if (user?.role_type === 'notaris') {
+            if (Array.isArray(user?.notaris_profile?.services)) {
+                pServices = user.notaris_profile.services;
+            } else if (typeof user?.notaris_profile?.services === 'string') {
+                try { pServices = JSON.parse(user.notaris_profile.services); } catch (e) {}
+            }
         }
-        if (Array.isArray(bid.selected_services)) {
-            return bid.selected_services;
+        if (pServices.length > 0) return pServices;
+
+        if (parsedSelectedServices.length > 0) {
+            return parsedSelectedServices;
         }
+
         if (bid.bidder && Array.isArray((bid.bidder as any).services)) {
             return (bid.bidder as any).services;
         }
         return [];
-    }, [user, bid]);
+    }, [user, bid, parsedSelectedServices]);
 
     // Detect modifications before letting user submit
     const hasChanges = useMemo(() => {
@@ -331,6 +355,8 @@ export const NegotiationOfferForm: React.FC<Props> = ({ bid, project, proType, o
     }, [proposedTeam, baseOfferValue]);
 
     const grandTotal = baseOfferValue + servicesTotal + teamTotal;
+    const isNotary = user?.role_type === 'notaris' || proType === 'notaris' || bid.type === 'notaris';
+    const isInvalidFee = isNotary ? grandTotal <= 0 : amount <= 0;
     
     const totalPercentage = termins.reduce((acc, curr) => acc + Number(curr.percentage || 0), 0);
 
@@ -349,8 +375,8 @@ export const NegotiationOfferForm: React.FC<Props> = ({ bid, project, proType, o
         setMilestones(prev => prev.filter((_, i) => i !== index));
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const executeSubmit = async () => {
+        setIsConfirmOpen(false);
         setIsSubmitting(true);
         try {
             await onSubmit({
@@ -367,6 +393,11 @@ export const NegotiationOfferForm: React.FC<Props> = ({ bid, project, proType, o
         } finally {
             setIsSubmitting(false);
         }
+    };
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsConfirmOpen(true);
     };
 
     return (
@@ -476,13 +507,24 @@ export const NegotiationOfferForm: React.FC<Props> = ({ bid, project, proType, o
                     </button>
                     <button 
                         type="submit" 
-                        disabled={isSubmitting || totalPercentage !== 100 || !hasChanges}
+                        disabled={isSubmitting || totalPercentage !== 100 || !hasChanges || isInvalidFee}
                         className="px-10 py-4 bg-white text-slate-900 rounded-2xl text-sm font-black uppercase tracking-widest hover:scale-105 active:scale-95 transition-all disabled:opacity-30 disabled:hover:scale-100 disabled:cursor-not-allowed"
                     >
                         {isSubmitting ? 'Sending...' : 'Submit Proposal'}
                     </button>
                 </div>
             </div>
+
+            <ConfirmModal 
+                isOpen={isConfirmOpen}
+                title="Submit Proposal"
+                description="Submit this proposal? Please make sure all the data is correct."
+                confirmText="Submit"
+                variant="info"
+                onConfirm={executeSubmit}
+                onCancel={() => setIsConfirmOpen(false)}
+                isLoading={isSubmitting}
+            />
         </form>
     );
 };

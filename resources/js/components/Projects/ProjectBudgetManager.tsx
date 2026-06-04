@@ -3,7 +3,7 @@ import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
     Wallet, TrendingDown, TrendingUp, Plus, Minus, 
-    CheckCircle, Clock, ShieldAlert, Zap, AlertTriangle, Scale, Target, Banknote,
+    CheckCircle, Clock, Lock, ShieldAlert, Zap, AlertTriangle, Scale, Target, Banknote,
     Edit3, Trash2, Save, X, Users, Mail, Phone, ExternalLink, ShieldCheck, Upload
 } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
@@ -270,6 +270,13 @@ export default function ProjectBudgetManager({ project, user }: ProjectBudgetMan
                     {['arsitek', 'kontraktor', 'notaris', 'interior', 'project_manager'].map((type) => {
                         const bid = dashboardData.accepted_bids?.[type];
                         if (!bid || type === 'kontraktor') return null; // Contractor uses Termins
+
+                        // If this role type has specific termins, do not show it as a lump-sum base fee to avoid double-counting
+                        const hasTermins = dashboardData.payment_termins?.some((t: any) => 
+                            t.role_type === type || 
+                            (type === 'project_manager' && t.role_type === 'pm')
+                        );
+                        if (hasTermins) return null;
                         return (
                             <div key={`${type}-${bid.id}`} className={`p-6 border-l-4 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all ${bid.payment_status === 'paid' ? 'bg-slate-50 border-emerald-500' : 'bg-white border-amber-400 shadow-sm'}`}>
                                 <div>
@@ -292,30 +299,95 @@ export default function ProjectBudgetManager({ project, user }: ProjectBudgetMan
                         );
                     })}
 
-                    {/* Render Contractor Termins */}
+                    {/* Render Grouped Milestones / Termins */}
                     {dashboardData.payment_termins && dashboardData.payment_termins.length > 0 && (
-                        <div className="mt-4 pt-4 border-t border-slate-100">
-                            <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-4">Construction Invoices (Termins)</h4>
-                            <div className="space-y-3">
-                                {dashboardData.payment_termins.map((termin: any) => (
-                                    <div key={`termin-${termin.id}`} className={`p-5 rounded-2xl flex items-center justify-between transition-all ${termin.status === 'paid' ? 'bg-slate-50 opacity-70' : 'bg-white shadow-sm border border-slate-100'}`}>
-                                        <div>
-                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">{termin.percentage}% Termin</p>
-                                            <h5 className="font-bold text-slate-900 text-sm">{termin.label}</h5>
-                                            <p className="text-slate-700 font-black mt-1">Rp {Number(termin.amount || 0).toLocaleString('id-ID')}</p>
+                        <div className="mt-6 pt-6 border-t border-slate-100 space-y-6">
+                            <h4 className="text-xs font-black uppercase tracking-widest text-slate-400">Milestone Payments (Termins)</h4>
+                            
+                            {Object.entries(
+                                dashboardData.payment_termins.reduce((groups: any, termin: any) => {
+                                    const role = termin.role_type || 'other';
+                                    if (!groups[role]) groups[role] = [];
+                                    groups[role].push(termin);
+                                    return groups;
+                                }, {})
+                            ).map(([role, roleTermins]: [string, any]) => {
+                                const roleLabel = role === 'project_manager' || role === 'pm'
+                                    ? 'Project Manager'
+                                    : role === 'arsitek'
+                                    ? 'Architect'
+                                    : role === 'kontraktor'
+                                    ? 'Contractor'
+                                    : role === 'interior'
+                                    ? 'Interior'
+                                    : role === 'notaris'
+                                    ? 'Notary'
+                                    : role.charAt(0).toUpperCase() + role.slice(1).replace('_', ' ');
+
+                                return (
+                                    <div key={role} className="space-y-3">
+                                        <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest pl-1">{roleLabel} Milestones</h5>
+                                        <div className="space-y-3">
+                                            {roleTermins.map((termin: any, index: number) => {
+                                                const isPaid = termin.status === 'paid';
+                                                const isVerifying = termin.status === 'verifying';
+                                                const isPrecedingUnpaid = roleTermins.slice(0, index).some((p: any) => p.status !== 'paid');
+                                                const isLocked = !isPaid && !isVerifying && isPrecedingUnpaid;
+
+                                                return (
+                                                    <div 
+                                                        key={`termin-${termin.id}`} 
+                                                        className={`p-5 rounded-2xl flex items-center justify-between transition-all ${
+                                                            isPaid ? 'bg-slate-50 opacity-70' : 
+                                                            isLocked ? 'bg-slate-50/50 border-dashed border-slate-200 opacity-40 grayscale-[0.5] select-none' : 
+                                                            'bg-white shadow-sm border border-slate-100'
+                                                        }`}
+                                                    >
+                                                        <div>
+                                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">{termin.percentage}% Milestone</p>
+                                                            <h5 className="font-bold text-slate-900 text-sm">{termin.label}</h5>
+                                                            <p className="text-slate-700 font-black mt-1">Rp {Number(termin.amount || 0).toLocaleString('id-ID')}</p>
+                                                        </div>
+                                                        {isPaid ? (
+                                                            <div className="flex items-center gap-1.5 text-emerald-600 font-black text-[10px] uppercase tracking-widest">
+                                                                <CheckCircle size={16} className="text-emerald-500" />
+                                                                <span>Paid</span>
+                                                            </div>
+                                                        ) : isVerifying ? (
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="flex items-center gap-1.5 text-amber-600 font-black text-[10px] uppercase tracking-widest animate-pulse">
+                                                                    <Clock size={16} className="text-amber-500" />
+                                                                    <span>Verifying Proof</span>
+                                                                </div>
+                                                                {isOwner && (
+                                                                    <button 
+                                                                        onClick={() => markPaid('termin', termin.id)}
+                                                                        className="px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500 hover:text-white text-amber-700 border border-amber-500/20 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-sm"
+                                                                        title="Force mark as paid and deduct from budget"
+                                                                    >
+                                                                        Force Paid
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        ) : isLocked ? (
+                                                            <div className="flex items-center gap-1.5 text-slate-450 font-black text-[10px] uppercase tracking-widest">
+                                                                <Lock size={14} className="text-slate-400" />
+                                                                <span>Locked</span>
+                                                            </div>
+                                                        ) : isOwner ? (
+                                                            <button onClick={() => markPaid('termin', termin.id)} className="px-4 py-2 bg-slate-100 hover:bg-emerald-500 hover:text-white text-slate-650 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">
+                                                                Confirm Paid
+                                                            </button>
+                                                        ) : (
+                                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest italic">Awaiting Payment</span>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
-                                        {termin.status === 'paid' ? (
-                                            <CheckCircle size={18} className="text-emerald-500" />
-                                        ) : isOwner ? (
-                                            <button onClick={() => markPaid('termin', termin.id)} className="px-4 py-2 bg-slate-100 hover:bg-emerald-500 hover:text-white text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">
-                                                Confirm Paid
-                                            </button>
-                                        ) : (
-                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest italic">Awaiting Payment</span>
-                                        )}
                                     </div>
-                                ))}
-                            </div>
+                                );
+                            })}
                         </div>
                     )}
 
@@ -613,6 +685,35 @@ export default function ProjectBudgetManager({ project, user }: ProjectBudgetMan
                     </div>
                 </div>
             )}
+            
+                    {/* FULL TRANSACTION LEDGER */}
+                    <div className="p-6 bg-white border border-slate-100 rounded-3xl shadow-sm">
+                        <h3 className="text-lg font-black text-slate-900 mb-6 flex items-center gap-2">
+                            <Clock size={20} className="text-blue-500" /> Transaction Ledger
+                        </h3>
+                        <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                            {!transactions || transactions.length === 0 && <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 text-center py-4">No transactions yet.</p>}
+                            {(transactions || []).map((t: any) => (
+                                <div key={t.id} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
+                                    <div className="flex items-start gap-3">
+                                        <div className={`mt-0.5 p-1.5 rounded-lg ${
+                                            t.transaction_type === 'deposit' ? 'bg-emerald-100 text-emerald-600' : 
+                                            t.transaction_type === 'payment' ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-600'
+                                        }`}>
+                                            {t.transaction_type === 'deposit' ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-bold text-slate-900">{t.title}</p>
+                                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5">{new Date(t.transaction_date).toLocaleDateString()} • {t.transaction_type}</p>
+                                        </div>
+                                    </div>
+                                    <span className={`text-xs font-black ${t.transaction_type === 'deposit' ? 'text-emerald-500' : 'text-slate-700'}`}>
+                                        {t.transaction_type === 'deposit' ? '+' : '-'} Rp {Number(t.amount).toLocaleString('id-ID')}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
                 </div>
 
                 {/* RIGHT COL: SANDBOX & SIMULATION */}
@@ -713,41 +814,7 @@ export default function ProjectBudgetManager({ project, user }: ProjectBudgetMan
                             )}
                         </div>
                     </div>
-                    
-                    {/* FULL TRANSACTION LEDGER */}
-                    <div className="p-6 bg-white border border-slate-100 rounded-3xl shadow-sm">
-                        <h3 className="text-lg font-black text-slate-900 mb-6 flex items-center gap-2">
-                            <Clock size={20} className="text-blue-500" /> Transaction Ledger
-                        </h3>
-                        <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                            {!transactions || transactions.length === 0 && <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 text-center py-4">No transactions yet.</p>}
-                            {(transactions || []).map((t: any) => (
-                                <div key={t.id} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
-                                    <div className="flex items-start gap-3">
-                                        <div className={`mt-0.5 p-1.5 rounded-lg ${
-                                            t.transaction_type === 'deposit' ? 'bg-emerald-100 text-emerald-600' : 
-                                            t.transaction_type === 'payment' ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-600'
-                                        }`}>
-                                            {t.transaction_type === 'deposit' ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-                                        </div>
-                                        <div>
-                                            <p className="text-xs font-bold text-slate-900">{t.title}</p>
-                                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5">{new Date(t.transaction_date).toLocaleDateString()} • {t.transaction_type}</p>
-                                        </div>
-                                    </div>
-                                    <span className={`text-xs font-black ${t.transaction_type === 'deposit' ? 'text-emerald-500' : 'text-slate-700'}`}>
-                                        {t.transaction_type === 'deposit' ? '+' : '-'} Rp {Number(t.amount).toLocaleString('id-ID')}
-                                    </span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
                 </div>
-            </div>
-
-            {/* CHANGE ORDERS — Scope Changes with Cost Impact */}
-            <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm">
-                <ChangeOrderPanel project={project} user={user} />
             </div>
 
             {/* SPECIALIST PROFILE MODAL */}

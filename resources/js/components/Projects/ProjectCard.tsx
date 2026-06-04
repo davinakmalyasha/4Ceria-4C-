@@ -203,13 +203,13 @@ export default function ProjectCard({ project, onClick, userRole, viewMode = 'gr
                                         {dims.land_size ? (
                                             <span className="flex items-center gap-1 bg-blue-50/70 text-blue-700 px-2 py-0.5 rounded-lg border border-blue-100/50">
                                                 <Maximize size={11} className="text-blue-500 shrink-0" />
-                                                <span>Tanah: {dims.land_size} m² {dims.land_length && dims.land_width && `(${dims.land_length}x{dims.land_width}m)`}</span>
+                                                <span>Tanah: {dims.land_size} m² {dims.land_length && dims.land_width && `(${dims.land_length}x${dims.land_width}m)`}</span>
                                             </span>
                                         ) : null}
                                         {dims.building_size ? (
                                             <span className="flex items-center gap-1 bg-indigo-50/70 text-indigo-700 px-2 py-0.5 rounded-lg border border-indigo-100/50">
                                                 <Ruler size={11} className="text-indigo-500 shrink-0" />
-                                                <span>Bangunan: {dims.building_size} m² {dims.building_length && dims.building_width && `(${dims.building_length}x{dims.building_width}m)`}</span>
+                                                <span>Bangunan: {dims.building_size} m² {dims.building_length && dims.building_width && `(${dims.building_length}x${dims.building_width}m)`}</span>
                                             </span>
                                         ) : null}
                                         {dims.floors ? (
@@ -225,7 +225,7 @@ export default function ProjectCard({ project, onClick, userRole, viewMode = 'gr
                                         {dims.renovation_area ? (
                                             <span className="flex items-center gap-1 bg-amber-50/70 text-amber-700 px-2 py-0.5 rounded-lg border border-amber-100/50">
                                                 <Maximize size={11} className="text-amber-500 shrink-0" />
-                                                <span>Renovasi: {dims.renovation_area} m² {dims.renovation_length && dims.renovation_width && `(${dims.renovation_length}x{dims.renovation_width}m)`}</span>
+                                                <span>Renovasi: {dims.renovation_area} m² {dims.renovation_length && dims.renovation_width && `(${dims.renovation_length}x${dims.renovation_width}m)`}</span>
                                             </span>
                                         ) : null}
                                         {Array.isArray(dims.scope_tags) && dims.scope_tags.length > 0 ? (
@@ -240,7 +240,7 @@ export default function ProjectCard({ project, onClick, userRole, viewMode = 'gr
                                         {dims.area_size ? (
                                             <span className="flex items-center gap-1 bg-purple-50/70 text-purple-700 px-2 py-0.5 rounded-lg border border-purple-100/50">
                                                 <Maximize size={11} className="text-purple-500 shrink-0" />
-                                                <span>Area: {dims.area_size} m² {dims.area_length && dims.area_width && `(${dims.area_length}x{dims.area_width}m)`}</span>
+                                                <span>Area: {dims.area_size} m² {dims.area_length && dims.area_width && `(${dims.area_length}x${dims.area_width}m)`}</span>
                                             </span>
                                         ) : null}
                                         {dims.room_count ? (

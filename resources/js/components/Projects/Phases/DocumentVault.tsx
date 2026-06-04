@@ -16,6 +16,7 @@ interface Document {
     status: string;
     version_label?: string;
     target_role?: string;
+    file_url?: string;
     uploader: { name: string };
     created_at: string;
 }
@@ -186,7 +187,7 @@ export default function DocumentVault({ project, isPro, targetRole, canDownload 
 
                             {canDownload ? (
                                 <a 
-                                    href={`/storage/${doc.file_path}`} 
+                                    href={doc.file_url || `/storage/${doc.file_path}`} 
                                     target="_blank" 
                                     className="mt-4 w-full py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-colors"
                                 >

@@ -11,22 +11,37 @@ import {
 import axios from 'axios';
 import { useToast } from '../../../context/ToastContext';
 import ProjectRequirements from '../ProjectRequirements';
-import PMReports from '../PMWorkspace/PMReports';
 import PMSchedule from '../PMWorkspace/PMSchedule';
 import PMGroupedApprovals from './PMGroupedApprovals';
+import ConfirmModal from '../ConfirmModal';
 
 interface PMWorkspaceProps {
     project: any;
     user: any;
     onRefresh: () => void;
     phaseKey?: string;
+    onNavigateToPhase?: (phaseKey: any) => void;
 }
 
-export default function PMWorkspace({ project, user, onRefresh, phaseKey }: PMWorkspaceProps) {
+export default function PMWorkspace({ project, user, onRefresh, phaseKey, onNavigateToPhase }: PMWorkspaceProps) {
     const { showToast } = useToast();
-    const [activeSubTab, setActiveSubTab] = useState<'dashboard' | 'reports' | 'schedule'>('dashboard');
-    const [reportFilter, setReportFilter] = useState<string | undefined>(undefined);
-    const [selectedPhaseFilter, setSelectedPhaseFilter] = useState<string>('all');
+    const [activeSubTab, setActiveSubTab] = useState<'dashboard' | 'schedule'>('dashboard');
+    const [confirmState, setConfirmState] = useState<{
+        isOpen: boolean;
+        title: string;
+        description: string;
+        confirmText?: string;
+        cancelText?: string;
+        variant?: 'info' | 'success' | 'danger' | 'warning';
+        showInput?: boolean;
+        inputPlaceholder?: string;
+        onConfirm: (notes?: string) => void;
+    }>({
+        isOpen: false,
+        title: '',
+        description: '',
+        onConfirm: () => {},
+    });
     
     if (!project || !user) {
         return (
@@ -46,8 +61,7 @@ export default function PMWorkspace({ project, user, onRefresh, phaseKey }: PMWo
     const [isLoading, setIsLoading] = useState(false);
 
     const pendingMilestones = milestones.filter((m: any) => 
-        m.approval_status === 'pending' && 
-        !m.is_completed
+        m.approval_status === 'pending' || m.approval_status === 'approved' || m.approval_status === 'revision'
     );
 
     const groupedMilestones = pendingMilestones.reduce((acc: any, m: any) => {
@@ -84,33 +98,55 @@ export default function PMWorkspace({ project, user, onRefresh, phaseKey }: PMWo
 
     const handleVerifyMilestone = async (milestoneId: number, status: 'approved' | 'revision') => {
         if (isLoading) return;
-        let notes = '';
-        if (status === 'revision') {
-            notes = window.prompt("Specify revision notes for the professional:") || '';
-            if (!notes.trim()) return;
-        }
+        
+        const executeUpdate = async (notes = '') => {
+            setIsLoading(true);
+            try {
+                await axios.post(`/projects/${project.id}/milestones/${milestoneId}`, {
+                    _method: 'PUT',
+                    approval_status: status,
+                    is_completed: status === 'approved',
+                    revision_notes: notes
+                });
+                showToast(status === 'approved' ? 'Deliverable verified & approved.' : 'Revision requested.', 'success');
+                onRefresh();
+            } catch (error: any) {
+                showToast(error.response?.data?.message || 'Failed to update deliverable status.', 'error');
+            } finally {
+                setIsLoading(false);
+                setConfirmState(prev => ({ ...prev, isOpen: false }));
+            }
+        };
 
-        setIsLoading(true);
-        try {
-            await axios.post(`/projects/${project.id}/milestones/${milestoneId}`, {
-                _method: 'PUT',
-                approval_status: status,
-                is_completed: status === 'approved',
-                revision_notes: notes
+        if (status === 'revision') {
+            setConfirmState({
+                isOpen: true,
+                title: 'Request Revision?',
+                description: 'Please specify the details/revision notes that the professional needs to address:',
+                confirmText: 'Request Revision',
+                cancelText: 'Cancel',
+                variant: 'warning',
+                showInput: true,
+                inputPlaceholder: 'Type revision notes here...',
+                onConfirm: (notes) => executeUpdate(notes)
             });
-            showToast(status === 'approved' ? 'Deliverable verified & approved.' : 'Revision requested.', 'success');
-            onRefresh();
-        } catch (error: any) {
-            showToast(error.response?.data?.message || 'Failed to update deliverable status.', 'error');
-        } finally {
-            setIsLoading(false);
+        } else {
+            setConfirmState({
+                isOpen: true,
+                title: 'Approve Step/Milestone?',
+                description: 'Are you sure you want to approve this deliverable step? Doing so will mark it as complete.',
+                confirmText: 'Approve',
+                cancelText: 'Cancel',
+                variant: 'success',
+                onConfirm: () => executeUpdate()
+            });
         }
     };
     
     const showBoM = phaseKey && !['management', 'legal'].includes(phaseKey);
 
     const pendingAddendums = project?.addendums?.filter((a: any) => 
-        a.status === 'pending_approval'
+        a.status === 'pending_approval' || a.status === 'approved'
     ) || [];
 
     // Read-only: PM is notified of recommendations, not a gate
@@ -121,73 +157,105 @@ export default function PMWorkspace({ project, user, onRefresh, phaseKey }: PMWo
 
     const totalAlertsCount = pendingAddendums.length + recommendedBids.length;
 
-    const pendingHandovers: { phase: string; title: string; submittedAt: string; state: 'awaiting_pm' | 'awaiting_owner' }[] = [];
+    const pendingHandovers: { phase: string; title: string; submittedAt: string; state: 'awaiting_pm' | 'awaiting_owner' | 'completed' }[] = [];
     const completed = project.completed_phases || [];
 
-    // Legal handover
-    if (project.legal_handover_submitted_at && !completed.includes('legal')) {
-        pendingHandovers.push({ phase: 'legal', title: 'Legal & Permits', submittedAt: project.legal_handover_submitted_at,
-            state: project.legal_completed_at ? 'awaiting_owner' : 'awaiting_pm' });
-    }
     // Design handover
-    if (project.design_handover_submitted_at && !completed.includes('design')) {
+    if (project.design_handover_submitted_at) {
         pendingHandovers.push({ phase: 'design', title: 'Architecture & Engineering', submittedAt: project.design_handover_submitted_at,
-            state: project.design_completed_at ? 'awaiting_owner' : 'awaiting_pm' });
+            state: completed.includes('design') ? 'completed' : (project.design_completed_at ? 'awaiting_owner' : 'awaiting_pm') });
     }
     // Construction handover
-    if (project.construction_handover_submitted_at && !completed.includes('build')) {
+    if (project.construction_handover_submitted_at) {
         pendingHandovers.push({ phase: 'build', title: 'Construction & Build', submittedAt: project.construction_handover_submitted_at,
-            state: project.construction_completed_at ? 'awaiting_owner' : 'awaiting_pm' });
+            state: completed.includes('build') ? 'completed' : (project.construction_completed_at ? 'awaiting_owner' : 'awaiting_pm') });
     }
     // Interior handover
-    if (project.interior_handover_submitted_at && !completed.includes('interior')) {
+    if (project.interior_handover_submitted_at) {
         pendingHandovers.push({ phase: 'interior', title: 'Interior & Furnishing', submittedAt: project.interior_handover_submitted_at,
-            state: project.interior_completed_at ? 'awaiting_owner' : 'awaiting_pm' });
+            state: completed.includes('interior') ? 'completed' : (project.interior_completed_at ? 'awaiting_owner' : 'awaiting_pm') });
     }
 
     const handleVerifyAddendum = async (addendum: any, status: 'approved' | 'rejected') => {
         if (isLoading) return;
-        setIsLoading(true);
-        try {
-            if (addendum.type === 'specialist_request') {
-                await axios.post(`/projects/${project.id}/verify-engineering/${addendum.id}`, { status });
-                showToast(`Specialist request ${status} successfully.`, 'success');
-            } else {
-                const action = status === 'approved' ? 'approve' : 'reject';
-                await axios.post(`/projects/${project.id}/addendums/${addendum.id}/${action}`);
-                showToast(`Addendum ${status} successfully.`, 'success');
+
+        const executeUpdate = async () => {
+            setIsLoading(true);
+            try {
+                if (addendum.type === 'specialist_request') {
+                    await axios.post(`/projects/${project.id}/verify-engineering/${addendum.id}`, { status });
+                    showToast(`Specialist request ${status} successfully.`, 'success');
+                } else {
+                    const action = status === 'approved' ? 'approve' : 'reject';
+                    await axios.post(`/projects/${project.id}/addendums/${addendum.id}/${action}`);
+                    showToast(`Addendum ${status} successfully.`, 'success');
+                }
+                onRefresh();
+            } catch (error: any) {
+                showToast(error.response?.data?.message || 'Failed to update addendum status.', 'error');
+            } finally {
+                setIsLoading(false);
+                setConfirmState(prev => ({ ...prev, isOpen: false }));
             }
-            onRefresh();
-        } catch (error: any) {
-            showToast(error.response?.data?.message || 'Failed to update addendum status.', 'error');
-        } finally {
-            setIsLoading(false);
-        }
+        };
+
+        setConfirmState({
+            isOpen: true,
+            title: status === 'approved' ? 'Authorize Addendum?' : 'Reject Addendum?',
+            description: status === 'approved'
+                ? `Are you sure you want to authorize this addendum: "${addendum.title}"?`
+                : `Are you sure you want to reject this addendum: "${addendum.title}"?`,
+            confirmText: status === 'approved' ? 'Authorize' : 'Reject',
+            cancelText: 'Cancel',
+            variant: status === 'approved' ? 'success' : 'danger',
+            onConfirm: executeUpdate
+        });
     };
 
     const handleVerifyHandover = async (phase: string, action: 'approve' | 'reject') => {
         if (isLoading) return;
         
-        let notes = '';
-        if (action === 'reject') {
-            notes = window.prompt("Reason for requesting revision:") || '';
-            if (!notes.trim()) return;
-        }
-
-        setIsLoading(true);
-        try {
-            if (action === 'approve') {
-                await axios.post(`/projects/${project.id}/handover/approve`, { phase });
-                showToast(`${phase.toUpperCase()} handover approved & sealed.`, 'success');
-            } else {
-                await axios.post(`/projects/${project.id}/handover/reject`, { phase, notes });
-                showToast(`${phase.toUpperCase()} handover revision requested.`, 'success');
+        const executeUpdate = async (notes = '') => {
+            setIsLoading(true);
+            try {
+                if (action === 'approve') {
+                    await axios.post(`/projects/${project.id}/handover/approve`, { phase });
+                    showToast(`${phase.toUpperCase()} handover approved & sealed.`, 'success');
+                } else {
+                    await axios.post(`/projects/${project.id}/handover/reject`, { phase, notes });
+                    showToast(`${phase.toUpperCase()} handover revision requested.`, 'success');
+                }
+                onRefresh();
+            } catch (error: any) {
+                showToast(error.response?.data?.message || 'Failed to verify handover.', 'error');
+            } finally {
+                setIsLoading(false);
+                setConfirmState(prev => ({ ...prev, isOpen: false }));
             }
-            onRefresh();
-        } catch (error: any) {
-            showToast(error.response?.data?.message || 'Failed to verify handover.', 'error');
-        } finally {
-            setIsLoading(false);
+        };
+
+        if (action === 'reject') {
+            setConfirmState({
+                isOpen: true,
+                title: 'Reject Handover / Request Revision?',
+                description: `Please specify the reason/revision notes for requesting a revision on the ${phase.toUpperCase()} handover:`,
+                confirmText: 'Request Revision',
+                cancelText: 'Cancel',
+                variant: 'warning',
+                showInput: true,
+                inputPlaceholder: 'Type reason for rejection here...',
+                onConfirm: (notes) => executeUpdate(notes)
+            });
+        } else {
+            setConfirmState({
+                isOpen: true,
+                title: 'Seal & Approve Handover?',
+                description: `Are you sure you want to seal and approve the handover for the ${phase.toUpperCase()} phase? This will lock current configurations.`,
+                confirmText: 'Seal Phase',
+                cancelText: 'Cancel',
+                variant: 'success',
+                onConfirm: () => executeUpdate()
+            });
         }
     };
 
@@ -223,17 +291,6 @@ export default function PMWorkspace({ project, user, onRefresh, phaseKey }: PMWo
                     </button>
 
                     <button
-                        onClick={() => setActiveSubTab('reports')}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                            activeSubTab === 'reports' 
-                            ? 'bg-white text-slate-900 shadow-sm border border-slate-100' 
-                            : 'text-slate-400 hover:text-slate-600'
-                        }`}
-                    >
-                        <FileText size={14} />
-                        Reports
-                    </button>
-                    <button
                         onClick={() => setActiveSubTab('schedule')}
                         className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
                             activeSubTab === 'schedule' 
@@ -242,9 +299,8 @@ export default function PMWorkspace({ project, user, onRefresh, phaseKey }: PMWo
                         }`}
                     >
                         <CalendarRange size={14} />
-                        Schedule
+                        Schedule & Reports
                     </button>
-
                 </div>
             )}
 
@@ -267,37 +323,12 @@ export default function PMWorkspace({ project, user, onRefresh, phaseKey }: PMWo
                                 onVerifyMilestone={handleVerifyMilestone}
                                 onVerifyHandover={handleVerifyHandover}
                                 onVerifyAddendum={handleVerifyAddendum}
+                                onNavigateToPhase={onNavigateToPhase}
                             />
                         </div>
                     )}
 
-                    {/* Quick Stats */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <StatCard 
-                            label="Milestone Progress" 
-                            value={`${progress}%`} 
-                            subtext={`${completedCount}/${milestones.length} completed`}
-                            icon={BarChart3}
-                            color="text-blue-600"
-                            bg="bg-blue-50"
-                        />
-                        <StatCard 
-                            label="Active Issues" 
-                            value={project?.comments?.length || 0} 
-                            subtext="Open discussions"
-                            icon={MessageSquare}
-                            color="text-red-600"
-                            bg="bg-red-50"
-                        />
-                        <StatCard 
-                            label="Budget Status" 
-                            value="Stable" 
-                            subtext="View budget tab"
-                            icon={DollarSign}
-                            color="text-emerald-600"
-                            bg="bg-emerald-50"
-                        />
-                    </div>
+
 
                     {/* Procurement / BoM Integration */}
                     {showBoM && (() => {
@@ -329,89 +360,70 @@ export default function PMWorkspace({ project, user, onRefresh, phaseKey }: PMWo
 
                     {/* PM Workflow Notes */}
                     {phaseKey !== 'materials' && (
-                        <div className="bg-neutral-900 rounded-[2.5rem] p-8 text-white relative overflow-hidden shadow-2xl">
-                            <div className="relative z-10 space-y-8">
-                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                                    <div>
-                                        <h3 className="text-xl font-black mb-2 flex items-center gap-2">
-                                            <LayoutDashboard size={24} className="text-red-500" />
-                                            Operational Directive
-                                        </h3>
-                                        <p className="text-neutral-400 text-sm max-w-xl leading-relaxed mb-6">
-                                            As the Project Manager, you have full oversight across all professional tracks. 
-                                            Use the **Budget** tab for financial audits and the **Reports** tab for project coordination.
-                                        </p>
-
-                                        {/* Phase Authorization Switches */}
-                                        <div className="flex flex-col gap-4 bg-neutral-800/50 p-6 rounded-2xl border border-white/5 w-fit">
-                                            <h4 className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2">
-                                                <ShieldCheck size={14} className="text-emerald-500" />
-                                                Phase Authorizations
-                                            </h4>
-                                            
-                                            <div className="flex items-center justify-between gap-12">
-                                                <div>
-                                                    <p className="text-sm font-bold text-white">Design Phase</p>
-                                                    <p className="text-[10px] text-neutral-400">Permit Architect to begin drawing</p>
-                                                </div>
-                                                <button 
-                                                    onClick={() => handleAuthorizePhase('design', !project.design_authorized_at)}
-                                                    disabled={isLoading}
-                                                    className={`w-12 h-6 rounded-full transition-colors relative ${project.design_authorized_at ? 'bg-emerald-500' : 'bg-neutral-600'}`}
-                                                >
-                                                    <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-transform ${project.design_authorized_at ? 'translate-x-7' : 'translate-x-1'}`} />
-                                                </button>
-                                            </div>
-
-                                            <div className="flex items-center justify-between gap-12">
-                                                <div>
-                                                    <p className="text-sm font-bold text-white">Construction Phase</p>
-                                                    <p className="text-[10px] text-neutral-400">Permit Contractor to begin building</p>
-                                                </div>
-                                                <button 
-                                                    onClick={() => handleAuthorizePhase('build', !project.construction_authorized_at)}
-                                                    disabled={isLoading}
-                                                    className={`w-12 h-6 rounded-full transition-colors relative ${project.construction_authorized_at ? 'bg-emerald-500' : 'bg-neutral-600'}`}
-                                                >
-                                                    <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-transform ${project.construction_authorized_at ? 'translate-x-7' : 'translate-x-1'}`} />
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
+                        <div className="bg-white border border-gray-100 rounded-3xl p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
+                            <div className="space-y-1 max-w-xl">
+                                <h3 className="text-xs font-black uppercase tracking-widest text-gray-400 flex items-center gap-2">
+                                    <ShieldCheck size={14} className="text-gray-500" />
+                                    Phase Authorizations
+                                </h3>
+                                <p className="text-xs text-gray-400 font-medium">
+                                    Control project phase transitions. Hired professionals (Architects and Contractors) can only begin execution once their respective phase is officially authorized.
+                                </p>
+                            </div>
+                            
+                            <div className="flex items-center gap-6 bg-gray-50 p-4 rounded-2xl border border-gray-100/50 shrink-0">
+                                <div className="flex items-center gap-3">
+                                    <span className="text-[10px] font-black uppercase text-gray-700 tracking-wider">Design</span>
+                                    <button 
+                                        onClick={() => handleAuthorizePhase('design', !project.design_authorized_at)}
+                                        disabled={isLoading}
+                                        className={`w-10 h-5 rounded-full transition-colors relative ${project.design_authorized_at ? 'bg-zinc-900' : 'bg-gray-300'}`}
+                                    >
+                                        <div className={`w-3.5 h-3.5 bg-white rounded-full absolute top-0.5 transition-transform ${project.design_authorized_at ? 'translate-x-6' : 'translate-x-0.5'}`} />
+                                    </button>
                                 </div>
 
-                                <div className="pt-4 border-t border-white/5 text-[10px] text-neutral-500 font-bold uppercase tracking-[0.2em]">
-                                    Project Governance Protocol v4.0.2
+                                <div className="h-6 w-px bg-gray-200" />
+
+                                <div className="flex items-center gap-3">
+                                    <span className="text-[10px] font-black uppercase text-gray-700 tracking-wider">Construction</span>
+                                    <button 
+                                        onClick={() => handleAuthorizePhase('build', !project.construction_authorized_at)}
+                                        disabled={isLoading}
+                                        className={`w-10 h-5 rounded-full transition-colors relative ${project.construction_authorized_at ? 'bg-zinc-900' : 'bg-gray-300'}`}
+                                    >
+                                        <div className={`w-3.5 h-3.5 bg-white rounded-full absolute top-0.5 transition-transform ${project.construction_authorized_at ? 'translate-x-6' : 'translate-x-0.5'}`} />
+                                    </button>
                                 </div>
                             </div>
-                            <div className="absolute top-0 right-0 w-64 h-64 bg-red-500/10 rounded-full -mr-32 -mt-32 blur-3xl"></div>
                         </div>
                     )}
                 </div>
             ) : (
                 <div className="animate-in slide-in-from-bottom-4 duration-500">
-                    {activeSubTab === 'reports' && (
-                        <PMReports 
-                            project={project} 
-                            user={user} 
-                            onRefresh={onRefresh} 
-                            initialFilter={reportFilter}
-                            onClearFilter={() => setReportFilter(undefined)}
-                        />
-                    )}
                     {activeSubTab === 'schedule' && (
                         <PMSchedule 
                             project={project} 
                             user={user} 
                             onRefresh={onRefresh} 
-                            onNavigateToReports={(phase) => {
-                                setReportFilter(phase);
-                                setActiveSubTab('reports');
-                            }}
                         />
                     )}
                 </div>
             )}
+
+            <ConfirmModal
+                isOpen={confirmState.isOpen}
+                title={confirmState.title}
+                description={confirmState.description}
+                confirmText={confirmState.confirmText}
+                cancelText={confirmState.cancelText}
+                variant={confirmState.variant}
+                showInput={confirmState.showInput}
+                inputPlaceholder={confirmState.inputPlaceholder}
+                isLoading={isLoading}
+                onConfirm={confirmState.onConfirm}
+                onCancel={() => setConfirmState(prev => ({ ...prev, isOpen: false }))}
+            />
         </div>
     );
 }

@@ -22,6 +22,7 @@ import { MessageCircle, UserCheck, ArrowRight, HardHat, Activity, Pencil, Wrench
 import axios from 'axios';
 import { useToast } from '../../context/ToastContext';
 import StickyNotesLayer from './Phases/StickyNotesLayer';
+import PhaseReadOnlySummary from './Phases/PhaseReadOnlySummary';
 
 interface PhaseContentProps {
     phase: Phase;
@@ -50,15 +51,17 @@ export default function PhaseContent({
 
     if (!phase) return null;
 
-    const isStructuralHired = project.structural_id && (user?.structural_engineer?.id === project.structural_id || user?.id === project.structural_engineer?.user?.id);
-    const isMEPHired = project.mep_id && (user?.mep_engineer?.id === project.mep_id || user?.id === project.mep_engineer?.user?.id);
-    const isInteriorHired = project.selected_interior_id && (
+    const isStructuralHired = (project.structural_id && (user?.structural_engineer?.id === project.structural_id || user?.id === project.structural_engineer?.user?.id)) ||
+        (project.sub_professionals?.some((s: any) => s.user_id === user?.id && s.sub_role === 'structural' && s.status === 'active'));
+    const isMEPHired = (project.mep_id && (user?.mep_engineer?.id === project.mep_id || user?.id === project.mep_engineer?.user?.id)) ||
+        (project.sub_professionals?.some((s: any) => s.user_id === user?.id && s.sub_role === 'mep' && s.status === 'active'));
+    const isInteriorHired = (project.selected_interior_id && (
         user?.interior_profile?.id === project.selected_interior_id || 
         user?.id === project.interior?.user_id || 
         user?.id === project.interior?.user?.id ||
         user?.id === project.interior_profile?.user_id || 
         user?.id === project.interior_profile?.user?.id
-    );
+    )) || (project.sub_professionals?.some((s: any) => s.user_id === user?.id && s.sub_role === 'interior' && s.status === 'active'));
 
     const isHiredContractor = user?.role_type === 'kontraktor' && (
         (project.selected_kontraktor_id && user?.kontraktor?.id === project.selected_kontraktor_id) ||
@@ -82,7 +85,8 @@ export default function PhaseContent({
             user?.id === project.interior_profile?.user_id || 
             user?.id === project.interior_profile?.user?.id
         )) ||
-        (project.bids_interior?.some((b: any) => b.status === 'accepted' && (b.bidder?.user?.id === user?.id || b.bidder?.user_id === user?.id)))
+        (project.bids_interior?.some((b: any) => b.status === 'accepted' && (b.bidder?.user?.id === user?.id || b.bidder?.user_id === user?.id))) ||
+        (project.sub_professionals?.some((s: any) => s.user_id === user?.id && s.sub_role === 'interior' && s.status === 'active'))
     );
 
     if (!project) {
@@ -102,25 +106,10 @@ export default function PhaseContent({
     const isOwner = user?.id === project?.user_id;
     const canManage = isOwner || isHiredPM;
     
-    // Check if phase role is published to bidding board
-    const roleKey = config.profileKey || (phase.key === 'management' ? 'project_manager' : '');
-    const isPublished = project.published_bidding_roles?.includes(roleKey);
-    
-    // Check for external vendor for this phase
-    const externalVendor = project.external_vendors?.find(v => v.phase_role === roleKey);
-    
-    const hasPro = (config.selectedKey && project?.[config.selectedKey]) || externalVendor;
-    const isMaterialsPhase = phase.key === 'materials';
-    const bids = config.bidKey ? (project?.[config.bidKey] || []) : [];
-
-    // Check if current user is a professional matching this phase
-    const isStructuralOrMEP = user?.role_type === 'structural' || user?.role_type === 'mep';
-    const isMatchingPro = (user?.role_type === config.profileKey) || (isStructuralOrMEP && phase.key === 'technical');
-
-
     // Sub-phase adjusted variables
     const isBuildPhase = phase.key === 'build';
     const isDesignPhase = phase.key === 'design' || phase.key === 'technical';
+    const roleKey = config.profileKey || (phase.key === 'management' ? 'project_manager' : '');
 
     const currentConfig = isDesignPhase
         ? (engineeringSubTab === 'architecture' ? PHASE_ROLE_MAP['design'] : 
@@ -138,6 +127,40 @@ export default function PhaseContent({
         : isBuildPhase && constructionSubTab !== 'general'
             ? constructionSubTab
             : roleKey;
+
+    const isReadOnlyView = React.useMemo(() => {
+        if (isHiredPM) return false;
+        if (isOwner) {
+            if (project.pm_id) {
+                if (phase.key === 'management') return true;
+                return true;
+            }
+            return false;
+        }
+        const isProfessional = user?.role_type && user?.role_type !== 'user' && user?.role_type !== 'project_manager';
+        if (isProfessional) {
+            const isMatchingCurrentRole = (user?.role_type === currentRoleKey);
+            return !isMatchingCurrentRole;
+        }
+        return false;
+    }, [isOwner, isHiredPM, project.pm_id, phase.key, currentRoleKey, user?.role_type]);
+    
+    // Check if phase role is published to bidding board
+    const isPublished = project.published_bidding_roles?.includes(roleKey) || 
+        (project.bidding_choices?.[roleKey] === 'find') || 
+        (roleKey === 'notaris' && project.bidding_choices?.[roleKey] === 'cert_only');
+    
+    // Check for external vendor for this phase
+    const externalVendor = project.external_vendors?.find(v => v.phase_role === roleKey);
+    
+    const hasPro = (config.selectedKey && project?.[config.selectedKey]) || externalVendor;
+    const isMaterialsPhase = phase.key === 'materials';
+    const bids = config.bidKey ? (project?.[config.bidKey] || []) : [];
+ 
+    // Check if current user is a professional matching this phase
+    const isStructuralOrMEP = user?.role_type === 'structural' || user?.role_type === 'mep';
+    const isMatchingPro = (user?.role_type === config.profileKey) || (isStructuralOrMEP && phase.key === 'technical');
+
 
     const currentBids = isDesignPhase
         ? (engineeringSubTab === 'architecture' ? project?.bids_arsitek : 
@@ -271,48 +294,54 @@ export default function PhaseContent({
                 exit={{ opacity: 0, y: -12 }}
                 className="space-y-6"
             >
-                <div className="flex items-center justify-between pb-6 border-b border-slate-100">
-                    <div>
-                        <h3 className="text-xl font-black text-gray-900">
-                            {phase.key === 'design' ? 'Architecture & Design' : 
-                             phase.key === 'technical' ? 'Engineering Procurement' : 
-                             phase.title}
-                        </h3>
-                        <p className="text-sm text-gray-400 mt-0.5">
-                            {phase.key === 'design' ? 'Floor plans, elevations, and 3D renders.' : 
-                             phase.key === 'technical' ? 'Structural and MEP specialist management.' : 
-                             phase.description}
-                        </p>
-                    </div>
-                    <div className="flex items-center gap-4">
-                        <StickyNotesLayer 
-                            project={project} 
-                            currentUser={user} 
-                            phaseContext={activePhaseContext} 
-                            renderTrigger={(toggle, isOpen) => (
-                                <button 
-                                    onClick={toggle}
-                                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm border ${
-                                        isOpen 
-                                            ? 'bg-amber-300 border-amber-400 text-amber-950 scale-95 shadow-inner' 
-                                            : 'bg-amber-200 border-amber-300 text-amber-900 hover:bg-amber-300 hover:scale-105'
-                                    }`}
-                                    title="PM Notes"
-                                >
-                                    <FileText size={14} className={isOpen ? 'animate-bounce' : ''} />
-                                    PM Notes
-                                </button>
+                {phase.key !== 'legal' && !(phase.key === 'management' && user?.id === project.pm_id) && (
+                    <div className="flex items-center justify-between pb-6 border-b border-slate-100">
+                        <div>
+                            <h3 className="text-xl font-black text-gray-900">
+                                {phase.key === 'design' ? 'Architecture & Design' : 
+                                 phase.key === 'technical' ? 'Engineering Procurement' : 
+                                 phase.title}
+                            </h3>
+                            {phase.key !== 'legal' && (
+                                <p className="text-sm text-gray-400 mt-0.5">
+                                    {phase.key === 'design' ? 'Floor plans, elevations, and 3D renders.' : 
+                                     phase.key === 'technical' ? 'Structural and MEP specialist management.' : 
+                                     phase.description}
+                                </p>
                             )}
-                        />
-                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                            phase.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
-                            phase.status === 'active' ? 'bg-red-50 text-[#FF2D20]' :
-                            'bg-gray-100 text-gray-400'
-                        }`}>
-                            {phase.status}
-                        </span>
+                        </div>
+                        <div className="flex items-center gap-4">
+                            <StickyNotesLayer 
+                                project={project} 
+                                currentUser={user} 
+                                phaseContext={activePhaseContext} 
+                                renderTrigger={(toggle, isOpen) => (
+                                    <button 
+                                        onClick={toggle}
+                                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm border ${
+                                            isOpen 
+                                                ? 'bg-amber-300 border-amber-400 text-amber-950 scale-95 shadow-inner' 
+                                                : 'bg-amber-200 border-amber-300 text-amber-900 hover:bg-amber-300 hover:scale-105'
+                                        }`}
+                                        title="PM Notes"
+                                    >
+                                        <FileText size={14} className={isOpen ? 'animate-bounce' : ''} />
+                                        PM Notes
+                                    </button>
+                                )}
+                            />
+                            {phase.key !== 'legal' && (
+                                <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                                    phase.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
+                                    phase.status === 'active' ? 'bg-red-50 text-[#FF2D20]' :
+                                    'bg-gray-100 text-gray-400'
+                                }`}>
+                                    {phase.status}
+                                </span>
+                            )}
+                        </div>
                     </div>
-                </div>
+                )}
 
                 {/* Sub-Phase Navigator (The Bracket) */}
                 {(phase.key === 'design' || phase.key === 'technical') && (
@@ -329,7 +358,7 @@ export default function PhaseContent({
                         >
                             <Pencil size={14} />
                             Architecture
-                            {user?.role_type === 'arsitek' && (
+                            {isHiredArchitect && (
                                 <span className="ml-1 px-1.5 py-0.5 rounded-md bg-indigo-500 text-white font-black text-[7px] tracking-normal leading-none animate-pulse">
                                     YOU
                                 </span>
@@ -347,7 +376,7 @@ export default function PhaseContent({
                         >
                             <HardHat size={14} />
                             Structural
-                            {user?.role_type === 'structural' && (
+                            {isStructuralHired && (
                                 <span className="ml-1 px-1.5 py-0.5 rounded-md bg-indigo-500 text-white font-black text-[7px] tracking-normal leading-none animate-pulse">
                                     YOU
                                 </span>
@@ -370,7 +399,7 @@ export default function PhaseContent({
                         >
                             <Wrench size={14} />
                             MEP
-                            {user?.role_type === 'mep' && (
+                            {isMEPHired && (
                                 <span className="ml-1 px-1.5 py-0.5 rounded-md bg-indigo-500 text-white font-black text-[7px] tracking-normal leading-none animate-pulse">
                                     YOU
                                 </span>
@@ -393,7 +422,7 @@ export default function PhaseContent({
                         >
                             <Sofa size={14} />
                             Interior
-                            {user?.role_type === 'interior' && (
+                            {isHiredInterior && (
                                 <span className="ml-1 px-1.5 py-0.5 rounded-md bg-indigo-500 text-white font-black text-[7px] tracking-normal leading-none animate-pulse">
                                     YOU
                                 </span>
@@ -413,7 +442,8 @@ export default function PhaseContent({
                         {CONSTRUCTION_SUB_ROLES.map((role) => {
                             const Icon = role.icon;
                             const isActive = constructionSubTab === role.key;
-                            const isUserWorkspace = user?.role_type === role.key || (role.key === 'general' && user?.role_type === 'kontraktor');
+                            const isUserWorkspace = (role.key === 'general' && isHiredContractor) || 
+                                (project.sub_professionals?.some((s: any) => s.user_id === user?.id && s.sub_role === role.key && s.status === 'active'));
                             
                             return (
                                 <button 
@@ -509,7 +539,18 @@ export default function PhaseContent({
                     return null;
                 })()}
 
-                {phase.key === 'handover' ? (
+                {isReadOnlyView ? (
+                    <PhaseReadOnlySummary
+                        phase={phase}
+                        project={project}
+                        currentRoleKey={currentRoleKey}
+                        currentHasPro={currentHasPro}
+                        isPublished={isPublished}
+                        currentBids={currentBids}
+                        onOpenChat={onOpenChat}
+                        onRefresh={onRefresh}
+                    />
+                ) : phase.key === 'handover' ? (
                     <FinalHandover project={project} user={user} onRefresh={onRefresh} />
                 ) : (
                     <>
@@ -558,7 +599,7 @@ export default function PhaseContent({
                         {(currentHasPro || isMaterialsPhase || isPublished || !currentRoleKey || isSpecialistWithBid) && (
                             <>
                                 {/* Architecture & Built Phase Pro Workspace */}
-                                {(currentHasPro || isMaterialsPhase || (phase.key === 'interior' && isHiredContractor)) && (engineeringSubTab === 'architecture') && (!isBuildPhase || constructionSubTab === 'general') && (
+                                {(currentHasPro || isMaterialsPhase || (phase.key === 'interior' && isHiredContractor)) && (engineeringSubTab === 'architecture') && (!isBuildPhase || constructionSubTab === 'general') && !(phase.key === 'management' && user?.id === project.pm_id) && (
                                     <ErrorBoundary name="PhaseAssignedPro">
                                         <PhaseAssignedPro 
                                             project={project} 
@@ -650,13 +691,10 @@ export default function PhaseContent({
                                         <p className="text-[10px] uppercase tracking-widest mt-1">Visit the Overview tab to see global progress</p>
                                     </div>
                                 )}
-                                {isHiredPM && phase.key !== 'design' && phase.key !== 'materials' && phase.key !== 'build' && (
-                                    <div className="mt-8 border-t border-gray-100 pt-8">
-                                        <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">Operations Directive (PM Only)</h4>
-                                        <ErrorBoundary name="PMWorkspace">
-                                            <PMWorkspace project={project} user={user} onRefresh={onRefresh} phaseKey={phase.key} />
-                                        </ErrorBoundary>
-                                    </div>
+                                {isHiredPM && phase.key === 'management' && (
+                                    <ErrorBoundary name="PMWorkspace">
+                                        <PMWorkspace project={project} user={user} onRefresh={onRefresh} phaseKey={phase.key} onNavigateToPhase={onPhaseComplete} />
+                                    </ErrorBoundary>
                                 )}
                                 {!isMaterialsPhase && !currentHasPro && (!currentBids || currentBids.length === 0) && !hasDirectResourcing && (
                                     <div className="bg-gray-50 border border-dashed border-gray-200 rounded-2xl p-8 text-center text-gray-400">

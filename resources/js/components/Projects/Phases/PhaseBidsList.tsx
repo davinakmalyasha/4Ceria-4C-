@@ -3,6 +3,7 @@ import { PhaseKey } from '../../../types/phase.types';
 import axios from 'axios';
 import { useToast } from '../../../context/ToastContext';
 import { BidReviewCard } from './BidReviewCard';
+import ConfirmModal from '../ConfirmModal';
 
 interface PhaseBidsListProps {
     bids: any[];
@@ -34,60 +35,24 @@ const getBidType = (phaseKey: PhaseKey, isPMBidding?: boolean, overrideType?: st
 export default function PhaseBidsList({ bids, phaseKey, projectId, onRefresh, isPMBidding, readOnly, projectContext, onOpenChat, overrideType, onRecommend, onSwitchTab }: PhaseBidsListProps) {
     const { showToast } = useToast();
     const [actioningId, setActioningId] = useState<number | null>(null);
+    const [confirmModal, setConfirmModal] = useState<{
+        isOpen: boolean;
+        title: string;
+        description: string;
+        confirmText?: string;
+        variant?: 'info' | 'success' | 'danger' | 'warning';
+        onConfirm: () => void;
+    }>({
+        isOpen: false,
+        title: '',
+        description: '',
+        onConfirm: () => {},
+    });
 
     // Bids that are shortlisted, negotiating, or hired are moved to the "Interviews" or "Payments" tabs
     const visibleBids = bids.filter(b => ['pending', 'invited'].includes(b.status));
 
-    const handleAction = async (bidId: number, action: 'shortlist' | 'accept' | 'decline' | 'recommend') => {
-        if (!projectId || !bidId) {
-            showToast("Critical Error: Missing Project or Bid ID. Please refresh.", "error");
-            return;
-        }
-
-        if (action === 'recommend') {
-            const role = getBidType(phaseKey, isPMBidding, overrideType);
-            onRecommend?.(bidId, role);
-            return;
-        }
-
-        if (action === 'accept') {
-            const currentBid = bids.find(b => b.id === bidId);
-            const budgetAmount = projectContext?.budget || 0;
-            const bidType = getBidType(phaseKey, isPMBidding, overrideType);
-
-            if (bidType === 'project_manager' && currentBid && budgetAmount > 0) {
-                const amount = currentBid.fee_type === 'percentage' && currentBid.calculated_total 
-                    ? Number(currentBid.calculated_total) 
-                    : Number(currentBid.price);
-                const perc = currentBid.fee_type === 'percentage' 
-                    ? currentBid.price 
-                    : ((amount / budgetAmount) * 100).toFixed(1);
-
-                const confirmMsg = `FINANCIAL GUARDIAN WARNING:\n\nHiring this Project Manager will allocate Rp ${amount.toLocaleString('id-ID')} (${perc}% of your budget) for professional management services.\n\nThis will be atomically deducted from your Project Budget. Proceed?`;
-                if (!window.confirm(confirmMsg)) return;
-            } else if (bidType === 'notaris' && currentBid && budgetAmount > 0) {
-                const proFee = currentBid.fee_percentage 
-                    ? (budgetAmount * (Number(currentBid.fee_percentage) / 100)) 
-                    : Number(currentBid.price);
-                const taxEst = Number(currentBid.tax_estimate) || 0;
-                const totalImpact = proFee + taxEst;
-
-                const confirmMsg = `FINANCIAL GUARDIAN WARNING:\n\n` +
-                    `Hiring this Notary will deduct the following from your budget:\n` +
-                    `- Professional Fee: Rp ${proFee.toLocaleString('id-ID')}\n` +
-                    `- Government Tax Est: Rp ${taxEst.toLocaleString('id-ID')}\n\n` +
-                    `Total Impact: Rp ${totalImpact.toLocaleString('id-ID')}\n\n` +
-                    `This will be atomically allocated from your Project Budget. Proceed?`;
-                if (!window.confirm(confirmMsg)) return;
-            } else {
-                if (!window.confirm(`Are you sure you want to hire this professional?`)) return;
-            }
-        } else if (action === 'shortlist') {
-            if (!window.confirm(`Shortlist this professional for interview? You can chat and discuss terms before committing to hire.`)) return;
-        } else {
-            if (!window.confirm(`Are you sure you want to decline this proposal?`)) return;
-        }
-        
+    const executeAction = async (bidId: number, action: 'shortlist' | 'accept' | 'decline') => {
         setActioningId(bidId);
         try {
             let endpoint: string;
@@ -131,6 +96,78 @@ export default function PhaseBidsList({ bids, phaseKey, projectId, onRefresh, is
         }
     };
 
+    const handleAction = async (bidId: number, action: 'shortlist' | 'accept' | 'decline' | 'recommend') => {
+        if (!projectId || !bidId) {
+            showToast("Critical Error: Missing Project or Bid ID. Please refresh.", "error");
+            return;
+        }
+
+        if (action === 'recommend') {
+            const role = getBidType(phaseKey, isPMBidding, overrideType);
+            onRecommend?.(bidId, role);
+            return;
+        }
+
+        let title = '';
+        let description = '';
+        let confirmText = 'Confirm';
+        let variant: 'info' | 'success' | 'danger' | 'warning' = 'info';
+
+        if (action === 'accept') {
+            const currentBid = bids.find(b => b.id === bidId);
+            const budgetAmount = projectContext?.budget || 0;
+            const bidType = getBidType(phaseKey, isPMBidding, overrideType);
+            variant = 'success';
+            confirmText = 'Hire Pro';
+
+            if (bidType === 'project_manager' && currentBid && budgetAmount > 0) {
+                const amount = currentBid.fee_type === 'percentage' && currentBid.calculated_total 
+                    ? Number(currentBid.calculated_total) 
+                    : Number(currentBid.price);
+                const perc = currentBid.fee_type === 'percentage' 
+                    ? currentBid.price 
+                    : ((amount / budgetAmount) * 100).toFixed(1);
+
+                title = 'Financial Guardian Warning';
+                description = `Hiring this Project Manager will allocate Rp ${amount.toLocaleString('id-ID')} (${perc}% of your budget) for professional management services. This will be atomically deducted from your Project Budget. Proceed?`;
+            } else if (bidType === 'notaris' && currentBid && budgetAmount > 0) {
+                const proFee = currentBid.fee_percentage 
+                    ? (budgetAmount * (Number(currentBid.fee_percentage) / 100)) 
+                    : Number(currentBid.price);
+                const taxEst = Number(currentBid.tax_estimate) || 0;
+                const totalImpact = proFee + taxEst;
+
+                title = 'Financial Guardian Warning';
+                description = `Hiring this Notary will deduct the following from your budget:\n- Professional Fee: Rp ${proFee.toLocaleString('id-ID')}\n- Government Tax Est: Rp ${taxEst.toLocaleString('id-ID')}\n\nTotal Impact: Rp ${totalImpact.toLocaleString('id-ID')}\n\nThis will be atomically allocated from your Project Budget. Proceed?`;
+            } else {
+                title = 'Hire Professional';
+                description = 'Are you sure you want to hire this professional?';
+            }
+        } else if (action === 'shortlist') {
+            title = 'Shortlist Professional';
+            description = 'Shortlist this professional for interview? You can chat and discuss terms before committing to hire.';
+            confirmText = 'Shortlist';
+            variant = 'info';
+        } else {
+            title = 'Decline Proposal';
+            description = 'Are you sure you want to decline this proposal?';
+            confirmText = 'Decline';
+            variant = 'danger';
+        }
+
+        setConfirmModal({
+            isOpen: true,
+            title,
+            description,
+            confirmText,
+            variant,
+            onConfirm: () => {
+                setConfirmModal(prev => ({ ...prev, isOpen: false }));
+                executeAction(bidId, action);
+            }
+        });
+    };
+
     return (
         <div className="space-y-4">
             <div className="flex items-center justify-between mb-2">
@@ -163,6 +200,17 @@ export default function PhaseBidsList({ bids, phaseKey, projectId, onRefresh, is
                     <p className="text-[10px] text-gray-300 uppercase tracking-widest mt-1">Waiting for professional bids...</p>
                 </div>
             )}
+
+            <ConfirmModal 
+                isOpen={confirmModal.isOpen}
+                title={confirmModal.title}
+                description={confirmModal.description}
+                confirmText={confirmModal.confirmText}
+                variant={confirmModal.variant}
+                onConfirm={confirmModal.onConfirm}
+                onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                isLoading={actioningId !== null}
+            />
         </div>
     );
 }

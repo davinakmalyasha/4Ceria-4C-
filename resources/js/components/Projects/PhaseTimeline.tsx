@@ -39,8 +39,55 @@ const getPhaseProgress = (phaseKey: PhaseKey, project: any): number => {
         }
         case 'legal': {
             if (!project.selected_notaris_id) return 10;
+            
+            const milestones = project.milestones || [];
+            const termins = project.payment_termins || [];
+            
+            const reqs = Array.isArray(project.legal_requirements) ? project.legal_requirements : [];
+            let combined = [...reqs];
+            if (combined.length === 0 && project.accepted_notaris_bid?.selected_services) {
+                const bidServices = project.accepted_notaris_bid.selected_services;
+                if (Array.isArray(bidServices)) {
+                    combined = bidServices.map((s: any) => String(s.id || s));
+                }
+            }
+            if (reqs.length === 0 && milestones.length > 0) {
+                const milestoneIds = milestones
+                    .filter((m: any) => m.type === 'legal' || m.phase_context === 'legal')
+                    .map((m: any) => m.content?.req_id)
+                    .filter(Boolean);
+                if (milestoneIds.length > 0) {
+                    combined = Array.from(new Set(milestoneIds)) as string[];
+                }
+            }
+
+            const hasLinkedPayments = milestones.some((m: any) => 
+                (m.type === 'legal' || m.phase_context === 'legal') &&
+                termins.some((t: any) => t.milestone_id === m.id)
+            );
+
             return getMilestonePercent(
-                (m) => m.phase_context === 'legal' || m.type === 'legal', 
+                (m) => {
+                    const isLegal = m.phase_context === 'legal' || m.type === 'legal';
+                    if (!isLegal) return false;
+
+                    const reqId = m.content?.req_id;
+                    
+                    // Exclude personal ID documents
+                    const isPersonalId = ['ktp_owner', 'kartu_keluarga', 'marriage_cert', 'npwp', 'surat_kuasa', 'prenuptial'].includes(reqId);
+                    if (isPersonalId) return false;
+
+                    // If it is a manual/custom milestone (not in preset requirements list), it's always included
+                    const isManual = !combined.some(rId => String(rId) === String(reqId));
+                    if (isManual) return true;
+
+                    // If hasLinkedPayments is true, preset requirements must be linked to a payment termin
+                    if (hasLinkedPayments) {
+                        return termins.some((t: any) => t.milestone_id === m.id);
+                    }
+
+                    return true;
+                },
                 40
             );
         }
@@ -102,13 +149,17 @@ function PhaseButton({
     isActive, 
     onClick, 
     displayLabel,
-    progress = 0 
+    progress = 0,
+    hiredCount = 0,
+    bidCount = 0
 }: { 
     phase: Phase; 
     isActive: boolean; 
     onClick: () => void; 
     displayLabel?: string;
     progress?: number; 
+    hiredCount?: number;
+    bidCount?: number;
 }) {
     const Icon = ICON_MAP[phase.icon] || Shield;
     const isDone = phase.status === 'completed';
@@ -131,13 +182,24 @@ function PhaseButton({
                 'hover:bg-gray-50 cursor-pointer opacity-50'
             }`}
         >
-            <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all relative ${
                 isDone ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200' :
                 isActive ? 'bg-[#FF2D20] text-white shadow-lg shadow-red-200' :
                 isPhaseActive ? 'bg-slate-900 text-white shadow-lg shadow-slate-200' :
                 'bg-gray-100 text-gray-400'
             }`}>
                 {isDone ? <Check size={16} strokeWidth={3} /> : <Icon size={16} />}
+
+                {/* Status Badges */}
+                {hiredCount > 0 ? (
+                    <span className="absolute -top-1.5 -right-1.5 h-4 min-w-4 px-1 flex items-center justify-center rounded-full bg-blue-50 text-blue-600 border border-blue-200 text-[8.5px] font-black shadow-sm ring-2 ring-white">
+                        {hiredCount}
+                    </span>
+                ) : bidCount > 0 ? (
+                    <span className="absolute -top-1.5 -right-1.5 h-4 min-w-4 px-1 flex items-center justify-center rounded-full bg-[#FF2D20] text-white text-[8.5px] font-black shadow-sm ring-2 ring-white">
+                        {bidCount}
+                    </span>
+                ) : null}
             </div>
             
             <div className="flex flex-col items-center gap-1 w-full text-center">
@@ -174,6 +236,45 @@ function PhaseButton({
     );
 }
 
+const getPhaseCounts = (phaseKey: PhaseKey, project: any): { hiredCount: number; bidCount: number } => {
+    if (!project) return { hiredCount: 0, bidCount: 0 };
+
+    let hiredCount = 0;
+    let bidCount = 0;
+
+    switch (phaseKey) {
+        case 'management':
+            hiredCount = project.pm_id ? 1 : 0;
+            bidCount = project.bids_project_manager_count || project.bids_project_manager?.length || 0;
+            break;
+        case 'legal':
+            hiredCount = project.selected_notaris_id ? 1 : 0;
+            bidCount = project.bids_notaris_count || project.bids_notaris?.length || 0;
+            break;
+        case 'technical':
+            hiredCount = (project.structural_id ? 1 : 0) + (project.mep_id ? 1 : 0);
+            bidCount = (project.bids_structural_count || project.bids_structural?.length || 0) +
+                       (project.bids_mep_count || project.bids_mep?.length || 0);
+            break;
+        case 'design':
+            hiredCount = project.selected_arsitek_id ? 1 : 0;
+            bidCount = project.bids_arsitek_count || project.bids_arsitek?.length || 0;
+            break;
+        case 'interior':
+            hiredCount = project.selected_interior_id ? 1 : 0;
+            bidCount = project.bids_interior_count || project.bids_interior?.length || 0;
+            break;
+        case 'build':
+            hiredCount = project.selected_kontraktor_id ? 1 : 0;
+            bidCount = project.bids_kontraktor_count || project.bids_kontraktor?.length || 0;
+            break;
+        default:
+            break;
+    }
+
+    return { hiredCount, bidCount };
+};
+
 export default function PhaseTimeline({ phases, activePhase, onPhaseClick, projectCategory, project }: PhaseTimelineProps) {
     // Split phases into: pre-parallel, parallel group, post-parallel
     const preParallel = phases.filter(p => !PARALLEL_KEYS.includes(p.key) && p.key !== 'handover');
@@ -189,6 +290,7 @@ export default function PhaseTimeline({ phases, activePhase, onPhaseClick, proje
                 {/* Pre-parallel phases (Legal, Design) */}
                 {preParallel.map((phase, i) => {
                     const isDone = phase.status === 'completed';
+                    const { hiredCount, bidCount } = getPhaseCounts(phase.key, project);
                     return (
                         <React.Fragment key={phase.key}>
                             {i > 0 && (
@@ -202,6 +304,8 @@ export default function PhaseTimeline({ phases, activePhase, onPhaseClick, proje
                                 onClick={() => onPhaseClick(phase.key)} 
                                 displayLabel={projectCategory ? getCategoryPhaseLabel(phase.key, projectCategory).label : undefined}
                                 progress={getPhaseProgress(phase.key, project)}
+                                hiredCount={hiredCount}
+                                bidCount={bidCount}
                             />
                         </React.Fragment>
                     );
@@ -220,38 +324,48 @@ export default function PhaseTimeline({ phases, activePhase, onPhaseClick, proje
                         }`}>
                             <span className="text-[7.5px] font-black uppercase tracking-[0.2em] text-slate-400 mb-0.5">Parallel</span>
                             <div className="flex items-center gap-2">
-                                {parallel.map((phase, i) => (
-                                    <React.Fragment key={phase.key}>
-                                        {i > 0 && <div className="w-[1px] h-8 bg-slate-200" />}
-                                        <PhaseButton 
-                                            phase={phase} 
-                                            isActive={phase.key === activePhase} 
-                                            onClick={() => onPhaseClick(phase.key)} 
-                                            displayLabel={projectCategory ? getCategoryPhaseLabel(phase.key, projectCategory).label : undefined}
-                                            progress={getPhaseProgress(phase.key, project)}
-                                        />
-                                    </React.Fragment>
-                                ))}
+                                {parallel.map((phase, i) => {
+                                    const { hiredCount, bidCount } = getPhaseCounts(phase.key, project);
+                                    return (
+                                        <React.Fragment key={phase.key}>
+                                            {i > 0 && <div className="w-[1px] h-8 bg-slate-200" />}
+                                            <PhaseButton 
+                                                phase={phase} 
+                                                isActive={phase.key === activePhase} 
+                                                onClick={() => onPhaseClick(phase.key)} 
+                                                displayLabel={projectCategory ? getCategoryPhaseLabel(phase.key, projectCategory).label : undefined}
+                                                progress={getPhaseProgress(phase.key, project)}
+                                                hiredCount={hiredCount}
+                                                bidCount={bidCount}
+                                            />
+                                        </React.Fragment>
+                                    );
+                                })}
                             </div>
                         </div>
                     </>
                 )}
 
                 {/* Connector to post-parallel (Handover) */}
-                {postParallel.map(phase => (
-                    <React.Fragment key={phase.key}>
-                        <div className={`h-[2px] w-8 sm:w-12 flex-shrink-0 transition-colors duration-300 ${
-                            allParallelDone ? 'bg-emerald-400' : 'bg-gray-200'
-                        }`} />
-                        <PhaseButton 
-                            phase={phase} 
-                            isActive={phase.key === activePhase} 
-                            onClick={() => onPhaseClick(phase.key)} 
-                            displayLabel={projectCategory ? getCategoryPhaseLabel(phase.key, projectCategory).label : undefined}
-                            progress={getPhaseProgress(phase.key, project)}
-                        />
-                    </React.Fragment>
-                ))}
+                {postParallel.map(phase => {
+                    const { hiredCount, bidCount } = getPhaseCounts(phase.key, project);
+                    return (
+                        <React.Fragment key={phase.key}>
+                            <div className={`h-[2px] w-8 sm:w-12 flex-shrink-0 transition-colors duration-300 ${
+                                allParallelDone ? 'bg-emerald-400' : 'bg-gray-200'
+                            }`} />
+                            <PhaseButton 
+                                phase={phase} 
+                                isActive={phase.key === activePhase} 
+                                onClick={() => onPhaseClick(phase.key)} 
+                                displayLabel={projectCategory ? getCategoryPhaseLabel(phase.key, projectCategory).label : undefined}
+                                progress={getPhaseProgress(phase.key, project)}
+                                hiredCount={hiredCount}
+                                bidCount={bidCount}
+                            />
+                        </React.Fragment>
+                    );
+                })}
             </div>
         </div>
     );
