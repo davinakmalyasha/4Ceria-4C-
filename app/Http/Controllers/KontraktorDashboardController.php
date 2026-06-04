@@ -79,8 +79,15 @@ class KontraktorDashboardController extends Controller
 
         if ($request->hasFile('pic')) {
             $user = Auth::user();
+            if ($user->pic) {
+                if (Storage::disk('public')->exists($user->pic)) {
+                    Storage::disk('public')->delete($user->pic);
+                } elseif (Storage::exists('public/profile_pics/'.$user->pic)) {
+                    Storage::delete('public/profile_pics/'.$user->pic);
+                }
+            }
 
-            $path = $request->file('pic')->store('profile_pics', 'public');
+            $path = $request->file('pic')->store("profile_pictures/user_{$user->id}", 'public');
             $user->pic = $path;
             $user->save();
         }

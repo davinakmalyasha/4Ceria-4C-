@@ -75,6 +75,12 @@ class RestoreUsersSeeder extends Seeder
                 'role_type' => 'project_manager',
             ],
             [
+                'name' => 'John (Lead PM)',
+                'email' => 'pm@4c.id',
+                'username' => 'john_pm_lead',
+                'role_type' => 'project_manager',
+            ],
+            [
                 'name' => 'Budi (Structural)',
                 'email' => 'budi_struc@gmail.com',
                 'username' => 'budi_struc',

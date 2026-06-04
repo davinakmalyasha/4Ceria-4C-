@@ -46,18 +46,21 @@ class ImageService
 
         if ($image) {
             $filename = uniqid('img_') . '_' . time() . '.webp';
-            $storageDir = storage_path('app/public/' . $directory);
-
-            if (!file_exists($storageDir)) {
-                mkdir($storageDir, 0755, true);
-            }
-
-            $targetPath = $storageDir . '/' . $filename;
+            $localTempPath = tempnam(sys_get_temp_dir(), 'webp_');
             
-            // Save as WebP
-            if (imagewebp($image, $targetPath, $quality)) {
+            // Save WebP locally to temp file
+            if (imagewebp($image, $localTempPath, $quality)) {
                 imagedestroy($image);
-                return $directory . '/' . $filename;
+                
+                $targetPath = $directory . '/' . $filename;
+                
+                // Upload to the public disk (which could be local or S3)
+                Storage::disk('public')->put($targetPath, file_get_contents($localTempPath));
+                
+                // Delete local temp file
+                @unlink($localTempPath);
+                
+                return $targetPath;
             }
             imagedestroy($image);
         }

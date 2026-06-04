@@ -37,7 +37,7 @@ class BidProjectManagerController extends Controller
         }
 
         $request->validate([
-            'price' => 'nullable|numeric|min:0',
+            'price' => 'required|numeric|gt:0',
             'proposal' => 'required|string',
             'estimated_duration' => 'nullable|integer',
             'duration_unit' => 'nullable|string',

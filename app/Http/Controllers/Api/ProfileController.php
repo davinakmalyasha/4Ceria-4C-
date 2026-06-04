@@ -239,7 +239,7 @@ class ProfileController extends Controller
             if ($profile->foto) {
                 Storage::disk('public')->delete($profile->foto);
             }
-            $updates['foto'] = \App\Services\ImageService::convertToWebp($request->file('foto'), 'portfolios/photos');
+            $updates['foto'] = \App\Services\ImageService::convertToWebp($request->file('foto'), "profile_pictures/user_{$profile->user_id}");
         }
 
         // Save Portfolio / NPWP document (equivalent)
@@ -251,7 +251,7 @@ class ProfileController extends Controller
             if ($profile->npwp && $profile->npwp !== $profile->file_portofolio) {
                 Storage::disk('supabase')->delete($profile->npwp);
             }
-            $path = $portfolioFile->store('portfolios', 'supabase');
+            $path = $portfolioFile->store("portfolios/user_{$profile->user_id}", 'supabase');
             $updates['file_portofolio'] = $path;
             $updates['npwp'] = $path; // keep both in sync for backward compatibility
         }
@@ -265,7 +265,7 @@ class ProfileController extends Controller
             if ($profile->siup && $profile->siup !== $profile->file_sertifikat) {
                 Storage::disk('supabase')->delete($profile->siup);
             }
-            $path = $sertifikatFile->store('certificates', 'supabase');
+            $path = $sertifikatFile->store("certificates/user_{$profile->user_id}", 'supabase');
             $updates['file_sertifikat'] = $path;
             $updates['siup'] = $path; // keep both in sync for backward compatibility
         }

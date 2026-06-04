@@ -73,6 +73,7 @@ Route::get('/marketplace/materials', [MaterialController::class, 'index']);
 
 // Public Construction Brief (no auth — accessed via share link)
 Route::get('/brief/{token}', [ProjectController::class, 'getPublicBrief']);
+Route::get('/contract-signatures/{roleType}/{bidId}/{timestamp}/{clientSuffix?}', [ProjectController::class, 'getContractSignature']);
 
 Route::middleware(['auth:sanctum', 'freeze_pending_termination'])->group(function () {
     Route::get('/hire-history', [HireHistoryController::class, 'index']);
@@ -129,6 +130,7 @@ Route::middleware(['auth:sanctum', 'freeze_pending_termination'])->group(functio
     });
     Route::get('/portfolios', [\App\Http\Controllers\Api\PortfolioController::class, 'index']);
     Route::post('/portfolios', [\App\Http\Controllers\Api\PortfolioController::class, 'store']);
+    Route::post('/portfolios/{id}', [\App\Http\Controllers\Api\PortfolioController::class, 'update']);
     Route::delete('/portfolios/{id}', [\App\Http\Controllers\Api\PortfolioController::class, 'destroy']);
     Route::put('/me', function (Request $request) {
         $user = $request->user();
@@ -197,6 +199,7 @@ Route::middleware(['auth:sanctum', 'freeze_pending_termination'])->group(functio
     // Protected API endpoints
     Route::get('/portfolios', [\App\Http\Controllers\Api\PortfolioController::class, 'index']);
     Route::post('/portfolios', [\App\Http\Controllers\Api\PortfolioController::class, 'store']);
+    Route::post('/portfolios/{id}', [\App\Http\Controllers\Api\PortfolioController::class, 'update']);
     Route::delete('/portfolios/{id}', [\App\Http\Controllers\Api\PortfolioController::class, 'destroy']);
     
     Route::apiResource('projects', ProjectController::class)->except(['index', 'show']);
@@ -213,6 +216,7 @@ Route::middleware(['auth:sanctum', 'freeze_pending_termination'])->group(functio
     Route::post('/projects/{project}/bids/{bid}/negotiate', [ProjectController::class, 'negotiateBidFee']);
     Route::post('/projects/{project}/bids/{bid}/confirm-fee', [ProjectController::class, 'confirmBidFee']);
     Route::post('/projects/{project}/bids/{bid}/sign-contract', [ProjectController::class, 'signContract']);
+    Route::post('/projects/{project}/bids/{bid}/client-sign-contract', [ProjectController::class, 'clientSignContract']);
     Route::post('/projects/{project}/termins/{termin}/upload-proof', [ProjectPaymentTerminController::class, 'uploadProof']);
     Route::post('/projects/{project}/termins/{termin}/verify-payment', [ProjectPaymentTerminController::class, 'verifyPayment']);
     Route::post('/projects/{project}/bids/{bid}/accept-invite', [ProjectController::class, 'acceptInvite']);
@@ -512,6 +516,8 @@ Route::middleware(['auth:sanctum', 'freeze_pending_termination'])->group(functio
     Route::delete('/team-members/{id}', [TeamMemberController::class, 'destroy']);
 
     // Firm Members (Account-linked Roster)
+    Route::get('/firm-members/profile/{ownerId}', [FirmMemberController::class, 'getProfile']);
+    Route::post('/firm-members/update-profile', [FirmMemberController::class, 'updateProfile']);
     Route::get('/firm-members/suggestions', [FirmMemberController::class, 'suggestions']);
     Route::get('/firm-members/my-firms', [FirmMemberController::class, 'myFirms']);
     Route::get('/firm-members/join-requests', [FirmMemberController::class, 'joinRequests']);

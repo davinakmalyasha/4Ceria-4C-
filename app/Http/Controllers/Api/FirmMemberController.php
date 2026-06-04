@@ -151,14 +151,53 @@ class FirmMemberController extends Controller
     public function browseFirmOwners(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'query' => ['required', 'string', 'min:2', 'max:50'],
+            'query' => ['nullable', 'string', 'max:50'],
         ]);
 
-        $results = User::whereIn('role_type', ['arsitek', 'kontraktor'])
-            ->where('id', '!=', Auth::id())
-            ->where('name', 'LIKE', "%{$validated['query']}%")
-            ->limit(15)
-            ->get(['id', 'name', 'role_type', 'pic']);
+        $queryStr = $validated['query'] ?? null;
+
+        $dbQuery = User::whereIn('role_type', ['arsitek', 'kontraktor'])
+            ->where('id', '!=', Auth::id());
+
+        if ($queryStr && strlen($queryStr) >= 2) {
+            $dbQuery->where(function ($q) use ($queryStr) {
+                $cleanQuery = ltrim($queryStr, '#');
+                $q->where('unique_code', strtoupper($cleanQuery))
+                  ->orWhere('name', 'LIKE', "%{$queryStr}%");
+            });
+        } else {
+            // Default to only hiring firms
+            $dbQuery->where('firm_is_hiring', true);
+        }
+
+        $userId = Auth::id();
+
+        $results = $dbQuery->limit(20)
+            ->with(['firmRoster' => function ($q) use ($userId) {
+                $q->where('member_user_id', $userId);
+            }])
+            ->get([
+                'id', 
+                'name', 
+                'role_type', 
+                'pic', 
+                'firm_name', 
+                'firm_slogan', 
+                'firm_banner_path', 
+                'firm_description', 
+                'firm_is_hiring', 
+                'firm_needed_roles'
+            ]);
+
+        $results->each(function ($u) use ($userId) {
+            $u->firm_banner_url = $u->firm_banner_path ? asset('storage/' . $u->firm_banner_path) : null;
+            if ($u->pic && !str_starts_with($u->pic, 'http')) {
+                $u->pic = asset('storage/' . $u->pic);
+            }
+            $membership = $u->firmRoster->first();
+            $u->currentUserMembershipStatus = $membership ? $membership->status : null;
+            $u->unsetRelation('firmRoster');
+        });
 
         return response()->json(['data' => $results]);
     }
@@ -279,5 +318,143 @@ class FirmMemberController extends Controller
             'message' => 'Specialist assignment proposal submitted to project owner.',
             'data'    => $addendum,
         ], 201);
+    }
+
+    public function getProfile(Request $request, $ownerId): JsonResponse
+    {
+        $owner = User::whereIn('role_type', ['arsitek', 'kontraktor'])
+            ->where('id', $ownerId)
+            ->first();
+
+        if (!$owner) {
+            return response()->json(['message' => 'Firm not found.'], 404);
+        }
+
+        $profile = $owner->arsitek ?? $owner->kontraktor;
+
+        // Fetch roster using service
+        $roster = $this->service->getRoster($owner);
+
+        // Fetch portfolio items
+        $portfolios = \App\Models\ProfessionalPortfolio::where('user_id', $owner->id)
+            ->latest()
+            ->get();
+
+        return response()->json([
+            'owner' => [
+                'id' => $owner->id,
+                'name' => $owner->name,
+                'username' => $owner->username,
+                'pic' => $owner->pic ? asset('storage/' . $owner->pic) : null,
+                'role_type' => $owner->role_type,
+                'unique_code' => $owner->unique_code,
+            ],
+            'firm_name' => $owner->firm_name ?? ($owner->role_type === 'arsitek' ? ($owner->arsitek->company_name ?? $owner->name) : ($owner->kontraktor->company_name ?? $owner->name)),
+            'firm_slogan' => $owner->firm_slogan,
+            'firm_banner_url' => $owner->firm_banner_path ? asset('storage/' . $owner->firm_banner_path) : null,
+            'firm_description' => $owner->firm_description ?? ($profile?->deskripsi ?? ''),
+            'firm_is_hiring' => (bool)$owner->firm_is_hiring,
+            'firm_needed_roles' => $owner->firm_needed_roles ?? [],
+            'stats' => [
+                'experience_years' => (int)($profile?->pengalaman_tahun ?? ($profile?->pengalaman ?? 0)),
+                'base_rate' => (float)($profile?->rate_harga ?? 0),
+                'average_rating' => (float)($profile?->average_rating ?? 0),
+                'review_count' => (int)($profile?->review_count ?? 0),
+                'active_members_count' => FirmMember::where('firm_owner_id', $owner->id)->active()->count(),
+            ],
+            'roster' => $roster,
+            'portfolios' => $portfolios,
+        ]);
+    }
+
+    public function updateProfile(Request $request): JsonResponse
+    {
+        $user = Auth::user();
+        if (!in_array($user->role_type, ['arsitek', 'kontraktor'])) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        $validated = $request->validate([
+            'firm_name' => ['nullable', 'string', 'max:100'],
+            'firm_slogan' => ['nullable', 'string', 'max:150'],
+            'firm_description' => ['nullable', 'string', 'max:1000'],
+            'firm_banner' => ['nullable', 'image', 'max:5120'], // 5MB max
+            'firm_logo' => ['nullable', 'image', 'max:2048'],   // 2MB max
+            'base_rate' => ['nullable', 'numeric', 'min:0'],
+            'experience_years' => ['nullable', 'integer', 'min:0'],
+            'firm_is_hiring' => ['nullable'],
+            'firm_needed_roles' => ['nullable'],
+        ]);
+
+        $updatedUser = \Illuminate\Support\Facades\DB::transaction(function () use ($user, $validated, $request) {
+            $user->firm_name = $validated['firm_name'] ?? $user->firm_name;
+            $user->firm_slogan = $validated['firm_slogan'] ?? $user->firm_slogan;
+            $user->firm_description = $validated['firm_description'] ?? $user->firm_description;
+
+            if ($request->has('firm_is_hiring')) {
+                $user->firm_is_hiring = filter_var($request->input('firm_is_hiring'), FILTER_VALIDATE_BOOLEAN);
+            }
+            if ($request->has('firm_needed_roles')) {
+                $rolesVal = $request->input('firm_needed_roles');
+                if (is_string($rolesVal)) {
+                    $user->firm_needed_roles = json_decode($rolesVal, true) ?? [];
+                } else {
+                    $user->firm_needed_roles = $rolesVal;
+                }
+            }
+
+            if ($request->hasFile('firm_banner')) {
+                if ($user->firm_banner_path) {
+                    \Illuminate\Support\Facades\Storage::disk('public')->delete($user->firm_banner_path);
+                }
+                $user->firm_banner_path = $request->file('firm_banner')->store('firm_banners', 'public');
+            }
+
+            if ($request->hasFile('firm_logo')) {
+                if ($user->pic) {
+                    \Illuminate\Support\Facades\Storage::disk('public')->delete($user->pic);
+                }
+                $user->pic = $request->file('firm_logo')->store('avatars', 'public');
+            }
+
+            $user->save();
+
+            // Update associated professional profile
+            if ($request->has('base_rate') || $request->has('experience_years')) {
+                $profUpdate = [];
+                if ($request->has('base_rate')) {
+                    $profUpdate['rate_harga'] = $validated['base_rate'];
+                }
+                
+                if ($user->role_type === 'arsitek' && $user->arsitek) {
+                    if ($request->has('experience_years')) {
+                        $profUpdate['pengalaman_tahun'] = $validated['experience_years'];
+                    }
+                    $user->arsitek->update($profUpdate);
+                } elseif ($user->role_type === 'kontraktor' && $user->kontraktor) {
+                    if ($request->has('experience_years')) {
+                        $profUpdate['pengalaman'] = $validated['experience_years'];
+                    }
+                    $user->kontraktor->update($profUpdate);
+                }
+            }
+
+            return $user;
+        });
+
+        // Sync to professional company_name as well if applicable
+        if ($updatedUser->firm_name) {
+            if ($updatedUser->arsitek) {
+                $updatedUser->arsitek->update(['company_name' => $updatedUser->firm_name]);
+            }
+            if ($updatedUser->kontraktor) {
+                $updatedUser->kontraktor->update(['company_name' => $updatedUser->firm_name]);
+            }
+        }
+
+        return response()->json([
+            'message' => 'Firm squad profile updated successfully.',
+            'user' => $updatedUser,
+        ]);
     }
 }

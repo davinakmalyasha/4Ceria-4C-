@@ -46,6 +46,8 @@ class ProjectBudgetController extends Controller
                 'transaction_count' => $project->budgetTransactions->count()
             ]);
 
+            $pmBid = $project->pm_id ? $project->bidsProjectManager()->whereIn('status', ['accepted', 'active', 'awaiting_payment'])->first() : null;
+
             return response()->json([
                 'project_budget' => (string) $project->budget,
                 'transactions' => $project->budgetTransactions->map(function($t) {
@@ -64,9 +66,9 @@ class ProjectBudgetController extends Controller
                     'project_manager' => ($project->pm_id && $project->projectManager) ? [
                         'id' => $project->pm_id,
                         'pm' => ['user' => ['name' => optional($project->projectManager->user)->name ?? 'Project Manager']],
-                        'price' => (string) (($bid = $project->bidsProjectManager()->where('status', 'accepted')->orWhere('status', 'active')->first()) ? ($bid->calculated_total ?? $bid->price) : 10000000),
-                        'payment_status' => 'paid',
-                        'paid_at' => $project->created_at 
+                        'price' => $pmBid ? (string) ($pmBid->calculated_total ?? $pmBid->price) : '10000000',
+                        'payment_status' => $pmBid ? ($pmBid->payment_status ?? 'unpaid') : 'paid',
+                        'paid_at' => $pmBid ? ($pmBid->paid_at ? (string) $pmBid->paid_at : null) : $project->created_at
                     ] : null,
                     'arsitek' => $project->bidsArsitek->first() ? array_merge($project->bidsArsitek->first()->toArray(), ['price' => (string) $project->bidsArsitek->first()->price]) : null,
                     'kontraktor' => $project->bidsKontraktor->first() ? array_merge($project->bidsKontraktor->first()->toArray(), ['price' => (string) $project->bidsKontraktor->first()->price]) : null,

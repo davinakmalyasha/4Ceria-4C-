@@ -469,8 +469,9 @@ class ProjectController extends Controller
             }
         }
 
+        $priceRule = $user->role_type === 'notaris' ? 'required|numeric|min:0' : 'required|numeric|gt:0';
         $request->validate([
-            'price' => 'nullable|numeric|min:0',
+            'price' => $priceRule,
             'price_max' => 'nullable|numeric|min:0',
             'proposal' => 'required|string|max:2000',
             'estimated_duration' => 'nullable|integer|min:1',
@@ -483,7 +484,7 @@ class ProjectController extends Controller
         for ($i = 1; $i <= 3; $i++) {
             $key = "attachment_$i";
             if ($request->hasFile($key)) {
-                $path = $request->file($key)->store('bid_attachments', 'public');
+                $path = $request->file($key)->store("projects/project_{$project->id}/bids/user_{$user->id}", 'public');
                 $attachments[$key] = $path;
             } else {
                 $attachments[$key] = null;
@@ -503,6 +504,11 @@ class ProjectController extends Controller
             }
         }
 
+        $calculatedTotal = $calc['calculated_total'] + $servicesTotal;
+        if ($calculatedTotal <= 0) {
+            return response()->json(['message' => 'Proposed fee must be greater than zero.'], 422);
+        }
+
         $baseData = [
             'project_id' => $project->id,
             'price' => $calc['price'],
@@ -510,7 +516,7 @@ class ProjectController extends Controller
             'fee_type' => $calc['fee_type'],
             'unit_price' => $calc['unit_price'],
             'quantity' => $calc['quantity'],
-            'calculated_total' => $calc['calculated_total'] + $servicesTotal,
+            'calculated_total' => $calculatedTotal,
             'proposal' => $request->proposal,
             'estimated_duration' => $request->estimated_duration ?: 1,
             'duration_unit' => $request->duration_unit ?: 'weeks',
@@ -713,10 +719,12 @@ class ProjectController extends Controller
     {
         $user = Auth::user();
 
+        $bidType = $request->input('bid_type');
+        $priceRule = $bidType === 'notaris' ? 'required|numeric|min:0' : 'required|numeric|gt:0';
         $validated = $request->validate([
             'bid_id' => 'required|integer',
             'bid_type' => 'required|string|in:arsitek,kontraktor,notaris,interior,project_manager,structural,mep',
-            'price' => 'required|numeric|min:0',
+            'price' => $priceRule,
             'fee_type' => 'nullable|string|in:fixed,percentage,unit,sqm,hourly',
             'note' => 'nullable|string', // Optional note for audit trail
             'proposed_termins' => 'required|array',
@@ -840,9 +848,6 @@ class ProjectController extends Controller
                 }
             }
 
-            // 1. Log the current state as a snapshot before updating
-            $this->negotiationService->logRound($bid, $validated, $validated['note']);
-
             // 2. Recalculate total including services
             $calc = $calculationService->calculate([
                 'price' => $validated['price'],
@@ -876,10 +881,18 @@ class ProjectController extends Controller
                 }
             }
 
+            $grandTotal = $calc['calculated_total'] + $servicesTotal + $teamTotal;
+            if ($grandTotal <= 0) {
+                return response()->json(['message' => 'Proposed fee must be greater than zero.'], 422);
+            }
+
+            // 1. Log the current state as a snapshot before updating
+            $this->negotiationService->logRound($bid, $validated, $validated['note']);
+
             $bid->update([
                 'price' => $validated['price'],
                 'fee_type' => $validated['fee_type'] ?? $bid->fee_type ?? 'fixed',
-                'calculated_total' => $calc['calculated_total'] + $servicesTotal + $teamTotal,
+                'calculated_total' => $grandTotal,
                 'proposed_termins' => $validated['proposed_termins'],
                 'proposed_milestones' => $validated['proposed_milestones'] ?? null,
                 'selected_services' => $validated['selected_services'] ?? $bid->selected_services ?? null,
@@ -1203,9 +1216,58 @@ class ProjectController extends Controller
                 return response()->json(['message' => 'Cannot hire a professional with a Rp 0 fee. Please negotiate terms first.'], 422);
             }
 
-            // If fee hasn't been explicitly agreed yet, we'll mark it as agreed now since the owner is finalizing the hire
+            // If fee hasn't been explicitly agreed yet, we'll mark it as agreed now since the owner or PM is finalizing the decision
             if (!$bidToCheck->fee_agreed_at) {
                 $bidToCheck->update(['fee_agreed_at' => now()]);
+            }
+
+            if ($isPM) {
+                $bidToCheck->update([
+                    'is_recommended' => true,
+                    'verification_notes' => $request->verification_notes
+                ]);
+
+                // Create activity log
+                ProjectActivityLog::create([
+                    'project_id' => $project->id,
+                    'user_id' => Auth::id(),
+                    'action' => 'bid_recommended',
+                    'details' => "Recommended " . ucfirst($request->bid_type) . " bid to the owner. PM Notes: " . ($request->verification_notes ?? 'None'),
+                ]);
+
+                // Notification to the owner
+                Notification::create([
+                    'user_id' => $project->user_id,
+                    'type' => 'bid_recommended',
+                    'title' => 'Professional Recommended',
+                    'body' => "Your Project Manager has recommended a professional for your project \"{$project->title}\". Please review and approve.",
+                    'data' => ['project_id' => $project->id, 'bid_id' => $bidToCheck->id, 'bid_type' => $request->bid_type],
+                ]);
+
+                $project->load([
+                    'arsitek.user',
+                    'kontraktor.user',
+                    'notaris.user',
+                    'interior.user',
+                    'bidsArsitek.arsitek.user',
+                    'bidsKontraktor.kontraktor.user',
+                    'bidsNotaris.notaris.user',
+                    'bidsInterior.interior.user',
+                    'bidsProjectManager.pm.user',
+                    'user',
+                    'images',
+                    'ratings',
+                    'kontraktorRating',
+                    'projectManager.user',
+                    'paymentTermins'
+                ])->loadCount(['bidsArsitek', 'bidsKontraktor', 'bidsNotaris', 'bidsInterior', 'bidsProjectManager']);
+
+                return new ProjectResource($project);
+            }
+
+            // Zero Frontend Trust Validation for Owner if project has PM
+            if ($isOwner && $project->pm_id && !$bidToCheck->is_recommended) {
+                return response()->json(['message' => 'Unauthorized. The Project Manager must recommend this professional first.'], 403);
             }
 
             $financialService = app(\App\Services\ProjectFinancialService::class);
@@ -2472,9 +2534,11 @@ class ProjectController extends Controller
     public function negotiateBidFee(Request $request, Project $project, $bidId, \App\Services\BidCalculationService $calculationService)
     {
         $user = Auth::user();
+        $bidType = $request->input('bid_type');
+        $priceRule = $bidType === 'notaris' ? 'required|numeric|min:0' : 'required|numeric|gt:0';
         $request->validate([
             'bid_type' => 'required|in:arsitek,kontraktor,notaris,interior,project_manager,structural,mep',
-            'price' => 'required|numeric|min:0',
+            'price' => $priceRule,
             'selected_services' => 'nullable|array',
         ]);
         $bidType = $request->bid_type;
@@ -2519,9 +2583,33 @@ class ProjectController extends Controller
                 }
             }
 
+            // Calculate team member fees total if any
+            $teamTotal = 0;
+            $proposedTeam = $bid->proposed_team;
+            if (is_string($proposedTeam)) {
+                $proposedTeam = json_decode($proposedTeam, true);
+            }
+            if (is_array($proposedTeam)) {
+                foreach ($proposedTeam as $tm) {
+                    $feeVal = (float) ($tm['fee'] ?? 0);
+                    $feeType = $tm['fee_type'] ?? 'fixed';
+                    if ($feeType === 'percentage') {
+                        $actualFee = ($feeVal / 100) * $calc['calculated_total'];
+                    } else {
+                        $actualFee = $feeVal;
+                    }
+                    $teamTotal += round($actualFee);
+                }
+            }
+
+            $newCalculatedTotal = $calc['calculated_total'] + $servicesTotal + $teamTotal;
+            if ($newCalculatedTotal <= 0) {
+                return response()->json(['message' => 'Proposed fee must be greater than zero.'], 422);
+            }
+
             $bid->update([
                 'price' => $calc['price'],
-                'calculated_total' => $calc['calculated_total'] + $servicesTotal,
+                'calculated_total' => $newCalculatedTotal,
                 'selected_services' => $services,
                 'unit_price' => $calc['unit_price'],
                 'quantity' => $calc['quantity'],
@@ -2593,6 +2681,9 @@ class ProjectController extends Controller
             'milestones.*.title' => 'required|string|max:255',
             'milestones.*.description' => 'nullable|string',
             'signature' => 'nullable|string',
+            'bank_type' => 'required|string|max:255',
+            'bank_account_no' => 'required|string|regex:/^[0-9]+$/|min:5|max:30',
+            'bank_account_name' => 'required|string|min:3|max:255',
         ]);
 
         $bidModel = $this->getBidModel($request->bid_type);
@@ -2643,10 +2734,20 @@ class ProjectController extends Controller
         }
 
         return DB::transaction(function () use ($project, $bid, $request, $user, $expectedTotal) {
-            // 0. Update Project Payment Instructions if provided
-            if ($request->payment_instructions) {
-                $project->update(['payment_instructions' => $request->payment_instructions]);
-            }
+            // 0. Update Project Payment Instructions using validated bank details
+            $bankType = trim($request->bank_type);
+            $bankAccountNo = trim($request->bank_account_no);
+            $bankAccountName = trim($request->bank_account_name);
+            
+            // Save to professional user profile
+            $user->update([
+                'bank_name' => $bankType,
+                'bank_account_number' => $bankAccountNo,
+                'bank_account_name' => $bankAccountName,
+            ]);
+
+            $paymentInstructions = "Bank: {$bankType} | No. Rekening: {$bankAccountNo} | A/N: {$bankAccountName}";
+            $project->update(['payment_instructions' => $paymentInstructions]);
 
             // Save professional signature if provided
             if ($request->signature) {
@@ -2656,12 +2757,9 @@ class ProjectController extends Controller
                     $signatureData = base64_decode($signatureData);
                     
                     if ($signatureData !== false) {
-                        if (!Storage::disk('public')->exists('signatures')) {
-                            Storage::disk('public')->makeDirectory('signatures');
-                        }
-                        
-                        $fileName = "signature_{$request->bid_type}_{$bid->id}.png";
-                        Storage::disk('public')->put("signatures/" . $fileName, $signatureData);
+                        $timestamp = $bid->created_at ? $bid->created_at->timestamp : time();
+                        $fileName = "signature_{$request->bid_type}_{$bid->id}_{$timestamp}.png";
+                        Storage::disk('supabase')->put("contracts/project_{$project->id}/signatures/" . $fileName, $signatureData);
                     }
                 }
             }
@@ -2735,9 +2833,8 @@ class ProjectController extends Controller
                 ]);
             }
 
-            // 3. Update Bid and Project Status
-            $bid->update(['status' => 'awaiting_payment']);
-            $project->update(['status' => 'awaiting_payment']);
+            // 3. Keep status as contract_pending until client reviews and signs
+            $bid->update(['status' => 'contract_pending']);
 
             // 3b. Auto-assign proposed team members as sub-professionals
             $proposedTeam = is_array($bid->proposed_team) ? $bid->proposed_team : [];
@@ -2896,8 +2993,117 @@ class ProjectController extends Controller
                 'details' => "Professional has signed the SPK and defined payment termins.",
             ]);
 
-            return response()->json(['message' => 'Contract signed successfully! Awaiting owner payment.', 'bid' => $bid]);
+            return response()->json(['message' => 'Contract signed successfully! Awaiting owner signature.', 'bid' => $bid]);
         });
+    }
+
+    public function clientSignContract(Project $project, $bidId, Request $request)
+    {
+        $user = Auth::user();
+        $request->validate([
+            'bid_type' => 'required|string',
+            'signature' => 'required|string',
+        ]);
+
+        $bidModel = $this->getBidModel($request->bid_type);
+        $bid = $bidModel::where('id', $bidId)->where('project_id', $project->id)->firstOrFail();
+
+        // 1. Authorize: Only the project owner can sign as client
+        if ($user->id !== $project->user_id) {
+            return response()->json(['message' => 'Unauthorized. Only the project owner can sign this contract.'], 403);
+        }
+
+        // 2. Validate state: must be in contract_pending or awaiting_payment
+        if (!in_array($bid->status, ['contract_pending', 'awaiting_payment'])) {
+            return response()->json(['message' => 'This contract is not in a signable state.'], 422);
+        }
+
+        // 3. Verify professional has already signed
+        $timestamp = $bid->created_at ? $bid->created_at->timestamp : time();
+        $proFileName = "signature_{$request->bid_type}_{$bid->id}_{$timestamp}.png";
+        
+        $proSignatureExists = Storage::disk('supabase')->exists("contracts/project_{$project->id}/signatures/" . $proFileName) ||
+                              Storage::disk('public')->exists("contracts/project_{$project->id}/signatures/" . $proFileName) ||
+                              Storage::disk('supabase')->exists("signatures/" . $proFileName) ||
+                              Storage::disk('public')->exists("signatures/" . $proFileName);
+        if (!$proSignatureExists) {
+            return response()->json(['message' => 'The professional must sign the contract first.'], 422);
+        }
+
+        return DB::transaction(function () use ($project, $bid, $request, $user, $timestamp) {
+            // Save client signature
+            $signatureData = $request->signature;
+            if (preg_match('/^data:image\/(\w+);base64,/', $signatureData, $type)) {
+                $signatureData = substr($signatureData, strpos($signatureData, ',') + 1);
+                $signatureData = base64_decode($signatureData);
+                
+                if ($signatureData !== false) {
+                    $fileName = "signature_{$request->bid_type}_{$bid->id}_{$timestamp}_client.png";
+                    Storage::disk('supabase')->put("contracts/project_{$project->id}/signatures/" . $fileName, $signatureData);
+                }
+            } else {
+                return response()->json(['message' => 'Invalid signature format.'], 422);
+            }
+
+            // Update Bid and Project Status to awaiting_payment
+            $bid->update(['status' => 'awaiting_payment']);
+            $project->update(['status' => 'awaiting_payment']);
+
+            // Generate and save immutable SPK contract snapshot to Supabase
+            $contractService = app(\App\Services\ProjectContractService::class);
+            $contractService->storeContractSnapshot($project, $bid, $request->bid_type);
+
+            // Log Activity
+            \App\Models\ProjectActivityLog::create([
+                'project_id' => $project->id,
+                'user_id' => $user->id,
+                'action' => 'contract_signed_by_client',
+                'details' => "Client has signed the SPK contract. Status transitioned to awaiting payment.",
+            ]);
+
+            return response()->json(['message' => 'Contract signed successfully! Awaiting payment verification.', 'bid' => $bid]);
+        });
+    }
+
+    public function getContractSignature(Request $request, string $roleType, $bidId, string $timestamp, string $clientSuffix = null)
+    {
+        $suffix = $clientSuffix === 'client' ? '_client' : '';
+        
+        // Cryptographic token verification
+        $token = $request->query('token');
+        $expectedToken = hash_hmac('sha256', "{$roleType}_{$bidId}_{$timestamp}{$suffix}", config('app.key'));
+        
+        if (!$token || !hash_equals($expectedToken, $token)) {
+            abort(403, 'Invalid or expired signature token.');
+        }
+
+        $bidModel = $this->getBidModel($roleType);
+        $bid = $bidModel::where('id', $bidId)->firstOrFail();
+
+        $newPath = "contracts/project_{$bid->project_id}/signatures/signature_{$roleType}_{$bidId}_{$timestamp}{$suffix}.png";
+        $legacyPath = "signatures/signature_{$roleType}_{$bidId}_{$timestamp}{$suffix}.png";
+        
+        if (Storage::disk('supabase')->exists($newPath)) {
+            $file = Storage::disk('supabase')->get($newPath);
+            return response($file, 200)->header('Content-Type', 'image/png');
+        }
+        
+        if (Storage::disk('public')->exists($newPath)) {
+            $file = Storage::disk('public')->get($newPath);
+            return response($file, 200)->header('Content-Type', 'image/png');
+        }
+        
+        if (Storage::disk('supabase')->exists($legacyPath)) {
+            $file = Storage::disk('supabase')->get($legacyPath);
+            return response($file, 200)->header('Content-Type', 'image/png');
+        }
+        
+        if (Storage::disk('public')->exists($legacyPath)) {
+            $file = Storage::disk('public')->get($legacyPath);
+            return response($file, 200)->header('Content-Type', 'image/png');
+        }
+        
+        abort(404, 'Signature not found.');
     }
 
     public function acceptInvite(Project $project, $bidId, Request $request)

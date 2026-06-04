@@ -166,21 +166,36 @@ class ProjectPhaseController extends Controller
     {
         $user = Auth::user();
 
-        if ($user->role_type !== 'notaris' || $project->selected_notaris_id !== optional($user->notaris)->id) {
+        if ($user->role_type !== 'notaris' || $project->selected_notaris_id !== optional($user->notaris_profile)->id) {
             return response()->json(['message' => 'Unauthorized. Only the hired notary can seal the legal phase.'], 403);
         }
 
-        // Check all legal milestones are completed
-        $incomplete = $project->milestones()
-            ->where('phase_context', 'legal')
-            ->where(function($query) {
-                $query->where('is_completed', false)
-                      ->orWhere('approval_status', '!=', 'approved');
+        // Check if there are payment termins linked to legal milestones
+        $hasLinkedPayments = $project->paymentTermins()
+            ->whereNotNull('milestone_id')
+            ->whereHas('milestone', function($q) {
+                $q->where('phase_context', 'legal');
             })
             ->exists();
 
+        // Check all legal milestones have been uploaded/submitted (i.e. none are in drafting or revision status)
+        $incomplete = $project->milestones()
+            ->where('phase_context', 'legal')
+            ->where(function($query) use ($hasLinkedPayments) {
+                if ($hasLinkedPayments) {
+                    // Ignore predefined milestones (having a non-empty req_id) that are not linked to any payment termin
+                    $query->where(function($q) {
+                        $q->whereNull('content->req_id')
+                          ->orWhere('content->req_id', '')
+                          ->orWhereHas('linkedTermin');
+                    });
+                }
+            })
+            ->whereIn('approval_status', ['drafting', 'revision'])
+            ->exists();
+
         if ($incomplete) {
-            return response()->json(['message' => 'All legal milestones must be completed and approved before sealing.'], 422);
+            return response()->json(['message' => 'All legal milestones must be completed (uploaded) and not pending revisions before submitting for review.'], 422);
         }
 
         DB::beginTransaction();
@@ -362,7 +377,7 @@ class ProjectPhaseController extends Controller
         }
     }
 
-    public function authorizePhase(Request $request, Project $project)
+    public function authorizePhase(\Illuminate\Http\Request $request, Project $project)
     {
         if (!$this->isProjectOwner($project, Auth::user()) && !$this->isProjectManager($project, Auth::user())) {
             return response()->json(['message' => 'Unauthorized. Only the Project Owner or PM can authorize phases.'], 403);

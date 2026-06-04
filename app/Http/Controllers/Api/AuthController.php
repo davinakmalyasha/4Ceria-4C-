@@ -12,6 +12,7 @@ use App\Models\NotarisProfile;
 use App\Models\Notification;
 use App\Models\StructuralEngineer;
 use App\Models\User;
+use App\Http\Resources\UserResource;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -30,18 +31,30 @@ class AuthController extends Controller
                 'message' => 'Invalid login credentials',
             ], 401);
         }
-        $user = User::where('email', $request->email)->with('roles')->firstOrFail();
+        $user = User::where('email', $request->email)->firstOrFail();
         if ($user->is_suspended) {
             return response()->json([
                 'message' => 'Your account has been suspended by the administrator.',
             ], 403);
         }
+
+        $relations = [
+            'phoneNumber', 'arsitek', 'kontraktor',
+            'notaris_profile.services', 'interior_profile', 'project_manager',
+            'structural_engineer', 'mep_engineer', 'supplier',
+            'roles',
+        ];
+        if (in_array($user->role_type, ['arsitek', 'kontraktor'])) {
+            $relations[] = 'teamMembers';
+        }
+        $user->load($relations);
+
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
             'access_token' => $token,
             'token_type' => 'Bearer',
-            'user' => $user,
+            'user' => new UserResource($user),
         ]);
     }
 
@@ -229,13 +242,24 @@ class AuthController extends Controller
             $user->assignRole('user');
         }
 
+        $relations = [
+            'phoneNumber', 'arsitek', 'kontraktor',
+            'notaris_profile.services', 'interior_profile', 'project_manager',
+            'structural_engineer', 'mep_engineer', 'supplier',
+            'roles',
+        ];
+        if (in_array($user->role_type, ['arsitek', 'kontraktor'])) {
+            $relations[] = 'teamMembers';
+        }
+        $user->load($relations);
+
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
             'message' => 'User created successfully',
             'access_token' => $token,
             'token_type' => 'Bearer',
-            'user' => $user,
+            'user' => new UserResource($user),
         ], 201);
     }
 

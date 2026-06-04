@@ -18,7 +18,7 @@ class FirmMemberService
         $targetRoles = $this->getTargetRoles($owner);
         $direction = $sort === 'z-a' ? 'desc' : 'asc';
 
-        return User::whereIn('role_type', $targetRoles)
+        $users = User::whereIn('role_type', $targetRoles)
             ->where('id', '!=', $owner->id)
             ->where(function ($q) use ($query) {
                 $q->where('unique_code', strtoupper($query))
@@ -27,6 +27,14 @@ class FirmMemberService
             ->orderBy('name', $direction)
             ->limit(20)
             ->get(['id', 'name', 'unique_code', 'role_type', 'pic']);
+
+        $users->each(function ($u) {
+            if ($u->pic && !str_starts_with($u->pic, 'http')) {
+                $u->pic = asset('storage/' . $u->pic);
+            }
+        });
+
+        return $users;
     }
 
     /**
@@ -40,12 +48,20 @@ class FirmMemberService
             ->whereIn('status', ['invited', 'active', 'requested'])
             ->pluck('member_user_id');
 
-        return User::whereIn('role_type', $targetRoles)
+        $users = User::whereIn('role_type', $targetRoles)
             ->where('id', '!=', $owner->id)
             ->whereNotIn('id', $existingIds)
             ->orderByDesc('created_at')
             ->limit($limit)
             ->get(['id', 'name', 'unique_code', 'role_type', 'pic']);
+
+        $users->each(function ($u) {
+            if ($u->pic && !str_starts_with($u->pic, 'http')) {
+                $u->pic = asset('storage/' . $u->pic);
+            }
+        });
+
+        return $users;
     }
 
     public function invite(User $owner, int $memberUserId, array $rolesInFirm): Collection
@@ -108,10 +124,11 @@ class FirmMemberService
             ->whereIn('status', ['invited', 'active', 'requested'])
             ->with([
                 'member:id,name,unique_code,role_type,pic',
-                'member.structural_engineer:id,user_id,no_telp',
-                'member.mep_engineer:id,user_id,no_telp',
-                'member.interior_profile:id,user_id,no_telp',
-                'member.kontraktor:id,user_id,no_telepon',
+                'member.structural_engineer',
+                'member.mep_engineer',
+                'member.interior_profile',
+                'member.kontraktor',
+                'member.portfolios',
             ])
             ->orderBy('created_at', 'desc')
             ->get();
@@ -135,6 +152,18 @@ class FirmMemberService
 
             $phone = $profile?->no_telp ?? $profile?->no_telepon ?? null;
             $fm->member->setAttribute('no_telp', $phone);
+
+            // Append extra profile details for UI display
+            $fm->member->setAttribute('verification_status', $profile?->verification_status ?? 'unverified');
+            $fm->member->setAttribute('rate_harga', (float)($profile?->rate_harga ?? 0));
+            $fm->member->setAttribute('pengalaman_tahun', (int)($profile?->pengalaman_tahun ?? $profile?->pengalaman ?? 0));
+            $fm->member->setAttribute('deskripsi', $profile?->deskripsi ?? '');
+            $fm->member->setAttribute('lokasi', $profile?->lokasi ?? $profile?->alamat ?? '');
+            $fm->member->setAttribute('entity_type', $profile?->entity_type ?? 'individual');
+
+            if ($fm->member->pic && !str_starts_with($fm->member->pic, 'http')) {
+                $fm->member->pic = asset('storage/' . $fm->member->pic);
+            }
 
             // 1. Get projects from sub-professional assignments
             $subProjects = $subPros->get($fm->member_user_id) ?: collect();
@@ -235,6 +264,10 @@ class FirmMemberService
             $profile = $fm->firmOwner->arsitek ?? $fm->firmOwner->kontraktor;
             $phone = $profile?->no_telp ?? $profile?->no_telepon ?? null;
             $fm->firmOwner->setAttribute('no_telp', $phone);
+
+            if ($fm->firmOwner->pic && !str_starts_with($fm->firmOwner->pic, 'http')) {
+                $fm->firmOwner->pic = asset('storage/' . $fm->firmOwner->pic);
+            }
         });
 
         return $invitations;
@@ -258,6 +291,10 @@ class FirmMemberService
             $profile = $fm->firmOwner->arsitek ?? $fm->firmOwner->kontraktor;
             $phone = $profile?->no_telp ?? $profile?->no_telepon ?? null;
             $fm->firmOwner->setAttribute('no_telp', $phone);
+
+            if ($fm->firmOwner->pic && !str_starts_with($fm->firmOwner->pic, 'http')) {
+                $fm->firmOwner->pic = asset('storage/' . $fm->firmOwner->pic);
+            }
         });
 
         return $firms;
@@ -289,11 +326,19 @@ class FirmMemberService
     /** Get pending join requests for a firm owner. */
     public function getJoinRequests(User $owner): Collection
     {
-        return FirmMember::where('firm_owner_id', $owner->id)
+        $requests = FirmMember::where('firm_owner_id', $owner->id)
             ->requested()
             ->with('member:id,name,unique_code,role_type,pic')
             ->orderBy('requested_at', 'desc')
             ->get();
+
+        $requests->each(function (FirmMember $fm) {
+            if ($fm->member && $fm->member->pic && !str_starts_with($fm->member->pic, 'http')) {
+                $fm->member->pic = asset('storage/' . $fm->member->pic);
+            }
+        });
+
+        return $requests;
     }
 
     /** @return string[] */

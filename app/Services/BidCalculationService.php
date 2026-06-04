@@ -73,7 +73,7 @@ class BidCalculationService
             'price' => $priceInput,
             'unit_price' => $unitPrice,
             'quantity' => $quantity,
-            'calculated_total' => (int) round($calculatedTotal),
+            'calculated_total' => $calculatedTotal > 0 ? (int) max(1, ceil($calculatedTotal)) : 0,
         ];
     }
 }

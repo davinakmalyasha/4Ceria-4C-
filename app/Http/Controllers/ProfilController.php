@@ -45,12 +45,15 @@ class ProfilController extends Controller
         $user->Deskripsi = $request->update_deskripsi;
 
         if ($request->hasFile('pic')) {
-            if ($user->pic && Storage::exists('public/profileUser/'.$user->pic)) {
-                Storage::delete('public/profileUser/'.$user->pic);
+            if ($user->pic) {
+                if (Storage::disk('public')->exists($user->pic)) {
+                    Storage::disk('public')->delete($user->pic);
+                } elseif (Storage::exists('public/profileUser/'.$user->pic)) {
+                    Storage::delete('public/profileUser/'.$user->pic);
+                }
             }
 
-            // Simpan foto baru di folder profileUser
-            $path = $request->file('pic')->store('profileUser', 'public');
+            $path = $request->file('pic')->store("profile_pictures/user_{$user->id}", 'public');
             $user->pic = $path;
         }
         if ($request->filled('update_password')) {

@@ -120,6 +120,21 @@ class ProjectMilestoneController extends Controller
 
         $phase = $validated['phase_context'] ?? 'design';
         
+        if (!$isPM && !$isOwner) {
+            if ($phase === 'legal' && $project->legal_handover_submitted_at) {
+                return response()->json(['message' => 'Cannot add milestones when phase handover is under review.'], 403);
+            }
+            if ($phase === 'design' && $project->design_handover_submitted_at) {
+                return response()->json(['message' => 'Cannot add milestones when phase handover is under review.'], 403);
+            }
+            if (($phase === 'build' || $phase === 'construction') && $project->construction_handover_submitted_at) {
+                return response()->json(['message' => 'Cannot add milestones when phase handover is under review.'], 403);
+            }
+            if ($phase === 'interior' && $project->interior_handover_submitted_at) {
+                return response()->json(['message' => 'Cannot add milestones when phase handover is under review.'], 403);
+            }
+        }
+        
         // PBG Gate: Only applies to new_build and renovation categories during physical build/construction phase
         if (in_array($phase, ['build', 'construction'])) {
             $needsPBG = in_array($project->project_category, ['new_build', 'renovation']);
@@ -233,6 +248,25 @@ class ProjectMilestoneController extends Controller
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
+        $isOwner = $project->user_id === $user->id;
+        $isPM = $user->role_type === 'project_manager' && $project->pm_id === $user->id;
+
+        if (!$isPM && !$isOwner) {
+            $phase = $milestone->phase_context;
+            if ($phase === 'legal' && $project->legal_handover_submitted_at) {
+                return response()->json(['message' => 'Cannot modify milestones when phase handover is under review.'], 403);
+            }
+            if ($phase === 'design' && $project->design_handover_submitted_at) {
+                return response()->json(['message' => 'Cannot modify milestones when phase handover is under review.'], 403);
+            }
+            if (($phase === 'build' || $phase === 'construction') && $project->construction_handover_submitted_at) {
+                return response()->json(['message' => 'Cannot modify milestones when phase handover is under review.'], 403);
+            }
+            if ($phase === 'interior' && $project->interior_handover_submitted_at) {
+                return response()->json(['message' => 'Cannot modify milestones when phase handover is under review.'], 403);
+            }
+        }
+
         // NTP Gates removed as requested.
 
         $validated = $request->validate([
@@ -337,6 +371,25 @@ class ProjectMilestoneController extends Controller
         $user = Auth::user();
         if (!$this->canModifyMilestone($project, $milestone, $user)) {
             return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        $isOwner = $project->user_id === $user->id;
+        $isPM = $user->role_type === 'project_manager' && $project->pm_id === $user->id;
+
+        if (!$isPM && !$isOwner) {
+            $phase = $milestone->phase_context;
+            if ($phase === 'legal' && $project->legal_handover_submitted_at) {
+                return response()->json(['message' => 'Cannot delete milestones when phase handover is under review.'], 403);
+            }
+            if ($phase === 'design' && $project->design_handover_submitted_at) {
+                return response()->json(['message' => 'Cannot delete milestones when phase handover is under review.'], 403);
+            }
+            if (($phase === 'build' || $phase === 'construction') && $project->construction_handover_submitted_at) {
+                return response()->json(['message' => 'Cannot delete milestones when phase handover is under review.'], 403);
+            }
+            if ($phase === 'interior' && $project->interior_handover_submitted_at) {
+                return response()->json(['message' => 'Cannot delete milestones when phase handover is under review.'], 403);
+            }
         }
 
         if ($milestone->approval_status === 'approved') {

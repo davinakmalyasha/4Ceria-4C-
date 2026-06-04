@@ -337,6 +337,9 @@ class ProjectResource extends JsonResource
                         'proposed_termins' => $bid->proposed_termins,
                         'proposed_milestones' => $bid->proposed_milestones,
                         'proposed_team' => $bid->proposed_team,
+                        'pro_signature_url' => $this->resolveSignatureUrl('arsitek', $bid),
+                        'client_signature_url' => $this->resolveSignatureUrl('arsitek', $bid, true),
+                        'is_recommended' => (bool) $bid->is_recommended,
                         'negotiation_logs' => $bid->negotiationLogs->map(fn($log) => [
                             'user_name' => $log->user->name,
                             'round_number' => $log->round_number,
@@ -398,6 +401,9 @@ class ProjectResource extends JsonResource
                         'proposed_termins' => $bid->proposed_termins,
                         'proposed_milestones' => $bid->proposed_milestones,
                         'proposed_team' => $bid->proposed_team,
+                        'pro_signature_url' => $this->resolveSignatureUrl('kontraktor', $bid),
+                        'client_signature_url' => $this->resolveSignatureUrl('kontraktor', $bid, true),
+                        'is_recommended' => (bool) $bid->is_recommended,
                         'negotiation_logs' => $bid->negotiationLogs->map(fn($log) => [
                             'user_name' => $log->user->name,
                             'round_number' => $log->round_number,
@@ -450,6 +456,9 @@ class ProjectResource extends JsonResource
                         'verification_notes' => $bid->verification_notes,
                         'proposed_termins' => $bid->proposed_termins,
                         'proposed_milestones' => $bid->proposed_milestones,
+                        'pro_signature_url' => $this->resolveSignatureUrl('notaris', $bid),
+                        'client_signature_url' => $this->resolveSignatureUrl('notaris', $bid, true),
+                        'is_recommended' => (bool) $bid->is_recommended,
                         'negotiation_logs' => $bid->negotiationLogs->map(fn($log) => [
                             'user_name' => $log->user->name,
                             'round_number' => $log->round_number,
@@ -503,6 +512,9 @@ class ProjectResource extends JsonResource
                         'verification_notes' => $bid->verification_notes,
                         'proposed_termins' => $bid->proposed_termins,
                         'proposed_milestones' => $bid->proposed_milestones,
+                        'pro_signature_url' => $this->resolveSignatureUrl('interior', $bid),
+                        'client_signature_url' => $this->resolveSignatureUrl('interior', $bid, true),
+                        'is_recommended' => (bool) $bid->is_recommended,
                         'negotiation_logs' => $bid->negotiationLogs->map(fn($log) => [
                             'user_name' => $log->user->name,
                             'round_number' => $log->round_number,
@@ -550,6 +562,8 @@ class ProjectResource extends JsonResource
                         'verification_notes' => $bid->verification_notes,
                         'proposed_termins' => $bid->proposed_termins,
                         'proposed_milestones' => $bid->proposed_milestones,
+                        'pro_signature_url' => $this->resolveSignatureUrl('project_manager', $bid),
+                        'client_signature_url' => $this->resolveSignatureUrl('project_manager', $bid, true),
                         'negotiation_logs' => $bid->negotiationLogs->map(fn($log) => [
                             'user_name' => $log->user->name,
                             'round_number' => $log->round_number,
@@ -754,6 +768,8 @@ class ProjectResource extends JsonResource
                         'verification_notes' => $bid->verification_notes,
                         'proposed_termins' => $bid->proposed_termins,
                         'proposed_milestones' => $bid->proposed_milestones,
+                        'pro_signature_url' => $this->resolveSignatureUrl('structural', $bid),
+                        'client_signature_url' => $this->resolveSignatureUrl('structural', $bid, true),
                         'negotiation_logs' => $bid->negotiationLogs->map(fn($log) => [
                             'user_name' => $log->user->name,
                             'round_number' => $log->round_number,
@@ -822,6 +838,8 @@ class ProjectResource extends JsonResource
                         'verification_notes' => $bid->verification_notes,
                         'proposed_termins' => $bid->proposed_termins,
                         'proposed_milestones' => $bid->proposed_milestones,
+                        'pro_signature_url' => $this->resolveSignatureUrl('mep', $bid),
+                        'client_signature_url' => $this->resolveSignatureUrl('mep', $bid, true),
                         'negotiation_logs' => $bid->negotiationLogs->map(fn($log) => [
                             'user_name' => $log->user->name,
                             'round_number' => $log->round_number,
@@ -1107,5 +1125,32 @@ class ProjectResource extends JsonResource
             'user_id' => $engineer?->user_id ?? ($subPro && $subPro->user_id !== $subPro->assigned_by ? $subPro->user_id : null),
             'is_internal' => ($profileId && !$engineer) || ($subPro && $subPro->user_id === $subPro->assigned_by)
         ];
+    }
+
+    private function resolveSignatureUrl(string $roleType, $bid, bool $isClient = false): ?string
+    {
+        $suffix = $isClient ? '_client' : '';
+        $bidId = $bid instanceof \Illuminate\Database\Eloquent\Model ? $bid->id : $bid;
+        $createdAt = $bid instanceof \Illuminate\Database\Eloquent\Model ? $bid->created_at?->timestamp : null;
+        $timestamp = $createdAt ?: time();
+        
+        $projectId = $bid instanceof \Illuminate\Database\Eloquent\Model ? $bid->project_id : null;
+        if ($projectId) {
+            $newPath = "contracts/project_{$projectId}/signatures/signature_{$roleType}_{$bidId}_{$timestamp}{$suffix}.png";
+            $legacyPath = "signatures/signature_{$roleType}_{$bidId}_{$timestamp}{$suffix}.png";
+            
+            $exists = \Illuminate\Support\Facades\Storage::disk('supabase')->exists($newPath) ||
+                      \Illuminate\Support\Facades\Storage::disk('public')->exists($newPath) ||
+                      \Illuminate\Support\Facades\Storage::disk('supabase')->exists($legacyPath) ||
+                      \Illuminate\Support\Facades\Storage::disk('public')->exists($legacyPath);
+                      
+            if ($exists) {
+                $clientSuffixPath = $isClient ? '/client' : '';
+                $token = hash_hmac('sha256', "{$roleType}_{$bidId}_{$timestamp}{$suffix}", config('app.key'));
+                return url("/api/contract-signatures/{$roleType}/{$bidId}/{$timestamp}{$clientSuffixPath}?token={$token}");
+            }
+        }
+        
+        return null;
     }
 }
