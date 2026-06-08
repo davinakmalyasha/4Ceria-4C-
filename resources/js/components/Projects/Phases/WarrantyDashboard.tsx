@@ -172,8 +172,8 @@ export default function WarrantyDashboard({ project, currentUser, isOwner, isCon
                                         {(claim as any).images && (claim as any).images.length > 0 && (
                                             <div className="flex gap-2 mt-2">
                                                 {(claim as any).images.map((img: string, idx: number) => (
-                                                    <a key={idx} href={`/storage/${img}`} target="_blank" rel="noreferrer" className="w-8 h-8 rounded-lg overflow-hidden border border-slate-200 block hover:scale-110 transition-transform">
-                                                        <img src={`/storage/${img}`} alt="Evidence" className="w-full h-full object-cover" />
+                                                    <a key={idx} href={img.startsWith('http') ? img : `/storage/${img}`} target="_blank" rel="noreferrer" className="w-8 h-8 rounded-lg overflow-hidden border border-slate-200 block hover:scale-110 transition-transform">
+                                                        <img src={img.startsWith('http') ? img : `/storage/${img}`} alt="Evidence" className="w-full h-full object-cover" />
                                                     </a>
                                                 ))}
                                             </div>

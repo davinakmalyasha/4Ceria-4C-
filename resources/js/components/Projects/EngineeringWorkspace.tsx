@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { 
     HardHat, Zap, Upload, FileText, CheckCircle2, 
     Activity, ShieldAlert, Download, Clock,
-    UserPlus, XCircle, ShieldCheck
+    UserPlus, XCircle, ShieldCheck, Lock
 } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 import axios from 'axios';
@@ -208,13 +208,19 @@ export default function EngineeringWorkspace({ project, user, onRefresh, onShort
                                 </div>
 
                                 {isStructural && (
-                                    <label className="block w-full cursor-pointer group">
-                                        <div className="w-full py-3 border-2 border-dashed border-indigo-200 rounded-2xl flex items-center justify-center gap-2 group-hover:border-indigo-400 group-hover:bg-indigo-50 transition-all text-[10px] font-black text-indigo-500 uppercase tracking-widest">
-                                            <Upload size={14} />
-                                            {isUploading ? 'Uploading...' : 'Upload Calc/Layout'}
+                                    !project.design_authorized_at ? (
+                                        <div className="w-full py-3 bg-red-50 border border-red-100 rounded-2xl flex items-center justify-center gap-2 text-[10px] font-black text-red-600 uppercase tracking-widest">
+                                            <Lock size={12} /> Awaiting PM Authorization
                                         </div>
-                                        <input type="file" className="hidden" onChange={(e) => handleUploadDocument(e, 'structural_calc')} disabled={isUploading} />
-                                    </label>
+                                    ) : (
+                                        <label className="block w-full cursor-pointer group">
+                                            <div className="w-full py-3 border-2 border-dashed border-indigo-200 rounded-2xl flex items-center justify-center gap-2 group-hover:border-indigo-400 group-hover:bg-indigo-50 transition-all text-[10px] font-black text-indigo-500 uppercase tracking-widest">
+                                                <Upload size={14} />
+                                                {isUploading ? 'Uploading...' : 'Upload Calc/Layout'}
+                                            </div>
+                                            <input type="file" className="hidden" onChange={(e) => handleUploadDocument(e, 'structural_calc')} disabled={isUploading} />
+                                        </label>
+                                    )
                                 )}
                             </div>
                         ) : (
@@ -249,13 +255,19 @@ export default function EngineeringWorkspace({ project, user, onRefresh, onShort
                                 </div>
 
                                 {isMEP && (
-                                    <label className="block w-full cursor-pointer group">
-                                        <div className="w-full py-3 border-2 border-dashed border-amber-200 rounded-2xl flex items-center justify-center gap-2 group-hover:border-amber-400 group-hover:bg-amber-50 transition-all text-[10px] font-black text-amber-500 uppercase tracking-widest">
-                                            <Upload size={14} />
-                                            {isUploading ? 'Uploading...' : 'Upload System Layout'}
+                                    !project.design_authorized_at ? (
+                                        <div className="w-full py-3 bg-red-50 border border-red-100 rounded-2xl flex items-center justify-center gap-2 text-[10px] font-black text-red-600 uppercase tracking-widest">
+                                            <Lock size={12} /> Awaiting PM Authorization
                                         </div>
-                                        <input type="file" className="hidden" onChange={(e) => handleUploadDocument(e, 'mep_layout')} disabled={isUploading} />
-                                    </label>
+                                    ) : (
+                                        <label className="block w-full cursor-pointer group">
+                                            <div className="w-full py-3 border-2 border-dashed border-amber-200 rounded-2xl flex items-center justify-center gap-2 group-hover:border-amber-400 group-hover:bg-amber-50 transition-all text-[10px] font-black text-amber-500 uppercase tracking-widest">
+                                                <Upload size={14} />
+                                                {isUploading ? 'Uploading...' : 'Upload System Layout'}
+                                            </div>
+                                            <input type="file" className="hidden" onChange={(e) => handleUploadDocument(e, 'mep_layout')} disabled={isUploading} />
+                                        </label>
+                                    )
                                 )}
                             </div>
                         ) : (

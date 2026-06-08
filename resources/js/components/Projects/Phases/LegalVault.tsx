@@ -1100,7 +1100,7 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
                                                     <div className="flex items-center gap-2">
                                                         {isOwner || isPM || isHiredPro ? (
                                                             <a 
-                                                                href={`/storage/${activeMilestone.content.gallery[0]}`}
+                                                                href={activeMilestone.content.gallery[0].startsWith('http') ? activeMilestone.content.gallery[0] : `/storage/${activeMilestone.content.gallery[0]}`}
                                                                 target="_blank"
                                                                 rel="noreferrer"
                                                                 className="p-4 bg-zinc-50 text-zinc-900 rounded-2xl hover:bg-zinc-900 hover:text-white transition-all shadow-sm"

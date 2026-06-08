@@ -187,8 +187,8 @@ export default function MaterialSwatchBoard({ project, isPro, isOwner }: Materia
                     filtered.map(swatch => (
                         <div key={swatch.id} className="group relative bg-white border border-slate-100 rounded-[1.5rem] overflow-hidden hover:shadow-xl transition-all hover:-translate-y-1">
                             <div className="aspect-[4/3] bg-slate-100">
-                                {swatch.image_path ? (
-                                    <img src={`/storage/${swatch.image_path}`} className="w-full h-full object-cover" alt={swatch.name} />
+                                {(swatch.image_url || swatch.image_path) ? (
+                                    <img src={swatch.image_url || `/storage/${swatch.image_path}`} className="w-full h-full object-cover" alt={swatch.name} />
                                 ) : (
                                     <div className="w-full h-full flex items-center justify-center text-slate-300">
                                         <ImageIcon size={40} />

@@ -21,7 +21,7 @@ import axios from 'axios';
 import { ContractSignModal } from '../Contracts/ContractSignModal';
 import { PaymentProofModal } from '../Contracts/PaymentProofModal';
 import { ProfilePreviewCard } from '../../Shared/ProfilePreviewCard';
-import { getProfile, ROLE_LABELS } from '../../Shared/ProfilePreviewHelpers';
+import { getProfile, ROLE_LABELS, resolveStorageUrl } from '../../Shared/ProfilePreviewHelpers';
 import ConfirmModal from '../ConfirmModal';
 import { NegotiationHistory } from './NegotiationHistory';
 import { ProposeFeeModal } from './ProposeFeeModal';
@@ -1459,7 +1459,7 @@ export const BidReviewCard: React.FC<BidReviewCardProps> = ({
                                         <div className="flex items-center gap-4">
                                             {profile.foto ? (
                                                 <img 
-                                                    src={`/storage/${profile.foto}`} 
+                                                    src={resolveStorageUrl(profile.foto)} 
                                                     alt={proName} 
                                                     className="w-12 h-12 rounded-xl object-cover border border-gray-200 shadow-sm shrink-0" 
                                                 />

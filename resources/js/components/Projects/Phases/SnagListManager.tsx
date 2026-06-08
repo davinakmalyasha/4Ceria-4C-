@@ -182,8 +182,8 @@ export default function SnagListManager({ project, user, onRefresh }: SnagListMa
                                         {item.resolution_photos && item.resolution_photos.length > 0 && (
                                             <div className="flex gap-2 mt-2">
                                                 {item.resolution_photos.map((photo, idx) => (
-                                                    <a key={idx} href={`/storage/${photo}`} target="_blank" rel="noreferrer" className="w-12 h-12 rounded-lg overflow-hidden border-2 border-white shadow-sm hover:scale-105 transition-transform block">
-                                                        <img src={`/storage/${photo}`} alt="Resolution" className="w-full h-full object-cover" />
+                                                    <a key={idx} href={photo.startsWith('http') ? photo : `/storage/${photo}`} target="_blank" rel="noreferrer" className="w-12 h-12 rounded-lg overflow-hidden border-2 border-white shadow-sm hover:scale-105 transition-transform block">
+                                                        <img src={photo.startsWith('http') ? photo : `/storage/${photo}`} alt="Resolution" className="w-full h-full object-cover" />
                                                     </a>
                                                 ))}
                                             </div>

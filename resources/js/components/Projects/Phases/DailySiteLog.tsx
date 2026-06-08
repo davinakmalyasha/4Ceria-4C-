@@ -262,8 +262,8 @@ export default function DailySiteLog({ project, isContractor }: DailyLogProps) {
                                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Site Documentation</p>
                                                 <div className="flex flex-wrap gap-3">
                                                     {log.photos.map((p, i) => (
-                                                        <a key={i} href={`/storage/${p}`} target="_blank" rel="noopener noreferrer" className="relative group/photo">
-                                                            <img src={`/storage/${p}`} className="w-24 h-24 object-cover rounded-2xl border border-slate-100 shadow-sm transition-transform group-hover/photo:scale-105" alt="" />
+                                                        <a key={i} href={p.startsWith('http') ? p : `/storage/${p}`} target="_blank" rel="noopener noreferrer" className="relative group/photo">
+                                                            <img src={p.startsWith('http') ? p : `/storage/${p}`} className="w-24 h-24 object-cover rounded-2xl border border-slate-100 shadow-sm transition-transform group-hover/photo:scale-105" alt="" />
                                                             <div className="absolute inset-0 bg-slate-900/40 rounded-2xl opacity-0 group-hover/photo:opacity-100 flex items-center justify-center transition-opacity">
                                                                 <Info size={16} className="text-white" />
                                                             </div>

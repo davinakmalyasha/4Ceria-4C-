@@ -354,20 +354,30 @@ export default function TechnicalMilestones({
                                     
                                     {m.content?.gallery && m.content.gallery.length > 0 && (
                                         <div className="flex flex-wrap gap-2 pt-1">
-                                            {m.content.gallery.map((img, i) => (
-                                                <a 
-                                                    key={i} 
-                                                    href={`/storage/${img}`} 
-                                                    target="_blank" 
-                                                    rel="noreferrer"
-                                                    className="w-20 h-20 rounded-xl border border-slate-100 overflow-hidden group/img relative bg-slate-50"
-                                                >
-                                                    <img src={`/storage/${img}`} className="w-full h-full object-cover group-hover/img:scale-110 transition-transform" />
-                                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
-                                                        <Eye size={14} className="text-white" />
-                                                    </div>
-                                                </a>
-                                            ))}
+                                            {m.content.gallery.map((img, i) => {
+                                                const isImg = img.match(/\.(jpg|jpeg|png|gif|webp)(\?|$)/i);
+                                                return (
+                                                    <a 
+                                                        key={i} 
+                                                        href={img.startsWith('http') ? img : `/storage/${img}`} 
+                                                        target="_blank" 
+                                                        rel="noreferrer"
+                                                        className="w-20 h-20 rounded-xl border border-slate-100 overflow-hidden group/img relative bg-slate-50 flex items-center justify-center"
+                                                    >
+                                                        {isImg ? (
+                                                            <img src={img.startsWith('http') ? img : `/storage/${img}`} className="w-full h-full object-cover group-hover/img:scale-110 transition-transform" />
+                                                        ) : (
+                                                            <div className="w-full h-full bg-slate-50 flex flex-col items-center justify-center gap-1 text-slate-400 group-hover:bg-slate-100 transition-colors">
+                                                                <FileText size={20} className="text-slate-300" />
+                                                                <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">PDF Doc</span>
+                                                            </div>
+                                                        )}
+                                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
+                                                            <Eye size={14} className="text-white" />
+                                                        </div>
+                                                    </a>
+                                                );
+                                            })}
                                         </div>
                                     )}
 

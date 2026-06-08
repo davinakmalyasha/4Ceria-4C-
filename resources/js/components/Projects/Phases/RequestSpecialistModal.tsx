@@ -100,11 +100,17 @@ export default function RequestSpecialistModal({
             const userId = selectedTeamMemberId.replace('firm:', '');
             const fm = firmMembers.find(f => String(f.member_user_id) === String(userId));
             if (!fm) return null;
+            
+            const rawPic = fm.member?.profile_picture || fm.member?.pic;
+            const avatarUrl = rawPic 
+                ? (rawPic.startsWith('http') ? rawPic : (rawPic.startsWith('/storage') ? rawPic : `/storage/${rawPic}`))
+                : null;
+                
             return {
                 name: fm.member?.name,
                 role: fm.role_in_firm ? fm.role_in_firm.replace(/_/g, ' ') : 'Firm Member',
                 type: 'Firm Roster',
-                avatar: fm.member?.profile_picture ? `/storage/${fm.member.profile_picture}` : null,
+                avatar: avatarUrl,
                 skills: fm.member?.technical_skills,
                 email: fm.member?.email,
                 phone: fm.member?.phone_number
@@ -112,11 +118,17 @@ export default function RequestSpecialistModal({
         } else {
             const tm = teamMembers.find(t => String(t.id) === String(selectedTeamMemberId));
             if (!tm) return null;
+            
+            const rawPic = tm.photo_url || tm.photo_path;
+            const avatarUrl = rawPic
+                ? (rawPic.startsWith('http') ? rawPic : (rawPic.startsWith('/storage') ? rawPic : `/storage/${rawPic}`))
+                : null;
+                
             return {
                 name: tm.name,
                 role: tm.role_title || 'Expert Specialist',
                 type: 'Legacy Team',
-                avatar: tm.photo_url ? `/storage/${tm.photo_url}` : null,
+                avatar: avatarUrl,
                 skills: tm.skills_summary,
                 email: tm.email,
                 phone: tm.phone

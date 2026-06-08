@@ -9,6 +9,7 @@ import axios from 'axios';
 import { useToast } from '../../../context/ToastContext';
 import TerminBuilder from './TerminBuilder';
 import PMTechnicalAuditBanner from './PMTechnicalAuditBanner';
+import ConfirmModal from '../ConfirmModal';
 
 interface BriefingActionCenterProps {
     project: Project;
@@ -40,6 +41,12 @@ const BriefingActionCenter: React.FC<BriefingActionCenterProps> = ({
     const [archNoteInput, setArchNoteInput] = useState(project.architect_notes || '');
     const [auditFiles, setAuditFiles] = useState<File[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const [showConfirmVerify, setShowConfirmVerify] = useState(false);
+    const [showConfirmApprove, setShowConfirmApprove] = useState(false);
+    const [showConfirmReject, setShowConfirmReject] = useState(false);
+    const [rejectWithInput, setRejectWithInput] = useState(false);
+    const [showOwnerConfirmReject, setShowOwnerConfirmReject] = useState(false);
 
     const status = project.planning_status || 'draft';
 
@@ -164,22 +171,42 @@ const BriefingActionCenter: React.FC<BriefingActionCenterProps> = ({
     };
 
     const handleVerify = () => {
+        setShowConfirmVerify(true);
+    };
+
+    const handleConfirmVerifySubmit = () => {
+        setShowConfirmVerify(false);
         handleAction('verify-planning-pm', 'Technical Verification Finalized!', { pm_audit_notes: auditNote });
+    };
+
+    const handleApprove = () => {
+        setShowConfirmApprove(true);
+    };
+
+    const handleConfirmApproveSubmit = () => {
+        setShowConfirmApprove(false);
+        handleAction('approve-planning', 'Agreement Finalized!');
     };
 
     const handleReject = () => {
         if (!auditNote.trim()) {
-            const reason = window.prompt("Reason for requested revision:") || '';
-            if (!reason.trim()) {
-                showToast('Reason needed for revision', 'error');
-                return;
-            }
-            handleAction('reject-planning', 'Revision requested', { pm_audit_notes: reason });
+            setRejectWithInput(true);
+            setShowConfirmReject(true);
         } else {
-            if (confirm('Request revision from Architect with your technical notes?')) {
-                handleAction('reject-planning', 'Revision requested', { pm_audit_notes: auditNote });
-            }
+            setRejectWithInput(false);
+            setShowConfirmReject(true);
         }
+    };
+
+    const handleConfirmRejectSubmit = (reason?: string) => {
+        setShowConfirmReject(false);
+        const finalReason = reason || auditNote;
+        handleAction('reject-planning', 'Revision requested', { pm_audit_notes: finalReason });
+    };
+
+    const handleOwnerConfirmRejectSubmit = () => {
+        setShowOwnerConfirmReject(false);
+        handleAction('reject-planning', 'Revision requested');
     };
 
     const generateWhatsAppLink = () => {
@@ -283,42 +310,42 @@ const BriefingActionCenter: React.FC<BriefingActionCenterProps> = ({
                                     </div>
                                 </div>
                                 
-                                <div className="max-w-2xl mx-auto space-y-6">
+                                <div className="max-w-2xl mx-auto space-y-4">
                                 {project.architect_notes && (
-                                    <div className="bg-zinc-50 p-5 rounded-2xl border border-zinc-100 flex gap-4 items-start shadow-inner">
-                                        <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center shadow-sm flex-shrink-0 border border-zinc-100">
-                                            <MessageCircle className="w-4 h-4 text-zinc-400" />
+                                    <div className="bg-zinc-50 p-4 rounded-xl border border-zinc-100 flex gap-3 items-start shadow-inner">
+                                        <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center shadow-sm flex-shrink-0 border border-zinc-100">
+                                            <MessageCircle className="w-3.5 h-3.5 text-zinc-400" />
                                         </div>
                                         <div>
-                                            <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider block mb-0.5">Architect Note</span>
+                                            <span className="text-[9px] font-semibold text-zinc-400 uppercase tracking-wider block mb-0.5">Architect Note</span>
                                             <p className="text-xs text-zinc-550 italic">"{project.architect_notes}"</p>
                                         </div>
                                     </div>
                                 )}
 
-                                <div className="bg-zinc-50 p-6 rounded-2xl border border-zinc-150 relative group overflow-hidden shadow-inner">
+                                <div className="bg-zinc-50 p-4 md:p-5 rounded-xl border border-zinc-150 relative group overflow-hidden shadow-inner">
                                     <div className="absolute top-4 right-4">
-                                        {status === 'proposed' && <Clock className="w-5 h-5 text-zinc-400 animate-spin-slow" />}
-                                        {status === 'pm_verified' && <CheckCircle2 className="w-5 h-5 text-emerald-500" />}
+                                        {status === 'proposed' && <Clock className="w-4 h-4 text-zinc-400 animate-spin-slow" />}
+                                        {status === 'pm_verified' && <CheckCircle2 className="w-4 h-4 text-emerald-500" />}
                                     </div>
                                     
                                     <div className="relative z-10">
-                                        <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider block mb-2">Live Audit Report</span>
+                                        <span className="text-[9px] font-semibold text-zinc-400 uppercase tracking-wider block mb-1.5">Live Audit Report</span>
                                         <p className="text-xs text-zinc-600 leading-relaxed italic">
                                             {project.pm_audit_notes || (status === 'proposed' ? 'The Project Manager is currently analyzing technical feasibility...' : 'No additional notes provided.')}
                                         </p>
                                         
                                         {project.pm_audit_attachments && project.pm_audit_attachments.length > 0 && (
-                                            <div className="mt-6 pt-6 border-t border-zinc-200">
-                                                <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider block mb-3">Supporting Evidence</span>
-                                                <div className="grid grid-cols-3 gap-3">
+                                            <div className="mt-4 pt-4 border-t border-zinc-200">
+                                                <span className="text-[9px] font-semibold text-zinc-400 uppercase tracking-wider block mb-2">Supporting Evidence</span>
+                                                <div className="grid grid-cols-3 gap-2">
                                                     {project.pm_audit_attachments.map((url, i) => (
                                                         <a 
                                                             key={i} 
                                                             href={url} 
                                                             target="_blank" 
                                                             rel="noopener noreferrer"
-                                                            className="relative aspect-square rounded-xl border border-zinc-200 overflow-hidden bg-zinc-50 shadow-sm hover:shadow-md transition-all group"
+                                                            className="relative aspect-square rounded-lg border border-zinc-200 overflow-hidden bg-zinc-50 shadow-sm hover:shadow-md transition-all group"
                                                         >
                                                             {isImage(url) ? (
                                                                 <img 
@@ -327,13 +354,13 @@ const BriefingActionCenter: React.FC<BriefingActionCenterProps> = ({
                                                                     alt={`Evidence ${i + 1}`}
                                                                 />
                                                             ) : (
-                                                                <div className="w-full h-full flex flex-col items-center justify-center gap-1.5 bg-zinc-50">
-                                                                    <FileText className="w-6 h-6 text-zinc-300" />
-                                                                    <span className="text-[8px] font-medium text-zinc-400 uppercase tracking-wider">TECHNICAL DOC</span>
+                                                                <div className="w-full h-full flex flex-col items-center justify-center gap-1 bg-zinc-50">
+                                                                    <FileText className="w-5 h-5 text-zinc-300" />
+                                                                    <span className="text-[7px] font-medium text-zinc-400 uppercase tracking-wider">TECHNICAL DOC</span>
                                                                 </div>
                                                             )}
-                                                            <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent flex items-end p-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                <span className="text-[8px] font-medium text-white uppercase tracking-wider">Evidence {i+1}</span>
+                                                            <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent flex items-end p-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                <span className="text-[7px] font-medium text-white uppercase tracking-wider">Evidence {i+1}</span>
                                                             </div>
                                                         </a>
                                                     ))}
@@ -343,22 +370,18 @@ const BriefingActionCenter: React.FC<BriefingActionCenterProps> = ({
                                     </div>
                                 </div>
 
-                                {isOwner && status === 'pm_verified' && (
-                                    <div className="space-y-3 pt-2">
+                                {isOwner && (status === 'pm_verified' || (!project.pm_id && status === 'proposed')) && (
+                                    <div className="space-y-2.5 pt-1">
                                         <button
-                                            onClick={() => handleAction('approve-planning', 'Agreement Finalized!')}
+                                            onClick={handleApprove}
                                             disabled={isLoading}
-                                            className="w-full bg-zinc-950 text-white rounded-xl py-3.5 text-xs font-medium hover:bg-black transition-all shadow-sm active:scale-[0.98]"
+                                            className="w-full bg-zinc-950 text-white rounded-xl py-3 text-xs font-medium hover:bg-black transition-all shadow-sm active:scale-[0.98]"
                                         >
                                             Approve & Confirm Plan
                                         </button>
                                         <button
-                                            onClick={() => {
-                                                if (confirm('Request revision? The brief will return to Discussion Phase.')) {
-                                                    handleAction('reject-planning', 'Revision requested');
-                                                }
-                                            }}
-                                            className="w-full text-xs font-medium text-zinc-450 hover:text-red-650 py-2 transition-all"
+                                            onClick={() => setShowOwnerConfirmReject(true)}
+                                            className="w-full text-xs font-medium text-zinc-400 hover:text-red-650 py-1.5 transition-all"
                                         >
                                             Request Revision
                                         </button>
@@ -366,11 +389,23 @@ const BriefingActionCenter: React.FC<BriefingActionCenterProps> = ({
                                 )}
 
                                 {isArchitect && (
-                                    <div className="p-8 border border-dashed border-zinc-200 rounded-2xl text-center bg-zinc-50/50">
-                                        <AlertCircle className="w-8 h-8 text-zinc-300 mx-auto mb-3" />
-                                        <p className="text-sm font-semibold text-zinc-800">Brief Locked for Audit</p>
-                                        <p className="text-xs text-zinc-400 mt-1 leading-relaxed">Your specifications are currently under technical review. You can modify them if a revision is requested.</p>
-                                    </div>
+                                    status === 'proposed' ? (
+                                        <div className="p-4 border border-dashed border-zinc-200 rounded-xl flex items-center gap-3 bg-zinc-50/50">
+                                            <Lock className="w-4 h-4 text-zinc-400 flex-shrink-0" />
+                                            <div className="text-left">
+                                                <p className="text-xs font-semibold text-zinc-800">Brief Locked for Audit</p>
+                                                <p className="text-[11px] text-zinc-400 mt-0.5">Your specifications are currently under technical review by the Project Manager.</p>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="p-4 border border-emerald-100 rounded-xl flex items-center gap-3 bg-emerald-50/20">
+                                            <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                                            <div className="text-left">
+                                                <p className="text-xs font-semibold text-emerald-800">Technical Audit Complete</p>
+                                                <p className="text-[11px] text-emerald-600 mt-0.5">Awaiting Client/Owner confirmation to finalize the planning phase.</p>
+                                            </div>
+                                        </div>
+                                    )
                                 )}
                             </div>
                         </>
@@ -483,6 +518,64 @@ const BriefingActionCenter: React.FC<BriefingActionCenterProps> = ({
                     </div>
                 )}
             </div>
+
+            {showConfirmVerify && (
+                <ConfirmModal
+                    isOpen={showConfirmVerify}
+                    title="Verify & Finalize Planning?"
+                    description="Are you sure you want to finalize the technical audit for this iteration? This will lock the planning specs and notify the Client/Owner to confirm the plan."
+                    confirmText="Verify & Finalize"
+                    cancelText="Cancel"
+                    variant="success"
+                    onConfirm={handleConfirmVerifySubmit}
+                    onCancel={() => setShowConfirmVerify(false)}
+                    isLoading={isLoading}
+                />
+            )}
+
+            {showConfirmApprove && (
+                <ConfirmModal
+                    isOpen={showConfirmApprove}
+                    title="Approve & Confirm Planning?"
+                    description="Are you sure you want to approve and confirm this design plan? This will finalize the agreement and lock the design brief."
+                    confirmText="Approve & Confirm"
+                    cancelText="Cancel"
+                    variant="success"
+                    onConfirm={handleConfirmApproveSubmit}
+                    onCancel={() => setShowConfirmApprove(false)}
+                    isLoading={isLoading}
+                />
+            )}
+
+            {showConfirmReject && (
+                <ConfirmModal
+                    isOpen={showConfirmReject}
+                    title="Request Revision from Architect?"
+                    description={rejectWithInput ? "Provide your feedback and reasons for requesting a revision on the planning specifications." : "Are you sure you want to request a revision from the Architect with your technical audit notes?"}
+                    confirmText="Request Revision"
+                    cancelText="Cancel"
+                    variant="warning"
+                    showInput={rejectWithInput}
+                    inputPlaceholder="Specify the reason/changes required for the planning brief..."
+                    onConfirm={handleConfirmRejectSubmit}
+                    onCancel={() => setShowConfirmReject(false)}
+                    isLoading={isLoading}
+                />
+            )}
+
+            {showOwnerConfirmReject && (
+                <ConfirmModal
+                    isOpen={showOwnerConfirmReject}
+                    title="Request Revision?"
+                    description="Are you sure you want to request a revision? The design brief will return to the Discussion Phase."
+                    confirmText="Request Revision"
+                    cancelText="Cancel"
+                    variant="warning"
+                    onConfirm={handleOwnerConfirmRejectSubmit}
+                    onCancel={() => setShowOwnerConfirmReject(false)}
+                    isLoading={isLoading}
+                />
+            )}
         </div>
     );
 };

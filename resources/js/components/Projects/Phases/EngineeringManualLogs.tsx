@@ -173,7 +173,7 @@ export default function EngineeringManualLogs({ project, currentUser, onRefresh 
                         {baseDesigns.length > 0 && (
                             <div className="flex flex-wrap gap-2">
                                 {baseDesigns.map((doc: any) => (
-                                    <a key={doc.id} href={doc.file_path} target="_blank" className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-lg text-[8px] font-bold text-slate-600 hover:bg-slate-200">
+                                    <a key={doc.id} href={doc.file_url || (doc.file_path?.startsWith('http') ? doc.file_path : `/storage/${doc.file_path}`)} target="_blank" className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-lg text-[8px] font-bold text-slate-600 hover:bg-slate-200">
                                         <FileText size={10} />
                                         {doc.file_name}
                                     </a>
@@ -212,7 +212,7 @@ export default function EngineeringManualLogs({ project, currentUser, onRefresh 
                                         {log.content?.gallery?.length > 0 && (
                                             <div className="flex gap-1 mt-2">
                                                 {log.content.gallery.map((img: string, i: number) => (
-                                                    <a key={i} href={`/storage/${img}`} target="_blank" className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 hover:bg-slate-200">
+                                                    <a key={i} href={img.startsWith('http') ? img : `/storage/${img}`} target="_blank" className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 hover:bg-slate-200">
                                                         <FileText size={12} />
                                                     </a>
                                                 ))}

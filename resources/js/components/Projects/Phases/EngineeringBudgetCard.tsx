@@ -76,7 +76,7 @@ export default function EngineeringBudgetCard({
                             )}
                             {addendum.attachment_path && (
                                 <a 
-                                    href={`/storage/${addendum.attachment_path}`} 
+                                    href={addendum.attachment_path.startsWith('http') ? addendum.attachment_path : `/storage/${addendum.attachment_path}`} 
                                     target="_blank" 
                                     rel="noopener noreferrer"
                                     className="inline-flex items-center gap-2 mt-2 px-3 py-1.5 bg-indigo-500/20 text-indigo-400 rounded-lg text-[9px] font-black uppercase tracking-widest border border-indigo-500/30 hover:bg-indigo-500/30 transition-all"

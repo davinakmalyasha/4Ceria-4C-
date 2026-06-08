@@ -715,13 +715,13 @@ export default function DesignMilestones({ project, currentUser, isArchitect, is
                                 {m.content.gallery.map((img, i) => (
                                     <a 
                                         key={i} 
-                                        href={`/storage/${img}`} 
+                                        href={img.startsWith('http') ? img : `/storage/${img}`} 
                                         target="_blank" 
                                         rel="noreferrer"
                                         className="w-16 h-16 rounded-xl border border-slate-200 overflow-hidden group/img relative"
                                     >
-                                        {img.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
-                                            <img src={`/storage/${img}`} className="w-full h-full object-cover group-hover/img:scale-110 transition-transform" />
+                                        {img.match(/\.(jpg|jpeg|png|gif|webp|\?)/i) ? (
+                                            <img src={img.startsWith('http') ? img : `/storage/${img}`} className="w-full h-full object-cover group-hover/img:scale-110 transition-transform" />
                                         ) : (
                                             <div className="w-full h-full bg-slate-50 flex items-center justify-center">
                                                 <FileText size={24} className="text-slate-300" />

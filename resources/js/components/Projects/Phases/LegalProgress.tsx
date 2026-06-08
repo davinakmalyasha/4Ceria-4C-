@@ -630,11 +630,11 @@ export default function LegalProgress({ project, currentUser, isNotaris, onUpdat
                                                 {m.content?.gallery && m.content.gallery.length > 0 && (
                                                     <div className="mt-6 flex flex-wrap gap-4">
                                                         {m.content.gallery.map((img: string, i: number) => {
-                                                            const isPdf = img.toLowerCase().endsWith('.pdf');
+                                                            const isPdf = img.match(/\.pdf(\?|$)/i);
                                                             return (
                                                                 <a 
                                                                     key={i} 
-                                                                    href={`/storage/${img}`} 
+                                                                    href={img.startsWith('http') ? img : `/storage/${img}`} 
                                                                     target="_blank" 
                                                                     rel="noreferrer"
                                                                     className="relative group overflow-hidden rounded-2xl border-2 border-zinc-100 hover:border-zinc-300 hover:shadow-xl transition-all"
@@ -646,7 +646,7 @@ export default function LegalProgress({ project, currentUser, isNotaris, onUpdat
                                                                         </div>
                                                                     ) : (
                                                                         <img 
-                                                                            src={`/storage/${img}`} 
+                                                                            src={img.startsWith('http') ? img : `/storage/${img}`} 
                                                                             alt="Progress" 
                                                                             className="w-32 h-32 object-cover scale-100 group-hover:scale-110 transition-transform duration-500" 
                                                                         />

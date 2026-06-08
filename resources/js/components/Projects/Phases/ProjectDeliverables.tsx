@@ -356,7 +356,7 @@ export default function ProjectDeliverables({ project, currentUser, isPro }: Pro
                                                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                                         {hasFile && (
                                                             <a 
-                                                                href={`/storage/${file}`} 
+                                                                href={file.startsWith('http') ? file : `/storage/${file}`} 
                                                                 target="_blank" 
                                                                 rel="noreferrer"
                                                                 className="p-2.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-50 rounded-xl transition-all"
