@@ -677,6 +677,53 @@ export const ContractSignModal: React.FC<ContractSignModalProps> = ({ isOpen, on
                         </button>
                     </div>
 
+                    {/* Interactive Digital Signature Pad */}
+                    {((isClient && !bid?.client_signature_url) || (!isClient && !bid?.pro_signature_url)) && (
+                        <div className="space-y-3 pt-4 border-t border-zinc-800 animate-in fade-in duration-300">
+                            <div className="flex items-center justify-between">
+                                <label className="text-[10px] font-black text-white uppercase tracking-widest flex items-center gap-1.5">
+                                    Draw Your Digital Signature <span className="text-rose-500 font-bold">*</span>
+                                </label>
+                                <span className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Required</span>
+                            </div>
+                            
+                            <div className="bg-zinc-900/60 border border-zinc-800 rounded-3xl p-5 space-y-4 relative overflow-hidden">
+                                <div className="relative bg-white rounded-2xl overflow-hidden h-36 w-full flex items-center justify-center border border-zinc-700 shadow-inner">
+                                    <canvas
+                                        ref={canvasRef}
+                                        onMouseDown={startDrawing}
+                                        onMouseMove={draw}
+                                        onMouseUp={stopDrawing}
+                                        onMouseLeave={stopDrawing}
+                                        onTouchStart={startDrawing}
+                                        onTouchMove={draw}
+                                        onTouchEnd={stopDrawing}
+                                        className="absolute inset-0 w-full h-full bg-white cursor-default touch-none"
+                                    />
+                                    {!hasSigned && (
+                                        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-zinc-400 gap-1 select-none">
+                                            <span className="text-[10px] font-black tracking-widest uppercase text-zinc-500">Sign Your Name Here</span>
+                                            <span className="text-[8px] font-bold text-zinc-400 uppercase tracking-wider">Use mouse, finger, or stylus</span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-400">
+                                        {hasSigned ? '✓ Digital signature locked dynamically to SPK document' : 'Awaiting signature drawing...'}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={clearCanvas}
+                                        className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 hover:text-white text-zinc-400 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border border-zinc-700/40"
+                                    >
+                                        Clear Canvas
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Termins List */}
                     <div className="space-y-3">
                         <div className="flex items-center justify-between">
@@ -840,53 +887,6 @@ export const ContractSignModal: React.FC<ContractSignModalProps> = ({ isOpen, on
                                         </div>
                                     </div>
                                 ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Interactive Digital Signature Pad */}
-                    {((isClient && !bid?.client_signature_url) || (!isClient && !bid?.pro_signature_url)) && (
-                        <div className="space-y-3 pt-4 border-t border-zinc-800 animate-in fade-in duration-300">
-                            <div className="flex items-center justify-between">
-                                <label className="text-[10px] font-black text-white uppercase tracking-widest flex items-center gap-1.5">
-                                    Draw Your Digital Signature <span className="text-rose-500 font-bold">*</span>
-                                </label>
-                                <span className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Required</span>
-                            </div>
-                            
-                            <div className="bg-zinc-900/60 border border-zinc-800 rounded-3xl p-5 space-y-4 relative overflow-hidden">
-                                <div className="relative bg-white rounded-2xl overflow-hidden h-36 w-full flex items-center justify-center border border-zinc-700 shadow-inner">
-                                    <canvas
-                                        ref={canvasRef}
-                                        onMouseDown={startDrawing}
-                                        onMouseMove={draw}
-                                        onMouseUp={stopDrawing}
-                                        onMouseLeave={stopDrawing}
-                                        onTouchStart={startDrawing}
-                                        onTouchMove={draw}
-                                        onTouchEnd={stopDrawing}
-                                        className="absolute inset-0 w-full h-full bg-white cursor-default touch-none"
-                                    />
-                                    {!hasSigned && (
-                                        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-zinc-400 gap-1 select-none">
-                                            <span className="text-[10px] font-black tracking-widest uppercase text-zinc-500">Sign Your Name Here</span>
-                                            <span className="text-[8px] font-bold text-zinc-400 uppercase tracking-wider">Use mouse, finger, or stylus</span>
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div className="flex items-center justify-between">
-                                    <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-400">
-                                        {hasSigned ? '✓ Digital signature locked dynamically to SPK document' : 'Awaiting signature drawing...'}
-                                    </span>
-                                    <button
-                                        type="button"
-                                        onClick={clearCanvas}
-                                        className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 hover:text-white text-zinc-400 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border border-zinc-700/40"
-                                    >
-                                        Clear Canvas
-                                    </button>
-                                </div>
                             </div>
                         </div>
                     )}

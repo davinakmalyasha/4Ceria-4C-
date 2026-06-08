@@ -161,6 +161,7 @@ const TeamMemberEntry: React.FC<EntryProps> = ({ member, index, onUpdate, onRemo
                         step="any"
                         value={member.fee || ''} 
                         onChange={e => onUpdate(index, { fee: Number(e.target.value) })}
+                        onWheel={e => e.currentTarget.blur()}
                         className={`w-full ${member.fee_type === 'percentage' ? 'px-4' : 'pl-10 pr-4'} py-3 bg-white border border-slate-200 focus:border-slate-900 rounded-2xl text-xs font-black text-slate-900 outline-none transition-all`}
                         placeholder="0" 
                     />

@@ -45,7 +45,7 @@ export default function ProjectInterviews({ project, onRefresh, onOpenChat, onRe
         ];
 
         const all: any[] = [];
-        const activeStatuses = ['shortlisted', 'invited', 'negotiating', 'contract_pending', 'awaiting_payment', 'accepted', 'active'];
+        const activeStatuses = ['shortlisted', 'invited', 'negotiating', 'contract_pending'];
         
         const isOwner = user?.id === project.user_id;
         const isHiredPM = project.pm_id && (user?.project_manager?.id === project.pm_id || user?.id === project.pm_id);
@@ -59,7 +59,19 @@ export default function ProjectInterviews({ project, onRefresh, onOpenChat, onRe
 
         roles.forEach(role => {
             role.bids.forEach((bid: any) => {
-                if (activeStatuses.includes(bid.status)) {
+                const isRoleFilledBySomeoneElse = 
+                    (role.key === 'design' && !!project.selected_arsitek_id && project.selected_arsitek_id !== bid.arsitek_id) ||
+                    (role.key === 'build' && !!project.selected_kontraktor_id && project.selected_kontraktor_id !== bid.kontraktor_id) ||
+                    (role.key === 'legal' && !!project.selected_notaris_id && project.selected_notaris_id !== bid.notaris_id) ||
+                    (role.key === 'interior' && !!project.selected_interior_id && project.selected_interior_id !== bid.interior_id) ||
+                    (role.key === 'management' && !!project.pm_id && project.pm_id !== bid.pm_id) ||
+                    (role.key === 'engineering' && (
+                        bid.structural_id 
+                            ? (!!project.structural_id && project.structural_id !== bid.structural_id)
+                            : (!!project.mep_id && project.mep_id !== bid.mep_id)
+                    ));
+
+                if (activeStatuses.includes(bid.status) && !isRoleFilledBySomeoneElse) {
                     // Privacy Filter: 
                     // Owners & PMs see EVERYTHING.
                     // Hired Architects see their own bids AND specialists (engineering).

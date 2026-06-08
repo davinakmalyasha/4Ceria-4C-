@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { HelpCircle, AlertTriangle, CheckCircle, X } from 'lucide-react';
 
@@ -30,7 +31,7 @@ const VARIANT_MAP = {
     warning: {
         icon: <AlertTriangle className="w-8 h-8 text-amber-600" />,
         iconBg: 'bg-amber-50 border-amber-50/50',
-        confirmBtn: 'bg-amber-600 hover:bg-amber-700 shadow-amber-500/20'
+        confirmBtn: 'bg-amber-600 hover:bg-emerald-750 shadow-amber-500/20'
     },
     info: {
         icon: <HelpCircle className="w-8 h-8 text-blue-600" />,
@@ -51,8 +52,14 @@ export default function ConfirmModal({
     variant = 'info',
     showInput = false,
     inputPlaceholder = 'Specify details here...'
-}: ConfirmModalProps) {
+    }: ConfirmModalProps) {
     const [inputValue, setInputValue] = React.useState('');
+    const [mounted, setMounted] = React.useState(false);
+
+    React.useEffect(() => {
+        setMounted(true);
+        return () => setMounted(false);
+    }, []);
 
     React.useEffect(() => {
         if (isOpen) {
@@ -71,10 +78,12 @@ export default function ConfirmModal({
         }
     };
 
-    return (
+    if (!mounted) return null;
+
+    return createPortal(
         <AnimatePresence>
             {isOpen && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-sm">
+                <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-sm">
                     <div className="absolute inset-0" onClick={onCancel} />
                     <motion.div 
                         initial={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -122,6 +131,7 @@ export default function ConfirmModal({
                     </motion.div>
                 </div>
             )}
-        </AnimatePresence>
+        </AnimatePresence>,
+        document.body
     );
 }

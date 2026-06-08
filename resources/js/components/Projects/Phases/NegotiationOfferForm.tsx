@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import axios from 'axios';
-import { Info, Calculator, FileText, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Info, Calculator, FileText, CheckCircle2, AlertCircle, RotateCcw } from 'lucide-react';
 import { Bid, Project, ProposedTermin, ProposedMilestone } from '../../../types/project.types';
 import { NegotiationOfferDTO } from '../../../types/negotiation.types';
 import { ProposedTeamMember } from '../../../types/sub_professional.types';
@@ -8,6 +8,7 @@ import { FeeSelector } from './Negotiation/FeeSelector';
 import { PaymentSchedule } from './Negotiation/PaymentSchedule';
 import { TeamCompositionSection } from './Negotiation/TeamCompositionSection';
 import { useAuth } from '../../../context/AuthContext';
+import { useBidDraft } from './useBidDraft';
 
 import ConfirmModal from '../ConfirmModal';
 
@@ -54,23 +55,17 @@ export const NegotiationOfferForm: React.FC<Props> = ({ bid, project, proType, o
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isConfirmOpen, setIsConfirmOpen] = useState(false);
     
-    const [feeType, setFeeType] = useState<NegotiationOfferDTO['fee_type']>(
-        (bid.fee_type as any) || 'fixed'
-    );
-    const [amount, setAmount] = useState<number>(Number(bid.price || 0));
-
-    const [lengthInput, setLengthInput] = useState<number>(() => {
+    const defaultLengthInput = useMemo(() => {
         const len = getProjectLength(project);
         if (len > 0) return len;
         const area = getProjectArea(project);
         if (area > 0) {
-            const root = Math.round(Math.sqrt(area));
-            return root;
+            return Math.round(Math.sqrt(area));
         }
         return 0;
-    });
+    }, [project]);
 
-    const [widthInput, setWidthInput] = useState<number>(() => {
+    const defaultWidthInput = useMemo(() => {
         const wid = getProjectWidth(project);
         if (wid > 0) return wid;
         const area = getProjectArea(project);
@@ -79,7 +74,81 @@ export const NegotiationOfferForm: React.FC<Props> = ({ bid, project, proType, o
             return Math.round(area / root);
         }
         return 0;
-    });
+    }, [project]);
+
+    const parsedSelectedServices = useMemo(() => {
+        if (Array.isArray(bid.selected_services)) return bid.selected_services;
+        if (typeof bid.selected_services === 'string') {
+            try { return JSON.parse(bid.selected_services); } catch (e) {}
+        }
+        return [];
+    }, [bid.selected_services]);
+
+    const defaultMilestones = useMemo(() => {
+        if (Array.isArray(bid.proposed_milestones) && bid.proposed_milestones.length > 0) {
+            return bid.proposed_milestones.map((m, idx) => {
+                const services = parsedSelectedServices.filter((s: any) => {
+                    const sIndex = s.milestone_index !== undefined && s.milestone_index !== null ? Number(s.milestone_index) : 0;
+                    return sIndex === idx;
+                });
+                return { ...m, services };
+            });
+        }
+        return [{ 
+            title: 'Initial Planning', 
+            description: '', 
+            services: parsedSelectedServices.map((s: any) => ({ ...s, milestone_index: 0 })) 
+        }];
+    }, [bid, parsedSelectedServices]);
+
+    const defaultTermins = useMemo(() => {
+        if (Array.isArray(bid.proposed_termins) && bid.proposed_termins.length > 0) {
+            return bid.proposed_termins;
+        }
+        return [{ trigger_description: 'Initial Planning', percentage: 100, milestone_index: 0 }];
+    }, [bid]);
+
+    const hasTeamCapability = proType === 'arsitek' || proType === 'kontraktor' || !!bid.arsitek_id || !!bid.kontraktor_id;
+    
+    const defaultProposedTeam = useMemo((): ProposedTeamMember[] => {
+        if (Array.isArray(bid.proposed_team) && bid.proposed_team.length > 0) {
+            return bid.proposed_team.map(m => ({ ...m, fee_type: m.fee_type || 'fixed' }));
+        }
+        return [];
+    }, [bid]);
+
+    const defaults = useMemo(() => ({
+        feeType: ((bid.fee_type as any) || 'fixed') as NegotiationOfferDTO['fee_type'],
+        amount: Number(bid.price || 0),
+        lengthInput: defaultLengthInput,
+        widthInput: defaultWidthInput,
+        note: '',
+        termins: defaultTermins,
+        milestones: defaultMilestones,
+        proposedTeam: defaultProposedTeam
+    }), [bid.fee_type, bid.price, defaultLengthInput, defaultWidthInput, defaultTermins, defaultMilestones, defaultProposedTeam]);
+
+    const {
+        feeType,
+        setFeeType,
+        amount,
+        setAmount,
+        lengthInput,
+        setLengthInput,
+        widthInput,
+        setWidthInput,
+        note,
+        setNote,
+        termins,
+        setTermins,
+        milestones,
+        setMilestones,
+        proposedTeam,
+        setProposedTeam,
+        clearDraft,
+        resetDraft,
+        isModified
+    } = useBidDraft(bid.id, defaults);
 
     const dynamicArea = useMemo(() => {
         if (lengthInput > 0 && widthInput > 0) {
@@ -90,67 +159,6 @@ export const NegotiationOfferForm: React.FC<Props> = ({ bid, project, proType, o
 
     const isClient = user?.role_type === 'user';
     
-    const parsedSelectedServices = useMemo(() => {
-        if (Array.isArray(bid.selected_services)) return bid.selected_services;
-        if (typeof bid.selected_services === 'string') {
-            try { return JSON.parse(bid.selected_services); } catch (e) {}
-        }
-        return [];
-    }, [bid.selected_services]);
-
-    // Map selected_services into milestones based on milestone_index on mount so they render selected correctly!
-    const initialMilestones = useMemo(() => {
-        if (Array.isArray(bid.proposed_milestones) && bid.proposed_milestones.length > 0) {
-            return bid.proposed_milestones.map((m, idx) => {
-                const services = parsedSelectedServices.filter((s: any) => {
-                    const sIndex = s.milestone_index !== undefined && s.milestone_index !== null ? Number(s.milestone_index) : 0;
-                    return sIndex === idx;
-                });
-                return {
-                    ...m,
-                    services
-                };
-            });
-        }
-        return [{ 
-            title: 'Initial Planning', 
-            description: '', 
-            services: parsedSelectedServices.map((s: any) => ({ ...s, milestone_index: 0 })) 
-        }];
-    }, [bid, parsedSelectedServices]);
-    const [milestones, setMilestones] = useState<ProposedMilestone[]>(initialMilestones);
-
-    const initialTermins = useMemo(() => {
-        if (Array.isArray(bid.proposed_termins) && bid.proposed_termins.length > 0) {
-            return bid.proposed_termins;
-        }
-        return [{ trigger_description: 'Initial Planning', percentage: 100, milestone_index: 0 }];
-    }, [bid]);
-    const [termins, setTermins] = useState<ProposedTermin[]>(initialTermins);
-    
-    const [note, setNote] = useState<string>('');
-
-    // Resilient Self-Healing Align: Ensures that milestones length matches termins length contiguously
-    React.useEffect(() => {
-        if (termins.length !== milestones.length) {
-            setMilestones(prev => {
-                const nextM = [...prev];
-                if (nextM.length < termins.length) {
-                    for (let i = nextM.length; i < termins.length; i++) {
-                        nextM.push({
-                            title: termins[i].trigger_description || `Phase ${i + 1}`,
-                            description: '',
-                            services: []
-                        });
-                    }
-                } else if (nextM.length > termins.length) {
-                    nextM.splice(termins.length);
-                }
-                return nextM;
-            });
-        }
-    }, [termins.length]);
-
     const handleFeeTypeChange = (newType: NegotiationOfferDTO['fee_type']) => {
         const budget = Number(project?.budget) || 0;
         const area = dynamicArea;
@@ -183,19 +191,6 @@ export const NegotiationOfferForm: React.FC<Props> = ({ bid, project, proType, o
         setFeeType(newType);
     };
 
-    // Team composition (for architects/constructors)
-    const hasTeamCapability = proType === 'arsitek' || proType === 'kontraktor' || !!bid.arsitek_id || !!bid.kontraktor_id;
-    const initialTeam = useMemo((): ProposedTeamMember[] => {
-        if (Array.isArray(bid.proposed_team) && bid.proposed_team.length > 0) {
-            return bid.proposed_team.map(m => ({
-                ...m,
-                fee_type: m.fee_type || 'fixed'
-            }));
-        }
-        return [];
-    }, [bid]);
-    const [proposedTeam, setProposedTeam] = useState<ProposedTeamMember[]>(initialTeam);
-    
     // Fetch active members from the professional firm roster
     const [firmMembers, setFirmMembers] = useState<any[]>([]);
     useEffect(() => {
@@ -270,58 +265,7 @@ export const NegotiationOfferForm: React.FC<Props> = ({ bid, project, proType, o
         return [];
     }, [user, bid, parsedSelectedServices]);
 
-    // Detect modifications before letting user submit
-    const hasChanges = useMemo(() => {
-        // 1. Check if fee amount changed
-        if (Number(amount) !== Number(bid.price)) return true;
-        
-        // 2. Check if fee type changed
-        if (feeType !== (bid.fee_type || 'fixed')) return true;
-        
-        // 3. Check if negotiation note is typed
-        if (note.trim() !== '') return true;
-
-        // 4. Check if termins/milestones changed (only relevant if not readOnly)
-        if (!isClient) {
-            const origTermins = bid.proposed_termins || [];
-            if (termins.length !== origTermins.length) return true;
-            
-            for (let i = 0; i < termins.length; i++) {
-                if (termins[i].trigger_description !== origTermins[i]?.trigger_description) return true;
-                if (Number(termins[i].percentage) !== Number(origTermins[i]?.percentage)) return true;
-            }
-
-            const origMilestones = bid.proposed_milestones || [];
-            if (milestones.length !== origMilestones.length) return true;
-            for (let i = 0; i < milestones.length; i++) {
-                if (milestones[i].description !== origMilestones[i]?.description) return true;
-                if (milestones[i].title !== origMilestones[i]?.title) return true;
-                
-                const currentServices = milestones[i].services || [];
-                const origServices = Array.isArray(bid.selected_services)
-                    ? bid.selected_services.filter((s: any) => Number(s.milestone_index) === i)
-                    : [];
-                if (currentServices.length !== origServices.length) return true;
-                
-                const currentTitles = currentServices.map(s => s.title).sort();
-                const origTitles = origServices.map(s => s.title).sort();
-                for (let j = 0; j < currentTitles.length; j++) {
-                    if (currentTitles[j] !== origTitles[j]) return true;
-                }
-            }
-
-            if (hasTeamCapability) {
-                const origTeam = bid.proposed_team || [];
-                if (proposedTeam.length !== origTeam.length) return true;
-                for (let i = 0; i < proposedTeam.length; i++) {
-                    if (proposedTeam[i].team_member_id !== origTeam[i]?.team_member_id) return true;
-                    if (Number(proposedTeam[i].fee) !== Number(origTeam[i]?.fee)) return true;
-                }
-            }
-        }
-        
-        return false;
-    }, [amount, feeType, note, termins, milestones, proposedTeam, bid, isClient, hasTeamCapability]);
+    const hasChanges = isModified;
 
     const getBaseOfferValue = () => {
         let total = 0;
@@ -390,6 +334,7 @@ export const NegotiationOfferForm: React.FC<Props> = ({ bid, project, proType, o
                 project_length: lengthInput,
                 project_width: widthInput
             } as any);
+            clearDraft();
         } finally {
             setIsSubmitting(false);
         }
@@ -502,6 +447,17 @@ export const NegotiationOfferForm: React.FC<Props> = ({ bid, project, proType, o
                 </div>
 
                 <div className="flex items-center gap-4">
+                    {hasChanges && (
+                        <button 
+                            type="button" 
+                            onClick={resetDraft} 
+                            className="flex items-center gap-2 px-6 py-4 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-sm font-black uppercase tracking-widest rounded-2xl transition-all hover:scale-105 active:scale-95 border border-red-500/20"
+                            title="Reset all inputs back to original bid values"
+                        >
+                            <RotateCcw size={16} />
+                            Reset Draft
+                        </button>
+                    )}
                     <button type="button" onClick={onCancel} className="px-8 py-4 text-white text-sm font-black uppercase tracking-widest hover:text-slate-400 transition-colors">
                         Cancel
                     </button>

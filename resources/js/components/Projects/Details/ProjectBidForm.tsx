@@ -7,6 +7,7 @@ import { getProfile } from '../../Shared/ProfilePreviewHelpers';
 import { PortfolioProject } from '../../../types/project.types';
 import { NotarisLegalBrief } from './NotarisLegalBrief';
 import { BidProposalFields } from './BidProposalFields';
+import { TeamPreviewSection } from './TeamPreviewSection';
 
 interface Props {
     project: any;
@@ -22,6 +23,7 @@ export const ProjectBidForm: React.FC<Props> = ({ project, user, onSuccess }) =>
     const [portfolios, setPortfolios] = useState<PortfolioProject[]>([]);
     const [feeType, setFeeType] = useState('fixed');
     const [price, setPrice] = useState<number | undefined>(undefined);
+    const [errors, setErrors] = useState<{ proposal?: string; price?: string }>({});
     
     // Notary multi-select fee states
     const [isConsultationChecked, setIsConsultationChecked] = useState<boolean>(true);
@@ -38,6 +40,10 @@ export const ProjectBidForm: React.FC<Props> = ({ project, user, onSuccess }) =>
     const profile = getProfile(user);
     const isVerified = profile?.verification_status === 'verified' || profile?.verification_status === 'approved';
 
+    const clearError = (field: 'proposal' | 'price') => {
+        setErrors(prev => ({ ...prev, [field]: undefined }));
+    };
+
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && attachments.length < 3) {
             setAttachments(prev => [...prev, ...Array.from(e.target.files!).slice(0, 3 - prev.length)]);
@@ -51,6 +57,23 @@ export const ProjectBidForm: React.FC<Props> = ({ project, user, onSuccess }) =>
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
+
+        const newErrors: typeof errors = {};
+        if (!proposal.trim()) {
+            newErrors.proposal = 'Please detail your professional approach and executive summary.';
+        }
+        if (user?.role_type !== 'notaris') {
+            if (price === undefined || price === null || isNaN(price) || price <= 0) {
+                newErrors.price = 'Please specify a valid estimated fee amount greater than zero.';
+            }
+        }
+        if (Object.keys(newErrors).length > 0) {
+            setErrors(newErrors);
+            setIsLoading(false);
+            return;
+        }
+        setErrors({});
+
         try {
             const formData = new FormData();
             formData.append('proposal', proposal);
@@ -74,12 +97,7 @@ export const ProjectBidForm: React.FC<Props> = ({ project, user, onSuccess }) =>
                 formData.append('selected_services', JSON.stringify(selectedServices));
             } else if (feeType) {
                 formData.append('fee_type', feeType);
-                if (price === undefined || price === null || isNaN(price) || price <= 0) {
-                    showToast('Please specify a valid estimated fee amount.', 'error');
-                    setIsLoading(false);
-                    return;
-                }
-                formData.append('price', price.toString());
+                formData.append('price', price!.toString());
             }
             
             await axios.post(`/projects/${project.id}/bids`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
@@ -130,7 +148,11 @@ export const ProjectBidForm: React.FC<Props> = ({ project, user, onSuccess }) =>
                 </p>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-12">
+            {(user?.role_type === 'arsitek' || user?.role_type === 'kontraktor') && (
+                <TeamPreviewSection user={user} />
+            )}
+
+            <form onSubmit={handleSubmit} noValidate className="space-y-12">
                 {user?.role_type === 'notaris' && <NotarisLegalBrief project={project} />}
                 
                 <BidProposalFields 
@@ -145,6 +167,8 @@ export const ProjectBidForm: React.FC<Props> = ({ project, user, onSuccess }) =>
                     setIsConsultationChecked={setIsConsultationChecked}
                     selectedServices={selectedServices}
                     setSelectedServices={setSelectedServices}
+                    errors={errors}
+                    clearError={clearError}
                 />
             </form>
         </div>

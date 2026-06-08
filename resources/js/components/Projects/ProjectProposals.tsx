@@ -4,7 +4,7 @@ import { ListChecks, Search, Users, Briefcase, Filter, CreditCard } from 'lucide
 import { BidReviewCard } from './Phases/BidReviewCard';
 import ConfirmModal from './ConfirmModal';
 import ProjectInterviews from './ProjectInterviews';
-import ProjectPayments from './ProjectPayments';
+// ProjectPayments relocated to Budget tab
 import { useToast } from '../../context/ToastContext';
 import axios from 'axios';
 
@@ -172,9 +172,18 @@ export default function ProjectProposals({
     // Filter proposals based on active sub-tab, role, and search queries
     const filteredProposals = useMemo(() => {
         return allProposals.filter(bid => {
+            const isFilled = 
+                (bid.bidType === 'arsitek' && !!project.selected_arsitek_id && project.selected_arsitek_id !== bid.arsitek_id) ||
+                (bid.bidType === 'kontraktor' && !!project.selected_kontraktor_id && project.selected_kontraktor_id !== bid.kontraktor_id) ||
+                (bid.bidType === 'notaris' && !!project.selected_notaris_id && project.selected_notaris_id !== bid.notaris_id) ||
+                (bid.bidType === 'interior' && !!project.selected_interior_id && project.selected_interior_id !== bid.interior_id) ||
+                (bid.bidType === 'project_manager' && !!project.pm_id && project.pm_id !== bid.pm_id) ||
+                (bid.bidType === 'structural' && !!project.structural_id && project.structural_id !== bid.structural_id) ||
+                (bid.bidType === 'mep' && !!project.mep_id && project.mep_id !== bid.mep_id);
+
             // Tab filtering
-            const isArchived = ['rejected', 'declined', 'cancelled'].includes(bid.status);
-            const isPending = ['pending', 'invited'].includes(bid.status);
+            const isArchived = ['rejected', 'declined', 'cancelled', 'accepted', 'active', 'awaiting_payment'].includes(bid.status) || isFilled;
+            const isPending = ['pending', 'invited'].includes(bid.status) && !isFilled;
 
             if (activeSubTab === 'pending' && !isPending) return false;
             if (activeSubTab === 'archived' && !isArchived) return false;
@@ -192,20 +201,48 @@ export default function ProjectProposals({
 
             return true;
         });
-    }, [allProposals, activeSubTab, roleFilter, searchQuery]);
+    }, [allProposals, activeSubTab, roleFilter, searchQuery, project]);
 
     // Metric Summary Calculation
     const metrics = useMemo(() => {
+        const getIsRoleFilled = (bid: any) => {
+            return (bid.bidType === 'arsitek' && !!project.selected_arsitek_id && project.selected_arsitek_id !== bid.arsitek_id) ||
+                   (bid.bidType === 'kontraktor' && !!project.selected_kontraktor_id && project.selected_kontraktor_id !== bid.kontraktor_id) ||
+                   (bid.bidType === 'notaris' && !!project.selected_notaris_id && project.selected_notaris_id !== bid.notaris_id) ||
+                   (bid.bidType === 'interior' && !!project.selected_interior_id && project.selected_interior_id !== bid.interior_id) ||
+                   (bid.bidType === 'project_manager' && !!project.pm_id && project.pm_id !== bid.pm_id) ||
+                   (bid.bidType === 'structural' && !!project.structural_id && project.structural_id !== bid.structural_id) ||
+                   (bid.bidType === 'mep' && !!project.mep_id && project.mep_id !== bid.mep_id);
+        };
+
         const total = allProposals.length;
-        const pending = allProposals.filter(b => ['pending', 'invited'].includes(b.status)).length;
-        const shortlisted = allProposals.filter(b => ['shortlisted', 'negotiating', 'contract_pending'].includes(b.status)).length;
-        const active = allProposals.filter(b => ['awaiting_payment', 'accepted'].includes(b.status)).length;
+        const pending = allProposals.filter(b => ['pending', 'invited'].includes(b.status) && !getIsRoleFilled(b)).length;
+        const shortlisted = allProposals.filter(b => ['shortlisted', 'negotiating', 'contract_pending'].includes(b.status) && !getIsRoleFilled(b)).length;
+        const active = allProposals.filter(b => ['awaiting_payment', 'accepted', 'active'].includes(b.status) || (
+            (b.bidType === 'arsitek' && project.selected_arsitek_id && String(b.arsitek_id) === String(project.selected_arsitek_id)) ||
+            (b.bidType === 'kontraktor' && project.selected_kontraktor_id && String(b.kontraktor_id) === String(project.selected_kontraktor_id)) ||
+            (b.bidType === 'notaris' && project.selected_notaris_id && String(b.notaris_id) === String(project.selected_notaris_id)) ||
+            (b.bidType === 'interior' && project.selected_interior_id && String(b.interior_id) === String(project.selected_interior_id)) ||
+            (b.bidType === 'project_manager' && project.pm_id && String(b.pm_id) === String(project.pm_id)) ||
+            (b.bidType === 'structural' && project.structural_id && String(b.structural_id) === String(project.structural_id)) ||
+            (b.bidType === 'mep' && project.mep_id && String(b.mep_id) === String(project.mep_id))
+        )).length;
         return { total, pending, shortlisted, active };
-    }, [allProposals]);
+    }, [allProposals, project]);
 
     const tabCounts = useMemo(() => {
-        const pendingCount = allProposals.filter(b => ['pending', 'invited'].includes(b.status)).length;
-        const archivedCount = allProposals.filter(b => ['rejected', 'declined', 'cancelled'].includes(b.status)).length;
+        const getIsRoleFilled = (bid: any) => {
+            return (bid.bidType === 'arsitek' && !!project.selected_arsitek_id && project.selected_arsitek_id !== bid.arsitek_id) ||
+                   (bid.bidType === 'kontraktor' && !!project.selected_kontraktor_id && project.selected_kontraktor_id !== bid.kontraktor_id) ||
+                   (bid.bidType === 'notaris' && !!project.selected_notaris_id && project.selected_notaris_id !== bid.notaris_id) ||
+                   (bid.bidType === 'interior' && !!project.selected_interior_id && project.selected_interior_id !== bid.interior_id) ||
+                   (bid.bidType === 'project_manager' && !!project.pm_id && project.pm_id !== bid.pm_id) ||
+                   (bid.bidType === 'structural' && !!project.structural_id && project.structural_id !== bid.structural_id) ||
+                   (bid.bidType === 'mep' && !!project.mep_id && project.mep_id !== bid.mep_id);
+        };
+
+        const pendingCount = allProposals.filter(b => ['pending', 'invited'].includes(b.status) && !getIsRoleFilled(b)).length;
+        const archivedCount = allProposals.filter(b => ['rejected', 'declined', 'cancelled', 'accepted', 'active', 'awaiting_payment'].includes(b.status) || getIsRoleFilled(b)).length;
 
         const roles = [
             { key: 'design', bids: project.bids_arsitek || [] },
@@ -216,7 +253,7 @@ export default function ProjectProposals({
             { key: 'engineering', bids: [...(project.bids_structural || []), ...(project.bids_mep || [])] },
         ];
 
-        const interviewStatuses = ['shortlisted', 'invited', 'negotiating', 'contract_pending', 'awaiting_payment', 'accepted', 'active'];
+        const interviewStatuses = ['shortlisted', 'invited', 'negotiating', 'contract_pending'];
         const isHiredPM = project.pm_id && (user?.project_manager?.id === project.pm_id || user?.id === project.pm_id);
         
         const isHiredArsitek = (user?.role_type === 'arsitek') && (
@@ -228,7 +265,19 @@ export default function ProjectProposals({
         let interviewsCount = 0;
         roles.forEach(role => {
             role.bids.forEach((bid: any) => {
-                if (interviewStatuses.includes(bid.status)) {
+                const isRoleFilledBySomeoneElse = 
+                    (role.key === 'design' && !!project.selected_arsitek_id && project.selected_arsitek_id !== bid.arsitek_id) ||
+                    (role.key === 'build' && !!project.selected_kontraktor_id && project.selected_kontraktor_id !== bid.kontraktor_id) ||
+                    (role.key === 'legal' && !!project.selected_notaris_id && project.selected_notaris_id !== bid.notaris_id) ||
+                    (role.key === 'interior' && !!project.selected_interior_id && project.selected_interior_id !== bid.interior_id) ||
+                    (role.key === 'management' && !!project.pm_id && project.pm_id !== bid.pm_id) ||
+                    (role.key === 'engineering' && (
+                        bid.structural_id 
+                            ? (!!project.structural_id && project.structural_id !== bid.structural_id)
+                            : (!!project.mep_id && project.mep_id !== bid.mep_id)
+                    ));
+
+                if (interviewStatuses.includes(bid.status) && !isRoleFilledBySomeoneElse) {
                     if (!isOwner && !isHiredPM) {
                         const proId = bid.bidder?.id || bid.bidder_id || bid.arsitek_id || bid.kontraktor_id || bid.notaris_id || bid.interior_id || bid.pm_id || bid.structural_id || bid.mep_id;
                         const proUserId = bid.bidder?.user?.id || bid.bidder?.user_id || bid.user_id || bid.arsitek?.user_id || bid.kontraktor?.user_id || bid.notaris?.user_id || bid.interior?.user_id || bid.pm_id || bid.structural_engineer?.user_id || bid.mep_engineer?.user_id;
@@ -387,9 +436,9 @@ export default function ProjectProposals({
             <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm flex flex-col lg:flex-row gap-4 items-center justify-between">
                 {/* Sub Tab Filter Buttons */}
                 <div className="flex bg-gray-50 p-1 rounded-2xl border border-gray-100 shrink-0 w-full lg:w-auto overflow-x-auto">
-                    {(['pending', 'interviews', 'payments', 'archived'] as const).map(tab => {
+                    {(['pending', 'interviews', 'archived'] as const).map(tab => {
                         const count = tabCounts[tab];
-                        const label = tab === 'pending' ? 'Pending Bids' : tab === 'interviews' ? 'Interviews' : tab === 'payments' ? 'Payments & Active' : 'Archived';
+                        const label = tab === 'pending' ? 'Pending Bids' : tab === 'interviews' ? 'Interviews' : 'Archived';
                         return (
                             <button
                                 key={tab}
@@ -462,16 +511,7 @@ export default function ProjectProposals({
                         </motion.div>
                     )}
 
-                    {activeSubTab === 'payments' && (
-                        <motion.div key="payments" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-                            <ProjectPayments 
-                                project={project} 
-                                user={user}
-                                onRefresh={onRefresh}
-                                onOpenChat={onOpenChat}
-                            />
-                        </motion.div>
-                    )}
+
 
                     {showFilters && (
                         <motion.div key={activeSubTab} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-6">
