@@ -263,9 +263,10 @@ class SubProfessionalController extends Controller
 
         $isOwner = (int) $project->user_id === (int) $user->id;
         $isPM = $project->pm_id && (int) $project->pm_id === (int) $user->id;
+        $isLeadContractor = $project->selected_kontraktor_id && $user->kontraktor && (int) $project->selected_kontraktor_id === (int) $user->kontraktor->id;
 
-        if (!$isOwner && !$isPM) {
-            return response()->json(['message' => 'Only the owner or project manager can hire sub-professionals.'], 403);
+        if (!$isOwner && !$isPM && !$isLeadContractor) {
+            return response()->json(['message' => 'Only the Owner, Project Manager, or General Contractor can hire sub-professionals.'], 403);
         }
 
         // If recommended by lead pro, only Owner can finalize the hire

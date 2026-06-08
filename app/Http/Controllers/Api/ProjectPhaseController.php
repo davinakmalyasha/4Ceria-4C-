@@ -34,28 +34,36 @@ class ProjectPhaseController extends Controller
             return response()->json(['message' => 'A Structural Engineer is legally required but has not been hired yet.'], 422);
         }
 
-        // Gate: structural must be approved if hired
-        if ($project->structural_id && !$project->structural_approved_at) {
-            return response()->json(['message' => 'Structural engineering integration must be approved before sealing the design.'], 422);
+        // Gate: structural deliverables must be uploaded if hired
+        if ($project->structural_id) {
+            $hasStructuralDocs = $project->documents()
+                ->where('category', 'structural_calc')
+                ->exists();
+            if (!$hasStructuralDocs) {
+                return response()->json(['message' => 'Structural Engineer must upload their deliverables before you can request PM approval.'], 422);
+            }
         }
 
-        // Gate: MEP must be approved if hired
-        if ($project->mep_id && !$project->mep_approved_at) {
-            return response()->json(['message' => 'MEP engineering integration must be approved before sealing the design.'], 422);
+        // Gate: MEP deliverables must be uploaded if hired
+        if ($project->mep_id) {
+            $hasMepDocs = $project->documents()
+                ->where('category', 'mep_layout')
+                ->exists();
+            if (!$hasMepDocs) {
+                return response()->json(['message' => 'MEP Engineer must upload their deliverables before you can request PM approval.'], 422);
+            }
         }
 
-        // Check if all technical design milestones are completed (ignoring legal/contracts vault)
-        $incomplete = $project->milestones()
-            ->where('phase_context', '!=', 'legal')
-            ->where(function($query) {
-                $query->where('is_completed', false)
-                      ->orWhere('approval_status', '!=', 'approved');
-            })
-            ->exists();
-
-        if ($incomplete) {
-            return response()->json(['message' => 'All technical design milestones must be completed and approved before sealing the design.'], 422);
+        // Gate: Interior deliverables must be uploaded if hired
+        if ($project->selected_interior_id) {
+            $hasInteriorDocs = $project->documents()
+                ->where('category', 'interior_design')
+                ->exists();
+            if (!$hasInteriorDocs) {
+                return response()->json(['message' => 'Interior Designer must upload their deliverables before you can request PM approval.'], 422);
+            }
         }
+
 
         DB::beginTransaction();
         try {
@@ -384,7 +392,7 @@ class ProjectPhaseController extends Controller
         }
 
         $request->validate([
-            'phase' => 'required|string|in:design,build',
+            'phase' => 'required|string|in:design,build,materials',
             'authorize' => 'required|boolean'
         ]);
 
@@ -398,6 +406,8 @@ class ProjectPhaseController extends Controller
                 $project->design_authorized_at = $isAuthorized ? now() : null;
             } elseif ($phase === 'build') {
                 $project->construction_authorized_at = $isAuthorized ? now() : null;
+            } elseif ($phase === 'materials') {
+                $project->materials_authorized_at = $isAuthorized ? now() : null;
             }
 
             $project->save();

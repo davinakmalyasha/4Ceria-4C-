@@ -282,15 +282,48 @@ class ProjectMilestoneController extends Controller
             $updateData = $validated;
             
             $contentInput = $request->input('content');
-            $content = $milestone->content ?? [];
+            $oldContent = $milestone->content ?? [];
+            $content = [];
 
             if (is_string($contentInput)) {
-                $content = json_decode($contentInput, true) ?? $content;
+                $content = json_decode($contentInput, true) ?? [];
             } elseif (is_array($contentInput)) {
                 $content = $contentInput;
             }
 
             if (!is_array($content)) $content = [];
+
+            // Support retaining only a subset of the gallery files (retained_gallery parameter)
+            if ($request->has('retained_gallery')) {
+                $retainedUrls = json_decode($request->input('retained_gallery'), true) ?? [];
+                $gallery = [];
+                $fileNames = [];
+                
+                $oldGallery = $oldContent['gallery'] ?? [];
+                $oldFileNames = $oldContent['file_names'] ?? [];
+                
+                foreach ($oldGallery as $oldPath) {
+                    foreach ($retainedUrls as $url) {
+                        if (str_ends_with($url, $oldPath)) {
+                            $gallery[] = $oldPath;
+                            if (isset($oldFileNames[$oldPath])) {
+                                $fileNames[$oldPath] = $oldFileNames[$oldPath];
+                            }
+                            break;
+                        }
+                    }
+                }
+                $content['gallery'] = $gallery;
+                $content['file_names'] = $fileNames;
+            } else {
+                // Otherwise, preserve the existing gallery and file names if not explicitly updated
+                if (!isset($content['gallery']) && isset($oldContent['gallery'])) {
+                    $content['gallery'] = $oldContent['gallery'];
+                }
+                if (!isset($content['file_names']) && isset($oldContent['file_names'])) {
+                    $content['file_names'] = $oldContent['file_names'];
+                }
+            }
 
             // Handle file uploads (append to gallery)
             if ($request->hasFile('gallery')) {

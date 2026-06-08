@@ -603,7 +603,7 @@ class ProjectFeatureController extends Controller
 
         $imagePath = null;
         if ($request->hasFile('image')) {
-            $imagePath = $request->file('image')->store('requirements', 'public');
+            $imagePath = $request->file('image')->store('requirements', 'supabase');
         }
 
         $requirement = $project->requirements()->create([

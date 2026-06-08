@@ -2056,8 +2056,14 @@ class ProjectController extends Controller
         $folder = $request->input('folder', 'project_assets');
         $path = $request->file('file')->store($folder, 'public');
 
+        try {
+            $url = Storage::disk('public')->temporaryUrl($path, now()->addHours(24));
+        } catch (\Throwable $e) {
+            $url = Storage::disk('public')->url($path);
+        }
+
         return response()->json([
-            'url' => asset('storage/' . $path),
+            'url' => $url,
             'path' => $path
         ]);
     }
@@ -2836,7 +2842,8 @@ class ProjectController extends Controller
             // 3. Keep status as contract_pending until client reviews and signs
             $bid->update(['status' => 'contract_pending']);
 
-            // 3b. Auto-assign proposed team members as sub-professionals
+            // 3b. Auto-assign proposed team members as sub-professionals (Disabled to allow manual contractor section assignment)
+            /*
             $proposedTeam = is_array($bid->proposed_team) ? $bid->proposed_team : [];
             foreach ($proposedTeam as $tmIndex => $tm) {
                 $subRole = $tm['role'] ?? 'other';
@@ -2967,6 +2974,7 @@ class ProjectController extends Controller
                     ]);
                 }
             }
+            */
 
             // 4. Special Hook for Notaries: Auto-finalize legal scope if signing
             if ($request->bid_type === 'notaris') {

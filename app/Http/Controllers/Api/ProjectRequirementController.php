@@ -41,7 +41,7 @@ class ProjectRequirementController extends Controller
 
         $imagePath = null;
         if ($request->hasFile('image')) {
-            $imagePath = $request->file('image')->store('requirements', 'public');
+            $imagePath = $request->file('image')->store('requirements', 'supabase');
         }
 
         $requirement = $project->requirements()->create(array_merge($validated, [
@@ -86,7 +86,7 @@ class ProjectRequirementController extends Controller
         ]);
 
         if ($request->hasFile('image')) {
-            $validated['image_path'] = $request->file('image')->store('requirements', 'public');
+            $validated['image_path'] = $request->file('image')->store('requirements', 'supabase');
         }
 
         $oldFolderId = $requirement->folder_id;
@@ -406,8 +406,15 @@ class ProjectRequirementController extends Controller
         $isHiredKontraktor = $user->role_type === 'kontraktor' && $project->selected_kontraktor_id === $user->kontraktor?->id && in_array('kontraktor', $allowedRoles);
         $isHiredPM = $user->role_type === 'project_manager' && $project->pm_id === $user->id && in_array('project_manager', $allowedRoles);
         $isInterior = $user->role_type === 'interior' && in_array('interior', $allowedRoles);
-        $isHiredStructural = $user->role_type === 'structural' && $project->structural_id === $user->structural_engineer?->id && in_array('structural', $allowedRoles);
-        $isHiredMEP = $user->role_type === 'mep' && $project->mep_id === $user->mep_engineer?->id && in_array('mep', $allowedRoles);
+        $isHiredStructural = $user->role_type === 'structural' && 
+            ($project->structural_id === optional($user->structural_engineer)->id || 
+             $project->subProfessionals()->where('user_id', $user->id)->where('sub_role', 'structural')->where('status', 'active')->exists()) && 
+            in_array('structural', $allowedRoles);
+
+        $isHiredMEP = $user->role_type === 'mep' && 
+            ($project->mep_id === optional($user->mep_engineer)->id || 
+             $project->subProfessionals()->where('user_id', $user->id)->where('sub_role', 'mep')->where('status', 'active')->exists()) && 
+            in_array('mep', $allowedRoles);
 
         return $isOwner || $isHiredArsitek || $isHiredKontraktor || $isHiredPM || $isInterior || $isHiredStructural || $isHiredMEP;
     }

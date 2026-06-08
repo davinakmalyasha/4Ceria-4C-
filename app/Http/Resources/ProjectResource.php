@@ -107,11 +107,12 @@ class ProjectResource extends JsonResource
             'design_completed_at' => $this->design_completed_at,
             'design_locked_at' => $this->design_locked_at,
             'design_authorized_at' => $this->design_authorized_at,
-            'design_details' => $this->design_details,
+            'design_details' => $this->resolveDesignDetailsUrls($this->design_details),
             'legal_requirements' => $this->legal_requirements ?? [],
             'construction_completed_at' => $this->construction_completed_at,
             'construction_locked_at' => $this->construction_locked_at,
             'construction_authorized_at' => $this->construction_authorized_at,
+            'materials_authorized_at' => $this->materials_authorized_at,
             'interior_completed_at' => $this->interior_completed_at,
             'interior_locked_at' => $this->interior_locked_at,
             'legal_locked_at' => $this->legal_locked_at,
@@ -187,7 +188,7 @@ class ProjectResource extends JsonResource
             'design_locked_at' => $this->design_locked_at,
             'pm_id' => $this->pm_id,
             'pm_audit_notes' => $this->pm_audit_notes,
-            'pm_audit_attachments' => collect($this->pm_audit_attachments ?? [])->map(fn($path) => asset('storage/' . $path))->toArray(),
+            'pm_audit_attachments' => collect($this->pm_audit_attachments ?? [])->map(fn($path) => $this->resolveStorageUrl($path))->toArray(),
             'architect_notes' => $this->architect_notes,
             'planning_iteration' => (int) ($this->planning_iteration ?? 0),
             'structural_id' => $this->structural_id,
@@ -212,7 +213,7 @@ class ProjectResource extends JsonResource
                 return $this->documents->map(fn ($doc) => [
                     'id' => $doc->id,
                     'file_name' => $doc->file_name,
-                    'file_path' => asset('storage/' . $doc->file_path),
+                    'file_path' => $this->resolveStorageUrl($doc->file_path),
                     'file_type' => $doc->file_type,
                     'category' => $doc->category,
                     'status' => $doc->status,
@@ -274,13 +275,13 @@ class ProjectResource extends JsonResource
                         'name' => $a->assignedUser->name,
                         'email' => $a->assignedUser->email,
                         'phone_number' => $a->assignedUser->phoneNumber->first()?->contact ?? '',
-                        'profile_picture' => $a->assignedUser->profile_picture ? asset('storage/' . $a->assignedUser->profile_picture) : null,
+                        'profile_picture' => $this->resolveStorageUrl($a->assignedUser->profile_picture),
                         'technical_skills' => $a->assignedUser->technical_skills,
                     ] : null,
                     'status' => $a->status,
                     'paid_at' => $a->paid_at,
                     'verification_notes' => $a->verification_notes,
-                    'payment_proof_path' => $a->payment_proof_path ? asset('storage/' . $a->payment_proof_path) : null,
+                    'payment_proof_path' => $this->resolveStorageUrl($a->payment_proof_path),
                     'created_at' => $a->created_at,
                 ]);
             }),
@@ -295,7 +296,7 @@ class ProjectResource extends JsonResource
                     'user' => $c->user ? [
                         'id' => $c->user->id,
                         'name' => $c->user->name,
-                        'profile_picture' => $c->user->profile_picture ? asset('storage/' . $c->user->profile_picture) : null,
+                        'profile_picture' => $this->resolveStorageUrl($c->user->profile_picture),
                     ] : null,
                     'created_at' => $c->created_at,
                     'updated_at' => $c->updated_at,
@@ -304,7 +305,7 @@ class ProjectResource extends JsonResource
             'images' => $this->whenLoaded('images', function () {
                 return $this->images->map(fn ($img) => [
                     'id' => $img->id,
-                    'url' => asset('storage/'.$img->image_path),
+                    'url' => $this->resolveStorageUrl($img->image_path),
                     'sort_order' => $img->sort_order,
                 ]);
             }),
@@ -323,16 +324,16 @@ class ProjectResource extends JsonResource
                         'scopes' => $bid->scopes,
                         'deliverables' => $bid->deliverables,
                         'attachments' => array_filter([
-                            $bid->attachment_1 ? asset('storage/'.$bid->attachment_1) : null,
-                            $bid->attachment_2 ? asset('storage/'.$bid->attachment_2) : null,
-                            $bid->attachment_3 ? asset('storage/'.$bid->attachment_3) : null,
+                            $this->resolveStorageUrl($bid->attachment_1),
+                            $this->resolveStorageUrl($bid->attachment_2),
+                            $this->resolveStorageUrl($bid->attachment_3),
                         ]),
                         'created_at' => $bid->created_at,
                         'offered_by_id' => $bid->offered_by_id,
                         'negotiation_count' => (int) ($bid->negotiation_count ?? 0),
                         'fee_agreed_at' => $bid->fee_agreed_at,
                         'payment_status' => $bid->payment_status,
-                        'payment_proof_path' => $bid->payment_proof_path ? asset('storage/' . $bid->payment_proof_path) : null,
+                        'payment_proof_path' => $this->resolveStorageUrl($bid->payment_proof_path),
                         'verification_notes' => $bid->verification_notes,
                         'proposed_termins' => $bid->proposed_termins,
                         'proposed_milestones' => $bid->proposed_milestones,
@@ -387,16 +388,16 @@ class ProjectResource extends JsonResource
                         'scopes' => $bid->scopes,
                         'deliverables' => $bid->deliverables,
                         'attachments' => array_filter([
-                            $bid->attachment_1 ? asset('storage/'.$bid->attachment_1) : null,
-                            $bid->attachment_2 ? asset('storage/'.$bid->attachment_2) : null,
-                            $bid->attachment_3 ? asset('storage/'.$bid->attachment_3) : null,
+                            $this->resolveStorageUrl($bid->attachment_1),
+                            $this->resolveStorageUrl($bid->attachment_2),
+                            $this->resolveStorageUrl($bid->attachment_3),
                         ]),
                         'created_at' => $bid->created_at,
                         'offered_by_id' => $bid->offered_by_id,
                         'negotiation_count' => (int) ($bid->negotiation_count ?? 0),
                         'fee_agreed_at' => $bid->fee_agreed_at,
                         'payment_status' => $bid->payment_status,
-                        'payment_proof_path' => $bid->payment_proof_path ? asset('storage/' . $bid->payment_proof_path) : null,
+                        'payment_proof_path' => $this->resolveStorageUrl($bid->payment_proof_path),
                         'verification_notes' => $bid->verification_notes,
                         'proposed_termins' => $bid->proposed_termins,
                         'proposed_milestones' => $bid->proposed_milestones,
@@ -443,16 +444,16 @@ class ProjectResource extends JsonResource
                         'estimated_duration' => $bid->estimated_duration,
                         'duration_unit' => $bid->duration_unit,
                         'attachments' => array_filter([
-                            $bid->attachment_1 ? asset('storage/'.$bid->attachment_1) : null,
-                            $bid->attachment_2 ? asset('storage/'.$bid->attachment_2) : null,
-                            $bid->attachment_3 ? asset('storage/'.$bid->attachment_3) : null,
+                            $this->resolveStorageUrl($bid->attachment_1),
+                            $this->resolveStorageUrl($bid->attachment_2),
+                            $this->resolveStorageUrl($bid->attachment_3),
                         ]),
                         'created_at' => $bid->created_at,
                         'offered_by_id' => $bid->offered_by_id,
                         'negotiation_count' => (int) ($bid->negotiation_count ?? 0),
                         'fee_agreed_at' => $bid->fee_agreed_at,
                         'payment_status' => $bid->payment_status,
-                        'payment_proof_path' => $bid->payment_proof_path ? asset('storage/' . $bid->payment_proof_path) : null,
+                        'payment_proof_path' => $this->resolveStorageUrl($bid->payment_proof_path),
                         'verification_notes' => $bid->verification_notes,
                         'proposed_termins' => $bid->proposed_termins,
                         'proposed_milestones' => $bid->proposed_milestones,
@@ -499,16 +500,16 @@ class ProjectResource extends JsonResource
                         'scopes' => $bid->scopes,
                         'deliverables' => $bid->deliverables,
                         'attachments' => array_filter([
-                            $bid->attachment_1 ? asset('storage/'.$bid->attachment_1) : null,
-                            $bid->attachment_2 ? asset('storage/'.$bid->attachment_2) : null,
-                            $bid->attachment_3 ? asset('storage/'.$bid->attachment_3) : null,
+                            $this->resolveStorageUrl($bid->attachment_1),
+                            $this->resolveStorageUrl($bid->attachment_2),
+                            $this->resolveStorageUrl($bid->attachment_3),
                         ]),
                         'created_at' => $bid->created_at,
                         'offered_by_id' => $bid->offered_by_id,
                         'negotiation_count' => (int) ($bid->negotiation_count ?? 0),
                         'fee_agreed_at' => $bid->fee_agreed_at,
                         'payment_status' => $bid->payment_status,
-                        'payment_proof_path' => $bid->payment_proof_path ? asset('storage/' . $bid->payment_proof_path) : null,
+                        'payment_proof_path' => $this->resolveStorageUrl($bid->payment_proof_path),
                         'verification_notes' => $bid->verification_notes,
                         'proposed_termins' => $bid->proposed_termins,
                         'proposed_milestones' => $bid->proposed_milestones,
@@ -558,7 +559,7 @@ class ProjectResource extends JsonResource
                         'negotiation_count' => (int) ($bid->negotiation_count ?? 0),
                         'fee_agreed_at' => $bid->fee_agreed_at,
                         'payment_status' => $bid->payment_status,
-                        'payment_proof_path' => $bid->payment_proof_path ? asset('storage/' . $bid->payment_proof_path) : null,
+                        'payment_proof_path' => $this->resolveStorageUrl($bid->payment_proof_path),
                         'verification_notes' => $bid->verification_notes,
                         'proposed_termins' => $bid->proposed_termins,
                         'proposed_milestones' => $bid->proposed_milestones,
@@ -572,9 +573,9 @@ class ProjectResource extends JsonResource
                             'created_at' => $log->created_at,
                         ]),
                         'proposal' => $bid->proposal,
-                        'attachment_1' => $bid->attachment_1 ? asset('storage/' . $bid->attachment_1) : null,
-                        'attachment_2' => $bid->attachment_2 ? asset('storage/' . $bid->attachment_2) : null,
-                        'attachment_3' => $bid->attachment_3 ? asset('storage/' . $bid->attachment_3) : null,
+                        'attachment_1' => $this->resolveStorageUrl($bid->attachment_1),
+                        'attachment_2' => $this->resolveStorageUrl($bid->attachment_2),
+                        'attachment_3' => $this->resolveStorageUrl($bid->attachment_3),
                         'created_at' => $bid->created_at,
                         'bidder' => $bid->pm ? [
                             'id' => $bid->pm->id,
@@ -613,7 +614,8 @@ class ProjectResource extends JsonResource
                         'id' => $milestone->id,
                         'title' => $milestone->title,
                         'description' => $milestone->description,
-                        'content' => $milestone->content,
+                        'type' => $milestone->type,
+                        'content' => isset($milestone->content['gallery']) ? array_merge($milestone->content, ['gallery' => $milestone->gallery_urls]) : $milestone->content,
                         'approval_status' => $milestone->approval_status,
                         'phase_context' => $milestone->phase_context,
                         'start_date' => $milestone->start_date,
@@ -720,8 +722,7 @@ class ProjectResource extends JsonResource
                     'quantity_used' => $req->quantity_used,
                     'unit' => $req->unit,
                     'quality_level' => $req->quality_level,
-                    'notes' => $req->notes,
-                    'image_url' => $req->image_path ? asset('storage/' . $req->image_path) : null,
+                    'image_url' => $this->resolveStorageUrl($req->image_path),
                     'created_at' => $req->created_at,
                 ]);
             }),
@@ -754,9 +755,9 @@ class ProjectResource extends JsonResource
                         'scopes' => $bid->scopes,
                         'deliverables' => $bid->deliverables,
                         'attachments' => array_filter([
-                            $bid->attachment_1 ? asset('storage/'.$bid->attachment_1) : null,
-                            $bid->attachment_2 ? asset('storage/'.$bid->attachment_2) : null,
-                            $bid->attachment_3 ? asset('storage/'.$bid->attachment_3) : null,
+                            $this->resolveStorageUrl($bid->attachment_1),
+                            $this->resolveStorageUrl($bid->attachment_2),
+                            $this->resolveStorageUrl($bid->attachment_3),
                         ]),
                         'created_at' => $bid->created_at,
                         'structural_id' => $bid->structural_id,
@@ -764,7 +765,7 @@ class ProjectResource extends JsonResource
                         'negotiation_count' => (int) ($bid->negotiation_count ?? 0),
                         'fee_agreed_at' => $bid->fee_agreed_at,
                         'payment_status' => $bid->payment_status,
-                        'payment_proof_path' => $bid->payment_proof_path ? asset('storage/' . $bid->payment_proof_path) : null,
+                        'payment_proof_path' => $this->resolveStorageUrl($bid->payment_proof_path),
                         'verification_notes' => $bid->verification_notes,
                         'proposed_termins' => $bid->proposed_termins,
                         'proposed_milestones' => $bid->proposed_milestones,
@@ -824,9 +825,9 @@ class ProjectResource extends JsonResource
                         'scopes' => $bid->scopes,
                         'deliverables' => $bid->deliverables,
                         'attachments' => array_filter([
-                            $bid->attachment_1 ? asset('storage/'.$bid->attachment_1) : null,
-                            $bid->attachment_2 ? asset('storage/'.$bid->attachment_2) : null,
-                            $bid->attachment_3 ? asset('storage/'.$bid->attachment_3) : null,
+                            $this->resolveStorageUrl($bid->attachment_1),
+                            $this->resolveStorageUrl($bid->attachment_2),
+                            $this->resolveStorageUrl($bid->attachment_3),
                         ]),
                         'created_at' => $bid->created_at,
                         'mep_id' => $bid->mep_id,
@@ -834,7 +835,7 @@ class ProjectResource extends JsonResource
                         'negotiation_count' => (int) ($bid->negotiation_count ?? 0),
                         'fee_agreed_at' => $bid->fee_agreed_at,
                         'payment_status' => $bid->payment_status,
-                        'payment_proof_path' => $bid->payment_proof_path ? asset('storage/' . $bid->payment_proof_path) : null,
+                        'payment_proof_path' => $this->resolveStorageUrl($bid->payment_proof_path),
                         'verification_notes' => $bid->verification_notes,
                         'proposed_termins' => $bid->proposed_termins,
                         'proposed_milestones' => $bid->proposed_milestones,
@@ -962,6 +963,7 @@ class ProjectResource extends JsonResource
                     'proposal' => $bid->proposal,
                     'scopes' => $bid->scopes,
                     'deliverables' => $bid->deliverables,
+                    'proposed_team' => $bid->proposed_team,
                     'estimated_duration' => $bid->estimated_duration,
                     'duration_unit' => $bid->duration_unit,
                 ];
@@ -1021,7 +1023,7 @@ class ProjectResource extends JsonResource
                 'retention_amount' => (float) $t->retention_amount,
                 'net_amount' => (float) $t->net_amount,
                 'paid_at' => $t->paid_at,
-                'payment_proof_path' => $t->payment_proof_path ? asset('storage/' . $t->payment_proof_path) : null,
+                'payment_proof_path' => $this->resolveStorageUrl($t->payment_proof_path),
                 'verification_notes' => $t->verification_notes,
             ]),
             'activity_logs' => $this->whenLoaded('activityLogs', function() {
@@ -1052,6 +1054,8 @@ class ProjectResource extends JsonResource
                     'name' => $sp->user->name,
                     'email' => $sp->user->email,
                     'role_type' => $sp->user->role_type,
+                    'pic' => $sp->user->pic,
+                    'phone_number' => $sp->user->phone_number ?? $sp->user->phone ?? ($sp->user->phoneNumber->first()?->contact) ?? '',
                 ] : null,
             ]) : [],
         ];
@@ -1152,5 +1156,50 @@ class ProjectResource extends JsonResource
         }
         
         return null;
+    }
+
+    private function resolveStorageUrl(?string $path): ?string
+    {
+        if (!$path) {
+            return null;
+        }
+
+        // Extract relative path if it's a URL pointing to our local storage or S3 bucket
+        $s3Prefix = 'https://t3.storageapi.dev/fourc-storage-fneicjrzkq3/';
+        
+        if (str_starts_with($path, $s3Prefix)) {
+            $path = substr($path, strlen($s3Prefix));
+        } elseif (str_contains($path, '/storage/')) {
+            // e.g. http://127.0.0.1:8000/storage/design_briefs/... or /storage/design_briefs/...
+            $parts = explode('/storage/', $path);
+            $path = end($parts);
+        } elseif (filter_var($path, FILTER_VALIDATE_URL)) {
+            // External URLs (like Unsplash, mockups, etc.) should be returned as-is
+            return $path;
+        }
+
+        try {
+            return \Illuminate\Support\Facades\Storage::disk('public')->temporaryUrl($path, now()->addHours(24));
+        } catch (\Throwable $e) {
+            return \Illuminate\Support\Facades\Storage::disk('public')->url($path);
+        }
+    }
+
+    private function resolveDesignDetailsUrls($details): ?array
+    {
+        if (empty($details) || !is_array($details)) {
+            return $details;
+        }
+
+        if (isset($details['requirements']) && is_array($details['requirements'])) {
+            $details['requirements'] = array_map(function ($req) {
+                if (isset($req['image_url'])) {
+                    $req['image_url'] = $this->resolveStorageUrl($req['image_url']);
+                }
+                return $req;
+            }, $details['requirements']);
+        }
+
+        return $details;
     }
 }
