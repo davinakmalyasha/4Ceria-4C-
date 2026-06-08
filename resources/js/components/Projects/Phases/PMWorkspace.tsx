@@ -14,6 +14,7 @@ import ProjectRequirements from '../ProjectRequirements';
 import PMSchedule from '../PMWorkspace/PMSchedule';
 import PMGroupedApprovals from './PMGroupedApprovals';
 import ConfirmModal from '../ConfirmModal';
+import StickyNotesLayer from './StickyNotesLayer';
 
 interface PMWorkspaceProps {
     project: any;
@@ -160,6 +161,11 @@ export default function PMWorkspace({ project, user, onRefresh, phaseKey, onNavi
     const pendingHandovers: { phase: string; title: string; submittedAt: string; state: 'awaiting_pm' | 'awaiting_owner' | 'completed' }[] = [];
     const completed = project.completed_phases || [];
 
+    // Legal handover
+    if (project.legal_handover_submitted_at) {
+        pendingHandovers.push({ phase: 'legal', title: 'Notary & Legality', submittedAt: project.legal_handover_submitted_at,
+            state: completed.includes('legal') ? 'completed' : 'awaiting_pm' });
+    }
     // Design handover
     if (project.design_handover_submitted_at) {
         pendingHandovers.push({ phase: 'design', title: 'Architecture & Engineering', submittedAt: project.design_handover_submitted_at,
@@ -219,7 +225,11 @@ export default function PMWorkspace({ project, user, onRefresh, phaseKey, onNavi
             setIsLoading(true);
             try {
                 if (action === 'approve') {
-                    await axios.post(`/projects/${project.id}/handover/approve`, { phase });
+                    if (phase === 'legal') {
+                        await axios.post(`/projects/${project.id}/verify-legal`);
+                    } else {
+                        await axios.post(`/projects/${project.id}/handover/approve`, { phase });
+                    }
                     showToast(`${phase.toUpperCase()} handover approved & sealed.`, 'success');
                 } else {
                     await axios.post(`/projects/${project.id}/handover/reject`, { phase, notes });
@@ -259,48 +269,90 @@ export default function PMWorkspace({ project, user, onRefresh, phaseKey, onNavi
         }
     };
 
-    const handleAuthorizePhase = async (phase: string, authorize: boolean) => {
+    const handleAuthorizePhase = (phase: string, authorize: boolean) => {
         if (isLoading) return;
-        setIsLoading(true);
-        try {
-            await axios.post(`/projects/${project.id}/authorize-phase`, { phase, authorize });
-            showToast(`Phase ${phase} ${authorize ? 'authorized' : 'authorization revoked'}.`, 'success');
-            onRefresh();
-        } catch (error: any) {
-            showToast(error.response?.data?.message || 'Failed to update phase authorization.', 'error');
-        } finally {
-            setIsLoading(false);
-        }
+        
+        const executeAuthorize = async () => {
+            setIsLoading(true);
+            try {
+                await axios.post(`/projects/${project.id}/authorize-phase`, { phase, authorize });
+                showToast(`Phase ${phase} ${authorize ? 'authorized' : 'authorization revoked'}.`, 'success');
+                onRefresh();
+            } catch (error: any) {
+                showToast(error.response?.data?.message || 'Failed to update phase authorization.', 'error');
+            } finally {
+                setIsLoading(false);
+                setConfirmState(prev => ({ ...prev, isOpen: false }));
+            }
+        };
+
+        const phaseName = phase === 'build' ? 'Construction' : (phase === 'materials' ? 'Material' : 'Design');
+
+        setConfirmState({
+            isOpen: true,
+            title: authorize ? `Authorize ${phaseName} Phase?` : `Revoke ${phaseName} Phase Authorization?`,
+            description: authorize
+                ? `Are you sure you want to authorize the ${phaseName} phase? Hired specialists will be allowed to start working and uploading files.`
+                : `Are you sure you want to revoke authorization for the ${phaseName} phase? Hired specialists will be blocked from uploading documents.`,
+            confirmText: authorize ? 'Authorize' : 'Revoke',
+            cancelText: 'Cancel',
+            variant: authorize ? 'success' : 'danger',
+            onConfirm: executeAuthorize
+        });
     };
 
     return (
         <div className="space-y-8 animate-in fade-in duration-700">
             {/* PM Sub-Navigation - Only in Management Phase */}
             {isManagementPhase && (
-                <div className="flex items-center gap-1 bg-slate-50 p-1 rounded-2xl border border-slate-100 w-fit">
-                    <button
-                        onClick={() => setActiveSubTab('dashboard')}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                            activeSubTab === 'dashboard' 
-                            ? 'bg-white text-slate-900 shadow-sm border border-slate-100' 
-                            : 'text-slate-400 hover:text-slate-600'
-                        }`}
-                    >
-                        <LayoutDashboard size={14} />
-                        Dashboard
-                    </button>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 w-full mb-6">
+                    <div className="flex items-center gap-1 bg-slate-50 p-1 rounded-2xl border border-slate-100 w-fit">
+                        <button
+                            onClick={() => setActiveSubTab('dashboard')}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                                activeSubTab === 'dashboard' 
+                                ? 'bg-white text-slate-900 shadow-sm border border-slate-100' 
+                                : 'text-slate-400 hover:text-slate-600'
+                            }`}
+                        >
+                            <LayoutDashboard size={14} />
+                            Dashboard
+                        </button>
 
-                    <button
-                        onClick={() => setActiveSubTab('schedule')}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                            activeSubTab === 'schedule' 
-                            ? 'bg-white text-slate-900 shadow-sm border border-slate-100' 
-                            : 'text-slate-400 hover:text-slate-600'
-                        }`}
-                    >
-                        <CalendarRange size={14} />
-                        Schedule & Reports
-                    </button>
+                        <button
+                            onClick={() => setActiveSubTab('schedule')}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                                activeSubTab === 'schedule' 
+                                ? 'bg-white text-slate-900 shadow-sm border border-slate-100' 
+                                : 'text-slate-400 hover:text-slate-600'
+                            }`}
+                        >
+                            <CalendarRange size={14} />
+                            Schedule & Reports
+                        </button>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <StickyNotesLayer 
+                            project={project} 
+                            currentUser={user} 
+                            phaseContext="management" 
+                            renderTrigger={(toggle, isOpen) => (
+                                <button 
+                                    onClick={toggle}
+                                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm border ${
+                                        isOpen 
+                                            ? 'bg-amber-300 border-amber-400 text-amber-950 scale-95 shadow-inner' 
+                                            : 'bg-amber-200 border-amber-300 text-amber-900 hover:bg-amber-300 hover:scale-105'
+                                    }`}
+                                    title="PM Notes"
+                                >
+                                    <FileText size={14} className={isOpen ? 'animate-bounce' : ''} />
+                                    PM Notes
+                                </button>
+                            )}
+                        />
+                    </div>
                 </div>
             )}
 
@@ -380,6 +432,19 @@ export default function PMWorkspace({ project, user, onRefresh, phaseKey, onNavi
                                         className={`w-10 h-5 rounded-full transition-colors relative ${project.design_authorized_at ? 'bg-zinc-900' : 'bg-gray-300'}`}
                                     >
                                         <div className={`w-3.5 h-3.5 bg-white rounded-full absolute top-0.5 transition-transform ${project.design_authorized_at ? 'translate-x-6' : 'translate-x-0.5'}`} />
+                                    </button>
+                                </div>
+
+                                <div className="h-6 w-px bg-gray-200" />
+
+                                <div className="flex items-center gap-3">
+                                    <span className="text-[10px] font-black uppercase text-gray-700 tracking-wider">Material</span>
+                                    <button 
+                                        onClick={() => handleAuthorizePhase('materials', !project.materials_authorized_at)}
+                                        disabled={isLoading}
+                                        className={`w-10 h-5 rounded-full transition-colors relative ${project.materials_authorized_at ? 'bg-zinc-900' : 'bg-gray-300'}`}
+                                    >
+                                        <div className={`w-3.5 h-3.5 bg-white rounded-full absolute top-0.5 transition-transform ${project.materials_authorized_at ? 'translate-x-6' : 'translate-x-0.5'}`} />
                                     </button>
                                 </div>
 

@@ -1,10 +1,11 @@
 import React, { useMemo } from 'react';
-import { Info } from 'lucide-react';
+import { Info, FolderOpen, FileText, Download } from 'lucide-react';
 import { Phase } from '../../../types/phase.types';
 import SummaryProCard from './SummaryProCard';
 import SummaryFinancials from './SummaryFinancials';
 import SummaryTerminList from './SummaryTerminList';
 import PhaseBidsList from './PhaseBidsList';
+import SummaryProBento from './SummaryProBento';
 
 interface PhaseReadOnlySummaryProps {
     phase: Phase;
@@ -15,10 +16,11 @@ interface PhaseReadOnlySummaryProps {
     currentBids?: any[];
     onOpenChat?: (user: any) => void;
     onRefresh?: () => void;
+    user: any;
 }
 
 export default function PhaseReadOnlySummary({
-    phase, project, currentRoleKey, currentHasPro, isPublished, currentBids, onOpenChat, onRefresh
+    phase, project, currentRoleKey, currentHasPro, isPublished, currentBids, onOpenChat, onRefresh, user
 }: PhaseReadOnlySummaryProps) {
     const acceptedBid = useMemo(() => {
         if (!currentBids) return null;
@@ -60,13 +62,100 @@ export default function PhaseReadOnlySummary({
         return currentBids.filter(b => ['pending', 'invited'].includes(b.status));
     }, [currentBids]);
 
+    const showFinancials = useMemo(() => {
+        if (!user) return false;
+        const isOwner = user.id === project?.user_id;
+        const isHiredPM = project?.pm_id && user.id === project?.pm_id;
+        const isSelf = user.role_type === currentRoleKey || (
+            (currentRoleKey === 'structural' && user.role_type === 'structural') ||
+            (currentRoleKey === 'mep' && user.role_type === 'mep')
+        );
+        return isOwner || isHiredPM || isSelf;
+    }, [user, project, currentRoleKey]);
+
+    const subDocs = useMemo(() => {
+        const categoryMap: Record<string, string> = {
+            structural: 'structural_calc',
+            mep: 'mep_layout',
+            interior: 'interior_design',
+            arsitek: 'blueprint',
+        };
+        const cat = categoryMap[currentRoleKey];
+        if (!cat) return [];
+        return (project?.documents || []).filter((d: any) => d.category === cat);
+    }, [project?.documents, currentRoleKey]);
+
     return (
         <div className="space-y-6">
             {currentHasPro ? (
                 <>
                     <SummaryProCard pro={pro} roleLabel={roleLabels[currentRoleKey] || 'Professional'} onOpenChat={onOpenChat} />
-                    <SummaryFinancials termins={termins} />
-                    <SummaryTerminList termins={termins} />
+                    {showFinancials ? (
+                        <>
+                            <SummaryFinancials termins={termins} />
+                            <SummaryTerminList termins={termins} />
+                        </>
+                    ) : (
+                        <SummaryProBento termins={termins} roleLabel={roleLabels[currentRoleKey] || 'Professional'} pro={pro} />
+                    )}
+
+                    {/* Deliverables / Documents List */}
+                    {['structural', 'mep', 'interior', 'arsitek'].includes(currentRoleKey) && (
+                        <div className="bg-white border border-slate-100 rounded-[2rem] p-8 shadow-sm">
+                            <div className="flex items-center gap-3 mb-6">
+                                <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center border border-indigo-100">
+                                    <FolderOpen size={18} />
+                                </div>
+                                <div>
+                                    <h4 className="text-sm font-black text-slate-950 uppercase tracking-tight">
+                                        {roleLabels[currentRoleKey] || 'Professional'} Deliverables
+                                    </h4>
+                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                                        Uploaded drawings and technical documents
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {subDocs.length > 0 ? (
+                                    subDocs.map((doc: any) => (
+                                        <a 
+                                            key={doc.id}
+                                            href={doc.file_path}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="flex justify-between items-center px-5 py-4 bg-slate-50 hover:bg-slate-100 rounded-2xl transition-all border border-slate-100 group min-w-0"
+                                        >
+                                            <div className="flex items-center gap-3 min-w-0 flex-1">
+                                                <FileText size={18} className="text-slate-400 group-hover:text-slate-950 transition-colors shrink-0" />
+                                                <div className="flex flex-col min-w-0">
+                                                    <span className="text-xs font-bold text-slate-700 truncate" title={doc.file_name}>
+                                                        {doc.file_name}
+                                                    </span>
+                                                    {doc.version_label && (
+                                                        <span className="text-[9px] text-slate-400 font-semibold truncate max-w-[180px] mt-0.5">
+                                                            {doc.version_label}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2 shrink-0 ml-2">
+                                                <span className="font-mono text-[8px] bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-black">
+                                                    v{doc.version}
+                                                </span>
+                                                <Download size={14} className="text-slate-400 group-hover:text-indigo-600 transition-colors" />
+                                            </div>
+                                        </a>
+                                    ))
+                                ) : (
+                                    <div className="col-span-full p-8 bg-slate-50 text-slate-400 rounded-2xl border border-dashed border-slate-200 text-xs text-center font-bold flex flex-col items-center justify-center gap-2">
+                                        <FileText size={24} className="text-slate-350" />
+                                        <span>No deliverables or drawings have been uploaded for this role yet.</span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
                 </>
             ) : (
                 <div className="space-y-6">
@@ -87,15 +176,9 @@ export default function PhaseReadOnlySummary({
                     {pendingBids.length > 0 && (
                         <div className="mt-8 pt-6 border-t border-slate-100 space-y-4">
                             <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Submitted Proposals</h4>
-                            <PhaseBidsList
-                                bids={currentBids || []}
-                                phaseKey={phase.key}
-                                projectId={project.id}
-                                onRefresh={onRefresh || (() => {})}
-                                readOnly={true}
-                                onOpenChat={onOpenChat}
-                                projectContext={project}
-                            />
+                            <div className="bg-slate-50 border border-slate-150/40 rounded-2xl p-6 text-center text-slate-500 text-xs font-semibold">
+                                Submitted proposals for this phase are managed in the Tendering Hub.
+                            </div>
                         </div>
                     )}
                 </div>

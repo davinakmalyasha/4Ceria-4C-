@@ -16,9 +16,8 @@ import ProjectReference from './ProjectReference';
 import ProjectRequirements from '../ProjectRequirements';
 import MaterialHistoryLog from '../Requirements/MaterialHistoryLog';
 import TechnicalResourcing from './TechnicalResourcing';
-import ConstructionBriefManager from './ConstructionBriefManager';
-import ConstructionProgress from './ConstructionProgress';
-import DailySiteLog from './DailySiteLog';
+import ConstructionMilestones from './ConstructionMilestones';
+import ChangeOrderPanel from './ChangeOrderPanel';
 import MaterialOrderTracker from './MaterialOrderTracker';
 import InteriorProgress from './InteriorProgress';
 import InteriorBriefManager from './InteriorBriefManager';
@@ -46,11 +45,13 @@ interface PhaseAssignedProProps {
     onGoToInterviews?: () => void;
     onShortlist?: (bidId: number, role: string) => void;
     onRecommend?: (bidId: number, role: string) => void;
+    hideResignButton?: boolean;
 }
 export default function PhaseAssignedPro({
     project, phaseKey, activeSubRole, user, config,
     onRefresh, onPhaseComplete, onOpenChat, onViewProfile,
-    onGoToPayments, onGoToInterviews, onShortlist, onRecommend
+    onGoToPayments, onGoToInterviews, onShortlist, onRecommend,
+    hideResignButton
 }: PhaseAssignedProProps) {
     const { showToast } = useToast();
     const ROLE_MAP: Record<string, string> = {
@@ -70,6 +71,7 @@ export default function PhaseAssignedPro({
     ) : null;
     const isPMAuthorized = 
         phaseKey === 'design' ? !!project.design_authorized_at :
+        phaseKey === 'materials' ? !!project.materials_authorized_at :
         phaseKey === 'build' ? !!project.construction_authorized_at : true;
     const isWorkspaceLocked = (acceptedBid && ['contract_pending', 'awaiting_payment'].includes(acceptedBid.status)) || !isPMAuthorized;
     const pro = (config.profileKey ? project?.[config.profileKey] : null) || acceptedBid?.bidder;
@@ -99,6 +101,16 @@ export default function PhaseAssignedPro({
         (project.bids_interior?.some((b: any) => b.status === 'accepted' && (b.bidder?.user?.id === user?.id || b.bidder?.user_id === user?.id)))
     );
 
+    const isStructuralHired = user?.role_type === 'structural' && (
+        (project.structural_id && (user?.structural_engineer?.id === project.structural_id || user?.id === project.structural_engineer?.user?.id)) ||
+        (project.sub_professionals?.some((s: any) => s.user_id === user?.id && s.sub_role === 'structural' && s.status === 'active'))
+    );
+
+    const isMEPHired = user?.role_type === 'mep' && (
+        (project.mep_id && (user?.mep_engineer?.id === project.mep_id || user?.id === project.mep_engineer?.user?.id)) ||
+        (project.sub_professionals?.some((s: any) => s.user_id === user?.id && s.sub_role === 'mep' && s.status === 'active'))
+    );
+
     if (!pro && !externalVendor && phaseKey !== 'materials' && !(phaseKey === 'interior' && isHiredContractor)) return null;
 
     const name = pro 
@@ -115,7 +127,7 @@ export default function PhaseAssignedPro({
 
     const [activeSubTab, setActiveSubTab] = React.useState(
         phaseKey === 'legal' ? 'vault' :
-            phaseKey === 'build' ? 'site_command' :
+            phaseKey === 'build' ? 'progress' :
                 phaseKey === 'materials' ? 'bom' :
                     phaseKey === 'interior' ? 'planning' :
                         'managing'
@@ -124,7 +136,7 @@ export default function PhaseAssignedPro({
     React.useEffect(() => {
         setActiveSubTab(
             phaseKey === 'legal' ? 'vault' :
-                phaseKey === 'build' ? 'site_command' :
+                phaseKey === 'build' ? 'progress' :
                     phaseKey === 'materials' ? 'bom' :
                         phaseKey === 'interior' ? 'planning' :
                             'managing'
@@ -244,27 +256,36 @@ export default function PhaseAssignedPro({
         }
     };
 
+    const handleAuthorizePhase = (phase: string, authorize: boolean) => {
+        const phaseName = phase === 'build' ? 'Construction' : (phase === 'materials' ? 'Material' : 'Design');
+        
+        showConfirm(
+            authorize ? `Authorize ${phaseName} Phase?` : `Revoke ${phaseName} Phase Authorization?`,
+            authorize
+                ? `Are you sure you want to authorize the ${phaseName} phase? Hired specialists will be allowed to start working and uploading files.`
+                : `Are you sure you want to revoke authorization for the ${phaseName} phase? Hired specialists will be blocked from uploading documents.`,
+            async () => {
+                setIsUpdating(true);
+                try {
+                    await axios.post(`/projects/${project.id}/authorize-phase`, { phase, authorize });
+                    showToast(`Phase ${phase} ${authorize ? 'authorized' : 'authorization revoked'}.`, 'success');
+                    onRefresh();
+                } catch (error: any) {
+                    showToast(error.response?.data?.message || 'Failed to update phase authorization.', 'error');
+                } finally {
+                    setIsUpdating(false);
+                }
+            },
+            authorize ? 'success' : 'danger'
+        );
+    };
+
+    const canAuthorize = isOwner || isPM;
+
     const hasSubTabs = ['legal', 'design', 'build', 'materials', 'interior'].includes(phaseKey);
 
     return (
         <div className="relative">
-
-            {/* PM Authorization Lockout */}
-            {!isPMAuthorized && isHiredPro && (
-                <div className="mb-8 p-8 bg-red-50 border border-red-100 rounded-[3rem] shadow-sm flex flex-col items-center text-center gap-4 relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-red-500/10 rounded-full blur-[100px] opacity-50 -translate-y-1/2 translate-x-1/2" />
-                    <div className="w-16 h-16 bg-white text-red-500 rounded-3xl flex items-center justify-center shadow-lg mb-2 relative z-10">
-                        <Lock size={32} />
-                    </div>
-                    <div className="relative z-10 max-w-lg">
-                        <h4 className="text-xl font-black text-red-950 tracking-tight">Awaiting PM Authorization</h4>
-                        <p className="text-xs text-red-700 font-bold mt-2 leading-relaxed uppercase tracking-wider">
-                            The Project Manager has not yet authorized the start of this phase. Please wait until they have verified the necessary prerequisites before commencing work.
-                        </p>
-                    </div>
-                </div>
-            )}
-
 
             {/* ACTIVE NEGOTIATIONS SECTION — Visible across all phases for the hired pro */}
             {isHiredPro && project.addendums?.some((a: any) => a.status === 'negotiating' && a.user_id === user.id) && (
@@ -349,77 +370,7 @@ export default function PhaseAssignedPro({
                 )}
 
 
-            {/* Contractor Handover Workshop Button */}
-            {isHiredPro && !isWorkspaceLocked && phaseKey === 'build' && !project.construction_completed_at && (
-                <div className="mb-8 p-8 bg-slate-900 border border-slate-800 rounded-[3rem] shadow-sm flex flex-col items-center text-center gap-6">
-                    <div className="max-w-md">
-                        <h4 className="text-xl font-black text-white tracking-tight">Construction Handover Site</h4>
-                        <p className="text-xs text-slate-500 font-bold mt-2 leading-relaxed uppercase tracking-wider">
-                            Submit the physical site for PM verification. By doing this, you certify that the build matches all finalized blueprints.
-                        </p>
-                    </div>
 
-                    {submittedAt && (
-                        <div className="px-6 py-3 bg-white/10 rounded-2xl flex items-center gap-3 animate-pulse">
-                            <Clock size={16} className="text-emerald-400" />
-                            <span className="text-[10px] font-black text-white/70 uppercase tracking-widest">PM Review in Progress Since {new Date(submittedAt).toLocaleDateString()}</span>
-                        </div>
-                    )}
-
-                    {revisionNotes && !submittedAt && (
-                        <div className="p-5 bg-red-400/10 border border-red-400/20 rounded-2xl text-left w-full">
-                            <div className="flex items-center gap-2 mb-2 text-red-400">
-                                <AlertTriangle size={16} />
-                                <span className="text-[10px] font-black uppercase tracking-widest">Handover Needs Revision</span>
-                            </div>
-                            <p className="text-xs font-bold text-red-100">{revisionNotes}</p>
-                        </div>
-                    )}
-
-                    <button
-                        onClick={() => {
-                            showConfirm(
-                                "Submit Site Handover",
-                                "Submit construction handover for PM verification?",
-                                async () => {
-                                    setIsUpdating(true);
-                                    try {
-                                        await axios.post(`/projects/${project.id}/seal-construction`);
-                                        showToast('Handover Request Sent to PM', 'success');
-                                        onRefresh();
-                                    } catch (error: any) {
-                                        const message = error.response?.data?.message || 'Handover failed.';
-                                        showToast(message, 'error');
-                                    } finally {
-                                        setIsUpdating(false);
-                                    }
-                                },
-                                "info"
-                            );
-                        }}
-                        disabled={isUpdating || !!submittedAt}
-                        className="group relative px-12 py-5 bg-white text-slate-900 rounded-[2rem] font-black text-xs uppercase tracking-[0.25em] shadow-2xl hover:bg-slate-50 transition-all flex items-center gap-4 overflow-hidden disabled:opacity-50"
-                    >
-                        <ShieldCheck size={20} className={!submittedAt ? "group-hover:rotate-12 transition-transform" : ""} />
-                        {isUpdating ? 'SUBMITTING...' : submittedAt ? 'PENDING VERIFICATION' : revisionNotes ? 'RESUBMIT HANDOVER' : 'REQUEST SITE HANDOVER'}
-                    </button>
-                </div>
-            )}
-
-            {/* PM HANDOVER REDIRECT */}
-            {isPM && !isWorkspaceLocked && submittedAt && phaseKey !== 'legal' && !(project.completed_phases || []).includes(phaseKey) && (
-                <div className="mb-8 p-8 bg-emerald-50 border-2 border-emerald-100 rounded-[3rem] shadow-sm flex items-center gap-6">
-                    <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-[2rem] flex items-center justify-center shadow-inner">
-                        <ShieldCheck size={32} />
-                    </div>
-                    <div>
-                        <h4 className="text-xl font-black text-emerald-900 tracking-tight">Handover Review Pending</h4>
-                        <p className="text-sm text-emerald-700 font-bold mt-1">
-                            A technical handover has been submitted for this phase. Please go to your <b>PM Dashboard (Overview Tab)</b> to review and seal this phase in the Unified Handover Queue.
-                        </p>
-                    </div>
-                </div>
-            )}
 
             {/* Interior Designer Handover Workshop Button */}
             {isHiredPro && !isWorkspaceLocked && phaseKey === 'interior' && !project.interior_completed_at && (
@@ -480,12 +431,23 @@ export default function PhaseAssignedPro({
             )}
 
 
-            {pro && phaseKey !== 'legal' && !(phaseKey === 'management' && isHiredPro) && (
+            {isHiredPro && phaseKey !== 'legal' && phaseKey !== 'management' && !hideResignButton && (
+                <div className="flex justify-end mb-4">
+                    <button
+                        onClick={() => setIsResignModalOpen(true)}
+                        className="flex items-center gap-1.5 px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all shadow-xs z-10"
+                    >
+                        <LogOut size={12} /> Resign Proyek
+                    </button>
+                </div>
+            )}
+
+            {pro && phaseKey !== 'legal' && !(phaseKey === 'management' && isHiredPro) && !isHiredPro && (
                 <div className={`flex flex-col md:flex-row md:items-center justify-between gap-4 ${hasSubTabs ? 'mb-6 pb-6 border-b border-gray-50' : ''}`}>
                     <div className="flex items-center gap-3">
                         <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center overflow-hidden shadow-inner flex-shrink-0">
                             {pro?.foto ? (
-                                <img src={`/storage/${pro.foto}`} alt={name} className="w-full h-full object-cover" />
+                                <img src={pro.foto.startsWith('http') ? pro.foto : `/storage/${pro.foto}`} alt={name} className="w-full h-full object-cover" />
                             ) : (
                                 <span className="text-lg font-black text-gray-400">{name.charAt(0)}</span>
                             )}
@@ -527,25 +489,6 @@ export default function PhaseAssignedPro({
                         >
                             <ExternalLink size={16} />
                         </button>
-                        {isHiredPro && (
-                            <button
-                                onClick={() => {
-                                    setInitialAddendumType('specialist_assignment');
-                                    setIsAddendumModalOpen(true);
-                                }}
-                                className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white hover:bg-black rounded-xl text-[9px] font-black uppercase tracking-wider transition-all shadow-sm"
-                            >
-                                <UserPlus size={12} /> Bring Own Team
-                            </button>
-                        )}
-                        {isHiredPro && (
-                            <button
-                                onClick={() => setIsResignModalOpen(true)}
-                                className="flex items-center gap-1.5 px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all shadow-xs"
-                            >
-                                <LogOut size={12} /> Resign Proyek
-                            </button>
-                        )}
                     </div>
                 </div>
             )}
@@ -606,9 +549,20 @@ export default function PhaseAssignedPro({
 
                     <div className="pt-4 flex justify-center gap-4">
                         {!isPMAuthorized ? (
-                            <div className="px-6 py-3 bg-red-50 border border-red-100 rounded-xl text-red-800 text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
-                                <Lock size={12} /> Pending Project Manager Signal
-                            </div>
+                            canAuthorize ? (
+                                <button
+                                    onClick={() => handleAuthorizePhase(phaseKey, true)}
+                                    disabled={isUpdating}
+                                    className="px-8 py-4 bg-zinc-900 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-black transition-all shadow-xl shadow-slate-900/10 flex items-center gap-2 cursor-pointer"
+                                >
+                                    <ShieldCheck size={16} />
+                                    {isUpdating ? 'Authorizing...' : `Authorize ${phaseKey === 'build' ? 'Construction' : phaseKey === 'materials' ? 'Material' : 'Design'} Phase`}
+                                </button>
+                            ) : (
+                                <div className="px-6 py-3 bg-red-50 border border-red-100 rounded-xl text-red-800 text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+                                    <Lock size={12} /> Pending Project Manager Signal
+                                </div>
+                            )
                         ) : acceptedBid?.status === 'contract_pending' ? (
                             isHiredPro ? (
                                 <button
@@ -794,113 +748,12 @@ export default function PhaseAssignedPro({
             {/* If Build Phase, show the Contractor Workspace Navigation */}
             {phaseKey === 'build' && (
                 <div className="space-y-8">
-                    <div className="flex items-center gap-1 p-1 bg-slate-50 rounded-2xl w-fit overflow-x-auto">
-                        {(() => {
-                            const cat = project?.project_category;
-                            const isMaint = cat === 'maintenance';
-                            const isReno = cat === 'renovation';
-                            return [
-                                { id: 'site_command', label: project.construction_locked_at ? 'Brief' : (isMaint ? 'Scope Perbaikan' : 'Planning'), icon: Settings },
-                                { id: 'progress', label: isMaint ? 'Repair Progress' : isReno ? 'Renovation Progress' : 'Build Progress', icon: Hammer },
-                                { id: 'logs', label: 'Daily Logs', icon: Layers },
-                                { id: 'results', label: 'Results & Files', icon: Box }
-                            ];
-                        })().map((tab) => (
-                            <button
-                                key={tab.id}
-                                onClick={() => setActiveSubTab(tab.id)}
-                                className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeSubTab === tab.id
-                                    ? 'bg-white text-slate-900 shadow-sm'
-                                    : 'text-slate-400 hover:text-slate-600'
-                                    }`}
-                            >
-                                <tab.icon size={14} />
-                                {tab.label}
-                            </button>
-                        ))}
-                    </div>
-
-                    <div className="transition-all">
-                        {activeSubTab === 'site_command' ? (
-                            <ConstructionBriefManager
-                                key={`${project.id}-${project.updated_at}`}
-                                project={project}
-                                isContractor={isHiredPro}
-                                isOwner={isOwner}
-                                isPM={user?.id === project.pm_id}
-                                onRefresh={onRefresh}
-                            />
-                        ) : (() => {
-                            // PBG gate only applies to new_build and renovation
-                            const needsPBG = ['new_build', 'renovation'].includes(project?.project_category);
-                            const isPBGApproved = !needsPBG || project?.milestones?.some((m: any) => 
-                                m.content?.req_id === 'pbg_permit' && 
-                                m.approval_status === 'approved'
-                            ) || !!project?.pbg_verified_at;
-
-                            if (!isPBGApproved) {
-                                return (
-                                    <div className="p-12 text-center bg-red-50 border-2 border-red-200 rounded-[2rem]">
-                                        <ShieldCheck className="w-16 h-16 text-red-500 mx-auto mb-6" />
-                                        <h3 className="text-2xl font-black text-red-900 tracking-tight mb-2">CONSTRUCTION SITE LOCKED</h3>
-                                        <p className="text-red-700 font-medium max-w-lg mx-auto mb-8">
-                                            Physical construction tracking is prohibited until the PBG (Building Permit) is secured and verified. Wait for the Notary to upload the PBG to the Document Vault.
-                                        </p>
-                                        {(user?.id === project.user_id || user?.id === project.pm_id) && (
-                                            <button
-                                                onClick={(e) => {
-                                                    const btn = e.currentTarget;
-                                                    showConfirm(
-                                                        "Verify PBG & Unlock Construction",
-                                                        "I confirm that the PBG has been issued. Unlock the construction phase?",
-                                                        async () => {
-                                                            btn.disabled = true;
-                                                            btn.innerHTML = 'Verifying...';
-                                                            try {
-                                                                await window.axios.post(`/projects/${project.id}/verify-pbg`);
-                                                                onRefresh();
-                                                            } catch (err) {
-                                                                console.error(err);
-                                                                btn.disabled = false;
-                                                                btn.innerHTML = 'Verify PBG & Unlock Construction';
-                                                            }
-                                                        },
-                                                        "warning"
-                                                    );
-                                                }}
-                                                className="px-8 py-4 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-black text-xs tracking-widest uppercase rounded-2xl shadow-xl shadow-red-600/20 hover:-translate-y-1 transition-all"
-                                            >
-                                                Verify PBG & Unlock Construction
-                                            </button>
-                                        )}
-                                    </div>
-                                );
-                            }
-
-                            return (
-                                <>
-                                    {activeSubTab === 'progress' && (
-                                        <ConstructionProgress
-                                            project={project}
-                                            currentUser={user}
-                                            isContractor={isHiredPro}
-                                            isPM={user?.id === project.pm_id}
-                                        />
-                                    )}
-
-                                    {activeSubTab === 'logs' && (
-                                        <DailySiteLog
-                                            project={project}
-                                            isContractor={isHiredPro}
-                                        />
-                                    )}
-                                    {activeSubTab === 'results' && (
-                                        <ProjectDeliverables project={project} currentUser={user} isPro={isHiredPro} />
-                                    )}
-                                </>
-                            );
-                        })()}
-                    </div>
+                    <ConstructionMilestones
+                        project={project}
+                        currentUser={user}
+                        isContractor={isHiredPro}
+                        isPM={isPM}
+                    />
                 </div>
             )}
 
@@ -986,7 +839,7 @@ export default function PhaseAssignedPro({
                         {activeSubTab === 'bom' && (() => {
                             const isOwner = user?.id === project?.user_id;
                             const isPM = user?.role_type === 'project_manager' && project?.pm_id === user?.id;
-                            const canMutateBOM = isOwner || isPM || isHiredContractor || isHiredArchitect || isHiredInterior;
+                            const canMutateBOM = isOwner || isPM || isHiredContractor || isHiredArchitect || isHiredInterior || isStructuralHired || isMEPHired;
                             
                             return (
                                 <ProjectRequirements 

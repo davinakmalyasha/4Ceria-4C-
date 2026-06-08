@@ -43,7 +43,10 @@ export default function PMGroupedApprovals({
             return false;
         }).map(m => {
             const linkedTermin = project.payment_termins?.find((t: any) => t.milestone_id === m.id);
-            const terminText = linkedTermin 
+            const isSubProfessional = m.type === 'sub_professional';
+            
+            // Sub-professional fees are already included in initial planning, so we hide their triggers here.
+            const terminText = (linkedTermin && !isSubProfessional) 
                 ? `Triggers: ${linkedTermin.label} (Rp ${Number(linkedTermin.amount).toLocaleString('id-ID')})`
                 : '';
 
@@ -56,13 +59,55 @@ export default function PMGroupedApprovals({
             else if (m.phase_context === 'structural' && project.structural_engineer?.user?.name) assignee = `${project.structural_engineer.user.name} (Structural)`;
             else if (m.phase_context === 'mep' && project.mep_engineer?.user?.name) assignee = `${project.mep_engineer.user.name} (MEP)`;
 
+            // Eagerly match sub-professional assignee if it is a sub-professional milestone
+            if (isSubProfessional) {
+                if ((m.structural_id || m.title?.toLowerCase().includes('structural') || linkedTermin?.role_type === 'structural') && project.structural_engineer?.user?.name) {
+                    assignee = `${project.structural_engineer.user.name} (Structural)`;
+                } else if ((m.mep_id || m.title?.toLowerCase().includes('mep') || linkedTermin?.role_type === 'mep') && project.mep_engineer?.user?.name) {
+                    assignee = `${project.mep_engineer.user.name} (MEP)`;
+                } else if ((m.interior_id || m.title?.toLowerCase().includes('interior') || linkedTermin?.role_type === 'interior') && project.interior?.user?.name) {
+                    assignee = `${project.interior.user.name} (Interior)`;
+                }
+            }
+
+            // Gather deliverables submitted by the sub-professionals
+            let files = Array.isArray(m.content?.gallery) ? [...m.content.gallery] : [];
+            let fileNames = m.content?.file_names ? { ...m.content.file_names } : {};
+
+            if (isSubProfessional) {
+                let role = '';
+                if (m.structural_id || m.title?.toLowerCase().includes('structural') || linkedTermin?.role_type === 'structural') {
+                    role = 'structural';
+                } else if (m.mep_id || m.title?.toLowerCase().includes('mep') || linkedTermin?.role_type === 'mep') {
+                    role = 'mep';
+                } else if (m.interior_id || m.title?.toLowerCase().includes('interior') || linkedTermin?.role_type === 'interior') {
+                    role = 'interior';
+                }
+
+                if (role) {
+                    const category = role === 'structural' 
+                        ? 'structural_calc' 
+                        : (role === 'mep' ? 'mep_layout' : 'interior_design');
+                    
+                    const subDocs = (project?.documents || []).filter((d: any) => d.category === category);
+                    subDocs.forEach((d: any) => {
+                        if (d.file_path) {
+                            if (!files.includes(d.file_path)) {
+                                files.push(d.file_path);
+                            }
+                            fileNames[d.file_path] = d.file_name;
+                        }
+                    });
+                }
+            }
+
             return { 
                 type: 'milestone', 
                 id: m.id, 
                 title: m.title, 
                 desc: m.description, 
-                files: m.content?.gallery, 
-                fileNames: m.content?.file_names, 
+                files, 
+                fileNames, 
                 assignee,
                 terminText,
                 dueDate: m.due_date,
@@ -71,6 +116,7 @@ export default function PMGroupedApprovals({
         });
 
         const ho = pendingHandovers.filter(h => h.phase === (phaseKey === 'build' ? 'build' : phaseKey))
+            .filter(h => h.phase !== 'design')
             .map(h => ({ 
                 type: 'handover', 
                 id: h.phase, 

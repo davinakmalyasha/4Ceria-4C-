@@ -24,7 +24,7 @@ export default function SummaryProCard({ pro, roleLabel, onOpenChat }: SummaryPr
             <div className="flex items-center gap-4">
                 <div className="w-14 h-14 rounded-2xl bg-slate-50 flex items-center justify-center overflow-hidden border border-slate-100 shadow-inner shrink-0">
                     {pro?.foto ? (
-                        <img src={`/storage/${pro.foto}`} alt={name} className="w-full h-full object-cover" />
+                        <img src={pro.foto.startsWith('http') ? pro.foto : `/storage/${pro.foto}`} alt={name} className="w-full h-full object-cover" />
                     ) : (
                         <span className="text-xl font-black text-slate-300">{name.charAt(0)}</span>
                     )}

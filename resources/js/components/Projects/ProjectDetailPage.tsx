@@ -47,6 +47,7 @@ export default function ProjectDetailPage({ project, user, onBack, onRefresh, on
     const [isAssigning, setIsAssigning] = useState(false);
     const [isSignModalOpen, setIsSignModalOpen] = useState(false);
     const [proposalsSubTab, setProposalsSubTab] = useState<'pending' | 'interviews' | 'payments' | 'archived'>('pending');
+    const [budgetSubTab, setBudgetSubTab] = useState<'overview' | 'payments'>('overview');
 
     const handleRecommendFromBid = (bidId: number, role: string) => {
         const bids = role === 'structural' ? project.bids_structural : (role === 'mep' ? project.bids_mep : []);
@@ -190,8 +191,8 @@ export default function ProjectDetailPage({ project, user, onBack, onRefresh, on
                 return;
             }
             if (tabId === 'payments') {
-                setActiveTab('proposals');
-                setProposalsSubTab('payments');
+                setActiveTab('budget');
+                setBudgetSubTab('payments');
                 return;
             }
         }
@@ -208,6 +209,7 @@ export default function ProjectDetailPage({ project, user, onBack, onRefresh, on
     const TABS = useMemo(() => {
         const tabs = [
             { id: 'overview' as const, label: 'Overview', icon: LayoutDashboard },
+            { id: 'process' as const, label: 'Process', icon: ClipboardList },
         ];
 
         if (isOwner || isHiredPM) {
@@ -216,7 +218,6 @@ export default function ProjectDetailPage({ project, user, onBack, onRefresh, on
 
         tabs.push(
             { id: 'budget' as const, label: 'Budget', icon: DollarSign },
-            { id: 'process' as const, label: 'Process', icon: ClipboardList },
         );
 
         if (!isOwner && !isHiredPM) {
@@ -242,6 +243,10 @@ export default function ProjectDetailPage({ project, user, onBack, onRefresh, on
             tabs.push({ id: 'engineering' as const, label: 'Engineering', icon: HardHat });
         }
 
+        if (user?.role_type === 'kontraktor') {
+            return tabs.filter(t => t.id !== 'budget' && t.id !== 'pm_legal' && t.id !== 'engineering');
+        }
+
         if (['structural', 'mep', 'interior'].includes(user?.role_type)) {
             return tabs.filter(t => t.id !== 'interviews' && t.id !== 'budget');
         }
@@ -253,12 +258,12 @@ export default function ProjectDetailPage({ project, user, onBack, onRefresh, on
         return tabs;
     }, [user?.id, user?.role_type, project?.user_id, project?.pm_id, project?.accepted_pm_bid, isOwner, isHiredPM, pendingContractBid]);
 
-    // Auto-switch to Tendering Hub (proposals) -> payments sub-tab if status is awaiting_payment, ONLY for owner or hired PM
+    // Auto-switch to Budget -> payments sub-tab if status is awaiting_payment, ONLY for owner or hired PM
     React.useEffect(() => {
         if (project?.status === 'awaiting_payment') {
             if (isOwner || isHiredPM) {
-                setActiveTab('proposals');
-                setProposalsSubTab('payments');
+                setActiveTab('budget');
+                setBudgetSubTab('payments');
             } else {
                 setActiveTab('payments');
             }
@@ -280,9 +285,9 @@ export default function ProjectDetailPage({ project, user, onBack, onRefresh, on
 
             
             {/* Split layout: Vertical Nav + Content Area */}
-            <div className="flex flex-col lg:flex-row gap-8 items-start">
+            <div className="flex flex-col lg:flex-row gap-6 items-start">
                 {/* Vertical Navigation Bar */}
-                <div className="w-full lg:w-64 shrink-0 bg-white p-4 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-4 sticky top-6">
+                <div className="w-full lg:w-52 shrink-0 bg-white p-4 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-4 sticky top-6">
                     {/* Project Context Header */}
                     <div className="space-y-1.5 pb-3 border-b border-gray-100">
                         <button onClick={onBack} className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-955 font-bold transition-colors">
@@ -452,14 +457,62 @@ export default function ProjectDetailPage({ project, user, onBack, onRefresh, on
                     )}
 
                     {activeTab === 'budget' && (
-                        <motion.div
-                            key="budget"
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -10 }}
-                        >
-                            <ProjectBudgetManager project={project} user={user} />
-                        </motion.div>
+                        <div className="space-y-6">
+                            {/* Budget Sub-tabs for Owner/PM */}
+                            {(isOwner || isHiredPM) && (
+                                <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm flex flex-col lg:flex-row gap-4 items-center justify-between">
+                                    <div className="flex bg-gray-50 p-1 rounded-2xl border border-gray-100 shrink-0 w-full lg:w-auto overflow-x-auto">
+                                        <button
+                                            onClick={() => setBudgetSubTab('overview')}
+                                            className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                                                budgetSubTab === 'overview'
+                                                ? 'bg-white text-zinc-955 shadow-sm font-black'
+                                                : 'text-gray-400 hover:text-gray-700'
+                                            }`}
+                                        >
+                                            Budget Overview & Ledger
+                                        </button>
+                                        <button
+                                            onClick={() => setBudgetSubTab('payments')}
+                                            className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                                                budgetSubTab === 'payments'
+                                                ? 'bg-white text-zinc-955 shadow-sm font-black'
+                                                : 'text-gray-400 hover:text-gray-700'
+                                            }`}
+                                        >
+                                            Payments & Active
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            <AnimatePresence mode="wait">
+                                {((!isOwner && !isHiredPM) || budgetSubTab === 'overview') ? (
+                                    <motion.div
+                                        key="budget-overview"
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, y: -10 }}
+                                    >
+                                        <ProjectBudgetManager project={project} user={user} />
+                                    </motion.div>
+                                ) : (
+                                    <motion.div
+                                        key="budget-payments"
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, y: -10 }}
+                                    >
+                                        <ProjectPayments 
+                                            project={project} 
+                                            user={user}
+                                            onRefresh={onRefresh}
+                                            onOpenChat={onOpenChat}
+                                        />
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                        </div>
                     )}
 
                     {activeTab === 'qa' && (
