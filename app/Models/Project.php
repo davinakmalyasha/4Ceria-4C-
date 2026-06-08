@@ -152,6 +152,7 @@ class Project extends Model
         'planning_submitted_at' => 'datetime',
         'planning_approved_at' => 'datetime',
         'design_payment_verified_at' => 'datetime',
+        'materials_authorized_at' => 'datetime',
         'pm_audit_notes' => 'string',
         'pm_audit_attachments' => 'array',
         'architect_notes' => 'string',

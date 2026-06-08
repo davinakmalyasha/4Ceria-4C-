@@ -60,6 +60,46 @@ class ProjectMilestone extends Model
         return array_filter($content['gallery'], fn($f) => is_string($f) && !empty($f));
     }
 
+    /**
+     * Get resolved absolute URLs for gallery files.
+     */
+    public function getGalleryUrlsAttribute(): array
+    {
+        $files = $this->getApprovedFiles();
+        $urls = [];
+        $disk = \Illuminate\Support\Facades\Storage::disk('public');
+        
+        foreach ($files as $path) {
+            if (empty($path)) continue;
+            if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+                $urls[] = $path;
+            } else {
+                if (config('filesystems.disks.public.driver') === 's3') {
+                    try {
+                        $urls[] = $disk->temporaryUrl($path, now()->addHours(24));
+                    } catch (\Exception $e) {
+                        $urls[] = asset('storage/' . $path);
+                    }
+                } else {
+                    $urls[] = asset('storage/' . $path);
+                }
+            }
+        }
+        return $urls;
+    }
+
+    /**
+     * Convert the model instance to an array.
+     */
+    public function toArray()
+    {
+        $array = parent::toArray();
+        if (isset($array['content']) && is_array($array['content']) && isset($array['content']['gallery'])) {
+            $array['content']['gallery'] = $this->gallery_urls;
+        }
+        return $array;
+    }
+
     public function project()
     {
         return $this->belongsTo(Project::class);

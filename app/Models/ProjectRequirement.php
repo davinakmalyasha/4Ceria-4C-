@@ -38,6 +38,25 @@ class ProjectRequirement extends Model
         'quantity_used' => 'decimal:2',
     ];
 
+    protected $appends = ['image_url'];
+
+    public function getImageUrlAttribute()
+    {
+        if (empty($this->image_path)) {
+            return null;
+        }
+
+        if (str_starts_with($this->image_path, 'http://') || str_starts_with($this->image_path, 'https://')) {
+            return $this->image_path;
+        }
+
+        try {
+            return \Illuminate\Support\Facades\Storage::disk('supabase')->temporaryUrl($this->image_path, now()->addHours(24));
+        } catch (\Throwable $e) {
+            return \Illuminate\Support\Facades\Storage::disk('supabase')->url($this->image_path);
+        }
+    }
+
     public function user()
     {
         return $this->belongsTo(User::class, 'user_id');

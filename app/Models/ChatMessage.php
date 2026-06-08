@@ -17,7 +17,14 @@ class ChatMessage extends Model
 
     public function getImageUrlAttribute()
     {
-        return $this->image ? asset('storage/'.$this->image) : null;
+        if (!$this->image) {
+            return null;
+        }
+        try {
+            return \Illuminate\Support\Facades\Storage::disk('public')->temporaryUrl($this->image, now()->addHours(24));
+        } catch (\Throwable $e) {
+            return \Illuminate\Support\Facades\Storage::disk('public')->url($this->image);
+        }
     }
 
     public function conversation(): BelongsTo

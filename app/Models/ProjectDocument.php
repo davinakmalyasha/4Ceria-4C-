@@ -31,7 +31,11 @@ class ProjectDocument extends Model
             return $this->file_path;
         }
 
-        return asset('storage/' . $this->file_path);
+        try {
+            return \Illuminate\Support\Facades\Storage::disk('public')->temporaryUrl($this->file_path, now()->addHours(24));
+        } catch (\Throwable $e) {
+            return \Illuminate\Support\Facades\Storage::disk('public')->url($this->file_path);
+        }
     }
 
     public function uploader()

@@ -25,6 +25,46 @@ class ProjectDailyLog extends Model
         'log_date' => 'date',
     ];
 
+    /**
+     * Get resolved absolute URLs for daily log photos.
+     */
+    public function getPhotoUrlsAttribute(): array
+    {
+        $photos = $this->photos ?? [];
+        $urls = [];
+        $disk = \Illuminate\Support\Facades\Storage::disk('public');
+        
+        foreach ($photos as $path) {
+            if (empty($path)) continue;
+            if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+                $urls[] = $path;
+            } else {
+                if (config('filesystems.disks.public.driver') === 's3') {
+                    try {
+                        $urls[] = $disk->temporaryUrl($path, now()->addHours(24));
+                    } catch (\Exception $e) {
+                        $urls[] = asset('storage/' . $path);
+                    }
+                } else {
+                    $urls[] = asset('storage/' . $path);
+                }
+            }
+        }
+        return $urls;
+    }
+
+    /**
+     * Convert the model instance to an array.
+     */
+    public function toArray()
+    {
+        $array = parent::toArray();
+        if (isset($array['photos']) && is_array($array['photos'])) {
+            $array['photos'] = $this->photo_urls;
+        }
+        return $array;
+    }
+
     public function project()
     {
         return $this->belongsTo(Project::class);

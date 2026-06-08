@@ -27,6 +27,71 @@ class ProjectLifecycleService
                         'design_locked_at' => now(),
                         'design_completed_at' => now(),
                     ];
+
+                    // Auto-approve structural, mep, interior, and architect deliverables, milestones, and payments if hired
+                    $subRoles = [
+                        'design' => [
+                            'hired_id' => $project->selected_arsitek_id,
+                            'db_col' => 'owner_design_approved_at',
+                            'doc_cat' => 'blueprint',
+                        ],
+                        'structural' => [
+                            'hired_id' => $project->structural_id,
+                            'db_col' => 'structural_approved_at',
+                            'doc_cat' => 'structural_calc',
+                        ],
+                        'mep' => [
+                            'hired_id' => $project->mep_id,
+                            'db_col' => 'mep_approved_at',
+                            'doc_cat' => 'mep_layout',
+                        ],
+                        'interior' => [
+                            'hired_id' => $project->selected_interior_id,
+                            'db_col' => 'owner_interior_approved_at',
+                            'doc_cat' => 'interior_design',
+                        ]
+                    ];
+
+                    foreach ($subRoles as $role => $cfg) {
+                        if ($cfg['hired_id']) {
+                            $updateData[$cfg['db_col']] = now();
+                            
+                            // Auto-verify documents
+                            $project->documents()->where('category', $cfg['doc_cat'])->update([
+                                'status' => 'verified',
+                                'reviewed_at' => now()
+                            ]);
+
+                            // Auto-approve and complete milestones
+                            $milestones = $project->milestones()
+                                ->where('phase_context', $role)
+                                ->where('approval_status', '!=', 'approved')
+                                ->get();
+
+                            foreach ($milestones as $milestone) {
+                                $milestone->update([
+                                    'is_completed' => true,
+                                    'approval_status' => 'approved',
+                                    'pm_verified_at' => now(),
+                                ]);
+
+                                // Unlock linked payment termins
+                                $termins = \App\Models\ProjectPaymentTermin::where('milestone_id', $milestone->id)
+                                    ->whereIn('status', ['locked', 'pending'])
+                                    ->get();
+                                    
+                                foreach ($termins as $termin) {
+                                    $termin->update(['status' => 'pending']);
+                                    $this->logActivity(
+                                        $project, 
+                                        'payment_triggered', 
+                                        "Progress Verified: '{$milestone->title}' via Design Phase Handover Approval. Payment Termin '{$termin->label}' is now unlocked."
+                                    );
+                                }
+                            }
+                        }
+                    }
+
                     $action = 'design_verified';
                     $details = "PM/Owner formally verified and approved the Design Phase.";
                     break;
@@ -50,12 +115,15 @@ class ProjectLifecycleService
                     break;
                 case 'legal':
                     $updateData = [
+                        'owner_legal_approved_at' => now(),
+                        'legal_locked_at' => now(),
+                        'legal_completed_at' => now(),
                         'legal_handover_submitted_at' => null,
                         'legal_handover_notes' => null,
                     ];
-                    $project->update($updateData);
-                    $this->logActivity($project, 'legal_progress_acknowledged', "PM/Owner acknowledged the Notary's latest legal progress update.");
-                    return true;
+                    $action = 'legal_verified';
+                    $details = "PM/Owner formally verified and approved the Legal Phase.";
+                    break;
                 default:
                     return false;
             }
