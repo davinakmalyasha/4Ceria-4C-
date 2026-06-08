@@ -37,6 +37,7 @@ export interface ProjectSubProfessional {
         name: string;
         pic?: string;
         role_type?: string;
+        phone_number?: string;
     };
     assigned_by_user?: {
         id: number;

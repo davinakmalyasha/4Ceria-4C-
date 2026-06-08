@@ -11,6 +11,7 @@ import Dashboard from './pages/Dashboard';
 import ProfessionalRegister from './pages/ProfessionalRegister';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
+import { TelemetryWidget } from './components/TelemetryWidget';
 
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminVerification from './pages/admin/AdminVerification';
@@ -51,6 +52,7 @@ function App() {
 
                     <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
+                <TelemetryWidget />
             </ToastProvider>
         </AuthProvider>
     );

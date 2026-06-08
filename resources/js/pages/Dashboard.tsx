@@ -218,7 +218,7 @@ function DashboardContent() {
                     counts={navCounts}
                 />
 
-                <div className={`flex-1 overflow-y-auto px-4 sm:px-8 relative z-0 ${activeTab === 'houses' ? 'py-3 sm:py-4' : 'py-4 sm:py-8'}`}>
+                <div className={`flex-1 overflow-y-auto px-4 sm:px-8 relative ${activeTab === 'houses' ? 'py-3 sm:py-4' : 'py-4 sm:py-8'}`}>
                     <div className="max-w-7xl mx-auto">
                         {user && (
                             <VerificationAlert 

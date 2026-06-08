@@ -227,6 +227,7 @@ export interface ProjectRequirement {
     quality_level?: 'standard' | 'premium' | 'luxury';
     notes?: string | null;
     image_url?: string | null;
+    image_path?: string;
     created_at: string;
 }
 

@@ -174,7 +174,7 @@ function PhaseButton({
         <button
             onClick={() => !isSkipped && onClick()}
             disabled={isSkipped}
-            className={`flex flex-col items-center gap-1 px-2 py-2 rounded-xl transition-all min-w-[72px] ${
+            className={`flex flex-col items-center gap-0.5 px-1.5 py-1 rounded-xl transition-all min-w-[64px] ${
                 isSkipped ? 'opacity-30 cursor-not-allowed' :
                 isActive ? 'bg-red-50/70 scale-105 shadow-sm border border-red-100/50' :
                 isDone ? 'bg-emerald-50/50' :
@@ -182,43 +182,44 @@ function PhaseButton({
                 'hover:bg-gray-50 cursor-pointer opacity-50'
             }`}
         >
-            <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all relative ${
+            <div className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all relative ${
                 isDone ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200' :
                 isActive ? 'bg-[#FF2D20] text-white shadow-lg shadow-red-200' :
                 isPhaseActive ? 'bg-slate-900 text-white shadow-lg shadow-slate-200' :
                 'bg-gray-100 text-gray-400'
             }`}>
-                {isDone ? <Check size={16} strokeWidth={3} /> : <Icon size={16} />}
+                {isDone ? <Check size={13} strokeWidth={3} /> : <Icon size={13} />}
 
                 {/* Status Badges */}
                 {hiredCount > 0 ? (
-                    <span className="absolute -top-1.5 -right-1.5 h-4 min-w-4 px-1 flex items-center justify-center rounded-full bg-blue-50 text-blue-600 border border-blue-200 text-[8.5px] font-black shadow-sm ring-2 ring-white">
+                    <span className="absolute -top-1 -right-1 h-3.5 min-w-3.5 px-0.5 flex items-center justify-center rounded-full bg-blue-50 text-blue-600 border border-blue-200 text-[7.5px] font-black shadow-sm ring-2 ring-white">
                         {hiredCount}
                     </span>
                 ) : bidCount > 0 ? (
-                    <span className="absolute -top-1.5 -right-1.5 h-4 min-w-4 px-1 flex items-center justify-center rounded-full bg-[#FF2D20] text-white text-[8.5px] font-black shadow-sm ring-2 ring-white">
+                    <span className="absolute -top-1 -right-1 h-3.5 min-w-3.5 px-0.5 flex items-center justify-center rounded-full bg-[#FF2D20] text-white text-[7.5px] font-black shadow-sm ring-2 ring-white">
                         {bidCount}
                     </span>
                 ) : null}
             </div>
             
-            <div className="flex flex-col items-center gap-1 w-full text-center">
-                <span className={`text-[9px] font-bold uppercase tracking-wide leading-none ${
+            <div className="flex flex-col items-center gap-0.5 w-full text-center">
+                <span className={`text-[8.5px] font-bold uppercase tracking-wide leading-none ${
                     isDone ? 'text-emerald-600' :
                     isActive ? 'text-[#FF2D20]' :
                     isPhaseActive ? 'text-slate-900' :
                     'text-gray-400'
                 }`}>
                     {displayLabel || phase.label}
+                    {showProgress && (
+                        <span className="ml-1 opacity-80 text-[7.5px] font-black">
+                            ({isDone ? 100 : progress}%)
+                        </span>
+                    )}
                 </span>
 
                 {/* Elegant Minimal Progress Bar */}
                 {showProgress && (
                     <div className="w-full mt-1 px-1">
-                        <div className="flex items-center justify-between text-[7.5px] font-black text-slate-400/80 mb-0.5 tracking-tight">
-                            <span>PROGRESS</span>
-                            <span>{isDone ? 100 : progress}%</span>
-                        </div>
                         <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden">
                             <div 
                                 className={`h-full rounded-full transition-all duration-700 ${
@@ -286,7 +287,7 @@ export default function PhaseTimeline({ phases, activePhase, onPhaseClick, proje
 
     return (
         <div className="w-full overflow-x-auto scrollbar-hide">
-            <div className="flex items-center gap-0 min-w-max px-2 py-3">
+            <div className="flex items-center gap-0 min-w-max px-2 py-1.5">
                 {/* Pre-parallel phases (Legal, Design) */}
                 {preParallel.map((phase, i) => {
                     const isDone = phase.status === 'completed';
@@ -294,7 +295,7 @@ export default function PhaseTimeline({ phases, activePhase, onPhaseClick, proje
                     return (
                         <React.Fragment key={phase.key}>
                             {i > 0 && (
-                                <div className={`h-[2px] w-8 sm:w-12 flex-shrink-0 transition-colors duration-300 ${
+                                <div className={`h-[1.5px] w-6 sm:w-10 flex-shrink-0 transition-colors duration-300 ${
                                     isDone || preParallel[i - 1]?.status === 'completed' ? 'bg-emerald-400' : 'bg-gray-200'
                                 }`} />
                             )}
@@ -314,21 +315,21 @@ export default function PhaseTimeline({ phases, activePhase, onPhaseClick, proje
                 {/* Connector to parallel group */}
                 {parallel.length > 0 && (
                     <>
-                        <div className={`h-[2px] w-8 sm:w-12 flex-shrink-0 transition-colors duration-300 ${
+                        <div className={`h-[1.5px] w-6 sm:w-10 flex-shrink-0 transition-colors duration-300 ${
                             lastPreDone ? 'bg-emerald-400' : 'bg-gray-200'
                         }`} />
 
                         {/* Parallel Group */}
-                        <div className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-2xl border-2 border-dashed transition-colors ${
+                        <div className={`flex flex-col items-center gap-0 px-2 py-0.5 rounded-xl border border-dashed transition-colors ${
                             lastPreDone ? 'border-slate-300 bg-slate-50/50' : 'border-gray-200 bg-gray-50/30'
                         }`}>
-                            <span className="text-[7.5px] font-black uppercase tracking-[0.2em] text-slate-400 mb-0.5">Parallel</span>
-                            <div className="flex items-center gap-2">
+                            <span className="text-[6.5px] font-black uppercase tracking-[0.2em] text-slate-400 mb-0.5">Parallel</span>
+                            <div className="flex items-center gap-1.5">
                                 {parallel.map((phase, i) => {
                                     const { hiredCount, bidCount } = getPhaseCounts(phase.key, project);
                                     return (
                                         <React.Fragment key={phase.key}>
-                                            {i > 0 && <div className="w-[1px] h-8 bg-slate-200" />}
+                                            {i > 0 && <div className="w-[1px] h-6 bg-slate-200" />}
                                             <PhaseButton 
                                                 phase={phase} 
                                                 isActive={phase.key === activePhase} 
@@ -351,7 +352,7 @@ export default function PhaseTimeline({ phases, activePhase, onPhaseClick, proje
                     const { hiredCount, bidCount } = getPhaseCounts(phase.key, project);
                     return (
                         <React.Fragment key={phase.key}>
-                            <div className={`h-[2px] w-8 sm:w-12 flex-shrink-0 transition-colors duration-300 ${
+                            <div className={`h-[1.5px] w-6 sm:w-10 flex-shrink-0 transition-colors duration-300 ${
                                 allParallelDone ? 'bg-emerald-400' : 'bg-gray-200'
                             }`} />
                             <PhaseButton 

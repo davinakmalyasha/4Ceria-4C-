@@ -120,7 +120,7 @@ export default function Docs() {
                         onMenuClick={() => setSidebarOpen(true)} 
                     />
 
-                    <div className="flex-grow overflow-y-auto p-4 sm:p-8 relative z-0">
+                    <div className="flex-grow overflow-y-auto p-4 sm:p-8 relative">
                         <div className="max-w-7xl mx-auto">
                             <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-neutral-100 flex gap-8 relative min-h-[calc(100vh-120px)]">
                                 {mainContent}

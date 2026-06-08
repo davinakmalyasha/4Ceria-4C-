@@ -129,12 +129,12 @@ export default function RequirementCard({
                             </div>
                         )}
                     </div>
-                    {req.image_path && (
+                    {(req.image_url || req.image_path) && (
                         <button 
                             onClick={() => setIsImageModalOpen(true)}
                             className="w-16 h-16 rounded-2xl border-2 border-slate-100 overflow-hidden shadow-sm hover:scale-105 transition-transform"
                         >
-                            <img src={`/storage/${req.image_path}`} alt={req.name} className="w-full h-full object-cover" />
+                            <img src={req.image_url || `/storage/${req.image_path}`} alt={req.name} className="w-full h-full object-cover" />
                         </button>
                     )}
                 </div>
@@ -273,7 +273,7 @@ export default function RequirementCard({
 
             {/* Image Viewer Modal */}
             <AnimatePresence>
-                {isImageModalOpen && req.image_path && (
+                {isImageModalOpen && (req.image_url || req.image_path) && (
                     <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-4" onClick={() => setIsImageModalOpen(false)}>
                         <motion.div 
                             initial={{ opacity: 0, scale: 0.95 }} 
@@ -282,7 +282,7 @@ export default function RequirementCard({
                             className="bg-white rounded-[2rem] p-2 max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl relative"
                             onClick={(e) => e.stopPropagation()}
                         >
-                            <img src={`/storage/${req.image_path}`} alt={req.name} className="w-full h-auto max-h-[80vh] object-contain rounded-[1.5rem]" />
+                            <img src={req.image_url || `/storage/${req.image_path}`} alt={req.name} className="w-full h-auto max-h-[80vh] object-contain rounded-[1.5rem]" />
                             <button onClick={() => setIsImageModalOpen(false)} className="absolute top-4 right-4 bg-black/50 hover:bg-black text-white p-3 rounded-full backdrop-blur-md transition-all">
                                 <Minus size={20} className="rotate-45" /> {/* Use minus rotated 45 as close icon if X not available */}
                             </button>

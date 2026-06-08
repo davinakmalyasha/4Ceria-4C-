@@ -158,8 +158,14 @@ export function getProjectPhases(project: any | null, neededPhases?: string[] | 
                 if (completedPhases.includes(key)) {
                     status = 'completed';
                 } 
-                // 1.5 Professional hired implies phase is active/going
-                else if (hasHiredPro || (key === 'materials' && (completedPhases.includes('design') || !!project.selected_kontraktor_id))) {
+                // 1.5 Professional hired, PM phase authorization, or manual override implies phase is active/going
+                else if (
+                    hasHiredPro || 
+                    (key === 'materials' && (completedPhases.includes('design') || !!project.selected_kontraktor_id || !!project.materials_authorized_at)) ||
+                    (key === 'design' && !!project.design_authorized_at) ||
+                    (key === 'technical' && !!project.design_authorized_at) ||
+                    (key === 'build' && !!project.construction_authorized_at)
+                ) {
                     status = 'active';
                 }
                 // 2. Active Logic: Determine if the phase is the current focus
@@ -257,4 +263,5 @@ export interface ProjectRequirement {
     quantity_procured_externally: number;
     external_cost: number;
     image_path?: string;
+    image_url?: string;
 }

@@ -85,6 +85,20 @@ export const StatPill: React.FC<{ icon: React.ReactNode; label: string; value: s
     </div>
 );
 
+export const resolveStorageUrl = (path?: string | null): string | undefined => {
+    if (!path) return undefined;
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+        return path;
+    }
+    if (path.startsWith('/storage/')) {
+        return path;
+    }
+    if (path.startsWith('storage/')) {
+        return '/' + path;
+    }
+    return `/storage/${path}`;
+};
+
 export const ProfileHeroBanner: React.FC<{ name: string; roleLabel: string; isVerified: boolean; photo?: string }> = ({ name, roleLabel, isVerified, photo }) => (
     <>
         <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-zinc-900 p-6 pb-16 relative">
@@ -104,7 +118,7 @@ export const ProfileHeroBanner: React.FC<{ name: string; roleLabel: string; isVe
         <div className="px-6 -mt-10 relative z-10">
             <div className="flex items-end gap-4">
                 {photo ? (
-                    <img src={`/storage/${photo}`} alt={name} className="w-20 h-20 rounded-2xl object-cover border-4 border-white shadow-xl" />
+                    <img src={resolveStorageUrl(photo)} alt={name} className="w-20 h-20 rounded-2xl object-cover border-4 border-white shadow-xl" />
                 ) : (
                     <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center text-white text-3xl font-black border-4 border-white shadow-xl">
                         {name.charAt(0).toUpperCase()}
@@ -122,7 +136,7 @@ export const ProfileHeroBanner: React.FC<{ name: string; roleLabel: string; isVe
 export const PortfolioItem: React.FC<{ item: PortfolioProject }> = ({ item }) => (
     <div className="rounded-xl overflow-hidden border border-gray-100 group">
         {item.image_path ? (
-            <img src={`/storage/${item.image_path}`} alt={item.title} className="w-full h-24 object-cover" />
+            <img src={resolveStorageUrl(item.image_path)} alt={item.title} className="w-full h-24 object-cover" />
         ) : (
             <div className="w-full h-24 bg-gray-100 flex items-center justify-center text-gray-300 text-xs">No Image</div>
         )}

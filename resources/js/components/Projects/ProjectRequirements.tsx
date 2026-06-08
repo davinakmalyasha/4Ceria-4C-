@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Package, Plus, Hammer, Info, Loader2 } from 'lucide-react';
+import { Package, Plus, Hammer, Info, Loader2, Pencil, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import { useToast } from '../../context/ToastContext';
@@ -98,6 +98,31 @@ export default function ProjectRequirements({ project, onUpdate, canMutate = fal
             setNewFolderName('');
         } catch (err: any) {
             showToast(err.response?.data?.message || 'Failed to create folder.', 'error');
+        }
+    };
+
+    const handleDeleteFolder = async (folderId: number) => {
+        if (!window.confirm('Are you sure you want to delete this folder? Materials inside will become unassigned.')) return;
+        try {
+            await axios.delete(`/projects/${project.id}/material-folders/${folderId}`);
+            showToast('Folder deleted.', 'success');
+            fetchFolders();
+            fetchRequirements();
+        } catch (err: any) {
+            showToast(err.response?.data?.message || 'Failed to delete folder.', 'error');
+        }
+    };
+
+    const handleEditFolder = async (folderId: number, currentName: string) => {
+        const newName = window.prompt('Enter new folder name:', currentName);
+        if (newName === null || newName.trim() === '' || newName.trim() === currentName) return;
+        
+        try {
+            await axios.put(`/projects/${project.id}/material-folders/${folderId}`, { name: newName.trim() });
+            showToast('Folder renamed.', 'success');
+            fetchFolders();
+        } catch (err: any) {
+            showToast(err.response?.data?.message || 'Failed to rename folder.', 'error');
         }
     };
 
@@ -352,7 +377,33 @@ export default function ProjectRequirements({ project, onUpdate, canMutate = fal
                                             onDrop={(e) => handleDrop(e, folder.id)}
                                         >
                                             <div className="flex items-center justify-between">
-                                                <h4 className="text-sm font-black text-slate-900 uppercase tracking-wider ml-2">{folder.name}</h4>
+                                                <div className="flex items-center gap-3">
+                                                    <h4 className="text-sm font-black text-slate-900 uppercase tracking-wider ml-2">{folder.name}</h4>
+                                                    {canMutate && (
+                                                        <div className="flex items-center gap-1">
+                                                            <button 
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleEditFolder(folder.id, folder.name);
+                                                                }}
+                                                                className="p-1 text-slate-400 hover:text-indigo-500 rounded-lg hover:bg-white/85 transition-colors"
+                                                                title="Rename Folder"
+                                                            >
+                                                                <Pencil size={11} />
+                                                            </button>
+                                                            <button 
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleDeleteFolder(folder.id);
+                                                                }}
+                                                                className="p-1 text-slate-400 hover:text-red-500 rounded-lg hover:bg-white/85 transition-colors"
+                                                                title="Delete Folder"
+                                                            >
+                                                                <Trash2 size={11} />
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </div>
                                                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{folderReqs.length} items</span>
                                             </div>
                                             {folderReqs.length > 0 && (

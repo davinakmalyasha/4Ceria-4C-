@@ -31,6 +31,7 @@ import { useToast } from '../../context/ToastContext';
 import { PortfolioManager } from './PortfolioManager';
 import FirmSearchModal from './FirmSearchModal';
 import QuickAssignModal from './QuickAssignModal';
+import ConfirmModal from '../Projects/ConfirmModal';
 
 interface FirmSquadProfileProps {
     ownerId: number;
@@ -143,6 +144,8 @@ export default function FirmSquadProfile({ ownerId, isGuestMode = false, onClose
         budget: '',
         duration: ''
     });
+
+    const [deleteJobConfirm, setDeleteJobConfirm] = useState<{ id: string | null; title: string }>({ id: null, title: '' });
 
     const isOwner = !isGuestMode && user?.id === ownerId;
 
@@ -766,7 +769,7 @@ export default function FirmSquadProfile({ ownerId, isGuestMode = false, onClose
                                 onClick={() => setRosterSubTab('members')}
                                 className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
                                     rosterSubTab === 'members'
-                                        ? 'bg-indigo-650 text-white shadow-md'
+                                        ? 'bg-indigo-600 text-white shadow-md'
                                         : 'text-slate-500 hover:text-slate-800 bg-transparent'
                                 }`}
                             >
@@ -777,7 +780,7 @@ export default function FirmSquadProfile({ ownerId, isGuestMode = false, onClose
                                     onClick={() => setRosterSubTab('recruitment')}
                                     className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
                                         rosterSubTab === 'recruitment'
-                                            ? 'bg-indigo-650 text-white shadow-md'
+                                            ? 'bg-indigo-600 text-white shadow-md'
                                             : 'text-slate-500 hover:text-slate-800 bg-transparent'
                                     }`}
                                 >
@@ -827,7 +830,7 @@ export default function FirmSquadProfile({ ownerId, isGuestMode = false, onClose
                                                                         {roleLabel}
                                                                     </span>
                                                                     {isVerified && (
-                                                                        <div className="flex items-center gap-1 text-[8px] font-black text-emerald-650 uppercase tracking-widest mt-1">
+                                                                        <div className="flex items-center gap-1 text-[8px] font-black text-emerald-600 uppercase tracking-widest mt-1">
                                                                             <ShieldCheck size={12} className="text-emerald-500" />
                                                                             Verified Specialist
                                                                         </div>
@@ -837,15 +840,15 @@ export default function FirmSquadProfile({ ownerId, isGuestMode = false, onClose
 
                                                             {/* Column 2: Stats & Profile Info */}
                                                             <div className="space-y-2 lg:col-span-1 text-xs">
-                                                                <div className="flex items-center gap-2 text-slate-655 font-semibold">
+                                                                <div className="flex items-center gap-2 text-slate-600 font-semibold">
                                                                     <Briefcase size={13} className="text-slate-400 shrink-0" />
                                                                     <span>Experience: <strong>{exp > 0 ? `${exp} Years` : 'New'}</strong></span>
                                                                 </div>
-                                                                <div className="flex items-center gap-2 text-slate-655 font-semibold">
+                                                                <div className="flex items-center gap-2 text-slate-600 font-semibold">
                                                                     <Coins size={13} className="text-slate-400 shrink-0" />
                                                                     <span>Rate: <strong>{rate > 0 ? `IDR ${rate.toLocaleString('id-ID')}` : 'Flexible'}</strong></span>
                                                                 </div>
-                                                                <div className="flex items-center gap-2 text-slate-655 font-semibold">
+                                                                <div className="flex items-center gap-2 text-slate-600 font-semibold">
                                                                     <MapPin size={13} className="text-slate-400 shrink-0" />
                                                                     <span className="truncate">Location: <strong>{location}</strong></span>
                                                                 </div>
@@ -893,7 +896,7 @@ export default function FirmSquadProfile({ ownerId, isGuestMode = false, onClose
                                                                 <button
                                                                     onClick={() => handleRespondRequest(req.id, 'decline')}
                                                                     disabled={actionLoading === req.id}
-                                                                    className="flex-1 lg:w-32 flex items-center justify-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-red-50 hover:text-red-650 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-widest transition disabled:opacity-50 font-bold border border-slate-200/60"
+                                                                    className="flex-1 lg:w-32 flex items-center justify-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-red-50 hover:text-red-600 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-widest transition disabled:opacity-50 font-bold border border-slate-200/60"
                                                                 >
                                                                     Decline
                                                                 </button>
@@ -935,8 +938,8 @@ export default function FirmSquadProfile({ ownerId, isGuestMode = false, onClose
                                                     return (
                                                         <form key={job.id} onSubmit={(e) => handleUpdateJobSubmit(e, job.id)} className="p-5 bg-white border border-indigo-150 rounded-2xl space-y-4 animate-fade-in">
                                                             <div className="flex justify-between items-center pb-2 border-b border-slate-50">
-                                                                <h5 className="text-[10px] font-black text-indigo-650 uppercase tracking-widest">Editing Job Posting</h5>
-                                                                <button type="button" onClick={() => setEditingJobId(null)} className="text-slate-400 hover:text-slate-655"><X size={14} /></button>
+                                                                <h5 className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Editing Job Posting</h5>
+                                                                <button type="button" onClick={() => setEditingJobId(null)} className="text-slate-400 hover:text-slate-600"><X size={14} /></button>
                                                             </div>
                                                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                                                 <div>
@@ -1000,7 +1003,7 @@ export default function FirmSquadProfile({ ownerId, isGuestMode = false, onClose
                                                                 />
                                                             </div>
                                                             <div className="flex gap-2 justify-end">
-                                                                <button type="button" onClick={() => setEditingJobId(null)} className="px-3.5 py-1.5 border border-slate-250 text-slate-650 rounded-xl text-[9px] font-black uppercase tracking-wider">Cancel</button>
+                                                                <button type="button" onClick={() => setEditingJobId(null)} className="px-3.5 py-1.5 border border-slate-250 text-slate-600 rounded-xl text-[9px] font-black uppercase tracking-wider">Cancel</button>
                                                                 <button type="submit" className="px-4 py-1.5 bg-indigo-600 text-white rounded-xl text-[9px] font-black uppercase tracking-wider shadow-sm font-bold">Update Job</button>
                                                             </div>
                                                         </form>
@@ -1017,7 +1020,7 @@ export default function FirmSquadProfile({ ownerId, isGuestMode = false, onClose
                                                                     {roleLabel}
                                                                 </span>
                                                             </div>
-                                                            <p className="text-[11px] text-slate-655 leading-relaxed font-medium">{job.description}</p>
+                                                            <p className="text-[11px] text-slate-600 leading-relaxed font-medium">{job.description}</p>
                                                             <div className="flex flex-wrap items-center gap-4 text-[10px] text-slate-400 font-bold uppercase tracking-wider">
                                                                 <span className="flex items-center gap-1"><Coins size={12} className="text-slate-400" /> {job.budget}</span>
                                                                 <span className="flex items-center gap-1"><Clock size={12} className="text-slate-400" /> {job.duration}</span>
@@ -1036,8 +1039,8 @@ export default function FirmSquadProfile({ ownerId, isGuestMode = false, onClose
                                                                     </button>
                                                                     <button
                                                                         type="button"
-                                                                        onClick={() => handleDeleteJob(job.id)}
-                                                                        className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-55 rounded-lg transition-colors"
+                                                                        onClick={() => setDeleteJobConfirm({ id: job.id, title: job.title })}
+                                                                        className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors"
                                                                         title="Delete Job"
                                                                     >
                                                                         <Trash2 size={13} />
@@ -1054,7 +1057,7 @@ export default function FirmSquadProfile({ ownerId, isGuestMode = false, onClose
                                                                         <button
                                                                             onClick={handleJoinRequest}
                                                                             disabled={requestingJoin}
-                                                                            className="px-4 py-2 bg-indigo-650 hover:bg-indigo-755 text-white text-[9px] font-black uppercase tracking-widest rounded-xl transition shadow-md disabled:opacity-50 font-bold"
+                                                                            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-[9px] font-black uppercase tracking-widest rounded-xl transition shadow-md disabled:opacity-50 font-bold"
                                                                         >
                                                                             {requestingJoin ? 'Sending...' : 'Apply Role'}
                                                                         </button>
@@ -1076,8 +1079,8 @@ export default function FirmSquadProfile({ ownerId, isGuestMode = false, onClose
                                             {isAddingJob ? (
                                                 <form onSubmit={handleAddJob} className="p-5 bg-white border-2 border-dashed border-indigo-200 rounded-2xl space-y-4 animate-slide-down">
                                                     <div className="flex justify-between items-center pb-2 border-b border-slate-50">
-                                                        <h5 className="text-[10px] font-black text-indigo-650 uppercase tracking-widest">Create New Job Posting</h5>
-                                                        <button type="button" onClick={() => setIsAddingJob(false)} className="text-slate-400 hover:text-slate-655"><X size={14} /></button>
+                                                        <h5 className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Create New Job Posting</h5>
+                                                        <button type="button" onClick={() => setIsAddingJob(false)} className="text-slate-400 hover:text-slate-600"><X size={14} /></button>
                                                     </div>
                                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                                         <div>
@@ -1141,7 +1144,7 @@ export default function FirmSquadProfile({ ownerId, isGuestMode = false, onClose
                                                         />
                                                     </div>
                                                     <div className="flex gap-2 justify-end">
-                                                        <button type="button" onClick={() => setIsAddingJob(false)} className="px-3.5 py-1.5 border border-slate-250 text-slate-650 rounded-xl text-[9px] font-black uppercase tracking-wider">Cancel</button>
+                                                        <button type="button" onClick={() => setIsAddingJob(false)} className="px-3.5 py-1.5 border border-slate-250 text-slate-600 rounded-xl text-[9px] font-black uppercase tracking-wider">Cancel</button>
                                                         <button type="submit" className="px-4 py-1.5 bg-indigo-600 text-white rounded-xl text-[9px] font-black uppercase tracking-wider shadow-sm font-bold">Add Job Posting</button>
                                                     </div>
                                                 </form>
@@ -1290,7 +1293,7 @@ export default function FirmSquadProfile({ ownerId, isGuestMode = false, onClose
                                                                 className={`flex-1 px-3 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${
                                                                     isAlreadyAssigned
                                                                         ? "bg-slate-200 text-slate-400 cursor-not-allowed"
-                                                                        : "bg-indigo-650 text-white hover:bg-indigo-700"
+                                                                        : "bg-indigo-600 text-white hover:bg-indigo-700"
                                                                 }`}
                                                                 disabled={isAlreadyAssigned}
                                                             >
@@ -1308,7 +1311,7 @@ export default function FirmSquadProfile({ ownerId, isGuestMode = false, onClose
                                                     {onOpenChat && (
                                                         <button
                                                             onClick={() => onOpenChat({ id: m.member_user_id })}
-                                                            className="flex items-center justify-center p-2.5 bg-slate-50 hover:bg-indigo-50 text-slate-650 hover:text-indigo-600 rounded-xl transition-colors"
+                                                            className="flex items-center justify-center p-2.5 bg-slate-50 hover:bg-indigo-50 text-slate-600 hover:text-indigo-600 rounded-xl transition-colors"
                                                         >
                                                             <MessageSquare size={12} />
                                                         </button>
@@ -1344,7 +1347,7 @@ export default function FirmSquadProfile({ ownerId, isGuestMode = false, onClose
                                                 return (
                                                     <div key={inv.id} className="flex flex-wrap items-center justify-between gap-4 p-4 bg-white border border-slate-100 rounded-2xl shadow-sm animate-slide-down">
                                                         <div className="flex items-center gap-3">
-                                                            <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-655 font-black text-sm shrink-0 overflow-hidden">
+                                                            <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-600 font-black text-sm shrink-0 overflow-hidden">
                                                                 {inv.member?.pic ? (
                                                                     <img src={inv.member.pic} alt="" className="w-full h-full object-cover" />
                                                                 ) : (
@@ -1366,7 +1369,7 @@ export default function FirmSquadProfile({ ownerId, isGuestMode = false, onClose
                                                             <button
                                                                 onClick={() => handleCancelInvitation(inv.id)}
                                                                 disabled={actionLoading === inv.id}
-                                                                className="px-3.5 py-2 bg-slate-100 hover:bg-red-50 hover:text-red-650 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-50 font-bold"
+                                                                className="px-3.5 py-2 bg-slate-100 hover:bg-red-50 hover:text-red-600 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-50 font-bold"
                                                             >
                                                                 {actionLoading === inv.id ? (
                                                                     <Loader2 size={12} className="animate-spin" />
@@ -1762,6 +1765,22 @@ export default function FirmSquadProfile({ ownerId, isGuestMode = false, onClose
                     onSuccess={() => { fetchProfile(); }}
                 />
             )}
+
+            <ConfirmModal
+                isOpen={deleteJobConfirm.id !== null}
+                title="Delete Job Posting"
+                description={`Are you sure you want to delete the job posting for "${deleteJobConfirm.title}"? This action cannot be undone.`}
+                confirmText="Delete"
+                cancelText="Cancel"
+                variant="danger"
+                onConfirm={async () => {
+                    if (deleteJobConfirm.id) {
+                        await handleDeleteJob(deleteJobConfirm.id);
+                    }
+                    setDeleteJobConfirm({ id: null, title: '' });
+                }}
+                onCancel={() => setDeleteJobConfirm({ id: null, title: '' })}
+            />
         </div>
     );
 }
