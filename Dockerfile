@@ -1,5 +1,5 @@
 # Production Dockerfile for Laravel API Backend (Frontend deployed on Vercel)
-FROM php:8.2-fpm-alpine
+FROM php:8.4-fpm-alpine
 WORKDIR /var/www/html
 
 # Install system dependencies
