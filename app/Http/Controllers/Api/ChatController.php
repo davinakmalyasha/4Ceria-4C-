@@ -26,6 +26,10 @@ class ChatController extends Controller
                 'userTwo.arsitek', 'userTwo.kontraktor', 'userTwo.notaris_profile', 'userTwo.interior_profile', 'userTwo.courierProfile', 'userTwo.supplier',
                 'latestMessage'
             ])
+            ->withCount(['messages as unread_count' => function ($q) use ($user) {
+                $q->where('sender_id', '!=', $user->id)
+                  ->where('is_read', false);
+            }])
             ->orderBy('last_message_at', 'desc')
             ->get();
 
@@ -33,11 +37,15 @@ class ChatController extends Controller
         $formatted = $conversations->map(function ($conv) use ($user) {
             $otherUser = ($conv->user_one_id === $user->id) ? $conv->userTwo : $conv->userOne;
 
-            // Count unread messages from the other user
-            $unreadCount = $conv->messages()
-                ->where('sender_id', '!=', $user->id)
-                ->where('is_read', false)
-                ->count();
+            $redisKey = "user:{$user->id}:conv:{$conv->id}:unread";
+            $unreadCount = \Illuminate\Support\Facades\Cache::get($redisKey);
+
+            if ($unreadCount === null) {
+                $unreadCount = (int) $conv->unread_count;
+                \Illuminate\Support\Facades\Cache::forever($redisKey, $unreadCount);
+            } else {
+                $unreadCount = (int) $unreadCount;
+            }
 
             return [
                 'id' => $conv->id,
@@ -114,7 +122,17 @@ class ChatController extends Controller
             ->where('is_read', false)
             ->update(['is_read' => true]);
 
-        $messages = $conversation->messages()->with('sender')->get();
+        // Clear the unread count in Cache for this user and conversation
+        $redisKey = "user:{$user->id}:conv:{$conversation->id}:unread";
+        \Illuminate\Support\Facades\Cache::forget($redisKey);
+
+        $messages = $conversation->messages()
+            ->with('sender')
+            ->latest()
+            ->limit(50)
+            ->get()
+            ->reverse()
+            ->values();
 
         return response()->json(['data' => $messages]);
     }
@@ -153,6 +171,13 @@ class ChatController extends Controller
             $conversation->update([
                 'last_message_at' => now(),
             ]);
+
+            // Increment unread count in Cache for the recipient if it is already cached (otherwise it'll lazy-load correctly on next fetch)
+            $recipientId = ($conversation->user_one_id === $user->id) ? $conversation->user_two_id : $conversation->user_one_id;
+            $recipientRedisKey = "user:{$recipientId}:conv:{$conversation->id}:unread";
+            if (\Illuminate\Support\Facades\Cache::has($recipientRedisKey)) {
+                \Illuminate\Support\Facades\Cache::increment($recipientRedisKey);
+            }
 
             DB::commit();
 

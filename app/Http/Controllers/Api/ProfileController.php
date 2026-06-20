@@ -236,10 +236,14 @@ class ProfileController extends Controller
 
         // Save Photo / Headshot / Logo
         if ($request->hasFile('foto')) {
-            if ($profile->foto) {
-                Storage::disk('public')->delete($profile->foto);
-            }
-            $updates['foto'] = \App\Services\ImageService::convertToWebp($request->file('foto'), "profile_pictures/user_{$profile->user_id}");
+            $tempPath = $request->file('foto')->store('temp', 'local');
+            \App\Jobs\ConvertImageToWebpJob::dispatch(
+                $tempPath,
+                "profile_pictures/user_{$profile->user_id}",
+                get_class($profile),
+                $profile->id,
+                'foto'
+            );
         }
 
         // Save Portfolio / NPWP document (equivalent)
@@ -279,5 +283,112 @@ class ProfileController extends Controller
         }
 
         $profile->update($updates);
+    }
+
+    public function show(Request $request)
+    {
+        $user = $request->user();
+        $relations = [
+            'phoneNumber', 'arsitek', 'kontraktor',
+            'notaris_profile.services', 'interior_profile', 'project_manager',
+            'structural_engineer', 'mep_engineer', 'supplier',
+            'roles',
+        ];
+        if (in_array($user->role_type, ['arsitek', 'kontraktor'])) {
+            $relations[] = 'teamMembers';
+        }
+        return new \App\Http\Resources\UserResource($user->load($relations));
+    }
+
+    public function update(Request $request)
+    {
+        $user = $request->user();
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|max:255|unique:users,email,'.$user->id,
+            'username' => 'required|string|max:255|unique:users,username,'.$user->id,
+            'phone_numbers' => 'nullable|array',
+            'phone_numbers.*' => 'required|string|max:20',
+        ], [
+            'phone_numbers.*.max' => 'Each phone number must not be greater than 20 characters.',
+            'phone_numbers.*.required' => 'Phone numbers cannot be blank.',
+        ]);
+
+        $user->update([
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'username' => $validated['username'],
+        ]);
+
+        if ($request->has('phone_numbers') && !empty($validated['phone_numbers'])) {
+            $firstPhone = $validated['phone_numbers'][0];
+
+            if ($user->arsitek) {
+                $user->arsitek->update(['no_telp' => $firstPhone]);
+            }
+            if ($user->kontraktor) {
+                $user->kontraktor->update(['no_telepon' => $firstPhone]);
+            }
+
+            $user->phoneNumber()->whereNotIn('contact', $validated['phone_numbers'])->delete();
+
+            $existingNumbers = $user->phoneNumber()->pluck('contact')->toArray();
+            foreach ($validated['phone_numbers'] as $number) {
+                if (! in_array($number, $existingNumbers)) {
+                    $user->phoneNumber()->create(['contact' => $number]);
+                }
+            }
+        }
+
+        $relations = [
+            'phoneNumber', 'arsitek', 'kontraktor',
+            'notaris_profile.services', 'interior_profile', 'project_manager',
+            'roles',
+        ];
+        if (in_array($user->role_type, ['arsitek', 'kontraktor'])) {
+            $relations[] = 'teamMembers';
+        }
+
+        return response()->json([
+            'message' => 'Profile updated successfully',
+            'user' => new \App\Http\Resources\UserResource($user->load($relations)),
+        ]);
+    }
+
+    public function updateAvatar(Request $request)
+    {
+        $request->validate([
+            'pic' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+        ]);
+
+        $user = $request->user();
+        $tempPath = $request->file('pic')->store('temp', 'local');
+
+        \App\Jobs\ConvertImageToWebpJob::dispatch(
+            $tempPath,
+            'profileUser',
+            \App\Models\User::class,
+            $user->id,
+            'pic'
+        );
+
+        return response()->json([
+            'message' => 'Avatar is being processed and will be updated shortly.',
+        ]);
+    }
+
+    public function deleteAvatar(Request $request)
+    {
+        $user = $request->user();
+
+        if ($user->pic && \Illuminate\Support\Facades\Storage::disk('public')->exists($user->pic)) {
+            \Illuminate\Support\Facades\Storage::disk('public')->delete($user->pic);
+        }
+
+        $user->update(['pic' => null]);
+
+        return response()->json([
+            'message' => 'Avatar deleted successfully',
+        ]);
     }
 }

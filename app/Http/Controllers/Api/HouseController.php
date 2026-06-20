@@ -22,7 +22,55 @@ class HouseController extends Controller
     {
         $query = House::with(['housePic', 'user.phoneNumber', 'room.roomPic'])->where('is_suspended', false);
 
-        $houses = $query->paginate(10);
+        if ($request->has('search') && !empty($request->search)) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('house_desc', 'like', "%{$search}%")
+                  ->orWhere('kecamatan', 'like', "%{$search}%")
+                  ->orWhere('kelurahan', 'like', "%{$search}%")
+                  ->orWhere('kab_kota', 'like', "%{$search}%")
+                  ->orWhere('street_name', 'like', "%{$search}%");
+            });
+        }
+
+        if ($request->has('city') && !empty($request->city)) {
+            $query->where('kab_kota', $request->city);
+        }
+
+        if ($request->has('price_min') && !empty($request->price_min)) {
+            $query->where('price', '>=', (float) $request->price_min);
+        }
+
+        if ($request->has('price_max') && !empty($request->price_max)) {
+            $query->where('price', '<=', (float) $request->price_max);
+        }
+
+        // Support sorting
+        if ($request->has('sort')) {
+            if ($request->sort === 'price_asc') {
+                $query->orderBy('price', 'asc');
+            } elseif ($request->sort === 'price_desc') {
+                $query->orderBy('price', 'desc');
+            } else {
+                $query->latest();
+            }
+        } else {
+            $query->latest();
+        }
+
+        $perPage = $request->input('per_page', 12);
+        
+        $cacheKey = 'houses_list_' . md5(json_encode($request->all()));
+        $supportsTags = in_array(config('cache.default'), ['redis', 'memcached']);
+        
+        $houses = $supportsTags
+            ? \Illuminate\Support\Facades\Cache::tags(['houses'])->remember($cacheKey, 600, function () use ($query, $perPage) {
+                return $query->paginate($perPage);
+            })
+            : \Illuminate\Support\Facades\Cache::remember($cacheKey, 600, function () use ($query, $perPage) {
+                return $query->paginate($perPage);
+            });
 
         return HouseResource::collection($houses);
     }
@@ -66,7 +114,7 @@ class HouseController extends Controller
                     foreach ($request->file("rooms.{$index}.pics") as $roomPic) {
                         if ($roomPic->isValid()) {
                             $roomFolder = 'uploads/house/house_'.$house->id.'/rooms/room_'.$room->id;
-                            $path = $roomPic->store($roomFolder, 'public');
+                            $path = \App\Services\ImageService::convertToWebp($roomPic, $roomFolder);
                             RoomPic::create([
                                 'file_name' => $roomPic->getClientOriginalName(),
                                 'dir' => $path,
@@ -84,7 +132,7 @@ class HouseController extends Controller
             foreach ($request->file('house_pic') as $pic) {
                 if ($pic->isValid()) {
                     $saveFolder = 'uploads/house/house_'.Auth::id();
-                    $path = $pic->store($saveFolder, 'public');
+                    $path = \App\Services\ImageService::convertToWebp($pic, $saveFolder);
                     HousePic::create([
                         'file_name' => $pic->getClientOriginalName(),
                         'dir' => $path,
@@ -93,6 +141,13 @@ class HouseController extends Controller
                     ]);
                 }
             }
+        }
+
+        $supportsTags = in_array(config('cache.default'), ['redis', 'memcached']);
+        if ($supportsTags) {
+            \Illuminate\Support\Facades\Cache::tags(['houses'])->flush();
+        } else {
+            \Illuminate\Support\Facades\Cache::flush();
         }
 
         return new HouseResource($house->load(['housePic', 'room', 'room.roomPic']));
@@ -154,7 +209,7 @@ class HouseController extends Controller
                     foreach ($request->file("rooms.{$index}.pics") as $roomPic) {
                         if ($roomPic->isValid()) {
                             $roomFolder = 'uploads/house/house_'.$house->id.'/rooms/room_'.$room->id;
-                            $path = $roomPic->store($roomFolder, 'public');
+                            $path = \App\Services\ImageService::convertToWebp($roomPic, $roomFolder);
                             RoomPic::create([
                                 'file_name' => $roomPic->getClientOriginalName(),
                                 'dir' => $path,
@@ -185,7 +240,7 @@ class HouseController extends Controller
             $houseFolder = 'uploads/house/house_'.$house->id;
             foreach ($request->file('house_pics') as $pic) {
                 if ($pic->isValid()) {
-                    $path = $pic->store($houseFolder, 'public');
+                    $path = \App\Services\ImageService::convertToWebp($pic, $houseFolder);
                     HousePic::create([
                         'file_name' => $pic->getClientOriginalName(),
                         'dir' => $path,
@@ -194,6 +249,13 @@ class HouseController extends Controller
                     ]);
                 }
             }
+        }
+
+        $supportsTags = in_array(config('cache.default'), ['redis', 'memcached']);
+        if ($supportsTags) {
+            \Illuminate\Support\Facades\Cache::tags(['houses'])->flush();
+        } else {
+            \Illuminate\Support\Facades\Cache::flush();
         }
 
         return new HouseResource($house->load(['housePic', 'room', 'room.roomPic']));
@@ -207,6 +269,13 @@ class HouseController extends Controller
 
         // Ideally, extracting file deletion to an independent Action/Service class goes here.
         $house->delete();
+
+        $supportsTags = in_array(config('cache.default'), ['redis', 'memcached']);
+        if ($supportsTags) {
+            \Illuminate\Support\Facades\Cache::tags(['houses'])->flush();
+        } else {
+            \Illuminate\Support\Facades\Cache::flush();
+        }
 
         return response()->json(['message' => 'House deleted successfully']);
     }
