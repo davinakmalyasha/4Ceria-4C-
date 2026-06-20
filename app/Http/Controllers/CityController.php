@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 
 class CityController extends Controller
 {
@@ -11,12 +12,20 @@ class CityController extends Controller
     {
         $query = $request->get('query', '');
 
-        // Pastikan nama kolom 'name' dan tipe kota sesuai dengan data yang ada di tabel 'regions'
-        $cities = DB::table('regions')
-            ->where('name', 'like', '%'.$query.'%')
-            ->where('type', 'kota') // Jika ada tipe kota, pastikan filter ini sesuai
-            ->pluck('name');
+        $allCities = Cache::rememberForever('all_cities_list', function () {
+            return DB::table('regions')
+                ->where('type', 'kota')
+                ->pluck('name');
+        });
 
-        return response()->json($cities); // Kembalikan hasil dalam format JSON
+        if ($query !== '') {
+            $filtered = $allCities->filter(function ($name) use ($query) {
+                return stripos($name, $query) !== false;
+            })->values();
+        } else {
+            $filtered = $allCities;
+        }
+
+        return response()->json($filtered);
     }
 }

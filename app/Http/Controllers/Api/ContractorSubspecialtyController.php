@@ -9,9 +9,11 @@ class ContractorSubspecialtyController extends Controller
 {
     public function index(): \Illuminate\Http\JsonResponse
     {
-        $subspecialties = ContractorSubspecialty::orderBy('category')
-            ->orderBy('label')
-            ->get();
+        $subspecialties = \Illuminate\Support\Facades\Cache::rememberForever('contractor_subspecialties_list', function () {
+            return ContractorSubspecialty::orderBy('category')
+                ->orderBy('label')
+                ->get();
+        });
 
         return response()->json(['data' => $subspecialties]);
     }

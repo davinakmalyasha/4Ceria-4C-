@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 
 class ProvinceController extends Controller
 {
@@ -11,11 +12,18 @@ class ProvinceController extends Controller
     {
         $query = $request->get('query', '');
 
-        // Ambil data dari tabel 'provinces' berdasarkan nama yang cocok
-        $provinces = DB::table('provinces')
-            ->where('name', 'like', '%'.$query.'%')
-            ->pluck('name'); // Ambil hanya kolom 'name'
+        $allProvinces = Cache::rememberForever('all_provinces_list', function () {
+            return DB::table('provinces')->pluck('name');
+        });
 
-        return response()->json($provinces); // Kembalikan data dalam format JSON
+        if ($query !== '') {
+            $filtered = $allProvinces->filter(function ($name) use ($query) {
+                return stripos($name, $query) !== false;
+            })->values();
+        } else {
+            $filtered = $allProvinces;
+        }
+
+        return response()->json($filtered);
     }
 }
