@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import AdminLayout from '../../components/AdminLayout';
+import { Pagination } from '../../components/Common/Pagination';
 import { 
     Home, 
     MapPin, 
@@ -30,19 +31,43 @@ const AdminHouses: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [updatingHouseId, setUpdatingHouseId] = useState<number | null>(null);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [lastPage, setLastPage] = useState(1);
+    const [totalHouses, setTotalHouses] = useState(0);
+    const [fromHouse, setFromHouse] = useState(0);
+    const [toHouse, setToHouse] = useState(0);
     const { showToast } = useToast();
 
-    const fetchHouses = () => {
+    const fetchHouses = (page = 1) => {
         setLoading(true);
-        axios.get('/admin/houses')
-            .then(res => setHouses(res.data))
+        axios.get('/admin/houses', {
+            params: {
+                page,
+                search: searchTerm || undefined
+            }
+        })
+            .then(res => {
+                setHouses(res.data.data);
+                setCurrentPage(res.data.current_page);
+                setLastPage(res.data.last_page);
+                setTotalHouses(res.data.total);
+                setFromHouse(res.data.from || 0);
+                setToHouse(res.data.to || 0);
+            })
             .catch(err => console.error(err))
             .finally(() => setLoading(false));
     };
 
     useEffect(() => {
-        fetchHouses();
-    }, []);
+        const handler = setTimeout(() => {
+            fetchHouses(1);
+        }, 300);
+        return () => clearTimeout(handler);
+    }, [searchTerm]);
+
+    const handlePageChange = (page: number) => {
+        fetchHouses(page);
+    };
 
     const handleToggleSuspend = (house: House) => {
         setUpdatingHouseId(house.id);
@@ -55,10 +80,7 @@ const AdminHouses: React.FC = () => {
             .finally(() => setUpdatingHouseId(null));
     };
 
-    const filteredHouses = houses.filter(h => 
-        h.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        h.user.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    // Server-side filtering is active now
 
     return (
         <AdminLayout>
@@ -81,7 +103,7 @@ const AdminHouses: React.FC = () => {
                             />
                         </div>
 
-                        <button onClick={fetchHouses} className="p-2 border border-neutral-200 bg-[#fafafa] hover:bg-neutral-50 rounded-xl text-neutral-500 hover:text-neutral-900 transition-colors">
+                        <button onClick={() => fetchHouses(currentPage)} className="p-2 border border-neutral-200 bg-[#fafafa] hover:bg-neutral-50 rounded-xl text-neutral-500 hover:text-neutral-900 transition-colors">
                             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
                         </button>
                     </div>
@@ -106,14 +128,14 @@ const AdminHouses: React.FC = () => {
                                         Loading listed estate portfolio...
                                     </td>
                                 </tr>
-                            ) : filteredHouses.length === 0 ? (
+                            ) : houses.length === 0 ? (
                                 <tr>
                                     <td colSpan={6} className="px-6 py-12 text-center text-neutral-400 italic">
                                         No listed properties found.
                                     </td>
                                 </tr>
                             ) : (
-                                filteredHouses.map((house) => (
+                                houses.map((house) => (
                                     <tr key={house.id} className="hover:bg-neutral-50/50 transition-colors">
                                         <td className="px-6 py-4">
                                             <div className="flex items-center space-x-3">
@@ -170,6 +192,14 @@ const AdminHouses: React.FC = () => {
                             )}
                         </tbody>
                     </table>
+                    <Pagination
+                        currentPage={currentPage}
+                        lastPage={lastPage}
+                        total={totalHouses}
+                        from={fromHouse}
+                        to={toHouse}
+                        onPageChange={handlePageChange}
+                    />
                 </div>
             </div>
         </AdminLayout>

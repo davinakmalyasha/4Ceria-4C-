@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useLocation, Link } from 'react-router-dom';
 import AdminLayout from '../../components/AdminLayout';
+import { Pagination } from '../../components/Common/Pagination';
 import { 
     Check, 
     X, 
@@ -113,6 +114,11 @@ const AdminVerification: React.FC = () => {
     const [approvalConfirmation, setApprovalConfirmation] = useState<{id: number, name: string, type: string} | null>(null);
     const [historyList, setHistoryList] = useState<any[]>([]);
     const [loadingHistory, setLoadingHistory] = useState(false);
+    const [currentPage, setCurrentPage] = useState<number>(1);
+    const [lastPage, setLastPage] = useState<number>(1);
+    const [totalHistory, setTotalHistory] = useState<number>(0);
+    const [historyFrom, setHistoryFrom] = useState<number>(0);
+    const [historyTo, setHistoryTo] = useState<number>(0);
     const [sendEmailNotify, setSendEmailNotify] = useState(true);
     const [sendWANotify, setSendWANotify] = useState(true);
     const { showToast } = useToast();
@@ -144,22 +150,29 @@ const AdminVerification: React.FC = () => {
             .finally(() => setLoading(false));
     };
 
-    const fetchHistory = () => {
+    const fetchHistory = (page = 1) => {
         setLoadingHistory(true);
-        axios.get('/admin/professionals/history')
-            .then(res => setHistoryList(res.data))
+        axios.get('/admin/professionals/history', { params: { page } })
+            .then(res => {
+                setHistoryList(res.data.data);
+                setCurrentPage(res.data.current_page);
+                setLastPage(res.data.last_page);
+                setTotalHistory(res.data.total);
+                setHistoryFrom(res.data.from || 0);
+                setHistoryTo(res.data.to || 0);
+            })
             .catch(err => console.error(err))
             .finally(() => setLoadingHistory(false));
     };
 
     useEffect(() => {
         fetchProfessionals();
-        fetchHistory();
+        fetchHistory(1);
     }, []);
 
     useEffect(() => {
         if (activeTab === 'history') {
-            fetchHistory();
+            fetchHistory(1);
         }
     }, [activeTab]);
 
@@ -323,7 +336,7 @@ const AdminVerification: React.FC = () => {
                                 : 'bg-white text-neutral-800 border-neutral-200 hover:bg-neutral-50'
                             }`}
                         >
-                            {activeTab === 'history' ? '← Back to Queue' : `View History Logs (${historyList.length})`}
+                            {activeTab === 'history' ? '← Back to Queue' : `View History Logs (${totalHistory})`}
                         </Link>
                     </div>
                 </div>
@@ -463,6 +476,14 @@ const AdminVerification: React.FC = () => {
                                 )}
                             </tbody>
                         </table>
+                        <Pagination 
+                            currentPage={currentPage}
+                            lastPage={lastPage}
+                            total={totalHistory}
+                            from={historyFrom}
+                            to={historyTo}
+                            onPageChange={(page) => fetchHistory(page)}
+                        />
                     </div>
                 ) : (
                     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">

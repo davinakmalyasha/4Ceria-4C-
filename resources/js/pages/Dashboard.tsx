@@ -35,7 +35,7 @@ function DashboardContent() {
     const [activeSubTab, setActiveSubTab] = useState<string | null>(null);
     
     // Custom Hook for all data fetching and state
-    const data = useDashboardData();
+    const data = useDashboardData(activeTab);
 
     // Local Modal States
     const [selectedProject, setSelectedProject] = useState<any>(null);
@@ -233,6 +233,18 @@ function DashboardContent() {
                             user={user} houses={data.houses} projects={data.projects}
                             projectFeed={data.projectFeed} latestBids={data.latestBids}
                             myBids={data.myBids} isLoadingData={data.isLoading}
+                            isProjectsLoading={data.isProjectsLoading}
+                            isFeedLoading={data.isFeedLoading}
+                            isBidsLoading={data.isBidsLoading}
+                            isHistoryLoading={data.isHistoryLoading}
+                            isHousesLoading={data.isHousesLoading}
+                            isArchitectsLoading={data.isArchitectsLoading}
+                            isConstructorsLoading={data.isConstructorsLoading}
+                            isInteriorsLoading={data.isInteriorsLoading}
+                            isNotariesLoading={data.isNotariesLoading}
+                            isProjectManagersLoading={data.isProjectManagersLoading}
+                            isStructuralLoading={data.isStructuralLoading}
+                            isMepLoading={data.isMepLoading}
                             hiredProfessionals={data.hiredProfessionals}
                             architects={data.architects} constructors={data.constructors} interiors={data.interiors} notaries={data.notaries} projectManagers={data.projectManagers}
                             structuralEngineers={data.structuralEngineers} mepEngineers={data.mepEngineers}

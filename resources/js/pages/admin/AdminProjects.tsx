@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import AdminLayout from '../../components/AdminLayout';
+import { Pagination } from '../../components/Common/Pagination';
 import { 
     Briefcase, 
     User, 
@@ -10,7 +11,8 @@ import {
     DollarSign,
     ShieldAlert,
     RefreshCw,
-    XCircle
+    XCircle,
+    Search
 } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 
@@ -28,20 +30,45 @@ interface Project {
 const AdminProjects: React.FC = () => {
     const [projects, setProjects] = useState<Project[]>([]);
     const [loading, setLoading] = useState(true);
+    const [searchTerm, setSearchTerm] = useState('');
     const [terminatingProjectId, setTerminatingProjectId] = useState<number | null>(null);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [lastPage, setLastPage] = useState(1);
+    const [totalProjects, setTotalProjects] = useState(0);
+    const [fromProject, setFromProject] = useState(0);
+    const [toProject, setToProject] = useState(0);
     const { showToast } = useToast();
 
-    const fetchProjects = () => {
+    const fetchProjects = (page = 1) => {
         setLoading(true);
-        axios.get('/admin/projects')
-            .then(res => setProjects(res.data))
+        axios.get('/admin/projects', {
+            params: {
+                page,
+                search: searchTerm || undefined
+            }
+        })
+            .then(res => {
+                setProjects(res.data.data);
+                setCurrentPage(res.data.current_page);
+                setLastPage(res.data.last_page);
+                setTotalProjects(res.data.total);
+                setFromProject(res.data.from || 0);
+                setToProject(res.data.to || 0);
+            })
             .catch(err => console.error(err))
             .finally(() => setLoading(false));
     };
 
     useEffect(() => {
-        fetchProjects();
-    }, []);
+        const handler = setTimeout(() => {
+            fetchProjects(1);
+        }, 300);
+        return () => clearTimeout(handler);
+    }, [searchTerm]);
+
+    const handlePageChange = (page: number) => {
+        fetchProjects(page);
+    };
 
     const handleForceTerminate = (project: Project) => {
         if (!window.confirm(`Are you absolutely sure you want to force-terminate project "${project.title}"? This cannot be undone.`)) {
@@ -76,9 +103,22 @@ const AdminProjects: React.FC = () => {
                         <p className="text-[11px] text-neutral-400 font-semibold mt-0.5">Audit live building contracts, view fee structures, and force terminate disputed items.</p>
                     </div>
 
-                    <button onClick={fetchProjects} className="p-2 border border-neutral-200 bg-[#fafafa] hover:bg-neutral-50 rounded-xl text-neutral-500 hover:text-neutral-900 transition-colors">
-                        <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-                    </button>
+                    <div className="flex items-center gap-3">
+                        <div className="relative">
+                            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400" size={14} />
+                            <input 
+                                type="text" 
+                                placeholder="Search projects or clients..." 
+                                className="pl-9 pr-4 py-2 border border-neutral-200 bg-[#fafafa] rounded-xl text-xs font-semibold placeholder:text-neutral-300 focus:bg-white focus:ring-1 focus:ring-neutral-950 focus:border-neutral-950 outline-none transition-all w-full sm:w-64"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                        </div>
+
+                        <button onClick={() => fetchProjects(currentPage)} className="p-2 border border-neutral-200 bg-[#fafafa] hover:bg-neutral-50 rounded-xl text-neutral-500 hover:text-neutral-900 transition-colors">
+                            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+                        </button>
+                    </div>
                 </div>
 
                 <div className="bg-white rounded-2xl border border-neutral-200 shadow-[0_1px_3px_rgba(0,0,0,0.02)] overflow-hidden">
@@ -160,6 +200,14 @@ const AdminProjects: React.FC = () => {
                             )}
                         </tbody>
                     </table>
+                    <Pagination
+                        currentPage={currentPage}
+                        lastPage={lastPage}
+                        total={totalProjects}
+                        from={fromProject}
+                        to={toProject}
+                        onPageChange={handlePageChange}
+                    />
                 </div>
             </div>
         </AdminLayout>

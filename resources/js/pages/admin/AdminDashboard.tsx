@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import AdminLayout from '../../components/AdminLayout';
+import { Pagination } from '../../components/Common/Pagination';
 import { 
     Users, 
     Home, 
@@ -40,6 +41,11 @@ const AdminDashboard: React.FC = () => {
     const [roleFilter, setRoleFilter] = useState('');
     const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
     const [updatingUserId, setUpdatingUserId] = useState<number | null>(null);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [lastPage, setLastPage] = useState(1);
+    const [totalUsers, setTotalUsers] = useState(0);
+    const [fromUser, setFromUser] = useState(0);
+    const [toUser, setToUser] = useState(0);
     const { showToast } = useToast();
 
     const fetchStats = () => {
@@ -50,15 +56,23 @@ const AdminDashboard: React.FC = () => {
             .finally(() => setLoadingStats(false));
     };
 
-    const fetchUsers = () => {
+    const fetchUsers = (page = 1) => {
         setLoadingUsers(true);
         axios.get('/admin/users', {
             params: {
+                page,
                 search: search || undefined,
                 role: roleFilter || undefined
             }
         })
-            .then(res => setUsers(res.data))
+            .then(res => {
+                setUsers(res.data.data);
+                setCurrentPage(res.data.current_page);
+                setLastPage(res.data.last_page);
+                setTotalUsers(res.data.total);
+                setFromUser(res.data.from || 0);
+                setToUser(res.data.to || 0);
+            })
             .catch(err => console.error(err))
             .finally(() => setLoadingUsers(false));
     };
@@ -69,10 +83,14 @@ const AdminDashboard: React.FC = () => {
 
     useEffect(() => {
         const handler = setTimeout(() => {
-            fetchUsers();
+            fetchUsers(1);
         }, 300);
         return () => clearTimeout(handler);
     }, [search, roleFilter]);
+
+    const handlePageChange = (page: number) => {
+        fetchUsers(page);
+    };
 
     const handleToggleSuspend = (targetUser: UserRecord) => {
         setUpdatingUserId(targetUser.id);
@@ -206,7 +224,7 @@ const AdminDashboard: React.FC = () => {
                                 <option value="desc">Z - A</option>
                             </select>
 
-                            <button onClick={() => { fetchStats(); fetchUsers(); }} className="p-2 border border-neutral-200 bg-[#fafafa] hover:bg-neutral-50 rounded-xl text-neutral-500 hover:text-neutral-900 transition-colors">
+                            <button onClick={() => { fetchStats(); fetchUsers(currentPage); }} className="p-2 border border-neutral-200 bg-[#fafafa] hover:bg-neutral-50 rounded-xl text-neutral-500 hover:text-neutral-900 transition-colors">
                                 <RefreshCw size={14} className={loadingUsers ? 'animate-spin' : ''} />
                             </button>
                         </div>
@@ -290,6 +308,14 @@ const AdminDashboard: React.FC = () => {
                             </tbody>
                         </table>
                     </div>
+                    <Pagination
+                        currentPage={currentPage}
+                        lastPage={lastPage}
+                        total={totalUsers}
+                        from={fromUser}
+                        to={toUser}
+                        onPageChange={handlePageChange}
+                    />
                 </div>
             </div>
         </AdminLayout>
