@@ -77,22 +77,6 @@ Route::get('/marketplace/materials', [MaterialController::class, 'index']);
 
 // Public Construction Brief (no auth — accessed via share link)
 Route::get('/brief/{token}', [ProjectController::class, 'getPublicBrief']);
-Route::get('/run-migrations', function () {
-    try {
-        $exitCode = \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Migrations run successfully',
-            'output' => \Illuminate\Support\Facades\Artisan::output(),
-        ]);
-    } catch (\Throwable $e) {
-        return response()->json([
-            'status' => 'error',
-            'message' => $e->getMessage(),
-        ], 500);
-    }
-});
-
 Route::middleware(['auth:sanctum', 'freeze_pending_termination'])->group(function () {
     Route::get('/hire-history', [HireHistoryController::class, 'index']);
     Route::get('/projects', [ProjectController::class, 'index']);
