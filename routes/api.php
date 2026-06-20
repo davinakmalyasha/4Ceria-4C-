@@ -78,11 +78,19 @@ Route::get('/marketplace/materials', [MaterialController::class, 'index']);
 // Public Construction Brief (no auth — accessed via share link)
 Route::get('/brief/{token}', [ProjectController::class, 'getPublicBrief']);
 Route::get('/read-logs', function () {
-    $path = storage_path('logs/laravel.log');
-    if (file_exists($path)) {
-        return response(substr(file_get_contents($path), -4000))->header('Content-Type', 'text/plain');
+    try {
+        $path = storage_path('logs/laravel.log');
+        if (!file_exists($path)) {
+            return response('Log file does not exist at ' . $path);
+        }
+        $content = file_get_contents($path);
+        if ($content === false) {
+            return response('Failed to read log file at ' . $path);
+        }
+        return response(substr($content, -8000))->header('Content-Type', 'text/plain');
+    } catch (\Throwable $e) {
+        return response('Error reading log: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
     }
-    return response('Log file not found');
 });
 Route::middleware(['auth:sanctum', 'freeze_pending_termination'])->group(function () {
     Route::get('/hire-history', [HireHistoryController::class, 'index']);
