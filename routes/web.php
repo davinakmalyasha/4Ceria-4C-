@@ -1,27 +1,18 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\SpaController;
 
 // All non-API web traffic routes to the strictly typed React SPA
-Route::get('/login', function () {
-    return view('app');
-})->name('login');
+Route::get('/login', [SpaController::class, 'index'])->name('login');
 
-// Handle static document templates explicitly
-Route::get('/templates/{filename}', function ($filename) {
-    if (file_exists(public_path('templates/' . $filename))) {
-        return response()->file(public_path('templates/' . $filename));
-    }
-    abort(404);
-});
+// Handle static document templates explicitly (with path traversal prevention)
+Route::get('/templates/{filename}', [SpaController::class, 'showTemplate']);
 
-Route::get('/', function () {
-    return view('app');
-});
+Route::get('/', [SpaController::class, 'index']);
 
 Route::get('storage/{path}', [\App\Http\Controllers\StorageFallbackController::class, 'handle'])
     ->where('path', '.*');
 
-Route::get('/{any}', function () {
-    return view('app');
-})->where('any', '.*');
+Route::get('/{any}', [SpaController::class, 'index'])->where('any', '.*');
+
