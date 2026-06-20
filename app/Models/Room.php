@@ -17,6 +17,27 @@ class Room extends Model
         'id_house',
     ];
 
+    protected static function booted(): void
+    {
+        static::saved(function ($room) {
+            $supportsTags = in_array(config('cache.default'), ['redis', 'memcached']);
+            if ($supportsTags) {
+                \Illuminate\Support\Facades\Cache::tags(['houses'])->flush();
+            } else {
+                \Illuminate\Support\Facades\Cache::flush();
+            }
+        });
+
+        static::deleted(function ($room) {
+            $supportsTags = in_array(config('cache.default'), ['redis', 'memcached']);
+            if ($supportsTags) {
+                \Illuminate\Support\Facades\Cache::tags(['houses'])->flush();
+            } else {
+                \Illuminate\Support\Facades\Cache::flush();
+            }
+        });
+    }
+
     public function house()
     {
         return $this->belongsTo(House::class, 'id_house');

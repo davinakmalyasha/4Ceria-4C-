@@ -24,6 +24,27 @@ class Supplier extends Model
         'foto',
     ];
 
+    protected static function booted(): void
+    {
+        static::saved(function ($supplier) {
+            $supportsTags = in_array(config('cache.default'), ['redis', 'memcached']);
+            if ($supportsTags) {
+                \Illuminate\Support\Facades\Cache::tags(['suppliers'])->flush();
+            } else {
+                \Illuminate\Support\Facades\Cache::flush();
+            }
+        });
+
+        static::deleted(function ($supplier) {
+            $supportsTags = in_array(config('cache.default'), ['redis', 'memcached']);
+            if ($supportsTags) {
+                \Illuminate\Support\Facades\Cache::tags(['suppliers'])->flush();
+            } else {
+                \Illuminate\Support\Facades\Cache::flush();
+            }
+        });
+    }
+
     public function user()
     {
         return $this->belongsTo(User::class);

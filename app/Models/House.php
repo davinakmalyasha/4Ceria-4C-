@@ -31,6 +31,27 @@ class House extends Model
 
     public $timestamps = true;
 
+    protected static function booted(): void
+    {
+        static::saved(function ($house) {
+            $supportsTags = in_array(config('cache.default'), ['redis', 'memcached']);
+            if ($supportsTags) {
+                \Illuminate\Support\Facades\Cache::tags(['houses'])->flush();
+            } else {
+                \Illuminate\Support\Facades\Cache::flush();
+            }
+        });
+
+        static::deleted(function ($house) {
+            $supportsTags = in_array(config('cache.default'), ['redis', 'memcached']);
+            if ($supportsTags) {
+                \Illuminate\Support\Facades\Cache::tags(['houses'])->flush();
+            } else {
+                \Illuminate\Support\Facades\Cache::flush();
+            }
+        });
+    }
+
     public function room()
     {
         return $this->hasMany(Room::class, 'id_house');

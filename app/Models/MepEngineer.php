@@ -4,10 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Traits\ClearsProfessionalCache;
 
 class MepEngineer extends Model
 {
-    use HasFactory;
+    use HasFactory, ClearsProfessionalCache;
 
     protected $table = 'mep_engineers';
 

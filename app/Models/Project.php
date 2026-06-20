@@ -395,23 +395,46 @@ class Project extends Model
         
         $allocated = 0;
         
+        // Helper to sum bids in memory if relation is loaded, or fallback to query
+        $sumBid = function(string $relationName) use ($hiredStatuses) {
+            if ($this->relationLoaded($relationName)) {
+                $bids = $this->getRelation($relationName);
+                $filtered = $bids->whereIn('status', $hiredStatuses);
+                
+                $sum = 0;
+                foreach ($filtered as $bid) {
+                    $sum += $bid->calculated_total ?: $bid->price;
+                }
+                return $sum;
+            }
+            
+            $rel = $this->{$relationName}();
+            return $rel->whereIn('status', $hiredStatuses)->sum('calculated_total') 
+                ?: $rel->whereIn('status', $hiredStatuses)->sum('price');
+        };
+
         // Sum all accepted/active professional bids
-        $allocated += $this->bidsArsitek()->whereIn('status', $hiredStatuses)->sum('calculated_total') ?: $this->bidsArsitek()->whereIn('status', $hiredStatuses)->sum('price');
-        $allocated += $this->bidsKontraktor()->whereIn('status', $hiredStatuses)->sum('calculated_total') ?: $this->bidsKontraktor()->whereIn('status', $hiredStatuses)->sum('price');
-        $allocated += $this->bidsNotaris()->whereIn('status', $hiredStatuses)->sum('calculated_total') ?: $this->bidsNotaris()->whereIn('status', $hiredStatuses)->sum('price');
-        $allocated += $this->bidsInterior()->whereIn('status', $hiredStatuses)->sum('calculated_total') ?: $this->bidsInterior()->whereIn('status', $hiredStatuses)->sum('price');
-        $allocated += $this->bidsProjectManager()->whereIn('status', $hiredStatuses)->sum('calculated_total') ?: $this->bidsProjectManager()->whereIn('status', $hiredStatuses)->sum('price');
-        $allocated += $this->bidsStructural()->whereIn('status', $hiredStatuses)->sum('calculated_total') ?: $this->bidsStructural()->whereIn('status', $hiredStatuses)->sum('price');
-        $allocated += $this->bidsMep()->whereIn('status', $hiredStatuses)->sum('calculated_total') ?: $this->bidsMep()->whereIn('status', $hiredStatuses)->sum('price');
+        $allocated += $sumBid('bidsArsitek');
+        $allocated += $sumBid('bidsKontraktor');
+        $allocated += $sumBid('bidsNotaris');
+        $allocated += $sumBid('bidsInterior');
+        $allocated += $sumBid('bidsProjectManager');
+        $allocated += $sumBid('bidsStructural');
+        $allocated += $sumBid('bidsMep');
         
         // Addendums (Professional extra fees / Material authorizations)
-        // CRITICAL FIX: Only count PAID or APPROVED (pm_reviewed) addendums as allocated.
-        // approved_unpaid is just a reservation, it shouldn't show as "gone" yet if the user is confused.
-        $allocated += $this->addendums()->whereIn('status', ['paid', 'approved', 'pm_reviewed'])->sum('amount');
-
+        if ($this->relationLoaded('addendums')) {
+            $allocated += $this->addendums->whereIn('status', ['paid', 'approved', 'pm_reviewed'])->sum('amount');
+        } else {
+            $allocated += $this->addendums()->whereIn('status', ['paid', 'approved', 'pm_reviewed'])->sum('amount');
+        }
         
         // Change Orders
-        $allocated += $this->changeOrders()->where('status', 'owner_approved')->sum('cost_impact');
+        if ($this->relationLoaded('changeOrders')) {
+            $allocated += $this->changeOrders->where('status', 'owner_approved')->sum('cost_impact');
+        } else {
+            $allocated += $this->changeOrders()->where('status', 'owner_approved')->sum('cost_impact');
+        }
 
         $totalBudget = (float) $this->budget;
         

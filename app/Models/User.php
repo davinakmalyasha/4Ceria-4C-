@@ -47,6 +47,28 @@ class User extends Authenticatable
                 $user->unique_code = self::generateUniqueCode();
             }
         });
+
+        static::saved(function (User $user) {
+            $professionalRoles = [
+                'arsitek', 'kontraktor', 'civil', 'mechanical', 'electrical', 
+                'plumbing', 'roofing', 'finishing', 'interior', 'notaris', 
+                'project_manager', 'structural', 'mep'
+            ];
+            if (in_array($user->role_type, $professionalRoles)) {
+                \App\Traits\ClearsProfessionalCache::clearProfessionalCache();
+            }
+        });
+
+        static::deleted(function (User $user) {
+            $professionalRoles = [
+                'arsitek', 'kontraktor', 'civil', 'mechanical', 'electrical', 
+                'plumbing', 'roofing', 'finishing', 'interior', 'notaris', 
+                'project_manager', 'structural', 'mep'
+            ];
+            if (in_array($user->role_type, $professionalRoles)) {
+                \App\Traits\ClearsProfessionalCache::clearProfessionalCache();
+            }
+        });
     }
 
     public static function generateUniqueCode(): string

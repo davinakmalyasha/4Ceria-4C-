@@ -4,10 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Traits\ClearsProfessionalCache;
 
 class ProjectManager extends Model
 {
-    use HasFactory;
+    use HasFactory, ClearsProfessionalCache;
 
     protected $table = 'project_managers';
 
@@ -42,12 +43,34 @@ class ProjectManager extends Model
 
     public function getAverageRatingAttribute(): float
     {
-        return round($this->ratings()->avg('rating') ?: 0, 1);
+        if (isset($this->attributes['average_rating'])) {
+            return (float) round((float)$this->attributes['average_rating'], 1);
+        }
+        if (isset($this->attributes['ratings_avg_rating'])) {
+            return (float) round((float)$this->attributes['ratings_avg_rating'], 1);
+        }
+        if ($this->relationLoaded('ratings')) {
+            return (float) round($this->ratings->avg('rating') ?: 0, 1);
+        }
+        return \Illuminate\Support\Facades\Cache::remember("pm:{$this->id}:avg_rating", 3600, function() {
+            return (float) round($this->ratings()->avg('rating') ?: 0, 1);
+        });
     }
 
     public function getReviewCountAttribute(): int
     {
-        return $this->ratings()->count();
+        if (isset($this->attributes['review_count'])) {
+            return (int)$this->attributes['review_count'];
+        }
+        if (isset($this->attributes['ratings_count'])) {
+            return (int)$this->attributes['ratings_count'];
+        }
+        if ($this->relationLoaded('ratings')) {
+            return $this->ratings->count();
+        }
+        return \Illuminate\Support\Facades\Cache::remember("pm:{$this->id}:review_count", 3600, function() {
+            return (int) $this->ratings()->count();
+        });
     }
 
     public function user()

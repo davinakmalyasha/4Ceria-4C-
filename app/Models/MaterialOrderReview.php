@@ -27,6 +27,27 @@ class MaterialOrderReview extends Model
         'delivery_image_paths' => 'array',
     ];
 
+    protected static function booted(): void
+    {
+        static::saved(function ($review) {
+            $supportsTags = in_array(config('cache.default'), ['redis', 'memcached']);
+            if ($supportsTags) {
+                \Illuminate\Support\Facades\Cache::tags(['suppliers'])->flush();
+            } else {
+                \Illuminate\Support\Facades\Cache::flush();
+            }
+        });
+
+        static::deleted(function ($review) {
+            $supportsTags = in_array(config('cache.default'), ['redis', 'memcached']);
+            if ($supportsTags) {
+                \Illuminate\Support\Facades\Cache::tags(['suppliers'])->flush();
+            } else {
+                \Illuminate\Support\Facades\Cache::flush();
+            }
+        });
+    }
+
     public function user()
     {
         return $this->belongsTo(User::class);

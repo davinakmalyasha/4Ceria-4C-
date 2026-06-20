@@ -19,6 +19,23 @@ class InteriorRating extends Model
         'komentar',
     ];
 
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::saved(function ($rating) {
+            \Illuminate\Support\Facades\Cache::forget("interior:{$rating->interior_id}:avg_rating");
+            \Illuminate\Support\Facades\Cache::forget("interior:{$rating->interior_id}:review_count");
+            \App\Traits\ClearsProfessionalCache::clearProfessionalCache();
+        });
+
+        static::deleted(function ($rating) {
+            \Illuminate\Support\Facades\Cache::forget("interior:{$rating->interior_id}:avg_rating");
+            \Illuminate\Support\Facades\Cache::forget("interior:{$rating->interior_id}:review_count");
+            \App\Traits\ClearsProfessionalCache::clearProfessionalCache();
+        });
+    }
+
     public function project()
     {
         return $this->belongsTo(Project::class);

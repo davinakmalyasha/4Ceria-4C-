@@ -7,8 +7,9 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class BudgetAuthorized extends Notification
+class BudgetAuthorized extends Notification implements ShouldQueue
 {
+    use Queueable;
     protected $project;
     protected $addendum;
 

@@ -10,6 +10,23 @@ class ArsitekRating extends Model
         'user_id', 'arsitek_id', 'project_id', 'rating', 'komentar',
     ];
 
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::saved(function ($rating) {
+            \Illuminate\Support\Facades\Cache::forget("arsitek:{$rating->arsitek_id}:avg_rating");
+            \Illuminate\Support\Facades\Cache::forget("arsitek:{$rating->arsitek_id}:review_count");
+            \App\Traits\ClearsProfessionalCache::clearProfessionalCache();
+        });
+
+        static::deleted(function ($rating) {
+            \Illuminate\Support\Facades\Cache::forget("arsitek:{$rating->arsitek_id}:avg_rating");
+            \Illuminate\Support\Facades\Cache::forget("arsitek:{$rating->arsitek_id}:review_count");
+            \App\Traits\ClearsProfessionalCache::clearProfessionalCache();
+        });
+    }
+
     public function user()
     {
         return $this->belongsTo(User::class);
