@@ -1,6 +1,19 @@
 #!/usr/bin/env php
 <?php
 
+// Suppress deprecation warnings on PHP 8.5+ to keep terminal outputs clean
+error_reporting(E_ALL & ~E_DEPRECATED & ~E_USER_DEPRECATED);
+
+if (!defined('SIGINT')) {
+    define('SIGINT', 2);
+}
+if (!defined('SIGTERM')) {
+    define('SIGTERM', 15);
+}
+if (!defined('SIGHUP')) {
+    define('SIGHUP', 1);
+}
+
 use Symfony\Component\Console\Input\ArgvInput;
 
 define('LARAVEL_START', microtime(true));

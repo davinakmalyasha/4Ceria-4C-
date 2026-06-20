@@ -58,3 +58,7 @@ verify_*.php
 debug_*.php
 tmp_*.php
 
+
+**/caddy
+frankenphp
+frankenphp-worker.php

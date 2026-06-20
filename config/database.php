@@ -57,9 +57,10 @@ return [
             'prefix_indexes' => true,
             'strict' => true,
             'engine' => null,
+            // Use integer values to support both PHP < 8.5 (PDO::MYSQL_ATTR_SSL_*) and PHP 8.5+ (Pdo\Mysql::ATTR_SSL_*) without deprecation warnings
             'options' => extension_loaded('pdo_mysql') ? array_filter([
-                PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
-                PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT => env('MYSQL_ATTR_SSL_VERIFY_SERVER_CERT') !== null ? (bool) env('MYSQL_ATTR_SSL_VERIFY_SERVER_CERT') : null,
+                1014 => env('MYSQL_ATTR_SSL_CA'), // MYSQL_ATTR_SSL_CA
+                1016 => env('MYSQL_ATTR_SSL_VERIFY_SERVER_CERT') !== null ? (bool) env('MYSQL_ATTR_SSL_VERIFY_SERVER_CERT') : null, // MYSQL_ATTR_SSL_VERIFY_SERVER_CERT
             ], function ($value) {
                 return $value !== null && $value !== '';
             }) : [],
@@ -80,8 +81,9 @@ return [
             'prefix_indexes' => true,
             'strict' => true,
             'engine' => null,
+            // Use integer values to support both PHP < 8.5 (PDO::MYSQL_ATTR_SSL_*) and PHP 8.5+ (Pdo\Mysql::ATTR_SSL_*) without deprecation warnings
             'options' => extension_loaded('pdo_mysql') ? array_filter([
-                PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
+                1014 => env('MYSQL_ATTR_SSL_CA'), // MYSQL_ATTR_SSL_CA
             ]) : [],
         ],
 
