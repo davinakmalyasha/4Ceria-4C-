@@ -128,6 +128,7 @@ class FirmMemberService
                 'member.mep_engineer',
                 'member.interior_profile',
                 'member.kontraktor',
+                'member.arsitek',
                 'member.portfolios',
             ])
             ->orderBy('created_at', 'desc')
@@ -140,15 +141,74 @@ class FirmMemberService
             ->get()
             ->groupBy('user_id');
 
+        // Fetch all active projects for the entire roster in a single query
+        $structuralIds = [];
+        $mepIds = [];
+        $interiorIds = [];
+        $kontraktorIds = [];
+        $arsitekIds = [];
+
+        foreach ($roster as $fm) {
+            if (!$fm->member) {
+                continue;
+            }
+            $profile = $fm->member->structural_engineer
+                ?? $fm->member->mep_engineer
+                ?? $fm->member->interior_profile
+                ?? $fm->member->kontraktor
+                ?? $fm->member->arsitek;
+
+            if (!$profile) {
+                continue;
+            }
+
+            $role = $fm->member->role_type;
+            if ($role === 'structural') {
+                $structuralIds[] = $profile->id;
+            } elseif ($role === 'mep') {
+                $mepIds[] = $profile->id;
+            } elseif ($role === 'interior') {
+                $interiorIds[] = $profile->id;
+            } elseif ($role === 'kontraktor') {
+                $kontraktorIds[] = $profile->id;
+            } elseif ($role === 'arsitek') {
+                $arsitekIds[] = $profile->id;
+            }
+        }
+
+        $allProjects = collect();
+        if (!empty($structuralIds) || !empty($mepIds) || !empty($interiorIds) || !empty($kontraktorIds) || !empty($arsitekIds)) {
+            $allProjects = \App\Models\Project::whereNotIn('status', ['completed', 'cancelled'])
+                ->where(function ($q) use ($structuralIds, $mepIds, $interiorIds, $kontraktorIds, $arsitekIds) {
+                    if (!empty($structuralIds)) {
+                        $q->orWhereIn('structural_id', $structuralIds);
+                    }
+                    if (!empty($mepIds)) {
+                        $q->orWhereIn('mep_id', $mepIds);
+                    }
+                    if (!empty($interiorIds)) {
+                        $q->orWhereIn('selected_interior_id', $interiorIds);
+                    }
+                    if (!empty($kontraktorIds)) {
+                        $q->orWhereIn('selected_kontraktor_id', $kontraktorIds);
+                    }
+                    if (!empty($arsitekIds)) {
+                        $q->orWhereIn('selected_arsitek_id', $arsitekIds);
+                    }
+                })
+                ->get(['id', 'title', 'structural_id', 'mep_id', 'selected_interior_id', 'selected_kontraktor_id', 'selected_arsitek_id']);
+        }
+
         // Append phone number and active projects to member data
-        $roster->each(function (FirmMember $fm) use ($subPros) {
+        $roster->each(function (FirmMember $fm) use ($subPros, $allProjects) {
             if (!$fm->member) {
                 return;
             }
             $profile = $fm->member->structural_engineer
                 ?? $fm->member->mep_engineer
                 ?? $fm->member->interior_profile
-                ?? $fm->member->kontraktor;
+                ?? $fm->member->kontraktor
+                ?? $fm->member->arsitek;
 
             $phone = $profile?->no_telp ?? $profile?->no_telepon ?? null;
             $fm->member->setAttribute('no_telp', $phone);
@@ -173,18 +233,16 @@ class FirmMemberService
             $primaryTitles = collect();
             if ($profile) {
                 $role = $fm->member->role_type;
-                $query = \App\Models\Project::whereNotIn('status', ['completed', 'cancelled']);
-
                 if ($role === 'structural') {
-                    $primaryTitles = $query->where('structural_id', $profile->id)->pluck('title');
+                    $primaryTitles = $allProjects->where('structural_id', $profile->id)->pluck('title');
                 } elseif ($role === 'mep') {
-                    $primaryTitles = $query->where('mep_id', $profile->id)->pluck('title');
+                    $primaryTitles = $allProjects->where('mep_id', $profile->id)->pluck('title');
                 } elseif ($role === 'interior') {
-                    $primaryTitles = $query->where('selected_interior_id', $profile->id)->pluck('title');
+                    $primaryTitles = $allProjects->where('selected_interior_id', $profile->id)->pluck('title');
                 } elseif ($role === 'kontraktor') {
-                    $primaryTitles = $query->where('selected_kontraktor_id', $profile->id)->pluck('title');
+                    $primaryTitles = $allProjects->where('selected_kontraktor_id', $profile->id)->pluck('title');
                 } elseif ($role === 'arsitek') {
-                    $primaryTitles = $query->where('selected_arsitek_id', $profile->id)->pluck('title');
+                    $primaryTitles = $allProjects->where('selected_arsitek_id', $profile->id)->pluck('title');
                 }
             }
 
