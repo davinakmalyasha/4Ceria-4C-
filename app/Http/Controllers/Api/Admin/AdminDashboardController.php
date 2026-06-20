@@ -9,44 +9,77 @@ use App\Models\Kontraktor;
 use App\Models\Project;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class AdminDashboardController extends Controller
 {
     public function stats()
     {
-        return response()->json([
-            'total_users' => User::count(),
-            'total_houses' => House::count(),
-            'total_projects' => Project::count(),
-            'pending_verifications' => Arsitek::where('verification_status', 'pending')->count() + 
-                                     Kontraktor::where('verification_status', 'pending')->count() + 
-                                     \App\Models\ProjectManager::where('verification_status', 'pending')->count() + 
-                                     \App\Models\StructuralEngineer::where('verification_status', 'pending')->count() + 
-                                     \App\Models\MepEngineer::where('verification_status', 'pending')->count() + 
-                                     \App\Models\Supplier::where('verification_status', 'pending')->count() + 
-                                     \App\Models\InteriorProfile::where('verification_status', 'pending')->count() + 
-                                     \App\Models\NotarisProfile::where('verification_status', 'pending')->count(),
-            'active_projects' => Project::where('status', 'active')->count(),
-            'role_distribution' => [
-                'client' => User::where('role_type', 'user')->count(),
-                'arsitek' => User::where('role_type', 'arsitek')->count(),
-                'kontraktor' => User::where('role_type', 'kontraktor')->count(),
-                'supplier' => User::where('role_type', 'supplier')->count(),
-                'notaris' => User::where('role_type', 'notaris')->count(),
-                'interior' => User::where('role_type', 'interior')->count(),
-                'project_manager' => User::where('role_type', 'project_manager')->count(),
-            ]
-        ]);
+        $stats = Cache::remember('admin_dashboard_stats', 600, function () {
+            $roles = User::selectRaw('role_type, count(*) as total')
+                ->groupBy('role_type')
+                ->pluck('total', 'role_type');
+
+            return [
+                'total_users' => User::count(),
+                'total_houses' => House::count(),
+                'total_projects' => Project::count(),
+                'pending_verifications' => Arsitek::where('verification_status', 'pending')->count() + 
+                                         Kontraktor::where('verification_status', 'pending')->count() + 
+                                         \App\Models\ProjectManager::where('verification_status', 'pending')->count() + 
+                                         \App\Models\StructuralEngineer::where('verification_status', 'pending')->count() + 
+                                         \App\Models\MepEngineer::where('verification_status', 'pending')->count() + 
+                                         \App\Models\Supplier::where('verification_status', 'pending')->count() + 
+                                         \App\Models\InteriorProfile::where('verification_status', 'pending')->count() + 
+                                         \App\Models\NotarisProfile::where('verification_status', 'pending')->count(),
+                'active_projects' => Project::where('status', 'active')->count(),
+                'role_distribution' => [
+                    'client' => (int) $roles->get('user', 0),
+                    'arsitek' => (int) $roles->get('arsitek', 0),
+                    'kontraktor' => (int) $roles->get('kontraktor', 0),
+                    'supplier' => (int) $roles->get('supplier', 0),
+                    'notaris' => (int) $roles->get('notaris', 0),
+                    'interior' => (int) $roles->get('interior', 0),
+                    'project_manager' => (int) $roles->get('project_manager', 0),
+                ]
+            ];
+        });
+
+        return response()->json($stats);
     }
 
-    public function houses()
+    public function houses(Request $request)
     {
-        return response()->json(House::with('user')->latest()->get());
+        $query = House::with('user');
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhereHas('user', function ($uq) use ($search) {
+                      $uq->where('name', 'like', "%{$search}%");
+                  });
+            });
+        }
+
+        return response()->json($query->latest()->paginate(15));
     }
 
-    public function projects()
+    public function projects(Request $request)
     {
-        return response()->json(Project::with(['user', 'selectedArsitek', 'selectedKontraktor'])->latest()->get());
+        $query = Project::with(['user', 'selectedArsitek', 'selectedKontraktor']);
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('title', 'like', "%{$search}%")
+                  ->orWhereHas('user', function ($uq) use ($search) {
+                      $uq->where('name', 'like', "%{$search}%");
+                  });
+            });
+        }
+
+        return response()->json($query->latest()->paginate(15));
     }
 
     public function toggleHouseSuspend($id)
@@ -55,6 +88,8 @@ class AdminDashboardController extends Controller
         $house->update([
             'is_suspended' => !$house->is_suspended
         ]);
+
+        Cache::forget('admin_dashboard_stats');
 
         return response()->json([
             'message' => $house->is_suspended ? 'Listing suspended successfully.' : 'Listing activated successfully.',
@@ -68,6 +103,8 @@ class AdminDashboardController extends Controller
         $project->update([
             'status' => 'cancelled'
         ]);
+
+        Cache::forget('admin_dashboard_stats');
 
         return response()->json([
             'message' => 'Project forced terminated by Administrator.',

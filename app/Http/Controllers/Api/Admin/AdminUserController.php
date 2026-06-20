@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class AdminUserController extends Controller
 {
@@ -30,7 +31,7 @@ class AdminUserController extends Controller
             $query->where('is_suspended', $status);
         }
 
-        return response()->json($query->latest()->get());
+        return response()->json($query->latest()->paginate(20));
     }
 
     public function toggleSuspend(User $user)
@@ -42,6 +43,8 @@ class AdminUserController extends Controller
         $user->update([
             'is_suspended' => !$user->is_suspended
         ]);
+
+        Cache::forget('admin_dashboard_stats');
 
         return response()->json([
             'message' => $user->is_suspended ? 'User account suspended successfully.' : 'User account activated successfully.',
@@ -61,6 +64,8 @@ class AdminUserController extends Controller
 
         $user->syncRoles([$validated['role_type']]);
         $user->update(['role_type' => $validated['role_type']]);
+
+        Cache::forget('admin_dashboard_stats');
 
         return response()->json([
             'message' => 'User role updated successfully.',

@@ -142,81 +142,181 @@ class VerificationController extends Controller
         ]);
     }
 
-    public function history()
+    public function history(Request $request)
     {
-        $modelMap = [
-            'arsitek' => [Arsitek::class, 'Architect'],
-            'project_manager' => [ProjectManager::class, 'Project Manager'],
-            'structural' => [StructuralEngineer::class, 'Structural Engineer'],
-            'mep' => [MepEngineer::class, 'MEP Engineer'],
-            'notaris' => [NotarisProfile::class, 'Notary'],
-            'interior' => [InteriorProfile::class, 'Interior Designer'],
-            'supplier' => [Supplier::class, 'Supplier'],
-            'logistics' => [CourierProfile::class, 'Logistics / Courier'],
-        ];
+        $queries = [];
 
-        $history = collect();
+        // Arsitek
+        $queries[] = \Illuminate\Support\Facades\DB::table('arsiteks')
+            ->join('users', 'arsiteks.user_id', '=', 'users.id')
+            ->select(
+                'arsiteks.id as id',
+                \Illuminate\Support\Facades\DB::raw("'arsitek' as type"),
+                \Illuminate\Support\Facades\DB::raw("'Architect' as role_label"),
+                \Illuminate\Support\Facades\DB::raw("COALESCE(arsiteks.nama, users.name, 'N/A') as name"),
+                'users.email as email',
+                'arsiteks.verification_status as status',
+                'arsiteks.rejection_reason as rejection_reason',
+                'arsiteks.updated_at as audited_at'
+            )
+            ->whereIn('arsiteks.verification_status', ['verified', 'rejected']);
 
-        foreach ($modelMap as $type => $config) {
-            $modelClass = $config[0];
-            $roleLabel = $config[1];
+        // Project Manager
+        $queries[] = \Illuminate\Support\Facades\DB::table('project_managers')
+            ->join('users', 'project_managers.user_id', '=', 'users.id')
+            ->select(
+                'project_managers.id as id',
+                \Illuminate\Support\Facades\DB::raw("'project_manager' as type"),
+                \Illuminate\Support\Facades\DB::raw("'Project Manager' as role_label"),
+                \Illuminate\Support\Facades\DB::raw("COALESCE(project_managers.nama, users.name, 'N/A') as name"),
+                'users.email as email',
+                'project_managers.verification_status as status',
+                'project_managers.rejection_reason as rejection_reason',
+                'project_managers.updated_at as audited_at'
+            )
+            ->whereIn('project_managers.verification_status', ['verified', 'rejected']);
 
-            $records = $modelClass::with('user')
-                ->whereIn('verification_status', ['verified', 'rejected'])
-                ->get();
+        // Structural Engineer
+        $queries[] = \Illuminate\Support\Facades\DB::table('structural_engineers')
+            ->join('users', 'structural_engineers.user_id', '=', 'users.id')
+            ->select(
+                'structural_engineers.id as id',
+                \Illuminate\Support\Facades\DB::raw("'structural' as type"),
+                \Illuminate\Support\Facades\DB::raw("'Structural Engineer' as role_label"),
+                \Illuminate\Support\Facades\DB::raw("COALESCE(structural_engineers.nama, users.name, 'N/A') as name"),
+                'users.email as email',
+                'structural_engineers.verification_status as status',
+                'structural_engineers.rejection_reason as rejection_reason',
+                'structural_engineers.updated_at as audited_at'
+            )
+            ->whereIn('structural_engineers.verification_status', ['verified', 'rejected']);
 
-            foreach ($records as $record) {
-                $displayName = $record->store_name ?? $record->nama_perusahaan ?? $record->nama ?? ($record->user->name ?? 'N/A');
+        // MEP Engineer
+        $queries[] = \Illuminate\Support\Facades\DB::table('mep_engineers')
+            ->join('users', 'mep_engineers.user_id', '=', 'users.id')
+            ->select(
+                'mep_engineers.id as id',
+                \Illuminate\Support\Facades\DB::raw("'mep' as type"),
+                \Illuminate\Support\Facades\DB::raw("'MEP Engineer' as role_label"),
+                \Illuminate\Support\Facades\DB::raw("COALESCE(mep_engineers.nama, users.name, 'N/A') as name"),
+                'users.email as email',
+                'mep_engineers.verification_status as status',
+                'mep_engineers.rejection_reason as rejection_reason',
+                'mep_engineers.updated_at as audited_at'
+            )
+            ->whereIn('mep_engineers.verification_status', ['verified', 'rejected']);
 
-                $history->push([
-                    'id' => $record->id,
-                    'type' => $type,
-                    'role_label' => $roleLabel,
-                    'name' => $displayName,
-                    'email' => $record->user->email ?? 'N/A',
-                    'status' => $record->verification_status,
-                    'rejection_reason' => $record->rejection_reason,
-                    'audited_at' => $record->updated_at ? $record->updated_at->toIso8601String() : null,
-                ]);
+        // Notary
+        $queries[] = \Illuminate\Support\Facades\DB::table('notaris_profiles')
+            ->join('users', 'notaris_profiles.user_id', '=', 'users.id')
+            ->select(
+                'notaris_profiles.id as id',
+                \Illuminate\Support\Facades\DB::raw("'notaris' as type"),
+                \Illuminate\Support\Facades\DB::raw("'Notary' as role_label"),
+                \Illuminate\Support\Facades\DB::raw("COALESCE(notaris_profiles.nama, users.name, 'N/A') as name"),
+                'users.email as email',
+                'notaris_profiles.verification_status as status',
+                'notaris_profiles.rejection_reason as rejection_reason',
+                'notaris_profiles.updated_at as audited_at'
+            )
+            ->whereIn('notaris_profiles.verification_status', ['verified', 'rejected']);
+
+        // Interior Designer
+        $queries[] = \Illuminate\Support\Facades\DB::table('interior_profiles')
+            ->join('users', 'interior_profiles.user_id', '=', 'users.id')
+            ->select(
+                'interior_profiles.id as id',
+                \Illuminate\Support\Facades\DB::raw("'interior' as type"),
+                \Illuminate\Support\Facades\DB::raw("'Interior Designer' as role_label"),
+                \Illuminate\Support\Facades\DB::raw("COALESCE(interior_profiles.nama, users.name, 'N/A') as name"),
+                'users.email as email',
+                'interior_profiles.verification_status as status',
+                'interior_profiles.rejection_reason as rejection_reason',
+                'interior_profiles.updated_at as audited_at'
+            )
+            ->whereIn('interior_profiles.verification_status', ['verified', 'rejected']);
+
+        // Supplier
+        $queries[] = \Illuminate\Support\Facades\DB::table('suppliers')
+            ->join('users', 'suppliers.user_id', '=', 'users.id')
+            ->select(
+                'suppliers.id as id',
+                \Illuminate\Support\Facades\DB::raw("'supplier' as type"),
+                \Illuminate\Support\Facades\DB::raw("'Supplier' as role_label"),
+                \Illuminate\Support\Facades\DB::raw("COALESCE(suppliers.store_name, users.name, 'N/A') as name"),
+                'users.email as email',
+                'suppliers.verification_status as status',
+                'suppliers.rejection_reason as rejection_reason',
+                'suppliers.updated_at as audited_at'
+            )
+            ->whereIn('suppliers.verification_status', ['verified', 'rejected']);
+
+        // Logistics / Courier
+        $queries[] = \Illuminate\Support\Facades\DB::table('courier_profiles')
+            ->join('users', 'courier_profiles.user_id', '=', 'users.id')
+            ->select(
+                'courier_profiles.id as id',
+                \Illuminate\Support\Facades\DB::raw("'logistics' as type"),
+                \Illuminate\Support\Facades\DB::raw("'Logistics / Courier' as role_label"),
+                \Illuminate\Support\Facades\DB::raw("COALESCE(users.name, 'N/A') as name"),
+                'users.email as email',
+                'courier_profiles.verification_status as status',
+                'courier_profiles.rejection_reason as rejection_reason',
+                'courier_profiles.updated_at as audited_at'
+            )
+            ->whereIn('courier_profiles.verification_status', ['verified', 'rejected']);
+
+        // Contractor (handles general + subspecialties)
+        $queries[] = \Illuminate\Support\Facades\DB::table('kontraktors')
+            ->join('users', 'kontraktors.user_id', '=', 'users.id')
+            ->select(
+                'kontraktors.id as id',
+                \Illuminate\Support\Facades\DB::raw("CASE 
+                    WHEN users.role_type = 'civil' THEN 'civil'
+                    WHEN users.role_type = 'mechanical' THEN 'mechanical'
+                    WHEN users.role_type = 'electrical' THEN 'electrical'
+                    WHEN users.role_type = 'plumbing' THEN 'plumbing'
+                    WHEN users.role_type = 'roofing' THEN 'roofing'
+                    WHEN users.role_type = 'finishing' THEN 'finishing'
+                    ELSE 'kontraktor'
+                END as type"),
+                \Illuminate\Support\Facades\DB::raw("CASE 
+                    WHEN users.role_type = 'civil' THEN 'Civil Contractor'
+                    WHEN users.role_type = 'mechanical' THEN 'Mechanical Contractor'
+                    WHEN users.role_type = 'electrical' THEN 'Electrical Contractor'
+                    WHEN users.role_type = 'plumbing' THEN 'Plumbing Contractor'
+                    WHEN users.role_type = 'roofing' THEN 'Roofing Contractor'
+                    WHEN users.role_type = 'finishing' THEN 'Finishing Contractor'
+                    ELSE 'Contractor'
+                END as role_label"),
+                \Illuminate\Support\Facades\DB::raw("COALESCE(kontraktors.nama_perusahaan, kontraktors.nama, users.name, 'N/A') as name"),
+                'users.email as email',
+                'kontraktors.verification_status as status',
+                'kontraktors.rejection_reason as rejection_reason',
+                'kontraktors.updated_at as audited_at'
+            )
+            ->whereIn('kontraktors.verification_status', ['verified', 'rejected']);
+
+        $firstQuery = array_shift($queries);
+        foreach ($queries as $q) {
+            $firstQuery->unionAll($q);
+        }
+
+        $totalQuery = \Illuminate\Support\Facades\DB::table(\Illuminate\Support\Facades\DB::raw("({$firstQuery->toSql()}) as union_table"))
+            ->mergeBindings($firstQuery)
+            ->orderByDesc('audited_at');
+
+        $paginated = $totalQuery->paginate(20);
+
+        // Format dates into ISO8601 strings to maintain consistency with previous implementation
+        $paginated->getCollection()->transform(function ($item) {
+            if (isset($item->audited_at)) {
+                $item->audited_at = \Illuminate\Support\Carbon::parse($item->audited_at)->toIso8601String();
             }
-        }
+            return $item;
+        });
 
-        // Handle Contractors table (General + Subspecialties)
-        $contractorRecords = Kontraktor::with('user')
-            ->whereIn('verification_status', ['verified', 'rejected'])
-            ->get();
-
-        $subRoleLabels = [
-            'kontraktor' => ['kontraktor', 'Contractor'],
-            'civil' => ['civil', 'Civil Contractor'],
-            'mechanical' => ['mechanical', 'Mechanical Contractor'],
-            'electrical' => ['electrical', 'Electrical Contractor'],
-            'plumbing' => ['plumbing', 'Plumbing Contractor'],
-            'roofing' => ['roofing', 'Roofing Contractor'],
-            'finishing' => ['finishing', 'Finishing Contractor'],
-        ];
-
-        foreach ($contractorRecords as $record) {
-            $roleType = $record->user->role_type ?? 'kontraktor';
-            $cfg = $subRoleLabels[$roleType] ?? ['kontraktor', 'Contractor'];
-
-            $displayName = $record->nama_perusahaan ?? $record->nama ?? ($record->user->name ?? 'N/A');
-
-            $history->push([
-                'id' => $record->id,
-                'type' => $cfg[0],
-                'role_label' => $cfg[1],
-                'name' => $displayName,
-                'email' => $record->user->email ?? 'N/A',
-                'status' => $record->verification_status,
-                'rejection_reason' => $record->rejection_reason,
-                'audited_at' => $record->updated_at ? $record->updated_at->toIso8601String() : null,
-            ]);
-        }
-
-        $sortedHistory = $history->sortByDesc('audited_at')->values();
-
-        return response()->json($sortedHistory);
+        return response()->json($paginated);
     }
 }
 
