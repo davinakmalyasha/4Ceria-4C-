@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Cache;
 
 class MaterialController extends Controller
 {
@@ -17,6 +18,25 @@ class MaterialController extends Controller
      * Display a listing of materials (Marketplace View).
      */
     public function index(Request $request)
+    {
+        $cacheKey = 'materials_list_' . md5(json_encode($request->all()));
+        $supportsTags = in_array(config('cache.default'), ['redis', 'memcached']);
+
+        $data = $supportsTags
+            ? Cache::tags(['materials'])->remember($cacheKey, 600, function () use ($request) {
+                return $this->getFilteredMaterials($request);
+            })
+            : Cache::remember($cacheKey, 600, function () use ($request) {
+                return $this->getFilteredMaterials($request);
+            });
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $data,
+        ]);
+    }
+
+    private function getFilteredMaterials(Request $request)
     {
         $query = Material::with(['supplier.user', 'images'])
             ->where('is_available', true)
@@ -40,10 +60,7 @@ class MaterialController extends Controller
             $query->where('price', '<=', $request->max_price);
         }
 
-        return response()->json([
-            'status' => 'success',
-            'data' => $query->latest()->get(),
-        ]);
+        return $query->latest()->get();
     }
 
     /**
@@ -94,28 +111,36 @@ class MaterialController extends Controller
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        return DB::transaction(function () use ($request, $supplier) {
+        $paths = [];
+        if ($request->hasFile('images')) {
+            foreach ($request->file('images') as $image) {
+                $paths[] = \App\Services\ImageService::convertToWebp($image, 'materials');
+            }
+        }
+
+        $material = DB::transaction(function () use ($request, $supplier, $paths) {
             $data = $request->only(['name', 'description', 'price', 'unit', 'category', 'stock', 'specifications']);
             $data['supplier_id'] = $supplier->id;
 
             $material = Material::create($data);
 
-            if ($request->hasFile('images')) {
-                foreach ($request->file('images') as $image) {
-                    $path = $image->store('materials', 'public');
-                    MaterialImage::create([
-                        'material_id' => $material->id,
-                        'image_path' => $path,
-                    ]);
-                }
+            foreach ($paths as $path) {
+                MaterialImage::create([
+                    'material_id' => $material->id,
+                    'image_path' => $path,
+                ]);
             }
 
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Material added successfully with multiple images',
-                'data' => $material->load('images'),
-            ]);
+            return $material;
         });
+
+        $this->clearCache();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Material added successfully with multiple images',
+            'data' => $material->load('images'),
+        ]);
     }
 
     /**
@@ -142,7 +167,15 @@ class MaterialController extends Controller
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        return DB::transaction(function () use ($request, $material) {
+        // Handle new uploads outside transaction
+        $paths = [];
+        if ($request->hasFile('images')) {
+            foreach ($request->file('images') as $image) {
+                $paths[] = \App\Services\ImageService::convertToWebp($image, 'materials');
+            }
+        }
+
+        DB::transaction(function () use ($request, $material, $paths) {
             $updateData = $request->only(['name', 'description', 'price', 'unit', 'category', 'stock', 'is_available', 'specifications']);
             $material->update($updateData);
 
@@ -158,22 +191,21 @@ class MaterialController extends Controller
             }
 
             // Handle new uploads
-            if ($request->hasFile('images')) {
-                foreach ($request->file('images') as $image) {
-                    $path = $image->store('materials', 'public');
-                    MaterialImage::create([
-                        'material_id' => $material->id,
-                        'image_path' => $path,
-                    ]);
-                }
+            foreach ($paths as $path) {
+                MaterialImage::create([
+                    'material_id' => $material->id,
+                    'image_path' => $path,
+                ]);
             }
-
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Material updated successfully',
-                'data' => $material->load('images'),
-            ]);
         });
+
+        $this->clearCache();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Material updated successfully',
+            'data' => $material->load('images'),
+        ]);
     }
 
     /**
@@ -192,10 +224,22 @@ class MaterialController extends Controller
             // cascadeOnDelete in migration handles the DB side for images
             $material->delete();
 
+            $this->clearCache();
+
             return response()->json([
                 'status' => 'success',
                 'message' => 'Material and its images deleted successfully',
             ]);
         });
+    }
+
+    private function clearCache()
+    {
+        $supportsTags = in_array(config('cache.default'), ['redis', 'memcached']);
+        if ($supportsTags) {
+            Cache::tags(['materials'])->flush();
+        } else {
+            Cache::flush();
+        }
     }
 }

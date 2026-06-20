@@ -9,6 +9,7 @@ use App\Models\ProjectPaymentTermin;
 use App\Models\ProjectDocument;
 use App\Models\ProjectActivityLog;
 use Illuminate\Http\Request;
+use App\Http\Resources\ProjectMilestoneResource;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
@@ -64,7 +65,7 @@ class ProjectMilestoneController extends Controller
         if ($request->has('phase_context')) {
             $query->where('phase_context', $request->phase_context);
         }
-        return response()->json(['data' => $query->get()]);
+        return ProjectMilestoneResource::collection($query->get());
     }
 
     public function store(Request $request, Project $project)

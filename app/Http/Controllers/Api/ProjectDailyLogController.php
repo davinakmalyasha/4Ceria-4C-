@@ -61,14 +61,14 @@ class ProjectDailyLogController extends Controller
             'photos.*' => 'image|max:5120',
         ]);
 
-        return DB::transaction(function () use ($project, $validated, $user) {
-            $photos = [];
-            if (isset($validated['photos'])) {
-                foreach ($validated['photos'] as $photo) {
-                    $photos[] = $photo->store('daily_logs', 'public');
-                }
+        $photos = [];
+        if ($request->hasFile('photos')) {
+            foreach ($request->file('photos') as $photo) {
+                $photos[] = $photo->store('daily_logs', 'public');
             }
+        }
 
+        $log = DB::transaction(function () use ($project, $validated, $user, $photos) {
             $log = $project->dailyLogs()->create([
                 'user_id' => $user->id,
                 'log_date' => $validated['log_date'],
@@ -81,8 +81,10 @@ class ProjectDailyLogController extends Controller
 
             $this->logActivity($project, 'daily_log_added', "Added site log for {$validated['log_date']}");
 
-            return response()->json(['data' => $log->load('user')]);
+            return $log;
         });
+
+        return response()->json(['data' => $log->load('user')]);
     }
 
     public function destroy(Project $project, ProjectDailyLog $dailyLog)

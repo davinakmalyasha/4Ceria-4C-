@@ -18,9 +18,6 @@ class MaterialOrderController extends Controller
 
     public function index()
     {
-        // 3-Day Auto-Completion Policy (Lazy Check)
-        $this->orderService->autoCompleteOrders();
-
         $user = Auth::user();
         $query = MaterialOrder::with(['supplier', 'user', 'project', 'items.material', 'review', 'deliveryJob.logistics.phoneNumber']);
 

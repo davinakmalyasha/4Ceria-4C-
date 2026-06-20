@@ -66,10 +66,10 @@ class ProjectDocumentController extends Controller
             $version = $maxVersion + 1;
         }
 
-        return DB::transaction(function () use ($project, $request, $category, $targetRole, $parentId, $version) {
-            $file = $request->file('file');
-            $path = $file->store('project_documents', 'public');
+        $file = $request->file('file');
+        $path = $file->store('project_documents', 'public');
 
+        $document = DB::transaction(function () use ($project, $request, $category, $targetRole, $parentId, $version, $file, $path) {
             $document = $project->documents()->create([
                 'uploader_id' => Auth::id(),
                 'parent_id' => $parentId,
@@ -85,8 +85,10 @@ class ProjectDocumentController extends Controller
 
             $this->logActivity($project, 'document_uploaded', "Uploaded: {$file->getClientOriginalName()} (v{$version})" . ($request->version_label ? " ({$request->version_label})" : ""));
 
-            return response()->json(['data' => $document->load('uploader')]);
+            return $document;
         });
+
+        return response()->json(['data' => $document->load('uploader')]);
     }
 
     public function update(Request $request, Project $project, ProjectDocument $document)

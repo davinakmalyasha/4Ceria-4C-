@@ -90,63 +90,124 @@ class TechnicalDesignReviewController extends Controller
                 ->where('approval_status', '!=', 'approved')
                 ->get();
 
-            foreach ($milestones as $milestone) {
-                $milestone->update([
-                    'is_completed' => true,
-                    'approval_status' => 'approved',
-                    'pm_verified_at' => now(),
-                ]);
+            if ($milestones->isNotEmpty()) {
+                $milestoneIds = $milestones->pluck('id')->toArray();
 
-                // Unlock linked payment termins
-                $termins = ProjectPaymentTermin::where('milestone_id', $milestone->id)
+                // 1. Bulk update milestones
+                $project->milestones()
+                    ->whereIn('id', $milestoneIds)
+                    ->update([
+                        'is_completed' => true,
+                        'approval_status' => 'approved',
+                        'pm_verified_at' => now(),
+                    ]);
+
+                // 2. Bulk fetch and update termins
+                $termins = ProjectPaymentTermin::whereIn('milestone_id', $milestoneIds)
                     ->whereIn('status', ['locked', 'pending'])
                     ->get();
-                    
-                foreach ($termins as $termin) {
-                    $termin->update(['status' => 'pending']);
-                    
-                    $this->logActivity(
-                        $project, 
-                        'payment_triggered', 
-                        "Progress Verified: '{$milestone->title}' via Design Integration Approval. Payment Termin '{$termin->label}' is now unlocked and awaiting owner approval."
-                    );
-                }
 
-                // Sync milestone files to vault
-                $files = [];
-                if (!empty($milestone->image)) {
-                    $files[] = $milestone->image;
-                }
-                if (isset($milestone->content['gallery']) && is_array($milestone->content['gallery'])) {
-                    foreach ($milestone->content['gallery'] as $img) {
-                        $files[] = $img;
+                if ($termins->isNotEmpty()) {
+                    ProjectPaymentTermin::whereIn('id', $termins->pluck('id')->toArray())
+                        ->update(['status' => 'pending']);
+
+                    $activityLogs = [];
+                    foreach ($milestones as $milestone) {
+                        $mTermins = $termins->where('milestone_id', $milestone->id);
+                        foreach ($mTermins as $termin) {
+                            $activityLogs[] = [
+                                'project_id' => $project->id,
+                                'user_id' => Auth::id(),
+                                'action' => 'payment_triggered',
+                                'details' => "Progress Verified: '{$milestone->title}' via Design Integration Approval. Payment Termin '{$termin->label}' is now unlocked and awaiting owner approval.",
+                                'created_at' => now(),
+                                'updated_at' => now(),
+                            ];
+                        }
+                    }
+                    if (!empty($activityLogs)) {
+                        ProjectActivityLog::insert($activityLogs);
                     }
                 }
 
-                foreach ($files as $filePath) {
-                    ProjectDocument::updateOrCreate(
-                        [
-                            'project_id' => $milestone->project_id,
-                            'file_path' => $filePath,
-                        ],
-                        [
-                            'uploader_id' => Auth::id() ?? $project->user_id,
+                // 3. Sync milestone files to vault
+                $documentUpserts = [];
+                $allFiles = [];
+                foreach ($milestones as $milestone) {
+                    if (!empty($milestone->image)) {
+                        $allFiles[] = $milestone->image;
+                    }
+                    if (isset($milestone->content['gallery']) && is_array($milestone->content['gallery'])) {
+                        foreach ($milestone->content['gallery'] as $img) {
+                            $allFiles[] = $img;
+                        }
+                    }
+                }
+                $allFiles = array_unique($allFiles);
+
+                $existingDocPaths = ProjectDocument::where('project_id', $project->id)
+                    ->whereIn('file_path', $allFiles)
+                    ->pluck('file_path')
+                    ->toArray();
+
+                $uploaderId = Auth::id() ?? $project->user_id;
+
+                foreach ($milestones as $milestone) {
+                    $files = [];
+                    if (!empty($milestone->image)) {
+                        $files[] = $milestone->image;
+                    }
+                    if (isset($milestone->content['gallery']) && is_array($milestone->content['gallery'])) {
+                        foreach ($milestone->content['gallery'] as $img) {
+                            $files[] = $img;
+                        }
+                    }
+
+                    foreach ($files as $filePath) {
+                        $docData = [
+                            'uploader_id' => $uploaderId,
                             'file_name' => $milestone->content['file_names'][$filePath] ?? ($milestone->title . ' - ' . basename($filePath)),
-                            'file_path' => $filePath,
                             'file_type' => pathinfo($filePath, PATHINFO_EXTENSION),
                             'category' => $milestone->phase_context === 'design' ? 'blueprint' : ($milestone->type ?? 'milestone_attachment'),
                             'status' => 'verified',
                             'version_label' => $milestone->title,
                             'target_role' => $v['role_type'],
-                        ]
-                    );
+                            'updated_at' => now(),
+                        ];
+
+                        if (in_array($filePath, $existingDocPaths)) {
+                            ProjectDocument::where('project_id', $project->id)
+                                ->where('file_path', $filePath)
+                                ->update($docData);
+                        } else {
+                            $documentUpserts[] = array_merge([
+                                'project_id' => $project->id,
+                                'file_path' => $filePath,
+                                'created_at' => now(),
+                            ], $docData);
+                        }
+                    }
                 }
 
-                $this->logActivity(
-                    $project,
-                    'milestone_approved',
-                    "Technical Log '{$milestone->title}' automatically verified on Design Integration Approval."
-                );
+                if (!empty($documentUpserts)) {
+                    ProjectDocument::insert($documentUpserts);
+                }
+
+                // 4. Log milestone approvals in bulk
+                $milestoneLogs = [];
+                foreach ($milestones as $milestone) {
+                    $milestoneLogs[] = [
+                        'project_id' => $project->id,
+                        'user_id' => Auth::id(),
+                        'action' => 'milestone_approved',
+                        'details' => "Technical Log '{$milestone->title}' automatically verified on Design Integration Approval.",
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
+                }
+                if (!empty($milestoneLogs)) {
+                    ProjectActivityLog::insert($milestoneLogs);
+                }
             }
 
             $target = $v['role_type'] === 'structural' ? $project->structuralEngineer?->user_id : ($v['role_type'] === 'mep' ? $project->mepEngineer?->user_id : $project->interior?->user_id);

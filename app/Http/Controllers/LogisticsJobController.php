@@ -53,6 +53,8 @@ class LogisticsJobController extends Controller
 
             DB::commit();
 
+            \Illuminate\Support\Facades\Cache::forget("logistics_stats_{$user->id}");
+
             return response()->json(['success' => true, 'message' => 'Job accepted successfully.']);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -68,10 +70,19 @@ class LogisticsJobController extends Controller
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        $available = DB::table('delivery_jobs')->where('status', 'pending')->count();
-        $accepted = DB::table('delivery_jobs')->where('logistics_id', $user->id)->where('status', 'accepted')->count();
-        $completed = DB::table('delivery_jobs')->where('logistics_id', $user->id)->whereIn('status', ['delivered', 'completed'])->count();
-        $totalEarnings = DB::table('delivery_jobs')->where('logistics_id', $user->id)->whereIn('status', ['delivered', 'completed'])->sum('agreed_fee');
+        $stats = \Illuminate\Support\Facades\Cache::remember("logistics_stats_{$user->id}", 300, function() use ($user) {
+            $available = DB::table('delivery_jobs')->where('status', 'pending')->count();
+            $accepted = DB::table('delivery_jobs')->where('logistics_id', $user->id)->where('status', 'accepted')->count();
+            $completed = DB::table('delivery_jobs')->where('logistics_id', $user->id)->whereIn('status', ['delivered', 'completed'])->count();
+            $totalEarnings = DB::table('delivery_jobs')->where('logistics_id', $user->id)->whereIn('status', ['delivered', 'completed'])->sum('agreed_fee');
+
+            return [
+                'available' => $available,
+                'accepted' => $accepted,
+                'completed' => $completed,
+                'totalEarnings' => (float) $totalEarnings,
+            ];
+        });
 
         $recentJobs = DB::table('delivery_jobs')
             ->where(function ($q) use ($user) {
@@ -83,12 +94,7 @@ class LogisticsJobController extends Controller
 
         return response()->json([
             'success' => true,
-            'stats' => [
-                'available' => $available,
-                'accepted' => $accepted,
-                'completed' => $completed,
-                'totalEarnings' => (float) $totalEarnings,
-            ],
+            'stats' => $stats,
             'recentJobs' => $recentJobs,
         ]);
     }
@@ -159,6 +165,8 @@ class LogisticsJobController extends Controller
         }
 
         DB::table('delivery_jobs')->where('id', $id)->update($updateData);
+
+        \Illuminate\Support\Facades\Cache::forget("logistics_stats_{$user->id}");
 
         return response()->json([
             'success' => true,

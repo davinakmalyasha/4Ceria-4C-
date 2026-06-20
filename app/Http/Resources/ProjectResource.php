@@ -7,42 +7,82 @@ use Illuminate\Http\Resources\Json\JsonResource;
 
 class ProjectResource extends JsonResource
 {
+    private static $resolvedProfiles = null;
+
     public function toArray(Request $request): array
     {
         $user = auth('sanctum')->user();
-        if ($user) {
-            // \Illuminate\Support\Facades\Log::debug("ProjectResource check for User: {$user->id}, Role: {$user->role_type}");
+        if ($user && static::$resolvedProfiles === null) {
+            $user->loadMissing([
+                'arsitek',
+                'kontraktor',
+                'notaris_profile',
+                'interior_profile',
+                'structural_engineer',
+                'mep_engineer',
+                'project_manager'
+            ]);
+            
+            static::$resolvedProfiles = [
+                'arsitek_id' => $user->arsitek?->id,
+                'kontraktor_id' => $user->kontraktor?->id,
+                'notaris_id' => $user->notaris_profile?->id,
+                'interior_id' => $user->interior_profile?->id,
+                'structural_id' => $user->structural_engineer?->id,
+                'mep_id' => $user->mep_engineer?->id,
+                'pm_id' => $user->project_manager?->id,
+            ];
         }
+
+        $userArsitekId = static::$resolvedProfiles['arsitek_id'] ?? null;
+        $userKontraktorId = static::$resolvedProfiles['kontraktor_id'] ?? null;
+        $userNotarisId = static::$resolvedProfiles['notaris_id'] ?? null;
+        $userInteriorId = static::$resolvedProfiles['interior_id'] ?? null;
+        $userStructuralId = static::$resolvedProfiles['structural_id'] ?? null;
+        $userMepId = static::$resolvedProfiles['mep_id'] ?? null;
+        $userPmId = static::$resolvedProfiles['pm_id'] ?? null;
+
         $hasSubmittedBid = false;
 
         if ($user) {
             $role = $user->role_type;
             
             // Standard Profiles
-            if ($role === 'arsitek' && $user->arsitek) {
-                $hasSubmittedBid = $this->bidsArsitek()->where('arsitek_id', $user->arsitek->id)->where('status', '!=', 'invited')->exists();
-            } elseif ($role === 'kontraktor' && $user->kontraktor) {
-                $hasSubmittedBid = $this->bidsKontraktor()->where('kontraktor_id', $user->kontraktor->id)->where('status', '!=', 'invited')->exists();
-            } elseif ($role === 'notaris' && $user->notaris_profile) {
-                $hasSubmittedBid = $this->bidsNotaris()->where('notaris_id', $user->notaris_profile->id)->where('status', '!=', 'invited')->exists();
-            } elseif ($role === 'interior' && $user->interior_profile) {
-                $hasSubmittedBid = $this->bidsInterior()->where('interior_id', $user->interior_profile->id)->where('status', '!=', 'invited')->exists();
+            if ($role === 'arsitek' && $userArsitekId) {
+                $hasSubmittedBid = $this->relationLoaded('bidsArsitek')
+                    ? $this->bidsArsitek->where('status', '!=', 'invited')->isNotEmpty()
+                    : $this->bidsArsitek()->where('arsitek_id', $userArsitekId)->where('status', '!=', 'invited')->exists();
+            } elseif ($role === 'kontraktor' && $userKontraktorId) {
+                $hasSubmittedBid = $this->relationLoaded('bidsKontraktor')
+                    ? $this->bidsKontraktor->where('status', '!=', 'invited')->isNotEmpty()
+                    : $this->bidsKontraktor()->where('kontraktor_id', $userKontraktorId)->where('status', '!=', 'invited')->exists();
+            } elseif ($role === 'notaris' && $userNotarisId) {
+                $hasSubmittedBid = $this->relationLoaded('bidsNotaris')
+                    ? $this->bidsNotaris->where('status', '!=', 'invited')->isNotEmpty()
+                    : $this->bidsNotaris()->where('notaris_id', $userNotarisId)->where('status', '!=', 'invited')->exists();
+            } elseif ($role === 'interior' && $userInteriorId) {
+                $hasSubmittedBid = $this->relationLoaded('bidsInterior')
+                    ? $this->bidsInterior->where('status', '!=', 'invited')->isNotEmpty()
+                    : $this->bidsInterior()->where('interior_id', $userInteriorId)->where('status', '!=', 'invited')->exists();
             } 
             // Enterprise Profiles (PM, Structural, MEP)
             elseif ($role === 'project_manager') {
-                $pm = $user->project_manager ?: \App\Models\ProjectManager::where('user_id', $user->id)->first();
-                if ($pm) {
-                    $hasSubmittedBid = $this->bidsProjectManager()->where('pm_id', $pm->id)->where('status', '!=', 'invited')->exists();
+                if ($userPmId) {
+                    $hasSubmittedBid = $this->relationLoaded('bidsProjectManager')
+                        ? $this->bidsProjectManager->where('status', '!=', 'invited')->isNotEmpty()
+                        : $this->bidsProjectManager()->where('pm_id', $userPmId)->where('status', '!=', 'invited')->exists();
                 }
             } elseif ($role === 'structural') {
-                $se = $user->structural_engineer ?: \App\Models\StructuralEngineer::where('user_id', $user->id)->first();
-                if ($se) {
-                    $hasSubmittedBid = $this->bidsStructural()->where('structural_id', $se->id)->where('status', '!=', 'invited')->exists();
+                if ($userStructuralId) {
+                    $hasSubmittedBid = $this->relationLoaded('bidsStructural')
+                        ? $this->bidsStructural->where('status', '!=', 'invited')->isNotEmpty()
+                        : $this->bidsStructural()->where('structural_id', $userStructuralId)->where('status', '!=', 'invited')->exists();
                 }
             } elseif ($role === 'mep') {
-                $me = $user->mep_engineer ?: \App\Models\MepEngineer::where('user_id', $user->id)->first();
-                if ($me) {
-                    $hasSubmittedBid = $this->bidsMep()->where('mep_id', $me->id)->where('status', '!=', 'invited')->exists();
+                if ($userMepId) {
+                    $hasSubmittedBid = $this->relationLoaded('bidsMep')
+                        ? $this->bidsMep->where('status', '!=', 'invited')->isNotEmpty()
+                        : $this->bidsMep()->where('mep_id', $userMepId)->where('status', '!=', 'invited')->exists();
                 }
             }
         }
@@ -53,19 +93,21 @@ class ProjectResource extends JsonResource
                 $canViewPhone = true;
             } elseif ($this->pm_id && $user->id === $this->pm_id) {
                 $canViewPhone = true;
-            } elseif ($this->selected_arsitek_id && $user->arsitek && $user->arsitek->id === $this->selected_arsitek_id) {
+            } elseif ($this->selected_arsitek_id && $userArsitekId === $this->selected_arsitek_id) {
                 $canViewPhone = true;
-            } elseif ($this->selected_kontraktor_id && $user->kontraktor && $user->kontraktor->id === $this->selected_kontraktor_id) {
+            } elseif ($this->selected_kontraktor_id && $userKontraktorId === $this->selected_kontraktor_id) {
                 $canViewPhone = true;
-            } elseif ($this->selected_notaris_id && $user->notaris_profile && $user->notaris_profile->id === $this->selected_notaris_id) {
+            } elseif ($this->selected_notaris_id && $userNotarisId === $this->selected_notaris_id) {
                 $canViewPhone = true;
-            } elseif ($this->selected_interior_id && $user->interior_profile && $user->interior_profile->id === $this->selected_interior_id) {
+            } elseif ($this->selected_interior_id && $userInteriorId === $this->selected_interior_id) {
                 $canViewPhone = true;
-            } elseif ($this->structural_id && $user->structural_engineer && $user->structural_engineer->id === $this->structural_id) {
+            } elseif ($this->structural_id && $userStructuralId === $this->structural_id) {
                 $canViewPhone = true;
-            } elseif ($this->mep_id && $user->mep_engineer && $user->mep_engineer->id === $this->mep_id) {
+            } elseif ($this->mep_id && $userMepId === $this->mep_id) {
                 $canViewPhone = true;
-            } elseif ($this->subProfessionals()->where('user_id', $user->id)->where('status', 'active')->exists()) {
+            } elseif ($this->relationLoaded('subProfessionals')
+                ? $this->subProfessionals->where('user_id', $user->id)->where('status', 'active')->isNotEmpty()
+                : $this->subProfessionals()->where('user_id', $user->id)->where('status', 'active')->exists()) {
                 $canViewPhone = true;
             }
         }
@@ -77,14 +119,14 @@ class ProjectResource extends JsonResource
             'description' => $this->description,
             'budget' => $this->budget,
             'location' => $this->lokasi,
-            'latitude' => $this->latitude,
-            'longitude' => $this->longitude,
+            'latitude' => $canViewPhone ? $this->latitude : null,
+            'longitude' => $canViewPhone ? $this->longitude : null,
             'province' => $this->province,
             'city' => $this->city,
             'kecamatan' => $this->kecamatan,
-            'kelurahan' => $this->kelurahan,
-            'postal_code' => $this->postal_code,
-            'street_name' => $this->street_name,
+            'kelurahan' => $canViewPhone ? $this->kelurahan : null,
+            'postal_code' => $canViewPhone ? $this->postal_code : null,
+            'street_name' => $canViewPhone ? $this->street_name : null,
             'type' => $this->jenis_proyek,
             'target_role' => $this->target_role,
             'status' => $this->status,
@@ -96,7 +138,7 @@ class ProjectResource extends JsonResource
             'owner' => $this->user ? [
                 'id' => $this->user->id,
                 'name' => $this->user->name,
-                'phone' => $canViewPhone ? ($this->user->phone_number ?? $this->user->phone ?? ($this->user->phoneNumber->first()?->contact)) : null,
+                'phone' => $canViewPhone ? ($this->user->phone_number ?? $this->user->phone ?? ($this->user->relationLoaded('phoneNumber') ? $this->user->phoneNumber->first()?->contact : null)) : null,
             ] : null,
             'selected_arsitek_id' => $this->selected_arsitek_id,
             'selected_kontraktor_id' => $this->selected_kontraktor_id,
@@ -139,12 +181,14 @@ class ProjectResource extends JsonResource
             'owner_legal_approved_at' => $this->owner_legal_approved_at,
             'warranty_start_at' => $this->warranty_start_at,
             'warranty_end_at' => $this->warranty_end_at,
-            'retention_balance' => (float) $this->paymentTermins()->where('role_type', 'kontraktor')->sum('retention_amount'),
+            'retention_balance' => $this->relationLoaded('paymentTermins')
+                ? (float) $this->paymentTermins->where('role_type', 'kontraktor')->sum('retention_amount')
+                : 0.0,
             'snag_counts' => [
-                'open' => $this->snagItems()->where('status', 'open')->count(),
-                'in_progress' => $this->snagItems()->where('status', 'in_progress')->count(),
-                'resolved' => $this->snagItems()->where('status', 'resolved')->count(),
-                'accepted' => $this->snagItems()->where('status', 'accepted')->count(),
+                'open' => $this->relationLoaded('snagItems') ? $this->snagItems->where('status', 'open')->count() : 0,
+                'in_progress' => $this->relationLoaded('snagItems') ? $this->snagItems->where('status', 'in_progress')->count() : 0,
+                'resolved' => $this->relationLoaded('snagItems') ? $this->snagItems->where('status', 'resolved')->count() : 0,
+                'accepted' => $this->relationLoaded('snagItems') ? $this->snagItems->where('status', 'accepted')->count() : 0,
             ],
             'warranty_claims' => $this->whenLoaded('warrantyClaims', function() {
                 return $this->warrantyClaims->map(fn($c) => [
@@ -169,11 +213,25 @@ class ProjectResource extends JsonResource
                 ]);
             }),
             'change_order_summary' => [
-                'total_cost_impact' => (float) $this->changeOrders()->where('status', 'owner_approved')->sum('cost_impact'),
-                'pending_count' => $this->changeOrders()->whereNotIn('status', ['rejected', 'implemented'])->count(),
+                'total_cost_impact' => $this->relationLoaded('changeOrders')
+                    ? (float) $this->changeOrders->where('status', 'owner_approved')->sum('cost_impact')
+                    : 0.0,
+                'pending_count' => $this->relationLoaded('changeOrders')
+                    ? $this->changeOrders->whereNotIn('status', ['rejected', 'implemented'])->count()
+                    : 0,
             ],
-            'budget_summary' => $this->calculateBudgetSummary(),
-            'client_history' => $this->when(isset($this->client_history), $this->client_history),
+            'budget_summary' => ($request->route('project') || $request->routeIs('*.show'))
+                ? $this->calculateBudgetSummary()
+                : [
+                    'total' => (float) $this->budget,
+                    'allocated' => 0.0,
+                    'remaining' => (float) $this->budget,
+                    'percent_used' => 0.0
+                ],
+            'client_history' => $this->when(
+                array_key_exists('client_history', $this->resource->getAttributes()),
+                fn() => $this->client_history
+            ),
             'wants_project_manager' => (bool) $this->wants_project_manager,
             'requires_structural' => $this->requires_structural,
             'requires_mep' => $this->requires_mep,
@@ -195,9 +253,9 @@ class ProjectResource extends JsonResource
             'mep_id' => $this->mep_id,
             'is_structural_hired_4c' => (bool) $this->structural_id,
             'is_mep_hired_4c' => (bool) $this->mep_id,
-            'structural_profile' => $this->resolveSpecialistProfile('structural'),
-            'mep_profile' => $this->resolveSpecialistProfile('mep'),
-            'interior_profile' => $this->resolveSpecialistProfile('interior'),
+            'structural_profile' => $request->routeIs('*.show') ? $this->resolveSpecialistProfile('structural') : null,
+            'mep_profile' => $request->routeIs('*.show') ? $this->resolveSpecialistProfile('mep') : null,
+            'interior_profile' => $request->routeIs('*.show') ? $this->resolveSpecialistProfile('interior') : null,
             'structural_engineer' => $this->whenLoaded('structuralEngineer'),
             'mep_engineer' => $this->whenLoaded('mepEngineer'),
             'interior_engineer' => $this->whenLoaded('interior'),
@@ -229,15 +287,17 @@ class ProjectResource extends JsonResource
                     'created_at' => $doc->created_at,
                 ]);
             }),
-            'external_vendors' => $this->externalVendors->map(fn($v) => [
-                'id' => $v->id,
-                'phase_role' => $v->phase_role,
-                'company_name' => $v->company_name,
-                'contact_person' => $v->contact_person,
-                'phone_number' => $v->phone_number,
-                'email' => $v->email,
-                'agreed_fee' => $v->agreed_fee,
-            ]),
+            'external_vendors' => $this->whenLoaded('externalVendors', function () {
+                return $this->externalVendors->map(fn($v) => [
+                    'id' => $v->id,
+                    'phase_role' => $v->phase_role,
+                    'company_name' => $v->company_name,
+                    'contact_person' => $v->contact_person,
+                    'phone_number' => $v->phone_number,
+                    'email' => $v->email,
+                    'agreed_fee' => $v->agreed_fee,
+                ]);
+            }),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
             'bids_arsitek_count' => $this->bids_arsitek_count ?? 0,
@@ -341,14 +401,14 @@ class ProjectResource extends JsonResource
                         'pro_signature_url' => $this->resolveSignatureUrl('arsitek', $bid),
                         'client_signature_url' => $this->resolveSignatureUrl('arsitek', $bid, true),
                         'is_recommended' => (bool) $bid->is_recommended,
-                        'negotiation_logs' => $bid->negotiationLogs->map(fn($log) => [
+                        'negotiation_logs' => $bid->relationLoaded('negotiationLogs') ? $bid->negotiationLogs->map(fn($log) => [
                             'user_name' => $log->user->name,
                             'round_number' => $log->round_number,
                             'note' => $log->note,
                             'changes' => $log->changes_detected,
                             'created_at' => $log->created_at,
-                        ]),
-                        'bidder' => $bid->arsitek ? [
+                        ]) : [],
+                        'bidder' => $bid->relationLoaded('arsitek') && $bid->arsitek ? [
                             'id' => $bid->arsitek->id,
                             'name' => $bid->arsitek->nama ?? $bid->arsitek->user->name,
                             'phone' => $bid->arsitek->no_telp ?? $bid->arsitek->user->phoneNumber->first()?->contact,
@@ -405,19 +465,19 @@ class ProjectResource extends JsonResource
                         'pro_signature_url' => $this->resolveSignatureUrl('kontraktor', $bid),
                         'client_signature_url' => $this->resolveSignatureUrl('kontraktor', $bid, true),
                         'is_recommended' => (bool) $bid->is_recommended,
-                        'negotiation_logs' => $bid->negotiationLogs->map(fn($log) => [
+                        'negotiation_logs' => $bid->relationLoaded('negotiationLogs') ? $bid->negotiationLogs->map(fn($log) => [
                             'user_name' => $log->user->name,
                             'round_number' => $log->round_number,
                             'note' => $log->note,
                             'changes' => $log->changes_detected,
                             'created_at' => $log->created_at,
-                        ]),
+                        ]) : [],
                         'kontraktor_id' => $bid->kontraktor_id,
-                        'bidder' => $bid->kontraktor ? [
+                        'bidder' => $bid->relationLoaded('kontraktor') && $bid->kontraktor ? [
                             'id' => $bid->kontraktor->id,
                             'name' => $bid->kontraktor->nama ?? $bid->kontraktor->user->name,
-                            'phone' => $bid->kontraktor->no_telp ?? $bid->kontraktor->user->phoneNumber->first()?->contact,
-                            'location' => $bid->kontraktor->lokasi,
+                            'phone' => $bid->kontraktor->no_telepon ?? $bid->kontraktor->user->phoneNumber->first()?->contact,
+                            'location' => $bid->kontraktor->alamat,
                             'average_rating' => $bid->kontraktor->average_rating,
                             'review_count' => $bid->kontraktor->review_count,
                             'user' => [
@@ -460,15 +520,15 @@ class ProjectResource extends JsonResource
                         'pro_signature_url' => $this->resolveSignatureUrl('notaris', $bid),
                         'client_signature_url' => $this->resolveSignatureUrl('notaris', $bid, true),
                         'is_recommended' => (bool) $bid->is_recommended,
-                        'negotiation_logs' => $bid->negotiationLogs->map(fn($log) => [
+                        'negotiation_logs' => $bid->relationLoaded('negotiationLogs') ? $bid->negotiationLogs->map(fn($log) => [
                             'user_name' => $log->user->name,
                             'round_number' => $log->round_number,
                             'note' => $log->note,
                             'changes' => $log->changes_detected,
                             'created_at' => $log->created_at,
-                        ]),
+                        ]) : [],
                         'notaris_id' => $bid->notaris_id,
-                        'bidder' => $bid->notaris ? [
+                        'bidder' => $bid->relationLoaded('notaris') && $bid->notaris ? [
                             'id' => $bid->notaris->id,
                             'name' => $bid->notaris->nama ?? $bid->notaris->user->name,
                             'phone' => $bid->notaris->no_telp ?? $bid->notaris->user->phoneNumber->first()?->contact,
@@ -516,15 +576,15 @@ class ProjectResource extends JsonResource
                         'pro_signature_url' => $this->resolveSignatureUrl('interior', $bid),
                         'client_signature_url' => $this->resolveSignatureUrl('interior', $bid, true),
                         'is_recommended' => (bool) $bid->is_recommended,
-                        'negotiation_logs' => $bid->negotiationLogs->map(fn($log) => [
+                        'negotiation_logs' => $bid->relationLoaded('negotiationLogs') ? $bid->negotiationLogs->map(fn($log) => [
                             'user_name' => $log->user->name,
                             'round_number' => $log->round_number,
                             'note' => $log->note,
                             'changes' => $log->changes_detected,
                             'created_at' => $log->created_at,
-                        ]),
+                        ]) : [],
                         'interior_id' => $bid->interior_id,
-                        'bidder' => $bid->interior ? [
+                        'bidder' => $bid->relationLoaded('interior') && $bid->interior ? [
                             'id' => $bid->interior->id,
                             'name' => $bid->interior->nama ?? $bid->interior->user->name,
                             'phone' => $bid->interior->no_telp ?? $bid->interior->user->phoneNumber->first()?->contact,
@@ -565,19 +625,19 @@ class ProjectResource extends JsonResource
                         'proposed_milestones' => $bid->proposed_milestones,
                         'pro_signature_url' => $this->resolveSignatureUrl('project_manager', $bid),
                         'client_signature_url' => $this->resolveSignatureUrl('project_manager', $bid, true),
-                        'negotiation_logs' => $bid->negotiationLogs->map(fn($log) => [
+                        'negotiation_logs' => $bid->relationLoaded('negotiationLogs') ? $bid->negotiationLogs->map(fn($log) => [
                             'user_name' => $log->user->name,
                             'round_number' => $log->round_number,
                             'note' => $log->note,
                             'changes' => $log->changes_detected,
                             'created_at' => $log->created_at,
-                        ]),
+                        ]) : [],
                         'proposal' => $bid->proposal,
                         'attachment_1' => $this->resolveStorageUrl($bid->attachment_1),
                         'attachment_2' => $this->resolveStorageUrl($bid->attachment_2),
                         'attachment_3' => $this->resolveStorageUrl($bid->attachment_3),
                         'created_at' => $bid->created_at,
-                        'bidder' => $bid->pm ? [
+                        'bidder' => $bid->relationLoaded('pm') && $bid->pm ? [
                             'id' => $bid->pm->id,
                             'name' => $bid->pm->nama ?? $bid->pm->user?->name ?? 'Unknown PM',
                             'verification_status' => $bid->pm->verification_status,
@@ -771,18 +831,18 @@ class ProjectResource extends JsonResource
                         'proposed_milestones' => $bid->proposed_milestones,
                         'pro_signature_url' => $this->resolveSignatureUrl('structural', $bid),
                         'client_signature_url' => $this->resolveSignatureUrl('structural', $bid, true),
-                        'negotiation_logs' => $bid->negotiationLogs->map(fn($log) => [
+                        'negotiation_logs' => $bid->relationLoaded('negotiationLogs') ? $bid->negotiationLogs->map(fn($log) => [
                             'user_name' => $log->user->name,
                             'round_number' => $log->round_number,
                             'note' => $log->note,
                             'changes' => $log->changes_detected,
                             'created_at' => $log->created_at,
-                        ]),
+                        ]) : [],
                         'fee_type' => $bid->fee_type,
                         'calculated_total' => $bid->calculated_total,
                         'is_recommended' => (bool) $bid->is_recommended,
                         'interview_notes' => $bid->interview_notes,
-                        'bidder' => $bid->structuralEngineer ? [
+                        'bidder' => $bid->relationLoaded('structuralEngineer') && $bid->structuralEngineer ? [
                             'id' => $bid->structuralEngineer->id,
                             'name' => $bid->structuralEngineer->nama ?? $bid->structuralEngineer->user->name,
                             'phone' => $bid->structuralEngineer->no_telp ?? $bid->structuralEngineer->user->phoneNumber->first()?->contact,
@@ -841,18 +901,18 @@ class ProjectResource extends JsonResource
                         'proposed_milestones' => $bid->proposed_milestones,
                         'pro_signature_url' => $this->resolveSignatureUrl('mep', $bid),
                         'client_signature_url' => $this->resolveSignatureUrl('mep', $bid, true),
-                        'negotiation_logs' => $bid->negotiationLogs->map(fn($log) => [
+                        'negotiation_logs' => $bid->relationLoaded('negotiationLogs') ? $bid->negotiationLogs->map(fn($log) => [
                             'user_name' => $log->user->name,
                             'round_number' => $log->round_number,
                             'note' => $log->note,
                             'changes' => $log->changes_detected,
                             'created_at' => $log->created_at,
-                        ]),
+                        ]) : [],
                         'fee_type' => $bid->fee_type,
                         'calculated_total' => $bid->calculated_total,
                         'is_recommended' => (bool) $bid->is_recommended,
                         'interview_notes' => $bid->interview_notes,
-                        'bidder' => $bid->mepEngineer ? [
+                        'bidder' => $bid->relationLoaded('mepEngineer') && $bid->mepEngineer ? [
                             'id' => $bid->mepEngineer->id,
                             'name' => $bid->mepEngineer->nama ?? $bid->mepEngineer->user->name,
                             'phone' => $bid->mepEngineer->no_telp ?? $bid->mepEngineer->user->phoneNumber->first()?->contact,
@@ -1003,29 +1063,31 @@ class ProjectResource extends JsonResource
                     'duration_unit' => $bid->duration_unit,
                 ];
             }),
-            'payment_termins' => $this->paymentTermins->map(fn($t) => [
-                'id' => $t->id,
-                'label' => $t->label,
-                'percentage' => $t->percentage,
-                'amount' => $t->amount,
-                'notes' => $t->notes,
-                'status' => $t->status,
-                'milestone_id' => $t->milestone_id,
-                'milestone_title' => $t->milestone?->title,
-                'milestone' => $t->milestone ? [
-                    'id' => $t->milestone->id,
-                    'title' => $t->milestone->title,
-                    'approval_status' => $t->milestone->approval_status,
-                ] : null,
-                'proposal' => $t->trigger_description,
-                'role_type' => $t->role_type,
-                'recipient_id' => $t->recipient_id,
-                'retention_amount' => (float) $t->retention_amount,
-                'net_amount' => (float) $t->net_amount,
-                'paid_at' => $t->paid_at,
-                'payment_proof_path' => $this->resolveStorageUrl($t->payment_proof_path),
-                'verification_notes' => $t->verification_notes,
-            ]),
+            'payment_termins' => $this->whenLoaded('paymentTermins', function () {
+                return $this->paymentTermins->map(fn($t) => [
+                    'id' => $t->id,
+                    'label' => $t->label,
+                    'percentage' => $t->percentage,
+                    'amount' => $t->amount,
+                    'notes' => $t->notes,
+                    'status' => $t->status,
+                    'milestone_id' => $t->milestone_id,
+                    'milestone_title' => $t->milestone?->title,
+                    'milestone' => $t->milestone ? [
+                        'id' => $t->milestone->id,
+                        'title' => $t->milestone->title,
+                        'approval_status' => $t->milestone->approval_status,
+                    ] : null,
+                    'proposal' => $t->trigger_description,
+                    'role_type' => $t->role_type,
+                    'recipient_id' => $t->recipient_id,
+                    'retention_amount' => (float) $t->retention_amount,
+                    'net_amount' => (float) $t->net_amount,
+                    'paid_at' => $t->paid_at,
+                    'payment_proof_path' => $this->resolveStorageUrl($t->payment_proof_path),
+                    'verification_notes' => $t->verification_notes,
+                ]);
+            }),
             'activity_logs' => $this->whenLoaded('activityLogs', function() {
                 return $this->activityLogs->map(fn($log) => [
                     'id' => $log->id,
@@ -1034,30 +1096,32 @@ class ProjectResource extends JsonResource
                     'created_at' => $log->created_at,
                 ]);
             }),
-            'sub_professionals' => $this->subProfessionals ? $this->subProfessionals->map(fn($sp) => [
-                'id' => $sp->id,
-                'user_id' => $sp->user_id,
-                'parent_role' => $sp->parent_role,
-                'sub_role' => $sp->sub_role,
-                'assigned_by' => $sp->assigned_by,
-                'status' => $sp->status,
-                'rate' => $sp->rate,
-                'scope_notes' => $sp->scope_notes,
-                'lead_pro_notes' => $sp->lead_pro_notes,
-                'suggested_fee' => $sp->suggested_fee,
-                'accepted_at' => $sp->accepted_at,
-                'recommended_at' => $sp->recommended_at,
-                'hired_at' => $sp->hired_at,
-                'completed_at' => $sp->completed_at,
-                'user' => $sp->user ? [
-                    'id' => $sp->user->id,
-                    'name' => $sp->user->name,
-                    'email' => $sp->user->email,
-                    'role_type' => $sp->user->role_type,
-                    'pic' => $sp->user->pic,
-                    'phone_number' => $sp->user->phone_number ?? $sp->user->phone ?? ($sp->user->phoneNumber->first()?->contact) ?? '',
-                ] : null,
-            ]) : [],
+            'sub_professionals' => $this->whenLoaded('subProfessionals', function () {
+                return $this->subProfessionals->map(fn($sp) => [
+                    'id' => $sp->id,
+                    'user_id' => $sp->user_id,
+                    'parent_role' => $sp->parent_role,
+                    'sub_role' => $sp->sub_role,
+                    'assigned_by' => $sp->assigned_by,
+                    'status' => $sp->status,
+                    'rate' => $sp->rate,
+                    'scope_notes' => $sp->scope_notes,
+                    'lead_pro_notes' => $sp->lead_pro_notes,
+                    'suggested_fee' => $sp->suggested_fee,
+                    'accepted_at' => $sp->accepted_at,
+                    'recommended_at' => $sp->recommended_at,
+                    'hired_at' => $sp->hired_at,
+                    'completed_at' => $sp->completed_at,
+                    'user' => $sp->user ? [
+                        'id' => $sp->user->id,
+                        'name' => $sp->user->name,
+                        'email' => $sp->user->email,
+                        'role_type' => $sp->user->role_type,
+                        'pic' => $sp->user->pic,
+                        'phone_number' => $sp->user->phone_number ?? $sp->user->phone ?? ($sp->user->relationLoaded('phoneNumber') ? $sp->user->phoneNumber->first()?->contact : null) ?? '',
+                    ] : null,
+                ]);
+            }),
         ];
     }
     /**
@@ -1133,29 +1197,31 @@ class ProjectResource extends JsonResource
 
     private function resolveSignatureUrl(string $roleType, $bid, bool $isClient = false): ?string
     {
-        $suffix = $isClient ? '_client' : '';
+        $status = $bid instanceof \Illuminate\Database\Eloquent\Model ? $bid->status : null;
+        if (!$status) {
+            return null;
+        }
+
+        // Professional signature is only available if status is contract_pending, awaiting_payment, or accepted
+        // Client signature is only available if status is awaiting_payment or accepted
+        if ($isClient) {
+            if (!in_array($status, ['awaiting_payment', 'accepted'])) {
+                return null;
+            }
+        } else {
+            if (!in_array($status, ['contract_pending', 'awaiting_payment', 'accepted'])) {
+                return null;
+            }
+        }
+
         $bidId = $bid instanceof \Illuminate\Database\Eloquent\Model ? $bid->id : $bid;
         $createdAt = $bid instanceof \Illuminate\Database\Eloquent\Model ? $bid->created_at?->timestamp : null;
         $timestamp = $createdAt ?: time();
+        $suffix = $isClient ? '_client' : '';
+        $clientSuffixPath = $isClient ? '/client' : '';
         
-        $projectId = $bid instanceof \Illuminate\Database\Eloquent\Model ? $bid->project_id : null;
-        if ($projectId) {
-            $newPath = "contracts/project_{$projectId}/signatures/signature_{$roleType}_{$bidId}_{$timestamp}{$suffix}.png";
-            $legacyPath = "signatures/signature_{$roleType}_{$bidId}_{$timestamp}{$suffix}.png";
-            
-            $exists = \Illuminate\Support\Facades\Storage::disk('supabase')->exists($newPath) ||
-                      \Illuminate\Support\Facades\Storage::disk('public')->exists($newPath) ||
-                      \Illuminate\Support\Facades\Storage::disk('supabase')->exists($legacyPath) ||
-                      \Illuminate\Support\Facades\Storage::disk('public')->exists($legacyPath);
-                      
-            if ($exists) {
-                $clientSuffixPath = $isClient ? '/client' : '';
-                $token = hash_hmac('sha256', "{$roleType}_{$bidId}_{$timestamp}{$suffix}", config('app.key'));
-                return url("/api/contract-signatures/{$roleType}/{$bidId}/{$timestamp}{$clientSuffixPath}?token={$token}");
-            }
-        }
-        
-        return null;
+        $token = hash_hmac('sha256', "{$roleType}_{$bidId}_{$timestamp}{$suffix}", config('app.key'));
+        return url("/api/contract-signatures/{$roleType}/{$bidId}/{$timestamp}{$clientSuffixPath}?token={$token}");
     }
 
     private function resolveStorageUrl(?string $path): ?string
@@ -1163,6 +1229,14 @@ class ProjectResource extends JsonResource
         if (!$path) {
             return null;
         }
+
+        // 1. Static runtime memory cache
+        static $resolvedUrls = [];
+        if (isset($resolvedUrls[$path])) {
+            return $resolvedUrls[$path];
+        }
+
+        $originalPath = $path;
 
         // Extract relative path if it's a URL pointing to our local storage or S3 bucket
         $s3Prefix = 'https://t3.storageapi.dev/fourc-storage-fneicjrzkq3/';
@@ -1175,14 +1249,21 @@ class ProjectResource extends JsonResource
             $path = end($parts);
         } elseif (filter_var($path, FILTER_VALIDATE_URL)) {
             // External URLs (like Unsplash, mockups, etc.) should be returned as-is
+            $resolvedUrls[$originalPath] = $path;
             return $path;
         }
 
-        try {
-            return \Illuminate\Support\Facades\Storage::disk('public')->temporaryUrl($path, now()->addHours(24));
-        } catch (\Throwable $e) {
-            return \Illuminate\Support\Facades\Storage::disk('public')->url($path);
+        // 2. Direct public URL generation (0ms concatenation)
+        $driver = config('filesystems.disks.public.driver', 'local');
+        if ($driver === 's3') {
+            $publicUrl = config('filesystems.disks.public.url');
+            $url = rtrim($publicUrl, '/') . '/' . ltrim($path, '/');
+        } else {
+            $url = asset('storage/' . $path);
         }
+
+        $resolvedUrls[$originalPath] = $url;
+        return $url;
     }
 
     private function resolveDesignDetailsUrls($details): ?array

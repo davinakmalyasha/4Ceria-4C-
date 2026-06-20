@@ -37,7 +37,8 @@ class ProjectBudgetController extends Controller
                 'bidsNotaris' => fn($q) => $q->where('status', 'accepted')->with('notaris.user'),
                 'bidsInterior' => fn($q) => $q->where('status', 'accepted')->with('interior.user'),
                 'paymentTermins',
-                'projectManager.user'
+                'projectManager.user',
+                'bidsProjectManager' => fn($q) => $q->whereIn('status', ['accepted', 'active', 'awaiting_payment'])
             ]);
 
             Log::info('Budget Dashboard Loaded', [
@@ -46,7 +47,7 @@ class ProjectBudgetController extends Controller
                 'transaction_count' => $project->budgetTransactions->count()
             ]);
 
-            $pmBid = $project->pm_id ? $project->bidsProjectManager()->whereIn('status', ['accepted', 'active', 'awaiting_payment'])->first() : null;
+            $pmBid = $project->pm_id ? $project->bidsProjectManager->first() : null;
 
             return response()->json([
                 'project_budget' => (string) $project->budget,

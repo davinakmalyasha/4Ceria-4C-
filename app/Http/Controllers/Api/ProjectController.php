@@ -34,35 +34,74 @@ class ProjectController extends Controller
     {
         $user = Auth::guard('sanctum')->user();
 
-        $query = Project::with([
+        $relations = [
             'images',
             'milestones',
-            'requirements',
-            'user',
-            'arsitek.user.phoneNumber',
-            'kontraktor.user.phoneNumber',
-            'notaris.user.phoneNumber',
-            'interior.user.phoneNumber',
-            'projectManager.user',
-            'addendums',
-            'documents.uploader',
-            'paymentTermins',
-            'subProfessionals.user',
-            'structuralEngineer.user',
-            'mepEngineer.user',
-            'comments.user'
-        ])
+            'user.phoneNumber',
+        ];
+
+        if ($user) {
+            $role = $user->role_type;
+            if ($role === 'arsitek' && $user->arsitek) {
+                $relations['bidsArsitek'] = function ($q) use ($user) {
+                    $q->where('arsitek_id', $user->arsitek->id)
+                      ->with('arsitek.user.phoneNumber');
+                };
+            } elseif ($role === 'kontraktor' && $user->kontraktor) {
+                $relations['bidsKontraktor'] = function ($q) use ($user) {
+                    $q->where('kontraktor_id', $user->kontraktor->id)
+                      ->with('kontraktor.user.phoneNumber');
+                };
+            } elseif ($role === 'notaris' && $user->notaris_profile) {
+                $relations['bidsNotaris'] = function ($q) use ($user) {
+                    $q->where('notaris_id', $user->notaris_profile->id)
+                      ->with(['notaris.user.phoneNumber', 'notaris.services']);
+                };
+            } elseif ($role === 'interior' && $user->interior_profile) {
+                $relations['bidsInterior'] = function ($q) use ($user) {
+                    $q->where('interior_id', $user->interior_profile->id)
+                      ->with('interior.user.phoneNumber');
+                };
+            } elseif ($role === 'project_manager') {
+                $pm = $user->project_manager ?: \App\Models\ProjectManager::where('user_id', $user->id)->first();
+                if ($pm) {
+                    $relations['bidsProjectManager'] = function ($q) use ($pm) {
+                        $q->where('pm_id', $pm->id)
+                          ->with('pm.user.phoneNumber');
+                    };
+                }
+            } elseif ($role === 'structural') {
+                $se = $user->structural_engineer ?: \App\Models\StructuralEngineer::where('user_id', $user->id)->first();
+                if ($se) {
+                    $relations['bidsStructural'] = function ($q) use ($se) {
+                        $q->where('structural_id', $se->id)
+                          ->with('structuralEngineer.user.phoneNumber');
+                    };
+                }
+            } elseif ($role === 'mep') {
+                $me = $user->mep_engineer ?: \App\Models\MepEngineer::where('user_id', $user->id)->first();
+                if ($me) {
+                    $relations['bidsMep'] = function ($q) use ($me) {
+                        $q->where('mep_id', $me->id)
+                          ->with('mepEngineer.user.phoneNumber');
+                    };
+                }
+            }
+        }
+
+        $query = Project::with($relations)
             ->withCount(['bidsArsitek', 'bidsKontraktor', 'bidsNotaris', 'bidsInterior', 'bidsProjectManager', 'bidsStructural', 'bidsMep']);
 
         if ($request->query('with_bids') === 'true') {
             $query->with([
-                'bidsArsitek.arsitek.user',
-                'bidsKontraktor.kontraktor.user',
-                'bidsNotaris.notaris.user',
-                'bidsInterior.interior.user',
-                'bidsProjectManager.pm.user',
-                'bidsStructural.structuralEngineer.user',
-                'bidsMep.mepEngineer.user',
+                'bidsArsitek.arsitek.user.phoneNumber',
+                'bidsKontraktor.kontraktor.user.phoneNumber',
+                'bidsNotaris.notaris.user.phoneNumber',
+                'bidsNotaris.notaris.services',
+                'bidsInterior.interior.user.phoneNumber',
+                'bidsProjectManager.pm.user.phoneNumber',
+                'bidsStructural.structuralEngineer.user.phoneNumber',
+                'bidsMep.mepEngineer.user.phoneNumber',
             ]);
         }
 
@@ -357,6 +396,10 @@ class ProjectController extends Controller
             return new ProjectResource($project);
         } catch (\Exception $e) {
             DB::rollBack();
+            \Illuminate\Support\Facades\Log::error('Project publish failed: ' . $e->getMessage(), [
+                'exception' => $e,
+                'trace' => $e->getTraceAsString(),
+            ]);
             return response()->json([
                 'message' => 'Failed to publish project.',
                 'error' => $e->getMessage()
@@ -366,17 +409,181 @@ class ProjectController extends Controller
 
     public function show(Project $project)
     {
-        $project->load([
+        $user = Auth::guard('sanctum')->user();
+        
+        $relations = [
             // Hired Professionals
-            'arsitek.user.phoneNumber', 'arsitek.ratings',
-            'kontraktor.user.phoneNumber', 'kontraktor.ratings',
-            'notaris.user.phoneNumber', 'notaris.services', 'notaris.ratings',
-            'interior.user.phoneNumber', 'interior.ratings',
+            'arsitek' => function ($q) {
+                $q->withAvg('ratings', 'rating')->withCount('ratings')->with('user.phoneNumber');
+            },
+            'kontraktor' => function ($q) {
+                $q->withAvg('ratings', 'rating')->withCount('ratings')->with('user.phoneNumber');
+            },
+            'notaris' => function ($q) {
+                $q->withAvg('ratings', 'rating')->withCount('ratings')->with(['user.phoneNumber', 'services']);
+            },
+            'interior' => function ($q) {
+                $q->withAvg('ratings', 'rating')->withCount('ratings')->with('user.phoneNumber');
+            },
             'structuralEngineer.user.phoneNumber',
             'mepEngineer.user.phoneNumber',
-            'projectManager.user.phoneNumber', 'projectManager.ratings',
+            'projectManager' => function ($q) {
+                $q->withAvg('ratings', 'rating')->withCount('ratings')->with('user.phoneNumber');
+            },
 
-            // Bids & Negotiation Logs
+            // Core Project Relations
+            'images',
+            'user.phoneNumber',
+            'ratings',
+            'kontraktorRating',
+            'requirements',
+            'addendums.teamMember',
+            'addendums.assignedUser.phoneNumber',
+            'subProfessionals.user.phoneNumber',
+            'subProfessionals.assignedByUser',
+        ];
+
+        // Zero-trust: Eager load only the authenticated professional's own bid
+        if ($user) {
+            $role = $user->role_type;
+            if ($role === 'arsitek' && $user->arsitek) {
+                $relations['bidsArsitek'] = function ($q) use ($user) {
+                    $q->where('arsitek_id', $user->arsitek->id)
+                      ->with([
+                          'negotiationLogs.user',
+                          'arsitek.user.phoneNumber',
+                          'arsitek.ratings'
+                      ]);
+                };
+            } elseif ($role === 'kontraktor' && $user->kontraktor) {
+                $relations['bidsKontraktor'] = function ($q) use ($user) {
+                    $q->where('kontraktor_id', $user->kontraktor->id)
+                      ->with([
+                          'negotiationLogs.user',
+                          'kontraktor.user.phoneNumber',
+                          'kontraktor.ratings'
+                      ]);
+                };
+            } elseif ($role === 'notaris' && $user->notaris_profile) {
+                $relations['bidsNotaris'] = function ($q) use ($user) {
+                    $q->where('notaris_id', $user->notaris_profile->id)
+                      ->with([
+                          'negotiationLogs.user',
+                          'notaris.user.phoneNumber',
+                          'notaris.services',
+                          'notaris.ratings'
+                      ]);
+                };
+            } elseif ($role === 'interior' && $user->interior_profile) {
+                $relations['bidsInterior'] = function ($q) use ($user) {
+                    $q->where('interior_id', $user->interior_profile->id)
+                      ->with([
+                          'negotiationLogs.user',
+                          'interior.interior.user.phoneNumber',
+                          'interior.interior.ratings'
+                      ]);
+                };
+            } elseif ($role === 'project_manager') {
+                $pm = $user->project_manager ?: \App\Models\ProjectManager::where('user_id', $user->id)->first();
+                if ($pm) {
+                    $relations['bidsProjectManager'] = function ($q) use ($pm) {
+                        $q->where('pm_id', $pm->id)
+                          ->with([
+                              'negotiationLogs.user',
+                              'pm.user.phoneNumber',
+                              'pm.ratings'
+                          ]);
+                    };
+                }
+            } elseif ($role === 'structural') {
+                $se = $user->structural_engineer ?: \App\Models\StructuralEngineer::where('user_id', $user->id)->first();
+                if ($se) {
+                    $relations['bidsStructural'] = function ($q) use ($se) {
+                        $q->where('structural_id', $se->id)
+                          ->with([
+                              'negotiationLogs.user',
+                              'structuralEngineer.user.phoneNumber'
+                          ]);
+                    };
+                }
+            } elseif ($role === 'mep') {
+                $me = $user->mep_engineer ?: \App\Models\MepEngineer::where('user_id', $user->id)->first();
+                if ($me) {
+                    $relations['bidsMep'] = function ($q) use ($me) {
+                        $q->where('mep_id', $me->id)
+                          ->with([
+                              'negotiationLogs.user',
+                              'mepEngineer.user.phoneNumber'
+                          ]);
+                    };
+                }
+            }
+        }
+
+        $project->load($relations)->loadCount([
+            'bidsArsitek', 'bidsKontraktor', 'bidsNotaris', 'bidsInterior', 
+            'bidsProjectManager', 'bidsStructural', 'bidsMep'
+        ]);
+
+        $this->attachClientHistory($project);
+
+        return new ProjectResource($project);
+    }
+
+    public function getBids(Project $project)
+    {
+        $user = Auth::guard('sanctum')->user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthenticated.'], 401);
+        }
+
+        // Strict Authorization check (Global Rule 1)
+        $isOwner = $project->user_id === $user->id;
+        $isPM = $project->pm_id === $user->id;
+        
+        $isHired = false;
+        $hasBid = false;
+
+        if (!$isOwner && !$isPM) {
+            $role = $user->role_type;
+            if ($role === 'arsitek' && $user->arsitek) {
+                $isHired = $project->selected_arsitek_id === $user->arsitek->id;
+                $hasBid = $project->bidsArsitek()->where('arsitek_id', $user->arsitek->id)->exists();
+            } elseif ($role === 'kontraktor' && $user->kontraktor) {
+                $isHired = $project->selected_kontraktor_id === $user->kontraktor->id;
+                $hasBid = $project->bidsKontraktor()->where('kontraktor_id', $user->kontraktor->id)->exists();
+            } elseif ($role === 'notaris' && $user->notaris_profile) {
+                $isHired = $project->selected_notaris_id === $user->notaris_profile->id;
+                $hasBid = $project->bidsNotaris()->where('notaris_id', $user->notaris_profile->id)->exists();
+            } elseif ($role === 'interior' && $user->interior_profile) {
+                $isHired = $project->selected_interior_id === $user->interior_profile->id;
+                $hasBid = $project->bidsInterior()->where('interior_id', $user->interior_profile->id)->exists();
+            } elseif ($role === 'project_manager') {
+                $pm = $user->project_manager ?: \App\Models\ProjectManager::where('user_id', $user->id)->first();
+                if ($pm) {
+                    $isHired = $project->pm_id === $pm->id;
+                    $hasBid = $project->bidsProjectManager()->where('pm_id', $pm->id)->exists();
+                }
+            } elseif ($role === 'structural') {
+                $se = $user->structural_engineer ?: \App\Models\StructuralEngineer::where('user_id', $user->id)->first();
+                if ($se) {
+                    $isHired = $project->structural_id === $se->id;
+                    $hasBid = $project->bidsStructural()->where('structural_id', $se->id)->exists();
+                }
+            } elseif ($role === 'mep') {
+                $me = $user->mep_engineer ?: \App\Models\MepEngineer::where('user_id', $user->id)->first();
+                if ($me) {
+                    $isHired = $project->mep_id === $me->id;
+                    $hasBid = $project->bidsMep()->where('mep_id', $me->id)->exists();
+                }
+            }
+
+            if (!$isHired && !$hasBid) {
+                return response()->json(['message' => 'Unauthorized access to project bids.'], 403);
+            }
+        }
+
+        $project->load([
             'bidsArsitek.negotiationLogs.user',
             'bidsKontraktor.negotiationLogs.user',
             'bidsNotaris.negotiationLogs.user',
@@ -384,35 +591,24 @@ class ProjectController extends Controller
             'bidsStructural.negotiationLogs.user',
             'bidsMep.negotiationLogs.user',
             'bidsProjectManager.negotiationLogs.user',
-
-            // Nested Bid Details (for Profile Previews in Bidding/Review phase)
-            'bidsArsitek.arsitek.user.phoneNumber', 'bidsArsitek.arsitek.ratings',
-            'bidsKontraktor.kontraktor.user.phoneNumber', 'bidsKontraktor.kontraktor.ratings',
-            'bidsNotaris.notaris.user.phoneNumber', 'bidsNotaris.notaris.services', 'bidsNotaris.notaris.ratings',
-            'bidsInterior.interior.user.phoneNumber', 'bidsInterior.interior.ratings',
-            'bidsProjectManager.pm.user.phoneNumber', 'bidsProjectManager.pm.ratings',
+            'bidsArsitek.arsitek' => function ($q) {
+                $q->withAvg('ratings', 'rating')->withCount('ratings')->with('user.phoneNumber');
+            },
+            'bidsKontraktor.kontraktor' => function ($q) {
+                $q->withAvg('ratings', 'rating')->withCount('ratings')->with('user.phoneNumber');
+            },
+            'bidsNotaris.notaris' => function ($q) {
+                $q->withAvg('ratings', 'rating')->withCount('ratings')->with(['user.phoneNumber', 'services']);
+            },
+            'bidsInterior.interior' => function ($q) {
+                $q->withAvg('ratings', 'rating')->withCount('ratings')->with('user.phoneNumber');
+            },
+            'bidsProjectManager.pm' => function ($q) {
+                $q->withAvg('ratings', 'rating')->withCount('ratings')->with('user.phoneNumber');
+            },
             'bidsStructural.structuralEngineer.user.phoneNumber',
             'bidsMep.mepEngineer.user.phoneNumber',
-
-            // Core Project Relations
-            'paymentTermins.milestone',
-            'images',
-            'milestones',
-            'user',
-            'ratings',
-            'kontraktorRating',
-            'materialOrders.deliveryJob',
-            'requirements',
-            'addendums.teamMember',
-            'addendums.assignedUser',
-            'documents.uploader',
-            'activityLogs',
-            'subProfessionals.user',
-            'subProfessionals.assignedByUser',
-            'comments.user'
-        ])->loadCount(['bidsArsitek', 'bidsKontraktor', 'bidsNotaris', 'bidsInterior', 'bidsProjectManager', 'bidsStructural', 'bidsMep']);
-
-        $this->attachClientHistory($project);
+        ]);
 
         return new ProjectResource($project);
     }
@@ -2308,8 +2504,39 @@ class ProjectController extends Controller
             ])->where('mep_id', $mep->id)->orderBy('created_at', 'desc')->get();
             return response()->json(['data' => $formatBids($bids)]);
         }
-
         return response()->json(['data' => []]);
+    }
+
+    public function getActiveProjects()
+    {
+        $user = Auth::guard('sanctum')->user();
+        if (!$user) {
+            return response()->json(['data' => []]);
+        }
+
+        $pm = \App\Models\ProjectManager::where('user_id', $user->id)->first();
+        $pmId = $pm ? $pm->id : null;
+
+        $projects = Project::where(function ($query) use ($user, $pmId) {
+            $query->where('user_id', $user->id)
+                ->orWhere('selected_arsitek_id', $user->arsitek?->id)
+                ->orWhere('selected_kontraktor_id', $user->kontraktor?->id)
+                ->orWhere('selected_notaris_id', $user->notaris_profile?->id)
+                ->orWhere('selected_interior_id', $user->interior_profile?->id)
+                ->orWhere('pm_id', $user->id) 
+                ->orWhere('structural_id', $user->structural_engineer?->id)
+                ->orWhere('mep_id', $user->mep_engineer?->id);
+
+            if ($pmId) {
+                $query->orWhere('pm_id', $pmId);
+            }
+        })
+        ->whereIn('status', ['open', 'accepted_arsitek', 'accepted_kontraktor', 'procurement', 'in_progress', 'planning'])
+        ->select('id', 'title')
+        ->latest()
+        ->get();
+
+        return response()->json(['data' => $projects]);
     }
 
     public function getNotarisServices()
@@ -2766,6 +2993,7 @@ class ProjectController extends Controller
                         $timestamp = $bid->created_at ? $bid->created_at->timestamp : time();
                         $fileName = "signature_{$request->bid_type}_{$bid->id}_{$timestamp}.png";
                         Storage::disk('supabase')->put("contracts/project_{$project->id}/signatures/" . $fileName, $signatureData);
+                        \Illuminate\Support\Facades\Cache::forget("sig_exists_{$project->id}_{$request->bid_type}_{$bid->id}_{$timestamp}");
                     }
                 }
             }
@@ -2989,10 +3217,6 @@ class ProjectController extends Controller
                 }
             }
 
-            // 5. Generate SPK Draft
-            $contractService = app(\App\Services\ProjectContractService::class);
-            $contractService->generateSPKDraft($project, $bid, $request->bid_type);
-
             // 4. Log Activity
             \App\Models\ProjectActivityLog::create([
                 'project_id' => $project->id,
@@ -3001,8 +3225,14 @@ class ProjectController extends Controller
                 'details' => "Professional has signed the SPK and defined payment termins.",
             ]);
 
-            return response()->json(['message' => 'Contract signed successfully! Awaiting owner signature.', 'bid' => $bid]);
+            return $bid;
         });
+
+        // 5. Generate SPK Draft (Outside Transaction to prevent row lock times)
+        $contractService = app(\App\Services\ProjectContractService::class);
+        $contractService->generateSPKDraft($project, $bid, $request->bid_type);
+
+        return response()->json(['message' => 'Contract signed successfully! Awaiting owner signature.', 'bid' => $bid]);
     }
 
     public function clientSignContract(Project $project, $bidId, Request $request)
@@ -3048,6 +3278,7 @@ class ProjectController extends Controller
                 if ($signatureData !== false) {
                     $fileName = "signature_{$request->bid_type}_{$bid->id}_{$timestamp}_client.png";
                     Storage::disk('supabase')->put("contracts/project_{$project->id}/signatures/" . $fileName, $signatureData);
+                    \Illuminate\Support\Facades\Cache::forget("sig_exists_{$project->id}_{$request->bid_type}_{$bid->id}_{$timestamp}_client");
                 }
             } else {
                 return response()->json(['message' => 'Invalid signature format.'], 422);
@@ -3290,6 +3521,8 @@ class ProjectController extends Controller
 
     private function attachClientHistory($projects)
     {
+        $projects->loadMissing('user');
+        
         $isSingle = $projects instanceof Project;
         $collection = $isSingle ? collect([$projects]) : $projects;
         

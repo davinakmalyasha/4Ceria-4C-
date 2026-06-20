@@ -14,6 +14,9 @@ class SupplierController extends Controller
      */
     public function index(Request $request)
     {
+        $cacheKey = 'suppliers_list_' . md5(json_encode($request->all()));
+        $supportsTags = in_array(config('cache.default'), ['redis', 'memcached']);
+
         $query = Supplier::with(['user'])
             ->withCount(['materials' => function ($q) {
                 $q->where('is_available', true);
@@ -30,9 +33,17 @@ class SupplierController extends Controller
             $query->where('store_name', 'like', '%'.$request->search.'%');
         }
 
+        $data = $supportsTags
+            ? \Illuminate\Support\Facades\Cache::tags(['suppliers'])->remember($cacheKey, 600, function () use ($query) {
+                return $query->get();
+            })
+            : \Illuminate\Support\Facades\Cache::remember($cacheKey, 600, function () use ($query) {
+                return $query->get();
+            });
+
         return response()->json([
             'status' => 'success',
-            'data' => $query->get(),
+            'data' => $data,
         ]);
     }
 
