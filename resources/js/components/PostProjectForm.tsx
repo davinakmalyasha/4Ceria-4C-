@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Camera, MapPin, Calendar, Briefcase, Coins, CheckCircle, ChevronRight, ChevronLeft, Image as ImageIcon, X } from 'lucide-react';
-import LocationPickerMap from './LocationPickerMap';
+
+const LocationPickerMap = React.lazy(() => import('./LocationPickerMap'));
 
 interface PostProjectFormProps { onCancel: () => void; onSuccess: () => void; }
 
@@ -16,6 +17,16 @@ export default function PostProjectForm({ onCancel, onSuccess }: PostProjectForm
         lat: '-6.200000', lng: '106.816666', province: '', city: '', kecamatan: '', kelurahan: '', postal_code: '', street_name: '', wants_pm: false
     });
     const [images, setImages] = useState<File[]>([]);
+    const [previews, setPreviews] = useState<string[]>([]);
+
+    const imagesSignature = images.map(img => img.name + img.size).join(',');
+    useEffect(() => {
+        const urls = images.map(img => URL.createObjectURL(img));
+        setPreviews(urls);
+        return () => {
+            urls.forEach(url => URL.revokeObjectURL(url));
+        };
+    }, [imagesSignature]);
     const update = (k: keyof typeof f) => (e: any) => setF({ ...f, [k]: e.target.value });
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -87,7 +98,7 @@ export default function PostProjectForm({ onCancel, onSuccess }: PostProjectForm
                                     <div className="flex gap-3">
                                         {images.map((img, i) => (
                                             <div key={i} className="relative w-20 h-20 rounded-xl overflow-hidden group">
-                                                <img src={URL.createObjectURL(img)} className="w-full h-full object-cover" />
+                                                <img src={previews[i]} className="w-full h-full object-cover" />
                                                 <button type="button" onClick={() => setImages(images.filter((_, idx) => idx !== i))} className="absolute top-1 right-1 bg-black/60 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"><X size={12} /></button>
                                             </div>
                                         ))}
@@ -108,26 +119,28 @@ export default function PostProjectForm({ onCancel, onSuccess }: PostProjectForm
                             <motion.div key="step2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
                                 <div>
                                     <label className="block text-sm font-bold text-gray-900 mb-2 flex items-center gap-2"><MapPin size={16} className="text-[#FF2D20]" /> Lokasi Proyek (Peta)</label>
-                                    <LocationPickerMap 
-                                        latitude={parseFloat(f.lat)} 
-                                        longitude={parseFloat(f.lng)} 
-                                        onChange={(lat, lng, address) => {
-                                            setF(prev => ({ ...prev, lat: lat.toString(), lng: lng.toString() }));
-                                            if (address && (address.city || address.province)) {
-                                                const locString = [address.street_name, address.kecamatan, address.city, address.province].filter(Boolean).join(', ');
-                                                setF(prev => ({
-                                                    ...prev,
-                                                    loc: locString,
-                                                    province: address.province,
-                                                    city: address.city,
-                                                    kecamatan: address.kecamatan,
-                                                    kelurahan: address.kelurahan,
-                                                    postal_code: address.postal_code,
-                                                    street_name: address.street_name
-                                                }));
-                                            }
-                                        }} 
-                                    />
+                                    <React.Suspense fallback={<div className="h-[300px] w-full bg-zinc-900/10 rounded-2xl border border-gray-150 flex items-center justify-center text-[10px] text-gray-400 font-mono tracking-widest uppercase">Loading Interactive Map...</div>}>
+                                        <LocationPickerMap 
+                                            latitude={parseFloat(f.lat)} 
+                                            longitude={parseFloat(f.lng)} 
+                                            onChange={(lat, lng, address) => {
+                                                setF(prev => ({ ...prev, lat: lat.toString(), lng: lng.toString() }));
+                                                if (address && (address.city || address.province)) {
+                                                    const locString = [address.street_name, address.kecamatan, address.city, address.province].filter(Boolean).join(', ');
+                                                    setF(prev => ({
+                                                        ...prev,
+                                                        loc: locString,
+                                                        province: address.province,
+                                                        city: address.city,
+                                                        kecamatan: address.kecamatan,
+                                                        kelurahan: address.kelurahan,
+                                                        postal_code: address.postal_code,
+                                                        street_name: address.street_name
+                                                    }));
+                                                }
+                                            }} 
+                                        />
+                                    </React.Suspense>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-bold text-gray-900 mb-2">Detail Lokasi Singkat</label>

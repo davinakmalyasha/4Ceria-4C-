@@ -50,8 +50,11 @@ export function useSubProfessionals(projectId: number | null): UseSubProfessiona
 
     useEffect(() => {
         fetchSubs();
+    }, [fetchSubs]);
+
+    useEffect(() => {
         fetchSubspecialties();
-    }, [fetchSubs, fetchSubspecialties]);
+    }, [fetchSubspecialties]);
 
     const assignSub = useCallback(async (payload: AssignSubPayload): Promise<boolean> => {
         if (!projectId) return false;

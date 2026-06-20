@@ -1,11 +1,13 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
     CheckCircle, ChevronLeft, MapPin, UploadCloud, 
     X, Home, Maximize, Plus, Trash2, Bed, Bath, Layout 
 } from 'lucide-react';
 import { useSellHouse, RoomEntry } from '../hooks/useSellHouse';
-import LocationPickerMap, { ReverseGeoData } from './LocationPickerMap';
+import { ReverseGeoData } from './LocationPickerMap';
+
+const LocationPickerMap = React.lazy(() => import('./LocationPickerMap'));
 
 interface Props {
     onCancel: () => void;
@@ -14,6 +16,31 @@ interface Props {
 
 export default function SellHouseForm({ onCancel, onSuccess }: Props) {
     const { formData, handleChange, setFormData, submit, isLoading, error } = useSellHouse(onSuccess);
+
+    const [mainPreviews, setMainPreviews] = useState<string[]>([]);
+    const [roomPreviews, setRoomPreviews] = useState<string[][]>([]);
+
+    const mainPicsSignature = (formData.house_pic || []).map(f => f.name + f.size).join(',');
+    useEffect(() => {
+        const files = formData.house_pic || [];
+        const urls = files.map(file => URL.createObjectURL(file));
+        setMainPreviews(urls);
+        return () => {
+            urls.forEach(url => URL.revokeObjectURL(url));
+        };
+    }, [mainPicsSignature]);
+
+    const roomPicsSignature = formData.rooms.map(r => (r.pics || []).map(f => f.name + f.size).join(',')).join('|');
+    useEffect(() => {
+        const urlsList = formData.rooms.map(room => {
+            const pics = room.pics || [];
+            return pics.map(file => URL.createObjectURL(file));
+        });
+        setRoomPreviews(urlsList);
+        return () => {
+            urlsList.forEach(urls => urls.forEach(url => URL.revokeObjectURL(url)));
+        };
+    }, [roomPicsSignature]);
 
     const formatNumber = (val: string) => {
         if (!val) return '';
@@ -133,25 +160,27 @@ export default function SellHouseForm({ onCancel, onSuccess }: Props) {
                         </h3>
                         <div className="pt-2">
                             <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Pin Property Location</label>
-                            <LocationPickerMap 
-                                latitude={parseFloat(formData.lat)} 
-                                longitude={parseFloat(formData.lng)} 
-                                onChange={(lat, lng, address) => {
-                                    handleChange('lat', lat.toString());
-                                    handleChange('lng', lng.toString());
-                                    if(address) {
-                                        setFormData(prev => ({
-                                            ...prev,
-                                            province: address.province,
-                                            kab_kota: address.city,
-                                            kecamatan: address.kecamatan,
-                                            kelurahan: address.kelurahan,
-                                            postal_code: address.postal_code,
-                                            street_name: address.street_name
-                                        }));
-                                    }
-                                }} 
-                            />
+                            <React.Suspense fallback={<div className="h-[300px] w-full bg-zinc-900/10 rounded-2xl border border-gray-150 flex items-center justify-center text-[10px] text-gray-400 font-mono tracking-widest uppercase">Loading Interactive Map...</div>}>
+                                <LocationPickerMap 
+                                    latitude={parseFloat(formData.lat)} 
+                                    longitude={parseFloat(formData.lng)} 
+                                    onChange={(lat, lng, address) => {
+                                        handleChange('lat', lat.toString());
+                                        handleChange('lng', lng.toString());
+                                        if(address) {
+                                            setFormData(prev => ({
+                                                ...prev,
+                                                province: address.province,
+                                                kab_kota: address.city,
+                                                kecamatan: address.kecamatan,
+                                                kelurahan: address.kelurahan,
+                                                postal_code: address.postal_code,
+                                                street_name: address.street_name
+                                            }));
+                                        }
+                                    }} 
+                                />
+                            </React.Suspense>
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                             <div>
@@ -176,7 +205,7 @@ export default function SellHouseForm({ onCancel, onSuccess }: Props) {
                                 <div className="flex gap-2 mt-3 flex-wrap">
                                     {formData.house_pic.map((file, i) => (
                                         <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-gray-100 shadow-sm transition-transform hover:scale-105">
-                                            <img src={URL.createObjectURL(file)} alt="Preview" className="w-full h-full object-cover" />
+                                            <img src={mainPreviews[i]} alt="Preview" className="w-full h-full object-cover" />
                                             <button type="button" onClick={() => { const newFiles = formData.house_pic!.filter((_, idx) => idx !== i); handleChange('house_pic', newFiles.length > 0 ? newFiles : null); }} className="absolute top-0 right-0 bg-black/40 text-white p-1 rounded-bl-lg">
                                                 <X size={10} />
                                             </button>
@@ -255,7 +284,7 @@ export default function SellHouseForm({ onCancel, onSuccess }: Props) {
                                         <div className="flex gap-2 flex-wrap min-h-[40px]">
                                             {room.pics && room.pics.map((file, picIdx) => (
                                                 <div key={picIdx} className="relative w-12 h-12 rounded-lg overflow-hidden border border-gray-100 shadow-sm group/pic">
-                                                    <img src={URL.createObjectURL(file)} alt="Room Preview" className="w-full h-full object-cover" />
+                                                    <img src={roomPreviews[index]?.[picIdx]} alt="Room Preview" className="w-full h-full object-cover" />
                                                     <button 
                                                         type="button" 
                                                         onClick={() => removeRoomPic(index, picIdx)}

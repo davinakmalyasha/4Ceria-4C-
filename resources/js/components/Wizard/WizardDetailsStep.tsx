@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { MapPin, Calendar, Image as ImageIcon, X } from 'lucide-react';
 import { WizardFormData, ProjectDimensions } from '../../hooks/useProjectWizard';
-import LocationPickerMap from '../LocationPickerMap';
+const LocationPickerMap = React.lazy(() => import('../LocationPickerMap'));
 
 interface WizardDetailsStepProps {
     form: WizardFormData;
@@ -76,21 +76,23 @@ export default function WizardDetailsStep({ form, updateForm, images, setImages 
                         <span className="flex items-center gap-1.5"><MapPin size={12} className="text-[#FF2D20]" /> Lokasi Proyek</span>
                         {form.loc && <span className="text-[9px] text-gray-405 font-bold truncate max-w-[200px] normal-case">{form.loc}</span>}
                     </label>
-                    <LocationPickerMap
-                        latitude={parseFloat(form.lat)} 
-                        longitude={parseFloat(form.lng)}
-                        heightClass="h-[220px] sm:h-[240px] lg:h-[260px]"
-                        onChange={(lat, lng, address) => {
-                            updateForm('lat', lat.toString()); updateForm('lng', lng.toString());
-                            if (address?.city || address?.province) {
-                                const loc = [address.street_name, address.kecamatan, address.city, address.province].filter(Boolean).join(', ');
-                                updateForm('loc', loc); updateForm('province', address.province);
-                                updateForm('city', address.city); updateForm('kecamatan', address.kecamatan);
-                                updateForm('kelurahan', address.kelurahan); updateForm('postal_code', address.postal_code);
-                                updateForm('street_name', address.street_name);
-                            }
-                        }}
-                    />
+                    <React.Suspense fallback={<div className="h-[220px] sm:h-[240px] lg:h-[260px] w-full bg-zinc-900/10 rounded-2xl border border-gray-150 flex items-center justify-center text-[10px] text-gray-400 font-mono tracking-widest uppercase">Loading Wizard Map...</div>}>
+                        <LocationPickerMap
+                            latitude={parseFloat(form.lat)} 
+                            longitude={parseFloat(form.lng)}
+                            heightClass="h-[220px] sm:h-[240px] lg:h-[260px]"
+                            onChange={(lat, lng, address) => {
+                                updateForm('lat', lat.toString()); updateForm('lng', lng.toString());
+                                if (address?.city || address?.province) {
+                                    const loc = [address.street_name, address.kecamatan, address.city, address.province].filter(Boolean).join(', ');
+                                    updateForm('loc', loc); updateForm('province', address.province);
+                                    updateForm('city', address.city); updateForm('kecamatan', address.kecamatan);
+                                    updateForm('kelurahan', address.kelurahan); updateForm('postal_code', address.postal_code);
+                                    updateForm('street_name', address.street_name);
+                                }
+                            }}
+                        />
+                    </React.Suspense>
                 </div>
             </div>
 

@@ -85,7 +85,7 @@ export default function ExploreHouses({ houses = [], isLoading = false, onSelect
 
             {/* House Grid / List */}
             <div>
-                {isLoading ? (
+                {(isLoading || s.isLoadingHouses) ? (
                     <div className={`${s.viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 gap-8' : 'flex flex-col gap-6'}`}>
                         {Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} viewMode={s.viewMode} />)}
                     </div>

@@ -17,15 +17,14 @@ export function useProjectFilters(projects: Project[]) {
     const dropdownRef = useRef<HTMLDivElement>(null);
     const [popupInfo, setPopupInfo] = useState<Project | null>(null);
 
-    // Geolocation
+    // Geolocation (Get position once on mount to prevent battery drain)
     useEffect(() => {
         if (!navigator.geolocation) return;
-        const watchId = navigator.geolocation.watchPosition(
+        navigator.geolocation.getCurrentPosition(
             (pos) => setUserLocation({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
             () => { /* silently fail */ },
-            { enableHighAccuracy: true, maximumAge: 10000 },
+            { enableHighAccuracy: true, timeout: 5000, maximumAge: 60000 },
         );
-        return () => navigator.geolocation.clearWatch(watchId);
     }, []);
 
     // Dropdown handler
@@ -44,7 +43,20 @@ export function useProjectFilters(projects: Project[]) {
     }, [projects]);
 
     const flyToUser = useCallback(() => {
-        if (userLocation && mapRef.current) mapRef.current.flyTo({ center: [userLocation.longitude, userLocation.latitude], zoom: 14, duration: 1500 });
+        if (userLocation) {
+            if (mapRef.current) mapRef.current.flyTo({ center: [userLocation.longitude, userLocation.latitude], zoom: 14, duration: 1500 });
+        } else {
+            if (!navigator.geolocation) return;
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    const loc = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+                    setUserLocation(loc);
+                    if (mapRef.current) mapRef.current.flyTo({ center: [loc.longitude, loc.latitude], zoom: 14, duration: 1500 });
+                },
+                () => { /* silently fail */ },
+                { enableHighAccuracy: true, timeout: 5000 }
+            );
+        }
     }, [userLocation]);
 
     const filteredProjects = useMemo(() => {

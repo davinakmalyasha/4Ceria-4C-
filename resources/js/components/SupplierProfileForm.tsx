@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { Building, MapPin, Phone, FileText, UploadCloud, AlertCircle, CheckCircle, RefreshCcw, Info } from 'lucide-react';
-import LocationPickerMap, { ReverseGeoData } from './LocationPickerMap';
+import type { ReverseGeoData } from './LocationPickerMap';
+const LocationPickerMap = React.lazy(() => import('./LocationPickerMap'));
 import { PortfolioManager } from './Dashboard/PortfolioManager';
 
 interface SupplierProfileFormProps { 
@@ -251,12 +252,14 @@ export default function SupplierProfileForm({ onCancel, onSuccess }: SupplierPro
                 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="md:col-span-2 relative">
-                        <LocationPickerMap 
-                            latitude={parseFloat(formData.latitude) || -6.2} 
-                            longitude={parseFloat(formData.longitude) || 106.816} 
-                            onChange={handleLocationChange} 
-                            label="Search for your building or pin your exact store location"
-                        />
+                        <React.Suspense fallback={<div className="h-[300px] w-full bg-zinc-900/10 rounded-2xl border border-gray-150 flex items-center justify-center text-[10px] text-gray-400 font-mono tracking-widest uppercase">Loading Store Map...</div>}>
+                            <LocationPickerMap 
+                                latitude={parseFloat(formData.latitude) || -6.2} 
+                                longitude={parseFloat(formData.longitude) || 106.816} 
+                                onChange={handleLocationChange} 
+                                label="Search for your building or pin your exact store location"
+                            />
+                        </React.Suspense>
                     </div>
                     <div className="space-y-4">
                         <div className="p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100/50">

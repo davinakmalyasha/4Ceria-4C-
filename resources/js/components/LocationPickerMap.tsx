@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect, memo } from 'react';
 import Map, { Marker, NavigationControl, FullscreenControl } from 'react-map-gl/maplibre';
 import type { MapRef } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -23,10 +23,7 @@ interface LocationPickerMapProps {
 
 async function reverseGeocode(lat: number, lng: number): Promise<ReverseGeoData> {
     try {
-        const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1&accept-language=id`,
-            { headers: { 'User-Agent': '4Ceria-App' } }
-        );
+        const res = await fetch(`/api/geocode/reverse?lat=${lat}&lng=${lng}`);
         const data = await res.json();
         const addr = data.address || {};
 
@@ -43,8 +40,9 @@ async function reverseGeocode(lat: number, lng: number): Promise<ReverseGeoData>
     }
 }
 
-export default function LocationPickerMap({ latitude, longitude, onChange, label, heightClass = 'h-[300px]' }: LocationPickerMapProps) {
+const LocationPickerMap = memo(function LocationPickerMap({ latitude, longitude, onChange, label, heightClass = 'h-[300px]' }: LocationPickerMapProps) {
     const mapRef = useRef<MapRef>(null);
+    const geocodeTimeout = useRef<NodeJS.Timeout | null>(null);
     const [isGeocoding, setIsGeocoding] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [isSearching, setIsSearching] = useState(false);
@@ -53,11 +51,24 @@ export default function LocationPickerMap({ latitude, longitude, onChange, label
     const lat = latitude || -6.1751;
     const lng = longitude || 106.8271;
 
-    const handleGeoLookup = async (newLat: number, newLng: number) => {
+    useEffect(() => {
+        return () => {
+            if (geocodeTimeout.current) {
+                clearTimeout(geocodeTimeout.current);
+            }
+        };
+    }, []);
+
+    const handleGeoLookup = (newLat: number, newLng: number) => {
+        if (geocodeTimeout.current) {
+            clearTimeout(geocodeTimeout.current);
+        }
         setIsGeocoding(true);
-        const geoData = await reverseGeocode(newLat, newLng);
-        onChange(newLat, newLng, geoData);
-        setIsGeocoding(false);
+        geocodeTimeout.current = setTimeout(async () => {
+            const geoData = await reverseGeocode(newLat, newLng);
+            onChange(newLat, newLng, geoData);
+            setIsGeocoding(false);
+        }, 500); // 500ms Debounce to prevent OSM Nominatim rate-limiting
     };
 
     const handleMapClick = (e: any) => {
@@ -85,14 +96,12 @@ export default function LocationPickerMap({ latitude, longitude, onChange, label
 
         setIsSearching(true);
         try {
-            const res = await fetch(
-                `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=5&countrycodes=id`,
-                { headers: { 'User-Agent': '4Ceria-App' } }
-            );
+            const res = await fetch(`/api/geocode/search?q=${encodeURIComponent(searchQuery)}`);
             const data = await res.json();
-            setSearchResults(data);
+            setSearchResults(Array.isArray(data) ? data : []);
         } catch (err) {
             console.error('Search failed', err);
+            setSearchResults([]);
         } finally {
             setIsSearching(false);
         }
@@ -192,4 +201,11 @@ export default function LocationPickerMap({ latitude, longitude, onChange, label
             </div>
         </div>
     );
-}
+}, (prevProps, nextProps) => {
+    return prevProps.latitude === nextProps.latitude && 
+           prevProps.longitude === nextProps.longitude &&
+           prevProps.heightClass === nextProps.heightClass &&
+           prevProps.label === nextProps.label;
+});
+
+export default LocationPickerMap;
