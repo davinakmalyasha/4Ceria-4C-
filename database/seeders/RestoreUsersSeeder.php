@@ -28,7 +28,7 @@ class RestoreUsersSeeder extends Seeder
             Role::firstOrCreate(['name' => $roleName, 'guard_name' => 'web']);
         }
 
-        $password = Hash::make('12345678');
+        $password = Hash::make('123456');
 
         // 2. Create Core Professional Users
         $professionals = [
@@ -127,10 +127,10 @@ class RestoreUsersSeeder extends Seeder
 
         // 4. Create Davin (Normal User)
         $davin = User::updateOrCreate(
-            ['email' => 'davin@gmail.com'],
+            ['email' => 'davinyasa06@gmail.com'],
             [
                 'name' => 'Davin',
-                'username' => 'davin',
+                'username' => 'davinyasa06',
                 'password' => $password,
                 'role_type' => 'user',
             ]
