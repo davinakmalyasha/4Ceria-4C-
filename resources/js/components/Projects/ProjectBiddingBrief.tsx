@@ -37,6 +37,8 @@ export default function ProjectBiddingBrief({
                 const bidderUserId = b.user_id || 
                                      b.bidder?.user_id || 
                                      b.bidder?.user?.id ||
+                                     b.pm?.user_id ||
+                                     b.pm?.user?.id ||
                                      b.arsitek?.user_id || 
                                      b.kontraktor?.user_id || 
                                      b.notaris?.user_id || 

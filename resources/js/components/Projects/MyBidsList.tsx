@@ -28,9 +28,10 @@ interface Props {
     onViewProject: (project: any) => void;
     initialSubTab?: string | null;
     onSubTabChange?: (tab: string) => void;
+    onPrefetch?: (projectId: number) => void;
 }
 
-export default function MyBidsList({ bids, isLoading, onViewProject, initialSubTab, onSubTabChange }: Props) {
+export default function MyBidsList({ bids, isLoading, onViewProject, initialSubTab, onSubTabChange, onPrefetch }: Props) {
     const [activeTab, setActiveTab] = React.useState(initialSubTab || 'proposals');
 
     React.useEffect(() => {
@@ -121,6 +122,7 @@ export default function MyBidsList({ bids, isLoading, onViewProject, initialSubT
                             key={bid.id}
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
+                            onMouseEnter={() => bid.project?.id && onPrefetch?.(bid.project.id)}
                             className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row gap-6 relative overflow-hidden group"
                         >
                             {/* Status Accent Line */}

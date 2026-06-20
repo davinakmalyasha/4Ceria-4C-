@@ -9,12 +9,14 @@ interface ProfessionalProjectsProps {
     isLoading: boolean;
     onViewProject: (project: Project) => void;
     formatCurrency: (amount: number) => string;
+    onPrefetch?: (projectId: number) => void;
 }
 
-const ProfessionalProjectCard = ({ project, onViewProject, formatCurrency }: { 
+const ProfessionalProjectCard = ({ project, onViewProject, formatCurrency, onPrefetch }: { 
     project: Project; 
     onViewProject: (p: Project) => void;
     formatCurrency: (amount: number) => string;
+    onPrefetch?: (projectId: number) => void;
 }) => {
     const [activeIndex, setActiveIndex] = React.useState(0);
     const images = project.images || [];
@@ -32,6 +34,7 @@ const ProfessionalProjectCard = ({ project, onViewProject, formatCurrency }: {
     return (
         <motion.div
             layoutId={`project-${project.id}`}
+            onMouseEnter={() => onPrefetch?.(project.id)}
             className="bg-white rounded-3xl border border-gray-100 shadow-sm hover:shadow-xl hover:border-red-100 transition-all group overflow-hidden flex flex-col"
         >
             {/* Thumbnail Area with Slider */}
@@ -160,7 +163,7 @@ const ProfessionalProjectCard = ({ project, onViewProject, formatCurrency }: {
     );
 };
 
-export default function ProfessionalProjects({ projects, isLoading, onViewProject, formatCurrency }: ProfessionalProjectsProps) {
+export default function ProfessionalProjects({ projects, isLoading, onViewProject, formatCurrency, onPrefetch }: ProfessionalProjectsProps) {
     if (isLoading) {
         return (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -193,6 +196,7 @@ export default function ProfessionalProjects({ projects, isLoading, onViewProjec
                     project={project} 
                     onViewProject={onViewProject} 
                     formatCurrency={formatCurrency} 
+                    onPrefetch={onPrefetch}
                 />
             ))}
         </div>

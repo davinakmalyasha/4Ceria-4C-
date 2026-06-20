@@ -21,10 +21,11 @@ interface ProjectBoardProps {
     myBidsCount?: number;
     onViewMyBids?: () => void;
     onViewActiveBids?: () => void;
+    onPrefetch?: (projectId: number) => void;
 }
 
 export default function ProjectBoard({ 
-    projects, isLoading, userRole, onViewProject, onPostProject, onEditProject, onDeleteProject, onStatusChange, myBidsCount, onViewMyBids, onViewActiveBids
+    projects, isLoading, userRole, onViewProject, onPostProject, onEditProject, onDeleteProject, onStatusChange, myBidsCount, onViewMyBids, onViewActiveBids, onPrefetch
 }: ProjectBoardProps) {
     
     const {
@@ -181,6 +182,7 @@ export default function ProjectBoard({
                                             viewMode={viewMode === 'board' ? 'grid' : viewMode}
                                             onEdit={onEditProject}
                                             onDelete={onDeleteProject}
+                                            onPrefetch={onPrefetch}
                                         />
                                     </motion.div>
                                 ))}

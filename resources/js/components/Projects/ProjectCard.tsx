@@ -21,9 +21,10 @@ interface ProjectCardProps {
     viewMode?: 'grid' | 'list';
     onEdit?: (project: Project) => void;
     onDelete?: (project: Project) => void;
+    onPrefetch?: (projectId: number) => void;
 }
 
-export default function ProjectCard({ project, onClick, userRole, viewMode = 'grid', onEdit, onDelete }: ProjectCardProps) {
+export default function ProjectCard({ project, onClick, userRole, viewMode = 'grid', onEdit, onDelete, onPrefetch }: ProjectCardProps) {
     const [activeImageIndex, setActiveImageIndex] = useState(0);
     
     const images = project.images || [];
@@ -90,6 +91,7 @@ export default function ProjectCard({ project, onClick, userRole, viewMode = 'gr
         <motion.div 
             whileHover={{ y: -4 }}
             onClick={() => onClick(project.id)}
+            onMouseEnter={() => onPrefetch?.(project.id)}
             className={`group relative bg-white rounded-[1.5rem] p-4 lg:p-5 flex gap-5 shadow-sm border border-gray-100 hover:border-red-200 transition-all duration-300 cursor-pointer overflow-visible ${
                 isList ? 'flex-col lg:flex-row w-full items-center' : 'flex-col'
             }`}

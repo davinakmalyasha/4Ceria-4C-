@@ -2,8 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FileText, Clock, CheckCircle, ExternalLink, Package, MapPin, Building, ChevronRight, User, ShoppingBag, Plus, MessageSquare, CreditCard, Truck, Download, AlertCircle } from 'lucide-react';
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
 
 export default function QuoteHistoryTab({ user }: { user?: any }) {
     const [quotes, setQuotes] = useState<any[]>([]);
@@ -68,7 +66,14 @@ export default function QuoteHistoryTab({ user }: { user?: any }) {
 
     const handleDownloadReceipt = async (quoteId: number) => {
         if (!receiptRef.current) return;
+        setIsConverting(quoteId);
         try {
+            // Lazy load the libraries in parallel
+            const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
+                import('html2canvas'),
+                import('jspdf')
+            ]);
+
             const canvas = await html2canvas(receiptRef.current, { scale: 2, useCORS: true });
             const imgData = canvas.toDataURL('image/png');
             const pdf = new jsPDF('p', 'mm', 'a4');
@@ -81,6 +86,8 @@ export default function QuoteHistoryTab({ user }: { user?: any }) {
         } catch (error) {
             console.error('Failed to generate PDF', error);
             setNotification({ message: 'Gagal membuat file PDF.', type: 'error' });
+        } finally {
+            setIsConverting(null);
         }
     };
 

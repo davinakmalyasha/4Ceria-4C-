@@ -3,8 +3,10 @@ import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ShoppingCart, MapPin, Building2, User, ChevronRight, MessageSquare, Trash2, Plus, Minus, Loader2, Link as LinkIcon, ExternalLink, Map as MapIcon, CheckCircle, FileText, Truck } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
-import LocationPickerMap, { ReverseGeoData } from '../LocationPickerMap';
+import type { ReverseGeoData } from '../LocationPickerMap';
 import { useToast } from '../../context/ToastContext';
+
+const LocationPickerMap = React.lazy(() => import('../LocationPickerMap'));
 
 
 interface CheckoutDrawerProps {
@@ -437,11 +439,13 @@ export default function CheckoutDrawer({ isOpen, onClose, onViewQuotes }: Checko
                                                         <MapIcon size={12} />
                                                         Pin Delivery Location
                                                     </label>
-                                                    <LocationPickerMap 
-                                                        latitude={deliveryLat || -6.1751} 
-                                                        longitude={deliveryLng || 106.8271} 
-                                                        onChange={handleLocationChange} 
-                                                    />
+                                                    <React.Suspense fallback={<div className="h-[200px] w-full bg-zinc-900/10 rounded-2xl border border-gray-150 flex items-center justify-center text-[10px] text-gray-400 font-mono tracking-widest uppercase">Loading Delivery Map...</div>}>
+                                                        <LocationPickerMap 
+                                                            latitude={deliveryLat || -6.1751} 
+                                                            longitude={deliveryLng || 106.8271} 
+                                                            onChange={handleLocationChange} 
+                                                        />
+                                                    </React.Suspense>
                                                 </div>
 
                                                 <div className="relative">

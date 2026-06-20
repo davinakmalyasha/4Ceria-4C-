@@ -3,7 +3,7 @@ import axios from 'axios';
 import { motion } from 'framer-motion';
 import { X, Save, AlertCircle, Image as ImageIcon, MapPin } from 'lucide-react';
 import { Project } from '../../types/project.types';
-import LocationPickerMap from '../LocationPickerMap';
+const LocationPickerMap = React.lazy(() => import('../LocationPickerMap'));
 
 interface Props {
     project: Project;
@@ -169,24 +169,26 @@ export default function EditProjectModal({ project, onClose, onSuccess }: Props)
                         </div>
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-1">Project Location (Map)</label>
-                            <LocationPickerMap 
-                                latitude={parseFloat(lat)} 
-                                longitude={parseFloat(lng)} 
-                                onChange={(newLat, newLng, address) => {
-                                    setLat(newLat.toString());
-                                    setLng(newLng.toString());
-                                    if (address && (address.city || address.province)) {
-                                        const locString = [address.street_name, address.kecamatan, address.city, address.province].filter(Boolean).join(', ');
-                                        setLokasi(locString);
-                                        setProvince(address.province);
-                                        setCity(address.city);
-                                        setKecamatan(address.kecamatan);
-                                        setKelurahan(address.kelurahan);
-                                        setPostalCode(address.postal_code);
-                                        setStreetName(address.street_name);
-                                    }
-                                }} 
-                            />
+                            <React.Suspense fallback={<div className="h-[200px] w-full bg-zinc-900/10 rounded-2xl border border-gray-150 flex items-center justify-center text-[10px] text-gray-400 font-mono tracking-widest uppercase">Loading Editor Map...</div>}>
+                                <LocationPickerMap 
+                                    latitude={parseFloat(lat)} 
+                                    longitude={parseFloat(lng)} 
+                                    onChange={(newLat, newLng, address) => {
+                                        setLat(newLat.toString());
+                                        setLng(newLng.toString());
+                                        if (address && (address.city || address.province)) {
+                                            const locString = [address.street_name, address.kecamatan, address.city, address.province].filter(Boolean).join(', ');
+                                            setLokasi(locString);
+                                            setProvince(address.province);
+                                            setCity(address.city);
+                                            setKecamatan(address.kecamatan);
+                                            setKelurahan(address.kelurahan);
+                                            setPostalCode(address.postal_code);
+                                            setStreetName(address.street_name);
+                                        }
+                                    }} 
+                                />
+                            </React.Suspense>
                         </div>
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-1">Short Location Text</label>

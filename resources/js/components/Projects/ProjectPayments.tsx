@@ -115,7 +115,9 @@ export default function ProjectPayments({ project, user, onRefresh, onOpenChat }
                         if (role.roleType === 'engineering') {
                             return t.role_type === 'structural' || t.role_type === 'mep';
                         }
-                        return t.role_type === role.roleType || (t.role_type === 'other' && t.recipient_id === bid.bidder?.user?.id);
+                        return t.role_type === role.roleType || 
+                               (role.roleType === 'project_manager' && t.role_type === 'pm') ||
+                               (t.role_type === 'other' && t.recipient_id === bid.bidder?.user?.id);
                     });
                     
                     const proPayments: any[] = [];

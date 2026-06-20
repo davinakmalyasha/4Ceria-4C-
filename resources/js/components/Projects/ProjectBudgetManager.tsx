@@ -12,15 +12,18 @@ import ChangeOrderPanel from './Phases/ChangeOrderPanel';
 interface ProjectBudgetManagerProps {
     project: any;
     user: any;
+    budgetData: any;
+    onRefresh: () => void;
 }
 
-export default function ProjectBudgetManager({ project, user }: ProjectBudgetManagerProps) {
+export default function ProjectBudgetManager({ project, user, budgetData, onRefresh }: ProjectBudgetManagerProps) {
     const { showToast } = useToast();
     const isOwner = useMemo(() => user?.id === project?.user_id, [user, project]);
     const isPM = useMemo(() => user?.role_type === 'project_manager' && project?.pm_id === user?.id, [user, project]);
     
-    const [loading, setLoading] = useState(true);
-    const [dashboardData, setDashboardData] = useState<any>(null);
+    const dashboardData = budgetData;
+    const fetchDashboard = onRefresh;
+
     const [sandboxTitle, setSandboxTitle] = useState('');
     const [sandboxAmount, setSandboxAmount] = useState('');
     const [isAdjusting, setIsAdjusting] = useState(false);
@@ -41,23 +44,6 @@ export default function ProjectBudgetManager({ project, user }: ProjectBudgetMan
     const [counterAmount, setCounterAmount] = useState('');
     const [negotiationNote, setNegotiationNote] = useState('');
     const [isNegotiatingSubmit, setIsNegotiatingSubmit] = useState(false);
-
-    const fetchDashboard = async () => {
-        try {
-            const res = await axios.get(`/projects/${project.id}/budget`);
-            console.log('Budget Dashboard Data:', res.data);
-            setDashboardData(res.data);
-        } catch (error: any) {
-            console.error('Budget Dashboard Fetch Error:', error.response?.data || error.message);
-            showToast('Failed to load budget dashboard', 'error');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        fetchDashboard();
-    }, [project.id]);
 
     const handleSandboxAdd = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -140,7 +126,7 @@ export default function ProjectBudgetManager({ project, user }: ProjectBudgetMan
         }
     };
 
-    if (loading || !dashboardData) {
+    if (!dashboardData) {
         return <div className="py-20 text-center text-slate-400 font-bold animate-pulse">Loading Financial Engine...</div>;
     }
 
