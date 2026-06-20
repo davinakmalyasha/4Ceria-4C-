@@ -1,5 +1,8 @@
 <?php
 
+// Suppress deprecation warnings on PHP 8.5+ to prevent them from outputting directly to the browser
+error_reporting(E_ALL & ~E_DEPRECATED & ~E_USER_DEPRECATED);
+
 use Illuminate\Http\Request;
 
 define('LARAVEL_START', microtime(true));
