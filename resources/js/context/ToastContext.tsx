@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo, ReactNode } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { CheckCircle, AlertCircle, Info, X } from 'lucide-react';
 
@@ -33,8 +33,10 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         setToasts(prev => prev.filter(t => t.id !== id));
     };
 
+    const value = useMemo(() => ({ showToast }), [showToast]);
+
     return (
-        <ToastContext.Provider value={{ showToast }}>
+        <ToastContext.Provider value={value}>
             {children}
             <div className="fixed bottom-6 right-6 z-[200] flex flex-col gap-3 pointer-events-none">
                 <AnimatePresence>

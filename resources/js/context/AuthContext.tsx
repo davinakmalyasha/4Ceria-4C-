@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
 
 export interface User {
@@ -155,49 +155,81 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-    const [user, setUser] = useState<User | null>(null);
+    const [user, setUser] = useState<User | null>(() => {
+        try {
+            const cached = localStorage.getItem('user_profile');
+            return cached ? JSON.parse(cached) : null;
+        } catch (e) {
+            return null;
+        }
+    });
     const [token, setToken] = useState<string | null>(localStorage.getItem('auth_token'));
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoading, setIsLoading] = useState(() => {
+        const tokenExists = !!localStorage.getItem('auth_token');
+        const userExists = !!localStorage.getItem('user_profile');
+        return tokenExists && !userExists;
+    });
 
     useEffect(() => {
         if (token) {
             axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
             axios.get('/me')
-                .then(res => setUser(res.data.data))
+                .then(res => {
+                    const userData = res.data.data;
+                    setUser(userData);
+                    localStorage.setItem('user_profile', JSON.stringify(userData));
+                })
                 .catch(() => {
                     setToken(null);
+                    setUser(null);
                     localStorage.removeItem('auth_token');
+                    localStorage.removeItem('user_profile');
                 })
                 .finally(() => setIsLoading(false));
         } else {
+            setUser(null);
             setIsLoading(false);
+            localStorage.removeItem('user_profile');
         }
     }, [token]);
 
-    const login = (newToken: string, userData: User) => {
+    const login = useCallback((newToken: string, userData: User) => {
         setToken(newToken);
         setUser(userData);
         localStorage.setItem('auth_token', newToken);
+        localStorage.setItem('user_profile', JSON.stringify(userData));
         axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
-    };
+    }, []);
 
-    const logout = () => {
+    const logout = useCallback(() => {
         localStorage.removeItem('auth_token');
+        localStorage.removeItem('user_profile');
         axios.post('/logout').catch(() => {});
         window.location.href = '/login';
-    };
+    }, []);
     
-    const refreshUser = async () => {
+    const refreshUser = useCallback(async () => {
         try {
             const res = await axios.get('/me');
-            setUser(res.data.data);
+            const userData = res.data.data;
+            setUser(userData);
+            localStorage.setItem('user_profile', JSON.stringify(userData));
         } catch (err) {
             console.error("Failed to refresh user data", err);
         }
-    };
+    }, []);
+
+    const value = useMemo(() => ({
+        user,
+        token,
+        login,
+        logout,
+        refreshUser,
+        isLoading
+    }), [user, token, login, logout, refreshUser, isLoading]);
 
     return (
-        <AuthContext.Provider value={{ user, token, login, logout, refreshUser, isLoading }}>
+        <AuthContext.Provider value={value}>
             {children}
         </AuthContext.Provider>
     );
