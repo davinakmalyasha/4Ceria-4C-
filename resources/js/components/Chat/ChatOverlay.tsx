@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MessageSquare, X, ArrowLeft, Maximize2 } from 'lucide-react';
 import { useChat } from '../../hooks/useChat';
@@ -32,7 +33,7 @@ export default function ChatOverlay({ onMaximize, activeTab }: ChatOverlayProps)
 
     const totalUnread = conversations.reduce((acc, c) => acc + (c.unread_count || 0), 0);
 
-    return (
+    return createPortal(
         <div className="fixed bottom-6 right-6 z-[120] font-sans">
             {/* Floating Action Button (FAB) */}
             <motion.button
@@ -72,7 +73,7 @@ export default function ChatOverlay({ onMaximize, activeTab }: ChatOverlayProps)
                                         </button>
                                         <span className="font-extrabold text-xs sm:text-sm truncate">{activeConversation.other_user.name}</span>
                                     </>
-                                ) : (
+                               ) : (
                                     <span className="font-extrabold text-xs sm:text-sm tracking-tight flex items-center gap-2">
                                         <MessageSquare size={16} />
                                         Chat Messenger
@@ -123,6 +124,7 @@ export default function ChatOverlay({ onMaximize, activeTab }: ChatOverlayProps)
                     </motion.div>
                 )}
             </AnimatePresence>
-        </div>
+        </div>,
+        document.body
     );
 }

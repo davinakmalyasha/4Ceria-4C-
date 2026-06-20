@@ -7,6 +7,7 @@ interface Props {
     onViewProject?: (project: any) => void;
     setActiveTab: (tab: string) => void;
     onViewAll: () => void;
+    onPrefetch?: (projectId: number) => void;
 }
 
 const TAB_MAP: Record<PhaseKey, string> = {
@@ -20,7 +21,7 @@ const TAB_MAP: Record<PhaseKey, string> = {
     handover: 'projects',
 };
 
-export default function OverviewProjectTimeline({ projects, onViewProject, setActiveTab, onViewAll }: Props) {
+export default function OverviewProjectTimeline({ projects, onViewProject, setActiveTab, onViewAll, onPrefetch }: Props) {
     if (!projects || projects.length === 0) return null;
 
     const handlePhaseClick = (e: React.MouseEvent, phase: Phase) => {
@@ -45,6 +46,7 @@ export default function OverviewProjectTimeline({ projects, onViewProject, setAc
                         <div
                             key={project.id}
                             onClick={() => onViewProject?.(project)}
+                            onMouseEnter={() => onPrefetch?.(project.id)}
                             className="bg-white/80 border border-neutral-100 hover:border-neutral-200 p-5 rounded-3xl shadow-sm hover:shadow-md transition-all cursor-pointer select-none space-y-4"
                         >
                             <div className="flex justify-between items-center">

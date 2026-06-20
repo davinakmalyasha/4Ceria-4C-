@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
+import axios from 'axios';
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { FileText } from 'lucide-react';
@@ -57,6 +58,18 @@ interface TabsProps {
     latestBids: any[];
     myBids: any[];
     isLoadingData: boolean;
+    isProjectsLoading?: boolean;
+    isFeedLoading?: boolean;
+    isBidsLoading?: boolean;
+    isHistoryLoading?: boolean;
+    isHousesLoading?: boolean;
+    isArchitectsLoading?: boolean;
+    isConstructorsLoading?: boolean;
+    isInteriorsLoading?: boolean;
+    isNotariesLoading?: boolean;
+    isProjectManagersLoading?: boolean;
+    isStructuralLoading?: boolean;
+    isMepLoading?: boolean;
     hiredProfessionals?: any[];
     architects: any[];
     constructors: any[];
@@ -85,7 +98,11 @@ interface TabsProps {
 
 export const DashboardTabs: React.FC<TabsProps> = (props) => {
     const { activeTab, setActiveTab, activeSubTab, setActiveSubTab, user, houses, projects, projectFeed, latestBids, myBids, 
-        isLoadingData, hiredProfessionals = [], architects, constructors, interiors, notaries, projectManagers,
+        isLoadingData,
+        isProjectsLoading, isFeedLoading, isBidsLoading, isHistoryLoading, isHousesLoading,
+        isArchitectsLoading, isConstructorsLoading, isInteriorsLoading, isNotariesLoading,
+        isProjectManagersLoading, isStructuralLoading, isMepLoading,
+        hiredProfessionals = [], architects, constructors, interiors, notaries, projectManagers,
         structuralEngineers, mepEngineers,
         selectedProfessional, setSelectedProfessional, 
         selectedProject, setSelectedProject, selectedStoreId, setSelectedStoreId, 
@@ -94,6 +111,94 @@ export const DashboardTabs: React.FC<TabsProps> = (props) => {
         onRefresh, chatUserId, onClearChatUser } = props;
 
     const [selectedPMBid, setSelectedPMBid] = useState<PMBid | null>(null);
+    const [detailedProject, setDetailedProject] = useState<any | null>(null);
+    const [isProjectDetailLoading, setIsProjectDetailLoading] = useState(false);
+    const projectCacheRef = React.useRef<Record<number, any>>({});
+    const selectedProjectIdRef = React.useRef<number | null>(null);
+    selectedProjectIdRef.current = selectedProject?.id || null;
+
+    const prefetchProject = useCallback((projectId: number) => {
+        if (projectCacheRef.current[projectId]) return;
+
+        const promise = axios.get(`/projects/${projectId}`)
+            .then(res => {
+                const data = res.data.data;
+                projectCacheRef.current[projectId] = data;
+                if (selectedProjectIdRef.current === projectId) {
+                    setDetailedProject(data);
+                    setIsProjectDetailLoading(false);
+                }
+                return data;
+            })
+            .catch(err => {
+                console.error("Failed to prefetch project detail", err);
+                delete projectCacheRef.current[projectId];
+                throw err;
+            });
+
+        projectCacheRef.current[projectId] = promise;
+    }, []);
+
+    React.useEffect(() => {
+        if (!selectedProject?.id) {
+            setDetailedProject(null);
+            return;
+        }
+
+        const cached = projectCacheRef.current[selectedProject.id];
+        // If we have resolved cache data (and not an in-flight promise)
+        if (cached && typeof cached.then !== 'function') {
+            setDetailedProject(cached);
+            setIsProjectDetailLoading(false);
+            return;
+        }
+
+        let isCurrent = true;
+        setIsProjectDetailLoading(true);
+
+        let promise;
+        if (cached && typeof cached.then === 'function') {
+            promise = cached;
+        } else {
+            promise = axios.get(`/projects/${selectedProject.id}`)
+                .then(res => res.data.data)
+                .catch(err => {
+                    console.error("Failed to load project detail dynamically", err);
+                    delete projectCacheRef.current[selectedProject.id];
+                    throw err;
+                });
+            projectCacheRef.current[selectedProject.id] = promise;
+        }
+
+        promise.then(data => {
+            if (isCurrent) {
+                projectCacheRef.current[selectedProject.id] = data;
+                setDetailedProject(data);
+                setIsProjectDetailLoading(false);
+            }
+        }).catch(() => {
+            if (isCurrent) {
+                setIsProjectDetailLoading(false);
+            }
+        });
+
+        return () => {
+            isCurrent = false;
+        };
+    }, [selectedProject?.id]);
+
+    const handleWorkspaceRefresh = useCallback(async () => {
+        if (!selectedProject?.id) return;
+        onRefresh?.();
+        try {
+            const res = await axios.get(`/projects/${selectedProject.id}`);
+            const data = res.data.data;
+            projectCacheRef.current[selectedProject.id] = data;
+            setDetailedProject(data);
+        } catch (err) {
+            console.error("Failed to refresh project details dynamically", err);
+        }
+    }, [selectedProject?.id, onRefresh]);
 
     const formatCurrency = (amount: number) => 
         new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount);
@@ -115,6 +220,8 @@ export const DashboardTabs: React.FC<TabsProps> = (props) => {
                 const bidderUserId = b.user_id || 
                                      b.bidder?.user_id || 
                                      b.bidder?.user?.id ||
+                                     b.pm?.user_id ||
+                                     b.pm?.user?.id ||
                                      b.arsitek?.user_id || 
                                      b.kontraktor?.user_id || 
                                      b.notaris?.user_id || 
@@ -194,6 +301,7 @@ export const DashboardTabs: React.FC<TabsProps> = (props) => {
                             onPostProject={() => setActiveTab('post-project')}
                             onViewProject={handleViewProject}
                             availableProsCount={availableProsCount}
+                            onPrefetch={prefetchProject}
                         />
                     )}
                     </>
@@ -222,66 +330,61 @@ export const DashboardTabs: React.FC<TabsProps> = (props) => {
                 )}
 
                 {(activeTab === 'project-detail' || activeTab === 'bidding-brief') && selectedProject && (() => {
-                    const baseProject = 
-                        projects.find(p => p.id === selectedProject.id) || 
-                        projectFeed.find(p => p.id === selectedProject.id) || 
-                        myBids.find(b => b.project_id === selectedProject.id || b.project?.id === selectedProject.id)?.project ||
-                        selectedProject;
-                    
-                    // Merge specialist bid arrays from selectedProject so they're never lost
-                    // when baseProject comes from projectFeed (which doesn't carry bid arrays)
-                    const mergedProject = { ...baseProject };
-                    const bidKeys = ['bids_structural', 'bids_mep', 'bids_arsitek', 'bids_kontraktor', 'bids_notaris', 'bids_interior', 'bids_project_manager'] as const;
-                    for (const key of bidKeys) {
-                        if (!mergedProject[key]?.length && selectedProject[key]?.length) {
-                            mergedProject[key] = selectedProject[key];
-                        }
-                    }
-                    // Also preserve has_submitted_bid flag
-                    if (selectedProject.has_submitted_bid) {
-                        mergedProject.has_submitted_bid = true;
+                    const proj = detailedProject || selectedProject;
+                    const hasBasicMetadata = proj && proj.title && proj.user_id;
+
+                    if (!hasBasicMetadata) {
+                        return (
+                            <div className="w-full space-y-6 animate-pulse p-4">
+                                <div className="h-48 bg-gray-100 rounded-3xl" />
+                                <div className="flex flex-col lg:flex-row gap-6">
+                                    <div className="w-full lg:w-52 h-64 bg-gray-100 rounded-3xl shrink-0" />
+                                    <div className="flex-1 h-[500px] bg-gray-100 rounded-3xl" />
+                                </div>
+                            </div>
+                        );
                     }
 
-                    const isOwner = user?.id === mergedProject.user_id;
-                    const isHiredPM = mergedProject.pm_id && user?.id === mergedProject.pm_id;
+                    const isOwner = user?.id === proj.user_id;
+                    const isHiredPM = proj.pm_id && user?.id === proj.pm_id;
                     
                     const isHiredPro = 
-                        (mergedProject.selected_arsitek_id && (user?.arsitek?.id === mergedProject.selected_arsitek_id || mergedProject.arsitek?.user_id === user?.id || mergedProject.arsitek?.user?.id === user?.id)) ||
-                        (mergedProject.selected_kontraktor_id && (user?.kontraktor?.id === mergedProject.selected_kontraktor_id || mergedProject.kontraktor?.user_id === user?.id || mergedProject.kontraktor?.user?.id === user?.id)) ||
-                        (mergedProject.selected_notaris_id && (user?.notaris_profile?.id === mergedProject.selected_notaris_id || mergedProject.notaris?.user_id === user?.id || mergedProject.notaris?.user?.id === user?.id || mergedProject.notaris_profile?.user_id === user?.id)) ||
-                        (mergedProject.selected_interior_id && (user?.interior_profile?.id === mergedProject.selected_interior_id || mergedProject.interior_profile?.user_id === user?.id || mergedProject.interior?.user?.id === user?.id || mergedProject.interior_profile?.user?.id === user?.id)) ||
-                        (mergedProject.structural_id && (user?.structural_engineer?.id === mergedProject.structural_id || mergedProject.structural_engineer?.user_id === user?.id || mergedProject.structural_engineer?.user?.id === user?.id)) ||
-                        (mergedProject.mep_id && (user?.mep_engineer?.id === mergedProject.mep_id || mergedProject.mep_engineer?.user_id === user?.id || mergedProject.mep_engineer?.user?.id === user?.id)) ||
-                        (!!mergedProject.sub_professionals && mergedProject.sub_professionals.some((s: any) => s.user_id === user?.id && s.status === 'active'));
+                        (proj.selected_arsitek_id && (user?.arsitek?.id === proj.selected_arsitek_id || proj.arsitek?.user_id === user?.id || proj.arsitek?.user?.id === user?.id)) ||
+                        (proj.selected_kontraktor_id && (user?.kontraktor?.id === proj.selected_kontraktor_id || proj.kontraktor?.user_id === user?.id || proj.kontraktor?.user?.id === user?.id)) ||
+                        (proj.selected_notaris_id && (user?.notaris_profile?.id === proj.selected_notaris_id || proj.notaris?.user_id === user?.id || proj.notaris?.user?.id === user?.id || proj.notaris_profile?.user_id === user?.id)) ||
+                        (proj.selected_interior_id && (user?.interior_profile?.id === proj.selected_interior_id || proj.interior_profile?.user_id === user?.id || proj.interior?.user?.id === user?.id || proj.interior_profile?.user?.id === user?.id)) ||
+                        (proj.structural_id && (user?.structural_engineer?.id === proj.structural_id || proj.structural_engineer?.user_id === user?.id || proj.structural_engineer?.user?.id === user?.id)) ||
+                        (proj.mep_id && (user?.mep_engineer?.id === proj.mep_id || proj.mep_engineer?.user_id === user?.id || proj.mep_engineer?.user?.id === user?.id)) ||
+                        (!!proj.sub_professionals && proj.sub_professionals.some((s: any) => s.user_id === user?.id && s.status === 'active'));
 
-
-                    const isShortlistedPro = getIsShortlistedPro(mergedProject);
+                    const isShortlistedPro = getIsShortlistedPro(proj);
 
                     const showWorkspace = isOwner || isHiredPM || isHiredPro || isShortlistedPro;
 
                     if (showWorkspace) {
                         return (
                             <ProjectDetailPage 
-                                project={mergedProject}
+                                project={proj}
                                 user={user}
                                 onBack={() => { setSelectedProject(null); setActiveTab('projects'); }}
-                                onRefresh={() => onRefresh?.()}
+                                onRefresh={handleWorkspaceRefresh}
                                 onOpenChat={handleOpenChat}
                                 onViewProfile={(pro, phaseKey) => {
                                     setSelectedProfessional(pro);
                                     const tabMap: any = { design: 'architects', build: 'constructors', legal: 'notaris', interior: 'interior', management: 'project_manager' };
                                     setActiveTab(tabMap[phaseKey] || 'architects');
                                 }}
+                                isProjectDetailLoading={isProjectDetailLoading || !detailedProject}
                             />
                         );
                     }
 
                     return (
                         <ProjectBiddingBrief 
-                            project={mergedProject}
+                            project={proj}
                             user={user}
                             onBack={() => { setSelectedProject(null); setActiveTab('projects'); }}
-                            onRefresh={() => onRefresh?.()}
+                            onRefresh={handleWorkspaceRefresh}
                         />
                     );
                 })()}
@@ -289,11 +392,12 @@ export const DashboardTabs: React.FC<TabsProps> = (props) => {
                 {activeTab === 'projects' && (
                     <ProjectBoard 
                         projects={(user?.role_type === 'user' ? projects : projectFeed) as any} 
-                        isLoading={isLoadingData} userRole={user?.role_type}
+                        isLoading={isProjectsLoading ?? isLoadingData} userRole={user?.role_type}
                         onPostProject={() => setActiveTab('post-project')}
                         onViewProject={handleViewProject} onEditProject={setProjectToEdit}
                         onDeleteProject={setProjectToDelete} onStatusChange={handleProjectStatusChange}
                         myBidsCount={myBids.length} onViewMyBids={() => setActiveTab('my-bids')}
+                        onPrefetch={prefetchProject}
                     />
                 )}
 
@@ -310,10 +414,11 @@ export const DashboardTabs: React.FC<TabsProps> = (props) => {
                         </div>
                         <MyBidsList 
                             bids={myBids} 
-                            isLoading={isLoadingData} 
+                            isLoading={isBidsLoading ?? isLoadingData} 
                             onViewProject={(project) => handleViewProject(project)} 
                             initialSubTab={activeSubTab}
                             onSubTabChange={(tab) => setActiveSubTab?.(tab)}
+                            onPrefetch={prefetchProject}
                         />
                     </div>
                 )}
@@ -321,7 +426,7 @@ export const DashboardTabs: React.FC<TabsProps> = (props) => {
                 {activeTab === 'hire-history' && (
                     <HireHistoryTab 
                         history={hiredProfessionals} 
-                        isLoading={isLoadingData} 
+                        isLoading={isHistoryLoading ?? isLoadingData} 
                         onOpenChat={(uid) => handleOpenChat({ id: uid })}
                         onBrowseProfessionals={() => setActiveTab('architects')}
                     />
@@ -335,7 +440,7 @@ export const DashboardTabs: React.FC<TabsProps> = (props) => {
                 )}
 
                 {activeTab === 'houses' && (
-                    <ExploreHouses houses={houses} isLoading={isLoadingData} 
+                    <ExploreHouses houses={houses} isLoading={isHousesLoading ?? isLoadingData} 
                         onSelectHouse={(id) => { const h = houses.find(x => x.id === id); if (h) window.dispatchEvent(new CustomEvent('openHouseDetails', { detail: h.id })); }} 
                     />
                 )}
@@ -393,30 +498,30 @@ export const DashboardTabs: React.FC<TabsProps> = (props) => {
                 {activeTab === 'architects' && (
                     selectedProfessional ? (
                         <ProfessionalProfileView type="architect" data={selectedProfessional} projects={projects} onClose={() => setSelectedProfessional(null)} onOpenChat={handleOpenChat} />
-                    ) : <ExploreArchitects architects={architects} isLoading={isLoadingData} onSelectArchitect={setSelectedProfessional} />
+                    ) : <ExploreArchitects architects={architects} isLoading={isArchitectsLoading ?? isLoadingData} onSelectArchitect={setSelectedProfessional} />
                 )}
 
                 {activeTab === 'constructors' && (
                     selectedProfessional ? (
                         <ProfessionalProfileView type="constructor" data={selectedProfessional} projects={projects} onClose={() => setSelectedProfessional(null)} onOpenChat={handleOpenChat} />
-                    ) : <ExploreConstructors constructors={constructors} isLoading={isLoadingData} onSelectConstructor={setSelectedProfessional} />
+                    ) : <ExploreConstructors constructors={constructors} isLoading={isConstructorsLoading ?? isLoadingData} onSelectConstructor={setSelectedProfessional} />
                 )}
 
                 {activeTab === 'interior' && (
                     selectedProfessional ? (
                         <ProfessionalProfileView type="interior" data={selectedProfessional} projects={projects} onClose={() => setSelectedProfessional(null)} onOpenChat={handleOpenChat} />
-                    ) : <ExploreInterior designers={interiors || []} isLoading={isLoadingData} onSelectDesigner={setSelectedProfessional} />
+                    ) : <ExploreInterior designers={interiors || []} isLoading={isInteriorsLoading ?? isLoadingData} onSelectDesigner={setSelectedProfessional} />
                 )}
 
                 {activeTab === 'find-engineers' && (
                     <div className="space-y-12">
                         <div>
                             <h3 className="text-xl font-black text-gray-900 mb-6 px-4 border-l-4 border-zinc-900">Structural Engineers</h3>
-                            <ExploreEngineers engineers={structuralEngineers || []} isLoading={isLoadingData} type="structural" onSelect={(e) => { setSelectedProfessional(e); setActiveTab('structural'); }} />
+                            <ExploreEngineers engineers={structuralEngineers || []} isLoading={isStructuralLoading ?? isLoadingData} type="structural" onSelect={(e) => { setSelectedProfessional(e); setActiveTab('structural'); }} />
                         </div>
                         <div>
                             <h3 className="text-xl font-black text-gray-900 mb-6 px-4 border-l-4 border-zinc-900">MEP Specialists</h3>
-                            <ExploreEngineers engineers={mepEngineers || []} isLoading={isLoadingData} type="mep" onSelect={(e) => { setSelectedProfessional(e); setActiveTab('mep'); }} />
+                            <ExploreEngineers engineers={mepEngineers || []} isLoading={isMepLoading ?? isLoadingData} type="mep" onSelect={(e) => { setSelectedProfessional(e); setActiveTab('mep'); }} />
                         </div>
                     </div>
                 )}
@@ -432,26 +537,26 @@ export const DashboardTabs: React.FC<TabsProps> = (props) => {
                             </h3>
                             <p className="text-gray-500 text-sm">Browse and invite specialist contractors (roofing, pool, HVAC, etc.) to your active projects.</p>
                         </div>
-                        <ExploreConstructors constructors={constructors} isLoading={isLoadingData} onSelectConstructor={setSelectedProfessional} />
+                        <ExploreConstructors constructors={constructors} isLoading={isConstructorsLoading ?? isLoadingData} onSelectConstructor={setSelectedProfessional} />
                     </div>
                 )}
 
                 {activeTab === 'structural' && (
                     selectedProfessional ? (
                         <ProfessionalProfileView type="structural" data={selectedProfessional} projects={projects} onClose={() => setSelectedProfessional(null)} onOpenChat={handleOpenChat} />
-                    ) : <ExploreEngineers engineers={structuralEngineers || []} isLoading={isLoadingData} type="structural" onSelect={setSelectedProfessional} />
+                    ) : <ExploreEngineers engineers={structuralEngineers || []} isLoading={isStructuralLoading ?? isLoadingData} type="structural" onSelect={setSelectedProfessional} />
                 )}
 
                 {activeTab === 'mep' && (
                     selectedProfessional ? (
                         <ProfessionalProfileView type="mep" data={selectedProfessional} projects={projects} onClose={() => setSelectedProfessional(null)} onOpenChat={handleOpenChat} />
-                    ) : <ExploreEngineers engineers={mepEngineers || []} isLoading={isLoadingData} type="mep" onSelect={setSelectedProfessional} />
+                    ) : <ExploreEngineers engineers={mepEngineers || []} isLoading={isMepLoading ?? isLoadingData} type="mep" onSelect={setSelectedProfessional} />
                 )}
 
                 {activeTab === 'notaris' && (
                     selectedProfessional ? (
                         <ProfessionalProfileView type="notaris" data={selectedProfessional} projects={projects} onClose={() => setSelectedProfessional(null)} onOpenChat={handleOpenChat} />
-                    ) : <ExploreNotaries notaries={notaries || []} isLoading={isLoadingData} onSelect={setSelectedProfessional} />
+                    ) : <ExploreNotaries notaries={notaries || []} isLoading={isNotariesLoading ?? isLoadingData} onSelect={setSelectedProfessional} />
                 )}
                 
                 {activeTab === 'project_manager' && (
@@ -475,14 +580,13 @@ export const DashboardTabs: React.FC<TabsProps> = (props) => {
                                 setSelectedProfessional(null);
                             }}
                         />
-                    ) : <ExploreProjectManagers projectManagers={projectManagers || []} isLoading={isLoadingData} onSelectPM={setSelectedProfessional} />
-
+                    ) : <ExploreProjectManagers projectManagers={projectManagers || []} isLoading={isProjectManagersLoading ?? isLoadingData} onSelectPM={setSelectedProfessional} />
                 )}
 
                 {activeTab === 'chat' && <ChatTab initialUserId={chatUserId} onClearInitialUser={() => onClearChatUser?.(null)} />}
 
                 {activeTab === 'management' && (
-                    <ProfessionalProjects projects={projects} isLoading={isLoadingData} onViewProject={handleViewProject} formatCurrency={formatCurrency} />
+                    <ProfessionalProjects projects={projects} isLoading={isProjectsLoading ?? isLoadingData} onViewProject={handleViewProject} formatCurrency={formatCurrency} onPrefetch={prefetchProject} />
                 )}
 
                 {activeTab === 'my-firm' && (user?.role_type === 'arsitek' || user?.role_type === 'kontraktor') && (

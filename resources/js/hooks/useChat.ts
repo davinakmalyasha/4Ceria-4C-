@@ -16,18 +16,29 @@ export function useChat() {
     const pollingInterval = useRef<any>(null);
 
 
-    const fetchConversations = useCallback(async () => {
-        setIsLoadingConv(true);
+    const fetchConversations = useCallback(async (silent = false) => {
+        if (!silent) setIsLoadingConv(true);
         try {
             const res = await axios.get('/conversations');
             const data = res.data.data;
-            setConversations(data);
+            setConversations(prev => {
+                if (prev.length === data.length && 
+                    prev.every((c, idx) => 
+                        c.id === data[idx].id && 
+                        c.unread_count === data[idx].unread_count && 
+                        c.last_message?.id === data[idx].last_message?.id
+                    )
+                ) {
+                    return prev;
+                }
+                return data;
+            });
             return data;
         } catch (err) {
             console.error('Failed to fetch conversations', err);
             return [];
         } finally {
-            setIsLoadingConv(false);
+            if (!silent) setIsLoadingConv(false);
         }
     }, []);
 
@@ -105,11 +116,19 @@ export function useChat() {
         
         // Poll for new messages/conversations every 5 seconds
         pollingInterval.current = setInterval(() => {
-            fetchConversations();
+            if (document.hidden) return;
+            fetchConversations(true);
             if (activeConversation) {
-                // Only fetch messages if tab is focused or implement more smart polling
+                // Only fetch messages if tab is focused
                 axios.get(`/conversations/${activeConversation.id}`).then(res => {
-                    setMessages(res.data.data);
+                    const newMessages = res.data.data;
+                    setMessages(prev => {
+                        if (prev.length === newMessages.length && 
+                            prev[prev.length - 1]?.id === newMessages[newMessages.length - 1]?.id) {
+                            return prev;
+                        }
+                        return newMessages;
+                    });
                 }).catch(() => {});
             }
         }, 5000);
