@@ -79,15 +79,28 @@ Route::get('/marketplace/materials', [MaterialController::class, 'index']);
 Route::get('/brief/{token}', [ProjectController::class, 'getPublicBrief']);
 Route::get('/read-logs', function () {
     try {
-        $path = storage_path('logs/laravel.log');
-        if (!file_exists($path)) {
-            return response('Log file does not exist at ' . $path);
+        $logDir = storage_path('logs');
+        if (!is_dir($logDir)) {
+            return response("Logs directory does not exist at $logDir");
         }
-        $content = file_get_contents($path);
-        if ($content === false) {
-            return response('Failed to read log file at ' . $path);
+        $files = scandir($logDir);
+        $output = "Files in logs directory:\n" . implode("\n", $files) . "\n\n";
+
+        $logFiles = array_filter($files, function($f) {
+            return str_ends_with($f, '.log');
+        });
+
+        if (empty($logFiles)) {
+            $output .= "No .log files found.";
+            return response($output)->header('Content-Type', 'text/plain');
         }
-        return response(substr($content, -8000))->header('Content-Type', 'text/plain');
+
+        foreach ($logFiles as $logFile) {
+            $path = $logDir . '/' . $logFile;
+            $output .= "--- Content of $logFile (" . filesize($path) . " bytes) ---\n";
+            $output .= substr(file_get_contents($path), -8000) . "\n\n";
+        }
+        return response($output)->header('Content-Type', 'text/plain');
     } catch (\Throwable $e) {
         return response('Error reading log: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
     }
