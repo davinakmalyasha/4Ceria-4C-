@@ -394,8 +394,9 @@ class ProjectController extends Controller
 
             DB::commit();
             return new ProjectResource($project);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             DB::rollBack();
+            error_log('Project publish failed: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
             \Illuminate\Support\Facades\Log::error('Project publish failed: ' . $e->getMessage(), [
                 'exception' => $e,
                 'trace' => $e->getTraceAsString(),
