@@ -77,34 +77,7 @@ Route::get('/marketplace/materials', [MaterialController::class, 'index']);
 
 // Public Construction Brief (no auth — accessed via share link)
 Route::get('/brief/{token}', [ProjectController::class, 'getPublicBrief']);
-Route::get('/read-logs', function () {
-    try {
-        $logDir = storage_path('logs');
-        if (!is_dir($logDir)) {
-            return response("Logs directory does not exist at $logDir");
-        }
-        $files = scandir($logDir);
-        $output = "Files in logs directory:\n" . implode("\n", $files) . "\n\n";
 
-        $logFiles = array_filter($files, function($f) {
-            return str_ends_with($f, '.log');
-        });
-
-        if (empty($logFiles)) {
-            $output .= "No .log files found.";
-            return response($output)->header('Content-Type', 'text/plain');
-        }
-
-        foreach ($logFiles as $logFile) {
-            $path = $logDir . '/' . $logFile;
-            $output .= "--- Content of $logFile (" . filesize($path) . " bytes) ---\n";
-            $output .= substr(file_get_contents($path), -8000) . "\n\n";
-        }
-        return response($output)->header('Content-Type', 'text/plain');
-    } catch (\Throwable $e) {
-        return response('Error reading log: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
-    }
-});
 Route::middleware(['auth:sanctum', 'freeze_pending_termination'])->group(function () {
     Route::get('/hire-history', [HireHistoryController::class, 'index']);
     Route::get('/projects', [ProjectController::class, 'index']);
