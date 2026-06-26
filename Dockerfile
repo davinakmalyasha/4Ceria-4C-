@@ -9,6 +9,7 @@ RUN apk add --no-cache \
     curl \
     libpng-dev \
     libjpeg-turbo-dev \
+    libwebp-dev \
     freetype-dev \
     libxml2-dev \
     zip \
@@ -21,7 +22,7 @@ RUN apk add --no-cache \
     mariadb-connector-c
 
 # Configure and install PHP extensions (gd with JPEG & Freetype for full image support)
-RUN docker-php-ext-configure gd --with-jpeg --with-freetype \
+RUN docker-php-ext-configure gd --with-jpeg --with-webp --with-freetype \
     && docker-php-ext-install pdo pdo_mysql pdo_pgsql mbstring exif pcntl bcmath gd xml zip
 
 # Configure PHP upload and memory limits
