@@ -81,80 +81,93 @@ class HouseController extends Controller
 
     public function store(StoreHouseRequest $request)
     {
-        $validated = $request->validated();
+        try {
+            $validated = $request->validated();
 
-        if ($validated['kab_kota'] == 'Jakarta') {
-            Regions::firstOrCreate([
-                'name' => $validated['kab_kota'],
-                'id_province' => 1,
-            ]);
-        } else {
-            $province = Provinces::firstOrCreate(['name' => $validated['province']]);
-            Regions::firstOrCreate([
-                'name' => $validated['kab_kota'],
-                'id_province' => $province->id,
-            ]);
-        }
-
-        $validated['price'] = str_replace('.', '', $validated['price']);
-        $validated['id_user'] = Auth::id();
-        $validated['coordinate'] = $validated['lat'].', '.$validated['lng'];
-
-        $house = House::create($validated);
-
-        // Handle initial rooms and their photos if provided
-        if ($request->has('rooms')) {
-            foreach ($request->input('rooms') as $index => $roomData) {
-                $room = $house->room()->create([
-                    'name' => $roomData['name'],
-                    'type' => $roomData['type'],
-                    'width' => $roomData['width'],
-                    'length' => $roomData['length'],
-                    'desc' => $roomData['desc'] ?? '',
+            if ($validated['kab_kota'] == 'Jakarta') {
+                Regions::firstOrCreate([
+                    'name' => $validated['kab_kota'],
+                    'id_province' => 1,
                 ]);
+            } else {
+                $province = Provinces::firstOrCreate(['name' => $validated['province']]);
+                Regions::firstOrCreate([
+                    'name' => $validated['kab_kota'],
+                    'id_province' => $province->id,
+                ]);
+            }
 
-                // Handle room photos if any
-                if ($request->hasFile("rooms.{$index}.pics")) {
-                    foreach ($request->file("rooms.{$index}.pics") as $roomPic) {
-                        if ($roomPic->isValid()) {
-                            $roomFolder = 'uploads/house/house_'.$house->id.'/rooms/room_'.$room->id;
-                            $path = \App\Services\ImageService::convertToWebp($roomPic, $roomFolder);
-                            RoomPic::create([
-                                'file_name' => $roomPic->getClientOriginalName(),
-                                'dir' => $path,
-                                'size' => $roomPic->getSize(),
-                                'id_room' => $room->id,
-                            ]);
+            $validated['price'] = str_replace('.', '', $validated['price']);
+            $validated['id_user'] = Auth::id();
+            $validated['coordinate'] = $validated['lat'].', '.$validated['lng'];
+
+            $house = House::create($validated);
+
+            // Handle initial rooms and their photos if provided
+            if ($request->has('rooms')) {
+                foreach ($request->input('rooms') as $index => $roomData) {
+                    $room = $house->room()->create([
+                        'name' => $roomData['name'],
+                        'type' => $roomData['type'],
+                        'width' => $roomData['width'],
+                        'length' => $roomData['length'],
+                        'desc' => $roomData['desc'] ?? '',
+                    ]);
+
+                    // Handle room photos if any
+                    if ($request->hasFile("rooms.{$index}.pics")) {
+                        foreach ($request->file("rooms.{$index}.pics") as $roomPic) {
+                            if ($roomPic->isValid()) {
+                                $roomFolder = 'uploads/house/house_'.$house->id.'/rooms/room_'.$room->id;
+                                $path = \App\Services\ImageService::convertToWebp($roomPic, $roomFolder);
+                                RoomPic::create([
+                                    'file_name' => $roomPic->getClientOriginalName(),
+                                    'dir' => $path,
+                                    'size' => $roomPic->getSize(),
+                                    'id_room' => $room->id,
+                                ]);
+                            }
                         }
                     }
                 }
             }
-        }
 
-        // Handle house_pic file uploads
-        if ($request->hasFile('house_pic')) {
-            foreach ($request->file('house_pic') as $pic) {
-                if ($pic->isValid()) {
-                    $saveFolder = 'uploads/house/house_'.Auth::id();
-                    $path = \App\Services\ImageService::convertToWebp($pic, $saveFolder);
-                    HousePic::create([
-                        'file_name' => $pic->getClientOriginalName(),
-                        'dir' => $path,
-                        'size' => $pic->getSize(),
-                        'id_house' => $house->id,
-                    ]);
+            // Handle house_pic file uploads
+            if ($request->hasFile('house_pic')) {
+                foreach ($request->file('house_pic') as $pic) {
+                    if ($pic->isValid()) {
+                        $saveFolder = 'uploads/house/house_'.Auth::id();
+                        $path = \App\Services\ImageService::convertToWebp($pic, $saveFolder);
+                        HousePic::create([
+                            'file_name' => $pic->getClientOriginalName(),
+                            'dir' => $path,
+                            'size' => $pic->getSize(),
+                            'id_house' => $house->id,
+                        ]);
+                    }
                 }
             }
-        }
 
-        $supportsTags = in_array(config('cache.default'), ['redis', 'memcached']);
-        if ($supportsTags) {
-            \Illuminate\Support\Facades\Cache::tags(['houses'])->flush();
-        } else {
-            \Illuminate\Support\Facades\Cache::flush();
-        }
+            $supportsTags = in_array(config('cache.default'), ['redis', 'memcached']);
+            if ($supportsTags) {
+                \Illuminate\Support\Facades\Cache::tags(['houses'])->flush();
+            } else {
+                \Illuminate\Support\Facades\Cache::flush();
+            }
 
-        return new HouseResource($house->load(['housePic', 'room', 'room.roomPic']));
+            return new HouseResource($house->load(['housePic', 'room', 'room.roomPic']));
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('House creation failed', [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'message' => 'Gagal menyimpan properti: '.$e->getMessage(),
+            ], 500);
+        }
     }
 
     public function show(House $house)
