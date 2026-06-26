@@ -84,7 +84,7 @@ class AuthController extends Controller
             ]);
 
             if ($request->role_type === 'arsitek') {
-                Arsitek::create(['user_id' => $user->id, 'nama' => $user->name, 'rate_harga' => 0, 'pengalaman_tahun' => 0]);
+                Arsitek::create(['user_id' => $user->id, 'nama' => $user->name, 'rate_harga' => 0, 'pengalaman_tahun' => 0, 'verification_status' => 'verified']);
 
                 Notification::create([
                     'user_id' => $user->id,
@@ -102,7 +102,7 @@ class AuthController extends Controller
                     'data' => ['tab' => 'profile', 'action' => 'verify'],
                 ]);
             } elseif ($request->role_type === 'kontraktor') {
-                Kontraktor::create(['user_id' => $user->id, 'nama' => $user->name]);
+                Kontraktor::create(['user_id' => $user->id, 'nama' => $user->name, 'verification_status' => 'verified']);
 
                 Notification::create([
                     'user_id' => $user->id,
