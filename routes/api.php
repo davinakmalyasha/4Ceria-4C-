@@ -1,7 +1,6 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
-use App\Http\Controllers\Api\GoogleAuthController;
 use App\Http\Controllers\Api\ChatController;
 use App\Http\Controllers\Api\HouseController;
 use App\Http\Controllers\Api\NotificationController;
@@ -41,7 +40,8 @@ use Illuminate\Support\Facades\Cache;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
-Route::post('/auth/google', [GoogleAuthController::class, 'googleLogin']);
+Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
+Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 
 // Public API endpoints
 Route::get('/houses', [HouseController::class, 'index']);
@@ -59,6 +59,9 @@ Route::get('/notaris', [\App\Http\Controllers\Api\PublicProfessionalController::
 Route::get('/project-manager', [\App\Http\Controllers\Api\PublicProfessionalController::class, 'getProjectManagers']);
 Route::get('/structural-engineers', [\App\Http\Controllers\Api\PublicProfessionalController::class, 'getStructuralEngineers']);
 Route::get('/mep-engineers', [\App\Http\Controllers\Api\PublicProfessionalController::class, 'getMepEngineers']);
+
+// House Q&A Public Routes
+Route::get('/houses/{house}/questions', [\App\Http\Controllers\Api\HouseQAController::class, 'index']);
 
 // Geocoding Proxy Public Routes
 Route::get('/geocode/reverse', [\App\Http\Controllers\Api\GeocodeController::class, 'reverse']);
@@ -96,6 +99,11 @@ Route::middleware(['auth:sanctum', 'freeze_pending_termination'])->group(functio
     // Room Management
     Route::post('houses/{house}/rooms', [RoomController::class, 'store']);
     Route::delete('rooms/{room}', [RoomController::class, 'destroy']);
+
+    // House Q&A
+    Route::post('/houses/{house}/questions', [\App\Http\Controllers\Api\HouseQAController::class, 'storeQuestion']);
+    Route::post('/questions/{question}/answers', [\App\Http\Controllers\Api\HouseQAController::class, 'storeAnswer']);
+    Route::delete('/questions/{question}', [\App\Http\Controllers\Api\HouseQAController::class, 'deleteQuestion']);
 
     // Protected API endpoints
     Route::get('/portfolios', [\App\Http\Controllers\Api\PortfolioController::class, 'index']);

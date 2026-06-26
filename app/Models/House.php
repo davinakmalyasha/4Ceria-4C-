@@ -66,4 +66,9 @@ class House extends Model
     {
         return $this->belongsTo(User::class, 'id_user');
     }
+
+    public function questions()
+    {
+        return $this->hasMany(HouseQuestion::class, 'house_id');
+    }
 }

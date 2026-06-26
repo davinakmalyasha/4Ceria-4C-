@@ -22,6 +22,10 @@ class HouseController extends Controller
     {
         $query = House::with(['housePic', 'user.phoneNumber', 'room.roomPic'])->where('is_suspended', false);
 
+        if ($request->boolean('mine') && Auth::check()) {
+            $query->where('id_user', Auth::id());
+        }
+
         if ($request->has('search') && !empty($request->search)) {
             $search = $request->search;
             $query->where(function($q) use ($search) {
