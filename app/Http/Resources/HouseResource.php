@@ -52,7 +52,7 @@ class HouseResource extends JsonResource
                 'width' => $r->width,
                 'length' => $r->length,
                 'description' => $r->desc,
-                'pics' => $r->roomPic->values()->map(fn ($p) => ['dir' => $p->dir]),
+                'pics' => $r->roomPic->values()->map(fn ($p) => ['id' => $p->id, 'dir' => $p->dir]),
             ])),
         ];
     }
