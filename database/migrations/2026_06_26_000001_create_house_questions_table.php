@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('house_questions', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('house_id')->constrained('houses')->onDelete('cascade');
+            $table->foreignId('house_id')->constrained('house')->onDelete('cascade');
             $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
             $table->text('question');
             $table->timestamps();
