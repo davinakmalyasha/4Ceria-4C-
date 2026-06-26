@@ -8,21 +8,25 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('house_questions', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('house_id')->constrained('house')->onDelete('cascade');
-            $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
-            $table->text('question');
-            $table->timestamps();
-        });
+        if (!Schema::hasTable('house_questions')) {
+            Schema::create('house_questions', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('house_id')->constrained('house')->onDelete('cascade');
+                $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
+                $table->text('question');
+                $table->timestamps();
+            });
+        }
 
-        Schema::create('house_answers', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('question_id')->constrained('house_questions')->onDelete('cascade');
-            $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
-            $table->text('answer');
-            $table->timestamps();
-        });
+        if (!Schema::hasTable('house_answers')) {
+            Schema::create('house_answers', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('question_id')->constrained('house_questions')->onDelete('cascade');
+                $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
+                $table->text('answer');
+                $table->timestamps();
+            });
+        }
     }
 
     public function down(): void
