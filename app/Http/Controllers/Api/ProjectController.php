@@ -727,10 +727,6 @@ class ProjectController extends Controller
         if ($user->role_type === 'arsitek') {
             $profile = \App\Models\Arsitek::where('user_id', $user->id)->firstOrFail();
 
-            if ($profile->verification_status !== 'verified') {
-                $profile->update(['verification_status' => 'verified']);
-            }
-
             // Prevent duplicate bids
             $existing = \App\Models\BidArsitek::where('project_id', $project->id)
                 ->where('arsitek_id', $profile->id)->first();
@@ -746,10 +742,6 @@ class ProjectController extends Controller
             ]));
         } elseif ($user->role_type === 'kontraktor') {
             $profile = \App\Models\Kontraktor::where('user_id', $user->id)->firstOrFail();
-
-            if ($profile->verification_status !== 'verified') {
-                $profile->update(['verification_status' => 'verified']);
-            }
 
             $existing = \App\Models\BidKontraktor::where('project_id', $project->id)
                 ->where('kontraktor_id', $profile->id)->first();
@@ -771,10 +763,6 @@ class ProjectController extends Controller
         } elseif ($user->role_type === 'notaris') {
             $profile = \App\Models\NotarisProfile::where('user_id', $user->id)->firstOrFail();
 
-            if ($profile->verification_status !== 'verified') {
-                $profile->update(['verification_status' => 'verified']);
-            }
-
             $existing = \App\Models\BidNotaris::where('project_id', $project->id)
                 ->where('notaris_id', $profile->id)->first();
             if ($existing) {
@@ -788,10 +776,6 @@ class ProjectController extends Controller
             ]));
         } elseif ($user->role_type === 'interior') {
             $profile = \App\Models\InteriorProfile::where('user_id', $user->id)->firstOrFail();
-
-            if ($profile->verification_status !== 'verified') {
-                $profile->update(['verification_status' => 'verified']);
-            }
 
             $existing = \App\Models\BidInterior::where('project_id', $project->id)
                 ->where('interior_id', $profile->id)->first();
@@ -807,9 +791,6 @@ class ProjectController extends Controller
             ]));
         } elseif ($user->role_type === 'structural') {
             $profile = \App\Models\StructuralEngineer::where('user_id', $user->id)->firstOrFail();
-            if ($profile->verification_status !== 'verified') {
-                $profile->update(['verification_status' => 'verified']);
-            }
             $existing = \App\Models\BidStructural::where('project_id', $project->id)
                 ->where('structural_id', $profile->id)->first();
             if ($existing && $existing->status !== 'invited') {
@@ -837,9 +818,6 @@ class ProjectController extends Controller
             ]));
         } elseif ($user->role_type === 'mep') {
             $profile = \App\Models\MepEngineer::where('user_id', $user->id)->firstOrFail();
-            if ($profile->verification_status !== 'verified') {
-                $profile->update(['verification_status' => 'verified']);
-            }
             $existing = \App\Models\BidMep::where('project_id', $project->id)
                 ->where('mep_id', $profile->id)->first();
             if ($existing && $existing->status !== 'invited') {
@@ -868,10 +846,6 @@ class ProjectController extends Controller
             ]));
         } elseif ($user->role_type === 'project_manager') {
             $profile = \App\Models\ProjectManager::where('user_id', $user->id)->firstOrFail();
-
-            if ($profile->verification_status !== 'verified') {
-                $profile->update(['verification_status' => 'verified']);
-            }
 
             $existing = \App\Models\BidProjectManager::where('project_id', $project->id)
                 ->where('pm_id', $profile->id)->first();

@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "word-document-server": {
+      "command": "C:\\laragon\\www\\4C-Web\\word-mcp-server\\.venv\\Scripts\\python.exe",
+      "args": [
+        "C:\\laragon\\www\\4C-Web\\word-mcp-server\\word_mcp_server.py"
+      ],
+      "env": {
+        "PYTHONPATH": "C:\\laragon\\www\\4C-Web\\word-mcp-server",
+        "MCP_TRANSPORT": "stdio"
+      }
+    },
+    "agent-browser": {
+      "command": "agent-browser",
+      "args": ["mcp"],
+      "env": {}
+    }
+  }
+}

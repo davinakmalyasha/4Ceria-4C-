@@ -18,6 +18,8 @@ const AdminHouses = React.lazy(() => import('./pages/admin/AdminHouses'));
 const AdminProjects = React.lazy(() => import('./pages/admin/AdminProjects'));
 const PublicBrief = React.lazy(() => import('./pages/PublicBrief'));
 const Docs = React.lazy(() => import('./pages/Docs'));
+const ForgotPassword = React.lazy(() => import('./pages/ForgotPassword'));
+const ResetPassword = React.lazy(() => import('./pages/ResetPassword'));
 
 const PageLoader = () => (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center">
@@ -56,6 +58,10 @@ function App() {
 
                         {/* Public Brief (no auth) */}
                         <Route path="/brief/:token" element={<PublicBrief />} />
+
+                        {/* Password Reset */}
+                        <Route path="/forgot-password" element={<ForgotPassword />} />
+                        <Route path="/reset-password/:token" element={<ResetPassword />} />
 
                         <Route path="*" element={<Navigate to="/" replace />} />
                     </Routes>
