@@ -50,6 +50,11 @@ class ImageService
      */
     public static function convertToWebp(UploadedFile $file, string $directory, int $quality = 80): string
     {
+        // GD extension not installed — store original file as-is
+        if (!extension_loaded('gd') || !function_exists('imagecreatefromjpeg')) {
+            return $file->store($directory, 'public');
+        }
+
         $tempPath = $file->getRealPath();
         $mime = $file->getMimeType();
         $image = null;
