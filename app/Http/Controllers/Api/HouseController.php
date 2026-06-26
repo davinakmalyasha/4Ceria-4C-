@@ -115,8 +115,10 @@ class HouseController extends Controller
                     ]);
 
                     // Handle room photos if any
-                    if ($request->hasFile("rooms.{$index}.pics")) {
-                        foreach ($request->file("rooms.{$index}.pics") as $roomPic) {
+                    $allRoomFiles = $request->file('rooms');
+                    $roomPics = is_array($allRoomFiles) ? ($allRoomFiles[$index]['pics'] ?? null) : null;
+                    if (!empty($roomPics)) {
+                        foreach ($roomPics as $roomPic) {
                             if ($roomPic->isValid()) {
                                 $roomFolder = 'uploads/house/house_'.$house->id.'/rooms/room_'.$room->id;
                                 $path = \App\Services\ImageService::convertToWebp($roomPic, $roomFolder);
@@ -222,8 +224,9 @@ class HouseController extends Controller
                 }
 
                 // Handle room photos if any (new uploads)
-                if ($room && $request->hasFile("rooms.{$index}.pics")) {
-                    foreach ($request->file("rooms.{$index}.pics") as $roomPic) {
+                $roomPics = $request->file('rooms')[$index]['pics'] ?? null;
+                if ($room && !empty($roomPics)) {
+                    foreach ($roomPics as $roomPic) {
                         if ($roomPic->isValid()) {
                             $roomFolder = 'uploads/house/house_'.$house->id.'/rooms/room_'.$room->id;
                             $path = \App\Services\ImageService::convertToWebp($roomPic, $roomFolder);
