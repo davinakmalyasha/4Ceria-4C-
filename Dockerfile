@@ -8,6 +8,8 @@ RUN apk add --no-cache \
     supervisor \
     curl \
     libpng-dev \
+    libjpeg-turbo-dev \
+    freetype-dev \
     libxml2-dev \
     zip \
     unzip \
@@ -18,8 +20,9 @@ RUN apk add --no-cache \
     mysql-client \
     mariadb-connector-c
 
-# Install PHP extensions
-RUN docker-php-ext-install pdo pdo_mysql pdo_pgsql mbstring exif pcntl bcmath gd xml zip
+# Configure and install PHP extensions (gd with JPEG & Freetype for full image support)
+RUN docker-php-ext-configure gd --with-jpeg --with-freetype \
+    && docker-php-ext-install pdo pdo_mysql pdo_pgsql mbstring exif pcntl bcmath gd xml zip
 
 # Configure PHP upload and memory limits
 RUN echo "upload_max_filesize = 64M" > /usr/local/etc/php/conf.d/uploads.ini \
