@@ -29,9 +29,10 @@ class ResetPasswordNotification extends Notification
         $url = config('app.url') . '/reset-password/' . $this->token . '?email=' . urlencode($this->email);
 
         return (new MailMessage)
-            ->subject('Reset Password Notification')
+            ->subject('Reset Password Notification - 4Ceria')
             ->greeting('Hello!')
             ->line('You are receiving this email because we received a password reset request for your account.')
+            ->line('Your reset token: ' . $this->token)
             ->action('Reset Password', $url)
             ->line('This password reset link will expire in 60 minutes.')
             ->line('If you did not request a password reset, no further action is required.');

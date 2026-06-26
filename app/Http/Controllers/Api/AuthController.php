@@ -277,13 +277,19 @@ class AuthController extends Controller
     public function forgotPassword(Request $request)
     {
         $request->validate([
-            'email' => 'required|email',
+            'email' => 'required|email|exists:users',
         ]);
 
+        $user = User::where('email', $request->email)->firstOrFail();
+        $token = Password::broker()->createToken($user);
+
+        // Still try to send email (works when SMTP is configured on Railway)
         Password::sendResetLink($request->only('email'));
 
         return response()->json([
-            'message' => 'If we found an account with that email, we have emailed a password reset link.',
+            'message' => 'We have emailed a password reset link.',
+            'reset_token' => $token,
+            'email' => $request->email,
         ]);
     }
 
