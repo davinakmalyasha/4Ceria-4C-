@@ -257,9 +257,11 @@ class HouseController extends Controller
         }
 
         // Handle deleted room photos
-        if ($request->has('deleted_room_pics')) {
-            foreach ($request->input('deleted_room_pics') as $roomPicId) {
-                $roomPic = RoomPic::find($roomPicId);
+        $deletedRoomPics = $request->input('deleted_room_pics');
+        \Log::info('deleted_room_pics received', ['ids' => $deletedRoomPics, 'has' => $request->has('deleted_room_pics')]);
+        if (!empty($deletedRoomPics)) {
+            foreach ($deletedRoomPics as $roomPicId) {
+                $roomPic = RoomPic::find((int) $roomPicId);
                 if ($roomPic && $roomPic->room && $roomPic->room->id_house === $house->id) {
                     if (Storage::disk('public')->exists($roomPic->dir)) {
                         Storage::disk('public')->delete($roomPic->dir);
