@@ -51,9 +51,10 @@ RUN mkdir -p /var/www/html/storage/framework/cache/data \
     && chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/public \
     && chown -R www-data:www-data /var/lib/nginx /var/log/nginx
 
-# Copy Nginx and Supervisor configurations
+# Copy Nginx, PHP-FPM, and Supervisor configurations
 COPY docker/nginx.conf /etc/nginx/nginx.conf
 COPY docker/supervisord.conf /etc/supervisord.conf
+COPY docker/www.conf /usr/local/etc/php-fpm.d/www.conf
 
 # Expose HTTP port
 EXPOSE 80
