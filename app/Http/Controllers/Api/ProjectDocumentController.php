@@ -13,9 +13,13 @@ use Illuminate\Support\Facades\DB;
 
 class ProjectDocumentController extends Controller
 {
-    public function index(Project $project)
+    public function index(Request $request, Project $project)
     {
-        return response()->json(['data' => $project->documents()->with('uploader')->get()]);
+        $query = $project->documents()->with('uploader');
+        if ($request->has('target_role')) {
+            $query->where('target_role', $request->target_role);
+        }
+        return response()->json(['data' => $query->get()]);
     }
 
     public function store(Request $request, Project $project)
