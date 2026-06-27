@@ -12,7 +12,9 @@ class ProjectResource extends JsonResource
     public function toArray(Request $request): array
     {
         $user = auth('sanctum')->user();
-        if ($user && static::$resolvedProfiles === null) {
+
+        // Guard against static cache persisting across PHP-FPM requests for different users
+        if ($user && (static::$resolvedProfiles === null || (static::$resolvedProfiles['_user_id'] ?? null) !== $user->id)) {
             $user->loadMissing([
                 'arsitek',
                 'kontraktor',
@@ -22,8 +24,9 @@ class ProjectResource extends JsonResource
                 'mep_engineer',
                 'project_manager'
             ]);
-            
+
             static::$resolvedProfiles = [
+                '_user_id' => $user->id,
                 'arsitek_id' => $user->arsitek?->id,
                 'kontraktor_id' => $user->kontraktor?->id,
                 'notaris_id' => $user->notaris_profile?->id,
@@ -46,42 +49,45 @@ class ProjectResource extends JsonResource
 
         if ($user) {
             $role = $user->role_type;
-            
+
             // Standard Profiles
+            // NOTE: Always filter by the user's profile ID even when the relation is loaded,
+            // because the relation may have been eager-loaded without the user-scoped filter
+            // (e.g. when with_bids=true loads all bids for the project owner view).
             if ($role === 'arsitek' && $userArsitekId) {
                 $hasSubmittedBid = $this->relationLoaded('bidsArsitek')
-                    ? $this->bidsArsitek->where('status', '!=', 'invited')->isNotEmpty()
+                    ? $this->bidsArsitek->where('arsitek_id', $userArsitekId)->where('status', '!=', 'invited')->isNotEmpty()
                     : $this->bidsArsitek()->where('arsitek_id', $userArsitekId)->where('status', '!=', 'invited')->exists();
             } elseif ($role === 'kontraktor' && $userKontraktorId) {
                 $hasSubmittedBid = $this->relationLoaded('bidsKontraktor')
-                    ? $this->bidsKontraktor->where('status', '!=', 'invited')->isNotEmpty()
+                    ? $this->bidsKontraktor->where('kontraktor_id', $userKontraktorId)->where('status', '!=', 'invited')->isNotEmpty()
                     : $this->bidsKontraktor()->where('kontraktor_id', $userKontraktorId)->where('status', '!=', 'invited')->exists();
             } elseif ($role === 'notaris' && $userNotarisId) {
                 $hasSubmittedBid = $this->relationLoaded('bidsNotaris')
-                    ? $this->bidsNotaris->where('status', '!=', 'invited')->isNotEmpty()
+                    ? $this->bidsNotaris->where('notaris_id', $userNotarisId)->where('status', '!=', 'invited')->isNotEmpty()
                     : $this->bidsNotaris()->where('notaris_id', $userNotarisId)->where('status', '!=', 'invited')->exists();
             } elseif ($role === 'interior' && $userInteriorId) {
                 $hasSubmittedBid = $this->relationLoaded('bidsInterior')
-                    ? $this->bidsInterior->where('status', '!=', 'invited')->isNotEmpty()
+                    ? $this->bidsInterior->where('interior_id', $userInteriorId)->where('status', '!=', 'invited')->isNotEmpty()
                     : $this->bidsInterior()->where('interior_id', $userInteriorId)->where('status', '!=', 'invited')->exists();
-            } 
+            }
             // Enterprise Profiles (PM, Structural, MEP)
             elseif ($role === 'project_manager') {
                 if ($userPmId) {
                     $hasSubmittedBid = $this->relationLoaded('bidsProjectManager')
-                        ? $this->bidsProjectManager->where('status', '!=', 'invited')->isNotEmpty()
+                        ? $this->bidsProjectManager->where('pm_id', $userPmId)->where('status', '!=', 'invited')->isNotEmpty()
                         : $this->bidsProjectManager()->where('pm_id', $userPmId)->where('status', '!=', 'invited')->exists();
                 }
             } elseif ($role === 'structural') {
                 if ($userStructuralId) {
                     $hasSubmittedBid = $this->relationLoaded('bidsStructural')
-                        ? $this->bidsStructural->where('status', '!=', 'invited')->isNotEmpty()
+                        ? $this->bidsStructural->where('structural_id', $userStructuralId)->where('status', '!=', 'invited')->isNotEmpty()
                         : $this->bidsStructural()->where('structural_id', $userStructuralId)->where('status', '!=', 'invited')->exists();
                 }
             } elseif ($role === 'mep') {
                 if ($userMepId) {
                     $hasSubmittedBid = $this->relationLoaded('bidsMep')
-                        ? $this->bidsMep->where('status', '!=', 'invited')->isNotEmpty()
+                        ? $this->bidsMep->where('mep_id', $userMepId)->where('status', '!=', 'invited')->isNotEmpty()
                         : $this->bidsMep()->where('mep_id', $userMepId)->where('status', '!=', 'invited')->exists();
                 }
             }
