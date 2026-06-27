@@ -9,6 +9,11 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // Skip on SQLite — information_schema is MySQL-specific and there are no FK issues on fresh SQLite builds
+        if (DB::getDriverName() === 'sqlite') {
+            return;
+        }
+
         // Only run if columns exist but have bad FKs (won't apply on consolidated fresh install)
         if (!Schema::hasColumn('projects', 'selected_arsitek_id')) {
             return;
