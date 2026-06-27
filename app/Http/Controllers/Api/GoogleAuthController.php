@@ -78,22 +78,8 @@ class GoogleAuthController extends Controller
     {
         if ($roleType === 'arsitek') {
             Arsitek::create(['user_id' => $user->id, 'nama' => $user->name, 'rate_harga' => 0, 'pengalaman_tahun' => 0]);
-            Notification::create([
-                'user_id' => $user->id,
-                'type' => 'onboarding',
-                'title' => 'Complete Your Architect Profile',
-                'body' => 'Your profile is almost ready! Add your skills, rate, and location to attract more clients.',
-                'data' => ['tab' => 'profile', 'action' => 'edit_profile'],
-            ]);
         } elseif ($roleType === 'kontraktor') {
             Kontraktor::create(['user_id' => $user->id, 'nama' => $user->name]);
-            Notification::create([
-                'user_id' => $user->id,
-                'type' => 'onboarding',
-                'title' => 'Complete Your Constructor Profile',
-                'body' => 'Your profile is almost ready! Add your skills, rate, and company background to attract more clients.',
-                'data' => ['tab' => 'profile', 'action' => 'edit_profile'],
-            ]);
         }
     }
 }

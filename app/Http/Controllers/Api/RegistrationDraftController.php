@@ -138,29 +138,8 @@ class RegistrationDraftController extends Controller
 
         if ($role === 'arsitek') {
             Arsitek::create(['user_id' => $user->id, 'nama' => $user->name, 'rate_harga' => 0, 'pengalaman_tahun' => 0]);
-            Notification::create([
-                'user_id' => $user->id,
-                'type' => 'onboarding',
-                'title' => 'Complete Your Architect Profile',
-                'body' => 'Your profile is almost ready! Add your skills, rate, and location to attract more clients.',
-                'data' => ['tab' => 'profile', 'action' => 'edit_profile'],
-            ]);
-            Notification::create([
-                'user_id' => $user->id,
-                'type' => 'onboarding',
-                'title' => 'Get Verified to Start Bidding',
-                'body' => 'Verified architects are more trusted. Upload your certifications now.',
-                'data' => ['tab' => 'profile', 'action' => 'verify'],
-            ]);
         } elseif ($role === 'kontraktor') {
             Kontraktor::create(['user_id' => $user->id, 'nama' => $user->name]);
-            Notification::create([
-                'user_id' => $user->id,
-                'type' => 'onboarding',
-                'title' => 'Complete Your Contractor Profile',
-                'body' => 'Make your profile stand out! Fill in company details, specialties, and experience.',
-                'data' => ['tab' => 'profile', 'action' => 'edit_profile'],
-            ]);
         } elseif ($role === 'supplier') {
             \App\Models\Supplier::create(['user_id' => $user->id, 'store_name' => $user->name]);
         } elseif ($role === 'logistics') {

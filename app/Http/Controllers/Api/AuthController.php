@@ -85,82 +85,18 @@ class AuthController extends Controller
 
             if ($request->role_type === 'arsitek') {
                 Arsitek::create(['user_id' => $user->id, 'nama' => $user->name, 'rate_harga' => 0, 'pengalaman_tahun' => 0, 'verification_status' => 'verified']);
-
-                Notification::create([
-                    'user_id' => $user->id,
-                    'type' => 'onboarding',
-                    'title' => 'Complete Your Architect Profile',
-                    'body' => 'Your profile is almost ready! Add your skills, rate, and location to attract more clients.',
-                    'data' => ['tab' => 'profile', 'action' => 'edit_profile'],
-                ]);
-
-                Notification::create([
-                    'user_id' => $user->id,
-                    'type' => 'onboarding',
-                    'title' => 'Get Verified to Start Bidding',
-                    'body' => 'Verified architects are more trusted. Upload your certifications now.',
-                    'data' => ['tab' => 'profile', 'action' => 'verify'],
-                ]);
             } elseif ($request->role_type === 'kontraktor') {
                 Kontraktor::create(['user_id' => $user->id, 'nama' => $user->name, 'verification_status' => 'verified']);
-
-                Notification::create([
-                    'user_id' => $user->id,
-                    'type' => 'onboarding',
-                    'title' => 'Complete Your Constructor Profile',
-                    'body' => 'Your profile is almost ready! Add your skills, rate, and company background to attract more clients.',
-                    'data' => ['tab' => 'profile', 'action' => 'edit_profile'],
-                ]);
-
-                Notification::create([
-                    'user_id' => $user->id,
-                    'type' => 'onboarding',
-                    'title' => 'Get Verified to Start Bidding',
-                    'body' => 'Verified constructors are more trusted. Upload your business permits and NPWP now.',
-                    'data' => ['tab' => 'profile', 'action' => 'verify'],
-                ]);
             } elseif ($request->role_type === 'admin') {
                 Admin::create(['user_id' => $user->id, 'nama' => $user->name]);
             } elseif ($request->role_type === 'notaris') {
                 NotarisProfile::create(['user_id' => $user->id, 'nama' => $user->name, 'rate_harga' => 0, 'pengalaman_tahun' => 0]);
-
-                Notification::create([
-                    'user_id' => $user->id,
-                    'type' => 'onboarding',
-                    'title' => 'Complete Your Notaris Profile',
-                    'body' => 'Add your license number, work region, and specialization to start receiving clients.',
-                    'data' => ['tab' => 'profile', 'action' => 'edit_profile'],
-                ]);
             } elseif ($request->role_type === 'interior') {
                 InteriorProfile::create(['user_id' => $user->id, 'nama' => $user->name, 'rate_harga' => 0, 'pengalaman_tahun' => 0]);
-
-                Notification::create([
-                    'user_id' => $user->id,
-                    'type' => 'onboarding',
-                    'title' => 'Complete Your Interior Profile',
-                    'body' => 'Upload your portfolio and certifications to attract homeowners looking for interior designers.',
-                    'data' => ['tab' => 'profile', 'action' => 'edit_profile'],
-                ]);
             } elseif ($request->role_type === 'structural') {
                 StructuralEngineer::create(['user_id' => $user->id, 'nama' => $user->name, 'rate_harga' => 0, 'pengalaman_tahun' => 0]);
-
-                Notification::create([
-                    'user_id' => $user->id,
-                    'type' => 'onboarding',
-                    'title' => 'Complete Your Structural Engineer Profile',
-                    'body' => 'Add your certifications and specialization to start receiving project invitations.',
-                    'data' => ['tab' => 'profile', 'action' => 'edit_profile'],
-                ]);
             } elseif ($request->role_type === 'mep') {
                 MepEngineer::create(['user_id' => $user->id, 'nama' => $user->name, 'rate_harga' => 0, 'pengalaman_tahun' => 0]);
-
-                Notification::create([
-                    'user_id' => $user->id,
-                    'type' => 'onboarding',
-                    'title' => 'Complete Your MEP Engineer Profile',
-                    'body' => 'Add your certifications and specialization to start receiving project invitations.',
-                    'data' => ['tab' => 'profile', 'action' => 'edit_profile'],
-                ]);
             } elseif ($request->role_type === 'project_manager') {
                 \App\Models\ProjectManager::create([
                     'user_id' => $user->id,
@@ -169,27 +105,11 @@ class AuthController extends Controller
                     'pengalaman_tahun' => 0,
                     'verification_status' => 'pending',
                 ]);
-
-                Notification::create([
-                    'user_id' => $user->id,
-                    'type' => 'onboarding',
-                    'title' => 'Complete Your Project Manager Profile',
-                    'body' => 'Add your skills, rate, and certifications to start managing real estate projects.',
-                    'data' => ['tab' => 'profile', 'action' => 'edit_profile'],
-                ]);
             } elseif ($request->role_type === 'supplier') {
                 \App\Models\Supplier::create([
                     'user_id' => $user->id,
                     'store_name' => $user->name."'s Store",
                     'verification_status' => 'pending',
-                ]);
-
-                Notification::create([
-                    'user_id' => $user->id,
-                    'type' => 'onboarding',
-                    'title' => 'Set Up Your Store Profile',
-                    'body' => 'Add your store address, category, and bio to start listing construction materials.',
-                    'data' => ['tab' => 'profile', 'action' => 'edit_profile'],
                 ]);
             } elseif ($request->role_type === 'logistics') {
                 \App\Models\CourierProfile::create([
@@ -198,28 +118,12 @@ class AuthController extends Controller
                     'license_plate' => 'Not Specified',
                     'is_active' => true,
                 ]);
-
-                Notification::create([
-                    'user_id' => $user->id,
-                    'type' => 'onboarding',
-                    'title' => 'Complete Your Driver Profile',
-                    'body' => 'Add your vehicle details and license plate to start accepting delivery orders.',
-                    'data' => ['tab' => 'profile', 'action' => 'edit_profile'],
-                ]);
             } elseif (in_array($request->role_type, ['civil', 'mechanical', 'electrical', 'plumbing', 'roofing', 'finishing'])) {
                 Kontraktor::create([
                     'user_id' => $user->id,
                     'nama' => $user->name,
                     'jenis' => 'Sub-Contractor',
                     'verification_status' => 'verified',
-                ]);
-
-                Notification::create([
-                    'user_id' => $user->id,
-                    'type' => 'onboarding',
-                    'title' => 'Complete Your Trade Profile',
-                    'body' => 'Add your specialty details and pricing rate to start accepting sub-contracts.',
-                    'data' => ['tab' => 'profile', 'action' => 'edit_profile'],
                 ]);
             }
 
