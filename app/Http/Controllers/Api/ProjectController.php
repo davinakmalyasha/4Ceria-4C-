@@ -1972,22 +1972,22 @@ class ProjectController extends Controller
 
         if ($request->bid_type === 'arsitek') {
             $bid = \App\Models\BidArsitek::where('id', $request->bid_id)->where('project_id', $project->id)->whereIn('status', ['pending', 'shortlisted'])->firstOrFail();
-            $bid->update(['status' => 'rejected']);
+            $bid->update(['status' => 'rejected', 'rejection_reason' => $request->reason]);
         } elseif ($request->bid_type === 'kontraktor') {
             $bid = \App\Models\BidKontraktor::where('id', $request->bid_id)->where('project_id', $project->id)->whereIn('status', ['pending', 'shortlisted'])->firstOrFail();
-            $bid->update(['status' => 'rejected']);
+            $bid->update(['status' => 'rejected', 'rejection_reason' => $request->reason]);
         } elseif ($request->bid_type === 'notaris') {
             $bid = \App\Models\BidNotaris::where('id', $request->bid_id)->where('project_id', $project->id)->whereIn('status', ['pending', 'shortlisted'])->firstOrFail();
-            $bid->update(['status' => 'rejected']);
+            $bid->update(['status' => 'rejected', 'rejection_reason' => $request->reason]);
         } elseif ($request->bid_type === 'interior') {
             $bid = \App\Models\BidInterior::where('id', $request->bid_id)->where('project_id', $project->id)->whereIn('status', ['pending', 'shortlisted'])->firstOrFail();
-            $bid->update(['status' => 'rejected']);
+            $bid->update(['status' => 'rejected', 'rejection_reason' => $request->reason]);
         } elseif ($request->bid_type === 'structural') {
             $bid = \App\Models\BidStructural::where('id', $request->bid_id)->where('project_id', $project->id)->whereIn('status', ['pending', 'shortlisted'])->firstOrFail();
-            $bid->update(['status' => 'rejected']);
+            $bid->update(['status' => 'rejected', 'rejection_reason' => $request->reason]);
         } elseif ($request->bid_type === 'mep') {
             $bid = \App\Models\BidMep::where('id', $request->bid_id)->where('project_id', $project->id)->whereIn('status', ['pending', 'shortlisted'])->firstOrFail();
-            $bid->update(['status' => 'rejected']);
+            $bid->update(['status' => 'rejected', 'rejection_reason' => $request->reason]);
         }
 
         // Notify the rejected professional
@@ -1999,12 +1999,17 @@ class ProjectController extends Controller
             'structural' => $bid->structuralEngineer->user_id,
             'mep' => $bid->mepEngineer->user_id,
         };
+        $reason = $request->reason ?: null;
+        $body = "Your proposal for project \"{$project->title}\" was not selected this time.";
+        if ($reason) {
+            $body .= " Reason: {$reason}";
+        }
         Notification::create([
             'user_id' => $bidderUserId,
             'type' => 'bid_rejected',
             'title' => 'Proposal Update',
-            'body' => "Your proposal for project \"{$project->title}\" was not selected this time.",
-            'data' => ['project_id' => $project->id],
+            'body' => $body,
+            'data' => ['project_id' => $project->id, 'rejection_reason' => $reason],
         ]);
 
         $project->load([
@@ -3357,7 +3362,7 @@ class ProjectController extends Controller
         }
 
         return DB::transaction(function () use ($bid) {
-            $bid->update(['status' => 'rejected']);
+            $bid->update(['status' => 'rejected', 'rejection_reason' => $request->reason]);
             return response()->json(['message' => 'Invitation rejected.', 'bid' => $bid]);
         });
     }
