@@ -58,5 +58,8 @@ COPY docker/supervisord.conf /etc/supervisord.conf
 # Expose HTTP port
 EXPOSE 80
 
+# Auto-run migrations (idempotent, safe on every deploy)
+RUN php artisan migrate --force
+
 # Start Supervisor to run both PHP-FPM and Nginx
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]
