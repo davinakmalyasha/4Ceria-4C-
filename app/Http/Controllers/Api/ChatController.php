@@ -180,20 +180,24 @@ class ChatController extends Controller
                 \Illuminate\Support\Facades\Cache::increment($recipientRedisKey);
             }
 
-            // In-app notification for the recipient
-            Notification::create([
-                'user_id' => $recipientId,
-                'type' => 'chat_message',
-                'title' => 'Pesan Baru',
-                'body' => $user->name . ': ' . mb_substr($request->input('content', '(gambar)'), 0, 100),
-                'data' => [
-                    'conversation_id' => $conversation->id,
-                    'sender_id' => $user->id,
-                    'sender_name' => $user->name,
-                ],
-            ]);
-
             DB::commit();
+
+            // Non-critical: in-app notification (won't block message send)
+            try {
+                Notification::create([
+                    'user_id' => $recipientId,
+                    'type' => 'chat_message',
+                    'title' => 'Pesan Baru',
+                    'body' => $user->name . ': ' . mb_substr($request->input('content', '(gambar)'), 0, 100),
+                    'data' => [
+                        'conversation_id' => $conversation->id,
+                        'sender_id' => $user->id,
+                        'sender_name' => $user->name,
+                    ],
+                ]);
+            } catch (\Exception $e) {
+                // Don't block message send on notification failure
+            }
 
             return response()->json(['data' => $message->load('sender')]);
         } catch (\Exception $e) {
