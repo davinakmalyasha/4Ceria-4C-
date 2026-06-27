@@ -36,8 +36,10 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 # Copy application files
 COPY . .
 
-# Install PHP production dependencies
-RUN composer install --no-dev --optimize-autoloader --no-interaction
+# Install PHP production dependencies (retry up to 3 times for transient GitHub CDN failures)
+RUN COMPOSER_ALLOW_SUPERUSER=1 composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist \
+    || (sleep 5 && COMPOSER_ALLOW_SUPERUSER=1 composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist) \
+    || (sleep 10 && COMPOSER_ALLOW_SUPERUSER=1 composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist)
 
 # Create necessary Laravel directories and set permissions
 RUN mkdir -p /var/www/html/storage/framework/cache/data \
