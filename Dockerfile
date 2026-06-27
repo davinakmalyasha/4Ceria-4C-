@@ -58,8 +58,8 @@ COPY docker/supervisord.conf /etc/supervisord.conf
 # Expose HTTP port
 EXPOSE 80
 
-# Auto-run migrations (idempotent, safe on every deploy)
-RUN php artisan migrate --force
+# Auto-run migrations at build time (Redis unavailable — use file cache fallback)
+RUN APP_ENV=production CACHE_STORE=file php artisan migrate --force --no-interaction
 
 # Start Supervisor to run both PHP-FPM and Nginx
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]
