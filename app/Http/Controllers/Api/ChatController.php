@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\ChatMessage;
 use App\Models\Conversation;
+use App\Models\Notification;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -172,12 +173,25 @@ class ChatController extends Controller
                 'last_message_at' => now(),
             ]);
 
-            // Increment unread count in Cache for the recipient if it is already cached (otherwise it'll lazy-load correctly on next fetch)
+            // Increment unread count in Cache for the recipient
             $recipientId = ($conversation->user_one_id === $user->id) ? $conversation->user_two_id : $conversation->user_one_id;
             $recipientRedisKey = "user:{$recipientId}:conv:{$conversation->id}:unread";
             if (\Illuminate\Support\Facades\Cache::has($recipientRedisKey)) {
                 \Illuminate\Support\Facades\Cache::increment($recipientRedisKey);
             }
+
+            // In-app notification for the recipient
+            Notification::create([
+                'user_id' => $recipientId,
+                'type' => 'chat_message',
+                'title' => 'Pesan Baru',
+                'body' => $user->name . ': ' . mb_substr($request->input('content', '(gambar)'), 0, 100),
+                'data' => [
+                    'conversation_id' => $conversation->id,
+                    'sender_id' => $user->id,
+                    'sender_name' => $user->name,
+                ],
+            ]);
 
             DB::commit();
 
