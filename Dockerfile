@@ -58,16 +58,15 @@ RUN mkdir -p /var/www/html/storage/framework/cache/data \
     && chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/public \
     && chown -R www-data:www-data /var/lib/nginx /var/log/nginx
 
-# Copy Nginx, PHP-FPM, and Supervisor configurations
+# Copy Nginx, PHP-FPM, Supervisor configurations, and entrypoint
 COPY docker/nginx.conf /etc/nginx/nginx.conf
 COPY docker/supervisord.conf /etc/supervisord.conf
 COPY docker/www.conf /usr/local/etc/php-fpm.d/www.conf
+COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 
 # Expose HTTP port
 EXPOSE 80
 
-# Auto-run migrations at build time (Redis unavailable — use file cache fallback)
-RUN APP_ENV=production CACHE_STORE=file php artisan migrate --force --no-interaction
-
-# Start Supervisor to run both PHP-FPM and Nginx
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]
+# Run migrations at container startup (MySQL/Aiven available at runtime)
+RUN chmod +x /usr/local/bin/entrypoint.sh
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
