@@ -862,12 +862,22 @@ class ProjectController extends Controller
         }
 
         // Notify Project Owner
+        $roleLabel = match ($user->role_type) {
+            'arsitek' => 'Arsitek',
+            'kontraktor' => 'Kontraktor',
+            'notaris' => 'Notaris',
+            'interior' => 'Desainer Interior',
+            'project_manager' => 'Project Manager',
+            'structural' => 'Structural Engineer',
+            'mep' => 'MEP Engineer',
+            default => 'Profesional',
+        };
         Notification::create([
             'user_id' => $project->user_id,
             'type' => 'bid_received',
             'title' => 'New Bid Received!',
-            'body' => "A professional has submitted a bid for your project: \"{$project->title}\".",
-            'data' => ['project_id' => $project->id, 'bidder_name' => $user->name],
+            'body' => "{$user->name} ({$roleLabel}) telah mengirimkan penawaran untuk proyek \"{$project->title}\".",
+            'data' => ['project_id' => $project->id, 'bidder_name' => $user->name, 'role_type' => $user->role_type],
         ]);
 
         $project->load([
