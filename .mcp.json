@@ -12,8 +12,19 @@
     },
     "agent-browser": {
       "command": "agent-browser",
-      "args": ["mcp"],
+      "args": [
+        "mcp"
+      ],
       "env": {}
+    },
+    "railway": {
+      "command": "railway",
+      "args": [
+        "mcp"
+      ],
+      "env": {
+        "RAILWAY_API_TOKEN": "e1cb6cdb-4a9a-43fa-927e-bd92384aab4e"
+      }
     }
   }
 }

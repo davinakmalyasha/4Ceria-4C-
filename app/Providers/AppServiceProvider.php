@@ -31,9 +31,14 @@ class AppServiceProvider extends ServiceProvider
         // Override PersonalAccessToken model to throttle last_used_at write operations
         Sanctum::usePersonalAccessTokenModel(PersonalAccessToken::class);
 
-        // Define API rate limiter (60 requests per minute per user/ip)
+        // Define API rate limiter (200 requests per minute per user/ip)
         RateLimiter::for('api', function (Request $request) {
-            return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
+            $key = $request->user()?->id ?: $request->ip();
+            // Authenticated users get a higher limit
+            if ($request->user()) {
+                return Limit::perMinute(200)->by($key);
+            }
+            return Limit::perMinute(60)->by($key);
         });
     }
 }

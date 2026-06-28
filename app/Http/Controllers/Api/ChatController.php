@@ -173,37 +173,43 @@ class ChatController extends Controller
                 'last_message_at' => now(),
             ]);
 
+            DB::commit();
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return response()->json(['message' => 'Failed to send message.'], 500);
+        }
+
+        // Everything below is non-critical — won't fail the message send
+
+        try {
             // Increment unread count in Cache for the recipient
             $recipientId = ($conversation->user_one_id === $user->id) ? $conversation->user_two_id : $conversation->user_one_id;
             $recipientRedisKey = "user:{$recipientId}:conv:{$conversation->id}:unread";
             if (\Illuminate\Support\Facades\Cache::has($recipientRedisKey)) {
                 \Illuminate\Support\Facades\Cache::increment($recipientRedisKey);
             }
-
-            DB::commit();
-
-            // Non-critical: in-app notification (won't block message send)
-            try {
-                Notification::create([
-                    'user_id' => $recipientId,
-                    'type' => 'chat_message',
-                    'title' => 'Pesan Baru',
-                    'body' => $user->name . ': ' . mb_substr($request->input('content', '(gambar)'), 0, 100),
-                    'data' => [
-                        'conversation_id' => $conversation->id,
-                        'sender_id' => $user->id,
-                        'sender_name' => $user->name,
-                    ],
-                ]);
-            } catch (\Exception $e) {
-                // Don't block message send on notification failure
-            }
-
-            return response()->json(['data' => $message->load('sender')]);
         } catch (\Exception $e) {
-            DB::rollBack();
-
-            return response()->json(['message' => 'Failed to send message.'], 500);
+            // Non-blocking: cache failure shouldn't break message send
         }
+
+        // Non-critical: in-app notification (won't block message send)
+        try {
+            Notification::create([
+                'user_id' => $recipientId,
+                'type' => 'chat_message',
+                'title' => 'Pesan Baru',
+                'body' => $user->name . ': ' . mb_substr($request->input('content', '(gambar)'), 0, 100),
+                'data' => [
+                    'conversation_id' => $conversation->id,
+                    'sender_id' => $user->id,
+                    'sender_name' => $user->name,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            // Don't block message send on notification failure
+        }
+
+        return response()->json(['data' => $message->load('sender')]);
     }
 }
