@@ -2329,6 +2329,7 @@ class ProjectController extends Controller
 
     public function myBids()
     {
+        // Performance optimized: return lightweight project model
         $user = Auth::user();
         $formatBids = function ($bids) use ($user) {
             return $bids->map(function ($bid) use ($user) {
