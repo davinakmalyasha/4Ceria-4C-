@@ -1379,8 +1379,8 @@ class ProjectController extends Controller
             $bidToCheck = $bidModel::where('id', $request->bid_id)->where('project_id', $project->id)->firstOrFail();
 
             // Financial Safety Check: Prevent Rp 0 or Unconfirmed Hire
-            if ($bidToCheck->status !== 'shortlisted' && $bidToCheck->status !== 'negotiating') {
-                return response()->json(['message' => 'You must shortlist or negotiate with this professional first before hiring.'], 422);
+            if ($bidToCheck->status !== 'shortlisted' && $bidToCheck->status !== 'negotiating' && $bidToCheck->status !== 'pending') {
+                return response()->json(['message' => 'You must shortlist, negotiate, or have a pending bid first before hiring.'], 422);
             }
 
             if ($bidToCheck->price <= 0 && ($bidToCheck->calculated_total ?? 0) <= 0) {
