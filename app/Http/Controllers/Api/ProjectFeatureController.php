@@ -178,12 +178,34 @@ class ProjectFeatureController extends Controller
         
         // Handle retaining existing gallery items
         if ($request->has('retained_gallery')) {
-            $retained = json_decode($request->retained_gallery, true) ?? [];
+            $retainedUrls = json_decode($request->retained_gallery, true) ?? [];
             $existingGallery = $currentContent['gallery'] ?? [];
-            $toDelete = array_diff($existingGallery, $retained);
+            
+            $retained = [];
+            $toDelete = [];
+            
+            foreach ($existingGallery as $oldPath) {
+                $matched = false;
+                foreach ($retainedUrls as $url) {
+                    $parsedPath = parse_url($url, PHP_URL_PATH);
+                    if ($parsedPath) {
+                        $decodedPath = rawurldecode($parsedPath);
+                        if (str_ends_with($decodedPath, $oldPath) || basename($decodedPath) === basename($oldPath)) {
+                            $retained[] = $oldPath;
+                            $matched = true;
+                            break;
+                        }
+                    }
+                }
+                if (!$matched) {
+                    $toDelete[] = $oldPath;
+                }
+            }
+            
             foreach ($toDelete as $path) {
                 if ($path) \Illuminate\Support\Facades\Storage::disk('public')->delete($path);
             }
+            
             $currentContent['gallery'] = $retained;
             $updateData['content'] = $currentContent;
         }

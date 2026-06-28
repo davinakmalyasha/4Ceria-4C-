@@ -305,12 +305,16 @@ class ProjectMilestoneController extends Controller
                 
                 foreach ($oldGallery as $oldPath) {
                     foreach ($retainedUrls as $url) {
-                        if (str_ends_with($url, $oldPath)) {
-                            $gallery[] = $oldPath;
-                            if (isset($oldFileNames[$oldPath])) {
-                                $fileNames[$oldPath] = $oldFileNames[$oldPath];
+                        $parsedPath = parse_url($url, PHP_URL_PATH);
+                        if ($parsedPath) {
+                            $decodedPath = rawurldecode($parsedPath);
+                            if (str_ends_with($decodedPath, $oldPath) || basename($decodedPath) === basename($oldPath)) {
+                                $gallery[] = $oldPath;
+                                if (isset($oldFileNames[$oldPath])) {
+                                    $fileNames[$oldPath] = $oldFileNames[$oldPath];
+                                }
+                                break;
                             }
-                            break;
                         }
                     }
                 }
