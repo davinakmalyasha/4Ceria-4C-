@@ -309,6 +309,7 @@ class ProfileController extends Controller
             'username' => 'required|string|max:255|unique:users,username,'.$user->id,
             'phone_numbers' => 'nullable|array',
             'phone_numbers.*' => 'required|string|max:20',
+            'pic' => 'nullable|file|mimes:jpeg,png,jpg,gif,svg|max:5120',
         ], [
             'phone_numbers.*.max' => 'Each phone number must not be greater than 20 characters.',
             'phone_numbers.*.required' => 'Phone numbers cannot be blank.',
@@ -319,6 +320,20 @@ class ProfileController extends Controller
             'email' => $validated['email'],
             'username' => $validated['username'],
         ]);
+
+        if ($request->hasFile('pic')) {
+            if ($user->pic && \Illuminate\Support\Facades\Storage::disk('public')->exists($user->pic)) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($user->pic);
+            }
+            $tempPath = $request->file('pic')->store('temp', 'local');
+            \App\Jobs\ConvertImageToWebpJob::dispatch(
+                $tempPath,
+                'profileUser',
+                \App\Models\User::class,
+                $user->id,
+                'pic'
+            );
+        }
 
         if ($request->has('phone_numbers') && !empty($validated['phone_numbers'])) {
             $firstPhone = $validated['phone_numbers'][0];
