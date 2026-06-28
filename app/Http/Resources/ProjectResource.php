@@ -424,10 +424,12 @@ class ProjectResource extends JsonResource
                             'location' => $bid->arsitek->lokasi,
                             'average_rating' => $bid->arsitek->average_rating,
                             'review_count' => $bid->arsitek->review_count,
+                            'foto' => $this->resolveStorageUrl($bid->arsitek->foto),
                             'user' => [
                                 'id' => $bid->arsitek->user->id,
                                 'name' => $bid->arsitek->user->name,
                                 'email' => $bid->arsitek->user->email,
+                                'pic' => $this->resolveStorageUrl($bid->arsitek->user->pic),
                             ],
                         ] : null,
                     ];
@@ -486,10 +488,12 @@ class ProjectResource extends JsonResource
                             'location' => $bid->kontraktor->alamat,
                             'average_rating' => $bid->kontraktor->average_rating,
                             'review_count' => $bid->kontraktor->review_count,
+                            'foto' => $this->resolveStorageUrl($bid->kontraktor->foto),
                             'user' => [
                                 'id' => $bid->kontraktor->user->id,
                                 'name' => $bid->kontraktor->user->name,
                                 'email' => $bid->kontraktor->user->email,
+                                'pic' => $this->resolveStorageUrl($bid->kontraktor->user->pic),
                             ],
                         ] : null,
                     ];
@@ -542,10 +546,12 @@ class ProjectResource extends JsonResource
                             'location' => $bid->notaris->lokasi,
                             'average_rating' => $bid->notaris->average_rating,
                             'review_count' => $bid->notaris->review_count,
+                            'foto' => $this->resolveStorageUrl($bid->notaris->foto),
                             'user' => [
                                 'id' => $bid->notaris->user->id,
                                 'name' => $bid->notaris->user->name,
                                 'email' => $bid->notaris->user->email,
+                                'pic' => $this->resolveStorageUrl($bid->notaris->user->pic),
                             ],
                         ] : null,
                     ];
@@ -597,10 +603,12 @@ class ProjectResource extends JsonResource
                             'location' => $bid->interior->lokasi,
                             'average_rating' => $bid->interior->average_rating,
                             'review_count' => $bid->interior->review_count,
+                            'foto' => $this->resolveStorageUrl($bid->interior->foto),
                             'user' => [
                                 'id' => $bid->interior->user->id,
                                 'name' => $bid->interior->user->name,
                                 'email' => $bid->interior->user->email,
+                                'pic' => $this->resolveStorageUrl($bid->interior->user->pic),
                             ],
                         ] : null,
                     ];
@@ -654,7 +662,7 @@ class ProjectResource extends JsonResource
                             'rate_harga' => $bid->pm->rate_harga,
                             'alasan_hire' => $bid->pm->alasan_hire,
                             'pendidikan' => $bid->pm->pendidikan,
-                            'foto' => $bid->pm->foto,
+                            'foto' => $this->resolveStorageUrl($bid->pm->foto),
                             'file_portofolio' => $bid->pm->file_portofolio,
                             'file_sertifikat' => $bid->pm->file_sertifikat,
                             'entity_type' => $bid->pm->entity_type,
@@ -668,6 +676,7 @@ class ProjectResource extends JsonResource
                                 'name' => $bid->pm->user->name,
                                 'email' => $bid->pm->user->email,
                                 'phone_number' => $bid->pm->no_telp ?? $bid->pm->user->phoneNumber->first()?->contact,
+                                'pic' => $this->resolveStorageUrl($bid->pm->user->pic),
                             ] : null,
                             'phone' => $bid->pm->no_telp ?? $bid->pm->user->phoneNumber->first()?->contact,
                         ] : null,
@@ -859,7 +868,7 @@ class ProjectResource extends JsonResource
                             'deskripsi' => $bid->structuralEngineer->deskripsi,
                             'alasan_hire' => $bid->structuralEngineer->alasan_hire,
                             'pendidikan' => $bid->structuralEngineer->pendidikan,
-                            'foto' => $bid->structuralEngineer->foto,
+                            'foto' => $this->resolveStorageUrl($bid->structuralEngineer->foto),
                             'file_portofolio' => $bid->structuralEngineer->file_portofolio,
                             'file_sertifikat' => $bid->structuralEngineer->file_sertifikat,
                             'verification_status' => $bid->structuralEngineer->verification_status,
@@ -873,6 +882,7 @@ class ProjectResource extends JsonResource
                                 'id' => $bid->structuralEngineer->user->id,
                                 'name' => $bid->structuralEngineer->user->name,
                                 'email' => $bid->structuralEngineer->user->email,
+                                'pic' => $this->resolveStorageUrl($bid->structuralEngineer->user->pic),
                             ],
                         ] : null,
                     ];
@@ -929,7 +939,7 @@ class ProjectResource extends JsonResource
                             'deskripsi' => $bid->mepEngineer->deskripsi,
                             'alasan_hire' => $bid->mepEngineer->alasan_hire,
                             'pendidikan' => $bid->mepEngineer->pendidikan,
-                            'foto' => $bid->mepEngineer->foto,
+                            'foto' => $this->resolveStorageUrl($bid->mepEngineer->foto),
                             'file_portofolio' => $bid->mepEngineer->file_portofolio,
                             'file_sertifikat' => $bid->mepEngineer->file_sertifikat,
                             'verification_status' => $bid->mepEngineer->verification_status,
@@ -943,6 +953,7 @@ class ProjectResource extends JsonResource
                                 'id' => $bid->mepEngineer->user->id,
                                 'name' => $bid->mepEngineer->user->name,
                                 'email' => $bid->mepEngineer->user->email,
+                                'pic' => $this->resolveStorageUrl($bid->mepEngineer->user->pic),
                             ],
                         ] : null,
                     ];
