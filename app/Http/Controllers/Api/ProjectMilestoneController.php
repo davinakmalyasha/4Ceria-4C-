@@ -438,6 +438,13 @@ class ProjectMilestoneController extends Controller
             return response()->json(['message' => 'Cannot delete a step linked to a PAID payment.'], 400);
         }
 
+        // Delete gallery images from storage before removing the milestone
+        foreach ($milestone->getApprovedFiles() as $filePath) {
+            if (\Illuminate\Support\Facades\Storage::disk('public')->exists($filePath)) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($filePath);
+            }
+        }
+
         $milestone->delete();
         $this->logActivity($project, 'milestone_deleted', "Deleted: {$milestone->title}");
         
