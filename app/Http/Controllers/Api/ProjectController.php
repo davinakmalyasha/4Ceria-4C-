@@ -2686,6 +2686,48 @@ class ProjectController extends Controller
             ]);
         });
     }
+
+    /**
+     * Mark a project as completed (simple owner-only action).
+     * Once completed, professionals can no longer modify the project
+     * and the owner can leave ratings for the professionals.
+     */
+    public function markComplete(Project $project)
+    {
+        $user = Auth::guard('sanctum')->user();
+
+        if ($project->user_id !== $user->id) {
+            return response()->json(['message' => 'Only the project owner can complete the project.'], 403);
+        }
+
+        if ($project->status === 'completed') {
+            return response()->json(['message' => 'Project is already completed.'], 422);
+        }
+
+        if ($project->status === 'cancelled') {
+            return response()->json(['message' => 'Cannot complete a cancelled project.'], 422);
+        }
+
+        return DB::transaction(function () use ($project) {
+            $project->update([
+                'status' => 'completed',
+                'completed_at' => now(),
+            ]);
+
+            \App\Models\ProjectActivityLog::create([
+                'project_id' => $project->id,
+                'user_id' => Auth::id(),
+                'action' => 'project_completed',
+                'details' => 'Project marked as complete by owner.',
+            ]);
+
+            return response()->json([
+                'message' => 'Project completed successfully.',
+                'data' => new \App\Http\Resources\ProjectResource($project->fresh())
+            ]);
+        });
+    }
+
     public function negotiateBidFee(Request $request, Project $project, $bidId, \App\Services\BidCalculationService $calculationService)
     {
         $user = Auth::user();

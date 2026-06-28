@@ -258,6 +258,7 @@ Route::middleware(['auth:sanctum', 'freeze_pending_termination'])->group(functio
         Route::post('/verify-pbg', [ProjectController::class, 'verifyPBG']);
         Route::post('/verify-slf', [ProjectController::class, 'verifySLF']);
         Route::post('/finalize', [\App\Http\Controllers\Api\ProjectHandoverController::class, 'finalizeProject']);
+        Route::post('/mark-complete', [\App\Http\Controllers\Api\ProjectController::class, 'markComplete']);
 
         // Shareable Brief Link
         Route::post('/share-token', [ProjectController::class, 'generateShareToken']);
