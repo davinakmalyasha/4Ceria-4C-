@@ -39,6 +39,15 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Cache;
 
 Route::post('/register', [AuthController::class, 'register']);
+Route::get('/debug-logs', function () {
+    $logFile = storage_path('logs/laravel.log');
+    if (!file_exists($logFile)) {
+        return response()->json(['message' => 'Log file not found.']);
+    }
+    $lines = file($logFile);
+    $lastLines = array_slice($lines, -150);
+    return response()->json(['logs' => $lastLines]);
+});
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
 Route::post('/reset-password', [AuthController::class, 'resetPassword']);
