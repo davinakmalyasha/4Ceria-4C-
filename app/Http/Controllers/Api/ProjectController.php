@@ -344,7 +344,6 @@ class ProjectController extends Controller
                 $role = $roleMap[$phase] ?? null;
                 if ($role && !isset($externalVendors[$role])) {
                     $published[] = $role;
-                    break;
                 }
             }
         }
