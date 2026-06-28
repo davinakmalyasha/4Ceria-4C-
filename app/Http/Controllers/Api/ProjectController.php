@@ -2335,7 +2335,11 @@ class ProjectController extends Controller
                 $array = $bid->toArray();
                 $array['role_type'] = $user->role_type;
                 if ($bid->project) {
-                    $array['project'] = (new \App\Http\Resources\ProjectResource($bid->project))->resolve();
+                    $array['project'] = [
+                        'id' => $bid->project->id,
+                        'title' => $bid->project->title,
+                        'status' => $bid->project->status,
+                    ];
                 }
                 return $array;
             });
@@ -2345,19 +2349,10 @@ class ProjectController extends Controller
             if (!$arsitek) {
                 return response()->json(['data' => []]);
             }
-            $bids = \App\Models\BidArsitek::with([
-                'project' => function ($q) {
-                    $q->with([
-                        'bidsArsitek.arsitek.user', 'bidsArsitek.negotiationLogs.user',
-                        'bidsKontraktor.kontraktor.user', 'bidsKontraktor.negotiationLogs.user',
-                        'bidsNotaris.notaris.user', 'bidsNotaris.negotiationLogs.user',
-                        'bidsInterior.interior.user', 'bidsInterior.negotiationLogs.user',
-                        'bidsProjectManager.pm.user', 'bidsProjectManager.negotiationLogs.user',
-                        'bidsStructural.structuralEngineer.user', 'bidsStructural.negotiationLogs.user',
-                        'bidsMep.mepEngineer.user', 'bidsMep.negotiationLogs.user'
-                    ]);
-                }
-            ])->where('arsitek_id', $arsitek->id)->orderBy('created_at', 'desc')->get();
+            $bids = \App\Models\BidArsitek::with('project')
+                ->where('arsitek_id', $arsitek->id)
+                ->orderBy('created_at', 'desc')
+                ->get();
 
             return response()->json(['data' => $formatBids($bids)]);
         } elseif ($user->role_type === 'kontraktor') {
@@ -2365,19 +2360,10 @@ class ProjectController extends Controller
             if (!$kontraktor) {
                 return response()->json(['data' => []]);
             }
-            $bids = \App\Models\BidKontraktor::with([
-                'project' => function ($q) {
-                    $q->with([
-                        'bidsArsitek.arsitek.user', 'bidsArsitek.negotiationLogs.user',
-                        'bidsKontraktor.kontraktor.user', 'bidsKontraktor.negotiationLogs.user',
-                        'bidsNotaris.notaris.user', 'bidsNotaris.negotiationLogs.user',
-                        'bidsInterior.interior.user', 'bidsInterior.negotiationLogs.user',
-                        'bidsProjectManager.pm.user', 'bidsProjectManager.negotiationLogs.user',
-                        'bidsStructural.structuralEngineer.user', 'bidsStructural.negotiationLogs.user',
-                        'bidsMep.mepEngineer.user', 'bidsMep.negotiationLogs.user'
-                    ]);
-                }
-            ])->where('kontraktor_id', $kontraktor->id)->orderBy('created_at', 'desc')->get();
+            $bids = \App\Models\BidKontraktor::with('project')
+                ->where('kontraktor_id', $kontraktor->id)
+                ->orderBy('created_at', 'desc')
+                ->get();
 
             return response()->json(['data' => $formatBids($bids)]);
         } elseif ($user->role_type === 'notaris') {
@@ -2385,19 +2371,10 @@ class ProjectController extends Controller
             if (!$notaris) {
                 return response()->json(['data' => []]);
             }
-            $bids = \App\Models\BidNotaris::with([
-                'project' => function ($q) {
-                    $q->with([
-                        'bidsArsitek.arsitek.user', 'bidsArsitek.negotiationLogs.user',
-                        'bidsKontraktor.kontraktor.user', 'bidsKontraktor.negotiationLogs.user',
-                        'bidsNotaris.notaris.user', 'bidsNotaris.negotiationLogs.user',
-                        'bidsInterior.interior.user', 'bidsInterior.negotiationLogs.user',
-                        'bidsProjectManager.pm.user', 'bidsProjectManager.negotiationLogs.user',
-                        'bidsStructural.structuralEngineer.user', 'bidsStructural.negotiationLogs.user',
-                        'bidsMep.mepEngineer.user', 'bidsMep.negotiationLogs.user'
-                    ]);
-                }
-            ])->where('notaris_id', $notaris->id)->orderBy('created_at', 'desc')->get();
+            $bids = \App\Models\BidNotaris::with('project')
+                ->where('notaris_id', $notaris->id)
+                ->orderBy('created_at', 'desc')
+                ->get();
 
             return response()->json(['data' => $formatBids($bids)]);
         } elseif ($user->role_type === 'interior') {
@@ -2405,19 +2382,10 @@ class ProjectController extends Controller
             if (!$interior) {
                 return response()->json(['data' => []]);
             }
-            $bids = \App\Models\BidInterior::with([
-                'project' => function ($q) {
-                    $q->with([
-                        'bidsArsitek.arsitek.user', 'bidsArsitek.negotiationLogs.user',
-                        'bidsKontraktor.kontraktor.user', 'bidsKontraktor.negotiationLogs.user',
-                        'bidsNotaris.notaris.user', 'bidsNotaris.negotiationLogs.user',
-                        'bidsInterior.interior.user', 'bidsInterior.negotiationLogs.user',
-                        'bidsProjectManager.pm.user', 'bidsProjectManager.negotiationLogs.user',
-                        'bidsStructural.structuralEngineer.user', 'bidsStructural.negotiationLogs.user',
-                        'bidsMep.mepEngineer.user', 'bidsMep.negotiationLogs.user'
-                    ]);
-                }
-            ])->where('interior_id', $interior->id)->orderBy('created_at', 'desc')->get();
+            $bids = \App\Models\BidInterior::with('project')
+                ->where('interior_id', $interior->id)
+                ->orderBy('created_at', 'desc')
+                ->get();
 
             return response()->json(['data' => $formatBids($bids)]);
         } elseif ($user->role_type === 'project_manager') {
@@ -2425,26 +2393,7 @@ class ProjectController extends Controller
             if (!$pm) {
                 return response()->json(['data' => []]);
             }
-            $bids = \App\Models\BidProjectManager::with([
-                'project' => function ($q) {
-                    $q->with([
-                        'bidsArsitek.arsitek.user',
-                        'bidsArsitek.negotiationLogs.user',
-                        'bidsKontraktor.kontraktor.user',
-                        'bidsKontraktor.negotiationLogs.user',
-                        'bidsNotaris.notaris.user',
-                        'bidsNotaris.negotiationLogs.user',
-                        'bidsInterior.interior.user',
-                        'bidsInterior.negotiationLogs.user',
-                        'bidsProjectManager.pm.user',
-                        'bidsProjectManager.negotiationLogs.user',
-                        'bidsStructural.structuralEngineer.user',
-                        'bidsStructural.negotiationLogs.user',
-                        'bidsMep.mepEngineer.user',
-                        'bidsMep.negotiationLogs.user'
-                    ]);
-                }
-            ])
+            $bids = \App\Models\BidProjectManager::with('project')
                 ->where('pm_id', $pm->id)
                 ->orderBy('created_at', 'desc')
                 ->get();
@@ -2453,36 +2402,18 @@ class ProjectController extends Controller
         } elseif ($user->role_type === 'structural') {
             $structural = \App\Models\StructuralEngineer::where('user_id', $user->id)->first();
             if (!$structural) return response()->json(['data' => []]);
-            $bids = \App\Models\BidStructural::with([
-                'project' => function ($q) {
-                    $q->with([
-                        'bidsArsitek.arsitek.user', 'bidsArsitek.negotiationLogs.user',
-                        'bidsKontraktor.kontraktor.user', 'bidsKontraktor.negotiationLogs.user',
-                        'bidsNotaris.notaris.user', 'bidsNotaris.negotiationLogs.user',
-                        'bidsInterior.interior.user', 'bidsInterior.negotiationLogs.user',
-                        'bidsProjectManager.pm.user', 'bidsProjectManager.negotiationLogs.user',
-                        'bidsStructural.structuralEngineer.user', 'bidsStructural.negotiationLogs.user',
-                        'bidsMep.mepEngineer.user', 'bidsMep.negotiationLogs.user'
-                    ]);
-                }
-            ])->where('structural_id', $structural->id)->orderBy('created_at', 'desc')->get();
+            $bids = \App\Models\BidStructural::with('project')
+                ->where('structural_id', $structural->id)
+                ->orderBy('created_at', 'desc')
+                ->get();
             return response()->json(['data' => $formatBids($bids)]);
         } elseif ($user->role_type === 'mep') {
             $mep = \App\Models\MepEngineer::where('user_id', $user->id)->first();
             if (!$mep) return response()->json(['data' => []]);
-            $bids = \App\Models\BidMep::with([
-                'project' => function ($q) {
-                    $q->with([
-                        'bidsArsitek.arsitek.user', 'bidsArsitek.negotiationLogs.user',
-                        'bidsKontraktor.kontraktor.user', 'bidsKontraktor.negotiationLogs.user',
-                        'bidsNotaris.notaris.user', 'bidsNotaris.negotiationLogs.user',
-                        'bidsInterior.interior.user', 'bidsInterior.negotiationLogs.user',
-                        'bidsProjectManager.pm.user', 'bidsProjectManager.negotiationLogs.user',
-                        'bidsStructural.structuralEngineer.user', 'bidsStructural.negotiationLogs.user',
-                        'bidsMep.mepEngineer.user', 'bidsMep.negotiationLogs.user'
-                    ]);
-                }
-            ])->where('mep_id', $mep->id)->orderBy('created_at', 'desc')->get();
+            $bids = \App\Models\BidMep::with('project')
+                ->where('mep_id', $mep->id)
+                ->orderBy('created_at', 'desc')
+                ->get();
             return response()->json(['data' => $formatBids($bids)]);
         }
         return response()->json(['data' => []]);
