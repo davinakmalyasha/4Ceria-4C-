@@ -24,13 +24,15 @@ class ProjectDocumentController extends Controller
 
     public function store(Request $request, Project $project)
     {
-        $request->validate([
+        $validated = $request->validate([
             'file' => 'required|file|mimes:pdf,doc,docx,jpg,png,xlsx,xls,dwg,zip|max:20480',
             'category' => 'nullable|string|max:50',
             'status' => 'nullable|string|in:uploaded,under_review,awaiting_signature,legally_binding',
             'target_role' => 'nullable|string|in:structural,mep,architect,contractor,notary,interior,pm,civil,mechanical,electrical,plumbing,roofing,finishing,general',
             'version_label' => 'nullable|string|max:50',
             'parent_id' => 'nullable|integer|exists:project_documents,id',
+            'title' => 'nullable|string|max:255',
+            'description' => 'nullable|string',
         ]);
 
         $user = Auth::user();
@@ -54,9 +56,9 @@ class ProjectDocumentController extends Controller
             return response()->json(['message' => 'Unauthorized. You must be assigned to this project to upload documents.'], 403);
         }
 
-        $parentId = $request->parent_id;
-        $category = $request->category ?? 'general';
-        $targetRole = $request->target_role;
+        $parentId = $validated['parent_id'] ?? null;
+        $category = $validated['category'] ?? 'general';
+        $targetRole = $validated['target_role'] ?? null;
         $version = 1;
 
         if ($parentId) {
@@ -73,21 +75,23 @@ class ProjectDocumentController extends Controller
         $file = $request->file('file');
         $path = $file->store('project_documents', 'public');
 
-        $document = DB::transaction(function () use ($project, $request, $category, $targetRole, $parentId, $version, $file, $path) {
+        $document = DB::transaction(function () use ($project, $validated, $category, $targetRole, $parentId, $version, $file, $path) {
+            $fileName = $validated['title'] ?? $file->getClientOriginalName();
             $document = $project->documents()->create([
                 'uploader_id' => Auth::id(),
                 'parent_id' => $parentId,
                 'version' => $version,
-                'file_name' => $file->getClientOriginalName(),
+                'file_name' => $fileName,
+                'description' => $validated['description'] ?? null,
                 'file_path' => $path,
                 'file_type' => $file->extension(),
                 'category' => $category,
-                'status' => $request->status ?? 'uploaded',
+                'status' => $validated['status'] ?? 'uploaded',
                 'target_role' => $targetRole,
-                'version_label' => $request->version_label,
+                'version_label' => $validated['version_label'] ?? null,
             ]);
 
-            $this->logActivity($project, 'document_uploaded', "Uploaded: {$file->getClientOriginalName()} (v{$version})" . ($request->version_label ? " ({$request->version_label})" : ""));
+            $this->logActivity($project, 'document_uploaded', "Uploaded: {$fileName} (v{$version})" . (isset($validated['version_label']) ? " ({$validated['version_label']})" : ""));
 
             return $document;
         });
