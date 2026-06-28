@@ -17,6 +17,19 @@ class StorageFallbackController extends Controller
             abort(404);
         }
 
+        // Handle documents that were migrated to supabase
+        if (str_starts_with($path, 'portfolios/') || str_starts_with($path, 'certificates/')) {
+            $supabase = Storage::disk('supabase');
+            if ($supabase->exists($path)) {
+                try {
+                    $temporaryUrl = $supabase->temporaryUrl($path, now()->addHour());
+                    return redirect()->away($temporaryUrl);
+                } catch (\Exception $e) {
+                    // Fall through if temporaryUrl fails
+                }
+            }
+        }
+
         $disk = Storage::disk('public');
 
         if (!$disk->exists($path)) {

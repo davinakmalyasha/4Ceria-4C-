@@ -237,7 +237,7 @@ class ProfileController extends Controller
         // Save Photo / Headshot / Logo
         if ($request->hasFile('foto')) {
             $tempPath = $request->file('foto')->store('temp', 'local');
-            \App\Jobs\ConvertImageToWebpJob::dispatch(
+            \App\Jobs\ConvertImageToWebpJob::dispatchSync(
                 $tempPath,
                 "profile_pictures/user_{$profile->user_id}",
                 get_class($profile),
@@ -326,7 +326,7 @@ class ProfileController extends Controller
                 \Illuminate\Support\Facades\Storage::disk('public')->delete($user->pic);
             }
             $tempPath = $request->file('pic')->store('temp', 'local');
-            \App\Jobs\ConvertImageToWebpJob::dispatch(
+            \App\Jobs\ConvertImageToWebpJob::dispatchSync(
                 $tempPath,
                 'profileUser',
                 \App\Models\User::class,
@@ -379,7 +379,7 @@ class ProfileController extends Controller
         $user = $request->user();
         $tempPath = $request->file('pic')->store('temp', 'local');
 
-        \App\Jobs\ConvertImageToWebpJob::dispatch(
+        \App\Jobs\ConvertImageToWebpJob::dispatchSync(
             $tempPath,
             'profileUser',
             \App\Models\User::class,
