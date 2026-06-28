@@ -181,10 +181,10 @@ class ChatController extends Controller
         }
 
         // Everything below is non-critical — won't fail the message send
+        $recipientId = ($conversation->user_one_id === $user->id) ? $conversation->user_two_id : $conversation->user_one_id;
 
         try {
             // Increment unread count in Cache for the recipient
-            $recipientId = ($conversation->user_one_id === $user->id) ? $conversation->user_two_id : $conversation->user_one_id;
             $recipientRedisKey = "user:{$recipientId}:conv:{$conversation->id}:unread";
             if (\Illuminate\Support\Facades\Cache::has($recipientRedisKey)) {
                 \Illuminate\Support\Facades\Cache::increment($recipientRedisKey);
