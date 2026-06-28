@@ -250,12 +250,12 @@ class ProfileController extends Controller
         $portfolioFile = $request->file('file_portofolio') ?? $request->file('npwp');
         if ($portfolioFile) {
             if ($profile->file_portofolio) {
-                Storage::disk('supabase')->delete($profile->file_portofolio);
+                Storage::disk('public')->delete($profile->file_portofolio);
             }
             if ($profile->npwp && $profile->npwp !== $profile->file_portofolio) {
-                Storage::disk('supabase')->delete($profile->npwp);
+                Storage::disk('public')->delete($profile->npwp);
             }
-            $path = $portfolioFile->store("portfolios/user_{$profile->user_id}", 'supabase');
+            $path = $portfolioFile->store("portfolios/user_{$profile->user_id}", 'public');
             $updates['file_portofolio'] = $path;
             $updates['npwp'] = $path; // keep both in sync for backward compatibility
         }
@@ -264,12 +264,12 @@ class ProfileController extends Controller
         $sertifikatFile = $request->file('file_sertifikat') ?? $request->file('siup');
         if ($sertifikatFile) {
             if ($profile->file_sertifikat) {
-                Storage::disk('supabase')->delete($profile->file_sertifikat);
+                Storage::disk('public')->delete($profile->file_sertifikat);
             }
             if ($profile->siup && $profile->siup !== $profile->file_sertifikat) {
-                Storage::disk('supabase')->delete($profile->siup);
+                Storage::disk('public')->delete($profile->siup);
             }
-            $path = $sertifikatFile->store("certificates/user_{$profile->user_id}", 'supabase');
+            $path = $sertifikatFile->store("certificates/user_{$profile->user_id}", 'public');
             $updates['file_sertifikat'] = $path;
             $updates['siup'] = $path; // keep both in sync for backward compatibility
         }

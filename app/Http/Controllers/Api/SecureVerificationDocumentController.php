@@ -27,6 +27,12 @@ class SecureVerificationDocumentController extends Controller
         $modelMap = [
             'arsitek' => Arsitek::class,
             'kontraktor' => Kontraktor::class,
+            'civil' => Kontraktor::class,
+            'mechanical' => Kontraktor::class,
+            'electrical' => Kontraktor::class,
+            'plumbing' => Kontraktor::class,
+            'roofing' => Kontraktor::class,
+            'finishing' => Kontraktor::class,
             'project_manager' => ProjectManager::class,
             'structural' => StructuralEngineer::class,
             'mep' => MepEngineer::class,
