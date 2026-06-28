@@ -2330,9 +2330,10 @@ class ProjectController extends Controller
     public function myBids()
     {
         $user = Auth::user();
-        $formatBids = function ($bids) {
-            return $bids->map(function ($bid) {
+        $formatBids = function ($bids) use ($user) {
+            return $bids->map(function ($bid) use ($user) {
                 $array = $bid->toArray();
+                $array['role_type'] = $user->role_type;
                 if ($bid->project) {
                     $array['project'] = (new \App\Http\Resources\ProjectResource($bid->project))->resolve();
                 }
