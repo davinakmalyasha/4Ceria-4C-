@@ -44,11 +44,18 @@ Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
 Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 
 Route::get('/debug-bids', function () {
-    return response()->json([
-        'bids_kontraktor' => \Illuminate\Support\Facades\DB::table('bids_kontraktor')->select('id', 'project_id', 'status', 'price', 'calculated_total', 'fee_agreed_at')->get(),
-        'bids_arsitek' => \Illuminate\Support\Facades\DB::table('bids_arsitek')->select('id', 'project_id', 'status', 'price', 'calculated_total', 'fee_agreed_at')->get(),
-        'projects' => \Illuminate\Support\Facades\DB::table('projects')->select('id', 'title', 'user_id', 'status')->get(),
-    ]);
+    try {
+        return response()->json([
+            'bids_kontraktor' => \Illuminate\Support\Facades\DB::table('bids_kontraktor')->get(),
+            'bids_arsitek' => \Illuminate\Support\Facades\DB::table('bids_arsitek')->get(),
+            'projects' => \Illuminate\Support\Facades\DB::table('projects')->select('id', 'title', 'user_id', 'status')->get(),
+        ]);
+    } catch (\Throwable $e) {
+        return response()->json([
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ], 500);
+    }
 });
 
 // Public API endpoints
