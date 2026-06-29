@@ -22,7 +22,7 @@ class ProfileController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|email|max:255|unique:users,email,'.$user->id,
             'username' => 'required|string|max:255|unique:users,username,'.$user->id,
-            'phone_numbers' => 'nullable|string', // Received as JSON string due to FormData
+            'phone_numbers' => 'nullable', // Received as array or JSON string
         ]);
 
         $user->update([
@@ -32,24 +32,7 @@ class ProfileController extends Controller
         ]);
 
         if ($request->has('phone_numbers')) {
-            $phones = json_decode($request->phone_numbers, true);
-            if (is_array($phones)) {
-                $user->phoneNumber()->whereNotIn('contact', $phones)->delete();
-                $existing = $user->phoneNumber()->pluck('contact')->toArray();
-                foreach ($phones as $num) {
-                    if (! in_array($num, $existing) && ! empty(trim($num))) {
-                        $user->phoneNumber()->create(['contact' => trim($num)]);
-                    }
-                }
-
-                $firstPhone = !empty($phones) ? trim($phones[0]) : null;
-                if ($user->arsitek) {
-                    $user->arsitek->update(['no_telp' => $firstPhone]);
-                }
-                if ($user->kontraktor) {
-                    $user->kontraktor->update(['no_telepon' => $firstPhone]);
-                }
-            }
+            $this->syncPhoneNumbers($user, $request->phone_numbers);
         }
 
         if ($user->role_type === 'arsitek') {
@@ -320,12 +303,8 @@ class ProfileController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|email|max:255|unique:users,email,'.$user->id,
             'username' => 'required|string|max:255|unique:users,username,'.$user->id,
-            'phone_numbers' => 'nullable|array',
-            'phone_numbers.*' => 'required|string|max:20',
+            'phone_numbers' => 'nullable', // Received as array or JSON string
             'pic' => 'nullable|file|mimes:jpeg,png,jpg,gif,svg|max:5120',
-        ], [
-            'phone_numbers.*.max' => 'Each phone number must not be greater than 20 characters.',
-            'phone_numbers.*.required' => 'Phone numbers cannot be blank.',
         ]);
 
         $user->update([
@@ -348,24 +327,8 @@ class ProfileController extends Controller
             );
         }
 
-        if ($request->has('phone_numbers') && !empty($validated['phone_numbers'])) {
-            $firstPhone = $validated['phone_numbers'][0];
-
-            if ($user->arsitek) {
-                $user->arsitek->update(['no_telp' => $firstPhone]);
-            }
-            if ($user->kontraktor) {
-                $user->kontraktor->update(['no_telepon' => $firstPhone]);
-            }
-
-            $user->phoneNumber()->whereNotIn('contact', $validated['phone_numbers'])->delete();
-
-            $existingNumbers = $user->phoneNumber()->pluck('contact')->toArray();
-            foreach ($validated['phone_numbers'] as $number) {
-                if (! in_array($number, $existingNumbers)) {
-                    $user->phoneNumber()->create(['contact' => $number]);
-                }
-            }
+        if ($request->has('phone_numbers')) {
+            $this->syncPhoneNumbers($user, $request->phone_numbers);
         }
 
         $relations = [
@@ -418,5 +381,42 @@ class ProfileController extends Controller
         return response()->json([
             'message' => 'Avatar deleted successfully',
         ]);
+    }
+
+    private function syncPhoneNumbers($user, $input): void
+    {
+        if (empty($input)) {
+            return;
+        }
+
+        $phones = $input;
+        if (is_string($phones)) {
+            $decoded = json_decode($phones, true);
+            if (is_array($decoded)) {
+                $phones = $decoded;
+            } else {
+                $phones = [$phones];
+            }
+        }
+
+        if (is_array($phones)) {
+            $phones = array_filter(array_map('trim', $phones));
+
+            $user->phoneNumber()->whereNotIn('contact', $phones)->delete();
+            $existing = $user->phoneNumber()->pluck('contact')->toArray();
+            foreach ($phones as $num) {
+                if (! in_array($num, $existing) && ! empty($num)) {
+                    $user->phoneNumber()->create(['contact' => $num]);
+                }
+            }
+
+            $firstPhone = !empty($phones) ? $phones[0] : null;
+            if ($user->arsitek) {
+                $user->arsitek->update(['no_telp' => $firstPhone]);
+            }
+            if ($user->kontraktor) {
+                $user->kontraktor->update(['no_telepon' => $firstPhone]);
+            }
+        }
     }
 }
