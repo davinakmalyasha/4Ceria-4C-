@@ -66,6 +66,9 @@ class ProfileController extends Controller
             if ($request->has('pengalaman_tahun') && !$request->has('pengalaman')) {
                 $request->merge(['pengalaman' => $request->pengalaman_tahun]);
             }
+            if ($request->has('deskripsi') && !$request->has('alasan_hire')) {
+                $request->merge(['alasan_hire' => $request->deskripsi]);
+            }
 
             $validatedKontraktor = $request->validate([
                 'nama_perusahaan' => 'nullable|string',
