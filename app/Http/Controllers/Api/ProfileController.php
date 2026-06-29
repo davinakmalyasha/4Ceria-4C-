@@ -41,6 +41,14 @@ class ProfileController extends Controller
                         $user->phoneNumber()->create(['contact' => trim($num)]);
                     }
                 }
+
+                $firstPhone = !empty($phones) ? trim($phones[0]) : null;
+                if ($user->arsitek) {
+                    $user->arsitek->update(['no_telp' => $firstPhone]);
+                }
+                if ($user->kontraktor) {
+                    $user->kontraktor->update(['no_telepon' => $firstPhone]);
+                }
             }
         }
 
@@ -66,16 +74,14 @@ class ProfileController extends Controller
         }
 
         if (in_array($user->role_type, ['kontraktor', 'civil', 'mechanical', 'electrical', 'plumbing', 'roofing', 'finishing'])) {
-            if (in_array($user->role_type, ['civil', 'mechanical', 'electrical', 'plumbing', 'roofing', 'finishing'])) {
-                if ($request->has('lokasi') && !$request->has('alamat')) {
-                    $request->merge(['alamat' => $request->lokasi]);
-                }
-                if ($request->has('no_telp') && !$request->has('no_telepon')) {
-                    $request->merge(['no_telepon' => $request->no_telp]);
-                }
-                if ($request->has('pengalaman_tahun') && !$request->has('pengalaman')) {
-                    $request->merge(['pengalaman' => $request->pengalaman_tahun]);
-                }
+            if ($request->has('lokasi') && !$request->has('alamat')) {
+                $request->merge(['alamat' => $request->lokasi]);
+            }
+            if ($request->has('no_telp') && !$request->has('no_telepon')) {
+                $request->merge(['no_telepon' => $request->no_telp]);
+            }
+            if ($request->has('pengalaman_tahun') && !$request->has('pengalaman')) {
+                $request->merge(['pengalaman' => $request->pengalaman_tahun]);
             }
 
             $validatedKontraktor = $request->validate([
