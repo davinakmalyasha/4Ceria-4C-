@@ -47,7 +47,7 @@ class ReviewController extends Controller
         }
 
         $bid = $modelClass::where('project_id', $project->id)
-            ->whereIn('status', ['accepted', 'terminated', 'resigned'])
+            ->whereIn('status', ['accepted', 'active', 'contract_pending', 'awaiting_payment', 'terminated', 'resigned'])
             ->latest()
             ->first();
 
