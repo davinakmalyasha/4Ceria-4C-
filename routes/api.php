@@ -43,6 +43,14 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
 Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 
+Route::get('/debug-bids', function () {
+    return response()->json([
+        'bids_kontraktor' => \Illuminate\Support\Facades\DB::table('bids_kontraktor')->select('id', 'project_id', 'status', 'price', 'calculated_total', 'fee_agreed_at')->get(),
+        'bids_arsitek' => \Illuminate\Support\Facades\DB::table('bids_arsitek')->select('id', 'project_id', 'status', 'price', 'calculated_total', 'fee_agreed_at')->get(),
+        'projects' => \Illuminate\Support\Facades\DB::table('projects')->select('id', 'title', 'user_id', 'status')->get(),
+    ]);
+});
+
 // Public API endpoints
 Route::get('/houses', [HouseController::class, 'index']);
 Route::get('/houses/{house}', [HouseController::class, 'show']);
