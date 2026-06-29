@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class ArsitekRating extends Model
 {
     protected $fillable = [
-        'user_id', 'arsitek_id', 'project_id', 'rating', 'komentar',
+        'reviewer_id', 'arsitek_id', 'project_id', 'rating', 'komentar',
     ];
 
     protected static function boot()
@@ -29,7 +29,7 @@ class ArsitekRating extends Model
 
     public function user()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class, 'reviewer_id');
     }
 
     public function arsitek()

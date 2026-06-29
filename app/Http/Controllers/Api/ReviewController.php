@@ -75,22 +75,22 @@ class ReviewController extends Controller
             // Update or Create the review
             if ($role === 'arsitek') {
                 $result = ArsitekRating::updateOrCreate(
-                    ['project_id' => $project->id, 'user_id' => $user->id, 'arsitek_id' => $professionalId],
+                    ['project_id' => $project->id, 'reviewer_id' => $user->id, 'arsitek_id' => $professionalId],
                     ['rating' => $request->rating, 'komentar' => $request->comment]
                 );
             } elseif ($role === 'kontraktor') {
                 $result = KontraktorRating::updateOrCreate(
-                    ['project_id' => $project->id, 'user_id' => $user->id, 'kontraktor_id' => $professionalId],
+                    ['project_id' => $project->id, 'reviewer_id' => $user->id, 'kontraktor_id' => $professionalId],
                     ['rating' => $request->rating, 'komentar' => $request->comment]
                 );
             } elseif ($role === 'interior') {
                 $result = InteriorRating::updateOrCreate(
-                    ['project_id' => $project->id, 'user_id' => $user->id, 'interior_id' => $professionalId],
+                    ['project_id' => $project->id, 'reviewer_id' => $user->id, 'interior_id' => $professionalId],
                     ['rating' => $request->rating, 'komentar' => $request->comment]
                 );
             } elseif ($role === 'notaris') {
                 $result = NotarisRating::updateOrCreate(
-                    ['project_id' => $project->id, 'user_id' => $user->id, 'notaris_id' => $professionalId],
+                    ['project_id' => $project->id, 'reviewer_id' => $user->id, 'notaris_id' => $professionalId],
                     ['rating' => $request->rating, 'komentar' => $request->comment]
                 );
             } elseif ($role === 'pm') {

@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class KontraktorRating extends Model
 {
     protected $fillable = [
-        'user_id', 'kontraktor_id', 'project_id', 'rating', 'komentar',
+        'reviewer_id', 'kontraktor_id', 'project_id', 'rating', 'komentar',
     ];
 
     protected static function boot()
@@ -29,7 +29,7 @@ class KontraktorRating extends Model
 
     public function user()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class, 'reviewer_id');
     }
 
     public function kontraktor()
