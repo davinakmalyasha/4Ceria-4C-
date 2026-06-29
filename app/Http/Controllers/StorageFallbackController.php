@@ -19,35 +19,34 @@ class StorageFallbackController extends Controller
 
         // Handle documents that were migrated to supabase
         if (str_starts_with($path, 'portfolios/') || str_starts_with($path, 'certificates/')) {
-            $supabase = Storage::disk('supabase');
-            if ($supabase->exists($path)) {
-                try {
+            try {
+                $supabase = Storage::disk('supabase');
+                if ($supabase->exists($path)) {
                     $temporaryUrl = $supabase->temporaryUrl($path, now()->addHour());
                     return redirect()->away($temporaryUrl);
-                } catch (\Exception $e) {
-                    // Fall through if temporaryUrl fails
                 }
+            } catch (\Exception $e) {
+                // Fall through if supabase is misconfigured or check fails
             }
         }
 
-        $disk = Storage::disk('public');
+        try {
+            $disk = Storage::disk('public');
 
-        if (!$disk->exists($path)) {
-            abort(404);
-        }
+            if (!$disk->exists($path)) {
+                abort(404);
+            }
 
-        // If using S3-compatible cloud storage, redirect to a pre-signed URL
-        if (config('filesystems.disks.public.driver') === 's3') {
-            try {
+            // If using S3-compatible cloud storage, redirect to a pre-signed URL
+            if (config('filesystems.disks.public.driver') === 's3') {
                 $temporaryUrl = $disk->temporaryUrl($path, now()->addHour());
                 return redirect()->away($temporaryUrl);
-            } catch (\Exception $e) {
-                // Fallback in case of driver misconfiguration
-                abort(404, 'Cloud storage error.');
             }
-        }
 
-        // Otherwise (local development), serve the local file directly if it exists
-        return response()->file($disk->path($path));
+            // Otherwise (local development), serve the local file directly if it exists
+            return response()->file($disk->path($path));
+        } catch (\Exception $e) {
+            abort(404, 'File not found or storage error.');
+        }
     }
 }
