@@ -158,18 +158,25 @@ class ProfileController extends Controller
             $this->updateEnterpriseProfile($request, $user);
         }
 
+        $relations = [
+            'phoneNumber', 
+            'arsitek', 
+            'kontraktor',
+            'interior_profile', 
+            'notaris_profile.services',
+            'project_manager', 
+            'structural_engineer', 
+            'mep_engineer',
+            'supplier',
+            'roles',
+        ];
+        if (in_array($user->role_type, ['arsitek', 'kontraktor'])) {
+            $relations[] = 'teamMembers';
+        }
+
         return response()->json([
             'message' => 'Professional profile updated successfully',
-            'user' => $user->fresh()->load([
-                'phoneNumber', 
-                'arsitek', 
-                'kontraktor',
-                'interior_profile', 
-                'notaris_profile.services',
-                'project_manager', 
-                'structural_engineer', 
-                'mep_engineer',
-            ]),
+            'user' => new \App\Http\Resources\UserResource($user->fresh()->load($relations)),
         ]);
     }
 
