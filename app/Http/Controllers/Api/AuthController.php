@@ -190,22 +190,31 @@ class AuthController extends Controller
 
         $resetUrl = config('app.url') . '/reset-password/' . $token;
 
-        Mail::raw(
-            "Halo {$user->name},\n\n" .
-            "Klik link berikut untuk mereset password Anda:\n{$resetUrl}\n\n" .
-            "Atau salin token ini ke aplikasi 4C:\n{$token}\n\n" .
-            "Link berlaku 60 menit.\n\n" .
-            "— 4Ceria Team",
-            function ($message) use ($user) {
-                $message->to($user->email)
-                    ->subject('Reset Password 4C');
-            }
-        );
+        try {
+            Mail::raw(
+                "Halo {$user->name},\n\n" .
+                "Klik link berikut untuk mereset password Anda:\n{$resetUrl}\n\n" .
+                "Atau salin token ini ke aplikasi 4C:\n{$token}\n\n" .
+                "Link berlaku 60 menit.\n\n" .
+                "— 4Ceria Team",
+                function ($message) use ($user) {
+                    $message->to($user->email)
+                        ->subject('Reset Password 4C');
+                }
+            );
 
-        return response()->json([
-            'message' => 'Kode reset telah dikirim ke email Anda.',
-            'email' => $request->email,
-        ]);
+            return response()->json([
+                'message' => 'Kode reset telah dikirim ke email Anda.',
+                'email' => $request->email,
+            ]);
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Forgot password email failed: ' . $e->getMessage());
+
+            return response()->json([
+                'message' => 'Gagal mengirim email. Coba lagi nanti.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
     }
 
     public function resetPassword(Request $request)
