@@ -188,6 +188,14 @@ class AuthController extends Controller
         $user = User::where('email', $request->email)->firstOrFail();
         $token = Password::broker()->createToken($user);
 
+        // Debug: log mail config
+        \Illuminate\Support\Facades\Log::info('Mail config', [
+            'mailer' => config('mail.default'),
+            'from' => config('mail.from'),
+            'resend_key_exists' => !empty(config('resend.api_key')),
+            'services_resend_key_exists' => !empty(config('services.resend.key')),
+        ]);
+
         $resetUrl = config('app.url') . '/reset-password/' . $token;
 
         try {
@@ -208,11 +216,15 @@ class AuthController extends Controller
                 'email' => $request->email,
             ]);
         } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::error('Forgot password email failed: ' . $e->getMessage());
+            \Illuminate\Support\Facades\Log::error('Forgot password email failed: ' . $e->getMessage(), [
+                'exception' => get_class($e),
+                'trace' => $e->getTraceAsString(),
+            ]);
 
             return response()->json([
-                'message' => 'Gagal mengirim email. Coba lagi nanti.',
-                'error' => config('app.debug') ? $e->getMessage() : null,
+                'message' => 'Gagal mengirim email: ' . $e->getMessage(),
+                'mailer' => config('mail.default'),
+                'from_addr' => config('mail.from.address'),
             ], 500);
         }
     }
