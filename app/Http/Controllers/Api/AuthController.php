@@ -17,6 +17,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Auth\Events\PasswordReset;
 use Spatie\Permission\Models\Role;
@@ -187,12 +188,22 @@ class AuthController extends Controller
         $user = User::where('email', $request->email)->firstOrFail();
         $token = Password::broker()->createToken($user);
 
-        // Still try to send email (works when SMTP is configured on Railway)
-        Password::sendResetLink($request->only('email'));
+        $resetUrl = config('app.url') . '/reset-password/' . $token;
+
+        Mail::raw(
+            "Halo {$user->name},\n\n" .
+            "Klik link berikut untuk mereset password Anda:\n{$resetUrl}\n\n" .
+            "Atau salin token ini ke aplikasi 4C:\n{$token}\n\n" .
+            "Link berlaku 60 menit.\n\n" .
+            "— 4Ceria Team",
+            function ($message) use ($user) {
+                $message->to($user->email)
+                    ->subject('Reset Password 4C');
+            }
+        );
 
         return response()->json([
-            'message' => 'We have emailed a password reset link.',
-            'reset_token' => $token,
+            'message' => 'Kode reset telah dikirim ke email Anda.',
             'email' => $request->email,
         ]);
     }
