@@ -69,8 +69,8 @@ class AuthController extends Controller
             'name' => 'required|string|max:255',
             'username' => 'required|string|max:255|unique:users',
             'email' => 'required|string|lowercase|email|max:255|unique:users',
-            'password' => 'required|string|min:6',
-            'role_type' => 'required|in:user,arsitek,kontraktor,admin,notaris,interior,structural,mep,project_manager,supplier,logistics,civil,mechanical,electrical,plumbing,roofing,finishing',
+            'password' => 'required|string|min:8',
+            'role_type' => 'required|in:user,arsitek,kontraktor,notaris,interior,structural,mep,project_manager,supplier,logistics,civil,mechanical,electrical,plumbing,roofing,finishing',
         ]);
 
         try {
@@ -130,7 +130,7 @@ class AuthController extends Controller
 
             // Ensure the Spatie role exists before assigning
             $roleName = $request->role_type;
-            if (!in_array($roleName, ['user', 'arsitek', 'kontraktor', 'admin', 'notaris', 'interior', 'structural', 'mep', 'project_manager', 'supplier', 'logistics', 'civil', 'mechanical', 'electrical', 'plumbing', 'roofing', 'finishing'])) {
+            if (!in_array($roleName, ['user', 'arsitek', 'kontraktor', 'notaris', 'interior', 'structural', 'mep', 'project_manager', 'supplier', 'logistics', 'civil', 'mechanical', 'electrical', 'plumbing', 'roofing', 'finishing'])) {
                 $roleName = 'user';
             }
             Role::firstOrCreate(['name' => $roleName, 'guard_name' => 'web']);
@@ -165,7 +165,6 @@ class AuthController extends Controller
             ]);
             return response()->json([
                 'message' => 'Registration failed. Please try again.',
-                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -181,52 +180,47 @@ class AuthController extends Controller
 
     public function forgotPassword(Request $request)
     {
+        // NOTE: no exists: rule — an identical response for known and unknown
+        // emails prevents account enumeration.
         $request->validate([
-            'email' => 'required|email|exists:users',
+            'email' => 'required|email',
         ]);
 
-        $user = User::where('email', $request->email)->firstOrFail();
-        $token = Password::broker()->createToken($user);
+        $user = User::where('email', $request->email)->first();
 
-        // Debug: log mail config
-        \Illuminate\Support\Facades\Log::info('Mail config', [
-            'mailer' => config('mail.default'),
-            'from' => config('mail.from'),
-            'resend_key_exists' => !empty(config('resend.api_key')),
-            'services_resend_key_exists' => !empty(config('services.resend.key')),
-        ]);
+        if ($user) {
+            $token = Password::broker()->createToken($user);
 
-        $resetUrl = config('app.url') . '/reset-password/' . $token;
+            $resetUrl = config('app.url') . '/reset-password/' . $token;
 
-        try {
-            Mail::raw(
-                "Halo {$user->name},\n\n" .
-                "Klik link berikut untuk mereset password Anda:\n{$resetUrl}\n\n" .
-                "Atau salin token ini ke aplikasi 4C:\n{$token}\n\n" .
-                "Link berlaku 60 menit.\n\n" .
-                "— 4Ceria Team",
-                function ($message) use ($user) {
-                    $message->to($user->email)
-                        ->subject('Reset Password 4C');
-                }
-            );
+            try {
+                Mail::raw(
+                    "Halo {$user->name},\n\n" .
+                    "Klik link berikut untuk mereset password Anda:\n{$resetUrl}\n\n" .
+                    "Atau salin token ini ke aplikasi 4C:\n{$token}\n\n" .
+                    "Link berlaku 60 menit.\n\n" .
+                    "— 4Ceria Team",
+                    function ($message) use ($user) {
+                        $message->to($user->email)
+                            ->subject('Reset Password 4C');
+                    }
+                );
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error('Forgot password email failed: ' . $e->getMessage(), [
+                    'exception' => get_class($e),
+                    'trace' => $e->getTraceAsString(),
+                ]);
 
-            return response()->json([
-                'message' => 'Kode reset telah dikirim ke email Anda.',
-                'email' => $request->email,
-            ]);
-        } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::error('Forgot password email failed: ' . $e->getMessage(), [
-                'exception' => get_class($e),
-                'trace' => $e->getTraceAsString(),
-            ]);
-
-            return response()->json([
-                'message' => 'Gagal mengirim email: ' . $e->getMessage(),
-                'mailer' => config('mail.default'),
-                'from_addr' => config('mail.from.address'),
-            ], 500);
+                return response()->json([
+                    'message' => 'Gagal mengirim email. Silakan coba lagi nanti.',
+                ], 500);
+            }
         }
+
+        // Identical response whether or not the account exists.
+        return response()->json([
+            'message' => 'Kode reset telah dikirim ke email Anda.',
+        ]);
     }
 
     public function resetPassword(Request $request)
@@ -243,6 +237,10 @@ class AuthController extends Controller
                 $user->forceFill([
                     'password' => Hash::make($password),
                 ])->save();
+
+                // SECURITY: revoke all existing tokens so a stolen session
+                // cannot survive a password reset.
+                $user->tokens()->delete();
 
                 event(new PasswordReset($user));
             }

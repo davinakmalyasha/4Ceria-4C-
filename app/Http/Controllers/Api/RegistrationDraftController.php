@@ -27,6 +27,16 @@ class RegistrationDraftController extends Controller
     {
         $draftKey = "registration:draft:{$tempId}";
         $draft = Cache::get($draftKey);
+        if ($draft && is_array($draft)) {
+            // Credentials must never be echoed back to the client.
+            unset($draft['password_hash']);
+            foreach ($draft as $key => $value) {
+                if (is_array($value)) {
+                    unset($value['password'], $value['password_confirmation']);
+                    $draft[$key] = $value;
+                }
+            }
+        }
         return response()->json(['draft' => $draft ?: (object)[]]);
     }
 
@@ -42,12 +52,28 @@ class RegistrationDraftController extends Controller
 
         $draftKey = "registration:draft:{$tempId}";
         $currentDraft = Cache::get($draftKey) ?: [];
-        $currentDraft['step_' . $validated['step']] = $validated['data'];
+
+        $data = $validated['data'];
+        $password = null;
+        if (array_key_exists('password', $data)) {
+            $password = $data['password'];
+            unset($data['password'], $data['password_confirmation']);
+        }
+
+        if ($password !== null) {
+            if (!is_string($password) || strlen($password) < 8) {
+                return response()->json(['message' => 'Password must be at least 8 characters.'], 422);
+            }
+            // Store only a hash; plaintext passwords are never persisted.
+            $currentDraft['password_hash'] = Hash::make($password);
+        }
+
+        $currentDraft['step_' . $validated['step']] = $data;
 
         if (!isset($currentDraft['all_data'])) {
             $currentDraft['all_data'] = [];
         }
-        $currentDraft['all_data'] = array_merge($currentDraft['all_data'], $validated['data']);
+        $currentDraft['all_data'] = array_merge($currentDraft['all_data'], $data);
 
         Cache::put($draftKey, $currentDraft, 86400); // 24 hours
 
@@ -72,8 +98,7 @@ class RegistrationDraftController extends Controller
             'name' => 'required|string|max:255',
             'username' => 'required|string|max:255|unique:users',
             'email' => 'required|string|lowercase|email|max:255|unique:users',
-            'password' => 'required|string|min:6',
-            'role_type' => 'required|in:user,arsitek,kontraktor,admin,notaris,interior,structural,mep,project_manager,supplier,logistics,civil,mechanical,electrical,plumbing,roofing,finishing',
+            'role_type' => 'required|in:user,arsitek,kontraktor,notaris,interior,structural,mep,project_manager,supplier,logistics,civil,mechanical,electrical,plumbing,roofing,finishing',
         ]);
 
         if ($validator->fails()) {
@@ -82,13 +107,26 @@ class RegistrationDraftController extends Controller
 
         $validated = $validator->validated();
 
+        $passwordHash = is_array($draft) ? ($draft['password_hash'] ?? null) : null;
+        // Legacy drafts (pre-hardening) may still carry a plaintext password; upgrade them safely.
+        if (!$passwordHash && isset($allData['password'])) {
+            if (!is_string($allData['password']) || strlen($allData['password']) < 6) {
+                return response()->json(['message' => 'Validation failed', 'errors' => ['password' => ['The password must be at least 8 characters.']]], 422);
+            }
+            $passwordHash = Hash::make($allData['password']);
+            unset($allData['password']);
+        }
+        if (!$passwordHash) {
+            return response()->json(['message' => 'Draft not found or expired.'], 422);
+        }
+
         DB::beginTransaction();
         try {
             $user = User::create([
                 'name' => $validated['name'],
                 'username' => $validated['username'],
                 'email' => strtolower($validated['email']),
-                'password' => Hash::make($validated['password']),
+                'password' => $passwordHash,
                 'role_type' => $validated['role_type'],
             ]);
 
@@ -158,7 +196,7 @@ class RegistrationDraftController extends Controller
             Kontraktor::create(['user_id' => $user->id, 'nama' => $user->name]);
         }
 
-        if (in_array($role, ['arsitek', 'kontraktor', 'admin', 'notaris', 'interior', 'structural', 'mep', 'project_manager', 'supplier', 'logistics'])) {
+        if (in_array($role, ['arsitek', 'kontraktor', 'notaris', 'interior', 'structural', 'mep', 'project_manager', 'supplier', 'logistics'])) {
             $user->assignRole($role);
         } elseif (in_array($role, ['civil', 'mechanical', 'electrical', 'plumbing', 'roofing', 'finishing'])) {
             $user->assignRole($role);
