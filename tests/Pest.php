@@ -17,6 +17,19 @@ pest()->extend(Tests\TestCase::class)
 
 /*
 |--------------------------------------------------------------------------
+| Money-Integrity Suite (tests/MoneyIntegrityTest.php)
+|--------------------------------------------------------------------------
+|
+| These tests run against the REAL MySQL connection but each test is wrapped
+| in an explicit BEGIN ... ROLLBACK (see beforeEach/afterEach in the file) —
+| no data is ever persisted. This is required because the legacy migrations
+| use raw MySQL ALTER/ENUM statements that sqlite cannot execute.
+|
+| SAFETY: only DML happens inside these tests; never add DDL there.
+*/
+
+/*
+|--------------------------------------------------------------------------
 | Expectations
 |--------------------------------------------------------------------------
 |
