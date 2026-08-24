@@ -58,7 +58,7 @@
         ],
         "dev": [
             "Composer\\Config::disableProcessTimeout",
-            "npx concurrently -c \"#93c5fd,#c4b5fd,#fb7185,#fdba74\" \"php artisan octane:start\" \"php artisan queue:listen --tries=1\" \"php artisan pail --timeout=0\" \"npm run dev\" --names=server,queue,logs,vite"
+            "npx concurrently -c \"#93c5fd,#c4b5fd,#fb7185,#fdba74\" \"C:\\laragon\\bin\\php\\php-8.5.7\\php.exe artisan octane:start --server=frankenphp --port=9000\" \"C:\\laragon\\bin\\php\\php-8.5.7\\php.exe artisan queue:listen --tries=1\" \"C:\\laragon\\bin\\php\\php-8.5.7\\php.exe artisan pail --timeout=0\" \"npm run dev\" --names=server,queue,logs,vite"
         ]
     },
     "extra": {

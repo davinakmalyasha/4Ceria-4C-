@@ -44,6 +44,24 @@ export default defineConfig(({ mode }) => {
         }
     });
 
+    // Shared vendor chunking so BOTH build modes produce identical caching
+    // behavior (the standalone/Vercel build previously shipped one monolithic
+    // bundle with maplibre inline).
+    const manualChunks = (id) => {
+        if (id.includes('node_modules')) {
+            if (id.includes('maplibre-gl') || id.includes('mapbox-gl') || id.includes('leaflet')) {
+                return 'vendor-maps';
+            }
+            if (id.includes('lucide-react')) {
+                return 'vendor-icons';
+            }
+            if (id.includes('framer-motion')) {
+                return 'vendor-animations';
+            }
+            return 'vendor';
+        }
+    };
+
     // Enable standalone SPA build for Vercel/frontend hosting
     if (process.env.VITE_STANDALONE === 'true' || mode === 'frontend') {
         return {
@@ -55,6 +73,9 @@ export default defineConfig(({ mode }) => {
                 outDir: 'dist',
                 rollupOptions: {
                     input: 'index.html',
+                    output: {
+                        manualChunks,
+                    },
                 },
             },
         };
@@ -76,20 +97,7 @@ export default defineConfig(({ mode }) => {
         build: {
             rollupOptions: {
                 output: {
-                    manualChunks(id) {
-                        if (id.includes('node_modules')) {
-                            if (id.includes('maplibre-gl') || id.includes('mapbox-gl') || id.includes('leaflet')) {
-                                return 'vendor-maps';
-                            }
-                            if (id.includes('lucide-react')) {
-                                return 'vendor-icons';
-                            }
-                            if (id.includes('framer-motion')) {
-                                return 'vendor-animations';
-                            }
-                            return 'vendor';
-                        }
-                    }
+                    manualChunks,
                 }
             }
         }

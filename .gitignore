@@ -85,6 +85,11 @@ frankenphp-worker.php
 # MCP browser-tooling debug output
 /.playwright-mcp/
 
+# Stray design-review screenshots at repo root
+/hero-centered-check.png
+/hero-centered-final.png
+/houses-tab-fixed.png
+
 # Owner-mandated test/verification assets (override scratch-script patterns above)
 !refinement-tests/
 !refinement-tests/**

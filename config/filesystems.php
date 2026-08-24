@@ -51,25 +51,15 @@ return [
             'throw' => false,
         ],
 
-        's3' => [
+        'railway' => [
+            // Railway Object Storage (Tigris, S3-compatible) — private bucket for
+            // contracts, KYC documents and requirement images.
             'driver' => 's3',
-            'key' => env('AWS_ACCESS_KEY_ID'),
-            'secret' => env('AWS_SECRET_ACCESS_KEY'),
-            'region' => env('AWS_DEFAULT_REGION'),
-            'bucket' => env('AWS_BUCKET'),
-            'url' => env('AWS_URL'),
-            'endpoint' => env('AWS_ENDPOINT'),
-            'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
-            'throw' => false,
-        ],
-
-        'supabase' => [
-            'driver' => 's3',
-            'key' => env('SUPABASE_STORAGE_KEY_ID'),
-            'secret' => env('SUPABASE_STORAGE_SECRET_ACCESS_KEY'),
-            'region' => env('SUPABASE_STORAGE_REGION', 'auto'),
-            'bucket' => env('SUPABASE_STORAGE_BUCKET'),
-            'endpoint' => env('SUPABASE_STORAGE_ENDPOINT'),
+            'key' => env('RAILWAY_STORAGE_ACCESS_KEY_ID'),
+            'secret' => env('RAILWAY_STORAGE_SECRET_ACCESS_KEY'),
+            'region' => env('RAILWAY_STORAGE_REGION', 'auto'),
+            'bucket' => env('RAILWAY_STORAGE_BUCKET'),
+            'endpoint' => env('RAILWAY_STORAGE_ENDPOINT'),
             'use_path_style_endpoint' => true,
             'throw' => false,
         ],

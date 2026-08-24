@@ -8,6 +8,9 @@ export default {
         './storage/framework/views/*.php',
         './resources/views/**/*.blade.php',
         './resources/js/**/*.tsx',
+        // BUGFIX: classes defined in .ts files (STATUS_CONFIG, preset colors)
+        // were purged from production CSS — chips rendered unstyled.
+        './resources/js/**/*.ts',
     ],
 
     theme: {

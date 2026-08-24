@@ -14,7 +14,7 @@
     --text-main: #0f172a;
     --text-muted: #64748b;
     --border: #f1f5f9;
-    --navbar-height: 64px;
+    --navbar-height: 56px;
     --radius-lg: 24px;
     --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
     --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
@@ -31,15 +31,12 @@ body {
     background-color: white;
     display: flex;
     align-items: center;
-    position: sticky;
-    top: 0;
     justify-content: space-between;
     border-bottom: 1px solid var(--border);
     z-index: 1000;
     transition: transform 0.3s ease-in-out;
     width: 100%;
     height: var(--navbar-height);
-    padding: 0 2rem;
 }
 
 .custom-navbar-container.hidden-nav {
