@@ -38,15 +38,11 @@ class ChatController extends Controller
         $formatted = $conversations->map(function ($conv) use ($user) {
             $otherUser = ($conv->user_one_id === $user->id) ? $conv->userTwo : $conv->userOne;
 
-            $redisKey = "user:{$user->id}:conv:{$conv->id}:unread";
-            $unreadCount = \Illuminate\Support\Facades\Cache::get($redisKey);
-
-            if ($unreadCount === null) {
-                $unreadCount = (int) $conv->unread_count;
-                \Illuminate\Support\Facades\Cache::forever($redisKey, $unreadCount);
-            } else {
-                $unreadCount = (int) $unreadCount;
-            }
+            // BUGFIX: previously mirrored unread counts into Redis FOREVER keys
+            // that were incremented on send but NEVER reset when messages were
+            // read -> stuck badges + unbounded key growth. The withCount value
+            // computed above is authoritative and always consistent.
+            $unreadCount = (int) $conv->unread_count;
 
             return [
                 'id' => $conv->id,
@@ -55,11 +51,11 @@ class ChatController extends Controller
                     'name' => $otherUser->name,
                     'username' => $otherUser->username,
                     'role_type' => $otherUser->role_type,
-                    'pic' => $otherUser->arsitek->foto ?? 
-                             ($otherUser->kontraktor->foto ?? 
-                             ($otherUser->notaris_profile->foto ?? 
-                             ($otherUser->interior_profile->foto ?? 
-                             ($otherUser->courierProfile->foto ?? 
+                    'pic' => $otherUser->arsitek->foto ??
+                             ($otherUser->kontraktor->foto ??
+                             ($otherUser->notaris_profile->foto ??
+                             ($otherUser->interior_profile->foto ??
+                             ($otherUser->courierProfile->foto ??
                              ($otherUser->supplier->foto ?? null))))),
                 ],
                 'last_message' => $conv->latestMessage,
@@ -96,10 +92,24 @@ class ChatController extends Controller
         })->first();
 
         if (! $conversation) {
-            $conversation = Conversation::create([
-                'user_one_id' => min($user1, $user2),
-                'user_two_id' => max($user1, $user2),
-            ]);
+            try {
+                $conversation = Conversation::create([
+                    'user_one_id' => min($user1, $user2),
+                    'user_two_id' => max($user1, $user2),
+                ]);
+            } catch (\Illuminate\Database\QueryException $e) {
+                // RACE GUARD: a unique(user_one_id,user_two_id) collision means
+                // another concurrent request created the conversation first —
+                // fetch the winner instead of 500ing.
+                if (str_contains($e->getMessage(), 'Duplicate entry')) {
+                    $conversation = Conversation::where(function ($q) use ($user1, $user2) {
+                        $q->where('user_one_id', min($user1, $user2))->where('user_two_id', max($user1, $user2));
+                    })->first();
+                }
+                if (!$conversation) {
+                    throw $e;
+                }
+            }
         }
 
         return response()->json(['data' => $conversation->id]);
@@ -183,15 +193,8 @@ class ChatController extends Controller
         // Everything below is non-critical — won't fail the message send
         $recipientId = ($conversation->user_one_id === $user->id) ? $conversation->user_two_id : $conversation->user_one_id;
 
-        try {
-            // Increment unread count in Cache for the recipient
-            $recipientRedisKey = "user:{$recipientId}:conv:{$conversation->id}:unread";
-            if (\Illuminate\Support\Facades\Cache::has($recipientRedisKey)) {
-                \Illuminate\Support\Facades\Cache::increment($recipientRedisKey);
-            }
-        } catch (\Exception $e) {
-            // Non-blocking: cache failure shouldn't break message send
-        }
+        // Note: the legacy Redis unread-counter mirror was removed — the inbox
+        // now always reads the authoritative DB count (see index()).
 
         // Non-critical: in-app notification (won't block message send)
         try {

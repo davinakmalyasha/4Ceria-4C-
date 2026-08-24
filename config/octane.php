@@ -105,8 +105,9 @@ return [
         OperationTerminated::class => [
             FlushOnce::class,
             FlushTemporaryContainerInstances::class,
-            // DisconnectFromDatabases::class,
-            // CollectGarbage::class,
+            // PERF/OCTANE: periodic GC + DB disconnects prevent worker RSS
+            // ratcheting on long-running FrankenPHP workers.
+            CollectGarbage::class,
         ],
 
         WorkerErrorOccurred::class => [
