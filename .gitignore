@@ -57,8 +57,34 @@ deep_*.php
 verify_*.php
 debug_*.php
 tmp_*.php
+debug_*.json
+
+# Local-only dev tooling & secrets
+.mcp.json
+.codex/
+.claude/
+
+# Local-only frontend dev helpers (quick login etc.)
+/resources/js/pages/dev/
+
+# Office lock files / temp artifacts
+~$*
+*.tmp
+
+# Large local archives & nested tooling repos
+mobile.zip
+/word-mcp-server/
+/word-mcp-server.venv/
+
 
 
 **/caddy
 frankenphp
 frankenphp-worker.php
+
+# MCP browser-tooling debug output
+/.playwright-mcp/
+
+# Owner-mandated test/verification assets (override scratch-script patterns above)
+!refinement-tests/
+!refinement-tests/**

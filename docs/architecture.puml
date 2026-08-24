@@ -1,0 +1,62 @@
+@startuml
+!define RECTANGLE class
+
+skinparam rectangle {
+  BackgroundColor #E8F4FD
+  BorderColor #2B6CB0
+  FontColor #1A365D
+}
+
+skinparam database {
+  BackgroundColor #F0FFF4
+  BorderColor #276749
+  FontColor #22543D
+}
+
+skinparam cloud {
+  BackgroundColor #FFF5F5
+  BorderColor #9B2C2C
+}
+
+skinparam boundary {
+  BackgroundColor #FAF5FF
+  BorderColor #553C9A
+}
+
+title **Arsitektur Aplikasi 4C**
+
+rectangle "Aplikasi Seluler 4C (Flutter)" <<client>> {
+  rectangle "UI Layer\n(Screens & Widgets)" as ui
+  rectangle "BLoC Layer\n(State Management)" as bloc
+  rectangle "Repository Layer\n(Data Access)" as repo
+  rectangle "Dio HTTP Client\n(API Service)" as dio
+  rectangle "Flutter Secure Storage\n(Token Encrypted)" as storage
+}
+
+ui -down-> bloc : "Events"
+bloc -down-> repo : "Panggil data"
+repo -down-> dio : "HTTP Request"
+dio -right-> storage : "Simpan/Baca Token"
+
+cloud "Internet\n(HTTPS + JSON)" as internet {
+}
+
+rectangle "Backend Server\n(Laravel)" <<server>> {
+  rectangle "Laravel Sanctum\n(Autentikasi)" as sanctum
+  rectangle "REST API\n(Endpoints)" as api
+  rectangle "Business Logic\n(Controllers)" as logic
+}
+
+database "MySQL\n(Database Relasional)" as db {
+}
+database "File Storage\n(Railway)" as files {
+}
+
+dio -right-> internet : "POST/GET/PUT/DELETE\n(Bearer Token)"
+internet -right-> sanctum : "Request dengan Token"
+sanctum -down-> api : "Validasi Token"
+api -down-> logic : "Proses Request"
+logic -down-> db : "CRUD Data"
+logic -down-> files : "Upload/Download\nGambar & Dokumen"
+
+@enduml
