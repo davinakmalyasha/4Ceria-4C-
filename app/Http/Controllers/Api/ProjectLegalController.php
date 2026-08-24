@@ -15,6 +15,19 @@ class ProjectLegalController extends Controller
 {
     public function getFinancials(Project $project)
     {
+        $user = Auth::user();
+
+        // Only project participants may see legal/financial summaries.
+        $isNotary = $user->role_type === 'notaris'
+            && $project->selected_notaris_id
+            && optional($user->notaris_profile)->id === $project->selected_notaris_id;
+        $isOwner = $project->user_id === $user->id;
+        $isPM = $user->role_type === 'project_manager' && (int) $project->pm_id === (int) $user->id;
+
+        if (!$isNotary && !$isOwner && !$isPM) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
         return response()->json([
             'allocated_tax' => $project->budget * 0.1,
             'total_spent' => $project->paymentTermins()->where('status', 'paid')->sum('amount'),
@@ -40,7 +53,9 @@ class ProjectLegalController extends Controller
             && $project->selected_notaris_id
             && optional($user->notaris_profile)->id === $project->selected_notaris_id;
         $isOwner = $project->user_id === $user->id;
-        $isPM = $project->pm_id && $user->role_type === 'project_manager';
+        // BUGFIX: must verify the PM is THE assigned PM (pm_id stores user id),
+        // not just any account with the project_manager role.
+        $isPM = $user->role_type === 'project_manager' && $project->pm_id && (int) $project->pm_id === (int) $user->id;
 
         if (!$isNotary && !$isOwner && !$isPM) {
             return response()->json([
@@ -125,7 +140,10 @@ class ProjectLegalController extends Controller
                     ],
                     [
                         'title' => $label,
-                        'notaris_id' => $notarisUserId,
+                        // BUGFIX: milestones.notaris_id stores PROFILE ids (matching
+                        // signContract + the notaris() relation) — writing the user
+                        // id here previously resolved the relation to the wrong notary.
+                        'notaris_id' => $project->selected_notaris_id,
                         'description' => "Awaiting: {$label}",
                         'phase_context' => 'legal',
                         'sort_order' => $index,
@@ -152,17 +170,92 @@ class ProjectLegalController extends Controller
 
     public function storeDisbursement(Request $request, Project $project)
     {
-        $request->validate([
+        $user = Auth::user();
+
+        // Only hired notary/architect or the owner/PM may request disbursements.
+        $isNotary = $user->role_type === 'notaris'
+            && $project->selected_notaris_id
+            && optional($user->notaris_profile)->id === $project->selected_notaris_id;
+        $isArsitek = $user->role_type === 'arsitek'
+            && $project->selected_arsitek_id
+            && optional($user->arsitek)->id === $project->selected_arsitek_id;
+        $isOwner = $project->user_id === $user->id;
+        $isPM = $user->role_type === 'project_manager' && (int) $project->pm_id === (int) $user->id;
+
+        if (!$isNotary && !$isArsitek && !$isOwner && !$isPM) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        $validated = $request->validate([
             'amount' => 'required|numeric|min:1',
-            'purpose' => 'required|string',
+            'purpose' => 'required|string|max:2000',
+            'title' => 'nullable|string|max:255',
         ]);
 
-        return response()->json(['message' => 'Disbursement request submitted.']);
+        // BUGFIX: this endpoint previously validated input and returned success
+        // WITHOUT persisting anything — silent data loss for the requester.
+        $disbursement = \App\Models\ProjectDisbursement::create([
+            'project_id' => $project->id,
+            'requested_by' => $user->id,
+            'title' => $validated['title'] ?? null,
+            'purpose' => $validated['purpose'],
+            'amount' => $validated['amount'],
+            'status' => 'pending',
+        ]);
+
+        // Notify owner (or PM when one is assigned) that approval is needed.
+        $approverId = $project->pm_id ?: $project->user_id;
+        if ($approverId && (int) $approverId !== (int) $user->id) {
+            \App\Models\Notification::create([
+                'user_id' => $approverId,
+                'type' => 'budget_approval_needed',
+                'title' => 'Disbursement Request',
+                'body' => "{$user->name} requested a disbursement of Rp " . number_format((float) $validated['amount'], 0, ',', '.') . " on \"{$project->title}\".",
+                'data' => [
+                    'project_id' => $project->id,
+                    'disbursement_id' => $disbursement->id,
+                ],
+            ]);
+        }
+
+        return response()->json(['message' => 'Disbursement request submitted.', 'data' => $disbursement], 201);
     }
 
     public function verifyDisbursement(Request $request, Project $project, $id)
     {
-        return response()->json(['message' => 'Disbursement verified.']);
+        $user = Auth::user();
+
+        $disbursement = \App\Models\ProjectDisbursement::where('project_id', $project->id)->find($id);
+        if (!$disbursement) {
+            return response()->json(['message' => 'Not found.'], 404);
+        }
+
+        $isOwner = $project->user_id === $user->id;
+        $isPM = $user->role_type === 'project_manager' && (int) $project->pm_id === (int) $user->id;
+
+        if (!$isOwner && !$isPM) {
+            return response()->json(['message' => 'Unauthorized. Only the Owner or PM can verify disbursements.'], 403);
+        }
+
+        if ($disbursement->status !== 'pending') {
+            return response()->json(['message' => 'This disbursement has already been processed.'], 422);
+        }
+
+        $validated = $request->validate([
+            'action' => 'nullable|in:verify,reject',
+            'notes' => 'nullable|string|max:1000',
+        ]);
+
+        $action = $validated['action'] ?? 'verify';
+
+        $disbursement->update([
+            'status' => $action === 'verify' ? 'verified' : 'rejected',
+            'verified_by' => $user->id,
+            'verified_at' => now(),
+            'verification_notes' => $validated['notes'] ?? null,
+        ]);
+
+        return response()->json(['message' => 'Disbursement verified.', 'data' => $disbursement]);
     }
 
     /**
