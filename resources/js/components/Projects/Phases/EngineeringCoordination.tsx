@@ -307,7 +307,7 @@ export default function EngineeringCoordination({ project, user, roleType, isArc
                             </span>
                         );
                         return (
-                            <span className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-1 border border-indigo-200">
+                            <span className="px-3 py-1 bg-slate-100 text-slate-700 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-1 border border-slate-200">
                                 <ShieldCheck size={12} /> Reviewing
                             </span>
                         );

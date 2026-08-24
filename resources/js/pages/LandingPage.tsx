@@ -43,6 +43,11 @@ export default function LandingPage(): React.ReactElement {
     const { user, isLoading } = useAuth();
     const hasToken = !!localStorage.getItem('auth_token');
 
+    // BUGFIX (rules of hooks): all hooks must run unconditionally BEFORE any
+    // early return — the FAQ state used to be declared below the loading
+    // branch, crashing when auth resolved after mount.
+    const [openFaq, setOpenFaq] = useState<number | null>(null);
+
     if (isLoading && hasToken) {
         return (
             <div className="min-h-screen bg-neutral-900 flex flex-col items-center justify-center relative overflow-hidden select-none">
@@ -94,8 +99,6 @@ export default function LandingPage(): React.ReactElement {
             </div>
         );
     }
-
-    const [openFaq, setOpenFaq] = useState<number | null>(null);
 
     const toggleFaq = (index: number): void => {
         setOpenFaq(openFaq === index ? null : index);
@@ -166,7 +169,7 @@ export default function LandingPage(): React.ReactElement {
             <Navbar />
 
             {/* Hero Section */}
-            <section className="relative px-6 text-center overflow-hidden flex items-center justify-center min-h-[85vh] py-20 bg-white">
+            <section className="relative px-6 text-center overflow-hidden flex items-center justify-center min-h-[calc(100vh-3.5rem)] mt-14 py-20 bg-white">
                 <div className="absolute inset-0 bg-[radial-gradient(#fd1d1d08_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
                 
                 <motion.div 

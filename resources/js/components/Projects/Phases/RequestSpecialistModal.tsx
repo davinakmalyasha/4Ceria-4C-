@@ -72,8 +72,8 @@ export default function RequestSpecialistModal({
             title: 'Structural Engineer',
             subtitle: 'Forces & Structural Calculations',
             icon: HardHat,
-            color: 'bg-indigo-100 text-indigo-600 border-indigo-200',
-            btnColor: 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/10'
+            color: 'bg-slate-100 text-slate-600 border-slate-200',
+            btnColor: 'bg-zinc-900 hover:bg-zinc-800 shadow-slate-600/10'
         },
         mep: {
             title: 'MEP Engineer',
@@ -318,7 +318,7 @@ export default function RequestSpecialistModal({
                                         <div className="flex-1 space-y-1">
                                             <div className="flex items-center gap-2">
                                                 <h4 className="text-sm font-black text-slate-900">{selectedProfile.name}</h4>
-                                                <span className="px-2 py-0.5 bg-indigo-50 border border-indigo-100 text-indigo-700 text-[8px] font-black uppercase tracking-widest rounded">
+                                                <span className="px-2 py-0.5 bg-slate-50 border border-slate-100 text-slate-700 text-[8px] font-black uppercase tracking-widest rounded">
                                                     {selectedProfile.type}
                                                 </span>
                                             </div>

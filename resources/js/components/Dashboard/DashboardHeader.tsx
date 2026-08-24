@@ -1,11 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Menu, ChevronDown, User, LogOut, FolderKanban, Heart, MessageSquare, HelpCircle, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import NotificationsDropdown from '../NotificationsDropdown';
 import { getNavItems } from './navConfig';
 import { HeaderDropdown } from './HeaderDropdown';
-import axios from 'axios';
+import { useUnreadCounts } from '../../hooks/useUnreadCounts';
 
 interface HeaderProps {
     activeTab: string;
@@ -23,31 +23,20 @@ const BrandLogo: React.FC<{ onClick: () => void }> = ({ onClick }) => (
 
 export const DashboardHeader: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onMenuClick, counts }) => {
     const { user, logout } = useAuth();
+    const navigate = useNavigate();
     const [profileOpen, setProfileOpen] = useState(false);
     const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
-    const [unreadMessages, setUnreadMessages] = useState(0);
+    const { counts: unreadCounts } = useUnreadCounts();
+    const unreadMessages = unreadCounts.unread_messages;
     const profileRef = useRef<HTMLDivElement>(null);
     const navRef = useRef<HTMLDivElement>(null);
 
     const navItems = getNavItems(user?.role_type, !!user);
 
-    useEffect(() => {
-        if (!user) return;
-        const fetchUnreadMessages = async () => {
-            try {
-                const res = await axios.get('/conversations');
-                const convs = res.data.data || [];
-                const totalUnread = convs.reduce((acc: number, c: any) => acc + (c.unread_count || 0), 0);
-                setUnreadMessages(totalUnread);
-            } catch (err) {
-                console.error('Failed to fetch unread messages count', err);
-            }
-        };
-
-        fetchUnreadMessages();
-        const interval = setInterval(fetchUnreadMessages, 10000);
-        return () => clearInterval(interval);
-    }, [user]);
+    const handleLogoClick = () => {
+        if (!user) navigate('/');
+        else setActiveTab('overview');
+    };
 
     useEffect(() => {
         const handler = (e: MouseEvent) => {
@@ -75,7 +64,7 @@ export const DashboardHeader: React.FC<HeaderProps> = ({ activeTab, setActiveTab
                 </button>
                 
                 <div className="hidden md:block shrink-0">
-                    <BrandLogo onClick={() => setActiveTab('overview')} />
+                    <BrandLogo onClick={handleLogoClick} />
                 </div>
 
                 {/* Horizontal Desktop Navigation Tabs immediately beside the logo */}
@@ -130,6 +119,15 @@ export const DashboardHeader: React.FC<HeaderProps> = ({ activeTab, setActiveTab
                             </button>
                         );
                     })}
+                    {!user && (
+                        <Link
+                            to="/help"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[13px] font-bold text-neutral-500 hover:text-neutral-800 hover:bg-neutral-50 transition-all focus:outline-none"
+                        >
+                            <HelpCircle className="w-[15px] h-[15px] shrink-0" />
+                            Help Center
+                        </Link>
+                    )}
                 </nav>
             </div>
 

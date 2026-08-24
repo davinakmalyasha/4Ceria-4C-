@@ -335,7 +335,7 @@ export default function TechnicalMilestones({
                                                     <span className={`w-1.5 h-1.5 rounded-full ${m.approval_status === 'approved' ? 'bg-emerald-500' : m.approval_status === 'reviewed' ? 'bg-emerald-400' : 'bg-amber-400'}`} />
                                                     <span className={`px-2 py-0.5 rounded-[4px] text-[8px] font-black uppercase tracking-widest border ${
                                                         m.approval_status === 'approved' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 
-                                                        m.approval_status === 'reviewed' ? 'bg-blue-50 text-blue-600 border-blue-100' :
+                                                        m.approval_status === 'reviewed' ? 'bg-slate-50 text-slate-600 border-slate-100' :
                                                         m.approval_status === 'revision' ? 'bg-rose-50 text-rose-600 border-rose-100' :
                                                         'bg-amber-50 text-amber-600 border-amber-100'
                                                     }`}>
@@ -419,7 +419,7 @@ export default function TechnicalMilestones({
                                                 className={`px-5 py-2.5 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all flex items-center gap-2 shadow-lg ${
                                                     !hasSubmittedDeliverables 
                                                     ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none' 
-                                                    : 'bg-blue-500 hover:bg-blue-600 shadow-blue-100'
+                                                    : 'bg-slate-500 hover:bg-zinc-900 shadow-slate-100'
                                                 }`}
                                             >
                                                 <ShieldCheck size={14} /> Review Design

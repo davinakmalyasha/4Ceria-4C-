@@ -21,7 +21,10 @@ export default function JobRadarTab() {
 
     useEffect(() => {
         fetchJobs();
-        const interval = setInterval(fetchJobs, 10000); // Polling for new pings
+        const interval = setInterval(() => {
+            if (document.hidden) return; // skip polling in background tabs
+            fetchJobs();
+        }, 10000); // Polling for new pings
         return () => clearInterval(interval);
     }, []);
 

@@ -211,7 +211,7 @@ export const PaymentSchedule: React.FC<Props> = ({
                                                     onClick={() => toggleService(index, service)}
                                                     className={`px-3 py-1.5 rounded-lg text-[9px] font-black transition-all border ${
                                                         isSelected 
-                                                        ? 'bg-blue-600 border-blue-500 text-white shadow-md shadow-blue-900/20' 
+                                                        ? 'bg-zinc-900 border-slate-500 text-white shadow-md shadow-slate-900/20' 
                                                         : 'bg-slate-50 border-slate-100 text-slate-400 hover:border-slate-300'
                                                     } ${readOnly ? 'cursor-not-allowed opacity-90' : ''}`}
                                                 >

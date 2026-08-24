@@ -88,7 +88,7 @@ export const NotaryFeeSelector: React.FC<Props> = ({
                     return (
                         <label key={idx} className={`flex items-center justify-between p-3.5 rounded-xl border-2 cursor-pointer transition-all ${
                             isChecked 
-                                ? 'bg-blue-50/50 border-blue-500 text-blue-900' 
+                                ? 'bg-slate-50/50 border-slate-500 text-slate-900' 
                                 : 'bg-white border-zinc-100 hover:border-zinc-200 text-zinc-600'
                         }`}>
                             <div className="flex items-center gap-2.5">
@@ -99,7 +99,7 @@ export const NotaryFeeSelector: React.FC<Props> = ({
                                     className="hidden"
                                 />
                                 <div className={`w-4 h-4 rounded flex items-center justify-center border transition-all ${
-                                    isChecked ? 'bg-blue-500 border-blue-500 text-white' : 'border-zinc-300 bg-white'
+                                    isChecked ? 'bg-slate-500 border-slate-500 text-white' : 'border-zinc-300 bg-white'
                                 }`}>
                                     {isChecked && <Check size={10} strokeWidth={3} />}
                                 </div>

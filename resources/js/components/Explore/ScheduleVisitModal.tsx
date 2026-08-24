@@ -135,7 +135,7 @@ export default function ScheduleVisitModal({ house, onClose, onOpenChat }: Props
                                         <label className="block text-sm font-bold text-gray-900 mb-2 flex items-center gap-1.5"><DollarSign size={14} className="text-[#FF2D20]" /> Harga Penawaran (Rp)</label>
                                         <input type="number" value={offerPrice} onChange={e => setOfferPrice(e.target.value)} required placeholder="0"
                                             className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-[#FF2D20] focus:ring-4 focus:ring-red-100 outline-none transition-all text-sm font-bold text-xl" />
-                                        {offerPrice && <p className="text-xs text-[#FF2D20] font-bold mt-1">{Number(offerPrice).toLocaleString('id-ID', { style: 'currency', currency: 'IDR' })}</p>}
+                                        {offerPrice && <p className="text-xs text-[#FF2D20] font-bold mt-1">{Number(offerPrice).toLocaleString('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>}
                                     </motion.div>
                                 )}
 

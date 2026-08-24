@@ -196,7 +196,7 @@ export default function EditProjectModal({ project, onClose, onSuccess }: Props)
                         </div>
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-1 flex items-center gap-2">
-                                <MapPin size={14} className="text-blue-500" /> Alamat Lengkap / Nama Jalan
+                                <MapPin size={14} className="text-slate-500" /> Alamat Lengkap / Nama Jalan
                             </label>
                             <input 
                                 type="text" 

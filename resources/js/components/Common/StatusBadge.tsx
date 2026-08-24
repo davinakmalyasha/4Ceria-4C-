@@ -21,8 +21,8 @@ export const StatusBadge: React.FC<Props> = ({ status, size = 'md' }) => {
                 };
             case 'in_progress':
                 return {
-                    color: 'text-blue-600 bg-blue-50 border-blue-100',
-                    icon: <PlayCircle size={10} className="fill-blue-500 animate-pulse" />,
+                    color: 'text-zinc-600 bg-zinc-50 border-zinc-100',
+                    icon: <PlayCircle size={10} className="fill-zinc-500 animate-pulse" />,
                     label: 'In Progress'
                 };
             case 'completed':

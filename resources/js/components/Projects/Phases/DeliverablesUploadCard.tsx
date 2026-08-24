@@ -89,13 +89,13 @@ export default function DeliverablesUploadCard({
             </div>
 
             {!readOnly && hasUnderReviewFiles && (
-                <div className="w-full p-6 border-2 border-dashed border-indigo-200 bg-indigo-50/40 rounded-2xl flex flex-col items-center justify-center gap-2 mb-4 animate-in fade-in duration-300">
-                    <div className="w-10 h-10 rounded-xl bg-white border border-indigo-100 text-indigo-600 flex items-center justify-center shadow-sm">
+                <div className="w-full p-6 border-2 border-dashed border-slate-200 bg-slate-50/40 rounded-2xl flex flex-col items-center justify-center gap-2 mb-4 animate-in fade-in duration-300">
+                    <div className="w-10 h-10 rounded-xl bg-white border border-slate-100 text-slate-600 flex items-center justify-center shadow-sm">
                         <Send size={16} className="animate-pulse" />
                     </div>
                     <div className="text-center">
-                        <p className="text-xs font-black text-indigo-950 uppercase tracking-tight">Design Under Integration Review</p>
-                        <p className="text-[9px] text-indigo-500 font-bold mt-0.5 uppercase tracking-widest">
+                        <p className="text-xs font-black text-slate-950 uppercase tracking-tight">Design Under Integration Review</p>
+                        <p className="text-[9px] text-slate-500 font-bold mt-0.5 uppercase tracking-widest">
                             ✓ Deliverables submitted.
                         </p>
                         <p className="text-[8px] text-slate-400 font-medium mt-1">
@@ -200,7 +200,7 @@ export default function DeliverablesUploadCard({
                                         <FileText size={18} className={`mt-0.5 shrink-0 ${
                                             latestDoc.status === 'verified' || latestDoc.status === 'approved' ? 'text-emerald-500' :
                                             latestDoc.status === 'revision_requested' ? 'text-rose-500' :
-                                            latestDoc.status === 'under_review' ? 'text-indigo-500' : 'text-slate-400'
+                                            latestDoc.status === 'under_review' ? 'text-slate-500' : 'text-slate-400'
                                         }`} />
                                         <div className="flex flex-col min-w-0">
                                             <div className="flex items-center gap-1.5">
@@ -228,7 +228,7 @@ export default function DeliverablesUploadCard({
                                         ) : latestDoc.status === 'verified' || latestDoc.status === 'approved' ? (
                                             <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-md text-[8px] font-black uppercase shrink-0">Integrated</span>
                                         ) : latestDoc.status === 'under_review' ? (
-                                            <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-md text-[8px] font-black uppercase shrink-0">Reviewing</span>
+                                            <span className="px-2 py-0.5 bg-slate-100 text-slate-700 rounded-md text-[8px] font-black uppercase shrink-0">Reviewing</span>
                                         ) : (
                                             <span className="px-2 py-0.5 bg-slate-200 text-slate-600 rounded-md text-[8px] font-black uppercase shrink-0">Draft</span>
                                         )}
@@ -243,7 +243,7 @@ export default function DeliverablesUploadCard({
                                                             setActiveParentId(parent.id);
                                                             setTimeout(() => revisionFileRef.current?.click(), 50);
                                                         }}
-                                                        className="p-1.5 text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition-all border border-indigo-100 hover:scale-105 active:scale-95 shadow-sm"
+                                                        className="p-1.5 text-slate-500 hover:text-slate-700 hover:bg-slate-50 rounded-lg transition-all border border-slate-100 hover:scale-105 active:scale-95 shadow-sm"
                                                         title="Upload New Version / Revision"
                                                     >
                                                         <RefreshCw size={12} className="animate-hover-spin" />

@@ -69,7 +69,7 @@ export default function PMReportCard({ report, isPM, onEdit, onDelete }: PMRepor
                     </span>
                     {isPM && (
                         <div className="flex items-center">
-                            <button onClick={() => onEdit(report)} className="p-1.5 text-slate-300 hover:text-indigo-600 transition-colors">
+                            <button onClick={() => onEdit(report)} className="p-1.5 text-slate-300 hover:text-slate-600 transition-colors">
                                 <Edit size={14} />
                             </button>
                             <button onClick={() => onDelete(report.id)} className="p-1.5 text-slate-300 hover:text-red-500 transition-colors">

@@ -102,7 +102,7 @@ export default function MaterialHistoryLog({ project }: Props) {
                                     <td className="py-4">
                                         <span className={`inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${
                                             log.type === 'restock' 
-                                                ? (Number(log.quantity) === 0 ? (log.notes?.includes('Moved') ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600') : 'bg-emerald-50 text-emerald-600')
+                                                ? (Number(log.quantity) === 0 ? (log.notes?.includes('Moved') ? 'bg-amber-50 text-amber-600' : 'bg-slate-50 text-slate-600') : 'bg-emerald-50 text-emerald-600')
                                                 : 'bg-orange-50 text-orange-600'
                                         }`}>
                                             {log.type === 'restock' ? (Number(log.quantity) === 0 ? (log.notes?.includes('Moved') ? <ArrowUpRight size={10} /> : <Package size={10} />) : <ArrowUpRight size={10} />) : <ArrowDownLeft size={10} />}

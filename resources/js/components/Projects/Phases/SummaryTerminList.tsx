@@ -42,7 +42,7 @@ export default function SummaryTerminList({ termins }: SummaryTerminListProps) {
                                         <CheckCircle2 size={10} /> Paid
                                     </span>
                                 ) : isVerifying ? (
-                                    <span className="px-2.5 py-1 bg-blue-50 text-blue-700 text-[8px] font-black rounded-md uppercase tracking-wider flex items-center gap-1.5 border border-blue-100 animate-pulse">
+                                    <span className="px-2.5 py-1 bg-slate-50 text-slate-700 text-[8px] font-black rounded-md uppercase tracking-wider flex items-center gap-1.5 border border-slate-100 animate-pulse">
                                         <Clock size={10} /> Verifying
                                     </span>
                                 ) : (

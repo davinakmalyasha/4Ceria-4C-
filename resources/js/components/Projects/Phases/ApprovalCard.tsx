@@ -99,9 +99,9 @@ export default function ApprovalCard({
                                         key={f}
                                         type="button"
                                         onClick={() => setPreviewFile({ path: f, name: fileName })}
-                                        className="group inline-flex items-center gap-1.5 text-[10px] font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50/50 hover:bg-indigo-50 border border-indigo-100 rounded-lg px-2.5 py-1.5 transition-all shadow-xs hover:scale-[1.02] cursor-pointer"
+                                        className="group inline-flex items-center gap-1.5 text-[10px] font-bold text-slate-600 hover:text-slate-800 bg-slate-50/50 hover:bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1.5 transition-all shadow-xs hover:scale-[1.02] cursor-pointer"
                                     >
-                                        <FileText size={11} className="text-indigo-500 group-hover:scale-110 transition-transform" />
+                                        <FileText size={11} className="text-slate-500 group-hover:scale-110 transition-transform" />
                                         <span className="max-w-[130px] truncate">{fileName}</span>
                                         <Eye size={10} className="opacity-60 group-hover:opacity-100 transition-all shrink-0 ml-0.5" />
                                     </button>

@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bell, CheckCircle, Briefcase, MessageSquare, Star, X, Info } from 'lucide-react';
 import axios from 'axios';
+import { useUnreadCounts } from '../hooks/useUnreadCounts';
 
 interface Notification {
     id: number;
@@ -18,8 +19,9 @@ export default function NotificationsDropdown() {
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const ref = useRef<HTMLDivElement>(null);
+    const { counts, refresh } = useUnreadCounts();
 
-    const unreadCount = notifications.filter(n => !n.read_at).length;
+    const unreadCount = counts.unread_notifications;
 
     const fetchNotifications = async () => {
         setIsLoading(true);
@@ -33,24 +35,46 @@ export default function NotificationsDropdown() {
         }
     };
 
+    const unreadRef = useRef(0);
+    useEffect(() => { unreadRef.current = counts.unread_notifications; }, [counts]);
+
     useEffect(() => {
         fetchNotifications();
-        
+
         const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
         document.addEventListener('mousedown', handler);
-        return () => document.removeEventListener('mousedown', handler);
+
+        // Re-sync the list when new notifications arrive (detected from the shared heartbeat)
+        let lastSeen = unreadRef.current;
+        const pollId = window.setInterval(() => {
+            if (unreadRef.current > lastSeen) {
+                fetchNotifications();
+            }
+            lastSeen = unreadRef.current;
+        }, 5000);
+
+        return () => {
+            document.removeEventListener('mousedown', handler);
+            clearInterval(pollId);
+        };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useEffect(() => {
         if (open && unreadCount > 0) {
             markAllRead();
         }
-    }, [open, unreadCount]);
+        if (open && unreadCount === 0 && notifications.length === 0) {
+            fetchNotifications();
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open]);
 
     const markRead = async (id: number) => {
         try {
             await axios.post(`/notifications/${id}/read`);
             setNotifications(prev => prev.map(n => n.id === id ? { ...n, read_at: new Date().toISOString() } : n));
+            refresh();
         } catch (err) {
             console.error('Failed to mark notification as read:', err);
         }
@@ -60,6 +84,7 @@ export default function NotificationsDropdown() {
         try {
             await axios.post('/notifications/read-all');
             setNotifications(prev => prev.map(n => ({ ...n, read_at: new Date().toISOString() })));
+            refresh();
         } catch (err) {
             console.error('Failed to mark all notifications as read:', err);
         }

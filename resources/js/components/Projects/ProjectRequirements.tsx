@@ -324,7 +324,7 @@ export default function ProjectRequirements({ project, onUpdate, canMutate = fal
                         <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
                             <button 
                                 onClick={() => setBomTab('raw')}
-                                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border ${bomTab === 'raw' ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-white border-slate-100 text-slate-400 hover:text-slate-600'} ${dragOverTab === 'raw' ? 'border-indigo-500 bg-indigo-50 scale-[1.05]' : ''}`}
+                                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border ${bomTab === 'raw' ? 'bg-slate-50 border-slate-200 text-slate-700' : 'bg-white border-slate-100 text-slate-400 hover:text-slate-600'} ${dragOverTab === 'raw' ? 'border-slate-500 bg-slate-50 scale-[1.05]' : ''}`}
                                 onDragOver={(e) => {
                                     e.preventDefault();
                                     setDragOverTab('raw');
@@ -336,7 +336,7 @@ export default function ProjectRequirements({ project, onUpdate, canMutate = fal
                             </button>
                             <button 
                                 onClick={() => setBomTab('finishing')}
-                                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border ${bomTab === 'finishing' ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-white border-slate-100 text-slate-400 hover:text-slate-600'} ${dragOverTab === 'finishing' ? 'border-indigo-500 bg-indigo-50 scale-[1.05]' : ''}`}
+                                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border ${bomTab === 'finishing' ? 'bg-slate-50 border-slate-200 text-slate-700' : 'bg-white border-slate-100 text-slate-400 hover:text-slate-600'} ${dragOverTab === 'finishing' ? 'border-slate-500 bg-slate-50 scale-[1.05]' : ''}`}
                                 onDragOver={(e) => {
                                     e.preventDefault();
                                     setDragOverTab('finishing');
@@ -368,7 +368,7 @@ export default function ProjectRequirements({ project, onUpdate, canMutate = fal
                                     return (
                                         <div 
                                             key={folder.id} 
-                                            className={`bg-slate-50 p-6 rounded-[2.5rem] border transition-all ${isDragOver ? 'border-indigo-300 bg-indigo-50/50 scale-[1.02]' : 'border-slate-100'} ${folderReqs.length === 0 ? 'py-3' : 'space-y-4'}`}
+                                            className={`bg-slate-50 p-6 rounded-[2.5rem] border transition-all ${isDragOver ? 'border-slate-300 bg-slate-50/50 scale-[1.02]' : 'border-slate-100'} ${folderReqs.length === 0 ? 'py-3' : 'space-y-4'}`}
                                             onDragOver={(e) => {
                                                 e.preventDefault();
                                                 setDragOverFolderId(folder.id);
@@ -386,7 +386,7 @@ export default function ProjectRequirements({ project, onUpdate, canMutate = fal
                                                                     e.stopPropagation();
                                                                     handleEditFolder(folder.id, folder.name);
                                                                 }}
-                                                                className="p-1 text-slate-400 hover:text-indigo-500 rounded-lg hover:bg-white/85 transition-colors"
+                                                                className="p-1 text-slate-400 hover:text-slate-500 rounded-lg hover:bg-white/85 transition-colors"
                                                                 title="Rename Folder"
                                                             >
                                                                 <Pencil size={11} />
@@ -433,7 +433,7 @@ export default function ProjectRequirements({ project, onUpdate, canMutate = fal
                                     
                                     return (
                                         <div 
-                                            className={`space-y-4 p-6 rounded-[2.5rem] border transition-all ${isDragOver ? 'border-indigo-300 bg-indigo-50/50 scale-[1.02]' : 'border-transparent'}`}
+                                            className={`space-y-4 p-6 rounded-[2.5rem] border transition-all ${isDragOver ? 'border-slate-300 bg-slate-50/50 scale-[1.02]' : 'border-transparent'}`}
                                             onDragOver={(e) => {
                                                 e.preventDefault();
                                                 setDragOverFolderId('unassigned');
@@ -516,7 +516,7 @@ export default function ProjectRequirements({ project, onUpdate, canMutate = fal
                                     value={newFolderName}
                                     onChange={(e) => setNewFolderName(e.target.value)}
                                     placeholder="e.g., Semen, Besi, etc."
-                                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 text-sm"
+                                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-slate-500 text-sm"
                                 />
                                 <div className="flex justify-end gap-2">
                                     <button 

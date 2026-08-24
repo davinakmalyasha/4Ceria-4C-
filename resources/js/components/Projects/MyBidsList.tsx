@@ -61,7 +61,7 @@ export default function MyBidsList({ bids, isLoading, onViewProject, initialSubT
         switch (status) {
             case 'accepted': return { icon: CheckCircle2, colors: 'text-emerald-700 bg-emerald-50 border-emerald-200', label: 'Accepted' };
             case 'rejected': return { icon: XCircle, colors: 'text-red-700 bg-red-50 border-red-200', label: 'Rejected' };
-            case 'invited': return { icon: Send, colors: 'text-blue-700 bg-blue-50 border-blue-200', label: 'Invited (Response Required)' };
+            case 'invited': return { icon: Send, colors: 'text-slate-700 bg-slate-50 border-slate-200', label: 'Invited (Response Required)' };
             default: return { icon: Clock, colors: 'text-amber-700 bg-amber-50 border-amber-200', label: 'Pending Review' };
         }
     };
@@ -89,7 +89,7 @@ export default function MyBidsList({ bids, isLoading, onViewProject, initialSubT
                 >
                     Invitations 
                     {invitations.length > 0 && (
-                        <span className="w-5 h-5 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-[10px] font-black">
+                        <span className="w-5 h-5 bg-slate-100 text-slate-700 rounded-full flex items-center justify-center text-[10px] font-black">
                             {invitations.length}
                         </span>
                     )}

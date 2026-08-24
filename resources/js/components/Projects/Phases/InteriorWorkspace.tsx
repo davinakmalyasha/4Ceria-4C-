@@ -223,9 +223,9 @@ export default function InteriorWorkspace({ project, user, onRefresh }: Interior
 
                 canReview ? (
                     hasPendingSubmission ? (
-                        <div className="border border-indigo-100 rounded-3xl p-6 bg-indigo-50/50 flex flex-col md:flex-row gap-4 items-center justify-between shadow-sm">
+                        <div className="border border-slate-100 rounded-3xl p-6 bg-slate-50/50 flex flex-col md:flex-row gap-4 items-center justify-between shadow-sm">
                             <div className="flex items-center gap-3">
-                                <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-indigo-600 shadow-sm border border-indigo-100">
+                                <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-slate-600 shadow-sm border border-slate-100">
                                     <ShieldCheck size={20} />
                                 </div>
                                 <div>

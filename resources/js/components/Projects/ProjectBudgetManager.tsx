@@ -383,9 +383,9 @@ export default function ProjectBudgetManager({ project, user, budgetData, onRefr
                             <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-4">Approved Add-ons / Hidden Fees</h4>
                             <div className="space-y-3">
                                 {(dashboardData.addendums || []).filter((a:any) => a.status !== 'rejected' && a.status !== 'pending_approval').map((addendum: any) => (
-                                    <div key={`addendum-${addendum.id}`} className={`p-5 rounded-2xl flex items-center justify-between border-l-4 ${addendum.status === 'paid' ? 'bg-slate-50 border-emerald-500 opacity-70' : 'bg-white shadow-sm border-blue-500'}`}>
+                                    <div key={`addendum-${addendum.id}`} className={`p-5 rounded-2xl flex items-center justify-between border-l-4 ${addendum.status === 'paid' ? 'bg-slate-50 border-emerald-500 opacity-70' : 'bg-white shadow-sm border-slate-500'}`}>
                                         <div>
-                                            <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-md text-[8px] font-black uppercase tracking-widest mb-1 inline-block">{addendum.role_type}</span>
+                                            <span className="px-2 py-0.5 bg-slate-100 text-slate-700 rounded-md text-[8px] font-black uppercase tracking-widest mb-1 inline-block">{addendum.role_type}</span>
                                             <h5 className="font-bold text-slate-900 text-sm">{addendum.title}</h5>
                                             <p className="text-slate-700 font-black mt-1">Rp {Number(addendum.amount || 0).toLocaleString('id-ID')}</p>
                                         </div>
@@ -393,16 +393,20 @@ export default function ProjectBudgetManager({ project, user, budgetData, onRefr
                                             <CheckCircle size={18} className="text-emerald-500" />
                                         ) : isOwner ? (
                                             <div className="flex flex-col gap-2">
-                                                <button onClick={() => markPaid('addendum', addendum.id)} className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-md">
+                                                <button onClick={() => markPaid('addendum', addendum.id)} className="px-4 py-2 bg-slate-500 hover:bg-zinc-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-md">
                                                     Confirm Paid (Offline)
                                                 </button>
-                                                <button 
+                                                <button
                                                     onClick={() => {
-                                                        // This assumes there's a window event or direct tab switching logic available
-                                                        // Usually switching via URL or global state is safer
-                                                        window.location.href = `/projects/${project.id}?tab=payments&highlight=${addendum.id}`;
+                                                        // BUGFIX: previously navigated to /projects/{id}?tab=payments
+                                                        // — not a real SPA route (bounced to landing page).
+                                                        // Switch to the project's payments tab via the
+                                                        // dashboard's global tab-switch event instead.
+                                                        window.dispatchEvent(new CustomEvent('switchDashboardTab', {
+                                                            detail: { tab: 'project-detail', projectId: project.id, subTab: 'payments' }
+                                                        }));
                                                     }}
-                                                    className="px-4 py-2 bg-white border border-blue-200 text-blue-600 hover:bg-blue-50 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-1.5"
+                                                    className="px-4 py-2 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-1.5"
                                                 >
                                                     <Upload size={12} /> Pay Digitally (Upload Proof)
                                                 </button>
@@ -437,7 +441,7 @@ export default function ProjectBudgetManager({ project, user, budgetData, onRefr
                                                 {addendum.role_type}
                                             </span>
                                             {['specialist_assignment', 'specialist_request'].includes(addendum.type) && (
-                                                <span className="px-3 py-1 bg-indigo-500 text-white rounded-lg text-[9px] font-black uppercase tracking-widest">
+                                                <span className="px-3 py-1 bg-slate-500 text-white rounded-lg text-[9px] font-black uppercase tracking-widest">
                                                     Specialist Assignment
                                                 </span>
                                             )}
@@ -478,7 +482,7 @@ export default function ProjectBudgetManager({ project, user, budgetData, onRefr
                                                             technical_skills: addendum.assignedUser.technical_skills
                                                         } : addendum.teamMember
                                                     )}
-                                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-indigo-100 transition-all"
+                                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 text-slate-600 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-slate-100 transition-all"
                                                 >
                                                     View Profile <ExternalLink size={12} />
                                                 </button>
@@ -675,7 +679,7 @@ export default function ProjectBudgetManager({ project, user, budgetData, onRefr
                     {/* FULL TRANSACTION LEDGER */}
                     <div className="p-6 bg-white border border-slate-100 rounded-3xl shadow-sm">
                         <h3 className="text-lg font-black text-slate-900 mb-6 flex items-center gap-2">
-                            <Clock size={20} className="text-blue-500" /> Transaction Ledger
+                            <Clock size={20} className="text-slate-500" /> Transaction Ledger
                         </h3>
                         <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
                             {!transactions || transactions.length === 0 && <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 text-center py-4">No transactions yet.</p>}
@@ -781,7 +785,7 @@ export default function ProjectBudgetManager({ project, user, budgetData, onRefr
                                                                 setEditTitle(item.title);
                                                                 setEditAmount(item.estimated_amount);
                                                             }}
-                                                            className="text-slate-400 hover:text-blue-500 transition-colors"
+                                                            className="text-slate-400 hover:text-slate-500 transition-colors"
                                                         >
                                                             <Edit3 size={14} />
                                                         </button>
@@ -820,7 +824,7 @@ export default function ProjectBudgetManager({ project, user, budgetData, onRefr
                             exit={{ scale: 0.9, opacity: 0, y: 20 }}
                             className="relative w-full max-w-lg bg-white rounded-[3rem] shadow-2xl overflow-hidden"
                         >
-                            <div className="h-32 bg-gradient-to-r from-indigo-500 to-purple-600 relative">
+                            <div className="h-32 bg-gradient-to-r from-slate-500 to-purple-600 relative">
                                 <button 
                                     onClick={() => setSelectedSpecialist(null)}
                                     className="absolute top-6 right-6 w-10 h-10 bg-white/20 hover:bg-white/40 text-white rounded-full flex items-center justify-center backdrop-blur-md transition-all"
@@ -846,7 +850,7 @@ export default function ProjectBudgetManager({ project, user, budgetData, onRefr
                                         </div>
                                     </div>
                                     <div className="flex flex-col items-end gap-2 pb-2">
-                                        <span className="px-4 py-1.5 bg-indigo-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-500/20">
+                                        <span className="px-4 py-1.5 bg-slate-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-slate-500/20">
                                             Verified Specialist
                                         </span>
                                     </div>
@@ -855,7 +859,7 @@ export default function ProjectBudgetManager({ project, user, budgetData, onRefr
                                 <div className="space-y-6">
                                     <div>
                                         <h3 className="text-3xl font-black text-slate-900 tracking-tight">{selectedSpecialist.name}</h3>
-                                        <p className="text-sm font-bold text-indigo-600 uppercase tracking-widest mt-1">{selectedSpecialist.role_title || 'Expert Engineer'}</p>
+                                        <p className="text-sm font-bold text-slate-600 uppercase tracking-widest mt-1">{selectedSpecialist.role_title || 'Expert Engineer'}</p>
                                     </div>
 
                                     <div className="grid grid-cols-2 gap-4 p-4 bg-slate-50 rounded-[2rem] border border-slate-100">
@@ -884,7 +888,7 @@ export default function ProjectBudgetManager({ project, user, budgetData, onRefr
                                         <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2">Expertise & Skills</h4>
                                         <div className="flex flex-wrap gap-2 pt-1">
                                             {(selectedSpecialist.skills || ['Structural Design', 'Technical Audit', 'MEP Planning']).map((skill: string, idx: number) => (
-                                                <span key={idx} className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-tight shadow-sm hover:border-indigo-200 hover:text-indigo-600 transition-colors">
+                                                <span key={idx} className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-tight shadow-sm hover:border-slate-200 hover:text-slate-600 transition-colors">
                                                     {skill}
                                                 </span>
                                             ))}

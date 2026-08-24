@@ -86,7 +86,7 @@ export default function ProjectRoadmapGantt({ project, milestones, materialOrder
                         <div className="w-3 h-3 rounded bg-red-500/20 border border-red-500/40"></div> Construction
                     </div>
                     <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded bg-indigo-500/20 border border-indigo-500/40"></div> Logistics
+                        <div className="w-3 h-3 rounded bg-slate-500/20 border border-slate-500/40"></div> Logistics
                     </div>
                 </div>
             </div>
@@ -212,11 +212,11 @@ export default function ProjectRoadmapGantt({ project, milestones, materialOrder
                                     <div className={`w-8 h-8 rounded-2xl flex items-center justify-center border-2 shadow-lg transition-all transform group-hover:scale-125 group-hover:-translate-y-2 ${
                                         isDelivered 
                                             ? 'bg-emerald-500 border-emerald-300 text-white ring-4 ring-emerald-500/10' 
-                                            : 'bg-indigo-600 border-indigo-400 text-white ring-4 ring-indigo-600/10'
+                                            : 'bg-zinc-900 border-slate-400 text-white ring-4 ring-slate-600/10'
                                     }`}>
                                         <Truck size={14} strokeWidth={2.5} />
                                     </div>
-                                    <div className={`w-px h-12 dashed-border mt-2 ${isDelivered ? 'bg-emerald-500/40' : 'bg-indigo-500/40'}`} />
+                                    <div className={`w-px h-12 dashed-border mt-2 ${isDelivered ? 'bg-emerald-500/40' : 'bg-slate-500/40'}`} />
                                     <span className="text-[9px] font-black text-gray-500 mt-1 uppercase whitespace-nowrap">
                                         {new Date(deliveryDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
                                     </span>

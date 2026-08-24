@@ -110,7 +110,7 @@ export default function DocumentVault({ project, isPro, targetRole, canDownload 
             <div className="flex items-center justify-between">
                 <div>
                     <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
-                        <History size={18} className="text-indigo-500" />
+                        <History size={18} className="text-slate-500" />
                         Project Deliverables Vault
                     </h4>
                     <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Official drawings, technical specs & verified results</p>
@@ -154,7 +154,7 @@ export default function DocumentVault({ project, isPro, targetRole, canDownload 
                     filteredDocs.map(doc => (
                         <div key={doc.id} className="bg-white border border-slate-100 rounded-2xl p-4 flex flex-col justify-between hover:shadow-md transition-shadow">
                             <div className="flex items-start justify-between mb-3">
-                                <div className="w-10 h-10 bg-indigo-50 text-indigo-500 rounded-xl flex items-center justify-center">
+                                <div className="w-10 h-10 bg-slate-50 text-slate-500 rounded-xl flex items-center justify-center">
                                     <FileText size={20} />
                                 </div>
                                 {isPro && (
@@ -170,7 +170,7 @@ export default function DocumentVault({ project, isPro, targetRole, canDownload 
                                     <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${
                                         doc.category === 'spk' ? 'bg-amber-100 text-amber-700' : 
                                         doc.status === 'under_review' ? 'bg-amber-500 text-white' :
-                                        'bg-indigo-500 text-white'
+                                        'bg-slate-500 text-white'
                                     }`}>
                                         {doc.category === 'spk' ? 'OFFICIAL CONTRACT' : 
                                          doc.status === 'under_review' ? 'UNDER REVIEW' :

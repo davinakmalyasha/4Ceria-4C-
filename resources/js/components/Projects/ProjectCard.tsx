@@ -203,14 +203,14 @@ export default function ProjectCard({ project, onClick, userRole, viewMode = 'gr
                                 {project.project_category === 'new_build' && (
                                     <>
                                         {dims.land_size ? (
-                                            <span className="flex items-center gap-1 bg-blue-50/70 text-blue-700 px-2 py-0.5 rounded-lg border border-blue-100/50">
-                                                <Maximize size={11} className="text-blue-500 shrink-0" />
+                                            <span className="flex items-center gap-1 bg-slate-50/70 text-slate-700 px-2 py-0.5 rounded-lg border border-slate-100/50">
+                                                <Maximize size={11} className="text-slate-500 shrink-0" />
                                                 <span>Tanah: {dims.land_size} m² {dims.land_length && dims.land_width && `(${dims.land_length}x${dims.land_width}m)`}</span>
                                             </span>
                                         ) : null}
                                         {dims.building_size ? (
-                                            <span className="flex items-center gap-1 bg-indigo-50/70 text-indigo-700 px-2 py-0.5 rounded-lg border border-indigo-100/50">
-                                                <Ruler size={11} className="text-indigo-500 shrink-0" />
+                                            <span className="flex items-center gap-1 bg-slate-50/70 text-slate-700 px-2 py-0.5 rounded-lg border border-slate-100/50">
+                                                <Ruler size={11} className="text-slate-500 shrink-0" />
                                                 <span>Bangunan: {dims.building_size} m² {dims.building_length && dims.building_width && `(${dims.building_length}x${dims.building_width}m)`}</span>
                                             </span>
                                         ) : null}

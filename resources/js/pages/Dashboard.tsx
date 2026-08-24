@@ -25,15 +25,11 @@ export default function Dashboard() {
 
 function DashboardContent() {
     const { user, isLoading: isAuthLoading } = useAuth();
-    
-    if (!isAuthLoading && user && user.role_type === 'admin') {
-        return <Navigate to="/admin" replace />;
-    }
 
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [activeTab, setActiveTab] = useState('overview');
     const [activeSubTab, setActiveSubTab] = useState<string | null>(null);
-    
+
     // Custom Hook for all data fetching and state
     const data = useDashboardData(activeTab);
 
@@ -48,6 +44,12 @@ function DashboardContent() {
     const [selectedMaterial, setSelectedMaterial] = useState<any>(null);
     const [selectedHouseId, setSelectedHouseId] = useState<number | null>(null);
     const [chatUserId, setChatUserId] = useState<number | null>(null);
+
+    // BUGFIX (rules of hooks): the admin redirect used to run BEFORE the
+    // remaining useState/useEffect calls below — when auth state flipped after
+    // mount, React crashed with "Rendered more hooks than during the previous
+    // render". The conditional redirect now lives after ALL hooks (bottom of
+    // this component).
 
     // Wishlist logic for modal
     const [wishlist, setWishlist] = useState<Set<number>>(() => {
@@ -87,8 +89,25 @@ function DashboardContent() {
         }
     };
 
+    const handleSetActiveTab = (tab: string) => {
+        const protectedTabs = [
+            'overview', 'post-project', 'post-house', 'chat', 'saved', 'material-orders',
+            'projects', 'management', 'my-bids', 'my-houses', 'profile', 'profile-edit'
+        ];
+        if (!user && protectedTabs.includes(tab)) {
+            window.location.href = '/login';
+        } else {
+            setActiveTab(tab);
+        }
+    };
+
     useEffect(() => {
         const handleOpenHouse = (e: any) => setSelectedHouseId(e.detail);
+        // Opens the chat overlay for a user (used by payment/contact buttons
+        // that previously navigated to the nonexistent /messages route).
+        const handleOpenChat = (e: any) => {
+            if (e.detail?.userId) setChatUserId(e.detail.userId);
+        };
         const handleSwitchTab = async (e: any) => {
             if (typeof e.detail === 'object') {
                 handleSetActiveTab(e.detail.tab);
@@ -141,11 +160,13 @@ function DashboardContent() {
         };
         
         window.addEventListener('openHouseDetails', handleOpenHouse);
+        window.addEventListener('open-chat-with-user', handleOpenChat);
         window.addEventListener('switchDashboardTab', handleSwitchTab);
         window.addEventListener('viewProfessionalProfile', handleViewProfile);
-        
+
         return () => {
             window.removeEventListener('openHouseDetails', handleOpenHouse);
+            window.removeEventListener('open-chat-with-user', handleOpenChat);
             window.removeEventListener('switchDashboardTab', handleSwitchTab);
             window.removeEventListener('viewProfessionalProfile', handleViewProfile);
         };
@@ -176,18 +197,6 @@ function DashboardContent() {
         }
     }, [user, isAuthLoading]);
 
-    const handleSetActiveTab = (tab: string) => {
-        const protectedTabs = [
-            'overview', 'post-project', 'post-house', 'chat', 'saved', 'material-orders', 
-            'projects', 'management', 'my-bids', 'my-houses', 'profile', 'profile-edit'
-        ];
-        if (!user && protectedTabs.includes(tab)) {
-            window.location.href = '/login';
-        } else {
-            setActiveTab(tab);
-        }
-    };
-
     const activeProjectsCount = data.projects.filter(p => p.status !== 'completed' && p.status !== 'cancelled').length;
     const biddingBoardCount = data.projectFeed.length;
     const proposalsCount = data.myBids.filter(b => b.status === 'pending' || b.status === 'invited').length;
@@ -199,6 +208,11 @@ function DashboardContent() {
         'my-bids': proposalsCount,
         'my-houses': myHousesCount,
     };
+
+    // Conditional redirects (admin -> /admin) happen after ALL hooks have run.
+    if (!isAuthLoading && user && user.role_type === 'admin') {
+        return <Navigate to="/admin" replace />;
+    }
 
     if (isAuthLoading) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div></div>;
 

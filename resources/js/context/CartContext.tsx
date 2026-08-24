@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 
 interface CartItem {
     id: number;
@@ -29,11 +29,14 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 export function CartProvider({ children }: { children: React.ReactNode }) {
     const [items, setItems] = useState<CartItem[]>([]);
 
-    const addItem = (material: any, qty: number = 1) => {
+    // PERF: stable handler identities + memoized context value. Previously a
+    // fresh object/handlers were created on every render, re-rendering the
+    // ENTIRE dashboard shell on each add-to-cart.
+    const addItem = useCallback((material: any, qty: number = 1) => {
         setItems(prev => {
             const materialId = material.id || material.material_id;
             const existing = prev.find(i => i.material_id === materialId);
-            
+
             if (existing) {
                 return prev.map(i => i.material_id === materialId ? { ...i, qty: i.qty + qty } : i);
             }
@@ -48,28 +51,32 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
                 image_path: material.images?.[0]?.image_path || material.image_path,
                 supplier_id: material.supplier_id || material.supplier?.id,
                 supplier_name: material.supplier?.store_name,
-                supplier_wa: material.supplier?.no_telp || '628', 
+                supplier_wa: material.supplier?.no_telp || '628',
                 supplier_phone: material.supplier?.no_telp
             }];
         });
-    };
+    }, []);
 
-    const removeItem = (materialId: number) => {
+    const removeItem = useCallback((materialId: number) => {
         setItems(prev => prev.filter(i => i.material_id !== materialId));
-    };
+    }, []);
 
-    const updateQuantity = (materialId: number, qty: number) => {
+    const updateQuantity = useCallback((materialId: number, qty: number) => {
         if (qty < 1) return;
         setItems(prev => prev.map(i => i.material_id === materialId ? { ...i, qty } : i));
-    };
+    }, []);
 
-    const clearCart = () => setItems([]);
+    const clearCart = useCallback(() => setItems([]), []);
 
     const itemCount = items.reduce((acc, i) => acc + i.qty, 0);
     const totalAmount = items.reduce((acc, i) => acc + (i.price * i.qty), 0);
 
+    const value = useMemo(() => ({
+        items, addItem, removeItem, updateQuantity, clearCart, itemCount, totalAmount
+    }), [items, addItem, removeItem, updateQuantity, clearCart, itemCount, totalAmount]);
+
     return (
-        <CartContext.Provider value={{ items, addItem, removeItem, updateQuantity, clearCart, itemCount, totalAmount }}>
+        <CartContext.Provider value={value}>
             {children}
         </CartContext.Provider>
     );

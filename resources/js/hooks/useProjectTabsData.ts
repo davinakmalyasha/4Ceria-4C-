@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 
 export type TabDataType = 'milestones' | 'paymentTermins' | 'documents' | 'comments' | 'activityLogs' | 'bids' | 'budget';
@@ -34,6 +34,13 @@ const getInitialData = (id: number | null): TabData => {
 
 export function useProjectTabsData(projectId: number | null) {
     const [tabData, setTabData] = useState<TabData>(() => getInitialData(projectId));
+
+    // Tracks the LATEST projectId across renders so stale in-flight responses
+    // from a previously-open project can never merge into the new project's view.
+    const projectIdRef = useRef<number | null>(projectId);
+    useEffect(() => {
+        projectIdRef.current = projectId;
+    }, [projectId]);
 
     const [loadingStates, setLoadingStates] = useState<Record<TabDataType, boolean>>({
         milestones: false,
@@ -80,6 +87,8 @@ export function useProjectTabsData(projectId: number | null) {
     const fetchTab = useCallback(async (type: TabDataType, force = false) => {
         if (!projectId) return;
 
+        const requestProjectId = projectId;
+
         const hasCache = globalTabsCache[projectId]?.[type] !== null && globalTabsCache[projectId]?.[type] !== undefined;
 
         const now = Date.now();
@@ -88,17 +97,17 @@ export function useProjectTabsData(projectId: number | null) {
         }
         const lastFetchTime = lastFetchedCache[projectId][type] || 0;
 
-        console.log(`[useProjectTabsData] fetchTab: type=${type}, projectId=${projectId}, hasCache=${hasCache}, force=${force}, timeDiff=${now - lastFetchTime}ms`);
+        if (import.meta.env.DEV) console.log(`[useProjectTabsData] fetchTab: type=${type}, projectId=${projectId}, hasCache=${hasCache}, force=${force}, timeDiff=${now - lastFetchTime}ms`);
 
         // If not forced, we have cached data, and the data is fresh (fetched within last 60s), skip fetching
         if (!force && hasCache && (now - lastFetchTime < 60000)) {
-            console.log(`[useProjectTabsData] Cache HIT for type=${type}. Skipping fetch.`);
+            if (import.meta.env.DEV) console.log(`[useProjectTabsData] Cache HIT for type=${type}. Skipping fetch.`);
             return;
         }
 
         // If a request for this type is already in flight, await it instead of making a duplicate request
         if (inFlightRequests[projectId]?.[type]) {
-            console.log(`[useProjectTabsData] Request for type=${type} already in flight. Awaiting existing request.`);
+            if (import.meta.env.DEV) console.log(`[useProjectTabsData] Request for type=${type} already in flight. Awaiting existing request.`);
             try {
                 await inFlightRequests[projectId][type];
             } catch (err) {
@@ -107,14 +116,13 @@ export function useProjectTabsData(projectId: number | null) {
             return;
         }
 
-        console.log(`[useProjectTabsData] Cache MISS/Expired/Forced for type=${type}. Fetching...`);
+        if (import.meta.env.DEV) console.log(`[useProjectTabsData] Cache MISS/Expired/Forced for type=${type}. Fetching...`);
 
         // Update the fetch timestamp to prevent duplicate concurrent requests
         lastFetchedCache[projectId][type] = now;
 
         // Only show skeleton loaders on the first fetch when cache is empty
         if (!hasCache) {
-            console.log(`[useProjectTabsData] Showing skeleton for type=${type}`);
             setLoadingStates(prev => ({ ...prev, [type]: true }));
         }
 
@@ -145,6 +153,12 @@ export function useProjectTabsData(projectId: number | null) {
 
         try {
             const res = await fetchPromise;
+            // STALE-RESPONSE GUARD: if the user switched projects while this
+            // request was in flight, discard it instead of merging the old
+            // project's data into the new project's view.
+            if (projectIdRef.current !== requestProjectId) {
+                return;
+            }
             if (type === 'milestones') {
                 updateData('milestones', res.data.data || []);
             } else if (type === 'paymentTermins') {
@@ -166,7 +180,9 @@ export function useProjectTabsData(projectId: number | null) {
             if (inFlightRequests[projectId]) {
                 delete inFlightRequests[projectId][type];
             }
-            setLoadingStates(prev => ({ ...prev, [type]: false }));
+            if (projectIdRef.current === requestProjectId) {
+                setLoadingStates(prev => ({ ...prev, [type]: false }));
+            }
         }
     }, [projectId, updateData]);
 

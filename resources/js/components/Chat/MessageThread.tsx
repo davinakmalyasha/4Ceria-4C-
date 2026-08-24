@@ -149,7 +149,7 @@ export default function MessageThread({ messages, currentUser, otherUser, isLoad
                                                                     </div>
                                                                     <div>
                                                                         <span className={`block text-[10px] font-bold uppercase tracking-wider ${isMe ? 'text-white/70' : 'text-gray-400'}`}>My Offer</span>
-                                                                        <span className="font-bold text-sm tracking-tight">{Number(parsedJSON.inquiry.offerPrice).toLocaleString('id-ID', { style: 'currency', currency: 'IDR' })}</span>
+                                                                        <span className="font-bold text-sm tracking-tight">{Number(parsedJSON.inquiry.offerPrice).toLocaleString('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
                                                                     </div>
                                                                 </div>
                                                             )}

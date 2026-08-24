@@ -426,14 +426,14 @@ export default function PhaseContent({
                                                         engineeringSubTab === 'architecture' 
                                                             ? 'bg-white text-slate-900 shadow-sm' 
                                                             : (user?.role_type === 'arsitek'
-                                                                ? 'bg-indigo-50/60 border border-indigo-200/50 text-indigo-600 hover:bg-indigo-50'
+                                                                ? 'bg-slate-50/60 border border-slate-200/50 text-slate-600 hover:bg-slate-50'
                                                                 : 'text-gray-400 hover:text-gray-600')
                                                     }`}
                                                 >
                                                     <Pencil size={14} className="shrink-0" />
                                                     <span className="truncate">Architecture</span>
                                                     {isHiredArchitect && (
-                                                        <span className="ml-auto px-1.5 py-0.5 rounded-md bg-indigo-500 text-white font-black text-[7px] tracking-normal leading-none animate-pulse shrink-0">
+                                                        <span className="ml-auto px-1.5 py-0.5 rounded-md bg-slate-500 text-white font-black text-[7px] tracking-normal leading-none animate-pulse shrink-0">
                                                             YOU
                                                         </span>
                                                     )}
@@ -442,21 +442,21 @@ export default function PhaseContent({
                                                     onClick={() => setEngineeringSubTab('structural')}
                                                     className={`relative flex items-center justify-start gap-2 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all w-full text-left shrink-0 whitespace-nowrap ${
                                                         engineeringSubTab === 'structural' 
-                                                            ? 'bg-white text-indigo-600 shadow-sm' 
+                                                            ? 'bg-white text-slate-600 shadow-sm' 
                                                             : (user?.role_type === 'structural'
-                                                                ? 'bg-indigo-50/60 border border-indigo-200/50 text-indigo-600 hover:bg-indigo-50'
+                                                                ? 'bg-slate-50/60 border border-slate-200/50 text-slate-600 hover:bg-slate-50'
                                                                 : 'text-gray-400 hover:text-gray-600')
                                                     }`}
                                                 >
                                                     <HardHat size={14} className="shrink-0" />
                                                     <span className="truncate">Structural</span>
                                                     {isStructuralHired && (
-                                                        <span className="ml-auto px-1.5 py-0.5 rounded-md bg-indigo-500 text-white font-black text-[7px] tracking-normal leading-none animate-pulse shrink-0">
+                                                        <span className="ml-auto px-1.5 py-0.5 rounded-md bg-slate-500 text-white font-black text-[7px] tracking-normal leading-none animate-pulse shrink-0">
                                                             YOU
                                                         </span>
                                                     )}
                                                     {user?.role_type === 'structural' && badgeCounts.structural > 0 && (
-                                                        <span className="absolute -top-1.5 -right-1.5 bg-indigo-500 text-white font-black text-[8px] h-4 w-4 rounded-full flex items-center justify-center border border-white shadow-lg animate-pulse shrink-0">
+                                                        <span className="absolute -top-1.5 -right-1.5 bg-slate-500 text-white font-black text-[8px] h-4 w-4 rounded-full flex items-center justify-center border border-white shadow-lg animate-pulse shrink-0">
                                                             {badgeCounts.structural}
                                                         </span>
                                                     )}
@@ -467,14 +467,14 @@ export default function PhaseContent({
                                                         engineeringSubTab === 'mep' 
                                                             ? 'bg-white text-amber-600 shadow-sm' 
                                                             : (user?.role_type === 'mep'
-                                                                ? 'bg-indigo-50/60 border border-indigo-200/50 text-indigo-600 hover:bg-indigo-50'
+                                                                ? 'bg-slate-50/60 border border-slate-200/50 text-slate-600 hover:bg-slate-50'
                                                                 : 'text-gray-400 hover:text-gray-600')
                                                     }`}
                                                 >
                                                     <Wrench size={14} className="shrink-0" />
                                                     <span className="truncate">MEP</span>
                                                     {isMEPHired && (
-                                                        <span className="ml-auto px-1.5 py-0.5 rounded-md bg-indigo-500 text-white font-black text-[7px] tracking-normal leading-none animate-pulse shrink-0">
+                                                        <span className="ml-auto px-1.5 py-0.5 rounded-md bg-slate-500 text-white font-black text-[7px] tracking-normal leading-none animate-pulse shrink-0">
                                                             YOU
                                                         </span>
                                                     )}
@@ -490,14 +490,14 @@ export default function PhaseContent({
                                                         engineeringSubTab === 'interior' 
                                                             ? 'bg-white text-rose-600 shadow-sm' 
                                                             : (user?.role_type === 'interior'
-                                                                ? 'bg-indigo-50/60 border border-indigo-200/50 text-indigo-600 hover:bg-indigo-50'
+                                                                ? 'bg-slate-50/60 border border-slate-200/50 text-slate-600 hover:bg-slate-50'
                                                                 : 'text-gray-400 hover:text-gray-600')
                                                     }`}
                                                 >
                                                     <Sofa size={14} className="shrink-0" />
                                                     <span className="truncate">Interior</span>
                                                     {isHiredInterior && (
-                                                        <span className="ml-auto px-1.5 py-0.5 rounded-md bg-indigo-500 text-white font-black text-[7px] tracking-normal leading-none animate-pulse shrink-0">
+                                                        <span className="ml-auto px-1.5 py-0.5 rounded-md bg-slate-500 text-white font-black text-[7px] tracking-normal leading-none animate-pulse shrink-0">
                                                             YOU
                                                         </span>
                                                     )}
@@ -526,14 +526,14 @@ export default function PhaseContent({
                                                                 isActive 
                                                                     ? role.activeClass 
                                                                     : (isUserWorkspace 
-                                                                        ? 'bg-indigo-50/60 border border-indigo-200/50 text-indigo-600 hover:bg-indigo-50' 
+                                                                        ? 'bg-slate-50/60 border border-slate-200/50 text-slate-600 hover:bg-slate-50' 
                                                                         : 'text-gray-400 hover:text-gray-600')
                                                             }`}
                                                         >
                                                             <Icon size={14} className="shrink-0" />
                                                             <span className="truncate">{role.label.split(' ')[0]}</span>
                                                             {isUserWorkspace && (
-                                                                <span className="ml-auto px-1.5 py-0.5 rounded-md bg-indigo-500 text-white font-black text-[7px] tracking-normal leading-none animate-pulse shrink-0">
+                                                                <span className="ml-auto px-1.5 py-0.5 rounded-md bg-slate-500 text-white font-black text-[7px] tracking-normal leading-none animate-pulse shrink-0">
                                                                     YOU
                                                                 </span>
                                                             )}
@@ -606,7 +606,7 @@ export default function PhaseContent({
                                                         className={`flex items-center justify-center gap-2 px-4 py-2.5 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all w-full shadow-sm ${
                                                             isAnySubPending 
                                                                 ? 'bg-slate-300 cursor-not-allowed opacity-60' 
-                                                                : 'bg-indigo-600 hover:bg-indigo-700 cursor-pointer shadow-indigo-100'
+                                                                : 'bg-zinc-900 hover:bg-zinc-800 cursor-pointer shadow-slate-100'
                                                         }`}
                                                     >
                                                         <ShieldCheck size={14} />
@@ -642,7 +642,7 @@ export default function PhaseContent({
                                                     <button 
                                                         onClick={() => setShowSealConstructionConfirm(true)}
                                                         disabled={isSealingConstruction}
-                                                        className="flex items-center justify-center gap-2 px-4 py-2.5 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all w-full shadow-sm bg-indigo-600 hover:bg-indigo-700 cursor-pointer shadow-indigo-100 disabled:opacity-50"
+                                                        className="flex items-center justify-center gap-2 px-4 py-2.5 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all w-full shadow-sm bg-zinc-900 hover:bg-zinc-800 cursor-pointer shadow-slate-100 disabled:opacity-50"
                                                     >
                                                         <ShieldCheck size={14} />
                                                         {project.construction_handover_notes ? 'Resubmit Handover' : 'Request PM Approval'}

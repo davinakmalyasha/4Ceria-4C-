@@ -496,7 +496,7 @@ const PlanningNotesBoard: React.FC<PlanningNotesBoardProps> = ({ project, isArch
                                             </h4>
                                             {note.tagged_role && (
                                                 <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full w-fit flex items-center gap-1 border ${
-                                                    note.tagged_role === 'structural' ? 'bg-indigo-50 text-indigo-700 border-indigo-100' :
+                                                    note.tagged_role === 'structural' ? 'bg-slate-50 text-slate-700 border-slate-100' :
                                                     note.tagged_role === 'mep' ? 'bg-amber-50 text-amber-700 border-amber-100' :
                                                     'bg-rose-50 text-rose-700 border-rose-100'
                                                 }`}>

@@ -33,7 +33,7 @@ const SEVERITY_STYLES: Record<string, string> = {
 const STATUS_STYLES: Record<string, { bg: string; icon: React.ReactNode }> = {
     open: { bg: 'bg-red-50 border-red-200', icon: <AlertTriangle size={14} className="text-red-500" /> },
     in_progress: { bg: 'bg-amber-50 border-amber-200', icon: <Clock size={14} className="text-amber-500" /> },
-    resolved: { bg: 'bg-blue-50 border-blue-200', icon: <CheckCircle2 size={14} className="text-blue-500" /> },
+    resolved: { bg: 'bg-slate-50 border-slate-200', icon: <CheckCircle2 size={14} className="text-slate-500" /> },
     accepted: { bg: 'bg-emerald-50 border-emerald-200', icon: <CheckCircle2 size={14} className="text-emerald-500" /> },
 };
 
@@ -177,8 +177,8 @@ export default function SnagListManager({ project, user, onRefresh }: SnagListMa
                                 {item.location && <p className="text-[10px] text-gray-500 font-medium mt-1 ml-6">📍 {item.location}</p>}
                                 {item.description && <p className="text-xs text-gray-600 mt-2 ml-6">{item.description}</p>}
                                 {item.resolution_note && (
-                                    <div className="mt-3 ml-6 bg-blue-100/50 rounded-xl p-3 border border-blue-200">
-                                        <p className="text-xs text-blue-800 font-medium">✅ {item.resolution_note}</p>
+                                    <div className="mt-3 ml-6 bg-slate-100/50 rounded-xl p-3 border border-slate-200">
+                                        <p className="text-xs text-slate-800 font-medium">✅ {item.resolution_note}</p>
                                         {item.resolution_photos && item.resolution_photos.length > 0 && (
                                             <div className="flex gap-2 mt-2">
                                                 {item.resolution_photos.map((photo, idx) => (
@@ -196,7 +196,7 @@ export default function SnagListManager({ project, user, onRefresh }: SnagListMa
                                         <button onClick={() => handleStatusUpdate(item.id, 'in_progress')} disabled={isSubmitting} className="px-3 py-1.5 bg-amber-500 text-white rounded-lg text-[10px] font-bold hover:bg-amber-600 disabled:opacity-50">Kerjakan</button>
                                     )}
                                     {isContractor && item.status === 'in_progress' && resolveId !== item.id && (
-                                        <button onClick={() => setResolveId(item.id)} disabled={isSubmitting} className="px-3 py-1.5 bg-blue-500 text-white rounded-lg text-[10px] font-bold hover:bg-blue-600 disabled:opacity-50">Selesaikan</button>
+                                        <button onClick={() => setResolveId(item.id)} disabled={isSubmitting} className="px-3 py-1.5 bg-slate-500 text-white rounded-lg text-[10px] font-bold hover:bg-zinc-900 disabled:opacity-50">Selesaikan</button>
                                     )}
                                     {(isOwner || isPM) && item.status === 'resolved' && (
                                         <button onClick={() => handleAccept(item.id)} disabled={isSubmitting} className="px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-[10px] font-bold hover:bg-emerald-600 disabled:opacity-50">Terima</button>
@@ -204,13 +204,13 @@ export default function SnagListManager({ project, user, onRefresh }: SnagListMa
                                 </div>
                                 
                                 {resolveId === item.id && (
-                                    <div className="mt-3 ml-6 bg-white border border-blue-200 rounded-xl p-4 space-y-3">
-                                        <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest">Bukti Perbaikan</p>
-                                        <textarea value={resolveNote} onChange={e => setResolveNote(e.target.value)} placeholder="Catatan perbaikan..." className="w-full text-xs px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-300" rows={2} />
-                                        <input type="file" multiple accept="image/*" onChange={e => setResolveFiles(e.target.files)} className="text-[10px] file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700 file:font-bold hover:file:bg-blue-100" />
+                                    <div className="mt-3 ml-6 bg-white border border-slate-200 rounded-xl p-4 space-y-3">
+                                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Bukti Perbaikan</p>
+                                        <textarea value={resolveNote} onChange={e => setResolveNote(e.target.value)} placeholder="Catatan perbaikan..." className="w-full text-xs px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-slate-300" rows={2} />
+                                        <input type="file" multiple accept="image/*" onChange={e => setResolveFiles(e.target.files)} className="text-[10px] file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-slate-50 file:text-slate-700 file:font-bold hover:file:bg-slate-100" />
                                         <div className="flex gap-2">
                                             <button onClick={() => setResolveId(null)} className="px-3 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-[10px] font-bold hover:bg-gray-200">Batal</button>
-                                            <button onClick={() => handleStatusUpdate(item.id, 'resolved', resolveNote, resolveFiles)} disabled={isSubmitting || !resolveNote} className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-[10px] font-bold hover:bg-blue-700 disabled:opacity-50">Kirim Laporan</button>
+                                            <button onClick={() => handleStatusUpdate(item.id, 'resolved', resolveNote, resolveFiles)} disabled={isSubmitting || !resolveNote} className="px-3 py-1.5 bg-zinc-900 text-white rounded-lg text-[10px] font-bold hover:bg-zinc-800 disabled:opacity-50">Kirim Laporan</button>
                                         </div>
                                     </div>
                                 )}

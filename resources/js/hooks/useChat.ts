@@ -1,7 +1,32 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { Conversation, ChatMessage } from '../types/chat.types';
 import { useToast } from '../context/ToastContext';
+
+// PERF: ChatOverlay AND ChatTab each mount useChat on the dashboard — two
+// independent 5s pollers doubled the chattiest traffic. This module-level
+// timer drives ALL subscribers from ONE interval and is cleaned up when the
+// last consumer unmounts.
+type PollListener = () => void;
+const chatPollListeners = new Set<PollListener>();
+let sharedPollTimer: ReturnType<typeof setInterval> | null = null;
+
+function subscribeToChatPolling(listener: PollListener): () => void {
+    chatPollListeners.add(listener);
+    if (!sharedPollTimer) {
+        sharedPollTimer = setInterval(() => {
+            if (typeof document !== 'undefined' && document.hidden) return;
+            chatPollListeners.forEach(fn => fn());
+        }, 5000);
+    }
+    return () => {
+        chatPollListeners.delete(listener);
+        if (chatPollListeners.size === 0 && sharedPollTimer) {
+            clearInterval(sharedPollTimer);
+            sharedPollTimer = null;
+        }
+    };
+}
 
 
 export function useChat() {
@@ -13,7 +38,6 @@ export function useChat() {
     const [isSending, setIsSending] = useState(false);
     
     const { showToast } = useToast();
-    const pollingInterval = useRef<any>(null);
 
 
     const fetchConversations = useCallback(async (silent = false) => {
@@ -113,17 +137,16 @@ export function useChat() {
 
     useEffect(() => {
         fetchConversations();
-        
-        // Poll for new messages/conversations every 5 seconds
-        pollingInterval.current = setInterval(() => {
-            if (document.hidden) return;
+
+        // Poll via the SHARED timer (one network cycle for every useChat instance)
+        const poll = () => {
             fetchConversations(true);
             if (activeConversation) {
                 // Only fetch messages if tab is focused
                 axios.get(`/conversations/${activeConversation.id}`).then(res => {
                     const newMessages = res.data.data;
                     setMessages(prev => {
-                        if (prev.length === newMessages.length && 
+                        if (prev.length === newMessages.length &&
                             prev[prev.length - 1]?.id === newMessages[newMessages.length - 1]?.id) {
                             return prev;
                         }
@@ -131,11 +154,10 @@ export function useChat() {
                     });
                 }).catch(() => {});
             }
-        }, 5000);
-
-        return () => {
-            if (pollingInterval.current) clearInterval(pollingInterval.current);
         };
+        const unsubscribe = subscribeToChatPolling(poll);
+
+        return unsubscribe;
     }, [fetchConversations, activeConversation?.id]);
 
     useEffect(() => {

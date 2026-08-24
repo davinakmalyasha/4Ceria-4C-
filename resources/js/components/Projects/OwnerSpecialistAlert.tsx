@@ -74,18 +74,18 @@ export default function OwnerSpecialistAlert({ projectId, projectBudget, bids, o
     };
 
     return (
-        <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 rounded-[2.5rem] p-8 text-white shadow-2xl border border-indigo-500/30 ring-4 ring-indigo-500/10 relative overflow-hidden animate-in slide-in-from-top-4 duration-500">
+        <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 rounded-[2.5rem] p-8 text-white shadow-2xl border border-slate-500/30 ring-4 ring-slate-500/10 relative overflow-hidden animate-in slide-in-from-top-4 duration-500">
             <div className="absolute top-0 right-0 p-6 opacity-5">
                 <ShieldCheck size={140} />
             </div>
 
             <div className="relative z-10 space-y-6">
                 <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-indigo-500 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/30">
+                    <div className="w-12 h-12 bg-slate-500 rounded-2xl flex items-center justify-center shadow-lg shadow-slate-500/30">
                         <AlertTriangle size={22} className="text-white" />
                     </div>
                     <div>
-                        <h3 className="text-lg font-black tracking-tight text-indigo-300">Architect Recommendation</h3>
+                        <h3 className="text-lg font-black tracking-tight text-slate-300">Architect Recommendation</h3>
                         <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest">
                             Your architect has vetted and recommends the following specialists
                         </p>

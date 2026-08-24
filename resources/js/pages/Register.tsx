@@ -30,6 +30,13 @@ export default function Register() {
         e.preventDefault();
         setError('');
 
+        // Validation parity with backend (min:8) — avoids a raw Laravel error
+        // after a needless roundtrip.
+        if (formData.password.length < 8) {
+            setError('Password must be at least 8 characters');
+            return;
+        }
+
         if (formData.password !== formData.password_confirmation) {
             setError('Passwords do not match');
             return;

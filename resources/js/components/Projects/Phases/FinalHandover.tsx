@@ -6,6 +6,10 @@ import { useToast } from '../../../context/ToastContext';
 import SnagListManager from './SnagListManager';
 import WarrantyDashboard from './WarrantyDashboard';
 
+const esc = (s: any) => String(s ?? '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+
 interface FinalHandoverProps {
     project: any;
     user: any;
@@ -15,6 +19,7 @@ interface FinalHandoverProps {
 export default function FinalHandover({ project, user, onRefresh }: FinalHandoverProps) {
     const { showToast } = useToast();
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isGeneratingBast, setIsGeneratingBast] = useState(false);
     const [acceptNotes, setAcceptNotes] = useState('');
     const warrantyDays = getWarrantyDays(project?.project_category || 'new_build');
     const isMaintenance = project?.project_category === 'maintenance';
@@ -56,59 +61,72 @@ export default function FinalHandover({ project, user, onRefresh }: FinalHandove
     };
 
     const handleDownloadBAST = async () => {
+        setIsGeneratingBast(true);
+        let host: HTMLDivElement | null = null;
         try {
             const res = await axios.get(`/projects/${project.id}/bast`);
-            const data = res.data.data;
-            // For now, we'll open a new window and print the BAST data
-            const printWindow = window.open('', '_blank');
-            if (printWindow) {
-                printWindow.document.write(`
-                    <html>
-                        <head>
-                            <title>BAST - ${data.document_number}</title>
-                            <style>
-                                body { font-family: sans-serif; padding: 40px; color: #1e293b; line-height: 1.6; }
-                                .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 20px; margin-bottom: 30px; }
-                                .section { margin-bottom: 25px; }
-                                .section-title { font-weight: bold; text-transform: uppercase; border-bottom: 1px solid #e2e8f0; margin-bottom: 10px; }
-                                .grid { display: grid; grid-template-cols: 1fr 1fr; gap: 20px; }
-                                .signatures { margin-top: 50px; display: grid; grid-template-cols: 1fr 1fr 1fr; text-align: center; }
-                                .sig-box { height: 100px; }
-                            </style>
-                        </head>
-                        <body>
-                            <div class="header">
-                                <h1>BERITA ACARA SERAH TERIMA (BAST)</h1>
-                                <p>Nomor: ${data.document_number}</p>
-                            </div>
-                            <div class="section">
-                                <p>Pada hari ini, <b>${data.date}</b>, kami yang bertanda tangan di bawah ini:</p>
-                                <p>1. <b>${data.parties.owner.name}</b> sebagai <b>${data.parties.owner.role}</b></p>
-                                <p>2. <b>${data.parties.contractor.name}</b> (${data.parties.contractor.company}) sebagai <b>${data.parties.contractor.role}</b></p>
-                            </div>
-                            <div class="section">
-                                <div class="section-title">Objek Pekerjaan</div>
-                                <p>Nama Proyek: ${data.project.title}<br>Lokasi: ${data.project.location}</p>
-                            </div>
-                            <div class="section">
-                                <div class="section-title">Pernyataan</div>
-                                <ul>
-                                    ${data.legal_clauses.map(c => `<li>${c}</li>`).join('')}
-                                </ul>
-                            </div>
-                            <div class="signatures">
-                                <div>PIHAK PERTAMA<div class="sig-box"></div>( ${data.parties.owner.name} )</div>
-                                <div>PIHAK KEDUA<div class="sig-box"></div>( ${data.parties.contractor.name} )</div>
-                                <div>PIHAK KETIGA<div class="sig-box"></div>( ${data.parties.pm.name} )</div>
-                            </div>
-                        </body>
-                    </html>
-                `);
-                printWindow.document.close();
-                printWindow.print();
+            const d = res.data.data;
+
+            // Render the BAST off-screen, then capture to a real PDF download
+            host = document.createElement('div');
+            host.style.cssText = 'position:fixed;left:-10000px;top:0;width:794px;background:#ffffff;';
+            host.innerHTML = `
+                <div style="font-family: Arial, Helvetica, sans-serif; padding: 40px; color: #1e293b; line-height: 1.6;">
+                    <div style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 20px; margin-bottom: 30px;">
+                        <h1 style="margin:0;font-size:20px;">BERITA ACARA SERAH TERIMA (BAST)</h1>
+                        <p style="margin:6px 0 0;">Nomor: ${esc(d.document_number)}</p>
+                    </div>
+                    <div style="margin-bottom:25px;">
+                        <p>Pada hari ini, <b>${esc(d.date)}</b>, kami yang bertanda tangan di bawah ini:</p>
+                        <p>1. <b>${esc(d.parties.owner.name)}</b> sebagai <b>${esc(d.parties.owner.role)}</b></p>
+                        <p>2. <b>${esc(d.parties.contractor.name)}</b> (${esc(d.parties.contractor.company)}) sebagai <b>${esc(d.parties.contractor.role)}</b></p>
+                    </div>
+                    <div style="margin-bottom:25px;">
+                        <div style="font-weight:bold;text-transform:uppercase;border-bottom:1px solid #e2e8f0;margin-bottom:10px;">Objek Pekerjaan</div>
+                        <p>Nama Proyek: ${esc(d.project.title)}<br>Lokasi: ${esc(d.project.location)}</p>
+                    </div>
+                    <div style="margin-bottom:25px;">
+                        <div style="font-weight:bold;text-transform:uppercase;border-bottom:1px solid #e2e8f0;margin-bottom:10px;">Pernyataan</div>
+                        <ul>${(d.legal_clauses || []).map((c: string) => `<li>${esc(c)}</li>`).join('')}</ul>
+                    </div>
+                    <div style="margin-top:50px;display:grid;grid-template-columns:1fr 1fr 1fr;text-align:center;">
+                        <div>PIHAK PERTAMA<div style="height:100px;"></div>( ${esc(d.parties.owner.name)} )</div>
+                        <div>PIHAK KEDUA<div style="height:100px;"></div>( ${esc(d.parties.contractor.name)} )</div>
+                        <div>PIHAK KETIGA<div style="height:100px;"></div>( ${esc(d.parties.pm.name)} )</div>
+                    </div>
+                </div>`;
+            document.body.appendChild(host);
+
+            const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
+                import('html2canvas'),
+                import('jspdf')
+            ]);
+
+            const canvas = await html2canvas(host, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+            const imgData = canvas.toDataURL('image/png');
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const pageW = pdf.internal.pageSize.getWidth();
+            const pageH = pdf.internal.pageSize.getHeight();
+            const fullH = (canvas.height * pageW) / canvas.width;
+
+            pdf.addImage(imgData, 'PNG', 0, 0, pageW, fullH);
+            let remaining = fullH - pageH;
+            let offset = 0;
+            while (remaining > 0) {
+                offset -= pageH;
+                pdf.addPage();
+                pdf.addImage(imgData, 'PNG', 0, offset, pageW, fullH);
+                remaining -= pageH;
             }
+
+            pdf.save(`BAST_${d.document_number || project.id}.pdf`);
+            showToast('BAST berhasil diunduh sebagai PDF.', 'success');
         } catch (error) {
-            showToast('Failed to generate BAST data', 'error');
+            console.error('Failed to generate BAST PDF', error);
+            showToast('Failed to generate BAST PDF', 'error');
+        } finally {
+            if (host && host.parentNode) host.parentNode.removeChild(host);
+            setIsGeneratingBast(false);
         }
     };
 
@@ -145,11 +163,13 @@ export default function FinalHandover({ project, user, onRefresh }: FinalHandove
                     </div>
 
                     <div className="pt-4 flex items-center justify-center gap-3">
-                        <button 
+                        <button
                             onClick={handleDownloadBAST}
-                            className="flex items-center gap-2 px-8 py-4 bg-emerald-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg"
+                            disabled={isGeneratingBast}
+                            className="flex items-center gap-2 px-8 py-4 bg-emerald-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg disabled:opacity-50"
                         >
-                            <FileText size={16} /> Download BAST (PDF)
+                            {isGeneratingBast ? <Download size={16} className="animate-bounce" /> : <FileText size={16} />}
+                            {isGeneratingBast ? 'Membuat PDF...' : 'Download BAST (PDF)'}
                         </button>
                     </div>
                 </div>

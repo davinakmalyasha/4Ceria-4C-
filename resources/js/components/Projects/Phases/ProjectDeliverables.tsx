@@ -18,7 +18,7 @@ interface ProjectDeliverablesProps {
 
 const CATEGORIES = [
     { id: 'client_id', label: 'Client Identification', icon: ShieldCheck, color: 'text-rose-600', bg: 'bg-rose-50', desc: 'Owner identity cards & family sheets' },
-    { id: 'blueprint', label: 'Master Blueprints', icon: Ruler, color: 'text-blue-600', bg: 'bg-blue-50', desc: 'Architectural & structural plans' },
+    { id: 'blueprint', label: 'Master Blueprints', icon: Ruler, color: 'text-slate-600', bg: 'bg-slate-50', desc: 'Architectural & structural plans' },
     { id: 'render', label: '3D Visualizations', icon: ImageIcon, color: 'text-purple-600', bg: 'bg-purple-50', desc: 'Final renders & design previews' },
     { id: 'technical', label: 'Technical Specs', icon: Layers, color: 'text-teal-600', bg: 'bg-teal-50', desc: 'MEP & finishing specifications' },
     { id: 'legal', label: 'Legal & Permits', icon: ShieldCheck, color: 'text-emerald-600', bg: 'bg-emerald-50', desc: 'Verified certificates & land deeds' },

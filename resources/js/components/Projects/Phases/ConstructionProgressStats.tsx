@@ -11,7 +11,7 @@ interface ConstructionProgressStatsProps {
 export default function ConstructionProgressStats({ project }: ConstructionProgressStatsProps) {
     // These would ideally come from a real analytics endpoint, but for now we derive from project state
     const stats = [
-        { label: 'Work Days', value: '42', sub: 'of 120 days', icon: Clock, color: 'text-blue-500', bg: 'bg-blue-50' },
+        { label: 'Work Days', value: '42', sub: 'of 120 days', icon: Clock, color: 'text-slate-500', bg: 'bg-slate-50' },
         { label: 'Completion', value: '35%', sub: 'On Schedule', icon: TrendingUp, color: 'text-emerald-500', bg: 'bg-emerald-50' },
         { label: 'Milestones', value: '4/12', sub: 'Next: Slab Pouring', icon: CheckCircle2, color: 'text-purple-500', bg: 'bg-purple-50' },
         { label: 'Safety', value: '100%', sub: 'Zero Incidents', icon: Activity, color: 'text-amber-500', bg: 'bg-amber-50' },

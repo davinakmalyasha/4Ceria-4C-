@@ -106,7 +106,7 @@ export default function DailySiteLog({ project, isContractor }: DailyLogProps) {
         switch(w) {
             case 'sunny': return <Sun className="text-amber-500" size={16} />;
             case 'cloudy': return <Cloud className="text-slate-400" size={16} />;
-            case 'rainy': return <CloudRain className="text-blue-500" size={16} />;
+            case 'rainy': return <CloudRain className="text-slate-500" size={16} />;
             case 'stormy': return <CloudLightning className="text-purple-600" size={16} />;
             default: return <Sun size={16} />;
         }

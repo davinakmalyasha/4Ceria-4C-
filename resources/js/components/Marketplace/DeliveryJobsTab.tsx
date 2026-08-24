@@ -25,7 +25,10 @@ export default function DeliveryJobsTab() {
 
     useEffect(() => {
         fetchJobs();
-        const interval = setInterval(fetchJobs, 10000); // Mock polling for driver acceptance
+        const interval = setInterval(() => {
+            if (document.hidden) return; // skip polling in background tabs
+            fetchJobs();
+        }, 10000); // Mock polling for driver acceptance
         return () => clearInterval(interval);
     }, []);
 

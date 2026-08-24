@@ -413,8 +413,12 @@ export default function ProjectPayments({ project, user, onRefresh, onOpenChat }
                                                                 
                                                                 if (onOpenChat && (proUser || group.bidder?.user)) {
                                                                     onOpenChat(proUser || group.bidder?.user);
-                                                                } else {
-                                                                    window.location.href = `/messages?user_id=${group.bidder?.user?.id}`;
+                                                                } else if (group.bidder?.user) {
+                                                                    // BUGFIX: previously navigated to
+                                                                    // /messages?user_id=... which is not a real
+                                                                    // route (bounced to landing page). Open the
+                                                                    // dashboard chat overlay instead.
+                                                                    window.dispatchEvent(new CustomEvent('open-chat-with-user', { detail: { userId: group.bidder.user.id } }));
                                                                 }
                                                             }}
                                                             className="flex-1 py-3 bg-white border border-gray-200 text-gray-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-gray-50 flex items-center justify-center gap-2 transition-all shadow-sm"
@@ -576,7 +580,7 @@ export default function ProjectPayments({ project, user, onRefresh, onOpenChat }
                                                         <div className="mb-4">
                                                             <button 
                                                                 onClick={(e) => { e.stopPropagation(); handleOpenLinkModal(payment, group.roleType); }}
-                                                                className="w-full py-2 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-[9px] font-black uppercase tracking-widest border border-blue-200 transition-colors flex items-center justify-center gap-1.5"
+                                                                className="w-full py-2 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-lg text-[9px] font-black uppercase tracking-widest border border-slate-200 transition-colors flex items-center justify-center gap-1.5"
                                                             >
                                                                 <Plus size={12} /> Link to Milestone
                                                             </button>
@@ -584,8 +588,8 @@ export default function ProjectPayments({ project, user, onRefresh, onOpenChat }
                                                     )}
 
                                                     {payment.notes && (
-                                                        <div className="mb-4 p-3 bg-blue-50/50 border border-blue-100 rounded-xl text-[10px] text-blue-900 font-medium leading-relaxed italic">
-                                                            <div className="flex items-center gap-1.5 mb-1.5 text-[9px] uppercase tracking-wider text-blue-700 not-italic font-black">
+                                                        <div className="mb-4 p-3 bg-slate-50/50 border border-slate-100 rounded-xl text-[10px] text-slate-900 font-medium leading-relaxed italic">
+                                                            <div className="flex items-center gap-1.5 mb-1.5 text-[9px] uppercase tracking-wider text-slate-700 not-italic font-black">
                                                                 <Info size={12} /> Note from PM:
                                                             </div>
                                                             "{payment.notes}"
@@ -617,7 +621,7 @@ export default function ProjectPayments({ project, user, onRefresh, onOpenChat }
                                                                     key={i} 
                                                                     type="button"
                                                                     onClick={() => setPreviewFile({ path: url, name: `${payment.label} Doc ${i + 1}` })}
-                                                                    className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg text-[9px] font-black text-gray-600 hover:border-blue-500 hover:text-blue-600 transition-all shadow-sm cursor-pointer"
+                                                                    className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg text-[9px] font-black text-gray-600 hover:border-slate-500 hover:text-slate-600 transition-all shadow-sm cursor-pointer"
                                                                 >
                                                                     <Paperclip size={12} /> Doc {i+1}
                                                                 </button>
@@ -849,7 +853,7 @@ export default function ProjectPayments({ project, user, onRefresh, onOpenChat }
                             </button>
 
                             <div className="mb-8">
-                                <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mb-5">
+                                <div className="w-12 h-12 bg-slate-100 text-slate-600 rounded-2xl flex items-center justify-center mb-5">
                                     <Plus size={24} />
                                 </div>
                                 <h3 className="text-xl font-black text-zinc-900 mb-2">Link Milestone</h3>
@@ -871,10 +875,10 @@ export default function ProjectPayments({ project, user, onRefresh, onOpenChat }
                                                 key={m.id}
                                                 onClick={() => handleLinkSubmit(m.id)}
                                                 disabled={isSubmitting}
-                                                className="w-full p-4 rounded-xl border border-zinc-200 hover:border-blue-500 hover:bg-blue-50 transition-all text-left flex flex-col gap-1 group"
+                                                className="w-full p-4 rounded-xl border border-zinc-200 hover:border-slate-500 hover:bg-slate-50 transition-all text-left flex flex-col gap-1 group"
                                             >
                                                 <div className="flex items-center justify-between">
-                                                    <span className="font-bold text-sm text-zinc-900 group-hover:text-blue-700">{m.title}</span>
+                                                    <span className="font-bold text-sm text-zinc-900 group-hover:text-slate-700">{m.title}</span>
                                                     {isApproved && <span className="text-[10px] font-black bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded">APPROVED</span>}
                                                 </div>
                                                 {m.description && <span className="text-xs text-zinc-500 truncate">{m.description}</span>}

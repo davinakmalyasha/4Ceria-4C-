@@ -194,7 +194,7 @@ export default function WarrantyDashboard({ project, currentUser, isOwner, isCon
                                         <button onClick={() => handleUpdateStatus(claim.id, 'resolved')} className="px-3 py-1 bg-emerald-600 text-white rounded-lg text-[9px] font-black uppercase tracking-widest">Mark Resolved</button>
                                     )}
                                     {isOwner && claim.status === 'resolved' && (
-                                        <button onClick={() => handleUpdateStatus(claim.id, 'closed')} className="px-3 py-1 bg-blue-600 text-white rounded-lg text-[9px] font-black uppercase tracking-widest">Close Claim</button>
+                                        <button onClick={() => handleUpdateStatus(claim.id, 'closed')} className="px-3 py-1 bg-zinc-900 text-white rounded-lg text-[9px] font-black uppercase tracking-widest">Close Claim</button>
                                     )}
                                 </div>
                             </div>

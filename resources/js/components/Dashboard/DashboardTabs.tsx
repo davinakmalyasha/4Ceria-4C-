@@ -1,27 +1,31 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, Suspense, lazy } from 'react';
 import axios from 'axios';
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { FileText } from 'lucide-react';
 import OverviewContent from '../OverviewContent';
-import ExploreHouses from '../ExploreHouses';
 import SavedItemsDashboard from '../SavedItemsDashboard';
 import ProjectBoard from '../Projects/ProjectBoard';
-import ProjectDetailPage from '../Projects/ProjectDetailPage';
 import ProjectBiddingBrief from '../Projects/ProjectBiddingBrief';
 import MyBidsList from '../Projects/MyBidsList';
-import ProjectWizard from '../Wizard/ProjectWizard';
-import MyHousesContent from '../MyHousesContent';
-import SellHouseForm from '../SellHouseForm';
-import MarketplaceTab from '../Marketplace/MarketplaceTab';
-import StoreDetailView from '../Marketplace/StoreDetailView';
-import QuoteHistoryTab from '../Marketplace/QuoteHistoryTab';
-import DeliveryJobsTab from '../Marketplace/DeliveryJobsTab';
-import JobRadarTab from '../Logistics/JobRadarTab';
-import MyDeliveriesTab from '../Logistics/MyDeliveriesTab';
-import MaterialOrdersTab from '../Marketplace/MaterialOrdersTab';
-import LogisticsOverview from '../Logistics/LogisticsOverview';
-import ProfessionalProfileView from '../ProfessionalProfileView';
+// Heavy / rarely-first-paint tabs are code-split; the shared vendor chunks
+// (maps, animations) then only download when their tab is actually opened.
+const ExploreHouses = lazy(() => import('../ExploreHouses'));
+const ProjectDetailPage = lazy(() => import('../Projects/ProjectDetailPage'));
+const ProjectWizard = lazy(() => import('../Wizard/ProjectWizard'));
+const MyHousesContent = lazy(() => import('../MyHousesContent'));
+const SellHouseForm = lazy(() => import('../SellHouseForm'));
+const MarketplaceTab = lazy(() => import('../Marketplace/MarketplaceTab'));
+const StoreDetailView = lazy(() => import('../Marketplace/StoreDetailView'));
+const QuoteHistoryTab = lazy(() => import('../Marketplace/QuoteHistoryTab'));
+const DeliveryJobsTab = lazy(() => import('../Marketplace/DeliveryJobsTab'));
+const JobRadarTab = lazy(() => import('../Logistics/JobRadarTab'));
+const MyDeliveriesTab = lazy(() => import('../Logistics/MyDeliveriesTab'));
+const MaterialOrdersTab = lazy(() => import('../Marketplace/MaterialOrdersTab'));
+const LogisticsOverview = lazy(() => import('../Logistics/LogisticsOverview'));
+const ProfessionalProfileView = lazy(() => import('../ProfessionalProfileView'));
+const ChatTab = lazy(() => import('../Chat/ChatTab'));
+const MerchantInventory = lazy(() => import('../MerchantInventory'));
 import ExploreArchitects from '../Architects/ExploreArchitects';
 import ExploreConstructors from '../Constructors/ExploreConstructors';
 import ExploreInterior from '../Interior/ExploreInterior';
@@ -31,8 +35,6 @@ import { ExploreProjectManagers } from '../ProjectManagers/ExploreProjectManager
 import { HirePMWorkspace } from '../ProjectManagers/HirePMWorkspace';
 import { PMBid } from '../../types/project_manager.types';
 import ProfessionalProjects from '../Projects/ProfessionalProjects';
-import ChatTab from '../Chat/ChatTab';
-import MerchantInventory from '../MerchantInventory';
 import MaterialDetailsModal from '../Marketplace/MaterialDetailsModal';
 import { UserProfileView } from './UserProfileView';
 import EditProfileForm from '../EditProfileForm';
@@ -279,6 +281,12 @@ export const DashboardTabs: React.FC<TabsProps> = (props) => {
     return (
         <AnimatePresence mode="wait">
             <motion.div key={activeTab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="w-full">
+                <Suspense fallback={
+                    <div className="py-24 flex flex-col items-center justify-center gap-3">
+                        <div className="w-8 h-8 rounded-full border-[3px] border-neutral-200 border-t-[#FF2D20] animate-spin" />
+                        <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Loading module...</p>
+                    </div>
+                }>
                 
                 {activeTab === 'overview' && (
                     <>
@@ -604,6 +612,7 @@ export const DashboardTabs: React.FC<TabsProps> = (props) => {
                 {activeTab === 'store' && user.role_type === 'supplier' && (
                     <StoreDetailView storeId={user.id} onBack={() => setActiveTab('overview')} onOpenChat={handleOpenChat} onOpenDetails={() => {}} />
                 )}
+                </Suspense>
             </motion.div>
         </AnimatePresence>
     );

@@ -11,7 +11,7 @@ interface Props {
 export const NotarisLegalBrief: React.FC<Props> = ({ project }) => (
     <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white shadow-2xl relative overflow-hidden group">
         <div className="absolute top-0 right-0 w-64 h-64 bg-red-600/10 rounded-full blur-3xl -mr-32 -mt-32" />
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-blue-600/5 rounded-full blur-3xl -ml-24 -mb-24" />
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-slate-600/5 rounded-full blur-3xl -ml-24 -mb-24" />
         
         <div className="relative z-10 space-y-6">
             <div className="flex items-center gap-4">

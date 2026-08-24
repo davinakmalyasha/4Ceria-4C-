@@ -83,7 +83,7 @@ function MetaBadge({ icon: Icon, text, color }: { icon: React.ElementType; text:
     const colorMap: Record<string, string> = {
         emerald: 'text-emerald-600 bg-emerald-50',
         red: 'text-red-500 bg-red-50',
-        blue: 'text-blue-600 bg-blue-50',
+        blue: 'text-slate-600 bg-slate-50',
     };
     return (
         <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold ${colorMap[color] || 'text-gray-500 bg-gray-50'}`}>

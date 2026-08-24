@@ -88,10 +88,10 @@ export default function RequestProcurementModal({
                 exit={{ opacity: 0, scale: 0.95, y: 20 }}
                 className="relative w-full max-w-lg bg-white rounded-[2.5rem] p-10 shadow-2xl overflow-hidden"
             >
-                <div className="absolute top-0 left-0 w-full h-1.5 bg-indigo-500" />
+                <div className="absolute top-0 left-0 w-full h-1.5 bg-slate-500" />
                 
                 <div className="text-center mb-6">
-                    <div className="w-14 h-14 bg-indigo-50 text-indigo-500 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-indigo-100 shadow-sm">
+                    <div className="w-14 h-14 bg-slate-50 text-slate-500 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-slate-100 shadow-sm">
                         <ShoppingCart size={24} />
                     </div>
                     <h4 className="text-xl font-black text-slate-900 tracking-tight">
@@ -157,12 +157,12 @@ export default function RequestProcurementModal({
                     </div>
 
                     {/* Dynamic Total Calculation */}
-                    <div className="p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100/60 flex items-center justify-between">
+                    <div className="p-4 bg-slate-50/50 rounded-2xl border border-slate-100/60 flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                            <DollarSign size={16} className="text-indigo-500" />
-                            <span className="text-[10px] font-black text-indigo-900 uppercase tracking-widest">Total Cost Estimate</span>
+                            <DollarSign size={16} className="text-slate-500" />
+                            <span className="text-[10px] font-black text-slate-900 uppercase tracking-widest">Total Cost Estimate</span>
                         </div>
-                        <span className="text-base font-black text-indigo-600">
+                        <span className="text-base font-black text-slate-600">
                             {formattedTotal}
                         </span>
                     </div>
@@ -190,7 +190,7 @@ export default function RequestProcurementModal({
                             checked={offerToBuy}
                             disabled={isLoading}
                             onChange={e => setOfferToBuy(e.target.checked)}
-                            className="mt-0.5 rounded text-indigo-500 border-slate-200 focus:ring-indigo-500/10 focus:ring-offset-0 focus:ring-4 w-4 h-4 transition-all"
+                            className="mt-0.5 rounded text-slate-500 border-slate-200 focus:ring-slate-500/10 focus:ring-offset-0 focus:ring-4 w-4 h-4 transition-all"
                         />
                         <div className="flex-1">
                             <span className="text-xs font-black text-slate-900 block leading-tight">
@@ -220,7 +220,7 @@ export default function RequestProcurementModal({
                         <button 
                             type="submit" 
                             disabled={isLoading || !quantity || !message}
-                            className="flex-1 bg-indigo-500 hover:bg-indigo-600 text-white py-3.5 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-indigo-500/20 transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50 disabled:pointer-events-none"
+                            className="flex-1 bg-slate-500 hover:bg-zinc-900 text-white py-3.5 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-slate-500/20 transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50 disabled:pointer-events-none"
                         >
                             {isLoading ? (
                                 <Loader2 className="animate-spin" size={16} />

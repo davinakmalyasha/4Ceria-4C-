@@ -50,7 +50,7 @@ export const TeamCompositionSection: React.FC<TeamCompositionSectionProps> = ({
                     <span className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Team Composition</span>
                 </div>
                 {teamTotal > 0 && (
-                    <span className="text-xs font-black text-blue-600 bg-blue-50 px-3 py-1 rounded-xl">
+                    <span className="text-xs font-black text-slate-600 bg-slate-50 px-3 py-1 rounded-xl">
                         Team Total: Rp {teamTotal.toLocaleString('id-ID')}
                     </span>
                 )}
@@ -135,12 +135,12 @@ const TeamMemberEntry: React.FC<EntryProps> = ({ member, index, onUpdate, onRemo
 
         {/* Member Profile Info (Read-only from Roster) */}
         <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
-            <div className="w-9 h-9 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center font-black text-blue-600 text-xs">
+            <div className="w-9 h-9 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center font-black text-slate-600 text-xs">
                 {member.name ? member.name.charAt(0) : 'T'}
             </div>
             <div>
                 <h4 className="text-xs font-black text-slate-800">{member.name || 'Unnamed Member'}</h4>
-                <p className="text-[9px] font-bold text-blue-500 uppercase tracking-wider">{member.role_title || 'Team Member'}</p>
+                <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">{member.role_title || 'Team Member'}</p>
             </div>
         </div>
 

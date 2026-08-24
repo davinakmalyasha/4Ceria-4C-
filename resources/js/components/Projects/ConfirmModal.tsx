@@ -34,9 +34,9 @@ const VARIANT_MAP = {
         confirmBtn: 'bg-amber-600 hover:bg-emerald-750 shadow-amber-500/20'
     },
     info: {
-        icon: <HelpCircle className="w-8 h-8 text-blue-600" />,
-        iconBg: 'bg-blue-50 border-blue-50/50',
-        confirmBtn: 'bg-blue-600 hover:bg-blue-700 shadow-blue-500/20'
+        icon: <HelpCircle className="w-8 h-8 text-slate-600" />,
+        iconBg: 'bg-slate-50 border-slate-50/50',
+        confirmBtn: 'bg-zinc-900 hover:bg-zinc-800 shadow-slate-500/20'
     }
 };
 

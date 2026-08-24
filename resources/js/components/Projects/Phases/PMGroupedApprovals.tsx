@@ -27,7 +27,7 @@ export default function PMGroupedApprovals({
     onNavigateToPhase,
 }: PMGroupedApprovalsProps) {
     const phases = [
-        { key: 'legal', label: 'Legalitas', sub: 'Notaris', accentClass: 'border-t-4 border-indigo-500' },
+        { key: 'legal', label: 'Legalitas', sub: 'Notaris', accentClass: 'border-t-4 border-slate-500' },
         { key: 'design', label: 'Desain', sub: 'Arsitek, MEP, Struktur', accentClass: 'border-t-4 border-violet-500' },
         { key: 'build', label: 'Konstruksi', sub: 'Kontraktor', accentClass: 'border-t-4 border-amber-500' },
         { key: 'interior', label: 'Interior', sub: 'Interior Designer', accentClass: 'border-t-4 border-rose-500' },

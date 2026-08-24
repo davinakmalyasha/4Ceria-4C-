@@ -60,7 +60,7 @@ export default function RequirementCard({
                 e.dataTransfer.effectAllowed = 'move';
             }}
         >
-            <div className={`absolute top-0 right-0 w-32 h-32 blur-[80px] opacity-10 rounded-full translate-x-12 -translate-y-12 ${isShortage ? 'bg-red-500' : 'bg-indigo-500'}`} />
+            <div className={`absolute top-0 right-0 w-32 h-32 blur-[80px] opacity-10 rounded-full translate-x-12 -translate-y-12 ${isShortage ? 'bg-red-500' : 'bg-slate-500'}`} />
 
             {/* Author Header */}
             <div className="px-6 py-3 bg-slate-50 border-b border-slate-100 flex items-center justify-between z-10 relative">
@@ -76,7 +76,7 @@ export default function RequirementCard({
                     {canMutate && onEdit && (
                         <button 
                             onClick={onEdit}
-                            className="p-1.5 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-indigo-500 transition-all rounded-lg hover:bg-indigo-50"
+                            className="p-1.5 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-slate-500 transition-all rounded-lg hover:bg-slate-50"
                             title="Edit Material"
                         >
                             <Pencil size={12} />
@@ -140,11 +140,11 @@ export default function RequirementCard({
                 </div>
 
                 {req.purpose && (
-                    <div className="mb-4 p-3 bg-indigo-50/50 rounded-xl border border-indigo-100/50 flex items-start gap-2">
-                        <FileText size={14} className="text-indigo-400 mt-0.5 shrink-0" />
+                    <div className="mb-4 p-3 bg-slate-50/50 rounded-xl border border-slate-100/50 flex items-start gap-2">
+                        <FileText size={14} className="text-slate-400 mt-0.5 shrink-0" />
                         <div>
-                            <span className="block text-[8px] font-black text-indigo-400 uppercase tracking-widest mb-0.5">Purpose / Why</span>
-                            <p className="text-[10px] text-indigo-900 font-medium leading-relaxed">{req.purpose}</p>
+                            <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Purpose / Why</span>
+                            <p className="text-[10px] text-slate-900 font-medium leading-relaxed">{req.purpose}</p>
                         </div>
                     </div>
                 )}
@@ -153,13 +153,13 @@ export default function RequirementCard({
                 <div className="space-y-4 mb-6 mt-auto">
                     <div className="space-y-1.5">
                         <div className="flex justify-between items-end">
-                            <span className="text-[8px] font-black text-indigo-500 uppercase tracking-widest italic">Procured Progress</span>
+                            <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest italic">Procured Progress</span>
                             <span className="text-[10px] font-black text-slate-900">
                                 {totalProcured} / {required} {req.unit} ({progOnSite}%)
                             </span>
                         </div>
                         <div className="h-2.5 bg-slate-50 rounded-full overflow-hidden border border-slate-100 p-0.5">
-                            <div style={{ width: `${progOnSite}%` }} className="h-full bg-gradient-to-r from-indigo-500 to-blue-500 rounded-full shadow-sm transition-all duration-500" />
+                            <div style={{ width: `${progOnSite}%` }} className="h-full bg-gradient-to-r from-slate-500 to-slate-500 rounded-full shadow-sm transition-all duration-500" />
                         </div>
                     </div>
 
@@ -182,7 +182,7 @@ export default function RequirementCard({
                         <div className="flex items-center gap-1.5">
                             <button 
                                 onClick={() => onOpenLogModal('restock', req)}
-                                className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 p-2.5 rounded-xl transition-colors flex items-center justify-center gap-1 text-[9px] font-black uppercase tracking-wider shadow-sm"
+                                className="bg-slate-50 hover:bg-slate-100 text-slate-700 p-2.5 rounded-xl transition-colors flex items-center justify-center gap-1 text-[9px] font-black uppercase tracking-wider shadow-sm"
                                 title="Restock / Add Quantity"
                             >
                                 <Plus size={12} /> Restock
@@ -238,11 +238,11 @@ export default function RequirementCard({
                                         return (
                                             <div key={log.id} className="relative group/log">
                                                 {/* Dot indicator */}
-                                                <div className={`absolute -left-[13px] top-1 w-2.5 h-2.5 rounded-full border-2 border-white ${isRestock ? 'bg-indigo-500 shadow-indigo-100 shadow' : 'bg-emerald-500 shadow-emerald-100 shadow'}`} />
+                                                <div className={`absolute -left-[13px] top-1 w-2.5 h-2.5 rounded-full border-2 border-white ${isRestock ? 'bg-slate-500 shadow-slate-100 shadow' : 'bg-emerald-500 shadow-emerald-100 shadow'}`} />
                                                 
                                                 <div className="flex items-start justify-between gap-4">
                                                     <div className="flex-1">
-                                                        <span className={`inline-block text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded mr-2 ${isRestock ? 'bg-indigo-50 text-indigo-700' : 'bg-emerald-50 text-emerald-700'}`}>
+                                                        <span className={`inline-block text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded mr-2 ${isRestock ? 'bg-slate-50 text-slate-700' : 'bg-emerald-50 text-emerald-700'}`}>
                                                             {isRestock ? '+' : '-'}{log.quantity} {req.unit}
                                                         </span>
                                                         <span className="text-[9px] text-slate-400 font-bold">by {log.user?.name || 'Unknown'}</span>

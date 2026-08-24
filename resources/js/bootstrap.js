@@ -112,6 +112,22 @@ window.axios.interceptors.response.use(response => {
         }
     }
 
+    // Global session-expiry handling: an expired/invalid token previously left
+    // the user stranded with silent per-call errors. Redirect to login ONCE.
+    if (
+        error.response?.status === 401 &&
+        !config?.__isAuthCall &&
+        !window.location.pathname.startsWith('/login') &&
+        !window.location.pathname.startsWith('/register')
+    ) {
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('user_profile');
+        if (!window.__redirectingToLogin) {
+            window.__redirectingToLogin = true;
+            window.location.href = '/login';
+        }
+    }
+
     return Promise.reject(error);
 });
 

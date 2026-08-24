@@ -179,7 +179,7 @@ export const PMLegalHub: React.FC<PMLegalHubProps> = ({ project, user, onRefresh
                                                         onChange={(e) => e.target.files?.[0] && handleUpload(req.category, e.target.files[0])}
                                                         disabled={isUploading}
                                                     />
-                                                    <button className="px-4 py-2 bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-blue-700 transition-all flex items-center gap-2">
+                                                    <button className="px-4 py-2 bg-zinc-900 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-zinc-800 transition-all flex items-center gap-2">
                                                         <Upload size={14} /> Upload
                                                     </button>
                                                 </div>

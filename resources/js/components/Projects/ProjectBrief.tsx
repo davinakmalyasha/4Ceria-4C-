@@ -157,7 +157,7 @@ export default function ProjectBrief({ project, user, onRefresh, onSwitchToProce
                 </div>
 
                 <div className="bg-white px-4 py-3 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                    <div className="w-8 h-8 rounded-lg bg-slate-50 text-slate-600 flex items-center justify-center shrink-0">
                         <Calendar size={15} />
                     </div>
                     <div className="min-w-0">
@@ -247,7 +247,7 @@ export default function ProjectBrief({ project, user, onRefresh, onSwitchToProce
                                     {/* Spesifikasi Tanah */}
                                     {dims.land_size ? (
                                         <div className="p-4 bg-slate-50/70 border border-slate-100 rounded-2xl space-y-2">
-                                            <div className="flex items-center gap-2 text-blue-600 font-bold text-xs uppercase tracking-wide">
+                                            <div className="flex items-center gap-2 text-slate-600 font-bold text-xs uppercase tracking-wide">
                                                 <Maximize size={14} />
                                                 <span>Spesifikasi Tanah</span>
                                             </div>
@@ -264,7 +264,7 @@ export default function ProjectBrief({ project, user, onRefresh, onSwitchToProce
                                     {/* Spesifikasi Bangunan */}
                                     {dims.building_size ? (
                                         <div className="p-4 bg-slate-50/70 border border-slate-100 rounded-2xl space-y-2">
-                                            <div className="flex items-center gap-2 text-indigo-600 font-bold text-xs uppercase tracking-wide">
+                                            <div className="flex items-center gap-2 text-slate-600 font-bold text-xs uppercase tracking-wide">
                                                 <Ruler size={14} />
                                                 <span>Spesifikasi Bangunan</span>
                                             </div>

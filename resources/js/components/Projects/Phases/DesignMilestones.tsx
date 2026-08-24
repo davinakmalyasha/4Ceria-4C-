@@ -480,9 +480,9 @@ export default function DesignMilestones({ project, currentUser, isArchitect, is
                                 </div>
                             )}
                             {project.mep_id && (
-                                <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 rounded-lg border border-blue-100">
-                                    <Wrench size={12} className="text-blue-500" />
-                                    <span className="text-[9px] font-black text-blue-700 uppercase tracking-widest">MEP Eng. Active</span>
+                                <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-lg border border-slate-100">
+                                    <Wrench size={12} className="text-slate-500" />
+                                    <span className="text-[9px] font-black text-slate-700 uppercase tracking-widest">MEP Eng. Active</span>
                                 </div>
                             )}
                         </div>
@@ -527,12 +527,12 @@ export default function DesignMilestones({ project, currentUser, isArchitect, is
                             <div className="space-y-4">
                                 <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
                                     <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center">
+                                        <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center">
                                             <Wrench size={20} />
                                         </div>
                                         <div>
                                             <p className="text-[10px] font-black text-slate-900 uppercase tracking-widest">{project.mep_engineer?.user?.name || 'Awaiting Specialist'}</p>
-                                            <p className="text-[8px] font-black text-blue-600 uppercase tracking-tighter">MEP & Mechanical Progress</p>
+                                            <p className="text-[8px] font-black text-slate-600 uppercase tracking-tighter">MEP & Mechanical Progress</p>
                                         </div>
                                     </div>
                                     <div className="text-right">

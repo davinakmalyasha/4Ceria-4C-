@@ -19,11 +19,11 @@ export default function SpecialistBiddingBoard({ project, role, onShortlist, onR
 
     return (
         <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white shadow-xl relative overflow-hidden border border-white/10 mb-8">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full -mr-32 -mt-32 blur-3xl opacity-50" />
+            <div className="absolute top-0 right-0 w-64 h-64 bg-slate-500/10 rounded-full -mr-32 -mt-32 blur-3xl opacity-50" />
             <div className="relative z-10 space-y-6">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 ${role === 'structural' ? 'bg-indigo-500/20 text-indigo-400' : 'bg-amber-500/20 text-amber-400'} rounded-xl flex items-center justify-center`}>
+                        <div className={`w-10 h-10 ${role === 'structural' ? 'bg-slate-500/20 text-slate-400' : 'bg-amber-500/20 text-amber-400'} rounded-xl flex items-center justify-center`}>
                             <Users size={20} />
                         </div>
                         <div>
@@ -41,14 +41,14 @@ export default function SpecialistBiddingBoard({ project, role, onShortlist, onR
                         <div key={bid.id} className="p-5 bg-white/5 border border-white/10 rounded-3xl space-y-4 group hover:bg-white/10 transition-all">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-4">
-                                    <div className={`w-10 h-10 ${role === 'structural' ? 'bg-indigo-500/20 text-indigo-400' : 'bg-amber-500/20 text-amber-400'} rounded-xl flex items-center justify-center`}>
+                                    <div className={`w-10 h-10 ${role === 'structural' ? 'bg-slate-500/20 text-slate-400' : 'bg-amber-500/20 text-amber-400'} rounded-xl flex items-center justify-center`}>
                                         {role === 'structural' ? <HardHat size={18} /> : <Zap size={18} />}
                                     </div>
                                     <div>
                                         <div className="flex items-center gap-2">
                                             <p className="text-xs font-black text-white">{bid.bidder?.name || 'Pro candidate'}</p>
                                             {bid.status === 'shortlisted' && (
-                                                <span className="px-2 py-0.5 bg-indigo-500/20 text-indigo-400 text-[8px] font-black uppercase rounded-md border border-indigo-500/30">Interviewing</span>
+                                                <span className="px-2 py-0.5 bg-slate-500/20 text-slate-400 text-[8px] font-black uppercase rounded-md border border-slate-500/30">Interviewing</span>
                                             )}
                                             {bid.status === 'recommended' && (
                                                 <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-[8px] font-black uppercase rounded-md border border-emerald-500/30">Recommended</span>
@@ -73,7 +73,7 @@ export default function SpecialistBiddingBoard({ project, role, onShortlist, onR
                                 {bid.status === 'pending' ? (
                                     <button 
                                         onClick={() => onShortlist(bid.id, role)}
-                                        className={`flex-1 h-11 ${role === 'structural' ? 'bg-indigo-500 hover:bg-indigo-600' : 'bg-amber-500 hover:bg-amber-600'} text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all shadow-lg`}
+                                        className={`flex-1 h-11 ${role === 'structural' ? 'bg-slate-500 hover:bg-zinc-900' : 'bg-amber-500 hover:bg-amber-600'} text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all shadow-lg`}
                                     >
                                         Shortlist for Interview
                                     </button>

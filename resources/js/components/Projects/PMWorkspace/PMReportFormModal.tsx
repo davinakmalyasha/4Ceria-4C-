@@ -55,15 +55,15 @@ export default function PMReportFormModal({
                 <div className="p-6 overflow-y-auto flex-1 space-y-6">
                     {!editingReport && unlinkedReports.length > 0 && (
                         <div className="space-y-2 border-b border-slate-100 pb-4 shrink-0">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-indigo-600">Link Existing Unlinked Reports</label>
+                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-600">Link Existing Unlinked Reports</label>
                             <div className="grid gap-2 max-h-[160px] overflow-y-auto pr-1">
                                 {unlinkedReports.map(r => (
                                     <div key={r.id} className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex items-center justify-between gap-3 text-[10px]">
                                         <div className="flex items-center gap-2 min-w-0">
-                                            <FileText size={14} className="text-indigo-500 shrink-0" />
+                                            <FileText size={14} className="text-slate-500 shrink-0" />
                                             <span className="font-medium text-slate-700 truncate">{r.summary}</span>
                                         </div>
-                                        <button type="button" onClick={() => onLinkReport?.(r.id)} className="px-2.5 py-1 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition-colors uppercase shrink-0">Link</button>
+                                        <button type="button" onClick={() => onLinkReport?.(r.id)} className="px-2.5 py-1 bg-zinc-900 text-white font-bold rounded-lg hover:bg-zinc-800 transition-colors uppercase shrink-0">Link</button>
                                     </div>
                                 ))}
                             </div>

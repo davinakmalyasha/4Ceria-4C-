@@ -192,7 +192,7 @@ function PhaseButton({
 
                 {/* Status Badges */}
                 {hiredCount > 0 ? (
-                    <span className="absolute -top-1 -right-1 h-3.5 min-w-3.5 px-0.5 flex items-center justify-center rounded-full bg-blue-50 text-blue-600 border border-blue-200 text-[7.5px] font-black shadow-sm ring-2 ring-white">
+                    <span className="absolute -top-1 -right-1 h-3.5 min-w-3.5 px-0.5 flex items-center justify-center rounded-full bg-slate-50 text-slate-600 border border-slate-200 text-[7.5px] font-black shadow-sm ring-2 ring-white">
                         {hiredCount}
                     </span>
                 ) : bidCount > 0 ? (

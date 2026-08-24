@@ -175,7 +175,7 @@ export default function StructuralWorkspace({ project, user, onRefresh }: Struct
                         <CheckCircle2 size={14} /> Approved & Integrated
                     </span>
                 ) : (
-                    <span className="px-4 py-1.5 bg-indigo-100 text-indigo-700 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+                    <span className="px-4 py-1.5 bg-slate-100 text-slate-700 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
                         <ShieldCheck size={14} /> Design Phase Active
                     </span>
                 )}
@@ -224,9 +224,9 @@ export default function StructuralWorkspace({ project, user, onRefresh }: Struct
 
                 canReview ? (
                     hasPendingSubmission ? (
-                        <div className="border border-indigo-100 rounded-3xl p-6 bg-indigo-50/50 flex flex-col md:flex-row gap-4 items-center justify-between shadow-sm">
+                        <div className="border border-slate-100 rounded-3xl p-6 bg-slate-50/50 flex flex-col md:flex-row gap-4 items-center justify-between shadow-sm">
                             <div className="flex items-center gap-3">
-                                <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-indigo-600 shadow-sm border border-indigo-100">
+                                <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-slate-600 shadow-sm border border-slate-100">
                                     <ShieldCheck size={20} />
                                 </div>
                                 <div>

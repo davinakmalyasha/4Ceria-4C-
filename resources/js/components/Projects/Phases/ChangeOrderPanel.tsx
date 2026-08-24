@@ -111,7 +111,7 @@ export default function ChangeOrderPanel({ project, isPM, isOwner, isPro }: Chan
             <div className="flex items-center justify-between">
                 <div>
                     <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
-                        <FileText size={18} className="text-indigo-500" />
+                        <FileText size={18} className="text-slate-500" />
                         Change Order Log
                     </h4>
                     <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Tracking scope & budget adjustments</p>
@@ -218,7 +218,7 @@ export default function ChangeOrderPanel({ project, isPM, isOwner, isPro }: Chan
                                                     <span>Impact: Rp {Number(order.cost_impact).toLocaleString('id-ID')}</span>
                                                 </div>
                                                 <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
-                                                    <Clock size={14} className="text-blue-500" />
+                                                    <Clock size={14} className="text-slate-500" />
                                                     <span>Extension: {order.time_impact_days} Days</span>
                                                 </div>
                                             </div>
@@ -226,11 +226,11 @@ export default function ChangeOrderPanel({ project, isPM, isOwner, isPro }: Chan
                                             {/* Review Notes Section */}
                                             <div className="space-y-2">
                                                 {order.pm_notes && (
-                                                    <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-xl">
-                                                        <p className="text-[9px] font-black uppercase text-indigo-400 tracking-widest mb-1 flex items-center gap-1">
+                                                    <div className="p-3 bg-slate-50 border border-slate-100 rounded-xl">
+                                                        <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-1 flex items-center gap-1">
                                                             <Check size={10} /> PM Review Note
                                                         </p>
-                                                        <p className="text-xs font-medium text-indigo-700 italic">"{order.pm_notes}"</p>
+                                                        <p className="text-xs font-medium text-slate-700 italic">"{order.pm_notes}"</p>
                                                     </div>
                                                 )}
                                                 {order.owner_notes && (
@@ -246,7 +246,7 @@ export default function ChangeOrderPanel({ project, isPM, isOwner, isPro }: Chan
                                             {/* Action Buttons (Only for real Change Orders) */}
                                             {order.type !== 'addendum' && isPM && order.status === 'proposed' && (
                                                 <div className="flex gap-2 pt-2 border-t border-slate-100">
-                                                    <button onClick={() => handlePMReview(order.id, 'approve')} className="flex-1 py-3 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-colors">Approve & Forward to Owner</button>
+                                                    <button onClick={() => handlePMReview(order.id, 'approve')} className="flex-1 py-3 bg-zinc-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-800 transition-colors">Approve & Forward to Owner</button>
                                                     <button onClick={() => handlePMReview(order.id, 'reject')} className="px-6 py-3 bg-red-50 text-red-600 rounded-xl text-[10px] font-black uppercase tracking-widest">Reject</button>
                                                 </div>
                                             )}

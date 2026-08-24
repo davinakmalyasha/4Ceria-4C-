@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Building, Users, ShoppingBag, HelpCircle } from 'lucide-react';
 
 export default function Navbar() {
     const { user } = useAuth();
@@ -50,7 +50,7 @@ export default function Navbar() {
     };
 
     return (
-        <div className={`custom-navbar-container ${hidden ? 'hidden-nav' : ''} flex items-center justify-between px-6 py-3 bg-white/95 backdrop-blur-md border-b border-neutral-100 fixed top-0 left-0 right-0 z-[100] transition-transform duration-300`}>
+        <div className={`custom-navbar-container ${hidden ? 'hidden-nav' : ''} h-14 flex items-center justify-between px-6 bg-white/80 backdrop-blur-md border-b border-neutral-100 fixed top-0 left-0 right-0 z-[100] transition-transform duration-300`}>
             <div className="flex items-center gap-6 min-w-0">
                 {/* Left side: Logo & Brand */}
                 <div className="flex items-center gap-3 shrink-0">
@@ -61,7 +61,7 @@ export default function Navbar() {
                 </div>
 
                 {/* Center side: Scroll Navigation Dropdowns (Desktop only) */}
-                <div ref={dropdownRef} className="hidden md:flex items-center gap-2 animate-fade-in">
+                <div ref={dropdownRef} className="hidden md:flex items-center gap-1 animate-fade-in">
                     {/* Properties */}
                     <div className="relative">
                         <button 
@@ -70,6 +70,7 @@ export default function Navbar() {
                                 openDropdown === 'properties' ? 'text-red-500 bg-red-50/50' : 'text-neutral-500 hover:text-neutral-800 hover:bg-neutral-50'
                             }`}
                         >
+                            <Building className="w-[15px] h-[15px] shrink-0" />
                             Properties
                             <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${openDropdown === 'properties' ? 'rotate-180 text-red-500' : 'text-neutral-400'}`} />
                         </button>
@@ -90,6 +91,7 @@ export default function Navbar() {
                                 openDropdown === 'professionals' ? 'text-red-500 bg-red-50/50' : 'text-neutral-500 hover:text-neutral-800 hover:bg-neutral-50'
                             }`}
                         >
+                            <Users className="w-[15px] h-[15px] shrink-0" />
                             Hire Professionals
                             <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${openDropdown === 'professionals' ? 'rotate-180 text-red-500' : 'text-neutral-400'}`} />
                         </button>
@@ -111,6 +113,7 @@ export default function Navbar() {
                                 openDropdown === 'marketplace' ? 'text-red-500 bg-red-50/50' : 'text-neutral-500 hover:text-neutral-800 hover:bg-neutral-50'
                             }`}
                         >
+                            <ShoppingBag className="w-[15px] h-[15px] shrink-0" />
                             Marketplace
                             <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${openDropdown === 'marketplace' ? 'rotate-180 text-red-500' : 'text-neutral-400'}`} />
                         </button>
@@ -128,6 +131,7 @@ export default function Navbar() {
                         to="/help"
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[13px] font-bold text-neutral-500 hover:text-neutral-800 hover:bg-neutral-50 transition-all focus:outline-none"
                     >
+                        <HelpCircle className="w-[15px] h-[15px] shrink-0" />
                         Help Center
                     </Link>
                 </div>

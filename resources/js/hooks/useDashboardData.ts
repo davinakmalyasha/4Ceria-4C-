@@ -41,9 +41,13 @@ export const useDashboardData = (activeTab: string = 'overview') => {
     const [isStructuralLoading, setIsStructuralLoading] = useState(false);
     const [isMepLoading, setIsMepLoading] = useState(false);
 
+    // Tracks completed lazy-tab fetches so empty results or errors never retrigger a request (prevents infinite refetch loops / 429 storms)
+    const [lazyFetched, setLazyFetched] = useState<Record<string, boolean>>({});
+
     const fetchData = useCallback(async () => {
         if (!user) return;
-        
+
+        setLazyFetched({});
         setIsLoading(true);
         setIsProjectsLoading(true);
         setIsFeedLoading(true);
@@ -129,66 +133,30 @@ export const useDashboardData = (activeTab: string = 'overview') => {
     useEffect(() => {
         if (!user) return;
 
-        // Fetch houses when exploring houses or using marketplace tabs
-        if ((activeTab === 'houses' || activeTab === 'marketplace-materials' || activeTab === 'marketplace-furniture') && houses.length === 0 && !isHousesLoading) {
-            setIsHousesLoading(true);
-            axios.get('/houses')
-                .then(res => setHouses(res.data.data || []))
+        const lazyGet = (key: string, url: string, setter: (data: any[]) => void, setLoading: (v: boolean) => void) => {
+            if (lazyFetched[key]) return;
+            setLazyFetched(prev => (prev[key] ? prev : { ...prev, [key]: true }));
+            setLoading(true);
+            axios.get(url)
+                .then(res => setter(res.data.data || []))
                 .catch(() => {})
-                .finally(() => setIsHousesLoading(false));
+                .finally(() => setLoading(false));
+        };
+
+        // Fetch houses when exploring houses or using marketplace tabs
+        if (activeTab === 'houses' || activeTab === 'marketplace-materials' || activeTab === 'marketplace-furniture') {
+            lazyGet('houses', '/houses', setHouses, setIsHousesLoading);
         }
 
         // Fetch directory professionals on-demand
-        if (activeTab === 'architects' && architects.length === 0 && !isArchitectsLoading) {
-            setIsArchitectsLoading(true);
-            axios.get('/arsitek')
-                .then(res => setArchitects(res.data.data || []))
-                .catch(() => {})
-                .finally(() => setIsArchitectsLoading(false));
-        }
-        if (activeTab === 'constructors' && constructors.length === 0 && !isConstructorsLoading) {
-            setIsConstructorsLoading(true);
-            axios.get('/kontraktor')
-                .then(res => setConstructors(res.data.data || []))
-                .catch(() => {})
-                .finally(() => setIsConstructorsLoading(false));
-        }
-        if (activeTab === 'interior' && interiors.length === 0 && !isInteriorsLoading) {
-            setIsInteriorsLoading(true);
-            axios.get('/interior')
-                .then(res => setInteriors(res.data.data || []))
-                .catch(() => {})
-                .finally(() => setIsInteriorsLoading(false));
-        }
-        if (activeTab === 'notaris' && notaries.length === 0 && !isNotariesLoading) {
-            setIsNotariesLoading(true);
-            axios.get('/notaris')
-                .then(res => setNotaries(res.data.data || []))
-                .catch(() => {})
-                .finally(() => setIsNotariesLoading(false));
-        }
-        if (activeTab === 'project_manager' && projectManagers.length === 0 && !isProjectManagersLoading) {
-            setIsProjectManagersLoading(true);
-            axios.get('/project-manager')
-                .then(res => setProjectManagers(res.data.data || []))
-                .catch(() => {})
-                .finally(() => setIsProjectManagersLoading(false));
-        }
-        if (activeTab === 'structural' && structuralEngineers.length === 0 && !isStructuralLoading) {
-            setIsStructuralLoading(true);
-            axios.get('/structural-engineers')
-                .then(res => setStructuralEngineers(res.data.data || []))
-                .catch(() => {})
-                .finally(() => setIsStructuralLoading(false));
-        }
-        if (activeTab === 'mep' && mepEngineers.length === 0 && !isMepLoading) {
-            setIsMepLoading(true);
-            axios.get('/mep-engineers')
-                .then(res => setMepEngineers(res.data.data || []))
-                .catch(() => {})
-                .finally(() => setIsMepLoading(false));
-        }
-    }, [activeTab, user, houses.length, architects.length, constructors.length, interiors.length, notaries.length, projectManagers.length, structuralEngineers.length, mepEngineers.length, isHousesLoading, isArchitectsLoading, isConstructorsLoading, isInteriorsLoading, isNotariesLoading, isProjectManagersLoading, isStructuralLoading, isMepLoading]);
+        if (activeTab === 'architects') lazyGet('architects', '/arsitek', setArchitects, setIsArchitectsLoading);
+        if (activeTab === 'constructors') lazyGet('constructors', '/kontraktor', setConstructors, setIsConstructorsLoading);
+        if (activeTab === 'interior') lazyGet('interior', '/interior', setInteriors, setIsInteriorsLoading);
+        if (activeTab === 'notaris') lazyGet('notaris', '/notaris', setNotaries, setIsNotariesLoading);
+        if (activeTab === 'project_manager') lazyGet('project_manager', '/project-manager', setProjectManagers, setIsProjectManagersLoading);
+        if (activeTab === 'structural') lazyGet('structural', '/structural-engineers', setStructuralEngineers, setIsStructuralLoading);
+        if (activeTab === 'mep') lazyGet('mep', '/mep-engineers', setMepEngineers, setIsMepLoading);
+    }, [activeTab, user, lazyFetched]);
 
     const refreshProjects = async () => {
         setIsProjectsLoading(true);

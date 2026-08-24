@@ -53,6 +53,8 @@ export interface ProjectMilestone {
     created_at: string;
 }
 
+// NOTE: this interface was previously declared TWICE with conflicting members
+// (a hard TypeScript error that was invisible because tsc never ran).
 export interface ProjectDocument {
     id: number;
     project_id: number;
@@ -61,13 +63,16 @@ export interface ProjectDocument {
     file_path: string;
     file_url?: string;
     file_type?: string;
-    category?: string;
-    status?: 'pending' | 'approved' | 'revision_requested' | string;
+    category?: 'general' | 'blueprint' | 'render' | 'technical' | 'src' | 'technical_handoff' | 'structural_calc' | 'mep_layout' | 'others' | string;
+    status?: 'pending' | 'approved' | 'revision_requested' | 'uploaded' | 'under_review' | 'awaiting_signature' | 'legally_binding' | 'verified' | string;
     target_role?: string;
     version_label?: string;
+    is_signed?: boolean;
+    requires_signature?: boolean;
     review_note?: string | null;
     reviewed_at?: string | null;
     created_at: string;
+    uploader?: { id: number; name: string; role_type: string };
 }
 
 export interface Termin {
@@ -112,22 +117,6 @@ export interface ProjectComment {
     created_at: string;
     user?: { id: number; name: string };
     parent?: { id: number; message: string; user?: { id: number; name: string } };
-}
-
-export interface ProjectDocument {
-    id: number;
-    project_id: number;
-    uploader_id: number;
-    file_name: string;
-    file_path: string;
-    file_url?: string;
-    file_type: string;
-    category?: 'general' | 'blueprint' | 'render' | 'technical' | 'src' | 'technical_handoff' | 'structural_calc' | 'mep_layout' | 'others';
-    status?: 'uploaded' | 'under_review' | 'awaiting_signature' | 'legally_binding' | 'revision_requested' | 'verified';
-    is_signed?: boolean;
-    requires_signature?: boolean;
-    created_at: string;
-    uploader?: { id: number; name: string; role_type: string };
 }
 
 export interface ProjectReport {
@@ -371,7 +360,7 @@ export interface Project {
     structural_profile?: {
         name: string;
         type: 'platform_hired' | 'internal_team';
-        payment_status: 'unpaid' | 'paid';
+        payment_status: 'unpaid' | 'paid' | 'verifying';
         sub_professional_id?: number;
         user_id?: number;
         is_internal: boolean;
@@ -379,7 +368,7 @@ export interface Project {
     mep_profile?: {
         name: string;
         type: 'platform_hired' | 'internal_team';
-        payment_status: 'unpaid' | 'paid';
+        payment_status: 'unpaid' | 'paid' | 'verifying';
         sub_professional_id?: number;
         user_id?: number;
         is_internal: boolean;
@@ -406,16 +395,6 @@ export interface Project {
     user?: { id: number; name: string };
     is_structural_hired_4c?: boolean;
     is_mep_hired_4c?: boolean;
-    structural_profile?: {
-        name: string;
-        type: 'platform_hired' | 'internal_team';
-        payment_status: 'unpaid' | 'paid' | 'verifying';
-    };
-    mep_profile?: {
-        name: string;
-        type: 'platform_hired' | 'internal_team';
-        payment_status: 'unpaid' | 'paid' | 'verifying';
-    };
 }
 
 export type ProjectStatus = Project['status'];

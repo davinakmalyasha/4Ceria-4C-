@@ -928,10 +928,10 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
                                                 <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Primary Handling:</span>
                                                 <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest ${
                                                     templateSlots.find(s => s.id === selectedReqId)?.responsibleRole === 'Architect' 
-                                                    ? 'bg-blue-50 text-blue-600' 
+                                                    ? 'bg-slate-50 text-slate-600' 
                                                     : templateSlots.find(s => s.id === selectedReqId)?.responsibleRole === 'Architect & Notary'
                                                     ? 'bg-purple-50 text-purple-600'
-                                                    : 'bg-indigo-50 text-indigo-600'
+                                                    : 'bg-slate-50 text-slate-600'
                                                 }`}>
                                                     {templateSlots.find(s => s.id === selectedReqId)?.responsibleRole || 'Legal Expert'}
                                                 </span>
@@ -950,7 +950,7 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
                                                         {linkedTermin ? (
                                                             <div className="flex items-center gap-2">
                                                                 <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Linked Payment:</span>
-                                                                <div className="px-3 py-1.5 bg-blue-50/50 border border-blue-100 rounded-xl text-blue-700 text-[10px] font-bold flex items-center gap-2">
+                                                                <div className="px-3 py-1.5 bg-slate-50/50 border border-slate-100 rounded-xl text-slate-700 text-[10px] font-bold flex items-center gap-2">
                                                                     <Wallet size={12} />
                                                                     <span>{linkedTermin.label} ({linkedTermin.percentage}%) - {formatIDR(linkedTermin.amount)}</span>
                                                                     <span className={`px-2 py-0.5 text-[8px] font-black rounded-md ${linkedTermin.status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
@@ -959,7 +959,7 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
                                                                     {isNotaris && !isPhaseSealed && !isAgreedMilestone && (
                                                                         <button 
                                                                             onClick={() => handleUnlinkTermin(linkedTermin.id)}
-                                                                            className="text-blue-400 hover:text-blue-600 transition-colors ml-1 p-0.5"
+                                                                            className="text-slate-400 hover:text-slate-600 transition-colors ml-1 p-0.5"
                                                                             title="Remove Payment Link"
                                                                         >
                                                                             <X size={12} />

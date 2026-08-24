@@ -117,7 +117,7 @@ export default function ImportExternalVendorModal({
                                 <button 
                                     type="button"
                                     onClick={() => setIsManualEntry(true)}
-                                    className="text-[9px] font-black text-indigo-600 uppercase tracking-widest hover:underline"
+                                    className="text-[9px] font-black text-slate-600 uppercase tracking-widest hover:underline"
                                 >
                                     + Use External Partner
                                 </button>
@@ -167,7 +167,7 @@ export default function ImportExternalVendorModal({
                                         <button 
                                             type="button"
                                             onClick={() => setIsManualEntry(true)}
-                                            className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mt-2"
+                                            className="text-[10px] font-black text-slate-600 uppercase tracking-widest mt-2"
                                         >
                                             Or Enter Details Manually
                                         </button>

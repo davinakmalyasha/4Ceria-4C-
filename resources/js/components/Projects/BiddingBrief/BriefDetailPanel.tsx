@@ -87,7 +87,7 @@ export const BriefDetailPanel: React.FC<BriefDetailPanelProps> = ({ project, use
                             </span>
                             <span className="w-1 h-1 rounded-full bg-gray-200" />
                             <span className="flex items-center gap-1">
-                                <Calendar size={13} className="text-blue-400" />
+                                <Calendar size={13} className="text-slate-400" />
                                 {deadlineDate}
                             </span>
                         </div>
@@ -115,7 +115,7 @@ export const BriefDetailPanel: React.FC<BriefDetailPanelProps> = ({ project, use
                             {/* Spesifikasi Tanah */}
                             {dims.land_size ? (
                                 <div className="p-4 bg-slate-50/70 border border-slate-100 rounded-2xl space-y-2">
-                                    <div className="flex items-center gap-2 text-blue-600 font-bold text-xs uppercase tracking-wide">
+                                    <div className="flex items-center gap-2 text-slate-600 font-bold text-xs uppercase tracking-wide">
                                         <Maximize size={14} />
                                         <span>Spesifikasi Tanah</span>
                                     </div>
@@ -132,7 +132,7 @@ export const BriefDetailPanel: React.FC<BriefDetailPanelProps> = ({ project, use
                             {/* Spesifikasi Bangunan */}
                             {dims.building_size ? (
                                 <div className="p-4 bg-slate-50/70 border border-slate-100 rounded-2xl space-y-2">
-                                    <div className="flex items-center gap-2 text-indigo-600 font-bold text-xs uppercase tracking-wide">
+                                    <div className="flex items-center gap-2 text-slate-600 font-bold text-xs uppercase tracking-wide">
                                         <Ruler size={14} />
                                         <span>Spesifikasi Bangunan</span>
                                     </div>

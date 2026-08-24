@@ -137,14 +137,14 @@ export default function AddonMilestoneModal({ project, phaseContext, onClose, on
 
                         <div className="space-y-2">
                             <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1 flex items-center gap-2">
-                                <Clock size={12} className="text-blue-400" /> Time Impact (Days)
+                                <Clock size={12} className="text-slate-400" /> Time Impact (Days)
                             </label>
                             <input 
                                 type="number"
                                 value={timeImpact} 
                                 onChange={e => setTimeImpact(e.target.value)} 
                                 placeholder="0" 
-                                className="w-full px-6 py-4 bg-white/5 border border-white/10 rounded-2xl text-white text-sm outline-none focus:border-blue-500 focus:bg-white/10 transition-all font-bold placeholder:text-white/20" 
+                                className="w-full px-6 py-4 bg-white/5 border border-white/10 rounded-2xl text-white text-sm outline-none focus:border-slate-500 focus:bg-white/10 transition-all font-bold placeholder:text-white/20" 
                             />
                         </div>
                     </div>

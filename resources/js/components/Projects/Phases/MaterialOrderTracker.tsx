@@ -199,7 +199,7 @@ export default function MaterialOrderTracker({ project, currentUser }: MaterialO
 
                                     <div className="flex items-center gap-2 shrink-0">
                                         {req.offer_to_buy && (
-                                            <div className="mr-2 px-3 py-1 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-1">
+                                            <div className="mr-2 px-3 py-1 bg-slate-50 text-slate-600 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-1">
                                                 <Info size={12} />
                                                 Offered to Buy
                                             </div>
@@ -234,9 +234,9 @@ export default function MaterialOrderTracker({ project, currentUser }: MaterialO
                     <p className="text-[10px] font-black uppercase tracking-widest text-emerald-500 mb-1">Delivered</p>
                     <h4 className="text-2xl font-black text-emerald-700">{orders.filter(o => o.status === 'delivered').length}</h4>
                 </div>
-                <div className="p-5 bg-blue-50 rounded-2xl border border-blue-100">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-blue-500 mb-1">In Transit</p>
-                    <h4 className="text-2xl font-black text-blue-700">{orders.filter(o => o.status === 'shipped').length}</h4>
+                <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">In Transit</p>
+                    <h4 className="text-2xl font-black text-slate-700">{orders.filter(o => o.status === 'shipped').length}</h4>
                 </div>
                 <div className="p-5 bg-amber-50 rounded-2xl border border-amber-100">
                     <p className="text-[10px] font-black uppercase tracking-widest text-amber-600 mb-1">Total Spent</p>
@@ -313,7 +313,7 @@ export default function MaterialOrderTracker({ project, currentUser }: MaterialO
                                             ))}
                                         </div>
                                         {order.tracking_number && (
-                                            <div className="mt-3 p-3 bg-indigo-50 rounded-xl flex items-center gap-2 text-xs font-bold text-indigo-700">
+                                            <div className="mt-3 p-3 bg-slate-50 rounded-xl flex items-center gap-2 text-xs font-bold text-slate-700">
                                                 <Truck size={14} />
                                                 <span>Tracking: {order.tracking_number}</span>
                                             </div>

@@ -173,7 +173,7 @@ export default function ProjectQA({ project, onRefresh, user: propUser }: Projec
                                                 {canEdit && (
                                                     <button
                                                         onClick={() => handleEditStart(comment)}
-                                                        className="p-1 rounded-md hover:bg-white text-gray-400 hover:text-blue-600 transition-all active:scale-95"
+                                                        className="p-1 rounded-md hover:bg-white text-gray-400 hover:text-slate-600 transition-all active:scale-95"
                                                         title="Edit comment"
                                                     >
                                                         <Edit2 size={12} />

@@ -131,10 +131,10 @@ export const PaymentProofModal: React.FC<PaymentProofModalProps> = ({ isOpen, on
                     </div>
 
                     {!isProfessional && (
-                        <div className="flex items-center gap-3 px-4 py-3 bg-blue-500/5 border border-blue-500/10 rounded-xl">
-                            <UserCheck size={16} className="text-blue-400" />
-                            <p className="text-[10px] text-blue-200/70 font-medium leading-tight">
-                                This payment will be sent to <span className="text-blue-400 font-bold uppercase tracking-wide">{termin.proName || 'Professional'}</span>. 
+                        <div className="flex items-center gap-3 px-4 py-3 bg-slate-500/5 border border-slate-500/10 rounded-xl">
+                            <UserCheck size={16} className="text-slate-400" />
+                            <p className="text-[10px] text-slate-200/70 font-medium leading-tight">
+                                This payment will be sent to <span className="text-slate-400 font-bold uppercase tracking-wide">{termin.proName || 'Professional'}</span>. 
                                 Our system tracks all transactions for your safety.
                             </p>
                         </div>
@@ -250,7 +250,7 @@ export const PaymentProofModal: React.FC<PaymentProofModalProps> = ({ isOpen, on
                                             value={notes}
                                             onChange={(e) => setNotes(e.target.value)}
                                             placeholder="Optional notes for the owner..."
-                                            className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-xs font-bold text-white focus:ring-1 focus:ring-blue-500 outline-none transition-all resize-none h-24"
+                                            className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-xs font-bold text-white focus:ring-1 focus:ring-slate-500 outline-none transition-all resize-none h-24"
                                         />
                                     </div>
 

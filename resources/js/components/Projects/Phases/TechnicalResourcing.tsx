@@ -212,8 +212,8 @@ export default function TechnicalResourcing({
 
         if (request.status === 'approved_unpaid') {
             statusLabel = 'Awaiting Client Payment';
-            statusColor = 'bg-indigo-100 text-indigo-800 border-indigo-200';
-            pulseColor = 'bg-indigo-500';
+            statusColor = 'bg-slate-100 text-slate-800 border-slate-200';
+            pulseColor = 'bg-slate-500';
         } else if (request.status === 'verifying') {
             statusLabel = 'Verifying Escrow Ledger';
             statusColor = 'bg-emerald-100 text-emerald-800 border-emerald-200';
@@ -269,11 +269,15 @@ export default function TechnicalResourcing({
 
                 {isOwner && request.status === 'approved_unpaid' && (
                     <div className="flex flex-col gap-2 pt-2 border-t border-slate-50">
-                        <button 
+                        <button
                             onClick={() => {
-                                window.location.href = `/projects/${project.id}?tab=payments&highlight=${request.id}`;
+                                // BUGFIX: /projects/{id}?tab=payments is not a real
+                                // SPA route — use the dashboard tab-switch event.
+                                window.dispatchEvent(new CustomEvent('switchDashboardTab', {
+                                    detail: { tab: 'project-detail', projectId: project.id, subTab: 'payments' }
+                                }));
                             }}
-                            className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-md shadow-indigo-600/10 flex items-center justify-center gap-1.5"
+                            className="w-full py-2.5 bg-zinc-900 hover:bg-zinc-800 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-md shadow-slate-600/10 flex items-center justify-center gap-1.5"
                         >
                             Upload Escrow Payment Proof
                         </button>
@@ -290,7 +294,8 @@ export default function TechnicalResourcing({
                                     cleanPhone = '62' + cleanPhone.substring(1);
                                 }
                                 const appUrl = window.location.origin;
-                                const paymentLink = `${appUrl}/projects/${project.id}?tab=payments&highlight=${request.id}`;
+                                // BUGFIX: dead SPA route replaced with the dashboard.
+                                const paymentLink = `${appUrl}/dashboard`;
                                 const messageTemplate = `Halo, permintaan koordinasi spesialis *${role.toUpperCase()}* untuk proyek *${project.title}* telah disetujui oleh Project Manager.\n\nSilakan lakukan pembayaran escrow sebesar *Rp ${Number(request.amount).toLocaleString('id-ID')}* agar tenaga spesialis dapat mulai diintegrasikan ke proyek.\n\nKlik link berikut untuk melakukan pembayaran escrow:\n${paymentLink}\n\nTerima kasih.`;
                                 const encodedMessage = encodeURIComponent(messageTemplate);
                                 const waUrl = cleanPhone 
@@ -305,7 +310,8 @@ export default function TechnicalResourcing({
                         <button 
                             onClick={() => {
                                 const appUrl = window.location.origin;
-                                const paymentLink = `${appUrl}/projects/${project.id}?tab=payments&highlight=${request.id}`;
+                                // BUGFIX: dead SPA route replaced with the dashboard.
+                                const paymentLink = `${appUrl}/dashboard`;
                                 const messageTemplate = `Halo, permintaan koordinasi spesialis *${role.toUpperCase()}* untuk proyek *${project.title}* telah disetujui oleh Project Manager.\n\nSilakan lakukan pembayaran escrow sebesar *Rp ${Number(request.amount).toLocaleString('id-ID')}* agar tenaga spesialis dapat mulai diintegrasikan ke proyek.\n\nKlik link berikut untuk melakukan pembayaran escrow:\n${paymentLink}\n\nTerima kasih.`;
                                 navigator.clipboard.writeText(messageTemplate);
                                 showToast('Pesan disalin! Silakan paste di Internal Chat.', 'success');
@@ -387,14 +393,14 @@ export default function TechnicalResourcing({
 
             {/* Smart Advisory Alert for Architect */}
             {isArchitect && (structuralRecommended || mepRecommended) && !requiresStructural && !requiresMep && (
-                <div className="p-6 bg-indigo-50 border-2 border-indigo-100 rounded-[2rem] flex flex-col md:flex-row items-center justify-between gap-6 animate-in slide-in-from-top-2 duration-500">
+                <div className="p-6 bg-slate-50 border-2 border-slate-100 rounded-[2rem] flex flex-col md:flex-row items-center justify-between gap-6 animate-in slide-in-from-top-2 duration-500">
                     <div className="flex items-center gap-4 text-center md:text-left">
-                        <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-indigo-600 shadow-sm shrink-0">
+                        <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-slate-600 shadow-sm shrink-0">
                             <AlertTriangle size={24} />
                         </div>
                         <div>
-                            <h4 className="text-sm font-black text-indigo-900 uppercase tracking-widest">Engineering Advisory</h4>
-                            <p className="text-[10px] text-indigo-700 font-bold leading-tight mt-1">
+                            <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest">Engineering Advisory</h4>
+                            <p className="text-[10px] text-slate-700 font-bold leading-tight mt-1">
                                 Based on your current plan ({floorCount} Floors / {targetArea} sqm), specialized engineering is legally recommended.
                             </p>
                         </div>
@@ -403,7 +409,7 @@ export default function TechnicalResourcing({
                         {structuralRecommended && !requiresStructural && (
                             <button 
                                 onClick={() => handleRequestEngineering('structural')}
-                                className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200"
+                                className="px-5 py-2.5 bg-zinc-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-zinc-800 transition-all shadow-lg shadow-slate-200"
                             >
                                 Request Structural
                             </button>
@@ -425,12 +431,12 @@ export default function TechnicalResourcing({
                 {/* Structural Engineer Block */}
                 {(!activeTab || activeTab === 'structural') && (
                 <div className={`p-6 border-2 rounded-3xl space-y-5 transition-colors ${
-                    requiresStructural ? 'border-indigo-500/30 bg-indigo-50/10' : 'border-slate-100 bg-slate-50/50'
+                    requiresStructural ? 'border-slate-500/30 bg-slate-50/10' : 'border-slate-100 bg-slate-50/50'
                 }`}>
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                             <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                                requiresStructural ? 'bg-indigo-100 text-indigo-600 shadow-sm' : 'bg-slate-200 text-slate-600'
+                                requiresStructural ? 'bg-slate-100 text-slate-600 shadow-sm' : 'bg-slate-200 text-slate-600'
                             }`}>
                                 <HardHat size={20} />
                             </div>
@@ -445,8 +451,8 @@ export default function TechnicalResourcing({
                             <span className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-lg text-[10px] font-black uppercase tracking-widest">Assigned</span>
                         ) : awaitingPaymentStructural ? (
                             <div className="flex items-center gap-2">
-                                <span className="flex h-2 w-2 rounded-full bg-indigo-500 animate-pulse" />
-                                <span className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-lg text-[10px] font-black uppercase tracking-widest border border-indigo-200">
+                                <span className="flex h-2 w-2 rounded-full bg-slate-500 animate-pulse" />
+                                <span className="px-3 py-1 bg-slate-100 text-slate-700 rounded-lg text-[10px] font-black uppercase tracking-widest border border-slate-200">
                                     {awaitingPaymentStructural.status === 'verifying' ? 'Verifying Payment' : 'Awaiting Payment'}
                                 </span>
                             </div>
@@ -475,10 +481,10 @@ export default function TechnicalResourcing({
 
                     {requiresStructural && !hasStructural && !pendingStructuralRequest && !awaitingPaymentStructural && (
                         <div className="space-y-4">
-                            <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-2xl flex items-center justify-between">
+                            <div className="p-3 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-between">
                                 <div className="flex items-center gap-3">
-                                    <Users className="text-indigo-500 shrink-0" size={16} />
-                                    <p className="text-[11px] text-indigo-800 font-semibold italic">
+                                    <Users className="text-slate-500 shrink-0" size={16} />
+                                    <p className="text-[11px] text-slate-800 font-semibold italic">
                                         "{project.bids_structural_count || 0} Engineering bids pending review"
                                     </p>
                                 </div>
@@ -495,10 +501,10 @@ export default function TechnicalResourcing({
                                             <UserPlus size={12} />
                                             Bring Own Team
                                         </button>
-                                        <button onClick={() => handleInvitePartner('structural')} disabled={!!isProcessing} className="px-3 py-1 bg-white border border-indigo-200 text-indigo-600 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-indigo-50 transition-all">
+                                        <button onClick={() => handleInvitePartner('structural')} disabled={!!isProcessing} className="px-3 py-1 bg-white border border-slate-200 text-slate-600 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all">
                                             Invite Partner
                                         </button>
-                                        <button onClick={() => setShowBidsBoard('structural')} className="px-3 py-1 bg-indigo-600 text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-sm">
+                                        <button onClick={() => setShowBidsBoard('structural')} className="px-3 py-1 bg-zinc-900 text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-zinc-800 transition-all shadow-sm">
                                             Review Bids
                                         </button>
                                     </div>
@@ -509,7 +515,7 @@ export default function TechnicalResourcing({
                             {(project.bids_structural || []).length > 0 && (
                                 <div className="space-y-3 mt-4">
                                     {project.bids_structural?.map((bid: any) => (
-                                        <div key={bid.id} className="p-4 bg-white border border-slate-200 rounded-2xl shadow-sm hover:border-indigo-300 transition-all">
+                                        <div key={bid.id} className="p-4 bg-white border border-slate-200 rounded-2xl shadow-sm hover:border-slate-300 transition-all">
                                             <div className="flex justify-between items-start mb-3">
                                                 <div>
                                                     <h5 className="text-sm font-black text-slate-900">{bid.bidder?.name || 'Engineer'}</h5>
@@ -529,7 +535,7 @@ export default function TechnicalResourcing({
  
                                             {bid.is_recommended && (
                                                 <div className="flex items-center gap-2 mb-3">
-                                                    <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-[8px] font-black uppercase tracking-widest rounded flex items-center gap-1">
+                                                    <span className="px-2 py-0.5 bg-slate-100 text-slate-700 text-[8px] font-black uppercase tracking-widest rounded flex items-center gap-1">
                                                         <ShieldCheck size={10} /> Architect Recommended
                                                     </span>
                                                 </div>
@@ -541,7 +547,7 @@ export default function TechnicalResourcing({
                                                         <button 
                                                             onClick={() => handleAuthorizeSpecialist(bid.id, 'structural')}
                                                             disabled={!!isProcessing}
-                                                            className="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-black uppercase tracking-widest transition-all shadow-md shadow-indigo-600/20 flex justify-center items-center gap-2"
+                                                            className="flex-1 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white text-[10px] font-black uppercase tracking-widest transition-all shadow-md shadow-slate-600/20 flex justify-center items-center gap-2"
                                                         >
                                                             {isProcessing === `accept-${bid.id}` ? 'Processing...' : 'Confirm & Hire'}
                                                         </button>
@@ -568,7 +574,7 @@ export default function TechnicalResourcing({
                                                     {(!bid.status || bid.status === 'pending') ? (
                                                         <button 
                                                             onClick={() => onShortlist?.(bid.id, 'structural')}
-                                                            className="flex-1 py-2.5 bg-indigo-600 text-white text-[9px] font-black uppercase tracking-widest rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200"
+                                                            className="flex-1 py-2.5 bg-zinc-900 text-white text-[9px] font-black uppercase tracking-widest rounded-xl hover:bg-zinc-800 transition-all shadow-lg shadow-slate-200"
                                                         >
                                                             Shortlist for Interview
                                                         </button>
@@ -741,7 +747,7 @@ export default function TechnicalResourcing({
  
                                             {bid.is_recommended && (
                                                 <div className="flex items-center gap-2 mb-3">
-                                                    <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-[8px] font-black uppercase tracking-widest rounded flex items-center gap-1">
+                                                    <span className="px-2 py-0.5 bg-slate-100 text-slate-700 text-[8px] font-black uppercase tracking-widest rounded flex items-center gap-1">
                                                         <ShieldCheck size={10} /> Architect Recommended
                                                     </span>
                                                 </div>
@@ -955,7 +961,7 @@ export default function TechnicalResourcing({
  
                                             {bid.is_recommended && (
                                                 <div className="flex items-center gap-2 mb-3">
-                                                    <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-[8px] font-black uppercase tracking-widest rounded flex items-center gap-1">
+                                                    <span className="px-2 py-0.5 bg-slate-100 text-slate-700 text-[8px] font-black uppercase tracking-widest rounded flex items-center gap-1">
                                                         <ShieldCheck size={10} /> Architect Recommended
                                                     </span>
                                                 </div>

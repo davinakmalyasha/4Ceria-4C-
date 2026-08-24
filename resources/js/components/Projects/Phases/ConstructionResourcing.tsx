@@ -178,7 +178,7 @@ export default function ConstructionResourcing({
                                 <h3 className="text-2xl font-black text-slate-900 tracking-tight">
                                     {activeSub.user?.name || 'Assigned Specialist'}
                                 </h3>
-                                <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mt-1">
+                                <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mt-1">
                                     {roleConfig.label} Specialist
                                 </p>
                             </div>

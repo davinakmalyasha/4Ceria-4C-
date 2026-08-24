@@ -335,7 +335,7 @@ export default function PMSchedule({ project, user, onRefresh, onNavigateToRepor
                     <div className="bg-white rounded-[2.5rem] border border-gray-100 p-10 shadow-sm relative overflow-hidden">
                         <div className="flex items-center justify-between mb-12">
                             <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest">Master Execution Flow</h3>
-                            <div className="flex items-center gap-2 px-3 py-1 bg-indigo-50 text-indigo-600 text-[10px] font-black uppercase tracking-widest rounded-lg">
+                            <div className="flex items-center gap-2 px-3 py-1 bg-slate-50 text-slate-600 text-[10px] font-black uppercase tracking-widest rounded-lg">
                                 <Activity size={12} />
                                 Live Tracker Active
                             </div>
@@ -360,7 +360,7 @@ export default function PMSchedule({ project, user, onRefresh, onNavigateToRepor
                                         <div className={`
                                             absolute left-0 top-0 w-10 h-10 rounded-2xl flex items-center justify-center z-10 transition-all duration-500
                                             ${isCompleted ? 'bg-emerald-500 text-white shadow-xl shadow-emerald-100' :
-                                                isActive ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-100 scale-110' :
+                                                isActive ? 'bg-zinc-900 text-white shadow-xl shadow-slate-100 scale-110' :
                                                     isDelayed ? 'bg-rose-500 text-white shadow-xl shadow-rose-100 animate-pulse' :
                                                         'bg-white border-2 border-gray-100 text-gray-300'}
                                         `}>
@@ -374,7 +374,7 @@ export default function PMSchedule({ project, user, onRefresh, onNavigateToRepor
                                                         {phase.phase_slug.replace('_', ' ')} Phase
                                                     </h4>
                                                     {isActive && (
-                                                        <span className="px-2 py-0.5 bg-indigo-500 text-white text-[8px] font-black uppercase tracking-widest rounded">In Progress</span>
+                                                        <span className="px-2 py-0.5 bg-slate-500 text-white text-[8px] font-black uppercase tracking-widest rounded">In Progress</span>
                                                     )}
                                                 </div>
                                                 <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[11px] font-bold text-gray-400">
@@ -389,7 +389,7 @@ export default function PMSchedule({ project, user, onRefresh, onNavigateToRepor
                                                     {reportsCount > 0 && (
                                                         <button
                                                             onClick={() => setExpandedPhase(expandedPhase === phase.phase_slug ? null : phase.phase_slug)}
-                                                            className="flex items-center gap-1.5 text-indigo-600 font-black hover:text-indigo-800 hover:bg-indigo-50 px-2 py-0.5 rounded-md transition-all cursor-pointer group/link"
+                                                            className="flex items-center gap-1.5 text-slate-600 font-black hover:text-slate-800 hover:bg-slate-50 px-2 py-0.5 rounded-md transition-all cursor-pointer group/link"
                                                         >
                                                             <FileText size={12} className="group-hover/link:scale-110 transition-transform" />
                                                             <span>{reportsCount} {reportsCount === 1 ? 'Report' : 'Reports'} Linked</span>
@@ -402,7 +402,7 @@ export default function PMSchedule({ project, user, onRefresh, onNavigateToRepor
                                                 <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                     <button
                                                         onClick={() => handleOpenReportBuilder(phase)}
-                                                        className="px-4 py-2 text-indigo-600 text-[10px] font-black uppercase tracking-widest hover:bg-indigo-50 rounded-xl transition-all flex items-center gap-2"
+                                                        className="px-4 py-2 text-slate-600 text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 rounded-xl transition-all flex items-center gap-2"
                                                     >
                                                         <Plus size={14} />
                                                         Add Report
@@ -435,7 +435,7 @@ export default function PMSchedule({ project, user, onRefresh, onNavigateToRepor
                                                     exit={{ opacity: 0, height: 0 }}
                                                     className="overflow-hidden mt-4 pl-4 space-y-4"
                                                 >
-                                                    <div className="border-l-2 border-indigo-50 pl-4 space-y-4">
+                                                    <div className="border-l-2 border-slate-50 pl-4 space-y-4">
                                                         {phaseReports.map(report => (
                                                             <PMReportCard
                                                                 key={report.id}
@@ -551,7 +551,7 @@ export default function PMSchedule({ project, user, onRefresh, onNavigateToRepor
                                 </div>
                                 <div className="pt-6 border-t border-white/10">
                                     <p className="text-[10px] uppercase tracking-widest opacity-50 mb-2 font-bold">Current Milestone</p>
-                                    <p className="text-xs font-black uppercase tracking-widest text-indigo-400">{summary.current_phase?.replace('_', ' ') || 'None'}</p>
+                                    <p className="text-xs font-black uppercase tracking-widest text-slate-400">{summary.current_phase?.replace('_', ' ') || 'None'}</p>
                                 </div>
                             </div>
                         </div>
@@ -592,7 +592,7 @@ export default function PMSchedule({ project, user, onRefresh, onNavigateToRepor
                                             type="date"
                                             value={phaseData.target_start_date}
                                             onChange={e => setPhaseData({ ...phaseData, target_start_date: e.target.value })}
-                                            className="w-full p-4 bg-gray-50 rounded-2xl border-none text-sm font-bold focus:ring-2 focus:ring-indigo-500/20 transition-all"
+                                            className="w-full p-4 bg-gray-50 rounded-2xl border-none text-sm font-bold focus:ring-2 focus:ring-slate-500/20 transition-all"
                                         />
                                     </div>
                                     <div className="space-y-2">
@@ -601,7 +601,7 @@ export default function PMSchedule({ project, user, onRefresh, onNavigateToRepor
                                             type="date"
                                             value={phaseData.target_end_date}
                                             onChange={e => setPhaseData({ ...phaseData, target_end_date: e.target.value })}
-                                            className="w-full p-4 bg-gray-50 rounded-2xl border-none text-sm font-bold focus:ring-2 focus:ring-indigo-500/20 transition-all"
+                                            className="w-full p-4 bg-gray-50 rounded-2xl border-none text-sm font-bold focus:ring-2 focus:ring-slate-500/20 transition-all"
                                         />
                                     </div>
                                 </div>
@@ -612,7 +612,7 @@ export default function PMSchedule({ project, user, onRefresh, onNavigateToRepor
                                         <select
                                             value={phaseData.status}
                                             onChange={e => setPhaseData({ ...phaseData, status: e.target.value })}
-                                            className="w-full p-4 bg-gray-50 rounded-2xl border-none text-sm font-bold focus:ring-2 focus:ring-indigo-500/20 transition-all appearance-none cursor-pointer"
+                                            className="w-full p-4 bg-gray-50 rounded-2xl border-none text-sm font-bold focus:ring-2 focus:ring-slate-500/20 transition-all appearance-none cursor-pointer"
                                         >
                                             <option value="pending">Pending</option>
                                             <option value="active">Active (In Progress)</option>
@@ -627,7 +627,7 @@ export default function PMSchedule({ project, user, onRefresh, onNavigateToRepor
                                                 type="range" min="0" max="100"
                                                 value={phaseData.progress_percentage}
                                                 onChange={e => setPhaseData({ ...phaseData, progress_percentage: Number(e.target.value) })}
-                                                className="flex-1 accent-indigo-600"
+                                                className="flex-1 accent-slate-600"
                                             />
                                         </div>
                                     </div>
@@ -638,7 +638,7 @@ export default function PMSchedule({ project, user, onRefresh, onNavigateToRepor
                                     <textarea
                                         value={phaseData.notes}
                                         onChange={e => setPhaseData({ ...phaseData, notes: e.target.value })}
-                                        className="w-full h-24 p-5 bg-gray-50 rounded-2xl border-none text-sm font-medium resize-none focus:ring-2 focus:ring-indigo-500/20 transition-all"
+                                        className="w-full h-24 p-5 bg-gray-50 rounded-2xl border-none text-sm font-medium resize-none focus:ring-2 focus:ring-slate-500/20 transition-all"
                                         placeholder="Add internal notes for this phase..."
                                     />
                                 </div>

@@ -110,7 +110,7 @@ export default function EngineeringWorkspace({ project, user, onRefresh, onShort
 
             {/* Specialist Bid Forms (For Professionals) */}
             {isStructuralPro && !project.structural_id && isStructuralPublished && !hasSubmittedStructural && (
-                <div className="bg-white border-2 border-indigo-100 rounded-[2.5rem] p-10 shadow-xl">
+                <div className="bg-white border-2 border-slate-100 rounded-[2.5rem] p-10 shadow-xl">
                     <ProjectBidForm project={project} user={user} onSuccess={onRefresh} />
                 </div>
             )}
@@ -136,7 +136,7 @@ export default function EngineeringWorkspace({ project, user, onRefresh, onShort
             {/* PM Approval Board */}
             {isPM && pendingRequests.length > 0 && (
                 <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white shadow-xl relative overflow-hidden border border-white/10">
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full -mr-32 -mt-32 blur-3xl opacity-50" />
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-slate-500/10 rounded-full -mr-32 -mt-32 blur-3xl opacity-50" />
                     <div className="relative z-10 space-y-6">
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 bg-amber-500/20 text-amber-400 rounded-xl flex items-center justify-center">
@@ -152,7 +152,7 @@ export default function EngineeringWorkspace({ project, user, onRefresh, onShort
                             {pendingRequests.map((req: any) => (
                                 <div key={req.id} className="p-4 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-between group hover:bg-white/10 transition-all">
                                     <div className="flex items-center gap-4">
-                                        <div className="w-10 h-10 bg-indigo-500/20 text-indigo-400 rounded-xl flex items-center justify-center">
+                                        <div className="w-10 h-10 bg-slate-500/20 text-slate-400 rounded-xl flex items-center justify-center">
                                             <UserPlus size={18} />
                                         </div>
                                         <div>
@@ -184,12 +184,12 @@ export default function EngineeringWorkspace({ project, user, onRefresh, onShort
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Structural Section */}
                 <div className="lg:col-span-1 space-y-6">
-                    <div className="bg-white border-2 border-indigo-100 rounded-[2rem] p-6 shadow-sm relative overflow-hidden">
+                    <div className="bg-white border-2 border-slate-100 rounded-[2rem] p-6 shadow-sm relative overflow-hidden">
                         <div className="absolute top-0 right-0 p-4 opacity-5">
                             <HardHat size={80} />
                         </div>
                         <div className="flex items-center gap-3 mb-6">
-                            <div className="w-10 h-10 bg-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center">
+                            <div className="w-10 h-10 bg-slate-100 text-slate-600 rounded-xl flex items-center justify-center">
                                 <HardHat size={20} />
                             </div>
                             <h3 className="font-black text-slate-900 uppercase tracking-widest text-xs">Structural Engineering</h3>
@@ -197,13 +197,13 @@ export default function EngineeringWorkspace({ project, user, onRefresh, onShort
 
                         {project.structural_engineer ? (
                             <div className="space-y-4">
-                                <div className="flex items-center gap-3 p-3 bg-indigo-50 rounded-2xl border border-indigo-100">
-                                    <div className="w-10 h-10 rounded-full bg-indigo-200 border-2 border-white flex items-center justify-center overflow-hidden">
+                                <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-100">
+                                    <div className="w-10 h-10 rounded-full bg-slate-200 border-2 border-white flex items-center justify-center overflow-hidden">
                                         <img src={`https://ui-avatars.com/api/?name=${project.structural_engineer.name}&background=6366f1&color=fff`} alt="" />
                                     </div>
                                     <div>
                                         <p className="text-xs font-black text-slate-900">{project.structural_engineer.name}</p>
-                                        <p className="text-[10px] text-indigo-600 font-bold uppercase tracking-wider">Hired Specialist</p>
+                                        <p className="text-[10px] text-slate-600 font-bold uppercase tracking-wider">Hired Specialist</p>
                                     </div>
                                 </div>
 
@@ -214,7 +214,7 @@ export default function EngineeringWorkspace({ project, user, onRefresh, onShort
                                         </div>
                                     ) : (
                                         <label className="block w-full cursor-pointer group">
-                                            <div className="w-full py-3 border-2 border-dashed border-indigo-200 rounded-2xl flex items-center justify-center gap-2 group-hover:border-indigo-400 group-hover:bg-indigo-50 transition-all text-[10px] font-black text-indigo-500 uppercase tracking-widest">
+                                            <div className="w-full py-3 border-2 border-dashed border-slate-200 rounded-2xl flex items-center justify-center gap-2 group-hover:border-slate-400 group-hover:bg-slate-50 transition-all text-[10px] font-black text-slate-500 uppercase tracking-widest">
                                                 <Upload size={14} />
                                                 {isUploading ? 'Uploading...' : 'Upload Calc/Layout'}
                                             </div>
@@ -339,7 +339,7 @@ export default function EngineeringWorkspace({ project, user, onRefresh, onShort
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="p-6 bg-white border border-slate-100 rounded-3xl space-y-3">
-                            <div className="flex items-center gap-2 text-indigo-600">
+                            <div className="flex items-center gap-2 text-slate-600">
                                 <ShieldCheck size={18} />
                                 <h4 className="text-xs font-black uppercase tracking-widest">Load Safety</h4>
                             </div>

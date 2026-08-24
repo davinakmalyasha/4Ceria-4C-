@@ -34,46 +34,14 @@ export default function Login() {
         }
     };
 
-    const handleQuickLogin = async (targetEmail: string) => {
-        setError('');
-        setIsLoading(true);
-        setEmail(targetEmail);
-        
-        // 1. Try 'password'
-        try {
-            const res = await axios.post('/login', { email: targetEmail, password: 'password' });
-            setPassword('password');
-            login(res.data.access_token, res.data.user);
-            navigate('/dashboard');
-            return;
-        } catch (err) {
-            // Silently swallow and try next
-        }
-
-        // 2. Try '12345678'
-        try {
-            const res = await axios.post('/login', { email: targetEmail, password: '12345678' });
-            setPassword('12345678');
-            login(res.data.access_token, res.data.user);
-            navigate('/dashboard');
-            return;
-        } catch (err) {
-            // Silently swallow and try next
-        }
-
-        // 3. Try '123'
-        try {
-            const res = await axios.post('/login', { email: targetEmail, password: '123' });
-            setPassword('123');
-            login(res.data.access_token, res.data.user);
-            navigate('/dashboard');
-            return;
-        } catch (err: any) {
-            setError(err.response?.data?.message || 'Invalid login credentials');
-        } finally {
-            setIsLoading(false);
-        }
-    };
+    // Dev-only quick login panel lives in an untracked ./dev/ folder.
+    // SECURITY: the glob is resolved from the FILESYSTEM at build time, so it must be
+    // gated behind import.meta.env.DEV — otherwise the seeded credentials dictionary
+    // would be inlined into production bundles on any machine that has the file.
+    const quickLoginModule = import.meta.env.DEV
+        ? (import.meta.glob<{ default: React.ComponentType }>('./dev/QuickLoginPanel.tsx', { eager: true }) as Record<string, { default: React.ComponentType }>)['./dev/QuickLoginPanel.tsx']
+        : undefined;
+    const QuickLoginPanel = quickLoginModule?.default;
 
     return (
         <div className="min-h-screen bg-white flex relative overflow-hidden font-sans">
@@ -207,63 +175,7 @@ export default function Login() {
                             </button>
                         </form>
 
-                        {/* TEMPORARY QUICK LOGIN (FOR TESTING) */}
-                        <div className="mt-8 p-6 bg-red-50/50 border border-red-100 rounded-3xl overflow-hidden relative">
-                             <div className="absolute top-0 right-0 p-4 opacity-10 rotate-12">
-                                <ShieldCheck className="w-12 h-12 text-red-600" />
-                             </div>
-                            <h3 className="text-[10px] font-black text-red-600 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
-                                <div className="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse" />
-                                DEV MODE: QUICK LOGIN
-                            </h3>
-                            <div className="grid grid-cols-3 gap-2">
-                                {[
-                                    { name: 'Admin', email: 'admin@4c.id' },
-                                    { name: 'Owner', email: 'davin@gmail.com' },
-                                    { name: 'Arsitek', email: 'giska@gmail.com' },
-                                    { name: 'Constructor', email: 'anindia@gmail.com' },
-                                    { name: 'Notary', email: 'rede@gmail.com' },
-                                    { name: 'Interior', email: 'abel@gmail.com' },
-                                    { name: 'Courier', email: 'fariz@gmail.com' },
-                                    { name: 'Supplier', email: 'akmal@gmail.com' },
-                                    { name: 'PM', email: 'aisha@gmail.com' },
-                                    { name: 'Structural', email: 'budi_struc@gmail.com' },
-                                    { name: 'MEP', email: 'andi_mep@gmail.com' },
-                                ].map((test) => (
-                                    <button
-                                        key={test.email}
-                                        type="button"
-                                        onClick={() => handleQuickLogin(test.email)}
-                                        className="py-2 px-1 text-[9px] font-bold bg-white border border-red-100 text-neutral-800 rounded-lg hover:bg-red-500 hover:text-white transition-all shadow-sm active:scale-95"
-                                    >
-                                        {test.name}
-                                    </button>
-                                ))}
-                            </div>
-                            <div className="mt-3 pt-3 border-t border-red-100">
-                                <p className="text-[8px] font-black text-red-400 uppercase tracking-widest mb-2">Sub-Contractors</p>
-                                <div className="grid grid-cols-3 gap-1.5">
-                                    {[
-                                        { name: 'Civil', email: 'sub_civil@gmail.com' },
-                                        { name: 'Mechanical', email: 'sub_mechanical@gmail.com' },
-                                        { name: 'Electrical', email: 'sub_electrical@gmail.com' },
-                                        { name: 'Plumbing', email: 'sub_plumbing@gmail.com' },
-                                        { name: 'Roofing', email: 'sub_roofing@gmail.com' },
-                                        { name: 'Finishing', email: 'sub_finishing@gmail.com' },
-                                    ].map((test) => (
-                                        <button
-                                            key={test.email}
-                                            type="button"
-                                            onClick={() => handleQuickLogin(test.email)}
-                                            className="py-1.5 px-1 text-[8px] font-bold bg-orange-50 border border-orange-100 text-orange-800 rounded-md hover:bg-orange-500 hover:text-white transition-all shadow-sm active:scale-95"
-                                        >
-                                            {test.name}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                            <p className="mt-3 text-[9px] text-red-400 italic text-center">Click to instantly login as role</p>
-                        </div>
+                        {QuickLoginPanel && <QuickLoginPanel />}
                     </motion.div>
 
                     {/* Secondary Branded Redirect for Professionals */}

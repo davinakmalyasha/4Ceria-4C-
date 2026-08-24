@@ -103,7 +103,7 @@ export default function PhaseReadOnlySummary({
                     {['structural', 'mep', 'interior', 'arsitek'].includes(currentRoleKey) && (
                         <div className="bg-white border border-slate-100 rounded-[2rem] p-8 shadow-sm">
                             <div className="flex items-center gap-3 mb-6">
-                                <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center border border-indigo-100">
+                                <div className="w-10 h-10 bg-slate-50 text-slate-600 rounded-2xl flex items-center justify-center border border-slate-100">
                                     <FolderOpen size={18} />
                                 </div>
                                 <div>
@@ -143,7 +143,7 @@ export default function PhaseReadOnlySummary({
                                                 <span className="font-mono text-[8px] bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-black">
                                                     v{doc.version}
                                                 </span>
-                                                <Download size={14} className="text-slate-400 group-hover:text-indigo-600 transition-colors" />
+                                                <Download size={14} className="text-slate-400 group-hover:text-slate-600 transition-colors" />
                                             </div>
                                         </a>
                                     ))
