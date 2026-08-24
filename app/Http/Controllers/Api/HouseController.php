@@ -13,6 +13,7 @@ use App\Models\Regions;
 use App\Models\RoomPic;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 
@@ -48,6 +49,19 @@ class HouseController extends Controller
 
         if ($request->has('price_max') && !empty($request->price_max)) {
             $query->where('price', '<=', (float) $request->price_max);
+        }
+
+        // Room & area filters (frontend sends bedrooms/bathrooms/min_area)
+        if (!empty($request->bedrooms) && is_numeric($request->bedrooms)) {
+            $query->where('br', '>=', (int) $request->bedrooms);
+        }
+
+        if (!empty($request->bathrooms) && is_numeric($request->bathrooms)) {
+            $query->where('ba', '>=', (int) $request->bathrooms);
+        }
+
+        if (!empty($request->min_area) && is_numeric($request->min_area)) {
+            $query->whereRaw('(COALESCE(width, 0) * COALESCE(length, 0)) >= ?', [(float) $request->min_area]);
         }
 
         // Support sorting
@@ -174,7 +188,15 @@ class HouseController extends Controller
 
     public function show(House $house)
     {
-        $house->increment('views');
+        // PERF: previously wrote a row-lock UPDATE on the hottest public page
+        // for EVERY request (including bots). Now throttled: one view counted
+        // per viewer per house per 6 hours.
+        $viewerKey = 'house_view_' . $house->id . '_' . (Auth::id() ?? request()->ip());
+        if (!Cache::has($viewerKey)) {
+            Cache::put($viewerKey, true, 21600);
+            $house->increment('views');
+        }
+
         $house->load(['housePic', 'room.roomPic', 'user']);
 
         return new HouseResource($house);

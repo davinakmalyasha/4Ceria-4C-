@@ -21,8 +21,14 @@ class ProjectAddendumController extends Controller
     public function createFurnitureAddendum(Request $request, Project $project, ProjectMilestone $milestone)
     {
         $user = Auth::user();
+
+        // Binding check: the milestone must belong to THIS project.
+        if ((int) $milestone->project_id !== (int) $project->id) {
+            return response()->json(['message' => 'Not found.'], 404);
+        }
+
         // Validation: Only the hired interior designer can request furniture payment
-        if ($user->role_type !== 'interior' || $project->selected_interior_id !== optional($user->interior_profile)->id) {
+        if ($user->role_type !== 'interior' || (int) $project->selected_interior_id !== (int) optional($user->interior_profile)->id) {
             return response()->json(['message' => 'Unauthorized. Only the hired interior designer can request furniture payment.'], 403);
         }
 
@@ -77,6 +83,12 @@ class ProjectAddendumController extends Controller
     public function approveAddendum(Project $project, ProjectAddendum $addendum)
     {
         $user = Auth::user();
+
+        // Binding check: the addendum must belong to THIS project.
+        if ((int) $addendum->project_id !== (int) $project->id) {
+            return response()->json(['message' => 'Not found.'], 404);
+        }
+
         if (!$this->isProjectOwner($project, $user) && !($user->role_type === 'project_manager' && $project->pm_id === $user->id)) {
             return response()->json(['message' => 'Unauthorized. Only the Owner or PM can approve addendums.'], 403);
         }
@@ -170,6 +182,12 @@ class ProjectAddendumController extends Controller
     public function rejectAddendum(Project $project, ProjectAddendum $addendum)
     {
         $user = Auth::user();
+
+        // Binding check: the addendum must belong to THIS project.
+        if ((int) $addendum->project_id !== (int) $project->id) {
+            return response()->json(['message' => 'Not found.'], 404);
+        }
+
         if (!$this->isProjectOwner($project, $user) && !($user->role_type === 'project_manager' && $project->pm_id === $user->id)) {
             return response()->json(['message' => 'Unauthorized. Only the Owner or PM can reject addendums.'], 403);
         }
@@ -192,98 +210,6 @@ class ProjectAddendumController extends Controller
         $this->logActivity($project, 'addendum_rejected', "Rejected addendum: {$addendum->title}");
 
         return response()->json(['data' => $addendum]);
-    }
-
-    public function requestLegalDisbursement(Request $request, Project $project)
-    {
-        $user = Auth::user();
-        $request->validate([
-            'title' => 'required|string|max:255',
-            'amount' => 'required|numeric|min:0',
-            'description' => 'required|string',
-        ]);
-
-        if ($user->role_type !== 'notaris') {
-            return response()->json(['message' => 'Only the hired notary can request disbursements.'], 403);
-        }
-
-        $addendum = $project->addendums()->create([
-            'user_id' => $user->id,
-            'role_type' => 'notaris',
-            'title' => '[Legal Disbursement] ' . $request->title,
-            'description' => $request->description,
-            'amount' => $request->amount,
-            'status' => 'pending_approval'
-        ]);
-
-        $this->logActivity($project, 'legal_disbursement_requested', "Notary requested disbursement of Rp " . number_format($request->amount, 0, ',', '.') . " for: " . $request->title);
-
-        return response()->json(['data' => $addendum]);
-    }
-
-    public function verifyLegalDisbursement(Request $request, Project $project, ProjectAddendum $addendum)
-    {
-        $user = Auth::user();
-        if (!$this->isProjectOwner($project, $user) && !($user->role_type === 'project_manager' && $this->isHiredProfessional($project, $user))) {
-            return response()->json(['message' => 'Unauthorized. Only the Owner or PM can verify disbursements.'], 403);
-        }
-
-        if ($addendum->status !== 'pending_approval') {
-            return response()->json(['message' => 'Addendum is not pending verification.'], 422);
-        }
-
-        if ($request->status === 'paid') {
-            return DB::transaction(function () use ($project, $addendum, $request) {
-                $totalDeduction = $addendum->amount;
-
-                $financialService = app(\App\Services\ProjectFinancialService::class);
-                $success = $financialService->deductBudget(
-                    $project,
-                    $totalDeduction,
-                    'payment',
-                    "Legal Disbursement for {$addendum->title}",
-                    "ProjectAddendum",
-                    $addendum->id
-                );
-
-                if (!$success) {
-                    return response()->json(['message' => 'Insufficient project budget to disburse this amount.'], 400);
-                }
-
-                $addendum->update([
-                    'status' => 'paid',
-                    'paid_at' => now()
-                ]);
-
-                $this->logActivity($project, 'legal_disbursement_verified', "{$request->status} disbursement order '{$addendum->title}'");
-
-                return response()->json(['data' => $addendum]);
-            });
-        }
-        
-        $addendum->update(['status' => 'rejected']);
-        $this->logActivity($project, 'legal_disbursement_verified', "{$request->status} disbursement order '{$addendum->title}'");
-
-        return response()->json(['data' => $addendum]);
-    }
-
-    public function getLegalFinancials(Project $project)
-    {
-        // Find the accepted notary bid to get the pre-allocated tax budget
-        $notaryBid = BidNotaris::where('project_id', $project->id)->where('status', 'accepted')->first();
-        
-        // Sum up all approved disbursements that are tagged as 'legal' or 'disbursement'
-        $disbursements = $project->addendums()
-            ->where('role_type', 'notaris')
-            ->get();
-
-        return response()->json([
-            'allocated_tax' => $notaryBid ? (float)$notaryBid->tax_estimate : 0,
-            'professional_fee' => $notaryBid ? (float)$notaryBid->price : 0,
-            'disbursements' => $disbursements,
-            'total_spent' => (float)$disbursements->where('status', 'paid')->sum('amount'),
-            'pending_approval' => (float)$disbursements->where('status', 'pending_approval')->sum('amount'),
-        ]);
     }
 
     private function logActivity(Project $project, string $action, string $details): void

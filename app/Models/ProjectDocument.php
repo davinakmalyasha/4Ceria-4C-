@@ -20,10 +20,10 @@ class ProjectDocument extends Model
             return null;
         }
 
-        // Check if the path points to supabase stored items
+        // Check if the path points to private (Railway) storage items
         if (str_starts_with($this->file_path, 'contracts/') || str_starts_with($this->file_path, 'verifications/') || $this->category === 'spk') {
-            if (\Illuminate\Support\Facades\Storage::disk('supabase')->exists($this->file_path)) {
-                return \Illuminate\Support\Facades\Storage::disk('supabase')->temporaryUrl($this->file_path, now()->addMinutes(15));
+            if (\Illuminate\Support\Facades\Storage::disk('railway')->exists($this->file_path)) {
+                return \Illuminate\Support\Facades\Storage::disk('railway')->temporaryUrl($this->file_path, now()->addMinutes(15));
             }
         }
 

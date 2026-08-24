@@ -254,7 +254,9 @@ class ProfileController extends Controller
             if ($profile->npwp && $profile->npwp !== $profile->file_portofolio) {
                 Storage::disk('public')->delete($profile->npwp);
             }
-            $path = $portfolioFile->store("portfolios/user_{$profile->user_id}", 'public');
+            // SECURITY: NPWP/tax documents are KYC-grade and must land on the
+            // PRIVATE railway bucket, not the world-readable public one.
+            $path = $portfolioFile->store("portfolios/user_{$profile->user_id}", 'railway');
             $updates['file_portofolio'] = $path;
             $updates['npwp'] = $path; // keep both in sync for backward compatibility
         }
@@ -268,7 +270,8 @@ class ProfileController extends Controller
             if ($profile->siup && $profile->siup !== $profile->file_sertifikat) {
                 Storage::disk('public')->delete($profile->siup);
             }
-            $path = $sertifikatFile->store("certificates/user_{$profile->user_id}", 'public');
+            // SECURITY: SIUP/business licenses are KYC-grade — private bucket.
+            $path = $sertifikatFile->store("certificates/user_{$profile->user_id}", 'railway');
             $updates['file_sertifikat'] = $path;
             $updates['siup'] = $path; // keep both in sync for backward compatibility
         }
@@ -307,7 +310,7 @@ class ProfileController extends Controller
             'email' => 'required|email|max:255|unique:users,email,'.$user->id,
             'username' => 'required|string|max:255|unique:users,username,'.$user->id,
             'phone_numbers' => 'nullable', // Received as array or JSON string
-            'pic' => 'nullable|file|mimes:jpeg,png,jpg,gif,svg|max:5120',
+            'pic' => 'nullable|file|mimes:jpeg,png,jpg,gif,webp|max:5120',
         ]);
 
         $user->update([
@@ -352,7 +355,8 @@ class ProfileController extends Controller
     public function updateAvatar(Request $request)
     {
         $request->validate([
-            'pic' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+            // SVG excluded: it can carry active content (stored-XSS via /storage).
+            'pic' => 'required|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
         ]);
 
         $user = $request->user();

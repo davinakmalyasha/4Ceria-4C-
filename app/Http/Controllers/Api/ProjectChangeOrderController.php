@@ -5,14 +5,22 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Project;
 use App\Models\ProjectChangeOrder;
+use App\Traits\HandlesProjectAuthorization;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class ProjectChangeOrderController extends Controller
 {
+    use HandlesProjectAuthorization;
+
     public function index(Project $project)
     {
+        $user = Auth::user();
+        if (!$user || !$this->authorizeProjectAccess($project, $user)) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
         $orders = $project->changeOrders()->with('requester:id,name,role_type')->get()->map(function($order) {
             return [
                 'id' => 'co-' . $order->id,
@@ -53,6 +61,12 @@ class ProjectChangeOrderController extends Controller
     public function store(Request $request, Project $project)
     {
         $user = Auth::user();
+
+        // Only project participants may propose change orders.
+        if (!$this->authorizeProjectAccess($project, $user)) {
+            return response()->json(['message' => 'Unauthorized. Only project participants can submit change orders.'], 403);
+        }
+
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'description' => 'required|string|max:2000',
@@ -84,6 +98,12 @@ class ProjectChangeOrderController extends Controller
     public function pmReview(Request $request, Project $project, ProjectChangeOrder $changeOrder)
     {
         $user = Auth::user();
+
+        // Binding check: the change order must belong to THIS project.
+        if ((int) $changeOrder->project_id !== (int) $project->id) {
+            return response()->json(['message' => 'Not found.'], 404);
+        }
+
         if ($user->role_type !== 'project_manager' || $project->pm_id !== $user->id) {
             return response()->json(['message' => 'Only the assigned PM can review change orders.'], 403);
         }
@@ -109,6 +129,12 @@ class ProjectChangeOrderController extends Controller
     public function ownerDecide(Request $request, Project $project, ProjectChangeOrder $changeOrder)
     {
         $user = Auth::user();
+
+        // Binding check: the change order must belong to THIS project.
+        if ((int) $changeOrder->project_id !== (int) $project->id) {
+            return response()->json(['message' => 'Not found.'], 404);
+        }
+
         if ($user->id !== $project->user_id) {
             return response()->json(['message' => 'Only the project Owner can approve change orders.'], 403);
         }

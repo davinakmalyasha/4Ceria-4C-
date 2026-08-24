@@ -15,11 +15,38 @@ class ProjectDocumentController extends Controller
 {
     public function index(Request $request, Project $project)
     {
+        if (!$this->canAccess($project, Auth::user())) {
+            return response()->json(['message' => 'Unauthorized. You must be assigned to this project to view documents.'], 403);
+        }
+
         $query = $project->documents()->with('uploader');
         if ($request->has('target_role')) {
             $query->where('target_role', $request->target_role);
         }
         return response()->json(['data' => $query->get()]);
+    }
+
+    private function canAccess(Project $project, $user): bool
+    {
+        $isOwner = $project->user_id === $user->id;
+        $isPM = $user->role_type === 'project_manager' && $project->pm_id === $user->id;
+        $isHiredPro = false;
+        if ($user->role_type === 'arsitek' && $project->selected_arsitek_id === $user->arsitek?->id) $isHiredPro = true;
+        if ($user->role_type === 'kontraktor' && $project->selected_kontraktor_id === $user->kontraktor?->id) $isHiredPro = true;
+        if ($user->role_type === 'notaris' && $project->selected_notaris_id === $user->notaris_profile?->id) $isHiredPro = true;
+        if ($user->role_type === 'interior' && $project->selected_interior_id === $user->interior_profile?->id) $isHiredPro = true;
+        if ($user->role_type === 'structural' && $project->structural_id === $user->structural_engineer?->id) $isHiredPro = true;
+        if ($user->role_type === 'mep' && $project->mep_id === $user->mep_engineer?->id) $isHiredPro = true;
+
+        if ($isOwner || $isPM || $isHiredPro) {
+            return true;
+        }
+
+        return DB::table('project_sub_professionals')
+            ->where('project_id', $project->id)
+            ->where('user_id', $user->id)
+            ->where('status', 'active')
+            ->exists();
     }
 
     public function store(Request $request, Project $project)
@@ -36,23 +63,8 @@ class ProjectDocumentController extends Controller
         ]);
 
         $user = Auth::user();
-        $isOwner = $project->user_id === $user->id;
-        $isPM = $user->role_type === 'project_manager' && $project->pm_id === $user->id;
-        $isHiredPro = false;
-        if ($user->role_type === 'arsitek' && $project->selected_arsitek_id === $user->arsitek?->id) $isHiredPro = true;
-        if ($user->role_type === 'kontraktor' && $project->selected_kontraktor_id === $user->kontraktor?->id) $isHiredPro = true;
-        if ($user->role_type === 'notaris' && $project->selected_notaris_id === $user->notaris_profile?->id) $isHiredPro = true;
-        if ($user->role_type === 'interior' && $project->selected_interior_id === $user->interior_profile?->id) $isHiredPro = true;
-        if ($user->role_type === 'structural' && $project->structural_id === $user->structural_engineer?->id) $isHiredPro = true;
-        if ($user->role_type === 'mep' && $project->mep_id === $user->mep_engineer?->id) $isHiredPro = true;
-        
-        $isSubPro = DB::table('project_sub_professionals')
-            ->where('project_id', $project->id)
-            ->where('user_id', $user->id)
-            ->where('status', 'active')
-            ->exists();
 
-        if (!$isOwner && !$isPM && !$isHiredPro && !$isSubPro) {
+        if (!$this->canAccess($project, $user)) {
             return response()->json(['message' => 'Unauthorized. You must be assigned to this project to upload documents.'], 403);
         }
 
@@ -99,8 +111,17 @@ class ProjectDocumentController extends Controller
         return response()->json(['data' => $document->load('uploader')]);
     }
 
+    private function ensureInProject(Project $project, ProjectDocument $document): void
+    {
+        if ($document->project_id !== $project->id) {
+            abort(404);
+        }
+    }
+
     public function update(Request $request, Project $project, ProjectDocument $document)
     {
+        $this->ensureInProject($project, $document);
+
         if ($document->uploader_id !== Auth::id() && $project->user_id !== Auth::id()) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
@@ -122,6 +143,8 @@ class ProjectDocumentController extends Controller
 
     public function destroy(Project $project, ProjectDocument $document)
     {
+        $this->ensureInProject($project, $document);
+
         if ($document->uploader_id !== Auth::id() && $project->user_id !== Auth::id()) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
@@ -142,6 +165,8 @@ class ProjectDocumentController extends Controller
 
     public function verify(Project $project, ProjectDocument $document)
     {
+        $this->ensureInProject($project, $document);
+
         $user = Auth::user();
         $isOwner = $project->user_id === $user->id;
         $isPM = $project->pm_id === $user->id;

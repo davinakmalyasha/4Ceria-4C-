@@ -51,9 +51,9 @@ class ProjectRequirement extends Model
         }
 
         try {
-            return \Illuminate\Support\Facades\Storage::disk('supabase')->temporaryUrl($this->image_path, now()->addHours(24));
+            return \Illuminate\Support\Facades\Storage::disk('railway')->temporaryUrl($this->image_path, now()->addHours(24));
         } catch (\Throwable $e) {
-            return \Illuminate\Support\Facades\Storage::disk('supabase')->url($this->image_path);
+            return \Illuminate\Support\Facades\Storage::disk('railway')->url($this->image_path);
         }
     }
 

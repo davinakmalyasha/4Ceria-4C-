@@ -108,7 +108,9 @@ class ReviewController extends Controller
                 'kontraktor' => $bid->kontraktor,
                 'interior' => $bid->interior,
                 'notaris' => $bid->notaris,
-                'pm' => $bid->projectManager,
+                // BUGFIX: the relation on BidProjectManager is pm(), not
+                // projectManager — PM review notifications silently never sent.
+                'pm' => $bid->pm,
             };
 
             if ($professionalProfile && $professionalProfile->user_id) {

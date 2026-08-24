@@ -12,11 +12,15 @@ class BASTService
      */
     public function compileData(Project $project): array
     {
-        $project->load(['user', 'pm.user', 'accepted_contractor_bid.contractor.user']);
-        
-        $contractor = $project->accepted_contractor_bid?->contractor?->user;
-        $pm = $project->pm?->user;
-        
+        // BUGFIX: previously eager-loaded nonexistent relations ('pm',
+        // 'accepted_contractor_bid') -> RelationNotFoundException, and read
+        // nonexistent attributes (users.phone, warranty_expires_at,
+        // hired_contract_price) -> MissingAttributeException under strict mode.
+        $project->load(['user.phoneNumber', 'kontraktor.user', 'projectManager.user']);
+
+        $contractor = $project->kontraktor?->user;
+        $pm = $project->projectManager?->user;
+
         return [
             'document_number' => "BAST/" . $project->id . "/" . Carbon::now()->format('Y/m/d'),
             'date' => Carbon::now()->format('d F Y'),
@@ -25,17 +29,16 @@ class BASTService
                 'title' => $project->title,
                 'location' => $project->lokasi ?? $project->city,
                 'total_budget' => $project->budget,
-                'contract_price' => $project->hired_contract_price,
             ],
             'parties' => [
                 'owner' => [
                     'name' => $project->user->name,
-                    'phone' => $project->user->phone,
+                    'phone' => $project->user->phoneNumber->first()?->contact,
                     'role' => 'PIHAK PERTAMA (Pemilik)',
                 ],
                 'contractor' => [
-                    'name' => $contractor?->name ?? 'N/A',
-                    'company' => $project->accepted_contractor_bid?->contractor?->company_name ?? 'N/A',
+                    'name' => $contractor?->name ?? $project->kontraktor?->nama ?? 'N/A',
+                    'company' => $project->kontraktor?->nama ?? 'N/A',
                     'role' => 'PIHAK KEDUA (Pelaksana)',
                 ],
                 'pm' => [
@@ -46,7 +49,7 @@ class BASTService
             'milestones' => [
                 'start_date' => $project->created_at->format('d F Y'),
                 'completion_date' => $project->owner_accepted_at ? $project->owner_accepted_at->format('d F Y') : 'N/A',
-                'warranty_expiry' => $project->warranty_expires_at ? $project->warranty_expires_at->format('d F Y') : 'N/A',
+                'warranty_expiry' => $project->warranty_end_at ? $project->warranty_end_at->format('d F Y') : 'N/A',
             ],
             'legal_clauses' => [
                 'BAST ini merupakan bukti sah penyerahan pekerjaan dari PIHAK KEDUA kepada PIHAK PERTAMA.',

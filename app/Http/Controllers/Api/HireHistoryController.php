@@ -19,13 +19,13 @@ class HireHistoryController extends Controller
         // Fetch all projects owned by the user with their hired professionals
         $projects = Project::where('user_id', $user->id)
             ->with([
-                'arsitek.user',
-                'kontraktor.user',
-                'notaris.user',
-                'interior.user',
-                'projectManager.user',
-                'structuralEngineer.user',
-                'mepEngineer.user'
+                'arsitek.user.phoneNumber',
+                'kontraktor.user.phoneNumber',
+                'notaris.user.phoneNumber',
+                'interior.user.phoneNumber',
+                'projectManager.user.phoneNumber',
+                'structuralEngineer.user.phoneNumber',
+                'mepEngineer.user.phoneNumber'
             ])
             ->get();
 
@@ -65,8 +65,10 @@ class HireHistoryController extends Controller
         if (!$user) return;
 
         $phone = $profile->no_telp;
-        if (!$phone && $user->phoneNumber()->exists()) {
-            $phone = $user->phoneNumber()->first()->contact;
+        if (!$phone) {
+            // PERF: phoneNumber is now eager-loaded (see index()) — the old
+            // exists()+first() pair ran 2 queries PER hired professional row.
+            $phone = $user->phoneNumber->first()?->contact;
         }
 
         $list[] = [
@@ -76,7 +78,7 @@ class HireHistoryController extends Controller
             'role' => $roleLabel,
             'project_title' => $projectTitle,
             'phone' => $phone,
-            'avatar' => $profile->foto ? asset('storage/' . $profile->foto) : ($user->avatar ? asset('storage/' . $user->avatar) : null),
+            'avatar' => $profile->foto ? asset('storage/' . $profile->foto) : ($user->pic ? asset('storage/' . $user->pic) : null),
             'hired_at' => $profile->created_at, // Approximate, could be better if we track accepted_at
         ];
     }

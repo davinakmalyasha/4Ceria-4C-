@@ -26,6 +26,11 @@ class ProjectHandoverController extends Controller
 
     public function getBASTData(Project $project, BASTService $bastService)
     {
+        $user = Auth::user();
+        if (!$user || !$this->authorizeProjectAccess($project, $user)) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
         return response()->json([
             'data' => $bastService->compileData($project)
         ]);
@@ -33,6 +38,11 @@ class ProjectHandoverController extends Controller
 
     public function getSnagItems(Project $project)
     {
+        $user = Auth::user();
+        if (!$user || !$this->authorizeProjectAccess($project, $user)) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
         $items = $project->snagItems()->with('reporter:id,name')->get();
         return response()->json(['data' => $items]);
     }
@@ -51,7 +61,7 @@ class ProjectHandoverController extends Controller
             'severity' => 'required|in:minor,major,critical',
             'assigned_role' => 'nullable|string|in:kontraktor,interior',
             'photos' => 'nullable|array|max:5',
-            'photos.*' => 'image|max:5120',
+            'photos.*' => 'image|mimes:jpeg,png,jpg,gif,webp|max:5120',
         ]);
 
         DB::beginTransaction();
@@ -84,11 +94,30 @@ class ProjectHandoverController extends Controller
     public function updateSnagItemStatus(Request $request, Project $project, ProjectSnagItem $snagItem)
     {
         $user = Auth::user();
+
+        // Binding check: the snag item must belong to THIS project.
+        if ((int) $snagItem->project_id !== (int) $project->id) {
+            return response()->json(['message' => 'Not found.'], 404);
+        }
+
+        // Only the assigned contractor (or interior designer for interior snags)
+        // may progress/resolve their own defects — never an unrelated user.
+        $isAssignedContractor = $user->role_type === 'kontraktor'
+            && (int) $project->selected_kontraktor_id === (int) optional($user->kontraktor)->id
+            && in_array($snagItem->assigned_role, ['kontraktor', null]);
+        $isAssignedInterior = $user->role_type === 'interior'
+            && (int) $project->selected_interior_id === (int) optional($user->interior_profile)->id
+            && $snagItem->assigned_role === 'interior';
+
+        if (!$isAssignedContractor && !$isAssignedInterior) {
+            return response()->json(['message' => 'Only the assigned professional can update this defect.'], 403);
+        }
+
         $validated = $request->validate([
             'status' => 'required|in:in_progress,resolved',
             'resolution_note' => 'nullable|string|max:2000',
             'resolution_photos' => 'nullable|array|max:3',
-            'resolution_photos.*' => 'image|max:5120',
+            'resolution_photos.*' => 'image|mimes:jpeg,png,jpg,gif,webp|max:5120',
         ]);
 
         DB::beginTransaction();
@@ -118,8 +147,20 @@ class ProjectHandoverController extends Controller
     public function acceptSnagResolution(Project $project, ProjectSnagItem $snagItem)
     {
         $user = Auth::user();
+
+        // Binding check: the snag item must belong to THIS project.
+        if ((int) $snagItem->project_id !== (int) $project->id) {
+            return response()->json(['message' => 'Not found.'], 404);
+        }
+
         if ($user->id !== $project->user_id && $user->id !== $project->pm_id) {
             return response()->json(['message' => 'Only the Owner or PM can accept resolutions.'], 403);
+        }
+
+        // State guard: only RESOLVED work may be accepted — otherwise the
+        // finalization QA gate could be bypassed by accepting open defects.
+        if ($snagItem->status !== 'resolved') {
+            return response()->json(['message' => 'Only resolved defect items can be accepted.'], 422);
         }
 
         $snagItem->update(['status' => 'accepted']);

@@ -106,7 +106,7 @@ class ImageService
                 imagedestroy($image);
                 $targetPath = $directory . '/' . $filename;
                 
-                // Upload to the public disk (local or Supabase/S3)
+                // Upload to the public disk (local or Railway/Tigris S3)
                 Storage::disk('public')->put($targetPath, file_get_contents($localTempPath));
                 
                 // Delete local temp file

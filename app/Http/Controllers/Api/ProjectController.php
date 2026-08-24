@@ -34,6 +34,12 @@ class ProjectController extends Controller
     {
         $user = Auth::guard('sanctum')->user();
 
+        // Strict-mode safety: eager-load the role profiles we are about to
+        // touch below instead of lazy-loading them.
+        if ($user) {
+            $user->loadMissing(['arsitek', 'kontraktor', 'notaris_profile', 'interior_profile', 'project_manager', 'structural_engineer', 'mep_engineer', 'supplier']);
+        }
+
         $relations = [
             'images',
             'milestones',
@@ -479,8 +485,11 @@ class ProjectController extends Controller
                     $q->where('interior_id', $user->interior_profile->id)
                       ->with([
                           'negotiationLogs.user',
-                          'interior.interior.user.phoneNumber',
-                          'interior.interior.ratings'
+                          // BUGFIX: 'interior.interior.*' referenced a relation
+                          // that doesn't exist on InteriorProfile -> guaranteed
+                          // RelationNotFoundException for interior designers.
+                          'interior.user.phoneNumber',
+                          'interior.ratings'
                       ]);
                 };
             } elseif ($role === 'project_manager') {
@@ -561,7 +570,10 @@ class ProjectController extends Controller
             } elseif ($role === 'project_manager') {
                 $pm = $user->project_manager ?: \App\Models\ProjectManager::where('user_id', $user->id)->first();
                 if ($pm) {
-                    $isHired = $project->pm_id === $pm->id;
+                    // BUGFIX: pm_id stores the PM's USER id, not the profile id —
+                    // the old comparison (pm_id === profile->id) never matched,
+                    // so hired PMs failed this isHired check.
+                    $isHired = (int) $project->pm_id === (int) $user->id;
                     $hasBid = $project->bidsProjectManager()->where('pm_id', $pm->id)->exists();
                 }
             } elseif ($role === 'structural') {
@@ -675,6 +687,10 @@ class ProjectController extends Controller
             'fee_type' => 'nullable|string|in:fixed,percentage,unit,sqm,hourly',
             'unit_price' => 'nullable|numeric|min:0',
             'quantity' => 'nullable|numeric|min:0',
+            // SECURITY: bid attachments previously had ZERO validation.
+            'attachment_1' => 'nullable|file|mimes:jpeg,png,jpg,gif,webp,pdf,zip|max:10240',
+            'attachment_2' => 'nullable|file|mimes:jpeg,png,jpg,gif,webp,pdf,zip|max:10240',
+            'attachment_3' => 'nullable|file|mimes:jpeg,png,jpg,gif,webp,pdf,zip|max:10240',
         ]);
         $attachments = [];
         for ($i = 1; $i <= 3; $i++) {
@@ -942,18 +958,11 @@ class ProjectController extends Controller
             }
         }
 
-        $modelMap = [
-            'arsitek' => \App\Models\BidArsitek::class,
-            'kontraktor' => \App\Models\BidKontraktor::class,
-            'notaris' => \App\Models\BidNotaris::class,
-            'interior' => \App\Models\BidInterior::class,
-            'structural' => \App\Models\BidStructural::class,
-            'mep' => \App\Models\BidMep::class,
-            'project_manager' => \App\Models\BidProjectManager::class,
-        ];
-
-        $modelClass = $modelMap[$bidType];
-        $bid = $modelClass::find($bidId);
+        // Single source of truth: config/bids.php
+        $modelClass = config("bids.{$bidType}.bid_model");
+        // SECURITY: scope the bid to THIS project — a global find() previously
+        // let the owner of project A rewrite bids belonging to project B.
+        $bid = $modelClass::where('id', $bidId)->where('project_id', $project->id)->first();
 
         if (!$bid) {
             return response()->json(['message' => 'Bid not found.'], 404);
@@ -1314,6 +1323,12 @@ class ProjectController extends Controller
                 $bid = \App\Models\BidStructural::where('id', $request->bid_id)->where('project_id', $project->id)->with('structuralEngineer.user')->firstOrFail();
             } elseif ($request->bid_type === 'mep') {
                 $bid = \App\Models\BidMep::where('id', $request->bid_id)->where('project_id', $project->id)->with('mepEngineer.user')->firstOrFail();
+            }
+
+            // State guard: only live bids may be shortlisted (never rejected,
+            // cancelled, already-hired, or contract-pending ones).
+            if (!in_array($bid->status, ['pending', 'negotiating', 'invited', 'reviewed'])) {
+                return response()->json(['message' => "A bid with status '{$bid->status}' cannot be shortlisted."], 422);
             }
 
             $bid->update(['status' => 'shortlisted']);
@@ -2259,8 +2274,67 @@ class ProjectController extends Controller
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
+        // Load necessary relationships for checks
+        $project->load([
+            'bidsArsitek',
+            'bidsKontraktor',
+            'bidsNotaris',
+            'bidsInterior',
+            'bidsProjectManager',
+            'bidsStructural',
+            'bidsMep',
+            'paymentTermins',
+            'dailyLogs',
+            'subProfessionals'
+        ]);
+
+        // GATE 1: Active Hires Check
+        $hasHiredProfessionals = $project->selected_arsitek_id
+            || $project->selected_kontraktor_id
+            || $project->selected_notaris_id
+            || $project->selected_interior_id
+            || $project->pm_id
+            || $project->structural_id
+            || $project->mep_id;
+
+        if ($hasHiredProfessionals) {
+            return response()->json([
+                'message' => 'Proyek tidak bisa dihapus karena sudah ada profesional yang disewa. Silakan gunakan pengajuan Pembatalan Bersama (Mutual Termination).'
+            ], 422);
+        }
+
+        // GATE 2: Proof-of-Payment Financial Check (Paid or Verifying Termins)
+        $hasFinancialTransactions = $project->paymentTermins()
+            ->whereIn('status', ['paid', 'verifying'])
+            ->exists();
+
+        if ($hasFinancialTransactions) {
+            return response()->json([
+                'message' => 'Proyek tidak bisa dihapus karena terdapat transaksi pembayaran yang sudah diverifikasi atau sedang dalam proses verifikasi bukti transfer.'
+            ], 422);
+        }
+
+        // GATE 3: Work-in-Progress Check (Daily Logs or Active Subcontractors)
+        $hasWorkProgress = $project->dailyLogs()->exists()
+            || $project->subProfessionals()->where('status', 'active')->exists();
+
+        if ($hasWorkProgress) {
+            return response()->json([
+                'message' => 'Proyek tidak bisa dihapus karena progress pembangunan lapangan sudah berjalan.'
+            ], 422);
+        }
+
         DB::beginTransaction();
         try {
+            // Cancel and archive all outstanding proposals
+            $project->bidsArsitek()->where('status', 'pending')->update(['status' => 'cancelled']);
+            $project->bidsKontraktor()->where('status', 'pending')->update(['status' => 'cancelled']);
+            $project->bidsNotaris()->where('status', 'pending')->update(['status' => 'cancelled']);
+            $project->bidsInterior()->where('status', 'pending')->update(['status' => 'cancelled']);
+            $project->bidsProjectManager()->where('status', 'pending')->update(['status' => 'cancelled']);
+            $project->bidsStructural()->where('status', 'pending')->update(['status' => 'cancelled']);
+            $project->bidsMep()->where('status', 'pending')->update(['status' => 'cancelled']);
+
             $project->delete();
             DB::commit();
             return response()->json([
@@ -2374,22 +2448,16 @@ class ProjectController extends Controller
             return response()->json(['data' => []]);
         }
 
-        $pm = \App\Models\ProjectManager::where('user_id', $user->id)->first();
-        $pmId = $pm ? $pm->id : null;
-
-        $projects = Project::where(function ($query) use ($user, $pmId) {
+        // projects.pm_id stores the PM's *user* id (set at hire time from $bid->pm->user_id)
+        $projects = Project::where(function ($query) use ($user) {
             $query->where('user_id', $user->id)
                 ->orWhere('selected_arsitek_id', $user->arsitek?->id)
                 ->orWhere('selected_kontraktor_id', $user->kontraktor?->id)
                 ->orWhere('selected_notaris_id', $user->notaris_profile?->id)
                 ->orWhere('selected_interior_id', $user->interior_profile?->id)
-                ->orWhere('pm_id', $user->id) 
+                ->orWhere('pm_id', $user->id)
                 ->orWhere('structural_id', $user->structural_engineer?->id)
                 ->orWhere('mep_id', $user->mep_engineer?->id);
-
-            if ($pmId) {
-                $query->orWhere('pm_id', $pmId);
-            }
         })
         ->whereIn('status', ['open', 'accepted_arsitek', 'accepted_kontraktor', 'procurement', 'in_progress', 'planning'])
         ->select('id', 'title')
@@ -2571,6 +2639,21 @@ class ProjectController extends Controller
                 'mep' => 'mep_id',
             };
 
+            // Resolve the target professional's profile first (validates existence).
+            $profileModel = match ($request->role_type) {
+                'arsitek' => \App\Models\Arsitek::class,
+                'kontraktor' => \App\Models\Kontraktor::class,
+                'notaris' => \App\Models\NotarisProfile::class,
+                'interior' => \App\Models\InteriorProfile::class,
+                'project_manager' => \App\Models\ProjectManager::class,
+                'structural' => \App\Models\StructuralEngineer::class,
+                'mep' => \App\Models\MepEngineer::class,
+            };
+            $professional = $profileModel::find($request->professional_id);
+            if (!$professional) {
+                return response()->json(['message' => 'The invited professional could not be found for this role.'], 422);
+            }
+
             // Check if already invited or bid exists
             $existing = $bidModel::where('project_id', $project->id)
                 ->where($roleField, $request->professional_id)
@@ -2589,7 +2672,7 @@ class ProjectController extends Controller
                 'status' => 'invited',
             ]);
 
-            $proName = $professional->user->name ?? "Professional #{$request->professional_id}";
+            $proName = $professional->user?->name ?? ($professional->nama ?? "Professional #{$request->professional_id}");
             ProjectActivityLog::create([
                 'project_id' => $project->id,
                 'user_id' => Auth::id(),
@@ -2598,15 +2681,7 @@ class ProjectController extends Controller
             ]);
 
             // Notify the professional
-            $proUser = match ($request->role_type) {
-                'arsitek' => \App\Models\Arsitek::find($request->professional_id)->user,
-                'kontraktor' => \App\Models\Kontraktor::find($request->professional_id)->user,
-                'notaris' => \App\Models\NotarisProfile::find($request->professional_id)->user,
-                'interior' => \App\Models\InteriorProfile::find($request->professional_id)->user,
-                'project_manager' => \App\Models\ProjectManager::find($request->professional_id)->user,
-                'structural' => \App\Models\StructuralEngineer::find($request->professional_id)->user,
-                'mep' => \App\Models\MepEngineer::find($request->professional_id)->user,
-            };
+            $proUser = $professional->user;
 
             if ($proUser) {
                 \App\Models\Notification::create([
@@ -2682,10 +2757,11 @@ class ProjectController extends Controller
 
         // Only owner, the assigned PM, the professional, or the hired lead architect/contractor can negotiate
         $proUserId = $this->getBidderUserId($bid, $bidType);
-        $arsitekUserId = $project->arsitek->user_id ?? $project->arsitek->user->id ?? null;
-        $kontraktorUserId = $project->kontraktor->user_id ?? $project->kontraktor->user->id ?? null;
+        $project->loadMissing(['arsitek.user', 'kontraktor.user']);
+        $arsitekUserId = $project->arsitek->user_id ?? null;
+        $kontraktorUserId = $project->kontraktor->user_id ?? null;
 
-        if ($user->id !== $project->user_id && $user->id !== $project->pm_id && 
+        if ($user->id !== $project->user_id && $user->id !== $project->pm_id &&
             $user->id !== $proUserId && $user->id !== $arsitekUserId && $user->id !== $kontraktorUserId) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
@@ -2775,10 +2851,11 @@ class ProjectController extends Controller
 
         // Only owner, the assigned PM, the professional, or the hired lead architect/contractor can confirm
         $proUserId = $this->getBidderUserId($bid, $request->bid_type);
-        $arsitekUserId = $project->arsitek->user_id ?? $project->arsitek->user->id ?? null;
-        $kontraktorUserId = $project->kontraktor->user_id ?? $project->kontraktor->user->id ?? null;
+        $project->loadMissing(['arsitek.user', 'kontraktor.user']);
+        $arsitekUserId = $project->arsitek->user_id ?? null;
+        $kontraktorUserId = $project->kontraktor->user_id ?? null;
 
-        if ($user->id !== $project->user_id && $user->id !== $project->pm_id && 
+        if ($user->id !== $project->user_id && $user->id !== $project->pm_id &&
             $user->id !== $proUserId && $user->id !== $arsitekUserId && $user->id !== $kontraktorUserId) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
@@ -2832,6 +2909,18 @@ class ProjectController extends Controller
 
         if ($bid->status !== 'contract_pending') {
             return response()->json(['message' => 'This bid is not in a signable state.'], 422);
+        }
+
+        // Replay protection: once money starts moving for this role (proof uploaded
+        // or payment verified), the agreed terms are frozen and cannot be re-signed.
+        $hasActivePayments = $project->paymentTermins()
+            ->where('role_type', $request->bid_type)
+            ->whereIn('status', ['verifying', 'paid'])
+            ->exists();
+        if ($hasActivePayments) {
+            return response()->json([
+                'message' => 'This contract already has an ongoing or completed payment. Its terms are locked and can no longer be changed.'
+            ], 422);
         }
 
         // Robustly derive expected total: prioritize calculated_total, fallback to manual calc for percentage fees
@@ -2894,14 +2983,19 @@ class ProjectController extends Controller
                     if ($signatureData !== false) {
                         $timestamp = $bid->created_at ? $bid->created_at->timestamp : time();
                         $fileName = "signature_{$request->bid_type}_{$bid->id}_{$timestamp}.png";
-                        Storage::disk('supabase')->put("contracts/project_{$project->id}/signatures/" . $fileName, $signatureData);
+                        Storage::disk('railway')->put("contracts/project_{$project->id}/signatures/" . $fileName, $signatureData);
                         \Illuminate\Support\Facades\Cache::forget("sig_exists_{$project->id}_{$request->bid_type}_{$bid->id}_{$timestamp}");
                     }
                 }
             }
 
-            // 1. Clear any existing termins for this specific role
-            $project->paymentTermins()->where('role_type', $request->bid_type)->delete();
+            // 1. Clear existing termins for this role, but NEVER touch ones with
+            // money in flight (proof uploaded / already paid) — defense in depth
+            // alongside the replay guard above.
+            $project->paymentTermins()
+                ->where('role_type', $request->bid_type)
+                ->whereNotIn('status', ['verifying', 'paid'])
+                ->delete();
 
             // 1. Create Work Plan (Milestones) First
             $milestoneIdMap = [];
@@ -3162,9 +3256,9 @@ class ProjectController extends Controller
         $timestamp = $bid->created_at ? $bid->created_at->timestamp : time();
         $proFileName = "signature_{$request->bid_type}_{$bid->id}_{$timestamp}.png";
         
-        $proSignatureExists = Storage::disk('supabase')->exists("contracts/project_{$project->id}/signatures/" . $proFileName) ||
+        $proSignatureExists = Storage::disk('railway')->exists("contracts/project_{$project->id}/signatures/" . $proFileName) ||
                               Storage::disk('public')->exists("contracts/project_{$project->id}/signatures/" . $proFileName) ||
-                              Storage::disk('supabase')->exists("signatures/" . $proFileName) ||
+                              Storage::disk('railway')->exists("signatures/" . $proFileName) ||
                               Storage::disk('public')->exists("signatures/" . $proFileName);
         if (!$proSignatureExists) {
             return response()->json(['message' => 'The professional must sign the contract first.'], 422);
@@ -3179,18 +3273,23 @@ class ProjectController extends Controller
                 
                 if ($signatureData !== false) {
                     $fileName = "signature_{$request->bid_type}_{$bid->id}_{$timestamp}_client.png";
-                    Storage::disk('supabase')->put("contracts/project_{$project->id}/signatures/" . $fileName, $signatureData);
+                    Storage::disk('railway')->put("contracts/project_{$project->id}/signatures/" . $fileName, $signatureData);
                     \Illuminate\Support\Facades\Cache::forget("sig_exists_{$project->id}_{$request->bid_type}_{$bid->id}_{$timestamp}_client");
                 }
             } else {
                 return response()->json(['message' => 'Invalid signature format.'], 422);
             }
 
-            // Update Bid and Project Status to awaiting_payment
+            // Update Bid and Project Status to awaiting_payment.
+            // STATE GUARD: never drag a project that already progressed
+            // (in_progress etc.) backwards — signing a SECOND professional's
+            // contract previously reset the whole project to awaiting_payment.
             $bid->update(['status' => 'awaiting_payment']);
-            $project->update(['status' => 'awaiting_payment']);
+            if (!in_array($project->status, ['in_progress', 'completed', 'cancelled'])) {
+                $project->update(['status' => 'awaiting_payment']);
+            }
 
-            // Generate and save immutable SPK contract snapshot to Supabase
+            // Generate and save immutable SPK contract snapshot to private storage
             $contractService = app(\App\Services\ProjectContractService::class);
             $contractService->storeContractSnapshot($project, $bid, $request->bid_type);
 
@@ -3204,47 +3303,6 @@ class ProjectController extends Controller
 
             return response()->json(['message' => 'Contract signed successfully! Awaiting payment verification.', 'bid' => $bid]);
         });
-    }
-
-    public function getContractSignature(Request $request, string $roleType, $bidId, string $timestamp, string $clientSuffix = null)
-    {
-        $suffix = $clientSuffix === 'client' ? '_client' : '';
-        
-        // Cryptographic token verification
-        $token = $request->query('token');
-        $expectedToken = hash_hmac('sha256', "{$roleType}_{$bidId}_{$timestamp}{$suffix}", config('app.key'));
-        
-        if (!$token || !hash_equals($expectedToken, $token)) {
-            abort(403, 'Invalid or expired signature token.');
-        }
-
-        $bidModel = $this->getBidModel($roleType);
-        $bid = $bidModel::where('id', $bidId)->firstOrFail();
-
-        $newPath = "contracts/project_{$bid->project_id}/signatures/signature_{$roleType}_{$bidId}_{$timestamp}{$suffix}.png";
-        $legacyPath = "signatures/signature_{$roleType}_{$bidId}_{$timestamp}{$suffix}.png";
-        
-        if (Storage::disk('supabase')->exists($newPath)) {
-            $file = Storage::disk('supabase')->get($newPath);
-            return response($file, 200)->header('Content-Type', 'image/png');
-        }
-        
-        if (Storage::disk('public')->exists($newPath)) {
-            $file = Storage::disk('public')->get($newPath);
-            return response($file, 200)->header('Content-Type', 'image/png');
-        }
-        
-        if (Storage::disk('supabase')->exists($legacyPath)) {
-            $file = Storage::disk('supabase')->get($legacyPath);
-            return response($file, 200)->header('Content-Type', 'image/png');
-        }
-        
-        if (Storage::disk('public')->exists($legacyPath)) {
-            $file = Storage::disk('public')->get($legacyPath);
-            return response($file, 200)->header('Content-Type', 'image/png');
-        }
-        
-        abort(404, 'Signature not found.');
     }
 
     public function acceptInvite(Project $project, $bidId, Request $request)
@@ -3291,27 +3349,42 @@ class ProjectController extends Controller
 
     private function getBidModel($type)
     {
-        return match ($type) {
-            'arsitek' => \App\Models\BidArsitek::class,
-            'kontraktor' => \App\Models\BidKontraktor::class,
-            'notaris' => \App\Models\BidNotaris::class,
-            'interior' => \App\Models\BidInterior::class,
-            'project_manager' => \App\Models\BidProjectManager::class,
-            'structural' => \App\Models\BidStructural::class,
-            'mep' => \App\Models\BidMep::class,
-        };
+        // Single source of truth: config/bids.php (was one of FIVE hand-rolled
+        // role maps that had to be kept in sync manually).
+        return config("bids.{$type}.bid_model")
+            ?? throw new \InvalidArgumentException("Unknown bid type: {$type}");
     }
 
     private function getBidderUserId($bid, $type)
     {
+        $config = config("bids.$type") ?? throw new \InvalidArgumentException("Unknown bid type: $type");
+        $fk = $config['bid_fk'];
+        $profileModel = $config['profile_model'];
+
+        // Use the profile relation ONLY if it is already loaded — touching an
+        // unloaded relation would throw under shouldBeStrict mode.
+        $rel = $this->getBidProfileRelationName($type);
+        if ($bid->relationLoaded($rel)) {
+            return $bid->{$rel}?->user_id;
+        }
+
+        // Fall back to a direct profile lookup (null-safe for deleted profiles).
+        return $profileModel::find($bid->{$fk})?->user_id;
+    }
+
+    /**
+     * Relation name on each Bid model pointing at the professional profile.
+     */
+    private function getBidProfileRelationName($type)
+    {
         return match ($type) {
-            'arsitek' => $bid->arsitek->user_id ?? \App\Models\Arsitek::find($bid->arsitek_id)->user_id,
-            'kontraktor' => $bid->kontraktor->user_id ?? \App\Models\Kontraktor::find($bid->kontraktor_id)->user_id,
-            'notaris' => $bid->notaris->user_id ?? \App\Models\NotarisProfile::find($bid->notaris_id)->user_id,
-            'interior' => $bid->interior->user_id ?? \App\Models\InteriorProfile::find($bid->interior_id)->user_id,
-            'project_manager' => $bid->pm->user_id ?? \App\Models\ProjectManager::find($bid->pm_id)->user_id,
-            'structural' => $bid->structuralEngineer->user_id ?? \App\Models\StructuralEngineer::find($bid->structural_id)->user_id,
-            'mep' => $bid->mepEngineer->user_id ?? \App\Models\MepEngineer::find($bid->mep_id)->user_id,
+            'arsitek' => 'arsitek',
+            'kontraktor' => 'kontraktor',
+            'notaris' => 'notaris',
+            'interior' => 'interior',
+            'project_manager' => 'pm',
+            'structural' => 'structuralEngineer',
+            'mep' => 'mepEngineer',
         };
     }
     public function verifyBidPayment(Project $project, $bidId, Request $request)
@@ -3349,17 +3422,19 @@ class ProjectController extends Controller
             if ($proUser)
                 $bidderName = $proUser->name;
 
-            $referenceModel = match ($request->bid_type) {
-                'arsitek' => 'BidArsitek',
-                'kontraktor' => 'BidKontraktor',
-                'notaris' => 'BidNotaris',
-                'interior' => 'BidInterior',
-                'project_manager' => 'BidProjectManager',
-                'structural' => 'BidStructural',
-                'mep' => 'BidMep',
-            };
+            // Canonical FQCN from the shared role map (dedup in
+            // ProjectFinancialService matches both spellings for legacy rows).
+            $referenceModel = config('bids.' . $request->bid_type . '.bid_model');
 
-            $financialService->deductBudget($project, (float) $fee, 'payment', "Professional Fee: {$bidderName}", $referenceModel, $bid->id);
+            $deducted = $financialService->deductBudget($project, (float) $fee, 'payment', "Professional Fee: {$bidderName}", $referenceModel, $bid->id);
+            if (!$deducted) {
+                // BUGFIX: return value was previously ignored — bids could be
+                // marked paid with no ledger entry when the budget was short.
+                throw new \Exception(
+                    "Project budget is insufficient for this payment (" . number_format((float) $fee) . "). Please increase the project budget first.",
+                    422
+                );
+            }
 
             // Transition Project Status if necessary
             if ($request->bid_type === 'arsitek' && $project->status === 'open') {
@@ -3378,15 +3453,16 @@ class ProjectController extends Controller
 
     private function getBidderUser($bid, $type)
     {
-        return match ($type) {
-            'arsitek' => $bid->arsitek->user ?? \App\Models\Arsitek::find($bid->arsitek_id)->user,
-            'kontraktor' => $bid->kontraktor->user ?? \App\Models\Kontraktor::find($bid->kontraktor_id)->user,
-            'notaris' => $bid->notaris->user ?? \App\Models\NotarisProfile::find($bid->notaris_id)->user,
-            'interior' => $bid->interior->user ?? \App\Models\InteriorProfile::find($bid->interior_id)->user,
-            'project_manager' => $bid->pm->user ?? \App\Models\ProjectManager::find($bid->pm_id)->user,
-            'structural' => $bid->structuralEngineer->user ?? \App\Models\StructuralEngineer::find($bid->structural_id)->user,
-            'mep' => $bid->mepEngineer->user ?? \App\Models\MepEngineer::find($bid->mep_id)->user,
-        };
+        $config = config("bids.$type") ?? throw new \InvalidArgumentException("Unknown bid type: $type");
+        $rel = $this->getBidProfileRelationName($type);
+        $fk = $config['bid_fk'];
+        $profileModel = $config['profile_model'];
+
+        if ($bid->relationLoaded($rel)) {
+            return $bid->{$rel}?->user;
+        }
+
+        return $profileModel::find($bid->{$fk})?->user;
     }
 
     public function uploadBidPaymentProof(Project $project, $bidId, Request $request)

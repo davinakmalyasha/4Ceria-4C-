@@ -68,7 +68,7 @@ class SecureVerificationDocumentController extends Controller
             return response()->json(['message' => 'No document uploaded for this field.'], 404);
         }
 
-        // 5. Generate secure, expiring 5-minute Signed URL via Supabase Storage
+        // 5. Generate secure, expiring 5-minute Signed URL via private Railway storage
         try {
             $isPdf = strtolower(pathinfo($path, PATHINFO_EXTENSION)) === 'pdf';
             $options = [];
@@ -78,7 +78,7 @@ class SecureVerificationDocumentController extends Controller
                 $options['ResponseContentDisposition'] = 'inline; filename="' . basename($path) . '"';
             }
 
-            $temporaryUrl = Storage::disk('supabase')->temporaryUrl($path, now()->addMinutes(5), $options);
+            $temporaryUrl = Storage::disk('railway')->temporaryUrl($path, now()->addMinutes(5), $options);
             return response()->json(['url' => $temporaryUrl]);
         } catch (\Exception $e) {
             return response()->json([

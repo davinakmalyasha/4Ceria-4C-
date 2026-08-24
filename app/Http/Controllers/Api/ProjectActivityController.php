@@ -35,13 +35,13 @@ class ProjectActivityController extends Controller
 
         if ($request->target_type === 'arsitek' && $project->selected_arsitek_id) {
             $existing = ArsitekRating::where('project_id', $project->id)
-                ->where('user_id', $user->id)->first();
+                ->where('reviewer_id', $user->id)->first();
             if ($existing) {
                 return response()->json(['message' => 'You have already rated the architect for this project.'], 422);
             }
 
             ArsitekRating::create([
-                'user_id' => $user->id,
+                'reviewer_id' => $user->id,
                 'arsitek_id' => $project->selected_arsitek_id,
                 'project_id' => $project->id,
                 'rating' => $request->rating,
@@ -50,13 +50,13 @@ class ProjectActivityController extends Controller
             $this->logActivity($project, 'rating_given', "Rated architect {$request->rating}/5 stars");
         } elseif ($request->target_type === 'kontraktor' && $project->selected_kontraktor_id) {
             $existing = KontraktorRating::where('project_id', $project->id)
-                ->where('user_id', $user->id)->first();
+                ->where('reviewer_id', $user->id)->first();
             if ($existing) {
                 return response()->json(['message' => 'You have already rated the contractor for this project.'], 422);
             }
 
             KontraktorRating::create([
-                'user_id' => $user->id,
+                'reviewer_id' => $user->id,
                 'kontraktor_id' => $project->selected_kontraktor_id,
                 'project_id' => $project->id,
                 'rating' => $request->rating,

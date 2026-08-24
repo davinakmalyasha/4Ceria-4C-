@@ -6,12 +6,15 @@ use App\Http\Controllers\Controller;
 use App\Models\Project;
 use App\Models\ProjectTermination;
 use App\Models\ProjectActivityLog;
+use App\Traits\HandlesProjectAuthorization;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class ProjectMutualTerminationController extends Controller
 {
+    use HandlesProjectAuthorization;
+
     /**
      * Initiate a mutual project termination request.
      */
@@ -23,12 +26,11 @@ class ProjectMutualTerminationController extends Controller
         ]);
 
         $user = Auth::user();
-        $isParticipant = $project->user_id === $user->id 
-            || $project->selected_arsitek_id === $user->id 
-            || $project->selected_kontraktor_id === $user->id 
-            || $project->selected_notaris_id === $user->id
-            || $project->selected_interior_id === $user->id 
-            || $project->pm_id === $user->id;
+        // Owner (user_id), assigned PM (pm_id stores the PM's USER id) or a hired
+        // professional (selected_* columns store PROFILE ids, resolved via trait).
+        $isParticipant = $this->isProjectOwner($project, $user)
+            || (int) $project->pm_id === (int) $user->id
+            || $this->isHiredProfessional($project, $user);
 
         if (!$isParticipant) abort(403, 'Unauthorized.');
         if (in_array($project->status, ['cancelled', 'completed', 'termination_pending'])) {
@@ -71,8 +73,22 @@ class ProjectMutualTerminationController extends Controller
         ]);
 
         $user = Auth::user();
+
+        // Binding check: the termination must belong to THIS project.
+        if ((int) $termination->project_id !== (int) $project->id) {
+            return response()->json(['message' => 'Not found.'], 404);
+        }
+
         if ($termination->initiator_id === $user->id) {
             abort(403, 'Anda tidak bisa menanggapi pengajuan yang Anda buat sendiri.');
+        }
+
+        // Only project participants may accept/reject a termination request.
+        $isParticipant = $this->isProjectOwner($project, $user)
+            || (int) $project->pm_id === (int) $user->id
+            || $this->isHiredProfessional($project, $user);
+        if (!$isParticipant) {
+            abort(403, 'Unauthorized.');
         }
 
         if ($termination->status !== 'pending') {
@@ -112,6 +128,14 @@ class ProjectMutualTerminationController extends Controller
         $user = Auth::user();
         if ($termination->project_id !== $project->id || $termination->status !== 'rejected') {
             return response()->json(['message' => 'Status pengajuan tidak valid untuk dieskalasi.'], 422);
+        }
+
+        // Only participants of this project may escalate the dispute.
+        $isParticipant = $this->isProjectOwner($project, $user)
+            || (int) $project->pm_id === (int) $user->id
+            || $this->isHiredProfessional($project, $user);
+        if (!$isParticipant) {
+            abort(403, 'Unauthorized.');
         }
 
         $termination->update(['status' => 'escalated']);

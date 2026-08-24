@@ -20,6 +20,12 @@ class BidProjectManagerController extends Controller
             return response()->json(['message' => 'Only Project Managers can submit this bid.'], 403);
         }
 
+        // Strict-mode safety: resolve the PM profile without lazy-loading.
+        $user->loadMissing('project_manager');
+        if (!$user->project_manager) {
+            return response()->json(['message' => 'Project Manager profile not found.'], 422);
+        }
+
         if (!$project->wants_project_manager) {
             return response()->json(['message' => 'This project does not require a Project Manager.'], 400);
         }
@@ -79,6 +85,11 @@ class BidProjectManagerController extends Controller
 
     public function shortlist(Request $request, Project $project, BidProjectManager $bid)
     {
+        // Binding check: the bid must belong to THIS project.
+        if ((int) $bid->project_id !== (int) $project->id) {
+            return response()->json(['message' => 'Not found.'], 404);
+        }
+
         if ($project->user_id !== Auth::id()) {
             return response()->json(['message' => 'Unauthorized. Only project owner can shortlist.'], 403);
         }
@@ -91,6 +102,8 @@ class BidProjectManagerController extends Controller
         try {
             $bid->update(['status' => 'shortlisted']);
 
+            // Notify the shortlisted professional
+            $bid->loadMissing('pm.user');
             Notification::create([
                 'user_id' => $bid->pm->user_id,
                 'type' => 'pm_bid_shortlisted',
@@ -129,6 +142,11 @@ class BidProjectManagerController extends Controller
 
     public function accept(Request $request, Project $project, BidProjectManager $bid)
     {
+        // Binding check: the bid must belong to THIS project.
+        if ((int) $bid->project_id !== (int) $project->id) {
+            return response()->json(['message' => 'Not found.'], 404);
+        }
+
         if ($project->user_id !== Auth::id()) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
@@ -144,8 +162,8 @@ class BidProjectManagerController extends Controller
         DB::beginTransaction();
         try {
             // Standardize: pm_id in projects table references users.id
-            $pmUserId = $bid->pm->user_id;
-            $project->update(['pm_id' => $pmUserId]);
+            $bid->loadMissing('pm.user');
+            $pmUserId = $bid->pm->user_id;            $project->update(['pm_id' => $pmUserId]);
             
             $bid->update([
                 'status' => 'contract_pending',
@@ -214,6 +232,11 @@ class BidProjectManagerController extends Controller
 
     public function decline(Request $request, Project $project, BidProjectManager $bid)
     {
+        // Binding check: the bid must belong to THIS project.
+        if ((int) $bid->project_id !== (int) $project->id) {
+            return response()->json(['message' => 'Not found.'], 404);
+        }
+
         if ($project->user_id !== Auth::id()) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }

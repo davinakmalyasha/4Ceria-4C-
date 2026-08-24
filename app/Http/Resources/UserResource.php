@@ -14,16 +14,23 @@ class UserResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        // SECURITY: bank details and email are only exposed to the account
+        // owner (or an admin) — never to other users viewing this profile.
+        $viewer = $request?->user();
+        $isSelf = $viewer && (int) $viewer->id === (int) $this->id;
+        $isAdmin = $viewer && ($viewer->role_type === 'admin' || $viewer->hasRole('admin'));
+        $canSeePrivate = $isSelf || $isAdmin;
+
         return [
             'id' => $this->id,
             'name' => $this->name,
-            'email' => $this->email,
+            'email' => $canSeePrivate ? $this->email : null,
             'username' => $this->username,
             'role_type' => $this->role_type,
             'pic' => $this->pic ? asset('storage/' . $this->pic) : null,
-            'bank_name' => $this->bank_name,
-            'bank_account_number' => $this->bank_account_number,
-            'bank_account_name' => $this->bank_account_name,
+            'bank_name' => $canSeePrivate ? $this->bank_name : null,
+            'bank_account_number' => $canSeePrivate ? $this->bank_account_number : null,
+            'bank_account_name' => $canSeePrivate ? $this->bank_account_name : null,
             'phone_number' => $this->whenLoaded('phoneNumber'),
             'arsitek' => $this->whenLoaded('arsitek'),
             'kontraktor' => $this->whenLoaded('kontraktor'),

@@ -15,6 +15,11 @@ class ProjectRequirementController extends Controller
 {
     public function index(Project $project)
     {
+        $user = Auth::user();
+        if (!$this->isAuthorizedPro($project, $user)) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
         return response()->json(['data' => $project->requirements()->with(['user', 'folder'])->get()]);
     }
 
@@ -41,7 +46,7 @@ class ProjectRequirementController extends Controller
 
         $imagePath = null;
         if ($request->hasFile('image')) {
-            $imagePath = $request->file('image')->store('requirements', 'supabase');
+            $imagePath = $request->file('image')->store('requirements', 'railway');
         }
 
         $requirement = $project->requirements()->create(array_merge($validated, [
@@ -67,6 +72,12 @@ class ProjectRequirementController extends Controller
     public function update(Request $request, Project $project, ProjectRequirement $requirement)
     {
         $user = Auth::user();
+
+        // Binding check: the requirement must belong to THIS project.
+        if ((int) $requirement->project_id !== (int) $project->id) {
+            return response()->json(['message' => 'Not found.'], 404);
+        }
+
         if (!$this->isAuthorizedPro($project, $user)) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
@@ -86,7 +97,7 @@ class ProjectRequirementController extends Controller
         ]);
 
         if ($request->hasFile('image')) {
-            $validated['image_path'] = $request->file('image')->store('requirements', 'supabase');
+            $validated['image_path'] = $request->file('image')->store('requirements', 'railway');
         }
 
         $oldFolderId = $requirement->folder_id;
@@ -136,6 +147,11 @@ class ProjectRequirementController extends Controller
 
     public function destroy(Project $project, ProjectRequirement $requirement)
     {
+        // Binding check: the requirement must belong to THIS project.
+        if ((int) $requirement->project_id !== (int) $project->id) {
+            return response()->json(['message' => 'Not found.'], 404);
+        }
+
         if (!$this->isAuthorizedPro($project, Auth::user())) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
@@ -157,6 +173,12 @@ class ProjectRequirementController extends Controller
     public function logExternalProcurement(Request $request, Project $project, ProjectRequirement $requirement)
     {
         $user = Auth::user();
+
+        // Binding check: the requirement must belong to THIS project.
+        if ((int) $requirement->project_id !== (int) $project->id) {
+            return response()->json(['message' => 'Not found.'], 404);
+        }
+
         if (!$this->isAuthorizedPro($project, $user, ['kontraktor', 'project_manager', 'user'])) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
@@ -189,6 +211,16 @@ class ProjectRequirementController extends Controller
 
     public function logUsage(Request $request, Project $project, ProjectRequirement $requirement)
     {
+        $user = Auth::user();
+
+        // Binding + authorization: only project participants may consume stock.
+        if ((int) $requirement->project_id !== (int) $project->id) {
+            return response()->json(['message' => 'Not found.'], 404);
+        }
+        if (!$this->isAuthorizedPro($project, $user)) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
         $validated = $request->validate(['quantity' => 'required|numeric|min:0.01']);
 
         return DB::transaction(function () use ($requirement, $validated, $project) {
@@ -219,6 +251,11 @@ class ProjectRequirementController extends Controller
 
     public function getHistory(Project $project)
     {
+        $user = Auth::user();
+        if (!$this->isAuthorizedPro($project, $user)) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
         $requirementIds = $project->requirements()->pluck('id');
         $history = \App\Models\ProjectRequirementHistory::with(['user', 'requirement'])
             ->whereIn('project_requirement_id', $requirementIds)
@@ -229,12 +266,22 @@ class ProjectRequirementController extends Controller
 
     public function getProcurementRequests(Project $project)
     {
+        $user = Auth::user();
+        if (!$this->isAuthorizedPro($project, $user)) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
         return response()->json(['data' => $project->procurementRequests()->with(['requirement', 'requester'])->get()]);
     }
 
     public function requestProcurement(Request $request, Project $project, ProjectRequirement $requirement)
     {
         $user = Auth::user();
+
+        // Binding check: the requirement must belong to THIS project.
+        if ((int) $requirement->project_id !== (int) $project->id) {
+            return response()->json(['message' => 'Not found.'], 404);
+        }
 
         // Enforce Zero Frontend Trust Auth
         $isHiredKontraktor = $user->role_type === 'kontraktor' && $project->selected_kontraktor_id === $user->kontraktor?->id;
@@ -325,34 +372,15 @@ class ProjectRequirementController extends Controller
         }
     }
 
-    public function pmVerifyProcurement(Request $request, Project $project, ProjectProcurementRequest $procurementRequest)
-    {
-        $validated = $request->validate([
-            'estimated_cost' => 'required|numeric|min:0',
-            'pm_note' => 'nullable|string',
-        ]);
-
-        $procurementRequest->update([
-            'estimated_cost' => $validated['estimated_cost'],
-            'pm_note' => $validated['pm_note'],
-            'status' => 'pending_owner',
-        ]);
-
-        return response()->json(['data' => $procurementRequest]);
-    }
-
-    public function pmRejectProcurement(Request $request, Project $project, ProjectProcurementRequest $procurementRequest)
-    {
-        $procurementRequest->update([
-            'status' => 'rejected',
-            'pm_note' => $request->pm_note,
-        ]);
-        return response()->json(['data' => $procurementRequest]);
-    }
-
     public function ownerApproveProcurement(Request $request, Project $project, ProjectProcurementRequest $procurementRequest)
     {
         $user = Auth::user();
+
+        // Binding check: the procurement request must belong to THIS project.
+        if ((int) $procurementRequest->project_id !== (int) $project->id) {
+            return response()->json(['message' => 'Not found.'], 404);
+        }
+
         if ($project->user_id !== $user->id) {
             return response()->json(['message' => 'Only the project owner can approve procurement.'], 403);
         }
@@ -381,6 +409,12 @@ class ProjectRequirementController extends Controller
     public function ownerRejectProcurement(Request $request, Project $project, ProjectProcurementRequest $procurementRequest)
     {
         $user = Auth::user();
+
+        // Binding check: the procurement request must belong to THIS project.
+        if ((int) $procurementRequest->project_id !== (int) $project->id) {
+            return response()->json(['message' => 'Not found.'], 404);
+        }
+
         if ($project->user_id !== $user->id) {
             return response()->json(['message' => 'Only the project owner can reject procurement.'], 403);
         }
@@ -405,7 +439,9 @@ class ProjectRequirementController extends Controller
         $isHiredArsitek = $user->role_type === 'arsitek' && $project->selected_arsitek_id === $user->arsitek?->id && in_array('arsitek', $allowedRoles);
         $isHiredKontraktor = $user->role_type === 'kontraktor' && $project->selected_kontraktor_id === $user->kontraktor?->id && in_array('kontraktor', $allowedRoles);
         $isHiredPM = $user->role_type === 'project_manager' && $project->pm_id === $user->id && in_array('project_manager', $allowedRoles);
-        $isInterior = $user->role_type === 'interior' && in_array('interior', $allowedRoles);
+        // SECURITY: interior designers must be HIRED on this project — an
+        // unscoped role check previously let ANY interior user edit BOM data.
+        $isInterior = $user->role_type === 'interior' && (int) $project->selected_interior_id === (int) $user->interior_profile?->id && in_array('interior', $allowedRoles);
         $isHiredStructural = $user->role_type === 'structural' && 
             ($project->structural_id === optional($user->structural_engineer)->id || 
              $project->subProfessionals()->where('user_id', $user->id)->where('sub_role', 'structural')->where('status', 'active')->exists()) && 

@@ -11,6 +11,7 @@ use App\Models\ProjectActivityLog;
 use Illuminate\Http\Request;
 use App\Http\Resources\ProjectMilestoneResource;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class ProjectMilestoneController extends Controller
@@ -40,19 +41,27 @@ class ProjectMilestoneController extends Controller
             return response()->json(['message' => 'Unauthorized. You must be assigned to this project to view files.'], 403);
         }
 
-        // Silent Auto-Heal: Update type to sub_professional for any legacy administrative team placeholders
-        DB::table('project_milestones')
-            ->where('project_id', $project->id)
-            ->whereNull('type')
-            ->where(function($q) {
-                $q->where('title', 'like', '% — MEP')
-                  ->orWhere('title', 'like', '% — STRUCTURAL')
-                  ->orWhere('title', 'like', '% — INTERIOR')
-                  ->orWhere('title', 'like', '% — mep')
-                  ->orWhere('title', 'like', '% — structural')
-                  ->orWhere('title', 'like', '% — interior');
-            })
-            ->update(['type' => 'sub_professional']);
+        // Silent Auto-Heal: Update type to sub_professional for any legacy administrative team placeholders.
+        // PERF: guarded by a short-lived cache flag so this LIKE-UPDATE doesn't
+        // run on EVERY GET — it only re-runs once per hour per project (or when
+        // a genuinely new placeholder milestone appears with a NULL type).
+        $healFlagKey = "milestone_autoheal_ran_{$project->id}";
+        if (!Cache::has($healFlagKey)) {
+            DB::table('project_milestones')
+                ->where('project_id', $project->id)
+                ->whereNull('type')
+                ->where(function($q) {
+                    $q->where('title', 'like', '% — MEP')
+                      ->orWhere('title', 'like', '% — STRUCTURAL')
+                      ->orWhere('title', 'like', '% — INTERIOR')
+                      ->orWhere('title', 'like', '% — mep')
+                      ->orWhere('title', 'like', '% — structural')
+                      ->orWhere('title', 'like', '% — interior');
+                })
+                ->update(['type' => 'sub_professional']);
+
+            Cache::put($healFlagKey, true, 3600);
+        }
 
         $query = $project->milestones()->with(['arsitek.user', 'kontraktor.user', 'notaris.user', 'interior.user', 'pm.user', 'linkedTermin', 'changeOrders']);
         
@@ -107,8 +116,10 @@ class ProjectMilestoneController extends Controller
             'target_arsitek_id' => 'nullable|exists:arsiteks,id',
             'target_kontraktor_id' => 'nullable|exists:kontraktors,id',
             'target_interior_id' => 'nullable|exists:interior_profiles,id',
-            'cost_impact' => 'nullable|numeric',
+            'cost_impact' => 'nullable|numeric|min:0',
             'time_impact_days' => 'nullable|integer|min:0',
+            'gallery' => 'nullable|array|max:10',
+            'gallery.*' => 'image|mimes:jpeg,png,jpg,gif,webp|max:5120',
         ]);
 
         $contentInput = $request->input('content');
@@ -245,12 +256,20 @@ class ProjectMilestoneController extends Controller
     public function update(Request $request, Project $project, ProjectMilestone $milestone)
     {
         $user = Auth::user();
+
+        // Binding check: the milestone must belong to THIS project.
+        if ((int) $milestone->project_id !== (int) $project->id) {
+            return response()->json(['message' => 'Not found.'], 404);
+        }
+
         if (!$this->canModifyMilestone($project, $milestone, $user)) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
         $isOwner = $project->user_id === $user->id;
         $isPM = $user->role_type === 'project_manager' && $project->pm_id === $user->id;
+        // Only owner/PM may drive approval transitions (the payment trigger).
+        $canFinalApprove = $isOwner || $isPM;
 
         if (!$isPM && !$isOwner) {
             $phase = $milestone->phase_context;
@@ -277,11 +296,22 @@ class ProjectMilestoneController extends Controller
             'approval_status' => 'nullable|string|in:in_progress,pending,approved,revision',
             'revision_notes' => 'nullable|string',
             'content' => 'nullable|string',
+            'gallery' => 'nullable|array|max:10',
+            'gallery.*' => 'image|mimes:jpeg,png,jpg,gif,webp|max:5120',
         ]);
 
-        return DB::transaction(function () use ($milestone, $validated, $project, $request) {
+        return DB::transaction(function () use ($milestone, $validated, $project, $request, $canFinalApprove) {
             $updateData = $validated;
-            
+
+            // SECURITY: professionals may track their own progress (in_progress /
+            // revision) but can NEVER self-approve — approval unlocks payments.
+            if (!$canFinalApprove) {
+                unset($updateData['is_completed']);
+                if (($updateData['approval_status'] ?? null) === 'approved') {
+                    unset($updateData['approval_status']);
+                }
+            }
+
             $contentInput = $request->input('content');
             $oldContent = $milestone->content ?? [];
             $content = [];
@@ -347,11 +377,11 @@ class ProjectMilestoneController extends Controller
             }
             
             $updateData['content'] = $content;
-            
+
             $milestone->update($updateData);
             $this->syncToVault($milestone); // Sync on every update
 
-            if (isset($validated['approval_status']) && $validated['approval_status'] === 'approved') {
+            if ($canFinalApprove && isset($validated['approval_status']) && $validated['approval_status'] === 'approved') {
                 $milestone->update([
                     'pm_verified_at' => now(),
                     'is_completed' => true,
@@ -369,26 +399,37 @@ class ProjectMilestoneController extends Controller
     public function approve(Project $project, ProjectMilestone $milestone)
     {
         $user = Auth::user();
+
+        // Binding check: the milestone must belong to THIS project.
+        if ((int) $milestone->project_id !== (int) $project->id) {
+            return response()->json(['message' => 'Not found.'], 404);
+        }
+
         $isPM = ($user->role_type === 'project_manager' && $project->pm_id === $user->id);
         $isOwner = ($project->user_id === $user->id);
-        
+
         // Lead Professional Check (Architect for Structural/MEP)
         $isLeadArsitek = ($user->role_type === 'arsitek' && $project->selected_arsitek_id === $user->arsitek?->id);
         $isLeadKontraktor = ($user->role_type === 'kontraktor' && $project->selected_kontraktor_id === $user->kontraktor?->id);
-        
-        $canReview = ($isLeadArsitek && ($milestone->structural_id || $milestone->mep_id)) || ($isLeadKontraktor && ($milestone->structural_id || $milestone->mep_id));
+
+        $canReview = ($isLeadArsitek || $isLeadKontraktor) && ($milestone->structural_id || $milestone->mep_id);
 
         if (!$isPM && !$isOwner && !$canReview) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        return DB::transaction(function () use ($milestone, $project, $isPM, $canReview) {
+        return DB::transaction(function () use ($milestone, $project, $isPM, $isOwner, $canReview) {
             if ($canReview && $milestone->approval_status === 'pending') {
+                // Step 1 of the two-step flow: technical review by the lead pro.
                 $milestone->update([
                     'approval_status' => 'reviewed',
                     'lead_pro_verified_at' => now(),
                 ]);
                 $this->logActivity($project, 'milestone_reviewed', "Technical Review Completed: {$milestone->title}");
+            } elseif (!$isPM && !$isOwner) {
+                // SECURITY: a lead pro can never FINALIZE approval (that unlocks
+                // payments). Final verification requires the PM or the owner.
+                return response()->json(['message' => 'Only the Project Manager or Owner can give final approval.'], 403);
             } else {
                 $milestone->update([
                     'is_completed' => true,
@@ -399,7 +440,7 @@ class ProjectMilestoneController extends Controller
                 $this->syncToVault($milestone);
                 $this->logActivity($project, 'milestone_approved', "Final Verification: {$milestone->title}");
             }
-            
+
             return response()->json(['data' => $milestone->load(['arsitek.user', 'kontraktor.user', 'notaris.user', 'interior.user', 'structural.user', 'mep.user'])]);
         });
     }
@@ -407,6 +448,12 @@ class ProjectMilestoneController extends Controller
     public function destroy(Project $project, ProjectMilestone $milestone)
     {
         $user = Auth::user();
+
+        // Binding check: the milestone must belong to THIS project.
+        if ((int) $milestone->project_id !== (int) $project->id) {
+            return response()->json(['message' => 'Not found.'], 404);
+        }
+
         if (!$this->canModifyMilestone($project, $milestone, $user)) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
@@ -474,6 +521,19 @@ class ProjectMilestoneController extends Controller
             'documents.*.status' => 'required|in:approved,revision_requested',
             'documents.*.note' => 'nullable|string',
         ]);
+
+        // SECURITY: every referenced milestone/document must belong to THIS
+        // project — the generic exists: rule alone would allow cross-project writes.
+        foreach ($validated['milestones'] ?? [] as $m) {
+            if (!ProjectMilestone::where('id', $m['id'])->where('project_id', $project->id)->exists()) {
+                return response()->json(['message' => "Milestone #{$m['id']} does not belong to this project."], 422);
+            }
+        }
+        foreach ($validated['documents'] ?? [] as $d) {
+            if (!ProjectDocument::where('id', $d['id'])->where('project_id', $project->id)->exists()) {
+                return response()->json(['message' => "Document #{$d['id']} does not belong to this project."], 422);
+            }
+        }
 
         return DB::transaction(function () use ($validated, $project, $isPM, $isLeadArsitek, $isLeadKontraktor) {
             $allApproved = true;
@@ -560,6 +620,7 @@ class ProjectMilestoneController extends Controller
                 'milestone_title' => $milestone->title
             ];
 
+            $milestone->loadMissing('project');
             $this->logActivity(
                 $milestone->project,
                 'payment_triggered',

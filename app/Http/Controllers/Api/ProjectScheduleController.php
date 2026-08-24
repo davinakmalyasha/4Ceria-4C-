@@ -41,9 +41,30 @@ class ProjectScheduleController extends Controller
      */
     public function update(Request $request, Project $project, ProjectSchedule $schedule)
     {
-        // Simple update without strict validation for testing
+        // R1: Security & Authorization (PM or project owner, same as index)
+        if ((int)$project->pm_id !== (int)Auth::id() && (int)$project->user_id !== (int)Auth::id()) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        // Scope binding: the schedule must belong to this project
+        if ((int)$schedule->project_id !== (int)$project->id) {
+            return response()->json(['message' => 'Phase not found in this project.'], 404);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'target_start_date' => 'nullable|date',
+            'target_end_date' => ($request->filled('target_start_date') ? 'nullable|date|after_or_equal:target_start_date' : 'nullable|date'),
+            'status' => 'nullable|string|in:pending,active,completed,delayed',
+            'progress_percentage' => 'nullable|integer|min:0|max:100',
+            'notes' => 'nullable|string|max:5000',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
         $schedule->update($request->only(['target_start_date', 'target_end_date', 'status', 'progress_percentage', 'notes']));
-        
+
         return response()->json([
             'message' => 'Phase updated successfully.',
             'phase' => $schedule

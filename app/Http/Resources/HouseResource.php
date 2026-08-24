@@ -38,13 +38,23 @@ class HouseResource extends JsonResource
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
             'housePic' => $this->whenLoaded('housePic', fn () => $this->housePic->values()),
-            'owner' => $this->whenLoaded('user', fn () => [
-                'id' => $this->user->id,
-                'name' => $this->user->name,
-                'email' => $this->user->email,
-                'phones' => $this->user->phoneNumber->pluck('contact')->toArray(),
-                'role_type' => $this->user->role_type,
-            ]),
+            'owner' => $this->whenLoaded('user', function () use ($request) {
+                // SECURITY: anonymous visitors get no contact details (anti-scraping);
+                // authenticated users can reach the seller's phones; only the
+                // owner/admin sees the email.
+                $viewer = $request?->user();
+                $isOwnerOrAdmin = $viewer && ((int) $viewer->id === (int) $this->user->id || $viewer->role_type === 'admin');
+
+                return [
+                    'id' => $this->user->id,
+                    'name' => $this->user->name,
+                    'email' => $isOwnerOrAdmin ? $this->user->email : null,
+                    'phones' => $viewer
+                        ? $this->user->phoneNumber->pluck('contact')->toArray()
+                        : [],
+                    'role_type' => $this->user->role_type,
+                ];
+            }),
             'roomList' => $this->whenLoaded('room', fn () => $this->room->values()->map(fn ($r) => [
                 'id' => $r->id,
                 'name' => $r->name,

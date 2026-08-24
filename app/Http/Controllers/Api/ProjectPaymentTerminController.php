@@ -33,11 +33,23 @@ class ProjectPaymentTerminController extends Controller
             'percentage' => 'required|numeric|min:0|max:100',
             'amount' => 'required|integer|min:0',
             'trigger_description' => 'nullable|string|max:255',
-            'status' => 'nullable|string|in:locked,pending,invoice_sent,paid',
+            // SECURITY: payments can never be created directly in a paid state;
+            // paid is reserved for the proof-upload / verification flows.
+            'status' => 'nullable|string|in:locked,pending,invoice_sent',
             'milestone_id' => 'nullable|exists:project_milestones,id',
             'notes' => 'nullable|string|max:1000',
             'role_type' => 'nullable|string|in:arsitek,kontraktor,mep,interior,notaris',
         ]);
+
+        $requestedRole = $request->role_type;
+
+        // SECURITY: only the owner or assigned PM may create termins attributed
+        // to ANOTHER role; professionals always create termins for their own role.
+        $canActForOthers = $user->id === $project->user_id
+            || ($user->role_type === 'project_manager' && $project->pm_id === $user->id);
+        if (!$canActForOthers) {
+            $requestedRole = $user->role_type;
+        }
 
         $termin = $project->paymentTermins()->create([
             'label' => $request->label,
@@ -47,8 +59,8 @@ class ProjectPaymentTerminController extends Controller
             'status' => $request->status ?? 'locked',
             'milestone_id' => $request->milestone_id,
             'notes' => $request->notes,
-            'role_type' => $request->role_type ?? $user->role_type,
-            'recipient_id' => ($request->role_type && $request->role_type !== $user->role_type) ? null : $user->id,
+            'role_type' => $requestedRole ?? $user->role_type,
+            'recipient_id' => ($requestedRole && $requestedRole !== $user->role_type) ? null : $user->id,
         ]);
         
 
@@ -60,9 +72,17 @@ class ProjectPaymentTerminController extends Controller
     public function updatePaymentTermin(Request $request, Project $project, ProjectPaymentTermin $termin)
     {
         $user = Auth::user();
+
+        // Binding check: the termin must belong to THIS project.
+        if ((int) $termin->project_id !== (int) $project->id) {
+            return response()->json(['message' => 'Not found.'], 404);
+        }
+
         $isAuthor = $termin->recipient_id === $user->id;
         $isOwner = $project->user_id === $user->id;
-        $isPM = $user->role_type === 'project_manager' && $project->pm_id === $user->project_manager?->id;
+        // BUGFIX: projects.pm_id stores the PM's USER id — comparing it to the
+        // PM's PROFILE id (as before) never matched for the real assigned PM.
+        $isPM = $user->role_type === 'project_manager' && $project->pm_id === $user->id;
 
         if (!$isAuthor && !$isOwner && !$isPM) {
             return response()->json(['message' => 'Unauthorized.'], 403);
@@ -73,7 +93,8 @@ class ProjectPaymentTerminController extends Controller
             'percentage' => 'nullable|numeric|min:0|max:100',
             'amount' => 'nullable|integer|min:0',
             'trigger_description' => 'nullable|string|max:255',
-            'status' => 'nullable|string|in:locked,pending,invoice_sent,paid',
+            // SECURITY: paid is a verification-flow outcome, never self-service.
+            'status' => 'nullable|string|in:locked,pending,invoice_sent',
             'milestone_id' => 'nullable|exists:project_milestones,id',
             'notes' => 'nullable|string|max:1000',
         ]);
@@ -109,6 +130,12 @@ class ProjectPaymentTerminController extends Controller
     public function uploadProof(Request $request, Project $project, ProjectPaymentTermin $termin)
     {
         $user = Auth::user();
+
+        // Binding check: the termin must belong to THIS project.
+        if ((int) $termin->project_id !== (int) $project->id) {
+            return response()->json(['message' => 'Not found.'], 404);
+        }
+
         $isOwner = $project->user_id === $user->id;
         $isPM = $project->pm_id === $user->id;
 
@@ -117,7 +144,7 @@ class ProjectPaymentTerminController extends Controller
         }
 
         $request->validate([
-            'payment_proof' => 'required|image|max:2048', // 2MB max
+            'payment_proof' => 'required|image|mimes:jpeg,png,jpg,gif,webp|max:2048', // 2MB max
         ]);
 
         if ($request->hasFile('payment_proof')) {
@@ -138,7 +165,12 @@ class ProjectPaymentTerminController extends Controller
     public function verifyPayment(Request $request, Project $project, ProjectPaymentTermin $termin)
     {
         $user = Auth::user();
-        
+
+        // Binding check: the termin must belong to THIS project.
+        if ((int) $termin->project_id !== (int) $project->id) {
+            return response()->json(['message' => 'Not found.'], 404);
+        }
+
         // Only the recipient (professional) or PM can verify
         $isRecipient = $termin->recipient_id === $user->id;
         $isPM = $user->role_type === 'project_manager' && $project->pm_id === $user->id;
@@ -226,7 +258,12 @@ class ProjectPaymentTerminController extends Controller
     public function linkMilestone(Request $request, Project $project, ProjectPaymentTermin $termin)
     {
         $user = Auth::user();
-        
+
+        // Binding check: the termin must belong to THIS project.
+        if ((int) $termin->project_id !== (int) $project->id) {
+            return response()->json(['message' => 'Not found.'], 404);
+        }
+
         // Authorization: Recipient of the termin or PM
         if ($termin->recipient_id !== $user->id && $project->pm_id !== $user->id) {
             return response()->json(['message' => 'Unauthorized.'], 403);
@@ -257,6 +294,12 @@ class ProjectPaymentTerminController extends Controller
     public function unlinkMilestone(Project $project, ProjectPaymentTermin $termin)
     {
         $user = Auth::user();
+
+        // Binding check: the termin must belong to THIS project.
+        if ((int) $termin->project_id !== (int) $project->id) {
+            return response()->json(['message' => 'Not found.'], 404);
+        }
+
         if ($termin->recipient_id !== $user->id && $project->pm_id !== $user->id) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
@@ -268,8 +311,30 @@ class ProjectPaymentTerminController extends Controller
     public function deletePaymentTermin(Project $project, ProjectPaymentTermin $termin)
     {
         $user = Auth::user();
-        if ($user->role_type !== 'kontraktor' || $project->selected_kontraktor_id !== $user->kontraktor?->id) {
-            return response()->json(['message' => 'Unauthorized.'], 403);
+
+        // Binding check: the termin must belong to THIS project.
+        if ((int) $termin->project_id !== (int) $project->id) {
+            return response()->json(['message' => 'Not found.'], 404);
+        }
+
+        $isOwner = $project->user_id === $user->id;
+        $isPM = $user->role_type === 'project_manager' && $project->pm_id === $user->id;
+
+        // SECURITY: a hired professional may only delete termins of their OWN
+        // role (previously any hired contractor could delete other roles' termins).
+        // Never allow deleting termins with money in flight.
+        if (!$isOwner && !$isPM) {
+            $isHiredForThisRole = $user->role_type === 'kontraktor'
+                && (int) $project->selected_kontraktor_id === (int) optional($user->kontraktor)->id
+                && $termin->role_type === 'kontraktor';
+
+            if (!$isHiredForThisRole) {
+                return response()->json(['message' => 'Unauthorized. You can only delete your own role payment terms.'], 403);
+            }
+        }
+
+        if (in_array($termin->status, ['verifying', 'paid'])) {
+            return response()->json(['message' => 'Cannot delete a payment term with an ongoing or completed payment.'], 422);
         }
 
         $termin->delete();

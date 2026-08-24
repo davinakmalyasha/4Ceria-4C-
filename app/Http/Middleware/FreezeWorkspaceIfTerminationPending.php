@@ -24,9 +24,11 @@ class FreezeWorkspaceIfTerminationPending
         if ($project && $project->status === 'termination_pending') {
             // Block all mutating requests (POST, PUT, PATCH, DELETE)
             if (in_array(strtoupper($request->method()), ['POST', 'PUT', 'PATCH', 'DELETE'])) {
-                // Allow mutual termination respond/escalate actions to pass through
-                $currentUri = $request->getRequestUri();
-                if (!str_contains($currentUri, 'mutual-termination')) {
+                // Allow mutual termination respond/escalate actions to pass through.
+                // SECURITY: match the URL PATH only — using the full request URI would
+                // let a query string like "?x=mutual-termination" bypass the freeze.
+                $path = $request->path(); // path() never includes the query string
+                if (!str_contains($path, 'mutual-termination')) {
                     return response()->json([
                         'message' => 'Proyek sedang dalam proses pengajuan pembatalan bersama. Seluruh aktivitas workspace dibekukan sementara.'
                     ], 422);

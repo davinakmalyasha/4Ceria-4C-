@@ -15,16 +15,20 @@ class GeocodeController extends Controller
     public function reverse(Request $request)
     {
         $request->validate([
-            'lat' => 'required|numeric',
-            'lng' => 'required|numeric',
+            'lat' => 'required|numeric|between:-90,90',
+            'lng' => 'required|numeric|between:-180,180',
         ]);
 
-        $lat = $request->input('lat');
-        $lng = $request->input('lng');
+        // Round to 4 decimals (~11 m precision) — bounds Redis key cardinality
+        // and prevents cache-flooding via scripted unique coordinates.
+        $lat = round((float) $request->input('lat'), 4);
+        $lng = round((float) $request->input('lng'), 4);
 
         $cacheKey = "geocode:reverse:lat:{$lat}:lng:{$lng}";
 
-        $data = Cache::remember($cacheKey, 2592000, function () use ($lat, $lng) { // 30 days
+        // Cache misses are short-lived so a transient Nominatim outage is not
+        // poisoned into the cache for 30 days.
+        $data = Cache::remember($cacheKey, 300, function () use ($lat, $lng) {
             $response = Http::withHeaders([
                 'User-Agent' => '4Ceria-App-Backend'
             ])->timeout(5)->get('https://nominatim.openstreetmap.org/reverse', [
@@ -42,6 +46,9 @@ class GeocodeController extends Controller
             return response()->json(['message' => 'Geocoding service unavailable'], 503);
         }
 
+        // Promote successful lookups to the long-TTL key.
+        Cache::put($cacheKey, $data, 2592000); // 30 days
+
         return response()->json($data);
     }
 
@@ -54,10 +61,11 @@ class GeocodeController extends Controller
             'q' => 'required|string|max:255',
         ]);
 
-        $query = $request->input('q');
+        $query = trim($request->input('q'));
         $cacheKey = "geocode:search:" . md5($query);
 
-        $data = Cache::remember($cacheKey, 2592000, function () use ($query) { // 30 days
+        // Short TTL on failures; successful searches are promoted below.
+        $data = Cache::remember($cacheKey, 300, function () use ($query) {
             $response = Http::withHeaders([
                 'User-Agent' => '4Ceria-App-Backend'
             ])->timeout(5)->get('https://nominatim.openstreetmap.org/search', [
@@ -73,6 +81,8 @@ class GeocodeController extends Controller
         if ($data === null) {
             return response()->json(['message' => 'Geocoding service unavailable'], 503);
         }
+
+        Cache::put($cacheKey, $data, 2592000); // 30 days
 
         return response()->json($data);
     }

@@ -268,7 +268,7 @@ class ProjectResource extends JsonResource
             'structural_approved_at' => $this->structural_approved_at,
             'mep_approved_at' => $this->mep_approved_at,
             'interior_approved_at' => $this->owner_interior_approved_at,
-            'share_token' => $this->share_token,
+            'share_token' => $this->isPrivilegedViewer() ? $this->share_token : null,
             'legal_detail' => $this->legal_detail,
             'wants_to_discuss_later' => (bool) $this->wants_to_discuss_later,
             'published_bidding_roles' => $this->published_bidding_roles ?? [],
@@ -431,12 +431,12 @@ class ProjectResource extends JsonResource
                             'foto' => $this->resolveStorageUrl($bid->arsitek->foto),
                             'deskripsi' => $bid->arsitek->deskripsi,
                             'pendidikan' => $bid->arsitek->pendidikan,
-                            'file_portofolio' => $this->resolveStorageUrl($bid->arsitek->file_portofolio),
-                            'file_sertifikat' => $this->resolveStorageUrl($bid->arsitek->file_sertifikat),
+                            'file_portofolio' => $this->piiStoragePath($bid->arsitek->file_portofolio),
+                            'file_sertifikat' => $this->piiStoragePath($bid->arsitek->file_sertifikat),
                             'user' => [
                                 'id' => $bid->arsitek->user->id,
                                 'name' => $bid->arsitek->user->name,
-                                'email' => $bid->arsitek->user->email,
+                                'email' => $this->pii($bid->arsitek->user->email),
                                 'pic' => $this->resolveStorageUrl($bid->arsitek->user->pic),
                             ],
                         ] : null,
@@ -504,12 +504,12 @@ class ProjectResource extends JsonResource
                             'pengalaman' => $bid->kontraktor->pengalaman,
                             'deskripsi' => $bid->kontraktor->alasan_hire,
                             'pendidikan' => $bid->kontraktor->pendidikan,
-                            'file_portofolio' => $this->resolveStorageUrl($bid->kontraktor->file_portofolio),
-                            'file_sertifikat' => $this->resolveStorageUrl($bid->kontraktor->file_sertifikat),
+                            'file_portofolio' => $this->piiStoragePath($bid->kontraktor->file_portofolio),
+                            'file_sertifikat' => $this->piiStoragePath($bid->kontraktor->file_sertifikat),
                             'user' => [
                                 'id' => $bid->kontraktor->user->id,
                                 'name' => $bid->kontraktor->user->name,
-                                'email' => $bid->kontraktor->user->email,
+                                'email' => $this->pii($bid->kontraktor->user->email),
                                 'pic' => $this->resolveStorageUrl($bid->kontraktor->user->pic),
                             ],
                         ] : null,
@@ -567,7 +567,7 @@ class ProjectResource extends JsonResource
                             'user' => [
                                 'id' => $bid->notaris->user->id,
                                 'name' => $bid->notaris->user->name,
-                                'email' => $bid->notaris->user->email,
+                                'email' => $this->pii($bid->notaris->user->email),
                                 'pic' => $this->resolveStorageUrl($bid->notaris->user->pic),
                             ],
                         ] : null,
@@ -627,12 +627,12 @@ class ProjectResource extends JsonResource
                             'pengalaman_tahun' => $bid->interior->pengalaman_tahun,
                             'deskripsi' => $bid->interior->deskripsi,
                             'pendidikan' => $bid->interior->pendidikan,
-                            'file_portofolio' => $this->resolveStorageUrl($bid->interior->file_portofolio),
-                            'file_sertifikat' => $this->resolveStorageUrl($bid->interior->file_sertifikat),
+                            'file_portofolio' => $this->piiStoragePath($bid->interior->file_portofolio),
+                            'file_sertifikat' => $this->piiStoragePath($bid->interior->file_sertifikat),
                             'user' => [
                                 'id' => $bid->interior->user->id,
                                 'name' => $bid->interior->user->name,
-                                'email' => $bid->interior->user->email,
+                                'email' => $this->pii($bid->interior->user->email),
                                 'pic' => $this->resolveStorageUrl($bid->interior->user->pic),
                             ],
                         ] : null,
@@ -688,18 +688,18 @@ class ProjectResource extends JsonResource
                             'alasan_hire' => $bid->pm->alasan_hire,
                             'pendidikan' => $bid->pm->pendidikan,
                             'foto' => $this->resolveStorageUrl($bid->pm->foto),
-                            'file_portofolio' => $bid->pm->file_portofolio,
-                            'file_sertifikat' => $bid->pm->file_sertifikat,
+                            'file_portofolio' => $this->pii($bid->pm->file_portofolio),
+                            'file_sertifikat' => $this->pii($bid->pm->file_sertifikat),
                             'entity_type' => $bid->pm->entity_type,
                             'company_name' => $bid->pm->company_name,
                             'company_license' => $bid->pm->company_license,
-                            'identity_number' => $bid->pm->identity_number,
-                            'npwp_number' => $bid->pm->npwp_number,
+                            'identity_number' => $this->pii($bid->pm->identity_number),
+                            'npwp_number' => $this->pii($bid->pm->npwp_number),
                             'siup_number' => $bid->pm->siup_number,
                             'user' => $bid->pm->user ? [
                                 'id' => $bid->pm->user->id,
                                 'name' => $bid->pm->user->name,
-                                'email' => $bid->pm->user->email,
+                                'email' => $this->pii($bid->pm->user->email),
                                 'phone_number' => $bid->pm->no_telp ?? $bid->pm->user->phoneNumber->first()?->contact,
                                 'pic' => $this->resolveStorageUrl($bid->pm->user->pic),
                             ] : null,
@@ -894,19 +894,19 @@ class ProjectResource extends JsonResource
                             'alasan_hire' => $bid->structuralEngineer->alasan_hire,
                             'pendidikan' => $bid->structuralEngineer->pendidikan,
                             'foto' => $this->resolveStorageUrl($bid->structuralEngineer->foto),
-                            'file_portofolio' => $bid->structuralEngineer->file_portofolio,
-                            'file_sertifikat' => $bid->structuralEngineer->file_sertifikat,
+                            'file_portofolio' => $this->pii($bid->structuralEngineer->file_portofolio),
+                            'file_sertifikat' => $this->pii($bid->structuralEngineer->file_sertifikat),
                             'verification_status' => $bid->structuralEngineer->verification_status,
                             'entity_type' => $bid->structuralEngineer->entity_type,
                             'company_name' => $bid->structuralEngineer->company_name,
                             'company_license' => $bid->structuralEngineer->company_license,
-                            'identity_number' => $bid->structuralEngineer->identity_number,
-                            'npwp_number' => $bid->structuralEngineer->npwp_number,
+                            'identity_number' => $this->pii($bid->structuralEngineer->identity_number),
+                            'npwp_number' => $this->pii($bid->structuralEngineer->npwp_number),
                             'siup_number' => $bid->structuralEngineer->siup_number,
                             'user' => [
                                 'id' => $bid->structuralEngineer->user->id,
                                 'name' => $bid->structuralEngineer->user->name,
-                                'email' => $bid->structuralEngineer->user->email,
+                                'email' => $this->pii($bid->structuralEngineer->user->email),
                                 'pic' => $this->resolveStorageUrl($bid->structuralEngineer->user->pic),
                             ],
                         ] : null,
@@ -965,19 +965,19 @@ class ProjectResource extends JsonResource
                             'alasan_hire' => $bid->mepEngineer->alasan_hire,
                             'pendidikan' => $bid->mepEngineer->pendidikan,
                             'foto' => $this->resolveStorageUrl($bid->mepEngineer->foto),
-                            'file_portofolio' => $bid->mepEngineer->file_portofolio,
-                            'file_sertifikat' => $bid->mepEngineer->file_sertifikat,
+                            'file_portofolio' => $this->pii($bid->mepEngineer->file_portofolio),
+                            'file_sertifikat' => $this->pii($bid->mepEngineer->file_sertifikat),
                             'verification_status' => $bid->mepEngineer->verification_status,
                             'entity_type' => $bid->mepEngineer->entity_type,
                             'company_name' => $bid->mepEngineer->company_name,
                             'company_license' => $bid->mepEngineer->company_license,
-                            'identity_number' => $bid->mepEngineer->identity_number,
-                            'npwp_number' => $bid->mepEngineer->npwp_number,
+                            'identity_number' => $this->pii($bid->mepEngineer->identity_number),
+                            'npwp_number' => $this->pii($bid->mepEngineer->npwp_number),
                             'siup_number' => $bid->mepEngineer->siup_number,
                             'user' => [
                                 'id' => $bid->mepEngineer->user->id,
                                 'name' => $bid->mepEngineer->user->name,
-                                'email' => $bid->mepEngineer->user->email,
+                                'email' => $this->pii($bid->mepEngineer->user->email),
                                 'pic' => $this->resolveStorageUrl($bid->mepEngineer->user->pic),
                             ],
                         ] : null,
@@ -1266,23 +1266,49 @@ class ProjectResource extends JsonResource
         return url("/api/contract-signatures/{$roleType}/{$bidId}/{$timestamp}{$clientSuffixPath}?token={$token}");
     }
 
+    /**
+     * SECURITY: KYC-grade fields (identity numbers, document paths, competitor
+     * contact details) are only exposed to privileged viewers â€” the project
+     * owner, the assigned PM, or an admin.
+     */
+    private function isPrivilegedViewer(): bool
+    {
+        $viewer = request()?->user();
+        if (!$viewer) {
+            return false;
+        }
+        if ($viewer->role_type === 'admin' || $viewer->hasRole('admin')) {
+            return true;
+        }
+
+        return (int) $this->resource->user_id === (int) $viewer->id
+            || ($this->resource->pm_id && (int) $this->resource->pm_id === (int) $viewer->id);
+    }
+
+    private function pii($value)
+    {
+        return $this->isPrivilegedViewer() ? $value : null;
+    }
+
+    private function piiStoragePath(?string $path): ?string
+    {
+        return $this->isPrivilegedViewer() ? $this->resolveStorageUrl($path) : null;
+    }
+
     private function resolveStorageUrl(?string $path): ?string
     {
         if (!$path) {
             return null;
         }
 
-        // 1. Static runtime memory cache
-        static $resolvedUrls = [];
-        if (isset($resolvedUrls[$path])) {
-            return $resolvedUrls[$path];
-        }
-
-        $originalPath = $path;
+        // PERF/OCTANE: this used to memoize into a function-scoped static array,
+        // which survives across requests under Octane, grows unboundedly (memory
+        // leak) and bakes the first-request host/driver into cached URLs. The
+        // work below is pure concatenation (~0ms) so caching bought nothing.
 
         // Extract relative path if it's a URL pointing to our local storage or S3 bucket
         $s3Prefix = 'https://t3.storageapi.dev/fourc-storage-fneicjrzkq3/';
-        
+
         if (str_starts_with($path, $s3Prefix)) {
             $path = substr($path, strlen($s3Prefix));
         } elseif (str_contains($path, '/storage/')) {
@@ -1291,11 +1317,10 @@ class ProjectResource extends JsonResource
             $path = end($parts);
         } elseif (filter_var($path, FILTER_VALIDATE_URL)) {
             // External URLs (like Unsplash, mockups, etc.) should be returned as-is
-            $resolvedUrls[$originalPath] = $path;
             return $path;
         }
 
-        // 2. Direct public URL generation (0ms concatenation)
+        // Direct public URL generation (0ms concatenation)
         $driver = config('filesystems.disks.public.driver', 'local');
         if ($driver === 's3') {
             $publicUrl = config('filesystems.disks.public.url');
@@ -1304,7 +1329,6 @@ class ProjectResource extends JsonResource
             $url = asset('storage/' . $path);
         }
 
-        $resolvedUrls[$originalPath] = $url;
         return $url;
     }
 

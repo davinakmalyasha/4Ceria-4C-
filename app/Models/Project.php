@@ -391,6 +391,19 @@ class Project extends Model
      */
     public function calculateBudgetSummary(): array
     {
+        // PERF: this used to fall back to 9–16 aggregate queries whenever the
+        // bid relations weren't eager-loaded (i.e. every owner view of
+        // /projects/{id} — the hottest endpoint). Cached for 60s keyed on the
+        // project's updated_at so any write invalidates it automatically.
+        $key = 'budget_summary_' . $this->id . '_' . optional($this->updated_at)->timestamp;
+
+        return \Illuminate\Support\Facades\Cache::remember($key, 60, function () {
+            return $this->doCalculateBudgetSummary();
+        });
+    }
+
+    private function doCalculateBudgetSummary(): array
+    {
         $hiredStatuses = ['accepted', 'awaiting_payment', 'active', 'contract_pending', 'completed'];
         
         $allocated = 0;

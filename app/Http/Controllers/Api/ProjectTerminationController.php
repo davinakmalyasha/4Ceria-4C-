@@ -22,6 +22,12 @@ class ProjectTerminationController extends Controller
             return response()->json(['message' => 'Only the project owner can terminate contracts.'], 403);
         }
 
+        // State guard: finished projects are historical records — firing a pro
+        // from one would corrupt milestones/history retroactively.
+        if (in_array($project->status, ['completed', 'cancelled'])) {
+            return response()->json(['message' => "Cannot terminate contracts on a {$project->status} project."], 422);
+        }
+
         $request->validate([
             'role_type' => 'required|in:arsitek,kontraktor,interior,notaris,pm',
             'reason' => 'required|string|max:500',
@@ -78,9 +84,16 @@ class ProjectTerminationController extends Controller
                 }
             }
 
-            // 4. CLEANUP: Delete uncompleted milestones for this role
+            // 4. CLEANUP: Delete uncompleted milestones for this role.
+            // BUGFIX: milestones.pm_id stores the PM PROFILE id while
+            // projects.pm_id stores the USER id — the old direct comparison
+            // matched nothing for PM terminations.
+            $milestoneColumnValue = $column === 'pm_id'
+                ? (\App\Models\ProjectManager::find($professionalId)?->id ?? $professionalId)
+                : $project->$column;
+
             $project->milestones()
-                ->where($column, $project->$column)
+                ->where($column, $milestoneColumnValue)
                 ->where('is_completed', false)
                 ->delete();
 
@@ -105,10 +118,22 @@ class ProjectTerminationController extends Controller
     public function resignFromProject(Request $request, Project $project)
     {
         $user = Auth::user();
+
+        // State guard: no resignations from finished projects either.
+        if (in_array($project->status, ['completed', 'cancelled'])) {
+            return response()->json(['message' => "Cannot resign from a {$project->status} project."], 422);
+        }
+
         $role = $user->role_type;
         $column = $this->getColumnForRole($role);
 
-        if (!$column || $project->$column !== $this->getProfileIdForUser($user, $role)) {
+        // BUGFIX: for the PM role, projects.pm_id holds the USER id — compare
+        // against $user->id; every other role compares profile ids.
+        $isHired = $role === 'pm'
+            ? (int) $project->pm_id === (int) $user->id
+            : ($column && (int) $project->$column === (int) $this->getProfileIdForUser($user, $role));
+
+        if (!$isHired) {
             return response()->json(['message' => 'You are not hired for this role on this project.'], 403);
         }
 
@@ -198,8 +223,11 @@ class ProjectTerminationController extends Controller
         };
 
         if ($modelClass) {
+            // BUGFIX: only looked for status='accepted', which doesn't exist
+            // until the first termin is paid — early firings/resignations used
+            // to skip the notification + reliability penalty entirely.
             $bid = $modelClass::where('project_id', $project->id)
-                ->where('status', 'accepted')
+                ->whereIn('status', ['accepted', 'awaiting_payment', 'contract_pending'])
                 ->latest()
                 ->first();
 

@@ -22,7 +22,10 @@ class ProjectContractService
             $content = [
                 'title' => "SURAT PERINTAH KERJA (SPK)",
                 'project' => $project->title,
-                'location' => $project->location_address,
+                // BUGFIX: projects has no location_address column — this line
+                // threw MissingAttributeException under strict mode. Fall back
+                // through the columns that DO exist.
+                'location' => $project->lokasi ?? ($project->city ?? null),
                 'owner' => $project->user->name,
                 'professional' => $proName,
                 'role' => strtoupper($roleType),
@@ -160,7 +163,7 @@ class ProjectContractService
             $fileName = "SPK_{$roleType}_{$project->id}_signed.json";
             $filePath = "contracts/project_{$project->id}/" . $fileName;
             
-            \Illuminate\Support\Facades\Storage::disk('supabase')->put($filePath, json_encode($snapshotData, JSON_PRETTY_PRINT));
+            \Illuminate\Support\Facades\Storage::disk('railway')->put($filePath, json_encode($snapshotData, JSON_PRETTY_PRINT));
 
             return ProjectDocument::updateOrCreate(
                 [

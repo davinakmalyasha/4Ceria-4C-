@@ -12,6 +12,11 @@ class ProjectMaterialFolderController extends Controller
 {
     public function index(Project $project)
     {
+        $user = Auth::user();
+        if (!$this->isAuthorizedPro($project, $user)) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
         return response()->json(['data' => $project->materialFolders()->with('creator')->get()]);
     }
 
@@ -39,6 +44,12 @@ class ProjectMaterialFolderController extends Controller
     public function update(Request $request, Project $project, ProjectMaterialFolder $folder)
     {
         $user = Auth::user();
+
+        // Binding check: the folder must belong to THIS project.
+        if ((int) $folder->project_id !== (int) $project->id) {
+            return response()->json(['message' => 'Not found.'], 404);
+        }
+
         if (!$this->isAuthorizedPro($project, $user)) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
@@ -55,6 +66,12 @@ class ProjectMaterialFolderController extends Controller
     public function destroy(Project $project, ProjectMaterialFolder $folder)
     {
         $user = Auth::user();
+
+        // Binding check: the folder must belong to THIS project.
+        if ((int) $folder->project_id !== (int) $project->id) {
+            return response()->json(['message' => 'Not found.'], 404);
+        }
+
         if (!$this->isAuthorizedPro($project, $user)) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
@@ -77,7 +94,9 @@ class ProjectMaterialFolderController extends Controller
         $isHiredArsitek = $user->role_type === 'arsitek' && $project->selected_arsitek_id === $user->arsitek?->id && in_array('arsitek', $allowedRoles);
         $isHiredKontraktor = $user->role_type === 'kontraktor' && $project->selected_kontraktor_id === $user->kontraktor?->id && in_array('kontraktor', $allowedRoles);
         $isHiredPM = $user->role_type === 'project_manager' && $project->pm_id === $user->id && in_array('project_manager', $allowedRoles);
-        $isInterior = $user->role_type === 'interior' && in_array('interior', $allowedRoles);
+        // SECURITY: interior designers must be HIRED on this project — an
+        // unscoped role check previously let ANY interior user edit folders.
+        $isInterior = $user->role_type === 'interior' && (int) $project->selected_interior_id === (int) $user->interior_profile?->id && in_array('interior', $allowedRoles);
         $isHiredStructural = $user->role_type === 'structural' && $project->structural_id === $user->structural_engineer?->id && in_array('structural', $allowedRoles);
         $isHiredMEP = $user->role_type === 'mep' && $project->mep_id === $user->mep_engineer?->id && in_array('mep', $allowedRoles);
 

@@ -12,38 +12,38 @@ class StorageFallbackController extends Controller
      */
     public function handle($path)
     {
-        // Security check: prevent directory traversal
-        if (str_contains($path, '..')) {
+        // Security checks: prevent directory traversal and null-byte injection
+        if (str_contains($path, '..') || str_contains($path, "\0")) {
             abort(404);
         }
 
-        // Handle documents that were migrated to supabase
+        // PERF: presign FIRST and let S3 answer 404 on redirect — an exists()
+        // HEAD check costs a full round-trip to Tigris on EVERY gallery/portfolio
+        // image request before we even start redirecting.
         if (str_starts_with($path, 'portfolios/') || str_starts_with($path, 'certificates/')) {
             try {
-                $supabase = Storage::disk('supabase');
-                if ($supabase->exists($path)) {
-                    $temporaryUrl = $supabase->temporaryUrl($path, now()->addHour());
-                    return redirect()->away($temporaryUrl);
-                }
+                $temporaryUrl = Storage::disk('railway')->temporaryUrl($path, now()->addHour());
+                return redirect()->away($temporaryUrl);
             } catch (\Exception $e) {
-                // Fall through if supabase is misconfigured or check fails
+                // Fall through if Railway storage is misconfigured
             }
         }
 
         try {
             $disk = Storage::disk('public');
 
-            if (!$disk->exists($path)) {
-                abort(404);
-            }
-
-            // If using S3-compatible cloud storage, redirect to a pre-signed URL
             if (config('filesystems.disks.public.driver') === 's3') {
+                // If using S3-compatible cloud storage, redirect straight to a
+                // pre-signed URL (no existence HEAD — same net result, 1 less RTT).
                 $temporaryUrl = $disk->temporaryUrl($path, now()->addHour());
                 return redirect()->away($temporaryUrl);
             }
 
             // Otherwise (local development), serve the local file directly if it exists
+            if (!$disk->exists($path)) {
+                abort(404);
+            }
+
             return response()->file($disk->path($path));
         } catch (\Exception $e) {
             abort(404, 'File not found or storage error.');
