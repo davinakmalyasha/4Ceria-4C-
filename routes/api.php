@@ -39,18 +39,14 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Cache;
 
 Route::post('/register', [AuthController::class, 'register']);
-Route::post('/login', [AuthController::class, 'login']);
-Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
-Route::post('/reset-password', [AuthController::class, 'resetPassword']);
+// Brute-force protection: dedicated tight limiters on credential endpoints.
+Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
+Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:5,1');
+Route::post('/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:5,1');
 
 // Public API endpoints
 Route::get('/houses', [HouseController::class, 'index']);
 Route::get('/houses/{house}', [HouseController::class, 'show']);
-Route::get('/jit-status', function () {
-    return response()->json([
-        'jit' => opcache_get_status(false)['jit'] ?? 'not-available'
-    ]);
-});
 
 Route::get('/arsitek', [\App\Http\Controllers\Api\PublicProfessionalController::class, 'getArsiteks']);
 Route::get('/kontraktor', [\App\Http\Controllers\Api\PublicProfessionalController::class, 'getKontraktors']);
@@ -62,6 +58,13 @@ Route::get('/mep-engineers', [\App\Http\Controllers\Api\PublicProfessionalContro
 
 // House Q&A Public Routes
 Route::get('/houses/{house}/questions', [\App\Http\Controllers\Api\HouseQAController::class, 'index']);
+
+// Notary Consultations (BUGFIX: the SPA's ConsultationModal already called
+// POST /consultations — the endpoint was missing and 404'd)
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/consultations', [\App\Http\Controllers\Api\ConsultationController::class, 'index']);
+    Route::post('/consultations', [\App\Http\Controllers\Api\ConsultationController::class, 'store']);
+});
 
 // Geocoding Proxy Public Routes
 Route::get('/geocode/reverse', [\App\Http\Controllers\Api\GeocodeController::class, 'reverse']);
@@ -94,7 +97,7 @@ Route::middleware(['auth:sanctum', 'freeze_pending_termination'])->group(functio
     Route::put('/me', [ProfileController::class, 'update']);
 
     // House Management
-    Route::apiResource('houses', HouseController::class)->except(['index', 'show']);
+    Route::apiResource('houses', HouseController::class)->only(['store', 'update', 'destroy']);
 
     // Room Management
     Route::post('houses/{house}/rooms', [RoomController::class, 'store']);
@@ -111,7 +114,7 @@ Route::middleware(['auth:sanctum', 'freeze_pending_termination'])->group(functio
     Route::post('/portfolios/{id}', [\App\Http\Controllers\Api\PortfolioController::class, 'update']);
     Route::delete('/portfolios/{id}', [\App\Http\Controllers\Api\PortfolioController::class, 'destroy']);
     
-    Route::apiResource('projects', ProjectController::class)->except(['index', 'show']);
+    Route::apiResource('projects', ProjectController::class)->only(['store', 'update', 'destroy']);
     Route::post('/upload', [ProjectController::class, 'uploadFile']);
     Route::get('/my-bids', [ProjectController::class, 'myBids']);
     Route::get('/user/active-projects', [ProjectController::class, 'getActiveProjects']);
@@ -154,11 +157,9 @@ Route::middleware(['auth:sanctum', 'freeze_pending_termination'])->group(functio
         Route::post('/milestones', [ProjectMilestoneController::class, 'store']);
         Route::put('/milestones/{milestone}', [ProjectMilestoneController::class, 'update']);
         Route::post('/milestones/{milestone}/approve', [ProjectMilestoneController::class, 'approve']);
-        Route::post('/milestones/{milestone}/request-revision', [ProjectMilestoneController::class, 'requestRevision']);
         Route::post('/technical-audit-submit', [ProjectMilestoneController::class, 'submitTechnicalAudit']);
         Route::post('/seal-design', [ProjectPhaseController::class, 'sealDesign']);
         Route::delete('/milestones/{milestone}', [ProjectMilestoneController::class, 'destroy']);
-        Route::post('/milestones/{milestone}/verify-pm', [ProjectMilestoneController::class, 'verifyPM']);
         
         // Sticky Notes
         Route::get('/sticky-notes', [\App\Http\Controllers\StickyNoteController::class, 'index']);
@@ -239,11 +240,13 @@ Route::middleware(['auth:sanctum', 'freeze_pending_termination'])->group(functio
         Route::post('/approve-engineering-hire/{addendum}', [ProjectEngineeringController::class, 'approveEngineeringHire']);
         Route::post('/reject-engineering-hire/{addendum}', [ProjectEngineeringController::class, 'rejectEngineeringHire']);
         Route::post('/approve-engineering', [ProjectEngineeringController::class, 'approveEngineeringIntegration']);
-        Route::post('/request-engineering-revision', [ProjectEngineeringController::class, 'requestEngineeringRevision']);
         Route::post('/invite-engineering-vendor', [\App\Http\Controllers\Api\EngineeringProcurementController::class, 'inviteVendor']);
         Route::post('/submit-engineering-interview', [\App\Http\Controllers\Api\EngineeringProcurementController::class, 'submitInterview']);
         Route::post('/authorize-specialist', [ProjectEngineeringController::class, 'authorizeSpecialist']);
         Route::post('/reject-specialist', [ProjectEngineeringController::class, 'rejectSpecialist']);
+        // BUGFIX: endpoint the SPA's EngineeringBidsBoard already calls — was a
+        // phantom 404 (see ProjectEngineeringController::rejectEngineeringBid).
+        Route::post('/reject-engineering-bid/{bidId}', [ProjectEngineeringController::class, 'rejectEngineeringBid']);
 
         // Phase Brief Lock (Prepare → Lock → Execute lifecycle)
         Route::post('/submit-planning', [ProjectController::class, 'submitPlanning']);
@@ -357,6 +360,9 @@ Route::middleware(['auth:sanctum', 'freeze_pending_termination'])->group(functio
     Route::post('/notifications/{notification}/read', [NotificationController::class, 'markAsRead']);
     Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
 
+    // Aggregated unread counters for header heartbeat (single cheap query)
+    Route::get('/me/unread-summary', \App\Http\Controllers\Api\UnreadSummaryController::class);
+
     // Chat
     Route::get('/conversations', [ChatController::class, 'index']);
     Route::post('/conversations', [ChatController::class, 'store']);
@@ -368,7 +374,7 @@ Route::middleware(['auth:sanctum', 'freeze_pending_termination'])->group(functio
         Route::get('/profile', [SupplierController::class, 'getProfile']);
         Route::put('/profile', [SupplierController::class, 'updateProfile']);
         Route::get('/materials', [MaterialController::class, 'merchantIndex']);
-        Route::apiResource('materials', MaterialController::class)->except(['index']);
+        Route::apiResource('materials', MaterialController::class)->only(['store', 'update', 'destroy']);
     });
 
     // Logistics & Courier Management
@@ -419,10 +425,7 @@ Route::middleware(['auth:sanctum', 'freeze_pending_termination'])->group(functio
         Route::patch('/suppliers/{id}/status', [\App\Http\Controllers\Api\Admin\AdminSupplierController::class, 'updateStatus']);
     });
 
-    // Notary Consultations
-    // Route::get('/consultations', [ConsultationController::class, 'index']);
-    // Route::post('/consultations', [ConsultationController::class, 'store']);
-    // Route::put('/consultations/{consultation}', [ConsultationController::class, 'update']);
+    // Notary services
     Route::get('/notaris/services', [ProjectController::class, 'getNotarisServices']);
 
     // Team Members (Firm Roster)

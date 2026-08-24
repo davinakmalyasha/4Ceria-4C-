@@ -213,10 +213,66 @@ class ProjectEngineeringController extends Controller
     }
 
     /**
+     * BUGFIX (phantom endpoint): the SPA's EngineeringBidsBoard posts to
+     * /projects/{id}/reject-engineering-bid/{bid} — a route that never existed,
+     * so the "Reject recommendation" button always 404'd. This implements the
+     * missing endpoint with the exact contract the frontend already sends
+     * ({bid_id} in path + {bid_type} body): it declines the recommended bid and
+     * rejects the specialist-request addendum that recommended it.
+     */
+    public function rejectEngineeringBid(Request $request, Project $project, int $bidId)
+    {
+        if (!$this->authorizeProjectAccess($project)) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        $request->validate([
+            'bid_type' => 'required|in:structural,mep',
+        ]);
+
+        $roleType = $request->input('bid_type');
+        $config = config("bids.$roleType");
+        $bidModel = $config['bid_model'];
+        $fk = $config['bid_fk'];
+
+        $bid = $bidModel::where('id', $bidId)
+            ->where('project_id', $project->id)
+            ->first();
+        if (!$bid) {
+            return response()->json(['message' => 'Bid not found.'], 404);
+        }
+
+        return DB::transaction(function () use ($project, $bid, $roleType) {
+            // Decline the recommended bid itself.
+            $bid->update(['status' => 'declined']);
+
+            // Reject the addendum that recommended this bid (if any).
+            \App\Models\ProjectAddendum::where('project_id', $project->id)
+                ->where('recommended_bid_id', $bid->id)
+                ->whereIn('type', ['specialist_request', 'specialist_assignment'])
+                ->update(['status' => 'rejected']);
+
+            \App\Models\ProjectActivityLog::create([
+                'project_id' => $project->id,
+                'user_id' => Auth::id(),
+                'action' => 'specialist_rejected',
+                'details' => 'Rejected the recommended ' . ucfirst($roleType) . ' engineer.',
+            ]);
+
+            return response()->json(['message' => 'Recommendation rejected.']);
+        });
+    }
+
+    /**
      * Verify an engineering request from an architect.
      */
     public function verifyEngineeringRequest(Request $request, Project $project, \App\Models\ProjectAddendum $addendum)
     {
+        // Binding check: the addendum must belong to THIS project.
+        if ((int) $addendum->project_id !== (int) $project->id) {
+            return response()->json(['message' => 'Not found.'], 404);
+        }
+
         if (!$this->authorizeProjectAccess($project)) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
@@ -262,6 +318,11 @@ class ProjectEngineeringController extends Controller
      */
     public function approveEngineeringHire(Project $project, \App\Models\ProjectAddendum $addendum)
     {
+        // Binding check: the addendum must belong to THIS project.
+        if ((int) $addendum->project_id !== (int) $project->id) {
+            return response()->json(['message' => 'Not found.'], 404);
+        }
+
         if (!$this->authorizeProjectAccess($project)) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
@@ -285,6 +346,11 @@ class ProjectEngineeringController extends Controller
      */
     public function rejectEngineeringHire(Project $project, \App\Models\ProjectAddendum $addendum)
     {
+        // Binding check: the addendum must belong to THIS project.
+        if ((int) $addendum->project_id !== (int) $project->id) {
+            return response()->json(['message' => 'Not found.'], 404);
+        }
+
         if (!$this->authorizeProjectAccess($project)) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
