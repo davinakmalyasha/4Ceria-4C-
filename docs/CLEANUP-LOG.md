@@ -142,3 +142,141 @@ renames (`_legacy/controllers/`), staged new files (UnreadSummaryController, use
 PWA icons, refinement-tests/, docs/), and modified files (filesystems, controllers, routes, configs,
 composer.json, README, .gitignore, .dockerignore). `git diff --cached --stat` for the big picture;
 `git diff -- <file>` per file. Nothing was committed by the agent.
+
+---
+
+## 2026-08-24 -- Security & Integrity Hardening Pass (agent, no commits)
+
+Scope: full audit remediation (6 sub-agent audits: security / backend bugs / refactor+dead-code /
+features / performance / frontend). **Additive + refinement only -- nothing that worked was removed.**
+
+### P0 Critical (takeover & money integrity)
+- AuthController + RegistrationDraftController: removed dmin from registration allowlists
+  (was: anyone could self-register as admin = full takeover). Admin accounts are now console-only.
+- Registration drafts: passwords are bcrypt-hashed at cache time; plaintext is never stored and
+  never echoed back by show(). Legacy drafts (plaintext) still complete safely. min length unified to 8.
+- PaymentVerificationService::verifyProof: termin verify now restricted to the termin recipient
+  (or hired pro for legacy rows); material verify restricted to that order's supplier / PM;
+  standard addendums require actual project participation. Previously ANY authenticated user
+  verified ANY payment on ANY project.
+- ProjectController::signContract: replay guard (refuses when a termin for the role is
+  verifying/paid) + only deletes termins not in flight.
+- ProjectBudgetController::markPaid: idempotency guards on all 7 types + ledger writes via
+  updateOrCreate keyed (project_id, reference_model, reference_id); 422-class errors surfaced properly.
+- ProjectExtensionController: participant gates (index/store), PM-only review, owner-only decide,
+  binding checks, null-deadline fallback.
+- Mutual termination: profile-id vs user-id comparisons fixed via HandlesProjectAuthorization;
+  respond/escalate restricted to project participants + binding checks. (Any user used to be able
+  to cancel any project.)
+- inviteProfessional: fixed undefined $professional fatal (endpoint was dead-on-arrival) +
+  existence validation.
+- Freeze middleware: bypass via ?x=mutual-termination in query string closed (path-only match).
+- Frontend: QuickLoginPanel dev glob wrapped in import.meta.env.DEV -- seeded credential dictionary
+  was being INLINED into production bundles.
+
+### P1 Deploy perf
+Dockerfile: OPcache enabled+tuned. entrypoint.sh: config/route/view/event caches (verified all four
+succeed). nginx.conf: gzip + immutable /build/ caching. supervisord.conf: queue worker + scheduler
+programs (queued mail was silently never sent in prod). .dockerignore: public/hot excluded.
+
+### P2 Authorization sweep
+- Binding checks (child.project_id === project.id) added across: PM bids, change orders, warranty
+  claims, snag items, addendums (+furniture milestone), requirements, material folders, procurement
+  requests, engineering addenda, milestones, payment termins, timeline extensions.
+- Zero-auth endpoints gated: legal financials, warranty CRUD, change orders, snag read/status,
+  BAST data, requirements index/history/procurement/logUsage, material folders index.
+- Interior designer hire-check enforced in BOTH isAuthorizedPro copies (any interior user used to
+  have BOM write access on every project).
+- Milestones: professionals can no longer self-approve (pproved/is_completed stripped for
+  non-owner/PM); lead-pro cannot finalize alone (two-step flow completed by owner/PM);
+  technical-audit ids validated per-project.
+- Payment termins: broken $project->pm_id === profile->id comparison fixed; paid status removed
+  from self-service create/update; contractor delete scoped to own role + never deletes verifying/paid.
+- KYC (NPWP/SIUP/portfolio/certificates) NEW uploads -> private railway disk (legacy public files
+  keep rendering). Avatar SVG uploads rejected (stored-XSS).
+- PII stripping: UserResource bank/email owner-or-admin only; HouseResource contact fields gated
+  (anon scrapers get nothing, authed users keep phones); ProjectResource share_token + bidder
+  emails/identity numbers/NPWP/KYC paths null unless privileged viewer.
+- Auth hardening: sanctum token expiration (2 days idle); password reset revokes ALL tokens;
+  login throttle 10/min + forgot/reset 5/min; forgot-password response identical for unknown emails
+  (enumeration closed).
+- Geocode proxy: failures cached 5 min instead of poisoning 30-day keys; coords rounded to 4dp
+  (Redis key-cardinality DoS closed).
+
+### P3 Money correctness & state machines
+- ProjectFinancialService: affordability = budget - ledger payments (was raw budget); dedup
+  matches both reference spellings; recordTransaction normalizes to FQCN.
+- deductBudget() false return now HONORED in verifyBidPayment + PaymentVerificationService
+  (insufficient budget aborts with 422 instead of marking pros paid with no ledger row).
+- OrderService stock decrement/increment: atomic flag claim + transaction (double-decrement closed).
+- Quote approval: duplicate-order race closed (lockForUpdate re-check inside tx).
+- Courier job accept: atomic conditional UPDATE (TOCTOU closed) + no more dragging approved quotes
+  backwards to awaiting_payment.
+- BidCalculationService: percentage fee without budget returns 0 (was Rp <percentage> literal).
+- shortlistBid state guard; fire/resign blocked on completed/cancelled projects; PM-fire cleanup
+  matches milestone pm_id space correctly; resign hire-check fixed for PM user-id space;
+  bid-status lookup broadened past 'accepted'.
+- clientSignContract no longer drags in_progress projects back to awaiting_payment.
+- syncProjectLegalScope writes PROFILE id into milestones.notaris_id (relation resolved wrong notary);
+  finalizeLegalScope verifies THE assigned PM.
+- Conversation create race handled (unique-violation -> fetch winner).
+- ReviewController uses pm() relation (PM review notifications actually send again).
+- BASTService rewritten against real schema (nonexistent relations/columns caused guaranteed 500s).
+- ProjectContractService SPK location fallback (location_address column doesn't exist).
+- Strict-mode landmines cleared: eager loads in index()/negotiate/confirm/getBidderUserId/getBidderUser/
+  BidProjectManagerController/HireHistory/unlockLinkedTermin; phantom interior.interior.* load removed.
+- MaterialQuoteController supplier-null fatals guarded (4 sites).
+
+### P5 Performance
+- Migration ..._add_missing_performance_indexes: conversations(user_two_id),
+  notifications(user_id,read_at), delivery_jobs composites x2, material_orders composites x2,
+  material_quotes(supplier_id,status), house(is_suspended,created_at), projects selector columns x7
+  + (status,created_at).
+- Migration ..._add_unique_constraints_for_money_integrity: UNIQUE ledger triple + one-bid-per-pro-
+  per-project on all 7 bid tables. Pre-checked live data: ZERO duplicate groups existed.
+- ProjectResource resolveStorageUrl static memo removed (Octane memory leak + host baking).
+- octane.php CollectGarbage enabled.
+- Chat unread counters: dropped Redis forever-mirror (never decremented = stuck badges + leak);
+  inbox uses authoritative DB withCount (response shape unchanged).
+- Milestone auto-heal LIKE-UPDATE throttled to once/hour/project via cache flag.
+- HireHistory phone N+1 (2 queries/hire) eager-loaded away.
+- House views increment throttled per viewer/6h (row-lock on hottest public page gone).
+- StorageFallbackController: presign-first (2 S3 HEADs -> 0 per image), traversal+null-byte guards.
+
+### P4 Frontend criticals
+- tailwind content += *.ts (STATUS_CONFIG/preset classes were purged from prod CSS).
+- Rules-of-hooks crashes fixed in Dashboard.tsx (admin redirect moved after all hooks) and
+  LandingPage.tsx (FAQ useState hoisted).
+- Global 401 interceptor: session expiry redirects to /login once instead of stranding the user.
+- useProjectTabsData: stale-response guard (project switch no longer merges old project's tabs data)
+  + DEV-gated logs.
+- Chat polling deduplicated into ONE shared module timer (overlay + tab each ran private 5s pollers);
+  DeliveryJobsTab/JobRadarTab pause when tab hidden.
+- Dead navigations repaired: /messages?user_id -> open-chat-with-user event (wired in Dashboard);
+  /projects/{id}?tab=payments -> switchDashboardTab events (budget manager, technical resourcing, WA links).
+- Register.tsx enforces min 8 chars (backend parity).
+- CartContext value/handlers memoized (whole-shell re-render per add-to-cart gone).
+- Vite standalone build inherits manualChunks (maplibre monolith on Vercel build).
+- Currency formatters unified to zero-fraction IDR (no more "Rp 1.000.000,00" / en-US grouping bugs).
+- tsconfig.json + ESLint flat config installed; scripts: 
+pm run lint, 
+pm run typecheck
+  (~196 pre-existing type errors logged as incremental backlog; typecheck intentionally NOT gating builds yet).
+- Duplicate/conflicting ProjectDocument + duplicate structural_profile/mep_profile interface members fixed.
+
+### P6 Restored / new
+- POST+GET /consultations implemented against existing NotarisConsultation table
+  (ConsultationModal button has been 404ing since the controller deletion).
+- reject-engineering-bid/{bidId} endpoint implemented (EngineeringBidsBoard's Reject button was a phantom 404).
+- config/bids.php role map created; ProjectController's getBidModel/getBidderUserId/getBidderUser/
+  proposeFeeAndTermins map/verifyBidPayment reference map now consume it (five hand-synced maps -> one).
+- tests/MoneyIntegrityTest.php: 6 regression tests (markPaid double-spend, signContract replay,
+  cross-project IDOR, verify-proof authz, %-fee collapse, consultation booking). Runs against real
+  MySQL inside explicit BEGIN/ROLLBACK -- verified to leave zero residue. Requires pdo_sqlite? No:
+  requires MySQL running; sqlite ext enabled in PHP ini for the Feature suite's future use.
+
+### Deliberately NOT done (owner decisions pending)
+- No deletions of D-routes/models/_legacy (per "only add/refine" instruction) -- backlog documented above.
+- Hired-professional email exposure in ProjectResource kept (participants legitimately need contact;
+  competitor leakage IS gated). Phones left visible to authenticated users.
+- Notary accept->in_progress shortcut and directories whole-table payloads left as-is (behavioral changes).
