@@ -29,8 +29,12 @@ class BidCalculationService
                 if ($projectBudget > 0) {
                     $calculatedTotal = ($priceInput / 100) * $projectBudget;
                 } else {
-                    // Fallback to price input if budget is missing, but this usually means budget isn't set
-                    $calculatedTotal = $priceInput; 
+                    // BUGFIX: previously fell back to the RAW PERCENTAGE NUMBER as
+                    // Rupiah (a "5%" bid on a budget-less project became a Rp 5
+                    // contract). A percentage fee without a budget is meaningless,
+                    // so we return 0 and let the existing ">0" validation gates
+                    // reject it with their clear error messages.
+                    $calculatedTotal = 0;
                 }
                 break;
 

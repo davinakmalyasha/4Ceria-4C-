@@ -109,17 +109,32 @@ class PaymentVerificationService
                         $isAuthorized = true;
                     }
                 } else {
-                    // Standard addendums: any professional (like lead architect / contractor) or PM who is not the owner
-                    if ($user->id !== $project->user_id) {
+                    // Standard addendums: only actual project participants (hired
+                    // professionals) who are not the owner may verify.
+                    if ($user->id !== $project->user_id && $this->isHiredProForAnyRole($project, $user)) {
                         $isAuthorized = true;
                     }
                 }
             } elseif ($type === 'termin') {
-                if ($user->id !== $project->user_id) {
-                    $isAuthorized = true; 
+                // Only the payee (termin recipient) may confirm receipt; PM is already
+                // authorized above as a neutral party.
+                if ($model->recipient_id) {
+                    if ((int) $model->recipient_id === (int) $user->id) {
+                        $isAuthorized = true;
+                    }
+                } else {
+                    // Legacy termins without an explicit recipient: fall back to the
+                    // hired professional for this role.
+                    $isAuthorized = $this->isHiredProForRole($project, $model->role_type, $user);
                 }
             } elseif ($type === 'material') {
-                $isAuthorized = true;
+                // Only the supplier receiving the money or the assigned PM may confirm receipt.
+                $supplierUserId = $model->supplier?->user_id;
+                if ($supplierUserId && (int) $supplierUserId === (int) $user->id) {
+                    $isAuthorized = true;
+                } elseif ($user->role_type === 'project_manager' && (int) $project->pm_id === (int) $user->id) {
+                    $isAuthorized = true;
+                }
             }
 
             if (!$isAuthorized) {
@@ -177,8 +192,16 @@ class PaymentVerificationService
                 
                 // CRITICAL FIX: Use calculated_total if it exists (for negotiated/percentage bids)
                 $amount = (float)($model->calculated_total ?? $model->price);
-                
-                $financialService->deductBudget($project, $amount, 'payment', "Professional Fee: {$bidderName}", $refModel, $model->id);
+
+                $deducted = $financialService->deductBudget($project, $amount, 'payment', "Professional Fee: {$bidderName}", $refModel, $model->id);
+                if (!$deducted) {
+                    // BUGFIX: the boolean was previously ignored — bids became
+                    // "paid" without any ledger entry. Fail loudly instead.
+                    throw new Exception(
+                        "Project budget is insufficient for this payment (" . number_format((float) $amount) . "). Please increase the project budget first.",
+                        422
+                    );
+                }
                 
                 // Transition Project Status
                 $this->transitionProjectStatus($project, $type);
@@ -398,6 +421,40 @@ class PaymentVerificationService
                 ]);
             }
         }
+    }
+
+    /**
+     * Resolve whether the user is the hired professional for a specific role on the project.
+     * Note: projects.pm_id stores the PM's USER id, while selected_* columns store PROFILE ids.
+     */
+    private function isHiredProForRole(Project $project, ?string $roleType, $user): bool
+    {
+        $proUserId = match ($roleType) {
+            'arsitek' => $project->selected_arsitek_id ? (\App\Models\Arsitek::find($project->selected_arsitek_id)?->user_id) : null,
+            'kontraktor' => $project->selected_kontraktor_id ? (\App\Models\Kontraktor::find($project->selected_kontraktor_id)?->user_id) : null,
+            'notaris' => $project->selected_notaris_id ? (\App\Models\NotarisProfile::find($project->selected_notaris_id)?->user_id) : null,
+            'interior' => $project->selected_interior_id ? (\App\Models\InteriorProfile::find($project->selected_interior_id)?->user_id) : null,
+            'structural' => $project->structural_id ? (\App\Models\StructuralEngineer::find($project->structural_id)?->user_id) : null,
+            'mep' => $project->mep_id ? (\App\Models\MepEngineer::find($project->mep_id)?->user_id) : null,
+            'project_manager' => $project->pm_id,
+            default => null,
+        };
+
+        return $proUserId !== null && (int) $proUserId === (int) $user->id;
+    }
+
+    /**
+     * Resolve whether the user is hired on the project under any role.
+     */
+    private function isHiredProForAnyRole(Project $project, $user): bool
+    {
+        foreach (['arsitek', 'kontraktor', 'notaris', 'interior', 'structural', 'mep', 'project_manager'] as $roleType) {
+            if ($this->isHiredProForRole($project, $roleType, $user)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

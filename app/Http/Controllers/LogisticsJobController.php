@@ -33,32 +33,38 @@ class LogisticsJobController extends Controller
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        $job = DB::table('delivery_jobs')->where('id', $id)->first();
-        if (! $job || $job->status !== 'pending') {
-            return response()->json(['message' => 'Job no longer available or not found.'], 404);
-        }
-
-        DB::beginTransaction();
-        try {
-            DB::table('delivery_jobs')->where('id', $id)->update([
+        // RACE GUARD: the status check is part of the atomic UPDATE's WHERE
+        // clause — only the FIRST courier's claim can succeed; everyone else
+        // gets "no longer available".
+        $claimed = DB::table('delivery_jobs')
+            ->where('id', $id)
+            ->where('status', 'pending')
+            ->update([
                 'status' => 'accepted',
                 'logistics_id' => $user->id,
                 'updated_at' => now(),
             ]);
 
-            DB::table('material_quotes')->where('id', $job->quote_id)->update([
-                'status' => 'awaiting_payment', // Optional: move quote to next stage if it isn't an order yet.
-                // Wait: the formal flow is quote->order. Before order, it's quote. If driver accepts, the buyer needs to pay. So awaiting_payment is correct for Self Order/Platform.
-            ]);
+        if (!$claimed) {
+            return response()->json(['message' => 'Job no longer available or not found.'], 404);
+        }
 
-            DB::commit();
+        try {
+            $job = DB::table('delivery_jobs')->where('id', $id)->first();
+
+            if ($job && $job->quote_id) {
+                // Only move the quote forward if it is still in an earlier
+                // stage — never drag an already-approved/ordered quote backwards.
+                DB::table('material_quotes')
+                    ->where('id', $job->quote_id)
+                    ->whereIn('status', ['requested', 'pending', 'sent'])
+                    ->update(['status' => 'awaiting_payment']);
+            }
 
             \Illuminate\Support\Facades\Cache::forget("logistics_stats_{$user->id}");
 
             return response()->json(['success' => true, 'message' => 'Job accepted successfully.']);
         } catch (\Exception $e) {
-            DB::rollBack();
-
             return response()->json(['message' => 'Failed to accept job.'], 500);
         }
     }

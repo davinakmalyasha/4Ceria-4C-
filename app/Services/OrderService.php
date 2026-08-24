@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\MaterialOrder;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class OrderService
 {
@@ -35,22 +36,30 @@ class OrderService
 
     /**
      * Deduct ordered quantities from material stock.
+     * Concurrency-safe: the guard flag is claimed atomically BEFORE any stock
+     * movement, and everything runs in one transaction so a mid-loop failure
+     * rolls back both the stock changes and the flag.
      */
     public function decrementStock(MaterialOrder $order)
     {
-        if ($order->is_stock_decremented) {
-            return false;
-        }
+        return DB::transaction(function () use ($order) {
+            // Atomic claim: only ONE concurrent caller can flip the flag 0 -> 1.
+            $claimed = MaterialOrder::where('id', $order->id)
+                ->where('is_stock_decremented', false)
+                ->update(['is_stock_decremented' => true]);
 
-        foreach ($order->items as $item) {
-            if ($item->material) {
-                $item->material->decrement('stock', $item->quantity);
+            if (!$claimed) {
+                return false; // Already decremented by another process.
             }
-        }
 
-        $order->update(['is_stock_decremented' => true]);
+            foreach ($order->items as $item) {
+                if ($item->material) {
+                    $item->material->decrement('stock', $item->quantity);
+                }
+            }
 
-        return true;
+            return true;
+        });
     }
 
     /**
@@ -58,18 +67,23 @@ class OrderService
      */
     public function incrementStock(MaterialOrder $order)
     {
-        if (! $order->is_stock_decremented) {
-            return false;
-        }
+        return DB::transaction(function () use ($order) {
+            // Same atomic pattern in reverse: only restore exactly once.
+            $claimed = MaterialOrder::where('id', $order->id)
+                ->where('is_stock_decremented', true)
+                ->update(['is_stock_decremented' => false]);
 
-        foreach ($order->items as $item) {
-            if ($item->material) {
-                $item->material->increment('stock', $item->quantity);
+            if (!$claimed) {
+                return false;
             }
-        }
 
-        $order->update(['is_stock_decremented' => false]);
+            foreach ($order->items as $item) {
+                if ($item->material) {
+                    $item->material->increment('stock', $item->quantity);
+                }
+            }
 
-        return true;
+            return true;
+        });
     }
 }

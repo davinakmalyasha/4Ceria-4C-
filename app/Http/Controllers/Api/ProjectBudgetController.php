@@ -231,24 +231,36 @@ class ProjectBudgetController extends Controller
 
             if ($request->type === 'bid_arsitek') {
                 $bid = \App\Models\BidArsitek::where('project_id', $project->id)->findOrFail($request->id);
+                if ($bid->payment_status === 'paid') {
+                    throw new \Exception('This payment has already been marked as paid.', 422);
+                }
                 $bid->update(['payment_status' => 'paid', 'paid_at' => now()]);
                 $amount = $bid->price;
                 $title = 'Paid Architect Base Fee';
                 $referenceModel = 'App\Models\BidArsitek';
             } elseif ($request->type === 'bid_notaris') {
                 $bid = \App\Models\BidNotaris::where('project_id', $project->id)->findOrFail($request->id);
+                if ($bid->payment_status === 'paid') {
+                    throw new \Exception('This payment has already been marked as paid.', 422);
+                }
                 $bid->update(['payment_status' => 'paid', 'paid_at' => now()]);
                 $amount = $bid->price;
                 $title = 'Paid Notaris Base Fee';
                 $referenceModel = 'App\Models\BidNotaris';
             } elseif ($request->type === 'bid_interior') {
                 $bid = \App\Models\BidInterior::where('project_id', $project->id)->findOrFail($request->id);
+                if ($bid->payment_status === 'paid') {
+                    throw new \Exception('This payment has already been marked as paid.', 422);
+                }
                 $bid->update(['payment_status' => 'paid', 'paid_at' => now()]);
                 $amount = $bid->price;
                 $title = 'Paid Interior Designer Base Fee';
                 $referenceModel = 'App\Models\BidInterior';
             } elseif ($request->type === 'bid_structural') {
                 $bid = \App\Models\BidStructural::where('project_id', $project->id)->findOrFail($request->id);
+                if ($bid->payment_status === 'paid') {
+                    throw new \Exception('This payment has already been marked as paid.', 422);
+                }
                 $bid->update(['payment_status' => 'paid', 'paid_at' => now()]);
                 $amount = $bid->calculated_total ?? $bid->price;
                 $title = 'Paid Structural Engineer Resource';
@@ -256,6 +268,9 @@ class ProjectBudgetController extends Controller
                 $project->update(['structural_id' => $bid->structural_id]);
             } elseif ($request->type === 'bid_mep') {
                 $bid = \App\Models\BidMep::where('project_id', $project->id)->findOrFail($request->id);
+                if ($bid->payment_status === 'paid') {
+                    throw new \Exception('This payment has already been marked as paid.', 422);
+                }
                 $bid->update(['payment_status' => 'paid', 'paid_at' => now()]);
                 $amount = $bid->calculated_total ?? $bid->price;
                 $title = 'Paid MEP Engineer Resource';
@@ -263,6 +278,9 @@ class ProjectBudgetController extends Controller
                 $project->update(['mep_id' => $bid->mep_id]);
             } elseif ($request->type === 'addendum') {
                 $addendum = ProjectAddendum::where('project_id', $project->id)->findOrFail($request->id);
+                if ($addendum->status === 'paid') {
+                    throw new \Exception('This payment has already been marked as paid.', 422);
+                }
                 $addendum->update(['status' => 'paid', 'paid_at' => now()]);
                 $amount = $addendum->amount;
                 $title = 'Paid Addendum: ' . $addendum->title;
@@ -339,6 +357,9 @@ class ProjectBudgetController extends Controller
                 }
             } elseif ($request->type === 'termin') {
                 $termin = \App\Models\ProjectPaymentTermin::where('project_id', $project->id)->findOrFail($request->id);
+                if ($termin->status === 'paid') {
+                    throw new \Exception('This payment has already been marked as paid.', 422);
+                }
                 $termin->update(['status' => 'paid', 'paid_at' => now()]);
                 $amount = $termin->amount;
                 
@@ -355,22 +376,28 @@ class ProjectBudgetController extends Controller
                 $referenceModel = 'App\Models\ProjectPaymentTermin';
             }
 
-            // Create Transaction
-            ProjectBudgetTransaction::create([
-                'project_id' => $project->id,
-                'transaction_type' => 'payment',
-                'amount' => $amount,
-                'title' => $title,
-                'reference_model' => $referenceModel,
-                'reference_id' => $request->id,
-                'transaction_date' => now(),
-            ]);
+            // Create Transaction — updateOrCreate keyed on the reference triple so a
+            // payment can only ever produce ONE ledger row (double-spend guard).
+            ProjectBudgetTransaction::updateOrCreate(
+                [
+                    'project_id' => $project->id,
+                    'reference_model' => $referenceModel,
+                    'reference_id' => $request->id,
+                ],
+                [
+                    'transaction_type' => 'payment',
+                    'amount' => $amount,
+                    'title' => $title,
+                    'transaction_date' => now(),
+                ]
+            );
 
             DB::commit();
             return response()->json(['message' => 'Successfully marked as paid and deducted from budget.']);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['message' => 'Failed to process payment tracking.', 'error' => $e->getMessage()], 500);
+            $status = is_int($e->getCode()) && $e->getCode() >= 400 && $e->getCode() < 500 ? $e->getCode() : 500;
+            return response()->json(['message' => $status === 422 ? $e->getMessage() : 'Failed to process payment tracking.', 'error' => $status === 422 ? null : $e->getMessage()], $status);
         }
     }
 

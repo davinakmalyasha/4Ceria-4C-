@@ -81,7 +81,7 @@ class MaterialQuoteController extends Controller
     public function requestPayment(Request $request, MaterialQuote $quote)
     {
         $user = Auth::user();
-        if ($user->role_type !== 'supplier' || $quote->supplier_id !== $user->supplier->id) {
+        if ($user->role_type !== 'supplier' || !$user->supplier || $quote->supplier_id !== $user->supplier->id) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -104,7 +104,7 @@ class MaterialQuoteController extends Controller
     public function markAsPaid(Request $request, MaterialQuote $quote)
     {
         $user = Auth::user();
-        if ($user->role_type !== 'supplier' || $quote->supplier_id !== $user->supplier->id) {
+        if ($user->role_type !== 'supplier' || !$user->supplier || $quote->supplier_id !== $user->supplier->id) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -116,7 +116,7 @@ class MaterialQuoteController extends Controller
     public function postDeliveryJob(Request $request, MaterialQuote $quote)
     {
         $user = Auth::user();
-        if ($user->role_type !== 'supplier' || $quote->supplier_id !== $user->supplier->id) {
+        if ($user->role_type !== 'supplier' || !$user->supplier || $quote->supplier_id !== $user->supplier->id) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -159,7 +159,7 @@ class MaterialQuoteController extends Controller
     public function approve(Request $request, MaterialQuote $quote)
     {
         $user = Auth::user();
-        if ($user->role_type !== 'supplier' || $quote->supplier_id !== $user->supplier->id) {
+        if ($user->role_type !== 'supplier' || !$user->supplier || $quote->supplier_id !== $user->supplier->id) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -179,6 +179,16 @@ class MaterialQuoteController extends Controller
 
         \DB::beginTransaction();
         try {
+            // RACE GUARD: re-check INSIDE the transaction with a row lock so two
+            // concurrent approvals cannot both pass the pre-check and create
+            // duplicate orders + delivery jobs.
+            $freshQuote = \App\Models\MaterialQuote::where('id', $quote->id)->lockForUpdate()->first();
+            if (!$freshQuote || $freshQuote->status === 'approved') {
+                \DB::rollBack();
+                return response()->json(['message' => 'Quote already approved'], 422);
+            }
+            $quote = $freshQuote;
+
             // 1. Update Quote Status
             $quote->update(['status' => 'approved']);
 
