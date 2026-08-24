@@ -11,8 +11,8 @@
 .vscode
 .phpunit.cache
 .agents
-GEMINI.md
 README.md
+docs
 
 # Application development artifacts
 node_modules
@@ -34,3 +34,6 @@ public/storage
 # Docker
 Dockerfile
 .dockerignore
+
+# Vite dev-server marker must never ship to production
+public/hot
