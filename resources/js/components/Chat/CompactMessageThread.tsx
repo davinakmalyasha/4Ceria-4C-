@@ -7,9 +7,12 @@ interface Props {
     currentUser: any;
     otherUser: ChatUser;
     isLoading: boolean;
+    hasMoreHistory?: boolean;
+    isLoadingEarlier?: boolean;
+    onLoadEarlier?: () => void;
 }
 
-export default function CompactMessageThread({ messages, currentUser, otherUser, isLoading }: Props) {
+export default function CompactMessageThread({ messages, currentUser, otherUser, isLoading, hasMoreHistory = false, isLoadingEarlier = false, onLoadEarlier }: Props) {
     const endRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -35,14 +38,26 @@ export default function CompactMessageThread({ messages, currentUser, otherUser,
                     <p className="text-[10px] text-gray-500 mt-0.5">Start a conversation with {otherUser.name}.</p>
                 </div>
             ) : (
-                messages.map((msg, idx) => {
-                    const isMe = msg.sender_id === currentUser.id;
-                    const prevMsg = idx > 0 ? messages[idx - 1] : null;
-                    const showDate = !prevMsg || format(new Date(prevMsg.created_at), 'yyyy-MM-dd') !== format(new Date(msg.created_at), 'yyyy-MM-dd');
-                    const showAvatar = !prevMsg || prevMsg.sender_id !== msg.sender_id || showDate;
+                <>
+                    {hasMoreHistory && onLoadEarlier && (
+                        <div className="flex justify-center pb-1">
+                            <button
+                                onClick={(e) => { e.stopPropagation(); onLoadEarlier(); }}
+                                disabled={isLoadingEarlier}
+                                className="px-3 py-1 rounded-lg bg-white border border-gray-200 text-[10px] font-bold text-gray-500 hover:text-gray-900 transition-colors disabled:opacity-60"
+                            >
+                                {isLoadingEarlier ? 'Loading...' : 'Load earlier'}
+                            </button>
+                        </div>
+                    )}
+                    {messages.map((msg, idx) => {
+                        const isMe = msg.sender_id === currentUser.id;
+                        const prevMsg = idx > 0 ? messages[idx - 1] : null;
+                        const showDate = !prevMsg || format(new Date(prevMsg.created_at), 'yyyy-MM-dd') !== format(new Date(msg.created_at), 'yyyy-MM-dd');
+                        const showAvatar = !prevMsg || prevMsg.sender_id !== msg.sender_id || showDate;
 
-                    return (
-                        <div key={msg.id} className="space-y-3">
+                        return (
+                            <div key={msg.id} className="space-y-3">
                             {showDate && (
                                 <div className="flex justify-center my-4">
                                     <span className="px-2.5 py-0.5 rounded-full bg-white border border-gray-100 text-[9px] font-black text-gray-400 uppercase tracking-wider shadow-xs">
@@ -80,7 +95,8 @@ export default function CompactMessageThread({ messages, currentUser, otherUser,
                             </div>
                         </div>
                     );
-                })
+                    })}
+                </>
             )}
             <div ref={endRef} />
         </div>

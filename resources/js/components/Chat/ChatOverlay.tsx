@@ -26,6 +26,9 @@ export default function ChatOverlay({ onMaximize, activeTab }: ChatOverlayProps)
         isLoadingMessages,
         isSending,
         sendMessage,
+        hasMoreHistory,
+        isLoadingEarlier,
+        loadEarlierMessages,
     } = useChat();
 
     // Hide overlay for guests or if the user is already on the full chat tab
@@ -101,11 +104,14 @@ export default function ChatOverlay({ onMaximize, activeTab }: ChatOverlayProps)
                         <div className="flex-1 flex flex-col min-h-0 bg-white relative">
                             {activeConversation ? (
                                 <>
-                                    <CompactMessageThread 
-                                        messages={messages} 
-                                        currentUser={user} 
+                                    <CompactMessageThread
+                                        messages={messages}
+                                        currentUser={user}
                                         otherUser={activeConversation.other_user}
-                                        isLoading={isLoadingMessages} 
+                                        isLoading={isLoadingMessages}
+                                        hasMoreHistory={hasMoreHistory}
+                                        isLoadingEarlier={isLoadingEarlier}
+                                        onLoadEarlier={loadEarlierMessages}
                                     />
                                     <ChatInput 
                                         key={activeConversation.id} 

@@ -13,16 +13,19 @@ interface ChatTabProps {
 }
 
 export default function ChatTab({ initialUserId, onClearInitialUser }: ChatTabProps) {
-    const { 
-        conversations, 
-        activeConversation, 
-        setActiveConversation, 
-        messages, 
-        isLoadingConv, 
-        isLoadingMessages, 
-        isSending, 
+    const {
+        conversations,
+        activeConversation,
+        setActiveConversation,
+        messages,
+        isLoadingConv,
+        isLoadingMessages,
+        isSending,
         sendMessage,
-        startConversation
+        startConversation,
+        hasMoreHistory,
+        isLoadingEarlier,
+        loadEarlierMessages
     } = useChat();
     const { user } = useAuth();
 
@@ -76,11 +79,14 @@ export default function ChatTab({ initialUserId, onClearInitialUser }: ChatTabPr
                         </div>
 
                         {/* Messages */}
-                        <MessageThread 
-                            messages={messages} 
-                            currentUser={user} 
+                        <MessageThread
+                            messages={messages}
+                            currentUser={user}
                             otherUser={activeConversation.other_user}
-                            isLoading={isLoadingMessages} 
+                            isLoading={isLoadingMessages}
+                            hasMoreHistory={hasMoreHistory}
+                            isLoadingEarlier={isLoadingEarlier}
+                            onLoadEarlier={loadEarlierMessages}
                         />
 
                         {/* Input */}

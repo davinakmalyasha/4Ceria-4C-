@@ -9,9 +9,12 @@ interface MessageThreadProps {
     currentUser: any;
     otherUser: ChatUser;
     isLoading: boolean;
+    hasMoreHistory?: boolean;
+    isLoadingEarlier?: boolean;
+    onLoadEarlier?: () => void;
 }
 
-export default function MessageThread({ messages, currentUser, otherUser, isLoading }: MessageThreadProps) {
+export default function MessageThread({ messages, currentUser, otherUser, isLoading, hasMoreHistory = false, isLoadingEarlier = false, onLoadEarlier }: MessageThreadProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const endRef = useRef<HTMLDivElement>(null);
     const [renderLimit, setRenderLimit] = useState(100);
@@ -58,6 +61,19 @@ export default function MessageThread({ messages, currentUser, otherUser, isLoad
                 </div>
             ) : (
                 <>
+                    {/* B12: fetch older pages from the server when the
+                        initial 50-message window has more history. */}
+                    {hasMoreHistory && onLoadEarlier && (
+                        <div className="flex justify-center pb-2 shrink-0">
+                            <button
+                                onClick={(e) => { e.stopPropagation(); onLoadEarlier(); }}
+                                disabled={isLoadingEarlier}
+                                className="px-3.5 py-1.5 rounded-xl bg-white border border-gray-200 text-xs font-bold text-gray-500 hover:text-gray-900 transition-colors shadow-sm disabled:opacity-60"
+                            >
+                                {isLoadingEarlier ? 'Loading...' : 'Load earlier messages'}
+                            </button>
+                        </div>
+                    )}
                     {messages.length > renderLimit && (
                         <div className="flex justify-center py-2 shrink-0">
                             <button 

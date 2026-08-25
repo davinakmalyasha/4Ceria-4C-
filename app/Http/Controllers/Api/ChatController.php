@@ -20,29 +20,36 @@ class ChatController extends Controller
     {
         $user = Auth::user();
 
+        // PERF: cap the inbox (most recent 100 conversations). Profiles are
+        // NOT eager-loaded through 12 relation paths any more — after the
+        // page fetch we batch-resolve each participant's avatar with one
+        // small indexed query per role actually present.
         $conversations = Conversation::where('user_one_id', $user->id)
             ->orWhere('user_two_id', $user->id)
-            ->with([
-                'userOne.arsitek', 'userOne.kontraktor', 'userOne.notaris_profile', 'userOne.interior_profile', 'userOne.courierProfile', 'userOne.supplier',
-                'userTwo.arsitek', 'userTwo.kontraktor', 'userTwo.notaris_profile', 'userTwo.interior_profile', 'userTwo.courierProfile', 'userTwo.supplier',
-                'latestMessage'
-            ])
+            ->with(['latestMessage'])
             ->withCount(['messages as unread_count' => function ($q) use ($user) {
                 $q->where('sender_id', '!=', $user->id)
                   ->where('is_read', false);
             }])
             ->orderBy('last_message_at', 'desc')
+            ->limit(100)
             ->get();
 
-        // Map conversations to include the "other user" directly
-        $formatted = $conversations->map(function ($conv) use ($user) {
-            $otherUser = ($conv->user_one_id === $user->id) ? $conv->userTwo : $conv->userOne;
+        // Resolve avatars: group "other user" ids by role, one query per role
+        $others = $conversations->map(
+            fn ($c) => $c->user_one_id === $user->id ? $c->user_two_id : $c->user_one_id
+        )->unique()->values();
 
-            // BUGFIX: previously mirrored unread counts into Redis FOREVER keys
-            // that were incremented on send but NEVER reset when messages were
-            // read -> stuck badges + unbounded key growth. The withCount value
-            // computed above is authoritative and always consistent.
-            $unreadCount = (int) $conv->unread_count;
+        $usersById = \App\Models\User::whereIn('id', $others)->get()->keyBy('id');
+        $avatarByUserId = $this->resolveAvatars($usersById);
+
+        // Map conversations to include the "other user" directly
+        $formatted = $conversations->map(function ($conv) use ($user, $usersById, $avatarByUserId) {
+            $otherId = ($conv->user_one_id === $user->id) ? $conv->user_two_id : $conv->user_one_id;
+            $otherUser = $usersById->get($otherId);
+            if (!$otherUser) {
+                return null;
+            }
 
             return [
                 'id' => $conv->id,
@@ -51,20 +58,49 @@ class ChatController extends Controller
                     'name' => $otherUser->name,
                     'username' => $otherUser->username,
                     'role_type' => $otherUser->role_type,
-                    'pic' => $otherUser->arsitek->foto ??
-                             ($otherUser->kontraktor->foto ??
-                             ($otherUser->notaris_profile->foto ??
-                             ($otherUser->interior_profile->foto ??
-                             ($otherUser->courierProfile->foto ??
-                             ($otherUser->supplier->foto ?? null))))),
+                    'pic' => $avatarByUserId[$otherUser->id] ?? null,
                 ],
                 'last_message' => $conv->latestMessage,
-                'unread_count' => $unreadCount,
+                'unread_count' => (int) $conv->unread_count,
                 'last_message_at' => $conv->last_message_at,
             ];
-        });
+        })->filter()->values();
 
         return response()->json(['data' => $formatted]);
+    }
+
+    /**
+     * One query per professional-role table for the given users; returns
+     * [user_id => foto] for whoever has an avatar.
+     */
+    private function resolveAvatars($users): array
+    {
+        $byRole = $users->groupBy('role_type');
+        $avatars = [];
+
+        $map = [
+            'arsitek' => [\App\Models\Arsitek::class, 'arsitek'],
+            'kontraktor' => [\App\Models\Kontraktor::class, 'kontraktor'],
+            'notaris' => [\App\Models\NotarisProfile::class, 'notaris'],
+            'interior' => [\App\Models\InteriorProfile::class, 'interior'],
+            'project_manager' => [\App\Models\ProjectManager::class, 'project_manager'],
+            'courier' => [\App\Models\CourierProfile::class, 'courier'],
+            'supplier' => [\App\Models\Supplier::class, 'supplier'],
+        ];
+
+        foreach ($map as $role => [$model, $fk]) {
+            $ids = $byRole->get($role, collect())->pluck('id');
+            if ($ids->isEmpty()) {
+                continue;
+            }
+            $model::whereIn('user_id', $ids)
+                ->whereNotNull('foto')
+                ->select('user_id', 'foto')
+                ->get()
+                ->each(fn ($p) => $avatars[$p->user_id] = $p->foto);
+        }
+
+        return $avatars;
     }
 
     /**
@@ -117,8 +153,11 @@ class ChatController extends Controller
 
     /**
      * Get messages for a specific conversation.
+     *
+     * Supports cursor-based history pagination: pass ?before_id={messageId}
+     * to load the 50 messages older than the given one ("load earlier").
      */
-    public function show(Conversation $conversation)
+    public function show(Conversation $conversation, Request $request)
     {
         $user = Auth::user();
 
@@ -127,25 +166,43 @@ class ChatController extends Controller
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        // Mark messages as read
-        $conversation->messages()
+        $beforeId = $request->query('before_id');
+
+        // Mark messages as read (skip the write entirely when polling an
+        // already-caught-up thread — every tick used to run a no-op UPDATE).
+        $unreadExists = $conversation->messages()
             ->where('sender_id', '!=', $user->id)
             ->where('is_read', false)
-            ->update(['is_read' => true]);
+            ->exists();
+        if ($unreadExists && !$beforeId) {
+            $conversation->messages()
+                ->where('sender_id', '!=', $user->id)
+                ->where('is_read', false)
+                ->update(['is_read' => true]);
+        }
 
-        // Clear the unread count in Cache for this user and conversation
-        $redisKey = "user:{$user->id}:conv:{$conversation->id}:unread";
-        \Illuminate\Support\Facades\Cache::forget($redisKey);
-
-        $messages = $conversation->messages()
+        $query = $conversation->messages()
             ->with('sender')
-            ->latest()
-            ->limit(50)
-            ->get()
-            ->reverse()
-            ->values();
+            ->latest();
 
-        return response()->json(['data' => $messages]);
+        if ($beforeId) {
+            $query->where('id', '<', (int) $beforeId);
+        }
+
+        $messages = $query->limit(50)->get()->reverse()->values();
+
+        // History cursor: true when older messages exist beyond this page.
+        $hasMore = $conversation->messages()
+            ->when($beforeId, fn ($q) => $q->where('id', '<', (int) $beforeId))
+            ->count() > 50;
+
+        return response()->json([
+            'data' => $messages,
+            'meta' => [
+                'oldest_id' => $messages->first()?->id,
+                'has_more' => $hasMore,
+            ],
+        ]);
     }
 
     /**
@@ -154,7 +211,7 @@ class ChatController extends Controller
     public function sendMessage(Request $request, Conversation $conversation)
     {
         $request->validate([
-            'content' => 'required_without:image|nullable|string',
+            'content' => 'required_without:image|nullable|string|max:4000',
             'image' => 'nullable|image|mimes:jpeg,png,jpg|max:5120', // 5MB max
         ]);
 

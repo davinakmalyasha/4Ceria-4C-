@@ -28,52 +28,81 @@ function subscribeToChatPolling(listener: PollListener): () => void {
     };
 }
 
+// PERF: the shared timer alone was not enough — every useChat instance kept
+// its own conversations STATE and fired its own GET /conversations per tick
+// (ChatOverlay + ChatTab = 2 requests every 5s). Conversations now live in a
+// module-level store with in-flight dedup: ONE request per cycle, and every
+// subscriber sees the same list.
+let sharedConversations: Conversation[] = [];
+let sharedFetchInFlight = false;
+type ConversationListener = (c: Conversation[]) => void;
+const conversationListeners = new Set<ConversationListener>();
+
+function publishConversations(next: Conversation[]): void {
+    sharedConversations = next;
+    conversationListeners.forEach(fn => fn(next));
+}
+
+function subscribeToConversations(listener: ConversationListener): () => void {
+    conversationListeners.add(listener);
+    return () => { conversationListeners.delete(listener); };
+}
+
 
 export function useChat() {
-    const [conversations, setConversations] = useState<Conversation[]>([]);
+    const [conversations, setConversations] = useState<Conversation[]>(sharedConversations);
     const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [isLoadingConv, setIsLoadingConv] = useState(false);
     const [isLoadingMessages, setIsLoadingMessages] = useState(false);
     const [isSending, setIsSending] = useState(false);
+    const [hasMoreHistory, setHasMoreHistory] = useState(false);
+    const [isLoadingEarlier, setIsLoadingEarlier] = useState(false);
     
     const { showToast } = useToast();
 
 
     const fetchConversations = useCallback(async (silent = false) => {
+        // Single-flight: a duplicate poll while a request is already running
+        // just returns the shared list.
+        if (sharedFetchInFlight) return sharedConversations;
+        sharedFetchInFlight = true;
         if (!silent) setIsLoadingConv(true);
         try {
             const res = await axios.get('/conversations');
             const data = res.data.data;
-            setConversations(prev => {
-                if (prev.length === data.length && 
-                    prev.every((c, idx) => 
-                        c.id === data[idx].id && 
-                        c.unread_count === data[idx].unread_count && 
-                        c.last_message?.id === data[idx].last_message?.id
-                    )
-                ) {
-                    return prev;
-                }
-                return data;
-            });
-            return data;
+            const prev = sharedConversations;
+            if (!(prev.length === data.length &&
+                prev.every((c, idx) =>
+                    c.id === data[idx].id &&
+                    c.unread_count === data[idx].unread_count &&
+                    c.last_message?.id === data[idx].last_message?.id
+                )
+            )) {
+                publishConversations(data);
+            }
+            return sharedConversations;
         } catch (err) {
             console.error('Failed to fetch conversations', err);
             return [];
         } finally {
+            sharedFetchInFlight = false;
             if (!silent) setIsLoadingConv(false);
         }
     }, []);
+
+    // Keep local state in sync with the shared store.
+    useEffect(() => subscribeToConversations(setConversations), []);
 
     const fetchMessages = useCallback(async (conversationId: number) => {
         setIsLoadingMessages(true);
         try {
             const res = await axios.get(`/conversations/${conversationId}`);
             setMessages(res.data.data);
-            
-            // Mark as read locally in conversations list
-            setConversations(prev => prev.map(c => 
+            setHasMoreHistory(res.data.meta?.has_more ?? false);
+
+            // Mark as read locally in conversations list (shared store)
+            publishConversations(sharedConversations.map(c =>
                 c.id === conversationId ? { ...c, unread_count: 0 } : c
             ));
         } catch (err) {
@@ -82,6 +111,25 @@ export function useChat() {
             setIsLoadingMessages(false);
         }
     }, []);
+
+    // B12: load one older page of history (cursor = current oldest id).
+    const loadEarlierMessages = useCallback(async () => {
+        if (!activeConversation || messages.length === 0 || isLoadingEarlier) return;
+        const oldestId = messages[0]?.id;
+        if (!oldestId) return;
+        setIsLoadingEarlier(true);
+        try {
+            const res = await axios.get(`/conversations/${activeConversation.id}`, {
+                params: { before_id: oldestId },
+            });
+            setMessages(prev => [...(res.data.data as ChatMessage[]), ...prev]);
+            setHasMoreHistory(res.data.meta?.has_more ?? false);
+        } catch (err) {
+            console.error('Failed to load earlier messages', err);
+        } finally {
+            setIsLoadingEarlier(false);
+        }
+    }, [activeConversation, messages, isLoadingEarlier]);
 
     const sendMessage = useCallback(async (content: string, imageFile?: File | null) => {
         if (!activeConversation || (!content.trim() && !imageFile)) return;
@@ -99,8 +147,8 @@ export function useChat() {
             const newMsg = res.data.data;
             setMessages(prev => [...prev, newMsg]);
             
-            // Update last message in conversations list
-            setConversations(prev => prev.map(c => 
+            // Update last message in conversations list (shared store)
+            publishConversations(sharedConversations.map(c =>
                 c.id === activeConversation.id ? { ...c, last_message: newMsg, last_message_at: newMsg.created_at } : c
             ).sort((a, b) => new Date(b.last_message_at || 0).getTime() - new Date(a.last_message_at || 0).getTime()));
             
@@ -176,6 +224,9 @@ export function useChat() {
         isSending,
         sendMessage,
         startConversation,
-        refreshConversations: fetchConversations
+        refreshConversations: fetchConversations,
+        hasMoreHistory,
+        isLoadingEarlier,
+        loadEarlierMessages
     };
 }
