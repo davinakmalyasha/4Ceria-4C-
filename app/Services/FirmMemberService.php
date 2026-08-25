@@ -257,23 +257,6 @@ class FirmMemberService
     }
 
     /**
-     * Resend a pending firm invitation.
-     */
-    public function resendInvitation(FirmMember $firmMember): FirmMember
-    {
-        if ($firmMember->status !== 'invited') {
-            abort(400, 'Only pending invitations can be resent.');
-        }
-
-        return DB::transaction(function () use ($firmMember): FirmMember {
-            $firmMember->update([
-                'invited_at' => now(),
-            ]);
-            return $firmMember->fresh();
-        });
-    }
-
-    /**
      * Cancel a pending firm invitation.
      */
     public function cancelInvitation(FirmMember $firmMember): bool
@@ -379,24 +362,6 @@ class FirmMemberService
                 'requested_at'   => now(),
             ]);
         });
-    }
-
-    /** Get pending join requests for a firm owner. */
-    public function getJoinRequests(User $owner): Collection
-    {
-        $requests = FirmMember::where('firm_owner_id', $owner->id)
-            ->requested()
-            ->with('member:id,name,unique_code,role_type,pic')
-            ->orderBy('requested_at', 'desc')
-            ->get();
-
-        $requests->each(function (FirmMember $fm) {
-            if ($fm->member && $fm->member->pic && !str_starts_with($fm->member->pic, 'http')) {
-                $fm->member->pic = asset('storage/' . $fm->member->pic);
-            }
-        });
-
-        return $requests;
     }
 
     /** @return string[] */

@@ -78,11 +78,6 @@ class Arsitek extends Model
         return $this->belongsTo(User::class, 'user_id', 'id');
     }
 
-    public function riwayatProjects()
-    {
-        return $this->hasMany(RiwayatProject::class);
-    }
-
     public function ratings()
     {
         return $this->hasMany(ArsitekRating::class, 'arsitek_id');

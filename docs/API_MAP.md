@@ -31,3 +31,22 @@ stats (cached 600 s), professional verifications (list/history/status), house su
 
 ## Removed in this pass
 Breeze web auth (`routes/auth.php` — was never loaded), Notary Consultations block (commented), dead `create/edit` resource routes for houses/projects/materials.
+
+## Reserved / future-facing endpoints (kept deliberately, zero SPA consumers as of 2026-08)
+Owner decision: these stay routed as API-first surface for future clients (mobile app, integrations). Do NOT report as dead code; revisit if still unwired in a future audit.
+
+| Route | Backend | Note |
+|---|---|---|
+| `POST /projects/{id}/approve-construction-brief` | ProjectController::approveConstructionBrief | Brief approval gate, awaiting SPA wiring |
+| `POST /projects/{id}/revise-construction-brief` | ProjectController::reviseConstructionBrief | Paired with above |
+| `POST /projects/{id}/mark-complete` | ProjectController::markComplete | SPA currently PATCHes project fields instead (PhaseAssignedPro) |
+| `POST /projects/{id}/requirements/{req}/usage` | ProjectRequirementController::logUsage | Restock/use are wired via dynamic mode param |
+| `POST /projects/{id}/approve-engineering` | ProjectEngineeringController::approveEngineeringIntegration | Engineering flow uses verify-engineering + authorize-specialist |
+| `POST /projects/{id}/approve-engineering-hire/{addendum}` | ProjectEngineeringController::approveEngineeringHire | Same |
+| `POST /projects/{id}/reject-engineering-hire/{addendum}` | ProjectEngineeringController::rejectEngineeringHire | Same |
+| `POST /projects/{id}/pm-bids` | BidProjectManagerController::store | PM bids actually created via proposeFeeAndTermins |
+| `GET/POST/PUT/DELETE /team-members(+{id})` writes | TeamMemberController@store/update/destroy | SPA only GETs roster; mutations go through firm-members |
+| `GET/POST /houses/{house}/questions`, `POST /questions/{question}/answers` | HouseQAController@index/storeQuestion/storeAnswer | Q&A UI pending (answers now owner/admin-gated) |
+| `GET /templates/{filename}` | SpaController::showTemplate (web.php) | SPK preview rendered inline in React instead |
+
+Related dead-code removed this pass: RegistrationDraftController, FirmMemberService::{resendInvitation,getJoinRequests}, ProjectScheduleService::updatePhase, Contact/Admin models, `riwayat_projects` + `pengajuan_spesialisasi` tables (drop migration 2026_08_25_000001), ~40 unimported frontend exports, Common/StatusBadge.tsx.

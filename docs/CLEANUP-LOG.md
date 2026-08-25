@@ -280,3 +280,101 @@ pm run typecheck
 - Hired-professional email exposure in ProjectResource kept (participants legitimately need contact;
   competitor leakage IS gated). Phones left visible to authenticated users.
 - Notary accept->in_progress shortcut and directories whole-table payloads left as-is (behavioral changes).
+
+---
+
+# ROUND 2 — 2026-08-25 deep audit (security chain, regressions, rewires, true-dead removal)
+
+Second pass after the round-1 hardening shipped. Six probes (4 subagent audits + 2 manual
+deep-dives), every critical claim re-verified by hand before touching anything.
+
+## Critical security chain closed
+- PublicProfessionalController: directory payloads were RAW models — publicly shipping
+  identity_number/npwp_number/siup_number, NPWP/SIUP/certificate doc paths and nested bank
+  fields. Now strips all KYC-grade fields; portfolios stay public-by-design.
+  User::$hidden += bank_name/bank_account_number/bank_account_name/unique_code (explicit
+  attribute reads in UserResource unaffected).
+- StorageFallbackController: certificates/* presign branch REMOVED (any anonymous visitor
+  could mint 1h private-bucket URLs for scraped cert paths). portfolios/ kept — it powers
+  ProfessionalProfileView links. Admin/owner cert viewing already flows through the
+  authorized SecureVerificationDocumentController.
+- ProjectController::show(): membership gate added (owner/admin/PM/hired/sub-pro/bidder).
+  Previously ANY authenticated user could enumerate sequential ids and read budgets,
+  RAB (construction_details now pii()-gated) and team contacts.
+- inviteVendor duplicate-invite 500 (REGRESSION from our own unique constraints) resolved
+  by deleting the dead route+method entirely (0 consumers web+mobile).
+
+## Regression fallout from round-1 UNIQUE constraints
+- All 7 bid stores + BidProjectManagerController::store: UCV -> friendly "already submitted" 422.
+- deductBudget: UCV catch + reference_model normalized to FQCN at write time;
+  exists() still matches both spellings for legacy rows.
+- Migration 2026_08_25_000001 backfills legacy short-name ledger rows to FQCN
+  (pair-safe: skips rows that would collide with an existing FQCN twin).
+
+## Hardening
+- Uploads: engineering files.* and addendum attachment restricted to images/pdf (no more
+  arbitrary html/svg/exe on public disk); bare `image` rules got explicit mimes x8 endpoints
+  (SVG rejected); ImageService rejects SVG MIME + >8000px/>24MP decompression bombs.
+- Chat: content max:4000; send throttle 30/min. Consultation bookings: WIB-aware parsing +
+  5 pending/day cap. Raw exception text removed from ~6 handlers (S3 errors logged only).
+- bootstrap/app.php: trustProxies(*) for Railway edge (rate-limit buckets per real client IP).
+- config/cors.php published: FRONTEND_URL + vercel preview patterns; credentials off.
+- Document vault: config('filesystems.vault_disk') default railway (private); dev may set
+  VAULT_DISK=public. ProjectDocument::file_url accessor already resolves both layouts.
+- Consultation schedule_date parsed as Asia/Jakarta then stored UTC (fixes +7h skew).
+
+## Performance
+- Chat inbox: limit(100) + avatar resolution via one indexed query per role present
+  (replaces 12 eager-loaded profile relations).
+- ConvertImageToWebpJob dispatchSync -> dispatch() x3 (prod queue worker exists; sync driver
+  keeps local behavior identical).
+- $project->touch() on the 5 mutation paths that skipped projects.updated_at so the 60s
+  calculateBudgetSummary cache invalidates immediately (markPaid addendum, verifyProof
+  termin/addendum/material + bid types, change-order owner approval, addendum approve).
+- House search cache key whitelisted to filter params; per_page clamped 1..50.
+
+## Frontend
+- Root ErrorBoundary wraps the whole app (white-screen of death eliminated).
+- Houses pagination FIXED (gate was 8>8=never; now totalPages>1) — results past page 1
+  were unreachable since launch of server pagination.
+- Notifications: chat_message deep-links into chat tab w/ sender pre-opened; new type
+  branches (payment_verified, milestone_approved/revision, consultation_*); opening the
+  dropdown no longer bulk-marks everything read.
+- useDashboardData stale-response generation guard; AuthContext storage-event multi-tab logout.
+- Share-token generate/copy/revoke buttons (BriefDetailPanel) — PublicBrief feature finally reachable.
+- FinalHandover regulatory gates panel: Approve Construction Brief -> Verify PBG -> Verify SLF,
+  unblocking new-build finalization (endpoints existed with zero UI).
+- Extension approvals wired: PM endorse/reject + owner approve/reject strip in PMGroupedApprovals.
+- Material orders: buyer payment-proof upload + cancel-before-processing; supplier verify-payment;
+  supplier can no longer blind-self-declare 'paid' without proof. Honest escrow-style flow.
+- DailySiteLog remounted into ConstructionResourcing (was fully built, wired to a live endpoint,
+  never mounted anywhere). MutualTerminationPanel added (initiate/respond/escalate + new GET index);
+  backend + freeze middleware always existed with zero UI.
+
+## True-dead removals (owner-gated, double-verified)
+- Routes/methods: registration drafts trio (+RegistrationDraftController), questions delete,
+  termins proof pair, bids proof pair, verify-design/construction/interior, finalize-legal-scope,
+  furniture-addendum, /finalize, /rate, /pending-actions, manual-procurement,
+  procurement owner-approve/reject pair, notaris/services, firm-members join-requests/resend,
+  admin suppliers surface (duplicate of VerificationController flow), EngineeringProcurement
+  ::inviteVendor, ProjectController::verifyBidPayment/uploadBidPaymentProof/getNotarisServices,
+  ProjectHandoverController::finalizeProject + ProjectLifecycleService::finalizeProject chain.
+- Files/models: AdminSupplierController, config/googlemaps.php (382 LOC zero reads),
+  RiwayatProject + PengajuanSpesialisasi models (+Arsitek/Kontraktor relations),
+  ConstructionProgressStats.tsx (hardcoded fake stats), ProjectRoadmapGantt.tsx (superseded,
+  misleading states), scratch/check_braces.py.
+- Packages: composer scribe/breeze/sail; npm clsx/tailwind-merge. Stock Breeze test files
+  removed (hit nonexistent web routes). composer update guzzle/psr7/commonmark cleared all
+  14 security advisories.
+- spatie role/permission middleware aliases kept (package in use elsewhere).
+
+## Tests
+- MoneyIntegrityTest extended to 12: DB-level unique enforcement, cross-spelling ledger dedup,
+  insufficient-budget e2e via verify-proof, show() membership gate, warranty window,
+  budget-cache invalidation.
+
+## Deferred (still open)
+- Favorites/wishlist server-side persistence; KPR calculator; review parity (pros review owners);
+  PDF/CSV report exports; account deletion/export; notification preference settings;
+  refund/dispute arbitration beyond escalation flag; milestone-weighted progress %;
+  snag-list SLA aging; mobile fixed-width polish (CompareTool/PMGroupedApprovals/ChatOverlay).

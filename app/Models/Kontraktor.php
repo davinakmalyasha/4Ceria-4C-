@@ -99,16 +99,6 @@ class Kontraktor extends Model
         return $this->belongsToMany(Spesialisasi::class, 'kontraktor_spesialisasi', 'kontraktor_id', 'spesialisasi_id');
     }
 
-    public function pengajuanSpesialisasi()
-    {
-        return $this->hasMany(PengajuanSpesialisasi::class);
-    }
-
-    public function riwayatProjects()
-    {
-        return $this->hasMany(RiwayatProject::class);
-    }
-
     public function ratings()
     {
         return $this->hasMany(KontraktorRating::class, 'kontraktor_id', 'id');

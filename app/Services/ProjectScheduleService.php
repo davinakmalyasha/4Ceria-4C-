@@ -52,15 +52,6 @@ class ProjectScheduleService
     }
 
     /**
-     * Update phase details.
-     */
-    public function updatePhase(ProjectSchedule $schedule, array $data)
-    {
-        $schedule->update($data);
-        return $schedule;
-    }
-
-    /**
      * Log a project delay.
      */
     public function logDelay(Project $project, array $data)
