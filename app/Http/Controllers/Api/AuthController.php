@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Admin;
 use App\Models\Arsitek;
 use App\Models\InteriorProfile;
 use App\Models\Kontraktor;
@@ -13,11 +12,11 @@ use App\Models\Notification;
 use App\Models\StructuralEngineer;
 use App\Models\User;
 use App\Http\Resources\UserResource;
+use App\Notifications\ResetPasswordNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Auth\Events\PasswordReset;
 use Spatie\Permission\Models\Role;
@@ -88,8 +87,6 @@ class AuthController extends Controller
                 Arsitek::create(['user_id' => $user->id, 'nama' => $user->name, 'rate_harga' => 0, 'pengalaman_tahun' => 0, 'verification_status' => 'verified']);
             } elseif ($request->role_type === 'kontraktor') {
                 Kontraktor::create(['user_id' => $user->id, 'nama' => $user->name, 'verification_status' => 'verified']);
-            } elseif ($request->role_type === 'admin') {
-                Admin::create(['user_id' => $user->id, 'nama' => $user->name]);
             } elseif ($request->role_type === 'notaris') {
                 NotarisProfile::create(['user_id' => $user->id, 'nama' => $user->name, 'rate_harga' => 0, 'pengalaman_tahun' => 0]);
             } elseif ($request->role_type === 'interior') {
@@ -191,20 +188,10 @@ class AuthController extends Controller
         if ($user) {
             $token = Password::broker()->createToken($user);
 
-            $resetUrl = config('app.url') . '/reset-password/' . $token;
-
             try {
-                Mail::raw(
-                    "Halo {$user->name},\n\n" .
-                    "Klik link berikut untuk mereset password Anda:\n{$resetUrl}\n\n" .
-                    "Atau salin token ini ke aplikasi 4C:\n{$token}\n\n" .
-                    "Link berlaku 60 menit.\n\n" .
-                    "— 4Ceria Team",
-                    function ($message) use ($user) {
-                        $message->to($user->email)
-                            ->subject('Reset Password 4C');
-                    }
-                );
+                // Queued via ResetPasswordNotification (ShouldQueue) so SMTP
+                // latency never blocks an Octane worker.
+                $user->notify(new ResetPasswordNotification($token, $user->email));
             } catch (\Exception $e) {
                 \Illuminate\Support\Facades\Log::error('Forgot password email failed: ' . $e->getMessage(), [
                     'exception' => get_class($e),

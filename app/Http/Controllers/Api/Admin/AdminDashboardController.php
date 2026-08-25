@@ -32,7 +32,9 @@ class AdminDashboardController extends Controller
                                          \App\Models\Supplier::where('verification_status', 'pending')->count() + 
                                          \App\Models\InteriorProfile::where('verification_status', 'pending')->count() + 
                                          \App\Models\NotarisProfile::where('verification_status', 'pending')->count(),
-                'active_projects' => Project::where('status', 'active')->count(),
+                // "Active operations" = anything not in a terminal state.
+                // ('active' is not part of the project status vocabulary.)
+                'active_projects' => Project::whereNotIn('status', ['completed', 'cancelled', 'terminated'])->count(),
                 'role_distribution' => [
                     'client' => (int) $roles->get('user', 0),
                     'arsitek' => (int) $roles->get('arsitek', 0),

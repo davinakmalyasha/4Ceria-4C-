@@ -21,6 +21,7 @@ class LogisticsJobController extends Controller
             ->where('delivery_jobs.status', 'pending')
             ->select('delivery_jobs.*', 'material_quotes.delivery_address', 'material_quotes.total_amount', 'material_quotes.total_weight', 'material_quotes.note')
             ->orderBy('delivery_jobs.created_at', 'desc')
+            ->limit(50)
             ->get();
 
         return response()->json(['success' => true, 'data' => $jobs]);
@@ -79,6 +80,8 @@ class LogisticsJobController extends Controller
         $stats = \Illuminate\Support\Facades\Cache::remember("logistics_stats_{$user->id}", 300, function() use ($user) {
             $available = DB::table('delivery_jobs')->where('status', 'pending')->count();
             $accepted = DB::table('delivery_jobs')->where('logistics_id', $user->id)->where('status', 'accepted')->count();
+            // 'completed' is not producible by updateStatus anymore but kept
+            // here so legacy rows (if any) still count toward earnings.
             $completed = DB::table('delivery_jobs')->where('logistics_id', $user->id)->whereIn('status', ['delivered', 'completed'])->count();
             $totalEarnings = DB::table('delivery_jobs')->where('logistics_id', $user->id)->whereIn('status', ['delivered', 'completed'])->sum('agreed_fee');
 
@@ -127,6 +130,7 @@ class LogisticsJobController extends Controller
                 'suppliers.detail_location as pickup_detail'
             )
             ->orderBy('delivery_jobs.updated_at', 'desc')
+            ->limit(100)
             ->get();
 
         return response()->json(['success' => true, 'data' => $jobs]);
@@ -142,12 +146,27 @@ class LogisticsJobController extends Controller
         $validated = $request->validate([
             'status' => 'required|string|in:accepted,picked_up,delivered',
             'photos' => 'nullable|array|min:1|max:3',
-            'photos.*' => 'image|max:5120', // Max 5MB per image
+            'photos.*' => 'image|mimes:jpeg,png,jpg,webp|max:5120', // Max 5MB per image; SVG rejected
         ]);
 
         $job = DB::table('delivery_jobs')->where('id', $id)->where('logistics_id', $user->id)->first();
         if (! $job) {
             return response()->json(['message' => 'Job not found or not assigned to you.'], 404);
+        }
+
+        // Forward-only transitions (mirrors the courier UI: accepted →
+        // picked_up → delivered). Prevents skipping or moving backwards.
+        $allowedNext = [
+            'pending'   => ['accepted'],
+            'accepted'  => ['picked_up', 'delivered'],
+            'picked_up' => ['delivered'],
+            'delivered' => [],
+        ];
+        $currentStatus = $job->status ?? 'pending';
+        if (! in_array($validated['status'], $allowedNext[$currentStatus] ?? [], true)) {
+            return response()->json([
+                'message' => "Invalid status transition from '{$currentStatus}' to '{$validated['status']}'.",
+            ], 422);
         }
 
         $updateData = [

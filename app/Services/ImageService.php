@@ -8,6 +8,22 @@ use Illuminate\Support\Facades\Storage;
 class ImageService
 {
     /**
+     * Decompression-bomb guard: a small PNG/GIF can declare enormous pixel
+     * dimensions that GD decodes into gigabytes of worker RAM BEFORE the
+     * resize step ever runs. Reject anything whose declared size is absurd.
+     */
+    private static function dimensionsAreSafe(string $tempPath): bool
+    {
+        $info = @getimagesize($tempPath);
+        if ($info === false) {
+            return false;
+        }
+        [$width, $height] = $info;
+        return $width > 0 && $height > 0 && $width <= 8000 && $height <= 8000
+            && ($width * $height) <= 24000000; // ~24 MP ceiling
+    }
+
+    /**
      * Resize image if it exceeds max dimensions to optimize file size.
      * Keeps transparency intact.
      */
@@ -57,6 +73,11 @@ class ImageService
 
         $tempPath = $file->getRealPath();
         $mime = $file->getMimeType();
+
+        // Reject SVG (can carry scripts) and decompression bombs outright.
+        if ($mime === 'image/svg+xml' || !self::dimensionsAreSafe($tempPath)) {
+            return $file->store($directory, 'public');
+        }
         $image = null;
 
         // Load image based on mime type
@@ -132,6 +153,10 @@ class ImageService
     public static function convertPathToWebp(string $tempPath, string $directory, int $quality = 80): ?string
     {
         $mime = mime_content_type($tempPath);
+
+        if ($mime === 'image/svg+xml' || !self::dimensionsAreSafe($tempPath)) {
+            return null;
+        }
         $image = null;
 
         if ($mime === 'image/jpeg' || $mime === 'image/jpg') {

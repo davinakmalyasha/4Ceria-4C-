@@ -77,9 +77,16 @@ class HouseController extends Controller
             $query->latest();
         }
 
-        $perPage = $request->input('per_page', 12);
-        
-        $cacheKey = 'houses_list_' . md5(json_encode($request->all()));
+        // SECURITY/PERF: cache key built ONLY from the whitelisted filter
+        // params (unbounded md5(all-params) let attackers mint unlimited
+        // cache entries) and per_page is clamped.
+        $filters = $request->only([
+            'search', 'city', 'price_min', 'price_max',
+            'bedrooms', 'bathrooms', 'min_area', 'sort', 'page', 'mine',
+        ]);
+        $perPage = min(max((int) $request->input('per_page', 12), 1), 50);
+
+        $cacheKey = 'houses_list_' . md5(json_encode($filters) . "|{$perPage}");
         $supportsTags = in_array(config('cache.default'), ['redis', 'memcached']);
         
         $houses = $supportsTags
@@ -135,13 +142,17 @@ class HouseController extends Controller
                         foreach ($roomPics as $roomPic) {
                             if ($roomPic->isValid()) {
                                 $roomFolder = 'uploads/house/house_'.$house->id.'/rooms/room_'.$room->id;
-                                $path = \App\Services\ImageService::convertToWebp($roomPic, $roomFolder);
-                                RoomPic::create([
+                                // PERF: stream the original now (cheap), queue
+                                // the CPU-heavy AVIF/WebP encode so a 16-photo
+                                // publish cannot block an Octane worker.
+                                $path = $roomPic->store($roomFolder, 'public');
+                                $row = RoomPic::create([
                                     'file_name' => $roomPic->getClientOriginalName(),
                                     'dir' => $path,
                                     'size' => $roomPic->getSize(),
                                     'id_room' => $room->id,
                                 ]);
+                                \App\Jobs\ConvertImageToWebpJob::dispatch($path, $roomFolder, \App\Models\RoomPic::class, $row->id, 'dir', 'public');
                             }
                         }
                     }
@@ -153,13 +164,15 @@ class HouseController extends Controller
                 foreach ($request->file('house_pic') as $pic) {
                     if ($pic->isValid()) {
                         $saveFolder = 'uploads/house/house_'.Auth::id();
-                        $path = \App\Services\ImageService::convertToWebp($pic, $saveFolder);
-                        HousePic::create([
+                        // PERF: store original now, queue conversion (see room pics).
+                        $path = $pic->store($saveFolder, 'public');
+                        $row = HousePic::create([
                             'file_name' => $pic->getClientOriginalName(),
                             'dir' => $path,
                             'size' => $pic->getSize(),
                             'id_house' => $house->id,
                         ]);
+                        \App\Jobs\ConvertImageToWebpJob::dispatch($path, $saveFolder, \App\Models\HousePic::class, $row->id, 'dir', 'public');
                     }
                 }
             }
@@ -181,7 +194,7 @@ class HouseController extends Controller
             ]);
 
             return response()->json([
-                'message' => 'Gagal menyimpan properti: '.$e->getMessage(),
+                'message' => 'Gagal menyimpan properti. Silakan coba lagi.',
             ], 500);
         }
     }
@@ -251,13 +264,15 @@ class HouseController extends Controller
                     foreach ($roomPics as $roomPic) {
                         if ($roomPic->isValid()) {
                             $roomFolder = 'uploads/house/house_'.$house->id.'/rooms/room_'.$room->id;
-                            $path = \App\Services\ImageService::convertToWebp($roomPic, $roomFolder);
-                            RoomPic::create([
+                            // PERF: store original now, queue conversion.
+                            $path = $roomPic->store($roomFolder, 'public');
+                            $row = RoomPic::create([
                                 'file_name' => $roomPic->getClientOriginalName(),
                                 'dir' => $path,
                                 'size' => $roomPic->getSize(),
                                 'id_room' => $room->id,
                             ]);
+                            \App\Jobs\ConvertImageToWebpJob::dispatch($path, $roomFolder, \App\Models\RoomPic::class, $row->id, 'dir', 'public');
                         }
                     }
                 }
@@ -295,13 +310,15 @@ class HouseController extends Controller
             $houseFolder = 'uploads/house/house_'.$house->id;
             foreach ($request->file('house_pics') as $pic) {
                 if ($pic->isValid()) {
-                    $path = \App\Services\ImageService::convertToWebp($pic, $houseFolder);
-                    HousePic::create([
+                    // PERF: store original now, queue conversion.
+                    $path = $pic->store($houseFolder, 'public');
+                    $row = HousePic::create([
                         'file_name' => $pic->getClientOriginalName(),
                         'dir' => $path,
                         'size' => $pic->getSize(),
                         'id_house' => $house->id,
                     ]);
+                    \App\Jobs\ConvertImageToWebpJob::dispatch($path, $houseFolder, \App\Models\HousePic::class, $row->id, 'dir', 'public');
                 }
             }
         }

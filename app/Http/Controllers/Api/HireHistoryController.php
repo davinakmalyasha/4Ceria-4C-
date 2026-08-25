@@ -27,6 +27,8 @@ class HireHistoryController extends Controller
                 'structuralEngineer.user.phoneNumber',
                 'mepEngineer.user.phoneNumber'
             ])
+            ->latest()
+            ->limit(100)
             ->get();
 
         $hiredList = [];

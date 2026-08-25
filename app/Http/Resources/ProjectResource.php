@@ -7,43 +7,51 @@ use Illuminate\Http\Resources\Json\JsonResource;
 
 class ProjectResource extends JsonResource
 {
-    private static $resolvedProfiles = null;
-
     public function toArray(Request $request): array
     {
         $user = auth('sanctum')->user();
 
-        // Guard against static cache persisting across PHP-FPM requests for different users
-        if ($user && (static::$resolvedProfiles === null || (static::$resolvedProfiles['_user_id'] ?? null) !== $user->id)) {
-            $user->loadMissing([
-                'arsitek',
-                'kontraktor',
-                'notaris_profile',
-                'interior_profile',
-                'structural_engineer',
-                'mep_engineer',
-                'project_manager'
-            ]);
+        // PERF: memoize profile resolution per RESPONSE (one collection =
+        // many toArray calls), but store it on the REQUEST object instead of
+        // a static property — statics survive across Octane requests and
+        // served stale profile ids after mid-session profile changes.
+        if ($user) {
+            $resolved = $request->attributes->get('_resolved_profile_ids');
+            if ($resolved === null || ($resolved['_user_id'] ?? null) !== $user->id) {
+                $user->loadMissing([
+                    'arsitek',
+                    'kontraktor',
+                    'notaris_profile',
+                    'interior_profile',
+                    'structural_engineer',
+                    'mep_engineer',
+                    'project_manager'
+                ]);
 
-            static::$resolvedProfiles = [
-                '_user_id' => $user->id,
-                'arsitek_id' => $user->arsitek?->id,
-                'kontraktor_id' => $user->kontraktor?->id,
-                'notaris_id' => $user->notaris_profile?->id,
-                'interior_id' => $user->interior_profile?->id,
-                'structural_id' => $user->structural_engineer?->id,
-                'mep_id' => $user->mep_engineer?->id,
-                'pm_id' => $user->project_manager?->id,
-            ];
+                $resolved = [
+                    '_user_id' => $user->id,
+                    'arsitek_id' => $user->arsitek?->id,
+                    'kontraktor_id' => $user->kontraktor?->id,
+                    'notaris_id' => $user->notaris_profile?->id,
+                    'interior_id' => $user->interior_profile?->id,
+                    'structural_id' => $user->structural_engineer?->id,
+                    'mep_id' => $user->mep_engineer?->id,
+                    'pm_id' => $user->project_manager?->id,
+                ];
+                $request->attributes->set('_resolved_profile_ids', $resolved);
+            }
+
+            $userArsitekId = $resolved['arsitek_id'];
+            $userKontraktorId = $resolved['kontraktor_id'];
+            $userNotarisId = $resolved['notaris_id'];
+            $userInteriorId = $resolved['interior_id'];
+            $userStructuralId = $resolved['structural_id'];
+            $userMepId = $resolved['mep_id'];
+            $userPmId = $resolved['pm_id'];
+        } else {
+            $userArsitekId = $userKontraktorId = $userNotarisId = $userInteriorId = null;
+            $userStructuralId = $userMepId = $userPmId = null;
         }
-
-        $userArsitekId = static::$resolvedProfiles['arsitek_id'] ?? null;
-        $userKontraktorId = static::$resolvedProfiles['kontraktor_id'] ?? null;
-        $userNotarisId = static::$resolvedProfiles['notaris_id'] ?? null;
-        $userInteriorId = static::$resolvedProfiles['interior_id'] ?? null;
-        $userStructuralId = static::$resolvedProfiles['structural_id'] ?? null;
-        $userMepId = static::$resolvedProfiles['mep_id'] ?? null;
-        $userPmId = static::$resolvedProfiles['pm_id'] ?? null;
 
         $hasSubmittedBid = false;
 
@@ -164,7 +172,11 @@ class ProjectResource extends JsonResource
             'interior_completed_at' => $this->interior_completed_at,
             'interior_locked_at' => $this->interior_locked_at,
             'legal_locked_at' => $this->legal_locked_at,
-            'construction_details' => $this->construction_details,
+            // RAB-grade client data: privileged viewers only. Public share
+            // briefs get a sanitized copy from getPublicBrief(); the hired
+            // interior's own brief editor consumes interior_details and must
+            // stay un-gated.
+            'construction_details' => $this->pii($this->construction_details),
             'interior_details' => $this->interior_details,
             'design_handover_submitted_at' => $this->design_handover_submitted_at,
             'design_handover_notes' => $this->design_handover_notes,
@@ -259,9 +271,9 @@ class ProjectResource extends JsonResource
             'mep_id' => $this->mep_id,
             'is_structural_hired_4c' => (bool) $this->structural_id,
             'is_mep_hired_4c' => (bool) $this->mep_id,
-            'structural_profile' => $request->routeIs('*.show') ? $this->resolveSpecialistProfile('structural') : null,
-            'mep_profile' => $request->routeIs('*.show') ? $this->resolveSpecialistProfile('mep') : null,
-            'interior_profile' => $request->routeIs('*.show') ? $this->resolveSpecialistProfile('interior') : null,
+            'structural_profile' => $request->routeIs('*.show') ? $this->resolveSpecialistProfile('structural', $request) : null,
+            'mep_profile' => $request->routeIs('*.show') ? $this->resolveSpecialistProfile('mep', $request) : null,
+            'interior_profile' => $request->routeIs('*.show') ? $this->resolveSpecialistProfile('interior', $request) : null,
             'structural_engineer' => $this->whenLoaded('structuralEngineer'),
             'mep_engineer' => $this->whenLoaded('mepEngineer'),
             'interior_engineer' => $this->whenLoaded('interior'),
@@ -1169,7 +1181,28 @@ class ProjectResource extends JsonResource
     /**
      * Resolve specialist profile data with robust name resolution.
      */
-    private function resolveSpecialistProfile(string $role): ?array
+    private function resolveSpecialistProfile(string $role, ?Request $request = null): ?array
+    {
+        // PERF: memoize per request+project+role — a serialized-twice resource
+        // previously re-ran ~5 queries per role.
+        if ($request) {
+            $memoKey = '_resolved_specialist_' . $role . '_' . $this->id;
+            $memo = $request->attributes->get($memoKey, false);
+            if ($memo !== false) {
+                return $memo;
+            }
+        }
+
+        $result = $this->doResolveSpecialistProfile($role);
+
+        if ($request) {
+            $request->attributes->set($memoKey, $result);
+        }
+
+        return $result;
+    }
+
+    private function doResolveSpecialistProfile(string $role): ?array
     {
         $idField = $role === 'structural' ? 'structural_id' : ($role === 'mep' ? 'mep_id' : 'selected_interior_id');
         $relation = $role === 'structural' ? 'structuralEngineer' : ($role === 'mep' ? 'mepEngineer' : 'interior');
