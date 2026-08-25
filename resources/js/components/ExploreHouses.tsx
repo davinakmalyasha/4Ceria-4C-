@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { motion } from 'framer-motion';
 import {
@@ -7,9 +7,12 @@ import {
     ChevronLeft, ChevronRight, X
 } from 'lucide-react';
 import type { House } from '../types/explore';
-import { formatCurrency, ITEMS_PER_PAGE } from '../types/explore';
+import { formatCurrency } from '../types/explore';
 import { useExploreHouses } from '../hooks/useExploreHouses';
-import ExploreMap from './Explore/ExploreMap';
+// PERF: maplibre-gl (~200KB+ gz incl. css) was statically chained into every
+// Dashboard load via DashboardTabs -> ExploreTab. Lazy-load it; the chunk is
+// already isolated as vendor-maps in vite.config.js.
+const ExploreMap = React.lazy(() => import('./Explore/ExploreMap'));
 import FilterPanel from './Explore/FilterPanel';
 import HouseCard, { SkeletonCard } from './Explore/HouseCard';
 import CompareTool from './Explore/CompareTool';
@@ -27,19 +30,25 @@ export default function ExploreHouses({ houses = [], isLoading = false, onSelect
     return (
         <div className="flex flex-col gap-4">
             {/* Map */}
-            <ExploreMap
-                processedHouses={s.processedHouses} allHouses={houses} mapRef={s.mapRef as any}
-                userLocation={s.userLocation} searchQuery={s.searchQuery} setSearchQuery={s.setSearchQuery}
-                selectedCity={s.selectedCity} setSelectedCity={s.setSelectedCity}
-                isDropdownOpen={s.isDropdownOpen} setIsDropdownOpen={s.setIsDropdownOpen}
-                dropdownRef={s.dropdownRef as any} cities={s.cities}
-                popupInfo={s.popupInfo} setPopupInfo={s.setPopupInfo}
-                onFlyToUser={s.flyToUser} onSelectHouse={s.fetchHouseDetails}
-                showFilters={s.showFilters} setShowFilters={s.setShowFilters}
-                activeFilterCount={s.activeFilterCount}
-                sortBy={s.sortBy} setSortBy={s.setSortBy}
-                viewMode={s.viewMode} setViewMode={s.setViewMode}
-            />
+            <Suspense fallback={
+                <div className="h-[360px] w-full rounded-2xl overflow-hidden shadow-lg border border-gray-200 bg-gray-100 animate-pulse flex items-center justify-center">
+                    <Home size={28} className="text-gray-300" />
+                </div>
+            }>
+                <ExploreMap
+                    processedHouses={s.processedHouses} allHouses={houses} mapRef={s.mapRef as any}
+                    userLocation={s.userLocation} searchQuery={s.searchQuery} setSearchQuery={s.setSearchQuery}
+                    selectedCity={s.selectedCity} setSelectedCity={s.setSelectedCity}
+                    isDropdownOpen={s.isDropdownOpen} setIsDropdownOpen={s.setIsDropdownOpen}
+                    dropdownRef={s.dropdownRef as any} cities={s.cities}
+                    popupInfo={s.popupInfo} setPopupInfo={s.setPopupInfo}
+                    onFlyToUser={s.flyToUser} onSelectHouse={s.fetchHouseDetails}
+                    showFilters={s.showFilters} setShowFilters={s.setShowFilters}
+                    activeFilterCount={s.activeFilterCount}
+                    sortBy={s.sortBy} setSortBy={s.setSortBy}
+                    viewMode={s.viewMode} setViewMode={s.setViewMode}
+                />
+            </Suspense>
 
             {/* Quick Stats */}
             {s.quickStats && (
@@ -106,8 +115,11 @@ export default function ExploreHouses({ houses = [], isLoading = false, onSelect
                     </div>
                 )}
 
-                {/* Pagination */}
-                {s.processedHouses.length > ITEMS_PER_PAGE && (
+                {/* Pagination — BUGFIX: the old gate compared the server page
+                    size against ITEMS_PER_PAGE (8 > 8 = never true), so pages
+                    beyond the first were permanently unreachable. The server
+                    already paginates; gate on totalPages instead. */}
+                {s.totalPages > 1 && (
                     <div className="flex items-center justify-center gap-2 mt-10">
                         <button onClick={() => s.setCurrentPage(p => Math.max(1, p - 1))} disabled={s.currentPage === 1}
                             className="p-2.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-sm"><ChevronLeft size={18} /></button>
