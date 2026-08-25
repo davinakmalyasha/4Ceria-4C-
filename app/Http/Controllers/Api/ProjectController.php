@@ -306,7 +306,11 @@ class ProjectController extends Controller
         }
 
         if ($request->query('all') === 'true') {
-            $projects = $query->latest()->get();
+            // PERF: called on every dashboard load. Uncapped ->get() here
+            // serialized N x (images + milestones + bid trees) through
+            // ProjectResource. Cap hard; clients beyond this need the
+            // paginated branch.
+            $projects = $query->latest()->limit(200)->get();
             $this->attachClientHistory($projects);
             return ProjectResource::collection($projects);
         }
@@ -407,15 +411,83 @@ class ProjectController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
             return response()->json([
-                'message' => 'Failed to publish project.',
-                'error' => $e->getMessage()
+                'message' => 'Failed to publish project.'
             ], 500);
+        }
+    }
+
+    /**
+     * Membership gate for full project detail. Owner, assigned PM, admin,
+     * hired professionals, invited/active sub-professionals and anyone with
+     * an existing bid may view; everyone else gets 403. Pros browsing for
+     * work use the sanitized bidding-feed payloads instead of this endpoint.
+     */
+    private function authorizeProjectDetailAccess(Project $project, $user): bool
+    {
+        if (!$user) {
+            return false;
+        }
+        if ($project->user_id === $user->id || (int) $project->pm_id === (int) $user->id) {
+            return true;
+        }
+        if ($user->role_type === 'admin') {
+            return true;
+        }
+        // Hired or bidder per role (mirrors getBids() checks)
+        $role = $user->role_type;
+        if ($role === 'arsitek' && $user->arsitek) {
+            if ($project->selected_arsitek_id == $user->arsitek->id
+                || $project->bidsArsitek()->where('arsitek_id', $user->arsitek->id)->exists()) return true;
+        } elseif ($role === 'kontraktor' && $user->kontraktor) {
+            if ($project->selected_kontraktor_id == $user->kontraktor->id
+                || $project->bidsKontraktor()->where('kontraktor_id', $user->kontraktor->id)->exists()) return true;
+        } elseif ($role === 'notaris' && $user->notaris_profile) {
+            if ($project->selected_notaris_id == $user->notaris_profile->id
+                || $project->bidsNotaris()->where('notaris_id', $user->notaris_profile->id)->exists()) return true;
+        } elseif ($role === 'interior' && $user->interior_profile) {
+            if ($project->selected_interior_id == $user->interior_profile->id
+                || $project->bidsInterior()->where('interior_id', $user->interior_profile->id)->exists()) return true;
+        } elseif ($role === 'structural') {
+            $se = $user->structural_engineer ?: \App\Models\StructuralEngineer::where('user_id', $user->id)->first();
+            if ($se && ($project->structural_id == $se->id
+                || $project->bidsStructural()->where('structural_id', $se->id)->exists())) return true;
+        } elseif ($role === 'mep') {
+            $me = $user->mep_engineer ?: \App\Models\MepEngineer::where('user_id', $user->id)->first();
+            if ($me && ($project->mep_id == $me->id
+                || $project->bidsMep()->where('mep_id', $me->id)->exists())) return true;
+        }
+        // Invited/accepted sub-professionals are workspace members too
+        if ($project->subProfessionals()->where('user_id', $user->id)->exists()) {
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Race-safe bid creation: the DB-level unique (project_id, {role}_id)
+     * added in migration 2026_08_24_100002 makes concurrent double-submits
+     * throw instead of silently duplicating. Convert that into the same
+     * friendly 422 the exists() pre-check produces.
+     */
+    private function createBidGuarded(string $modelClass, array $attributes)
+    {
+        try {
+            return $modelClass::create($attributes);
+        } catch (\Illuminate\Database\UniqueConstraintViolationException $e) {
+            return null;
         }
     }
 
     public function show(Project $project)
     {
         $user = Auth::guard('sanctum')->user();
+
+        // SECURITY: full detail previously served to ANY authenticated user
+        // (sequential-id enumeration harvested hired pros' contacts, budgets
+        // and RAB). Non-members must use the public brief/share endpoints.
+        if (!$this->authorizeProjectDetailAccess($project, $user)) {
+            return response()->json(['message' => 'Unauthorized access to this project.'], 403);
+        }
         
         $relations = [
             // Hired Professionals
@@ -749,12 +821,14 @@ class ProjectController extends Controller
                 return response()->json(['message' => 'You have already submitted a bid for this project.'], 422);
             }
 
-            \App\Models\BidArsitek::create(array_merge($baseData, [
+            if ($this->createBidGuarded(\App\Models\BidArsitek::class, array_merge($baseData, [
                 'arsitek_id' => $profile->id,
                 'scopes' => is_string($request->scopes) ? json_decode($request->scopes, true) : $request->scopes,
                 'deliverables' => is_string($request->deliverables) ? json_decode($request->deliverables, true) : $request->deliverables,
                 'style' => $request->style,
-            ]));
+            ])) === null) {
+                return response()->json(['message' => 'You have already submitted a bid for this project.'], 422);
+            }
         } elseif ($user->role_type === 'kontraktor') {
             $profile = \App\Models\Kontraktor::where('user_id', $user->id)->firstOrFail();
 
@@ -764,7 +838,7 @@ class ProjectController extends Controller
                 return response()->json(['message' => 'You have already submitted a bid for this project.'], 422);
             }
 
-            \App\Models\BidKontraktor::create(array_merge($baseData, [
+            if ($this->createBidGuarded(\App\Models\BidKontraktor::class, array_merge($baseData, [
                 'kontraktor_id' => $profile->id,
                 'construction_method' => $request->construction_method,
                 'cost_breakdown' => $request->cost_breakdown ? json_decode($request->cost_breakdown, true) : null,
@@ -774,7 +848,9 @@ class ProjectController extends Controller
                 'payment_preference' => $request->payment_preference,
                 'scopes' => is_string($request->scopes) ? json_decode($request->scopes, true) : $request->scopes,
                 'deliverables' => is_string($request->deliverables) ? json_decode($request->deliverables, true) : $request->deliverables,
-            ]));
+            ])) === null) {
+                return response()->json(['message' => 'You have already submitted a bid for this project.'], 422);
+            }
         } elseif ($user->role_type === 'notaris') {
             $profile = \App\Models\NotarisProfile::where('user_id', $user->id)->firstOrFail();
 
@@ -784,11 +860,13 @@ class ProjectController extends Controller
                 return response()->json(['message' => 'You have already submitted a bid for this project.'], 422);
             }
 
-            \App\Models\BidNotaris::create(array_merge($baseData, [
+            if ($this->createBidGuarded(\App\Models\BidNotaris::class, array_merge($baseData, [
                 'notaris_id' => $profile->id,
                 'tax_estimate' => $request->tax_estimate,
                 'selected_services' => $request->selected_services ? json_decode($request->selected_services, true) : null,
-            ]));
+            ])) === null) {
+                return response()->json(['message' => 'You have already submitted a bid for this project.'], 422);
+            }
         } elseif ($user->role_type === 'interior') {
             $profile = \App\Models\InteriorProfile::where('user_id', $user->id)->firstOrFail();
 
@@ -798,12 +876,14 @@ class ProjectController extends Controller
                 return response()->json(['message' => 'You have already submitted a bid for this project.'], 422);
             }
 
-            \App\Models\BidInterior::create(array_merge($baseData, [
+            if ($this->createBidGuarded(\App\Models\BidInterior::class, array_merge($baseData, [
                 'interior_id' => $profile->id,
                 'scopes' => is_string($request->scopes) ? json_decode($request->scopes, true) : $request->scopes,
                 'deliverables' => is_string($request->deliverables) ? json_decode($request->deliverables, true) : $request->deliverables,
                 'style' => $request->style,
-            ]));
+            ])) === null) {
+                return response()->json(['message' => 'You have already submitted a bid for this project.'], 422);
+            }
         } elseif ($user->role_type === 'structural') {
             $profile = \App\Models\StructuralEngineer::where('user_id', $user->id)->firstOrFail();
             $existing = \App\Models\BidStructural::where('project_id', $project->id)
@@ -823,14 +903,16 @@ class ProjectController extends Controller
                 return new ProjectResource($project);
             }
 
-            \App\Models\BidStructural::create(array_merge($baseData, [
+            if ($this->createBidGuarded(\App\Models\BidStructural::class, array_merge($baseData, [
                 'structural_id' => $profile->id,
                 'license_number' => $request->license_number,
                 'experience_years' => $request->experience_years,
                 'technical_notes' => $request->technical_notes,
                 'scopes' => is_string($request->scopes) ? json_decode($request->scopes, true) : $request->scopes,
                 'deliverables' => is_string($request->deliverables) ? json_decode($request->deliverables, true) : $request->deliverables,
-            ]));
+            ])) === null) {
+                return response()->json(['message' => 'You have already submitted a bid for this project.'], 422);
+            }
         } elseif ($user->role_type === 'mep') {
             $profile = \App\Models\MepEngineer::where('user_id', $user->id)->firstOrFail();
             $existing = \App\Models\BidMep::where('project_id', $project->id)
@@ -851,14 +933,16 @@ class ProjectController extends Controller
                 return new ProjectResource($project);
             }
 
-            \App\Models\BidMep::create(array_merge($baseData, [
+            if ($this->createBidGuarded(\App\Models\BidMep::class, array_merge($baseData, [
                 'mep_id' => $profile->id,
                 'license_number' => $request->license_number,
                 'experience_years' => $request->experience_years,
                 'technical_notes' => $request->technical_notes,
                 'scopes' => is_string($request->scopes) ? json_decode($request->scopes, true) : $request->scopes,
                 'deliverables' => is_string($request->deliverables) ? json_decode($request->deliverables, true) : $request->deliverables,
-            ]));
+            ])) === null) {
+                return response()->json(['message' => 'You have already submitted a bid for this project.'], 422);
+            }
         } elseif ($user->role_type === 'project_manager') {
             $profile = \App\Models\ProjectManager::where('user_id', $user->id)->firstOrFail();
 
@@ -868,12 +952,14 @@ class ProjectController extends Controller
                 return response()->json(['message' => 'You have already submitted a bid for this project.'], 422);
             }
 
-            \App\Models\BidProjectManager::create(array_merge($baseData, [
+            if ($this->createBidGuarded(\App\Models\BidProjectManager::class, array_merge($baseData, [
                 'pm_id' => $profile->id,
                 'fee_type' => $request->fee_type ?? 'fixed',
                 'scopes' => is_string($request->scopes) ? json_decode($request->scopes, true) : $request->scopes,
                 'deliverables' => is_string($request->deliverables) ? json_decode($request->deliverables, true) : $request->deliverables,
-            ]));
+            ])) === null) {
+                return response()->json(['message' => 'You have already submitted a bid for this project.'], 422);
+            }
         }
 
         // Notify Project Owner
@@ -1931,9 +2017,9 @@ class ProjectController extends Controller
             return new ProjectResource($project);
         } catch (\Exception $e) {
             \DB::rollBack();
+            \Log::error('verifyDesignPayment failed: '.$e->getMessage(), ['exception' => $e]);
             return response()->json([
                 'message' => 'Failed to verify payment and generate roadmap.',
-                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -2089,6 +2175,13 @@ class ProjectController extends Controller
 
         $data = $request->validated();
 
+        // SECURITY: lifecycle status transitions belong to dedicated flows
+        // (handover/snag QA, mutual termination, markComplete). A hired
+        // professional must never be able to force complete/cancel.
+        if (!$isOwner) {
+            unset($data['status']);
+        }
+
         // Robust JSON Handling: Merge instead of overwrite for structured details
         if ($request->has('design_details')) {
             $data['design_details'] = array_merge(
@@ -2210,7 +2303,23 @@ class ProjectController extends Controller
 
         // Sync Payment Termins if provided
         if ($request->has('payment_termins')) {
+            // SECURITY: a professional may only rewrite termins for their OWN
+            // role; rewriting another role's plan requires owner or assigned PM.
             $targetRole = $request->input('target_role', $user->role_type);
+            $canActForOthers = $isOwner || ($isPM && (int) $project->pm_id === (int) $user->id);
+            if (!$canActForOthers && $targetRole !== $user->role_type) {
+                return response()->json(['message' => 'Unauthorized. You can only modify payment termins for your own role.'], 403);
+            }
+
+            // SECURITY: never destroy money-in-flight records — if any termin
+            // of this role is verifying/paid, refuse the wholesale delete.
+            $inFlight = $project->paymentTermins()
+                ->where('role_type', $targetRole)
+                ->whereIn('status', ['verifying', 'paid'])
+                ->exists();
+            if ($inFlight) {
+                return response()->json(['message' => 'Cannot replace payment termins while any of them is verifying or paid.'], 422);
+            }
 
             $project->paymentTermins()->where('role_type', $targetRole)->delete();
 
@@ -2228,8 +2337,6 @@ class ProjectController extends Controller
                 ]);
             }
         }
-
-        $project->update($data);
 
         if (isset($data['status'])) {
             ProjectActivityLog::create([
@@ -2253,7 +2360,13 @@ class ProjectController extends Controller
             'folder' => 'nullable|string'
         ]);
 
-        $folder = $request->input('folder', 'project_assets');
+        // SECURITY: the folder is no longer caller-controlled — arbitrary
+        // namespaces let users squat trusted prefixes (receipts/, chat_images/,
+        // project_attachments/) and host content under our domain.
+        $allowedFolders = ['project_assets', 'design_briefs'];
+        $folder = in_array($request->input('folder'), $allowedFolders, true)
+            ? $request->input('folder')
+            : 'project_assets';
         $path = $request->file('file')->store($folder, 'public');
 
         try {
@@ -2342,8 +2455,9 @@ class ProjectController extends Controller
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
+            \Log::error('Project deletion failed: '.$e->getMessage(), ['exception' => $e]);
             return response()->json([
-                'message' => 'Gagal menghapus proyek: ' . $e->getMessage()
+                'message' => 'Gagal menghapus proyek. Silakan coba lagi.'
             ], 500);
         }
     }
@@ -2467,21 +2581,6 @@ class ProjectController extends Controller
         return response()->json(['data' => $projects]);
     }
 
-    public function getNotarisServices()
-    {
-        $user = Auth::user();
-        if ($user->role_type !== 'notaris') {
-            return response()->json(['message' => 'Unauthorized'], 403);
-        }
-
-        $profile = $user->notaris_profile;
-        if (!$profile) {
-            return response()->json(['data' => []]);
-        }
-
-        return response()->json(['data' => $profile->services]);
-    }
-
     /**
      * Generate a shareable link token for a project's construction brief.
      * Only the hired contractor can generate this.
@@ -2549,6 +2648,25 @@ class ProjectController extends Controller
             unset($details['rab']);
         }
 
+        // SECURITY: this endpoint is unauthenticated (anyone holding the share
+        // token). Map Q&A to an explicit safe shape — raw User objects would
+        // leak commenter emails.
+        $comments = $project->comments()->whereNull('parent_id')
+            ->with(['user', 'replies.user'])
+            ->get()
+            ->map(fn ($c) => [
+                'id' => $c->id,
+                'message' => $c->message,
+                'created_at' => $c->created_at?->toIso8601String(),
+                'user' => ['name' => $c->user?->name ?? 'User'],
+                'replies' => $c->replies->map(fn ($r) => [
+                    'id' => $r->id,
+                    'message' => $r->message,
+                    'created_at' => $r->created_at?->toIso8601String(),
+                    'user' => ['name' => $r->user?->name ?? 'User'],
+                ]),
+            ]);
+
         return response()->json([
             'title' => $project->title,
             'location' => $project->lokasi,
@@ -2557,9 +2675,7 @@ class ProjectController extends Controller
             'construction_locked_at' => $project->construction_locked_at,
             'milestones' => $project->milestones()->orderBy('sort_order')->get(),
             'requirements' => $project->requirements()->orderBy('name')->get(),
-            'comments' => $project->comments()->whereNull('parent_id')
-                ->with(['user', 'replies.user'])
-                ->get(),
+            'comments' => $comments,
         ]);
     }
 
@@ -2773,8 +2889,10 @@ class ProjectController extends Controller
         return DB::transaction(function () use ($bid, $project, $request, $user, $calculationService) {
             // Check negotiation limit
             if ($bid->negotiation_count >= 5) {
+                // B1: this is not a hard stop — confirmBidFee has no cap, so
+                // either party can still ACCEPT the standing offer. Say so.
                 return response()->json([
-                    'message' => 'Negotiation limit reached (max 5 rounds). Please discuss deeply before making a final decision.'
+                    'message' => 'Negotiation limit reached (max 5 rounds). You can no longer counter-offer, but you can accept the current proposal ("Agree on Fee") or decline the bid.'
                 ], 422);
             }
 
@@ -3387,115 +3505,9 @@ class ProjectController extends Controller
             'mep' => 'mepEngineer',
         };
     }
-    public function verifyBidPayment(Project $project, $bidId, Request $request)
-    {
-        $user = Auth::user();
-        $request->validate(['bid_type' => 'required|string']);
-
-        $bidModel = $this->getBidModel($request->bid_type);
-        $bid = $bidModel::where('id', $bidId)->where('project_id', $project->id)->firstOrFail();
-
-        // Only owner or PM can verify payment
-        $isOwner = $project->user_id === $user->id;
-        $isPM = $project->pm_id === $user->id;
-
-        if (!$isOwner && !$isPM) {
-            return response()->json(['message' => 'Unauthorized.'], 403);
-        }
-
-        if (!in_array($bid->status, ['accepted', 'awaiting_payment'])) {
-            return response()->json(['message' => 'Bid must be accepted or awaiting payment before payment verification.'], 422);
-        }
-
-        return DB::transaction(function () use ($project, $bid, $request, $user) {
-            $bid->update([
-                'payment_status' => 'paid',
-                'paid_at' => now(),
-            ]);
-
-            // Budget Deduction
-            $financialService = app(\App\Services\ProjectFinancialService::class);
-            $fee = $bid->calculated_total ?? $bid->price;
-
-            $bidderName = 'Professional';
-            $proUser = $this->getBidderUser($bid, $request->bid_type);
-            if ($proUser)
-                $bidderName = $proUser->name;
-
-            // Canonical FQCN from the shared role map (dedup in
-            // ProjectFinancialService matches both spellings for legacy rows).
-            $referenceModel = config('bids.' . $request->bid_type . '.bid_model');
-
-            $deducted = $financialService->deductBudget($project, (float) $fee, 'payment', "Professional Fee: {$bidderName}", $referenceModel, $bid->id);
-            if (!$deducted) {
-                // BUGFIX: return value was previously ignored — bids could be
-                // marked paid with no ledger entry when the budget was short.
-                throw new \Exception(
-                    "Project budget is insufficient for this payment (" . number_format((float) $fee) . "). Please increase the project budget first.",
-                    422
-                );
-            }
-
-            // Transition Project Status if necessary
-            if ($request->bid_type === 'arsitek' && $project->status === 'open') {
-                $project->update(['status' => 'accepted_arsitek']);
-            } elseif ($request->bid_type === 'kontraktor') {
-                if ($project->status === 'accepted_arsitek' || $project->target_role === 'kontraktor') {
-                    $project->update(['status' => 'in_progress']);
-                } else {
-                    $project->update(['status' => 'accepted_kontraktor']);
-                }
-            }
-
-            return response()->json(['message' => 'Payment verified successfully.', 'bid' => $bid]);
-        });
-    }
-
-    private function getBidderUser($bid, $type)
-    {
-        $config = config("bids.$type") ?? throw new \InvalidArgumentException("Unknown bid type: $type");
-        $rel = $this->getBidProfileRelationName($type);
-        $fk = $config['bid_fk'];
-        $profileModel = $config['profile_model'];
-
-        if ($bid->relationLoaded($rel)) {
-            return $bid->{$rel}?->user;
-        }
-
-        return $profileModel::find($bid->{$fk})?->user;
-    }
-
-    public function uploadBidPaymentProof(Project $project, $bidId, Request $request)
-    {
-        $user = Auth::user();
-        if ($project->user_id !== $user->id) {
-            return response()->json(['message' => 'Unauthorized. Only project owner can upload proof.'], 403);
-        }
-
-        $request->validate([
-            'bid_type' => 'required|string',
-            'payment_proof' => 'required|file|mimes:jpg,jpeg,png,pdf|max:2048',
-        ]);
-
-        $bidModel = $this->getBidModel($request->bid_type);
-        $bid = $bidModel::where('id', $bidId)->where('project_id', $project->id)->firstOrFail();
-
-        if ($request->hasFile('payment_proof')) {
-            $path = $request->file('payment_proof')->store("projects/{$project->id}/proofs/bids", 'public');
-
-            $bid->update([
-                'payment_proof_path' => $path,
-                'payment_status' => 'verifying',
-            ]);
-
-            return response()->json([
-                'message' => 'Proof uploaded successfully! Awaiting professional verification.',
-                'bid' => $bid
-            ]);
-        }
-
-        return response()->json(['message' => 'File upload failed.'], 400);
-    }
+    // NOTE: verifyBidPayment + uploadBidPaymentProof removed — their routes
+    // had zero consumers; the live payment flow runs through
+    // verifyDesignPayment and PaymentVerificationController.
 
     private function attachClientHistory($projects)
     {

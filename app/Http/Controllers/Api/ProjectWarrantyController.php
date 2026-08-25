@@ -38,6 +38,15 @@ class ProjectWarrantyController extends Controller
             'images.*' => 'image|mimes:jpeg,png,jpg,gif,webp|max:5120',
         ]);
 
+        // Warranty window enforcement: claims are only valid AFTER handover
+        // and WITHIN the warranty period (set at finalization; standard 180d).
+        if (!$project->warranty_end_at) {
+            return response()->json(['message' => 'The warranty period has not started yet. Claims can be filed after project handover.'], 422);
+        }
+        if (now()->gt($project->warranty_end_at)) {
+            return response()->json(['message' => 'The warranty period ended on ' . $project->warranty_end_at->format('d M Y') . '.'], 422);
+        }
+
         $imagePaths = [];
         if ($request->hasFile('images')) {
             foreach ($request->file('images') as $image) {
@@ -52,6 +61,20 @@ class ProjectWarrantyController extends Controller
             'images' => $imagePaths,
             'status' => 'open',
         ]);
+
+        // B10: the responsible contractor was never told a claim exists.
+        if ($project->selected_kontraktor_id) {
+            $contractor = \App\Models\Kontraktor::with('user')->find($project->selected_kontraktor_id);
+            if ($contractor?->user && (int) $contractor->user->id !== (int) $user->id) {
+                \App\Models\Notification::create([
+                    'user_id' => $contractor->user->id,
+                    'type' => 'warranty_claim',
+                    'title' => 'New Warranty Claim',
+                    'body' => "{$user->name} filed \"{$claim->title}\" on project \"{$project->title}\".",
+                    'data' => ['project_id' => $project->id, 'claim_id' => $claim->id],
+                ]);
+            }
+        }
 
         return response()->json(['message' => 'Warranty claim filed', 'data' => $claim]);
     }
