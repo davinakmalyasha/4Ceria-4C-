@@ -273,47 +273,9 @@ class ProjectPhaseController extends Controller
         return new ProjectResource($this->loadFullProject($project));
     }
 
-    public function verifyDesign(Project $project)
-    {
-        if (!$this->isProjectOwner($project, Auth::user()) && !$this->isProjectManager($project, Auth::user())) {
-            return response()->json(['message' => 'Only the Project Owner or PM can verify the design phase.'], 403);
-        }
-
-        if (!$project->design_handover_submitted_at) {
-            return response()->json(['message' => 'Design package has not been submitted for verification yet.'], 422);
-        }
-
-        $this->lifecycleService->verifyPhase($project, 'design');
-        return new ProjectResource($this->loadFullProject($project));
-    }
-
-    public function verifyConstruction(Project $project)
-    {
-        if (!$this->isProjectOwner($project, Auth::user()) && !$this->isProjectManager($project, Auth::user())) {
-            return response()->json(['message' => 'Only the Project Owner or PM can verify the construction phase.'], 403);
-        }
-
-        if (!$project->construction_handover_submitted_at) {
-            return response()->json(['message' => 'Construction handover has not been submitted for verification yet.'], 422);
-        }
-
-        $this->lifecycleService->verifyPhase($project, 'construction');
-        return new ProjectResource($this->loadFullProject($project));
-    }
-
-    public function verifyInterior(Project $project)
-    {
-        if (!$this->isProjectOwner($project, Auth::user()) && !$this->isProjectManager($project, Auth::user())) {
-            return response()->json(['message' => 'Only the Project Owner or PM can verify the interior phase.'], 403);
-        }
-
-        if (!$project->interior_handover_submitted_at) {
-            return response()->json(['message' => 'Interior handover has not been submitted for verification yet.'], 422);
-        }
-
-        $this->lifecycleService->verifyPhase($project, 'interior');
-        return new ProjectResource($this->loadFullProject($project));
-    }
+    // NOTE: verifyDesign/verifyConstruction/verifyInterior removed — their
+    // routes had zero consumers. Phase verification runs through verify-legal
+    // and technical-audit-submit.
 
     public function verifyLegal(Project $project)
     {

@@ -23,15 +23,25 @@ class ProjectFinancialService
     public function deductBudget(Project $project, float $amount, string $type, string $title, ?string $refModel = null, ?int $refId = null): bool
     {
         return DB::transaction(function () use ($project, $amount, $type, $title, $refModel, $refId) {
+            // Normalize to FQCN so every code path writes ONE canonical
+            // spelling — the unique ledger index (project_id,
+            // reference_model, reference_id) can only dedupe across paths if
+            // the spellings match. The exists() check below still matches
+            // BOTH spellings for legacy rows.
+            if ($refModel && !str_contains($refModel, '\\')) {
+                $refModel = 'App\\Models\\' . $refModel;
+            }
+
             // 0. Check if already deducted to prevent double-charging.
             // Matches BOTH reference spellings (legacy short name and FQCN)
             // so historical rows written either way still dedupe correctly.
             if ($refModel && $refId) {
+                $shortName = str_contains($refModel, '\\') ? substr($refModel, strrpos($refModel, '\\') + 1) : $refModel;
                 $exists = ProjectBudgetTransaction::where('project_id', $project->id)
                     ->where('reference_id', $refId)
-                    ->where(function ($q) use ($refModel) {
+                    ->where(function ($q) use ($refModel, $shortName) {
                         $q->where('reference_model', $refModel)
-                          ->orWhere('reference_model', 'App\\Models\\' . $refModel);
+                          ->orWhere('reference_model', $shortName);
                     })
                     ->exists();
                 if ($exists) {
@@ -41,6 +51,11 @@ class ProjectFinancialService
 
             // 1. Check balance — affordability = budget MINUS payments already
             // recorded in the ledger (not the raw budget column).
+            // SECURITY: lock the project row first so two concurrent
+            // verifyProof calls on DIFFERENT references cannot both pass this
+            // check and overdraw the escrow budget (TOCTOU).
+            \App\Models\Project::where('id', $project->id)->lockForUpdate()->first();
+
             $alreadySpent = ProjectBudgetTransaction::where('project_id', $project->id)
                 ->where('transaction_type', 'payment')
                 ->sum('amount');
@@ -58,16 +73,22 @@ class ProjectFinancialService
                 $project->decrement('budget', $amount);
             }
 
-            // 3. Record transaction
-            ProjectBudgetTransaction::create([
-                'project_id' => $project->id,
-                'transaction_type' => $type,
-                'amount' => $amount,
-                'title' => $title,
-                'reference_model' => $refModel,
-                'reference_id' => $refId,
-                'transaction_date' => now(),
-            ]);
+            // 3. Record transaction. UCV catch = concurrent verifyProof on the
+            // same reference lost the race; treat as success (money recorded
+            // once) instead of 500ing the pro after their payment cleared.
+            try {
+                ProjectBudgetTransaction::create([
+                    'project_id' => $project->id,
+                    'transaction_type' => $type,
+                    'amount' => $amount,
+                    'title' => $title,
+                    'reference_model' => $refModel,
+                    'reference_id' => $refId,
+                    'transaction_date' => now(),
+                ]);
+            } catch (\Illuminate\Database\UniqueConstraintViolationException $e) {
+                return true;
+            }
 
             return true;
         });

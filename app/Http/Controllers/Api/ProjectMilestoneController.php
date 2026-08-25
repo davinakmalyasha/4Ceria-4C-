@@ -392,6 +392,14 @@ class ProjectMilestoneController extends Controller
                 $this->logActivity($project, 'milestone_approved', "Approved: {$milestone->title}");
             }
 
+            if (isset($updateData['approval_status'])) {
+                match ($updateData['approval_status']) {
+                    'pending' => $this->notifyMilestoneStatus($project, $milestone, 'submitted'),
+                    'revision' => $this->notifyMilestoneStatus($project, $milestone, 'revision', $validated['revision_notes'] ?? null),
+                    default => null,
+                };
+            }
+
             return response()->json(['data' => $milestone->load(['arsitek.user', 'kontraktor.user', 'notaris.user', 'interior.user', 'structural.user', 'mep.user'])]);
         });
     }
@@ -426,6 +434,7 @@ class ProjectMilestoneController extends Controller
                     'lead_pro_verified_at' => now(),
                 ]);
                 $this->logActivity($project, 'milestone_reviewed', "Technical Review Completed: {$milestone->title}");
+                $this->notifyMilestoneStatus($project, $milestone, 'reviewed');
             } elseif (!$isPM && !$isOwner) {
                 // SECURITY: a lead pro can never FINALIZE approval (that unlocks
                 // payments). Final verification requires the PM or the owner.
@@ -439,6 +448,7 @@ class ProjectMilestoneController extends Controller
                 $this->unlockLinkedTermin($milestone);
                 $this->syncToVault($milestone);
                 $this->logActivity($project, 'milestone_approved', "Final Verification: {$milestone->title}");
+                $this->notifyMilestoneStatus($project, $milestone, 'approved');
             }
 
             return response()->json(['data' => $milestone->load(['arsitek.user', 'kontraktor.user', 'notaris.user', 'interior.user', 'structural.user', 'mep.user'])]);
@@ -569,6 +579,12 @@ class ProjectMilestoneController extends Controller
                     $unlocked = $this->unlockLinkedTermin($milestone);
                     $unlockedTermins = array_merge($unlockedTermins, $unlocked);
                     $this->syncToVault($milestone);
+                }
+
+                if ($m['status'] === 'approved' && ($updateData['approval_status'] ?? null) === 'approved') {
+                    $this->notifyMilestoneStatus($project, $milestone, 'approved');
+                } elseif ($m['status'] === 'revision_requested') {
+                    $this->notifyMilestoneStatus($project, $milestone, 'revision', $m['note'] ?? null);
                 }
             }
 
@@ -707,5 +723,87 @@ class ProjectMilestoneController extends Controller
             'action' => $action,
             'details' => $details,
         ]);
+    }
+
+    /**
+     * Resolve the milestone's responsible professional user id (first
+     * non-null role assignment).
+     */
+    private function getMilestoneProUserId(ProjectMilestone $milestone): ?int
+    {
+        foreach (['arsitek', 'kontraktor', 'notaris', 'interior', 'structural', 'mep'] as $rel) {
+            if ($milestone->{$rel}?->user_id) {
+                return (int) $milestone->{$rel}->user_id;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Lifecycle notifications: previously milestone submit/approve/revision
+     * were completely silent — owners only learned a stage was done by
+     * opening the project. Failures never block the API response.
+     */
+    private function notifyMilestoneStatus(Project $project, ProjectMilestone $milestone, string $event, ?string $note = null): void
+    {
+        try {
+            $proUserId = $this->getMilestoneProUserId($milestone);
+            $actorId = Auth::id();
+            $title = $milestone->title;
+
+            $send = function (int $userId, array $payload) {
+                if ($userId && (int) $userId !== (int) auth()->id()) {
+                    \App\Models\Notification::create($payload + ['user_id' => $userId]);
+                }
+            };
+
+            switch ($event) {
+                case 'submitted':
+                    $send($project->user_id, [
+                        'type' => 'milestone_updated',
+                        'title' => 'Milestone Submitted for Approval',
+                        'body' => "\"{$title}\" on \"{$project->title}\" is awaiting your approval.",
+                        'data' => ['project_id' => $project->id, 'milestone_id' => $milestone->id],
+                    ]);
+                    if ($project->pm_id) {
+                        $send((int) $project->pm_id, [
+                            'type' => 'milestone_approval_needed',
+                            'title' => 'Milestone Awaiting Verification',
+                            'body' => "\"{$title}\" on \"{$project->title}\" needs PM verification.",
+                            'data' => ['project_id' => $project->id, 'milestone_id' => $milestone->id],
+                        ]);
+                    }
+                    break;
+
+                case 'approved':
+                    $send((int) $proUserId, [
+                        'type' => 'milestone_approved',
+                        'title' => 'Milestone Approved',
+                        'body' => "\"{$title}\" was approved. Any linked payment termin has been unlocked.",
+                        'data' => ['project_id' => $project->id, 'milestone_id' => $milestone->id],
+                    ]);
+                    break;
+
+                case 'reviewed':
+                    $send($project->user_id, [
+                        'type' => 'milestone_updated',
+                        'title' => 'Technical Review Completed',
+                        'body' => "The lead professional completed the technical review of \"{$title}\". Final approval is pending.",
+                        'data' => ['project_id' => $project->id, 'milestone_id' => $milestone->id],
+                    ]);
+                    break;
+
+                case 'revision':
+                    $send((int) $proUserId, [
+                        'type' => 'milestone_revision_requested',
+                        'title' => 'Revision Requested',
+                        'body' => "Revision requested for \"{$title}\": " . ($note ?: 'no details provided.'),
+                        'data' => ['project_id' => $project->id, 'milestone_id' => $milestone->id],
+                    ]);
+                    break;
+            }
+        } catch (\Throwable $e) {
+            \Log::warning('Milestone notification failed: ' . $e->getMessage());
+        }
     }
 }

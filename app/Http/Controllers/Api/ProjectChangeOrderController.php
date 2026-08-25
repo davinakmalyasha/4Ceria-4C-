@@ -178,11 +178,17 @@ class ProjectChangeOrderController extends Controller
                 $updates['status'] = 'rejected';
             }
             $changeOrder->update($updates);
+            // owner_approved change orders count toward budget math — touch
+            // the project so the cached calculateBudgetSummary invalidates.
+            if ($updates['status'] === 'owner_approved') {
+                $project->touch();
+            }
             DB::commit();
             return response()->json(['message' => 'Change order decided.', 'data' => $changeOrder->fresh()]);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['message' => 'Decision failed: ' . $e->getMessage()], 500);
+            \Log::error('Change-order decision failed: '.$e->getMessage(), ['exception' => $e]);
+            return response()->json(['message' => 'Decision failed. Please try again.'], 500);
         }
     }
 }

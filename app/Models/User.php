@@ -39,6 +39,9 @@ class User extends Authenticatable
         'firm_description',
         'firm_is_hiring',
         'firm_needed_roles',
+        // Admin-only enforcement flag (toggled via /admin/users/{id}/suspend).
+        // It was missing here, so the toggle silently never persisted.
+        'is_suspended',
     ];
 
     protected static function booted(): void
@@ -93,6 +96,13 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        // PII: never ship these on raw model serialization. Sanctioned
+        // consumers read them explicitly (UserResource owner-or-admin gate),
+        // which is unaffected by $hidden.
+        'bank_name',
+        'bank_account_number',
+        'bank_account_name',
+        'unique_code',
     ];
 
     /**
@@ -128,11 +138,6 @@ class User extends Authenticatable
     public function kontraktor()
     {
         return $this->hasOne(Kontraktor::class, 'user_id');
-    }
-
-    public function admin()
-    {
-        return $this->hasOne(Admin::class);
     }
 
     public function supplier()

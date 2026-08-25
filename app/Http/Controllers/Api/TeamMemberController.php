@@ -39,7 +39,7 @@ class TeamMemberController extends Controller
         $validated = $request->validate([
             'name'       => 'required|string|max:255',
             'role_title' => 'required|string|max:100',
-            'photo'      => 'nullable|image|max:2048',
+            'photo'      => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048', // SVG rejected
             'bio'        => 'nullable|string|max:1000',
             'skills'     => 'nullable|array',
             'skills.*'   => 'string|max:50',
@@ -77,7 +77,7 @@ class TeamMemberController extends Controller
         $validated = $request->validate([
             'name'       => 'required|string|max:255',
             'role_title' => 'required|string|max:100',
-            'photo'      => 'nullable|image|max:2048',
+            'photo'      => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048', // SVG rejected
             'bio'        => 'nullable|string|max:1000',
             'skills'     => 'nullable|array',
             'skills.*'   => 'string|max:50',

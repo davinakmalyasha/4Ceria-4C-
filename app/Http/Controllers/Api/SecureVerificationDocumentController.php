@@ -81,9 +81,10 @@ class SecureVerificationDocumentController extends Controller
             $temporaryUrl = Storage::disk('railway')->temporaryUrl($path, now()->addMinutes(5), $options);
             return response()->json(['url' => $temporaryUrl]);
         } catch (\Exception $e) {
+            // S3 SDK errors can embed bucket names/endpoints — log, don't echo
+            \Log::error('Secure presign failed: '.$e->getMessage(), ['field' => $field]);
             return response()->json([
-                'message' => 'Failed to generate secure preview URL',
-                'error' => $e->getMessage()
+                'message' => 'Failed to generate secure preview URL'
             ], 500);
         }
     }

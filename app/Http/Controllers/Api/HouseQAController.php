@@ -64,6 +64,15 @@ class HouseQAController extends Controller
 
     public function storeAnswer(Request $request, HouseQuestion $question)
     {
+        // SECURITY: only the listing owner (or an admin) may answer questions
+        // on a house — anyone could otherwise impersonate the seller.
+        $house = House::find($question->house_id);
+        $user = $request->user();
+        $isOwner = $house && (int) $house->id_user === (int) $user->id;
+        if (! $isOwner && ! $user->hasRole('admin')) {
+            return response()->json(['message' => 'Only the property owner can answer questions.'], 403);
+        }
+
         $request->validate([
             'answer' => 'required|string|max:1000',
         ]);
@@ -85,14 +94,5 @@ class HouseQAController extends Controller
         ], 201);
     }
 
-    public function deleteQuestion(Request $request, HouseQuestion $question)
-    {
-        if ($question->user_id !== $request->user()->id) {
-            return response()->json(['message' => 'Unauthorized'], 403);
-        }
 
-        $question->delete();
-
-        return response()->json(['message' => 'Question deleted successfully']);
-    }
 }

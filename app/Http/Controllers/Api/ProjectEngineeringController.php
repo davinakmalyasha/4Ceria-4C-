@@ -75,7 +75,7 @@ class ProjectEngineeringController extends Controller
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
             'files' => 'nullable|array',
-            'files.*' => 'file|max:10240', // 10MB
+            'files.*' => 'file|mimes:jpg,jpeg,png,webp,pdf|max:10240', // 10MB; no arbitrary types on public disk
         ]);
 
         return DB::transaction(function () use ($request, $project) {

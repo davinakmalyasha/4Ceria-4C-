@@ -85,7 +85,10 @@ class ProjectDocumentController extends Controller
         }
 
         $file = $request->file('file');
-        $path = $file->store('project_documents', 'public');
+        // Vault documents (incl. awaiting_signature / legally_binding) go to
+        // the PRIVATE railway bucket by default; local dev may override with
+        // VAULT_DISK=public. The file_url accessor resolves both layouts.
+        $path = $file->store('project_documents', config('filesystems.vault_disk', 'railway'));
 
         $document = DB::transaction(function () use ($project, $validated, $category, $targetRole, $parentId, $version, $file, $path) {
             $fileName = $validated['title'] ?? $file->getClientOriginalName();
@@ -155,7 +158,10 @@ class ProjectDocumentController extends Controller
         }
 
         $name = $document->file_name;
-        Storage::disk('public')->delete($document->file_path);
+        // L9 FIX: delete from the SAME disk the file was written to (vault
+        // disk, default railway) — the old public-disk delete was a no-op
+        // that left private contract files alive after "deletion".
+        Storage::disk(config('filesystems.vault_disk', 'railway'))->delete($document->file_path);
         $document->delete();
         
         $this->logActivity($project, 'document_deleted', "Removed: {$name}");

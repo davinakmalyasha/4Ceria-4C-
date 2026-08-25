@@ -16,6 +16,11 @@ class ProjectPaymentTerminController extends Controller
 
     public function getPaymentTermins(Project $project)
     {
+        // SECURITY: financial records — owner or hired professionals only.
+        if (! $this->authorizeProjectAccess($project)) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
         return response()->json(['data' => $project->paymentTermins()->with('milestone')->get()]);
     }
 
@@ -127,103 +132,9 @@ class ProjectPaymentTerminController extends Controller
         return response()->json(['data' => $termin->load('milestone')]);
     }
 
-    public function uploadProof(Request $request, Project $project, ProjectPaymentTermin $termin)
-    {
-        $user = Auth::user();
 
-        // Binding check: the termin must belong to THIS project.
-        if ((int) $termin->project_id !== (int) $project->id) {
-            return response()->json(['message' => 'Not found.'], 404);
-        }
 
-        $isOwner = $project->user_id === $user->id;
-        $isPM = $project->pm_id === $user->id;
 
-        if (!$isOwner && !$isPM) {
-            return response()->json(['message' => 'Unauthorized. Only project owner or assigned PM can upload proof.'], 403);
-        }
-
-        $request->validate([
-            'payment_proof' => 'required|image|mimes:jpeg,png,jpg,gif,webp|max:2048', // 2MB max
-        ]);
-
-        if ($request->hasFile('payment_proof')) {
-            $path = $request->file('payment_proof')->store('proofs/termins', 'public');
-            $termin->update([
-                'payment_proof_path' => $path,
-                'status' => 'verifying',
-            ]);
-
-            $this->logActivity($project, 'termin_proof_uploaded', "Payment proof uploaded for: {$termin->label}");
-
-            return response()->json(['message' => 'Proof uploaded! Awaiting professional verification.', 'data' => $termin]);
-        }
-
-        return response()->json(['message' => 'File upload failed.'], 400);
-    }
-
-    public function verifyPayment(Request $request, Project $project, ProjectPaymentTermin $termin)
-    {
-        $user = Auth::user();
-
-        // Binding check: the termin must belong to THIS project.
-        if ((int) $termin->project_id !== (int) $project->id) {
-            return response()->json(['message' => 'Not found.'], 404);
-        }
-
-        // Only the recipient (professional) or PM can verify
-        $isRecipient = $termin->recipient_id === $user->id;
-        $isPM = $user->role_type === 'project_manager' && $project->pm_id === $user->id;
-
-        if (!$isRecipient && !$isPM) {
-            return response()->json(['message' => 'Unauthorized. Only the recipient professional can verify this payment.'], 403);
-        }
-
-        $request->validate([
-            'action' => 'required|in:accept,reject',
-            'notes' => 'nullable|string|max:500',
-        ]);
-
-        return DB::transaction(function () use ($termin, $request, $project) {
-            if ($request->action === 'accept') {
-                $termin->update([
-                    'status' => 'paid',
-                    'paid_at' => now(),
-                    'notes' => $request->notes,
-                ]);
-
-                // Log in financial ledger
-                \App\Models\ProjectBudgetTransaction::updateOrCreate(
-                    [
-                        'project_id' => $project->id,
-                        'reference_model' => 'App\Models\ProjectPaymentTermin',
-                        'reference_id' => $termin->id,
-                    ],
-                    [
-                        'transaction_type' => 'payment',
-                        'amount' => $termin->amount,
-                        'title' => "Paid Termin: {$termin->label} (Verified)",
-                        'transaction_date' => now(),
-                    ]
-                );
-
-                // If this is the FIRST termin (DP), we might want to activate the BID status to 'accepted'
-                $this->checkAndActivateBid($project, $termin);
-
-                $this->logActivity($project, 'termin_verified', "Payment verified for: {$termin->label}");
-            } else {
-                $termin->update([
-                    'status' => 'pending', // Reset to pending
-                    'payment_proof_path' => null, // Clear bad proof
-                    'notes' => $request->notes,
-                ]);
-
-                $this->logActivity($project, 'termin_rejected', "Payment rejected for: {$termin->label}");
-            }
-
-            return response()->json(['message' => 'Payment status updated.', 'data' => $termin]);
-        });
-    }
 
     private function checkAndActivateBid(Project $project, ProjectPaymentTermin $termin)
     {

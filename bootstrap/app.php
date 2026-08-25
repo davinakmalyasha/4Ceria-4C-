@@ -12,6 +12,18 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
+        // Railway terminates TLS at its edge; without trusting the proxy,
+        // every request shares the edge IP and rate-limit buckets collapse
+        // into one global bucket (login lockout DoS, wrong audit IPs).
+        // SECURITY: pin to TRUSTED_PROXIES (CIDR list) in production — "*"
+        // lets clients spoof X-Forwarded-For and rotate throttle buckets.
+        // Local dev falls back to "*" so artisan serve / octane keep working.
+        $trustedProxies = env('TRUSTED_PROXIES');
+        if (!empty($trustedProxies)) {
+            $middleware->trustProxies(at: array_map('trim', explode(',', $trustedProxies)));
+        } else {
+            $middleware->trustProxies(at: '*');
+        }
         $middleware->web(append: [
             \App\Http\Middleware\SecurityHeaders::class,
         ]);

@@ -37,6 +37,9 @@ class UpdateProjectRequest extends FormRequest
             'status' => 'sometimes|string|in:open,in_progress,completed,cancelled',
             'target_role' => 'sometimes|string|in:both,arsitek,kontraktor',
             'deadline' => 'sometimes|date',
+            // SECURITY: this rule was previously MISSING — POST
+            // /projects/{id}/update accepted ANY file of ANY size here.
+            'attachment' => 'sometimes|nullable|file|mimes:pdf,doc,docx,xls,xlsx,jpg,jpeg,png,webp,zip|max:10240',
             'images.*' => 'sometimes|file|mimes:jpg,jpeg,png|max:5120',
             'deleted_images' => 'sometimes|array',
             'deleted_images.*' => 'integer',
@@ -51,8 +54,8 @@ class UpdateProjectRequest extends FormRequest
             'payment_instructions' => 'nullable|string',
             'payment_termins' => 'nullable|array',
             'payment_termins.*.label' => 'required|string',
-            'payment_termins.*.percentage' => 'required|numeric',
-            'payment_termins.*.amount' => 'required|numeric',
+            'payment_termins.*.percentage' => 'required|numeric|min:0|max:100',
+            'payment_termins.*.amount' => 'required|numeric|min:0',
             'payment_termins.*.notes' => 'nullable|string|max:250',
             'legal_requirements' => 'nullable|array',
             'legal_requirements.*' => 'string',

@@ -250,3 +250,151 @@ it('books notary consultations and rejects duplicate slots', function () {
     $second->assertStatus(422);
     $this->assertSame(1, NotarisConsultation::where('user_id', $client->id)->count());
 });
+
+// ---------------------------------------------------------------------------
+// ROUND 2 (2026-08-25): unique-constraint fallout + detail gate + windows
+// ---------------------------------------------------------------------------
+
+it('enforces the one-bid-per-professional unique constraint at the DB level', function () {
+    $owner = moneyTestUser('uniq_owner');
+    $proUser = User::create([
+        'name' => 'U', 'username' => 'uniq_' . uniqid(), 'email' => 'uniq_' . uniqid() . '@example.test',
+        'password' => Hash::make('password123'), 'role_type' => 'arsitek',
+    ]);
+    $profile = Arsitek::create(['user_id' => $proUser->id, 'nama' => 'U']);
+    $project = Project::create(['title' => 'TU', 'user_id' => $owner->id, 'budget' => 10_000_000, 'status' => 'open']);
+
+    BidArsitek::create(['project_id' => $project->id, 'arsitek_id' => $profile->id, 'price' => 1_000_000, 'status' => 'pending']);
+
+    $thrown = false;
+    try {
+        BidArsitek::create(['project_id' => $project->id, 'arsitek_id' => $profile->id, 'price' => 2_000_000, 'status' => 'pending']);
+    } catch (\Illuminate\Database\QueryException $e) {
+        $thrown = true;
+    }
+
+    expect($thrown)->toBeTrue();
+    $this->assertSame(
+        1,
+        BidArsitek::where('project_id', $project->id)->where('arsitek_id', $profile->id)->count()
+    );
+});
+
+it('dedupes ledger entries written under the legacy short reference spelling', function () {
+    $owner = moneyTestUser('spell_owner');
+    $proUser = User::create([
+        'name' => 'S', 'username' => 'spell_' . uniqid(), 'email' => 'spell_' . uniqid() . '@example.test',
+        'password' => Hash::make('password123'), 'role_type' => 'arsitek',
+    ]);
+    $profile = Arsitek::create(['user_id' => $proUser->id, 'nama' => 'S']);
+    $project = Project::create(['title' => 'TS', 'user_id' => $owner->id, 'budget' => 50_000_000, 'status' => 'open']);
+    $bid = BidArsitek::create(['project_id' => $project->id, 'arsitek_id' => $profile->id, 'price' => 5_000_000, 'status' => 'active']);
+
+    // Historical row written with the SHORT spelling by an old code path.
+    ProjectBudgetTransaction::create([
+        'project_id' => $project->id,
+        'transaction_type' => 'payment',
+        'amount' => 5_000_000,
+        'title' => 'Professional Fee: S',
+        'reference_model' => 'BidArsitek', // legacy short name
+        'reference_id' => $bid->id,
+        'transaction_date' => now(),
+    ]);
+
+    $service = app(\App\Services\ProjectFinancialService::class);
+    // deductBudget normalizes to FQCN but must still match the short-named row.
+    $result = $service->deductBudget($project, 5_000_000, 'payment', 'Professional Fee: S', 'BidArsitek', $bid->id);
+
+    expect($result)->toBeTrue();
+    $this->assertSame(
+        1,
+        ProjectBudgetTransaction::where('project_id', $project->id)
+            ->where('reference_id', $bid->id)
+            ->count()
+    );
+});
+
+it('fails payment verification loudly when the project budget is insufficient', function () {
+    $owner = moneyTestUser('poor_owner');
+    $proUser = User::create([
+        'name' => 'P', 'username' => 'poor_' . uniqid(), 'email' => 'poor_' . uniqid() . '@example.test',
+        'password' => Hash::make('password123'), 'role_type' => 'arsitek',
+    ]);
+    $profile = Arsitek::create(['user_id' => $proUser->id, 'nama' => 'P']);
+    $project = Project::create(['title' => 'TP', 'user_id' => $owner->id, 'budget' => 1_000_000, 'status' => 'open']);
+    $bid = BidArsitek::create([
+        'project_id' => $project->id, 'arsitek_id' => $profile->id,
+        'price' => 9_999_999, 'payment_status' => 'verifying', 'status' => 'accepted',
+    ]);
+
+    // Bid payments are verified by the PRO (payee), per verify-proof authz.
+    $res = $this->actingAs($proUser, 'sanctum')
+        ->postJson("/api/projects/{$project->id}/payments/arsitek_bid/{$bid->id}/verify-proof", [
+            'action' => 'accept',
+        ]);
+
+    $res->assertStatus(422);
+    // No partial state: bid must NOT be active/paid.
+    $bid->refresh();
+    expect($bid->payment_status)->not->toBe('paid');
+    expect($bid->status)->toBe('accepted');
+});
+
+it('hides project detail from authenticated non-members', function () {
+    $owner = moneyTestUser('gate_owner');
+    $stranger = moneyTestUser('gate_stranger');
+    $project = Project::create(['title' => 'TG', 'user_id' => $owner->id, 'budget' => 10_000_000, 'status' => 'open']);
+
+    $res = $this->actingAs($stranger, 'sanctum')
+        ->getJson("/api/projects/{$project->id}");
+
+    $res->assertStatus(403);
+});
+
+it('rejects warranty claims filed before the warranty window opens', function () {
+    $owner = moneyTestUser('warr_owner');
+    $project = Project::create(['title' => 'TW', 'user_id' => $owner->id, 'budget' => 10_000_000, 'status' => 'in_progress']);
+    // No warranty_end_at set (project never finalized).
+
+    $res = $this->actingAs($owner, 'sanctum')
+        ->postJson("/api/projects/{$project->id}/warranty-claims", [
+            'title' => 'Cracked wall',
+            'description' => 'Wall cracked after handover.',
+        ]);
+
+    $res->assertStatus(422);
+});
+
+it('invalidates the cached budget summary when a payment clears', function () {
+    $owner = moneyTestUser('cache_owner');
+    $proUser = User::create([
+        'name' => 'C', 'username' => 'cache_' . uniqid(), 'email' => 'cache_' . uniqid() . '@example.test',
+        'password' => Hash::make('password123'), 'role_type' => 'kontraktor',
+    ]);
+    $project = Project::create(['title' => 'TC', 'user_id' => $owner->id, 'budget' => 100_000_000, 'status' => 'in_progress']);
+
+    $termin = ProjectPaymentTermin::create([
+        'project_id' => $project->id,
+        'label' => 'Termin 1',
+        'percentage' => 30,
+        'amount' => 5_000_000,
+        'status' => 'verifying',
+        'role_type' => 'kontraktor',
+        'recipient_id' => $proUser->id,
+    ]);
+
+    // Backdate so second-precision timestamp comparison is deterministic.
+    $project->forceFill(['updated_at' => now()->subMinutes(5)])->saveQuietly();
+    $beforeKey = "budget_summary_{$project->id}_{$project->updated_at}";
+    $before = \Illuminate\Support\Facades\Cache::get($beforeKey);
+
+    $res = $this->actingAs($proUser, 'sanctum')
+        ->postJson("/api/projects/{$project->id}/payments/termin/{$termin->id}/verify-proof", [
+            'action' => 'accept',
+        ]);
+    $res->assertStatus(200);
+
+    // The old cache entry must be orphaned (updated_at advanced).
+    $afterKey = "budget_summary_{$project->id}_{$project->fresh()->updated_at}";
+    expect($afterKey)->not->toBe($beforeKey);
+});

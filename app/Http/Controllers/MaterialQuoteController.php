@@ -24,7 +24,7 @@ class MaterialQuoteController extends Controller
             $query->where('user_id', $user->id);
         }
 
-        $quotes = $query->orderBy('created_at', 'desc')->get();
+        $quotes = $query->orderBy('created_at', 'desc')->limit(100)->get();
 
         return response()->json([
             'success' => true,
@@ -55,6 +55,22 @@ class MaterialQuoteController extends Controller
         $totalAmount = collect($validated['items'])->sum(function ($item) {
             return $item['price_at_quote'] * $item['qty'];
         });
+
+        // L6 FIX: a quote may only be linked to a project the requester owns
+        // (or where they are an active sub-professional) — otherwise any user
+        // could forge a link to someone else's project.
+        if (!empty($validated['project_id'])) {
+            $ownsProject = \App\Models\Project::where('id', $validated['project_id'])
+                ->where('user_id', Auth::id())
+                ->exists();
+            $isSubPro = \App\Models\ProjectSubProfessional::where('project_id', $validated['project_id'])
+                ->where('user_id', Auth::id())
+                ->where('status', 'active')
+                ->exists();
+            if (!$ownsProject && !$isSubPro) {
+                return response()->json(['success' => false, 'message' => 'You can only request quotes for your own projects.'], 403);
+            }
+        }
 
         $quote = MaterialQuote::create([
             'user_id' => Auth::id(),
@@ -275,8 +291,9 @@ class MaterialQuoteController extends Controller
             ]);
         } catch (\Exception $e) {
             \DB::rollBack();
+            \Log::error('Quote approval failed: '.$e->getMessage(), ['exception' => $e]);
 
-            return response()->json(['message' => 'Failed to approve quote: '.$e->getMessage()], 500);
+            return response()->json(['message' => 'Failed to approve quote. Please try again.'], 500);
         }
     }
 

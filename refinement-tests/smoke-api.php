@@ -69,6 +69,18 @@ if (is_array($firstUser)) {
     check('public arsitek user hides email', false, 'no nested user in first row (empty table?)');
 }
 
+// 3b. C1 regression: KYC-grade file_portofolio path must never appear on
+// anonymous directory payloads (npwp is stored under this same column).
+$firstProfile = is_array($body['data'] ?? null) ? ($body['data'][0] ?? null) : null;
+if (is_array($firstProfile)) {
+    check(
+        'public arsitek hides file_portofolio (KYC path)',
+        !array_key_exists('file_portofolio', $firstProfile) && !array_key_exists('npwp', $firstProfile)
+    );
+} else {
+    echo "SKIP  file_portofolio check (empty arsitek table)\n";
+}
+
 // 2b. Schedule update while UNAUTHENTICATED must be rejected with 401
 $anySchedule = App\Models\ProjectSchedule::first();
 if ($anySchedule) {

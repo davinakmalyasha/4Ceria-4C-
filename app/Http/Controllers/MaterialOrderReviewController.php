@@ -26,9 +26,9 @@ class MaterialOrderReviewController extends Controller
             'delivery_rating' => 'nullable|integer|min:1|max:5',
             'delivery_comment' => 'nullable|string|max:1000',
             'shop_images' => 'nullable|array|max:3',
-            'shop_images.*' => 'image|max:5120',
+            'shop_images.*' => 'mimes:jpg,jpeg,png,webp|max:5120',
             'delivery_images' => 'nullable|array|max:3',
-            'delivery_images.*' => 'image|max:5120',
+            'delivery_images.*' => 'mimes:jpg,jpeg,png,webp|max:5120',
         ]);
 
         if ($validator->fails()) {
@@ -123,6 +123,10 @@ class MaterialOrderReviewController extends Controller
 
         $reviews = $query->paginate(10);
 
+        // SECURITY: hide reviewer identity data (email is not in User::$hidden).
+        $sensitive = ['email', 'email_verified_at', 'google_id', 'two_factor_secret', 'two_factor_recovery_codes', 'bank_name', 'bank_account_number', 'bank_account_name', 'unique_code'];
+        $reviews->getCollection()->each(fn ($r) => $r->user?->makeHidden($sensitive));
+
         return response()->json([
             'status' => 'success',
             'data' => $reviews,
@@ -145,7 +149,7 @@ class MaterialOrderReviewController extends Controller
             'rating' => 'required|integer|min:1|max:5',
             'comment' => 'nullable|string|max:1000',
             'images' => 'nullable|array|max:3',
-            'images.*' => 'image|max:5120',
+            'images.*' => 'mimes:jpg,jpeg,png,webp|max:5120',
         ]);
 
         if ($validator->fails()) {

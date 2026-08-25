@@ -18,67 +18,7 @@ class ProjectAddendumController extends Controller
 {
     use HandlesProjectAuthorization;
 
-    public function createFurnitureAddendum(Request $request, Project $project, ProjectMilestone $milestone)
-    {
-        $user = Auth::user();
 
-        // Binding check: the milestone must belong to THIS project.
-        if ((int) $milestone->project_id !== (int) $project->id) {
-            return response()->json(['message' => 'Not found.'], 404);
-        }
-
-        // Validation: Only the hired interior designer can request furniture payment
-        if ($user->role_type !== 'interior' || (int) $project->selected_interior_id !== (int) optional($user->interior_profile)->id) {
-            return response()->json(['message' => 'Unauthorized. Only the hired interior designer can request furniture payment.'], 403);
-        }
-
-        $request->validate([
-            'furniture_item_id' => 'required',
-        ]);
-
-        $itemId = $request->furniture_item_id;
-        $content = $milestone->content ?? [];
-        $items = $content['furniture_items'] ?? [];
-        
-        $itemIndex = -1;
-        foreach($items as $index => $item) {
-            if ($item['id'] === $itemId) {
-                $itemIndex = $index;
-                break;
-            }
-        }
-
-        if ($itemIndex === -1) {
-            return response()->json(['message' => 'Furniture item not found in this room.'], 404);
-        }
-
-        $item = $items[$itemIndex];
-
-        if (isset($item['addendum_id'])) {
-            return response()->json(['message' => 'Payment request already exists for this item.'], 422);
-        }
-
-        return DB::transaction(function () use ($project, $milestone, $content, $items, $itemIndex, $item) {
-            $addendum = ProjectAddendum::create([
-                'project_id' => $project->id,
-                'user_id' => Auth::id(),
-                'role_type' => 'interior',
-                'title' => "Furniture: " . $item['name'],
-                'description' => "Item Procurement for " . ($item['brand'] ?? $item['name']) . " in " . $milestone->title,
-                'amount' => $item['price'],
-                'status' => 'pending_approval'
-            ]);
-
-            $items[$itemIndex]['addendum_id'] = $addendum->id;
-            $newContent = $content;
-            $newContent['furniture_items'] = $items;
-            $milestone->update(['content' => $newContent]);
-
-            $this->logActivity($project, 'furniture_procurement_requested', "Interior Designer requested payment for: " . $item['name']);
-
-            return response()->json(['data' => $addendum]);
-        });
-    }
 
     public function approveAddendum(Project $project, ProjectAddendum $addendum)
     {
@@ -157,6 +97,9 @@ class ProjectAddendumController extends Controller
                 }
             } else {
                 $addendum->update(['status' => 'approved']);
+                // Approved addendums count toward budget math — touch the
+                // project so the cached calculateBudgetSummary invalidates.
+                $project->touch();
             }
 
             // Special handling for procurement addendums

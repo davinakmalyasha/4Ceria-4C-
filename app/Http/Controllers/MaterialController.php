@@ -14,6 +14,8 @@ use Illuminate\Support\Facades\Cache;
 
 class MaterialController extends Controller
 {
+    /** Auth-sensitive User attributes hidden on public payloads. */
+    private const SENSITIVE_USER_FIELDS = ['email', 'email_verified_at', 'google_id', 'two_factor_secret', 'two_factor_recovery_codes', 'bank_name', 'bank_account_number', 'bank_account_name', 'unique_code'];
     /**
      * Display a listing of materials (Marketplace View).
      */
@@ -29,6 +31,9 @@ class MaterialController extends Controller
             : Cache::remember($cacheKey, 600, function () use ($request) {
                 return $this->getFilteredMaterials($request);
             });
+
+        // SECURITY: this route is unauthenticated — hide supplier owner emails.
+        $data->each(fn ($material) => $material->supplier?->user?->makeHidden(self::SENSITIVE_USER_FIELDS));
 
         return response()->json([
             'status' => 'success',
@@ -103,7 +108,7 @@ class MaterialController extends Controller
             'category' => 'required|string|max:100',
             'stock' => 'integer|min:0',
             'images' => 'nullable|array',
-            'images.*' => 'image|max:2048',
+            'images.*' => 'mimes:jpg,jpeg,png,webp|max:2048',
             'specifications' => 'nullable|array',
         ]);
 
@@ -114,7 +119,8 @@ class MaterialController extends Controller
         $paths = [];
         if ($request->hasFile('images')) {
             foreach ($request->file('images') as $image) {
-                $paths[] = \App\Services\ImageService::convertToWebp($image, 'materials');
+                // PERF: stream originals now, queue the AVIF/WebP encode.
+                $paths[] = $image->store('materials', 'public');
             }
         }
 
@@ -125,10 +131,11 @@ class MaterialController extends Controller
             $material = Material::create($data);
 
             foreach ($paths as $path) {
-                MaterialImage::create([
+                $imgRow = MaterialImage::create([
                     'material_id' => $material->id,
                     'image_path' => $path,
                 ]);
+                \App\Jobs\ConvertImageToWebpJob::dispatch($path, 'materials', MaterialImage::class, $imgRow->id, 'image_path', 'public');
             }
 
             return $material;
@@ -158,7 +165,7 @@ class MaterialController extends Controller
             'stock' => 'sometimes|integer|min:0',
             'is_available' => 'sometimes|boolean',
             'images' => 'nullable|array',
-            'images.*' => 'image|max:2048',
+            'images.*' => 'mimes:jpg,jpeg,png,webp|max:2048',
             'deleted_image_ids' => 'nullable|array',
             'deleted_image_ids.*' => 'exists:material_images,id',
         ]);
@@ -192,10 +199,11 @@ class MaterialController extends Controller
 
             // Handle new uploads
             foreach ($paths as $path) {
-                MaterialImage::create([
+                $imgRow = MaterialImage::create([
                     'material_id' => $material->id,
                     'image_path' => $path,
                 ]);
+                \App\Jobs\ConvertImageToWebpJob::dispatch($path, 'materials', MaterialImage::class, $imgRow->id, 'image_path', 'public');
             }
         });
 

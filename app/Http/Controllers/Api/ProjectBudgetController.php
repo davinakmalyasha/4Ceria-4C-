@@ -285,6 +285,10 @@ class ProjectBudgetController extends Controller
                 $amount = $addendum->amount;
                 $title = 'Paid Addendum: ' . $addendum->title;
                 $referenceModel = 'App\Models\ProjectAddendum';
+                // Budget math includes paid addendums — touch the project so
+                // the cached calculateBudgetSummary (keyed on updated_at)
+                // invalidates immediately.
+                $project->touch();
 
                 if ($addendum->procurement_request_id) {
                     $procReq = ProjectProcurementRequest::find($addendum->procurement_request_id);
@@ -427,7 +431,7 @@ class ProjectBudgetController extends Controller
             'team_member_id' => 'nullable|exists:team_members,id',
             'assigned_user_id' => 'nullable|exists:users,id',
             'specialist_type' => 'nullable|string|in:structural,mep',
-            'attachment' => 'nullable|file|max:10240', // 10MB limit
+            'attachment' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf|max:10240', // 10MB; no arbitrary types on public disk
         ]);
 
         $attachmentPath = null;

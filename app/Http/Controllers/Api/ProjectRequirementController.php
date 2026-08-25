@@ -40,7 +40,7 @@ class ProjectRequirementController extends Controller
             'estimated_unit_cost' => 'nullable|numeric|min:0',
             'notes' => 'nullable|string',
             'purpose' => 'nullable|string',
-            'image' => 'nullable|image|max:5120',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120', // SVG rejected
             'folder_id' => 'nullable|exists:project_material_folders,id',
         ]);
 
@@ -92,7 +92,7 @@ class ProjectRequirementController extends Controller
             'estimated_unit_cost' => 'nullable|numeric|min:0',
             'notes' => 'nullable|string',
             'purpose' => 'nullable|string',
-            'image' => 'nullable|image|max:5120',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120', // SVG rejected
             'folder_id' => 'nullable|exists:project_material_folders,id',
         ]);
 
@@ -170,44 +170,7 @@ class ProjectRequirementController extends Controller
         return response()->json(['message' => 'Deleted']);
     }
 
-    public function logExternalProcurement(Request $request, Project $project, ProjectRequirement $requirement)
-    {
-        $user = Auth::user();
 
-        // Binding check: the requirement must belong to THIS project.
-        if ((int) $requirement->project_id !== (int) $project->id) {
-            return response()->json(['message' => 'Not found.'], 404);
-        }
-
-        if (!$this->isAuthorizedPro($project, $user, ['kontraktor', 'project_manager', 'user'])) {
-            return response()->json(['message' => 'Unauthorized.'], 403);
-        }
-
-        $validated = $request->validate([
-            'quantity' => 'required|numeric|min:0.01',
-            'unit_cost' => 'nullable|numeric|min:0',
-        ]);
-
-        return DB::transaction(function () use ($requirement, $validated, $project) {
-            $totalCost = ($validated['unit_cost'] ?? 0) * $validated['quantity'];
-            $requirement->increment('quantity_procured_externally', $validated['quantity']);
-            $requirement->increment('quantity_on_site', $validated['quantity']);
-            $requirement->increment('external_cost', $totalCost);
-
-            // Record transaction history
-            \App\Models\ProjectRequirementHistory::create([
-                'project_requirement_id' => $requirement->id,
-                'user_id' => Auth::id(),
-                'type' => 'restock',
-                'quantity' => $validated['quantity'],
-                'notes' => 'Procurement registered (External Purchase).',
-            ]);
-
-            $this->logActivity($project, 'external_procurement', "Registered {$validated['quantity']} {$requirement->unit} of {$requirement->name}");
-
-            return response()->json(['data' => $requirement]);
-        });
-    }
 
     public function logUsage(Request $request, Project $project, ProjectRequirement $requirement)
     {
@@ -372,62 +335,9 @@ class ProjectRequirementController extends Controller
         }
     }
 
-    public function ownerApproveProcurement(Request $request, Project $project, ProjectProcurementRequest $procurementRequest)
-    {
-        $user = Auth::user();
 
-        // Binding check: the procurement request must belong to THIS project.
-        if ((int) $procurementRequest->project_id !== (int) $project->id) {
-            return response()->json(['message' => 'Not found.'], 404);
-        }
 
-        if ($project->user_id !== $user->id) {
-            return response()->json(['message' => 'Only the project owner can approve procurement.'], 403);
-        }
 
-        if ($procurementRequest->status !== 'pending_owner') {
-            return response()->json(['message' => 'Request is not pending owner approval.'], 422);
-        }
-
-        DB::beginTransaction();
-        try {
-            $procurementRequest->update([
-                'status' => 'authorized',
-                'owner_note' => $request->owner_note,
-            ]);
-
-            $this->logActivity($project, 'procurement_approved', "Owner approved procurement for {$procurementRequest->requirement->name}");
-
-            DB::commit();
-            return response()->json(['data' => $procurementRequest]);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json(['message' => 'Approval failed.'], 500);
-        }
-    }
-
-    public function ownerRejectProcurement(Request $request, Project $project, ProjectProcurementRequest $procurementRequest)
-    {
-        $user = Auth::user();
-
-        // Binding check: the procurement request must belong to THIS project.
-        if ((int) $procurementRequest->project_id !== (int) $project->id) {
-            return response()->json(['message' => 'Not found.'], 404);
-        }
-
-        if ($project->user_id !== $user->id) {
-            return response()->json(['message' => 'Only the project owner can reject procurement.'], 403);
-        }
-
-        $procurementRequest->update([
-            'status' => 'rejected',
-            'owner_note' => $request->owner_note,
-        ]);
-
-        $this->logActivity($project, 'procurement_rejected', "Owner rejected procurement for {$procurementRequest->requirement->name}");
-
-        return response()->json(['data' => $procurementRequest]);
-    }
 
     private function isAuthorizedPro(Project $project, $user, array $allowedRoles = [])
     {

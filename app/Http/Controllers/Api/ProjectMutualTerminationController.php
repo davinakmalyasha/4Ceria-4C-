@@ -16,6 +16,27 @@ class ProjectMutualTerminationController extends Controller
     use HandlesProjectAuthorization;
 
     /**
+     * List termination requests for this project (participants only).
+     * Needed by the UI so a pending amicable-exit request is discoverable
+     * by the counterparty who must respond to it.
+     */
+    public function index(Project $project)
+    {
+        $user = Auth::user();
+        $isParticipant = $this->isProjectOwner($project, $user)
+            || (int) $project->pm_id === (int) $user->id
+            || $this->isHiredProfessional($project, $user);
+
+        if (!$isParticipant) abort(403, 'Unauthorized.');
+
+        return response()->json([
+            'data' => ProjectTermination::where('project_id', $project->id)
+                ->orderByDesc('created_at')
+                ->get()
+        ]);
+    }
+
+    /**
      * Initiate a mutual project termination request.
      */
     public function initiate(Request $request, Project $project)

@@ -13,56 +13,6 @@ use Illuminate\Support\Facades\Auth;
 class EngineeringProcurementController extends Controller
 {
     /**
-     * Invite an external partner (or internal ID) to bid on MEP/Structural.
-     */
-    public function inviteVendor(Request $request, Project $project)
-    {
-        return DB::transaction(function () use ($request, $project) {
-            $user = Auth::user();
-
-            // Only Architect can invite
-            $isArchitect = $project->selected_arsitek_id && 
-                          $user->role_type === 'arsitek' && 
-                          (int) $project->selected_arsitek_id === (int) $user->arsitek?->id;
-            
-            if (!$isArchitect) {
-                return response()->json(['message' => 'Unauthorized. Only the Project Architect can invite specialized engineers.'], 403);
-            }
-
-            $validated = $request->validate([
-                'role_type' => 'required|in:structural,mep',
-                'vendor_id' => 'required|integer', // The professional ID (StructuralEngineer/MepEngineer ID)
-            ]);
-
-            // Create a draft/invited bid
-            if ($validated['role_type'] === 'structural') {
-                $bid = BidStructural::create([
-                    'project_id' => $project->id,
-                    'structural_id' => $validated['vendor_id'],
-                    'price' => 0,
-                    'proposal' => 'Invited by Architect. Awaiting engineer proposal.',
-                    'status' => 'invited',
-                    'offered_by_id' => $user->id,
-                ]);
-            } else {
-                $bid = BidMep::create([
-                    'project_id' => $project->id,
-                    'mep_id' => $validated['vendor_id'],
-                    'price' => 0,
-                    'proposal' => 'Invited by Architect. Awaiting engineer proposal.',
-                    'status' => 'invited',
-                    'offered_by_id' => $user->id,
-                ]);
-            }
-
-            return response()->json([
-                'message' => 'Vendor invited successfully.',
-                'data' => $bid
-            ]);
-        });
-    }
-
-    /**
      * Architect submits technical interview notes and recommends a bid.
      */
     public function submitInterview(Request $request, Project $project)

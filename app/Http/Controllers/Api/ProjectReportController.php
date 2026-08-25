@@ -25,8 +25,10 @@ class ProjectReportController extends Controller
     /**
      * List all reports for a project.
      */
-    public function index(Project $project)
+    public function index(Request $request, Project $project)
     {
+        $this->authorize('viewAny', [ProjectReport::class, $project]);
+
         $reports = $project->reports()
             ->with('creator')
             ->orderBy('published_at', 'desc')

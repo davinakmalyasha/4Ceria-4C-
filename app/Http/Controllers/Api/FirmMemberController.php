@@ -135,18 +135,7 @@ class FirmMemberController extends Controller
         }
     }
 
-    public function joinRequests(): JsonResponse
-    {
-        $user = Auth::user();
 
-        if (!in_array($user->role_type, ['arsitek', 'kontraktor'])) {
-            return response()->json(['data' => []]);
-        }
-
-        return response()->json([
-            'data' => $this->service->getJoinRequests($user),
-        ]);
-    }
 
     public function browseFirmOwners(Request $request): JsonResponse
     {
@@ -202,19 +191,7 @@ class FirmMemberController extends Controller
         return response()->json(['data' => $results]);
     }
 
-    public function resend(FirmMember $firmMember): JsonResponse
-    {
-        if ((int)$firmMember->firm_owner_id !== (int)Auth::id()) {
-            return response()->json(['message' => 'Unauthorized.'], 403);
-        }
 
-        $updated = $this->service->resendInvitation($firmMember);
-
-        return response()->json([
-            'message' => 'Invitation resent successfully.',
-            'data' => $updated
-        ]);
-    }
 
     public function cancel(FirmMember $firmMember): JsonResponse
     {
@@ -378,8 +355,8 @@ class FirmMemberController extends Controller
             'firm_name' => ['nullable', 'string', 'max:100'],
             'firm_slogan' => ['nullable', 'string', 'max:150'],
             'firm_description' => ['nullable', 'string', 'max:1000'],
-            'firm_banner' => ['nullable', 'image', 'max:5120'], // 5MB max
-            'firm_logo' => ['nullable', 'image', 'max:2048'],   // 2MB max
+            'firm_banner' => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:5120'], // 5MB max; SVG rejected
+            'firm_logo' => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:2048'],   // 2MB max; SVG rejected
             'base_rate' => ['nullable', 'numeric', 'min:0'],
             'experience_years' => ['nullable', 'integer', 'min:0'],
             'firm_is_hiring' => ['nullable'],

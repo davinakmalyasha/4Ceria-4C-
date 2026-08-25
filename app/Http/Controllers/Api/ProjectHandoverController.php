@@ -167,49 +167,7 @@ class ProjectHandoverController extends Controller
         return response()->json(['message' => 'Resolution accepted.']);
     }
 
-    public function finalizeProject(Project $project)
-    {
-        $user = Auth::user();
-        if ($project->user_id !== $user->id) {
-            return response()->json(['message' => 'Only the project owner can finalize the project.'], 403);
-        }
 
-        // SLF is only strictly required for new builds
-        if ($project->project_category === 'new_build' && !$project->slf_verified_at) {
-            return response()->json(['message' => 'SLF (Certificate of Occupancy) must be verified before finalization for New Build projects.'], 422);
-        }
-
-        // Check for unresolved or unaccepted snags
-        // We require 'accepted' status for all snags, not just 'resolved' (resolved means fixed by pro, accepted means owner approves)
-        $unaccepted = $project->snagItems()->where('status', '!=', 'accepted')->count();
-        if ($unaccepted > 0) {
-            return response()->json(['message' => "All snag items ({$unaccepted} pending) must be accepted by the owner before finalization."], 422);
-        }
-
-        // Phase Check (Defense in depth)
-        $needed = $project->needed_phases ?? [];
-        $completed = $project->completed_phases ?? [];
-        $pending = array_diff($needed, $completed);
-        if (count($pending) > 0) {
-            return response()->json(['message' => "Cannot finalize. Pending phases: " . implode(', ', $pending)], 422);
-        }
-
-        return DB::transaction(function () use ($project) {
-            $project->update([
-                'status' => 'completed',
-                'completed_at' => now(),
-            ]);
-
-            \App\Models\ProjectActivityLog::create([
-                'project_id' => $project->id,
-                'user_id' => Auth::id(),
-                'action' => 'project_finalized',
-                'details' => 'Project officially completed and handed over.',
-            ]);
-
-            return response()->json(['message' => 'Project finalized successfully.', 'data' => new ProjectResource($project)]);
-        });
-    }
 
     public function approveHandover(Request $request, Project $project)
     {

@@ -39,47 +39,7 @@ class ProjectLegalController extends Controller
         ]);
     }
 
-    /**
-     * Finalize the legal scope after Notary-Owner discussion.
-     * This is the "Negotiated Scope" endpoint — called from LegalBriefManager
-     * after the Notary selects exactly which documents are required.
-     */
-    public function finalizeLegalScope(Request $request, Project $project)
-    {
-        $user = Auth::user();
 
-        // Authorization: Only the assigned Notary, Owner, or PM can finalize
-        $isNotary = $user->role_type === 'notaris'
-            && $project->selected_notaris_id
-            && optional($user->notaris_profile)->id === $project->selected_notaris_id;
-        $isOwner = $project->user_id === $user->id;
-        // BUGFIX: must verify the PM is THE assigned PM (pm_id stores user id),
-        // not just any account with the project_manager role.
-        $isPM = $user->role_type === 'project_manager' && $project->pm_id && (int) $project->pm_id === (int) $user->id;
-
-        if (!$isNotary && !$isOwner && !$isPM) {
-            return response()->json([
-                'message' => 'Only the assigned Notary, Project Owner, or PM can finalize the legal scope.'
-            ], 403);
-        }
-
-        $validated = $request->validate([
-            'selected_requirements' => 'required|array|min:1',
-            'selected_requirements.*' => 'required|string|max:100',
-        ]);
-
-        try {
-            $requirements = self::syncProjectLegalScope($project, $validated['selected_requirements'], $user->id);
-            return response()->json([
-                'message' => 'Legal scope finalized. The Document Vault has been populated.',
-                'requirements' => $requirements,
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'message' => 'Failed to finalize legal scope: ' . $e->getMessage(),
-            ], 500);
-        }
-    }
 
     /**
      * Core logic to sync legal requirements to milestones.

@@ -17,17 +17,13 @@ class StorageFallbackController extends Controller
             abort(404);
         }
 
-        // PERF: presign FIRST and let S3 answer 404 on redirect — an exists()
-        // HEAD check costs a full round-trip to Tigris on EVERY gallery/portfolio
-        // image request before we even start redirecting.
-        if (str_starts_with($path, 'portfolios/') || str_starts_with($path, 'certificates/')) {
-            try {
-                $temporaryUrl = Storage::disk('railway')->temporaryUrl($path, now()->addHour());
-                return redirect()->away($temporaryUrl);
-            } catch (\Exception $e) {
-                // Fall through if Railway storage is misconfigured
-            }
-        }
+        // SECURITY: certificates/* and kyc/* live on the PRIVATE railway disk
+        // and are only ever viewed by their owner or an admin via
+        // SecureVerificationDocumentController (authorized 5-minute presigns).
+        // The previous anonymous fallback presign branch for portfolios/* was
+        // removed: file_portofolio is KYC-grade (several flows store the KTP
+        // scan / NPWP there), so no prefix of the private bucket is publicly
+        // presigned anymore.
 
         try {
             $disk = Storage::disk('public');

@@ -6,13 +6,21 @@ use Illuminate\Http\Request;
 use App\Models\StickyNote;
 use App\Models\Project;
 use Illuminate\Support\Facades\Auth;
+use App\Traits\HandlesProjectAuthorization;
 
 class StickyNoteController extends Controller
 {
+    use HandlesProjectAuthorization;
+
     public function index(Request $request, Project $project)
     {
+        // SECURITY: notes reveal workspace context — participants only.
+        if (! $this->authorizeProjectAccess($project)) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
         $query = $project->stickyNotes()->where('user_id', Auth::id());
-        
+
         if ($request->has('phase_context')) {
             $query->where('phase_context', $request->phase_context);
         }
@@ -22,6 +30,11 @@ class StickyNoteController extends Controller
 
     public function store(Request $request, Project $project)
     {
+        // SECURITY: prevent arbitrary users from planting content on any project.
+        if (! $this->authorizeProjectAccess($project)) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
         $validated = $request->validate([
             'phase_context' => 'nullable|string|max:100',
             'title' => 'nullable|string|max:255',

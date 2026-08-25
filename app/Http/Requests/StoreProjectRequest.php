@@ -24,7 +24,7 @@ class StoreProjectRequest extends FormRequest
         return [
             'title' => 'required|string|max:255',
             'description' => 'required|string',
-            'budget' => 'required|numeric',
+            'budget' => 'required|numeric|min:0',
             'lokasi' => 'required|string|max:255',
             'latitude' => 'nullable|string',
             'longitude' => 'nullable|string',
@@ -39,9 +39,9 @@ class StoreProjectRequest extends FormRequest
             'project_dimensions' => 'nullable|json',
             'target_role' => 'sometimes|nullable|string|in:both,arsitek,kontraktor,interior',
             'deadline' => 'required|date',
-            'attachment' => 'nullable|file|max:10240',
+            'attachment' => 'nullable|file|mimes:pdf,doc,docx,xls,xlsx,jpg,jpeg,png,webp,zip|max:10240',
             'images' => 'nullable|array|max:3',
-            'images.*' => 'image|max:5120',
+            'images.*' => 'mimes:jpg,jpeg,png,webp|max:5120',
             'wants_project_manager' => 'nullable|boolean',
             'needed_phases' => 'nullable|string', // JSON array of design,build,interior,legal
             'legal_detail' => 'nullable|string',

@@ -58,6 +58,14 @@ class PaymentVerificationService
                 }
             }
 
+            // SECURITY: never regress a settled payment. Re-uploading a proof
+            // after 'paid' would flip the record back to 'verifying' and let
+            // the payee re-verify (state churn / duplicate notification loop).
+            $currentStatus = isset($model->payment_status) ? $model->payment_status : ($model->status ?? null);
+            if ($currentStatus === 'paid') {
+                throw new Exception("This payment is already marked as paid and cannot be modified.", 422);
+            }
+
             // Store file securely
             $path = $file->store('receipts', 'public');
 
@@ -189,7 +197,7 @@ class PaymentVerificationService
                 $financialService = app(\App\Services\ProjectFinancialService::class);
                 $bidderName = $this->getBidderName($model, $type);
                 $refModel = $this->getRefModelName($type);
-                
+
                 // CRITICAL FIX: Use calculated_total if it exists (for negotiated/percentage bids)
                 $amount = (float)($model->calculated_total ?? $model->price);
 
@@ -202,7 +210,12 @@ class PaymentVerificationService
                         422
                     );
                 }
-                
+
+                // Budget math counts active bids — touch the project so the
+                // cached calculateBudgetSummary invalidates immediately
+                // (transitionProjectStatus only touches for arsitek/kontraktor).
+                $project->touch();
+
                 // Transition Project Status
                 $this->transitionProjectStatus($project, $type);
             }
@@ -254,41 +267,67 @@ class PaymentVerificationService
                             ->where('sub_role', $subRole)
                             ->first();
 
-                        // When payment is verified and paid, they are officially active/hired!
-                        $newStatus = 'active';
-                        $hiredAt = now();
+                        // SECURITY (consent): paying for an assignment must not
+                        // graft an unwilling user onto the project workspace.
+                        // The specialist activates ONLY after they explicitly
+                        // accept (ProjectAddendumController creates the record
+                        // as 'invited'; SubProfessionalController@accept flips
+                        // it and links the project slots). Until then the
+                        // record stays 'invited'.
+                        $wasAccepted = $existingSub
+                            && ($existingSub->status === 'active' || $existingSub->status === 'accepted' || $existingSub->accepted_at);
 
-                        // Create or Update SubProfessional record
-                        $sub = \App\Models\ProjectSubProfessional::updateOrCreate(
-                            [
+                        if ($wasAccepted) {
+                            $newStatus = 'active';
+                            $hiredAt = now();
+
+                            // Create or Update SubProfessional record
+                            $sub = \App\Models\ProjectSubProfessional::updateOrCreate(
+                                [
+                                    'project_id' => $project->id,
+                                    'sub_role' => $subRole,
+                                ],
+                                [
+                                    'user_id' => $specialistUserId,
+                                    'parent_role' => ($model->user?->role_type === 'kontraktor') ? 'kontraktor' : 'arsitek',
+                                    'assigned_by' => $model->user_id,
+                                    'status' => $newStatus,
+                                    'rate' => $model->amount,
+                                    'lead_pro_notes' => "Assigned via Paid Addendum: {$specialistName}",
+                                    'hired_at' => $hiredAt,
+                                ]
+                            );
+                        } elseif (!$existingSub) {
+                            // No invitation exists yet (legacy addendum path) —
+                            // create it in the consent-pending state instead of
+                            // force-activating.
+                            $sub = \App\Models\ProjectSubProfessional::create([
                                 'project_id' => $project->id,
                                 'sub_role' => $subRole,
-                            ],
-                            [
                                 'user_id' => $specialistUserId,
                                 'parent_role' => ($model->user?->role_type === 'kontraktor') ? 'kontraktor' : 'arsitek',
                                 'assigned_by' => $model->user_id,
-                                'status' => $newStatus,
+                                'status' => 'invited',
                                 'rate' => $model->amount,
                                 'lead_pro_notes' => "Assigned via Paid Addendum: {$specialistName}",
-                                'hired_at' => $hiredAt,
-                                'accepted_at' => ($existingSub && $existingSub->accepted_at) ? $existingSub->accepted_at : now(),
-                            ]
-                        );
-
-                        // Link to project main fields
-                        if ($subRole === 'structural') {
-                            $struc = $specialistUserId ? \App\Models\StructuralEngineer::where('user_id', $specialistUserId)->first() : null;
-                            if ($struc) $project->update(['structural_id' => $struc->id]);
-                        } elseif ($subRole === 'mep') {
-                            $mep = $specialistUserId ? \App\Models\MepEngineer::where('user_id', $specialistUserId)->first() : null;
-                            if ($mep) $project->update(['mep_id' => $mep->id]);
-                        } elseif ($subRole === 'interior') {
-                            $interior = $specialistUserId ? \App\Models\InteriorProfile::where('user_id', $specialistUserId)->first() : null;
-                            if ($interior) $project->update(['selected_interior_id' => $interior->id]);
+                                'hired_at' => null,
+                            ]);
                         }
 
-                        if ($specialistUserId) {
+                        if ($wasAccepted) {
+                            // Consent already given — link to project main fields.
+                            if ($subRole === 'structural') {
+                                $struc = $specialistUserId ? \App\Models\StructuralEngineer::where('user_id', $specialistUserId)->first() : null;
+                                if ($struc) $project->update(['structural_id' => $struc->id]);
+                            } elseif ($subRole === 'mep') {
+                                $mep = $specialistUserId ? \App\Models\MepEngineer::where('user_id', $specialistUserId)->first() : null;
+                                if ($mep) $project->update(['mep_id' => $mep->id]);
+                            } elseif ($subRole === 'interior') {
+                                $interior = $specialistUserId ? \App\Models\InteriorProfile::where('user_id', $specialistUserId)->first() : null;
+                                if ($interior) $project->update(['selected_interior_id' => $interior->id]);
+                            }
+                        } elseif ($specialistUserId && isset($sub)) {
+                            // Still pending consent — (re)notify the specialist.
                             \App\Models\Notification::create([
                                 'user_id' => $specialistUserId,
                                 'type' => 'sub_professional_invite',
@@ -304,6 +343,13 @@ class PaymentVerificationService
                 }
 
                 $financialService->recordTransaction($project, $amount, 'payment', $title, $refModel, $model->id);
+
+                // Budget math counts termins/addendums/material payments —
+                // touch the project so the cached calculateBudgetSummary
+                // (keyed on updated_at) invalidates immediately. Bid types
+                // already touch via transitionProjectStatus for the lead
+                // roles; these three never did.
+                $project->touch();
             }
 
             if (isset($model->paid_at)) {
@@ -311,8 +357,55 @@ class PaymentVerificationService
             }
             $model->save();
 
+            $this->notifyPaymentVerified($project, $type, $id, $model);
+
             return $model;
         });
+    }
+
+    /**
+     * Notify both parties that a payment cleared, and email the payer a
+     * receipt. Previously verification was completely silent — the owner
+     * never learned their payment unlocked work.
+     */
+    private function notifyPaymentVerified(Project $project, string $type, int $id, $model): void
+    {
+        try {
+            $label = $model->label ?? $model->title ?? ucfirst(str_replace('_', ' ', $type));
+            $amount = (float) ($model->calculated_total ?? $model->price ?? $model->amount ?? 0);
+            $formatted = 'Rp ' . number_format($amount, 0, ',', '.');
+
+            // Payee = whoever verified (already authorized); payer = project owner
+            $payeeId = auth()->id();
+            $payerId = $project->user_id;
+
+            Notification::create([
+                'user_id' => $payerId,
+                'type' => 'payment_verified',
+                'title' => 'Payment Verified',
+                "body" => "Your {$formatted} payment for \"{$label}\" on \"{$project->title}\" has been verified.",
+                'data' => ['project_id' => $project->id, 'payment_type' => $type, 'payment_id' => $id],
+            ]);
+
+            if ($payeeId && (int) $payeeId !== (int) $payerId) {
+                Notification::create([
+                    'user_id' => $payeeId,
+                    'type' => 'payment_verified',
+                    'title' => 'Payment Confirmed',
+                    'body' => "The {$formatted} payment for \"{$label}\" has been confirmed by the payer.",
+                    'data' => ['project_id' => $project->id, 'payment_type' => $type, 'payment_id' => $id],
+                ]);
+            }
+
+            // Email receipt to the payer (queued; failures never block the API)
+            if ($project->user?->email) {
+                \Mail::to($project->user->email)->queue(
+                    new \App\Mail\PaymentReceiptMail($project, $label, $formatted, $type)
+                );
+            }
+        } catch (\Throwable $e) {
+            \Log::warning('Payment-verified notification failed: ' . $e->getMessage());
+        }
     }
 
     private function getBidderUserId($bid, $type)

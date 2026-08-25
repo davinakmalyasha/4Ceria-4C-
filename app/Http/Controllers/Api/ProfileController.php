@@ -236,7 +236,7 @@ class ProfileController extends Controller
         // Save Photo / Headshot / Logo
         if ($request->hasFile('foto')) {
             $tempPath = $request->file('foto')->store('temp', 'local');
-            \App\Jobs\ConvertImageToWebpJob::dispatchSync(
+            \App\Jobs\ConvertImageToWebpJob::dispatch(
                 $tempPath,
                 "profile_pictures/user_{$profile->user_id}",
                 get_class($profile),
@@ -248,15 +248,18 @@ class ProfileController extends Controller
         // Save Portfolio / NPWP document (equivalent)
         $portfolioFile = $request->file('file_portofolio') ?? $request->file('npwp');
         if ($portfolioFile) {
-            if ($profile->file_portofolio) {
-                Storage::disk('public')->delete($profile->file_portofolio);
+            // Old copies live on the PRIVATE railway disk — deleting from the
+            // public disk was a no-op that left orphaned KYC files behind.
+            foreach (['file_portofolio', 'npwp'] as $oldField) {
+                $oldPath = $profile->$oldField;
+                if ($oldPath && !in_array($oldPath, [$updates['file_portofolio'] ?? null, $updates['npwp'] ?? null], true)) {
+                    Storage::disk('railway')->delete($oldPath);
+                }
             }
-            if ($profile->npwp && $profile->npwp !== $profile->file_portofolio) {
-                Storage::disk('public')->delete($profile->npwp);
-            }
-            // SECURITY: NPWP/tax documents are KYC-grade and must land on the
-            // PRIVATE railway bucket, not the world-readable public one.
-            $path = $portfolioFile->store("portfolios/user_{$profile->user_id}", 'railway');
+            // SECURITY: file_portofolio is KYC-grade (KTP scans / NPWP land
+            // here depending on flow) and must stay inside the private kyc/*
+            // namespace of the railway bucket — never under portfolios/*.
+            $path = $portfolioFile->store("kyc/user_{$profile->user_id}", 'railway');
             $updates['file_portofolio'] = $path;
             $updates['npwp'] = $path; // keep both in sync for backward compatibility
         }
@@ -264,11 +267,11 @@ class ProfileController extends Controller
         // Save Certificate / SIUP document (equivalent)
         $sertifikatFile = $request->file('file_sertifikat') ?? $request->file('siup');
         if ($sertifikatFile) {
-            if ($profile->file_sertifikat) {
-                Storage::disk('public')->delete($profile->file_sertifikat);
-            }
-            if ($profile->siup && $profile->siup !== $profile->file_sertifikat) {
-                Storage::disk('public')->delete($profile->siup);
+            foreach (['file_sertifikat', 'siup'] as $oldField) {
+                $oldPath = $profile->$oldField;
+                if ($oldPath && !in_array($oldPath, [$updates['file_sertifikat'] ?? null, $updates['siup'] ?? null], true)) {
+                    Storage::disk('railway')->delete($oldPath);
+                }
             }
             // SECURITY: SIUP/business licenses are KYC-grade — private bucket.
             $path = $sertifikatFile->store("certificates/user_{$profile->user_id}", 'railway');
@@ -324,7 +327,7 @@ class ProfileController extends Controller
                 \Illuminate\Support\Facades\Storage::disk('public')->delete($user->pic);
             }
             $tempPath = $request->file('pic')->store('temp', 'local');
-            \App\Jobs\ConvertImageToWebpJob::dispatchSync(
+            \App\Jobs\ConvertImageToWebpJob::dispatch(
                 $tempPath,
                 'profileUser',
                 \App\Models\User::class,
@@ -362,7 +365,7 @@ class ProfileController extends Controller
         $user = $request->user();
         $tempPath = $request->file('pic')->store('temp', 'local');
 
-        \App\Jobs\ConvertImageToWebpJob::dispatchSync(
+        \App\Jobs\ConvertImageToWebpJob::dispatch(
             $tempPath,
             'profileUser',
             \App\Models\User::class,

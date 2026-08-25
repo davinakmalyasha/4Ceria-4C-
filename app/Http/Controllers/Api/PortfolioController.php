@@ -21,12 +21,13 @@ class PortfolioController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'role_type' => 'required|string',
+            // Free-text role_type previously allowed arbitrary enum values.
+            'role_type' => 'required|string|in:user,arsitek,kontraktor,notaris,interior,structural,mep,project_manager,supplier,logistics',
             'title' => 'required|string|max:255',
             'description' => 'required|string',
             'duration' => 'nullable|string',
             'client_review' => 'nullable|string',
-            'image' => 'nullable|image|max:5120', // 5MB max
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120', // 5MB max; SVG rejected
         ]);
 
         $user = \Illuminate\Support\Facades\Auth::user();
@@ -82,7 +83,7 @@ class PortfolioController extends Controller
             'description' => 'required|string',
             'duration' => 'nullable|string|max:255',
             'client_review' => 'nullable|string|max:1000',
-            'image' => 'nullable|image|max:5120', // 5MB max
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120', // 5MB max; SVG rejected
         ]);
 
         $imagePath = $portfolio->image_path;

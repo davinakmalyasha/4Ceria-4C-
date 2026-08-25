@@ -56,21 +56,26 @@ class BidProjectManagerController extends Controller
 
         $calc = $calculationService->calculate($request->all(), $project);
 
-        $bid = BidProjectManager::create([
-            'project_id' => $project->id,
-            'pm_id' => $user->project_manager->id,
-            'price' => $calc['price'],
-            'fee_type' => $calc['fee_type'],
-            'unit_price' => $calc['unit_price'],
-            'quantity' => $calc['quantity'],
-            'calculated_total' => $calc['calculated_total'],
-            'proposal' => $request->proposal,
-            'estimated_duration' => $request->estimated_duration ?: 1,
-            'duration_unit' => $request->duration_unit ?: 'weeks',
-            'scopes' => is_string($request->scopes) ? json_decode($request->scopes, true) : $request->scopes,
-            'deliverables' => is_string($request->deliverables) ? json_decode($request->deliverables, true) : $request->deliverables,
-            'status' => 'pending',
-        ]);
+        try {
+            $bid = BidProjectManager::create([
+                'project_id' => $project->id,
+                'pm_id' => $user->project_manager->id,
+                'price' => $calc['price'],
+                'fee_type' => $calc['fee_type'],
+                'unit_price' => $calc['unit_price'],
+                'quantity' => $calc['quantity'],
+                'calculated_total' => $calc['calculated_total'],
+                'proposal' => $request->proposal,
+                'estimated_duration' => $request->estimated_duration ?: 1,
+                'duration_unit' => $request->duration_unit ?: 'weeks',
+                'scopes' => is_string($request->scopes) ? json_decode($request->scopes, true) : $request->scopes,
+                'deliverables' => is_string($request->deliverables) ? json_decode($request->deliverables, true) : $request->deliverables,
+                'status' => 'pending',
+            ]);
+        } catch (\Illuminate\Database\UniqueConstraintViolationException $e) {
+            // Concurrent double-submit lost the unique(project_id, pm_id) race
+            return response()->json(['message' => 'You have already submitted a bid for this project.'], 400);
+        }
 
         Notification::create([
             'user_id' => $project->user_id,

@@ -15,17 +15,33 @@ use Illuminate\Support\Facades\Cache;
 class PublicProfessionalController extends Controller
 {
     /**
-     * Strip auth-sensitive attributes from the nested user object
-     * before public serialization (email etc. must never be exposed
-     * on unauthenticated directory listings).
+     * Strip auth-sensitive attributes from the nested user object and
+     * KYC/government-identity fields from the profile itself before public
+     * serialization. Raw-model serialization previously leaked identity
+     * numbers, NPWP/SIUP document paths (into the PRIVATE bucket) and bank
+     * details on unauthenticated directory listings.
      */
     private function sanitizePublicPayload($data)
     {
-        $sensitive = ['email', 'email_verified_at', 'google_id', 'two_factor_secret', 'two_factor_recovery_codes'];
+        $sensitiveUser = [
+            'email', 'email_verified_at', 'google_id',
+            'two_factor_secret', 'two_factor_recovery_codes',
+            'bank_name', 'bank_account_number', 'bank_account_name', 'unique_code',
+        ];
+        // Government identity numbers + private-bucket KYC document paths +
+        // internal review state must never appear on public payloads.
+        // file_portofolio is KYC-grade too: several verification flows store
+        // the KTP/ID scan in this column, and it shares its path with npwp.
+        $sensitiveProfile = [
+            'identity_number', 'npwp_number', 'siup_number',
+            'npwp', 'siup', 'file_sertifikat', 'file_portofolio',
+            'verification_status', 'rejection_reason', 'verified_at',
+        ];
 
-        return $data->map(function ($professional) use ($sensitive) {
+        return $data->map(function ($professional) use ($sensitiveUser, $sensitiveProfile) {
+            $professional->makeHidden($sensitiveProfile);
             if ($professional->relationLoaded('user') && $professional->user) {
-                $professional->user->makeHidden($sensitive);
+                $professional->user->makeHidden($sensitiveUser);
             }
             return $professional;
         });

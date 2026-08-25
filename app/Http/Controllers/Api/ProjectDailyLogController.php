@@ -58,7 +58,7 @@ class ProjectDailyLogController extends Controller
             'activities' => 'required|string',
             'issues' => 'nullable|string',
             'photos' => 'nullable|array|max:4',
-            'photos.*' => 'image|max:5120',
+            'photos.*' => 'image|mimes:jpeg,png,jpg,webp|max:5120', // SVG rejected
         ]);
 
         $photos = [];
