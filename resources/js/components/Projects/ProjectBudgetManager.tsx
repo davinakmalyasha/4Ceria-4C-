@@ -272,7 +272,7 @@ export default function ProjectBudgetManager({ project, user, budgetData, onRefr
                                 </div>
                                 {bid.payment_status === 'paid' ? (
                                     <span className="px-4 py-2 bg-emerald-100 text-emerald-700 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-1">
-                                        <CheckCircle size={14}/> Paid on {new Date(bid.paid_at).toLocaleDateString()}
+                                        <CheckCircle size={14}/> Paid on {new Date(bid.paid_at).toLocaleDateString('id-ID')}
                                     </span>
                                 ) : isOwner ? (
                                     <button onClick={() => markPaid(`bid_${type}`, bid.id)} className="px-5 py-3 bg-slate-900 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-black transition-all shadow-md">
@@ -694,7 +694,7 @@ export default function ProjectBudgetManager({ project, user, budgetData, onRefr
                                         </div>
                                         <div>
                                             <p className="text-xs font-bold text-slate-900">{t.title}</p>
-                                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5">{new Date(t.transaction_date).toLocaleDateString()} • {t.transaction_type}</p>
+                                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5">{new Date(t.transaction_date).toLocaleDateString('id-ID')} • {t.transaction_type}</p>
                                         </div>
                                     </div>
                                     <span className={`text-xs font-black ${t.transaction_type === 'deposit' ? 'text-emerald-500' : 'text-slate-700'}`}>

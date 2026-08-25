@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Bell, CheckCircle, Briefcase, MessageSquare, Star, X, Info } from 'lucide-react';
 import axios from 'axios';
 import { useUnreadCounts } from '../hooks/useUnreadCounts';
+import { getApiErrorMessage } from '../utils/apiError';
 
 interface Notification {
     id: number;
@@ -18,25 +19,26 @@ export default function NotificationsDropdown() {
     const [open, setOpen] = useState(false);
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
     const ref = useRef<HTMLDivElement>(null);
+    const mountedRef = useRef(false);
+    const lastSeenRef = useRef(-1);
     const { counts, refresh } = useUnreadCounts();
 
     const unreadCount = counts.unread_notifications;
 
     const fetchNotifications = async () => {
         setIsLoading(true);
+        setError(null);
         try {
             const res = await axios.get('/notifications');
             setNotifications(res.data.data);
         } catch (err) {
-            console.error('Failed to fetch notifications:', err);
+            setError(getApiErrorMessage(err, 'Failed to fetch notifications'));
         } finally {
             setIsLoading(false);
         }
     };
-
-    const unreadRef = useRef(0);
-    useEffect(() => { unreadRef.current = counts.unread_notifications; }, [counts]);
 
     useEffect(() => {
         fetchNotifications();
@@ -44,27 +46,28 @@ export default function NotificationsDropdown() {
         const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
         document.addEventListener('mousedown', handler);
 
-        // Re-sync the list when new notifications arrive (detected from the shared heartbeat)
-        let lastSeen = unreadRef.current;
-        const pollId = window.setInterval(() => {
-            if (unreadRef.current > lastSeen) {
-                fetchNotifications();
-            }
-            lastSeen = unreadRef.current;
-        }, 5000);
-
         return () => {
             document.removeEventListener('mousedown', handler);
-            clearInterval(pollId);
         };
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useEffect(() => {
-        if (open && unreadCount > 0) {
-            markAllRead();
+        // Re-sync the list when new notifications arrive. The shared
+        // heartbeat (useUnreadCounts) is the only timer — no private poller.
+        lastSeenRef.current = counts.unread_notifications;
+        if (mountedRef.current) {
+            fetchNotifications();
+        } else {
+            mountedRef.current = true;
         }
-        if (open && unreadCount === 0 && notifications.length === 0) {
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [counts.unread_notifications]);
+
+    useEffect(() => {
+        // UX: opening the dropdown no longer bulk-marks everything read —
+        // unread context stays until each item is clicked (markRead on click).
+        if (open && notifications.length === 0) {
             fetchNotifications();
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -76,7 +79,7 @@ export default function NotificationsDropdown() {
             setNotifications(prev => prev.map(n => n.id === id ? { ...n, read_at: new Date().toISOString() } : n));
             refresh();
         } catch (err) {
-            console.error('Failed to mark notification as read:', err);
+            setError(getApiErrorMessage(err, 'Failed to mark notification as read'));
         }
     };
 
@@ -86,15 +89,27 @@ export default function NotificationsDropdown() {
             setNotifications(prev => prev.map(n => ({ ...n, read_at: new Date().toISOString() })));
             refresh();
         } catch (err) {
-            console.error('Failed to mark all notifications as read:', err);
+            setError(getApiErrorMessage(err, 'Failed to mark all notifications as read'));
         }
     };
 
     const getIcon = (type: string) => {
         switch (type) {
-            case 'bid_received': return <Briefcase size={16} className="text-blue-500" />;
-            case 'bid_accepted': return <CheckCircle size={16} className="text-green-500" />;
-            case 'milestone_updated': return <Star size={16} className="text-amber-500" />;
+            case 'bid_received':
+            case 'pm_bid_received': return <Briefcase size={16} className="text-blue-500" />;
+            case 'bid_accepted':
+            case 'pm_bid_accepted':
+            case 'payment_verified':
+            case 'consultation_confirmed':
+            case 'milestone_approved': return <CheckCircle size={16} className="text-green-500" />;
+            case 'payment_rejected':
+            case 'bid_rejected':
+            case 'consultation_declined':
+            case 'milestone_revision_requested': return <X size={16} className="text-red-500" />;
+            case 'milestone_updated':
+            case 'milestone_approval_needed':
+            case 'termin_due':
+            case 'contract_ready': return <Star size={16} className="text-amber-500" />;
             default: return <Info size={16} className="text-gray-500" />;
         }
     };
@@ -139,7 +154,12 @@ export default function NotificationsDropdown() {
                         </div>
 
                         <div className="max-h-[400px] overflow-y-auto">
-                            {notifications.length === 0 ? (
+                            {error ? (
+                                <div className="py-12 text-center text-red-500">
+                                    <X size={32} className="mx-auto mb-3 opacity-40" />
+                                    <p className="font-semibold px-6">{error}</p>
+                                </div>
+                            ) : notifications.length === 0 ? (
                                 <div className="py-12 text-center text-gray-400">
                                     <Bell size={32} className="mx-auto mb-3 opacity-30" />
                                     <p className="font-semibold">Belum ada notifikasi</p>
@@ -150,14 +170,28 @@ export default function NotificationsDropdown() {
                                         key={n.id}
                                         onClick={() => {
                                             if (!n.read_at) markRead(n.id);
-                                            
+
+                                            // BUGFIX: chat notifications were
+                                            // inert — tapping "Pesan Baru"
+                                            // landed nowhere. Route to the
+                                            // chat tab pre-opened with the
+                                            // sender (data.sender_id is set
+                                            // by the backend on every message).
+                                            if (n.type === 'chat_message' && n.data?.sender_id) {
+                                                window.dispatchEvent(new CustomEvent('switchDashboardTab', {
+                                                    detail: { tab: 'chat', chatUserId: n.data.sender_id }
+                                                }));
+                                                setOpen(false);
+                                                return;
+                                            }
+
                                             const projectId = n.data?.project_id || n.data?.projectId;
                                             if (projectId) {
-                                                window.dispatchEvent(new CustomEvent('switchDashboardTab', { 
-                                                    detail: { 
-                                                        tab: 'project-detail', 
-                                                        projectId: projectId 
-                                                    } 
+                                                window.dispatchEvent(new CustomEvent('switchDashboardTab', {
+                                                    detail: {
+                                                        tab: 'project-detail',
+                                                        projectId: projectId
+                                                    }
                                                 }));
                                                 setOpen(false);
                                             } else if (n.type === 'project_invitation') {

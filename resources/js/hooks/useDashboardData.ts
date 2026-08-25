@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { Project } from '../types/project.types';
@@ -44,8 +44,16 @@ export const useDashboardData = (activeTab: string = 'overview') => {
     // Tracks completed lazy-tab fetches so empty results or errors never retrigger a request (prevents infinite refetch loops / 429 storms)
     const [lazyFetched, setLazyFetched] = useState<Record<string, boolean>>({});
 
+    // Stale-response guard: only the latest fetchData generation may commit
+    // state. Prevents a slow in-flight response from the PREVIOUS user
+    // session overwriting the current user's data.
+    const fetchGeneration = useRef(0);
+
     const fetchData = useCallback(async () => {
         if (!user) return;
+
+        const generation = ++fetchGeneration.current;
+        const isStale = () => fetchGeneration.current !== generation;
 
         setLazyFetched({});
         setIsLoading(true);
@@ -56,6 +64,7 @@ export const useDashboardData = (activeTab: string = 'overview') => {
 
         const projectsPromise = axios.get('/projects?all=true')
             .then(res => {
+                if (isStale()) return;
                 const projectsData = res.data.data || [];
                 setProjects(projectsData);
                 
@@ -75,6 +84,7 @@ export const useDashboardData = (activeTab: string = 'overview') => {
 
         const feedPromise = axios.get('/projects?feed=true')
             .then(res => {
+                if (isStale()) return;
                 setProjectFeed(res.data.data || []);
             })
             .catch(err => {
@@ -86,6 +96,7 @@ export const useDashboardData = (activeTab: string = 'overview') => {
         if (user.role_type === 'user') {
             historyPromise = axios.get('/hire-history')
                 .then(res => {
+                    if (isStale()) return;
                     setHiredProfessionals(res.data.data || []);
                 })
                 .catch(err => {
@@ -102,6 +113,7 @@ export const useDashboardData = (activeTab: string = 'overview') => {
         if (user.role_type !== 'user') {
             bidsPromise = axios.get('/my-bids')
                 .then(res => {
+                    if (isStale()) return;
                     const bidsData = res.data.data || [];
                     setMyBids(bidsData);
                     setLatestBids(bidsData);

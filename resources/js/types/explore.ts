@@ -33,7 +33,7 @@ export interface House {
 
 export type SortOption = 'default' | 'price_asc' | 'price_desc' | 'newest' | 'most_viewed' | 'nearest';
 export type ViewMode = 'grid' | 'list';
-export type HouseBadge = 'new' | 'popular' | 'hot_deal' | null;
+type HouseBadge = 'new' | 'popular' | 'hot_deal' | null;
 
 export const ITEMS_PER_PAGE = 8;
 export const MAX_COMPARE = 3;

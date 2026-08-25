@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import axios from 'axios';
 import { Users, UserPlus, ShieldCheck, CheckCircle, Clock, HardHat, MessageSquare, MessageCircle } from 'lucide-react';
 import SubContractorWorkspace from './SubContractorWorkspace';
+import DailySiteLog from './DailySiteLog';
 import { useToast } from '../../../context/ToastContext';
 import { CONSTRUCTION_SUB_ROLES, ConstructionSubRoleKey } from '../../../constants/ConstructionSubRolePresets';
 import { ProjectSubProfessional } from '../../../types/sub_professional.types';
@@ -363,6 +364,10 @@ export default function ConstructionResourcing({
                     )}
                 </div>
             )}
+
+            {/* Site Activity Log — resurrected: this component was built and
+                wired to a live endpoint but never mounted anywhere. */}
+            <DailySiteLog project={project} isContractor={isContractor} />
         </div>
     );
 }

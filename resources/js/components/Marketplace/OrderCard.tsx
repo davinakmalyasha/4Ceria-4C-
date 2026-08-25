@@ -30,9 +30,10 @@ interface OrderCardProps {
     isUpdating: boolean;
     updateOrderStatus: (id: number, status: string, file?: File) => void;
     onReview: (order: any) => void;
+    onRefresh?: () => void;
 }
 
-const OrderCard: React.FC<OrderCardProps> = ({ order, isSupplier, isUpdating, updateOrderStatus, onReview }) => {
+const OrderCard: React.FC<OrderCardProps> = ({ order, isSupplier, isUpdating, updateOrderStatus, onReview, onRefresh }) => {
     const [docFile, setDocFile] = useState<File | null>(null);
     const [docPreview, setDocPreview] = useState<string | null>(null);
     const [showFullDoc, setShowFullDoc] = useState(false);
@@ -222,15 +223,16 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, isSupplier, isUpdating, up
 
                         <div className="flex gap-3">
                             {isSupplier ? (
-                                <SupplierActions 
-                                    order={order} 
-                                    isUpdating={isUpdating} 
+                                <SupplierActions
+                                    order={order}
+                                    isUpdating={isUpdating}
                                     updateOrderStatus={updateOrderStatus}
-                                    onReview={onReview} 
+                                    onReview={onReview}
                                     docFile={docFile || undefined}
+                                    onRefresh={onRefresh}
                                 />
                             ) : (
-                                <BuyerActions order={order} isUpdating={isUpdating} updateOrderStatus={updateOrderStatus} onReview={onReview} />
+                                <BuyerActions order={order} isUpdating={isUpdating} updateOrderStatus={updateOrderStatus} onReview={onReview} onRefresh={onRefresh} />
                             )}
                         </div>
                     </div>

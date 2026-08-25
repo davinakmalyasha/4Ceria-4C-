@@ -5,8 +5,7 @@ import { ProjectManager, PMSortOption, PMViewMode, PM_SPECS } from '../../types/
 import { useProjectManagers } from '../../hooks/useProjectManagers';
 import { useFavorites } from '../../hooks/useFavorites';
 import CustomDropdown from '../UI/CustomDropdown';
-
-const formatIdr = (val: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(val);
+import { formatCurrency as formatIdr } from '../../types/explore';
 
 const PMCard = ({ pm, viewMode, onSelect, isFav, onToggleFav }: { pm: ProjectManager; viewMode: PMViewMode; onSelect: (p: ProjectManager) => void; isFav: boolean; onToggleFav: (e: React.MouseEvent, id: number) => void; }) => {
     const isGrid = viewMode === 'grid';

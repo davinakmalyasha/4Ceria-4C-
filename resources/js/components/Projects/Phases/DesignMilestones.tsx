@@ -689,7 +689,7 @@ export default function DesignMilestones({ project, currentUser, isArchitect, is
                                     )}
                                     <span className="text-[9px] text-slate-400 font-bold flex items-center gap-1">
                                         <Calendar size={10} />
-                                        Added {new Date(m.pm_verified_at || Date.now()).toLocaleDateString()}
+                                        Added {new Date(m.pm_verified_at || Date.now()).toLocaleDateString('id-ID')}
                                     </span>
                                     {m.change_orders && m.change_orders.length > 0 && (
                                         <div className="flex gap-2">
@@ -871,7 +871,7 @@ export default function DesignMilestones({ project, currentUser, isArchitect, is
                             }`}>
                                 {m.approval_status || 'Draft'}
                             </span>
-                            <span className="text-[7px] text-slate-400 font-bold uppercase">{new Date(m.created_at || Date.now()).toLocaleDateString()}</span>
+                            <span className="text-[7px] text-slate-400 font-bold uppercase">{new Date(m.created_at || Date.now()).toLocaleDateString('id-ID')}</span>
                         </div>
                     </div>
 

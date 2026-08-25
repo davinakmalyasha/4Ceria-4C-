@@ -10,10 +10,3 @@ export interface NegotiationOfferDTO {
     proposed_team?: ProposedTeamMember[];
     note: string;
 }
-
-export interface NegotiationState {
-    feeType: NegotiationOfferDTO['fee_type'];
-    amount: number;
-    milestones: ProposedTermin[];
-    totalPercentage: number;
-}

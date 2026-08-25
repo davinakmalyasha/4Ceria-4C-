@@ -69,7 +69,7 @@ export default function RequirementCard({
                     <span className="text-[9px] font-black uppercase tracking-widest">Added by {req.user?.name || 'Unknown'} ({req.user?.role_type || 'N/A'})</span>
                     <span className="text-[9px] font-bold mx-1 opacity-50">•</span>
                     <span className="text-[9px] font-bold opacity-70 flex items-center gap-1">
-                        <Clock size={10} /> {new Date(req.created_at).toLocaleDateString()}
+                        <Clock size={10} /> {new Date(req.created_at).toLocaleDateString('id-ID')}
                     </span>
                 </div>
                 <div className="flex items-center gap-1">
@@ -249,7 +249,7 @@ export default function RequirementCard({
                                                         {log.notes && <p className="text-[10px] text-slate-600 font-medium mt-0.5 leading-relaxed">{log.notes}</p>}
                                                     </div>
                                                     <span className="text-[8px] text-slate-400 font-bold whitespace-nowrap mt-0.5 flex items-center gap-1">
-                                                        <Clock size={8} /> {new Date(log.created_at).toLocaleDateString()}
+                                                        <Clock size={8} /> {new Date(log.created_at).toLocaleDateString('id-ID')}
                                                     </span>
                                                 </div>
                                             </div>

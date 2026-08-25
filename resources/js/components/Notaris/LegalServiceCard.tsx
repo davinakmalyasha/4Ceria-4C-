@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Shield, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { NotarisService } from '../../types/notaris.types';
+import { formatCurrency } from '../../types/explore';
 
 interface LegalServiceCardProps {
     service: NotarisService;
@@ -9,14 +10,6 @@ interface LegalServiceCardProps {
 }
 
 export default function LegalServiceCard({ service, onBook }: LegalServiceCardProps) {
-    const formatCurrency = (amount: number) => {
-        return new Intl.NumberFormat('id-ID', {
-            style: 'currency',
-            currency: 'IDR',
-            minimumFractionDigits: 0,
-        }).format(amount);
-    };
-
     return (
         <motion.div 
             whileHover={{ y: -5 }}

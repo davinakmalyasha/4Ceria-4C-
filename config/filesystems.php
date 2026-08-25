@@ -17,6 +17,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Document Vault Disk
+    |--------------------------------------------------------------------------
+    | Where project vault documents (contracts, legally-binding files) are
+    | stored. Defaults to the PRIVATE railway bucket in production; local
+    | development may set VAULT_DISK=public for frictionless /storage links.
+    | ProjectDocument::file_url resolves both layouts.
+    */
+
+    'vault_disk' => env('VAULT_DISK', 'railway'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Filesystem Disks
     |--------------------------------------------------------------------------
     |

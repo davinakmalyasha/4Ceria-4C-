@@ -2,7 +2,7 @@ import React from 'react';
 import { BadgeCheck } from 'lucide-react';
 import { PortfolioProject } from '../../types/project.types';
 
-export interface ProfileData {
+interface ProfileData {
     foto?: string;
     no_telp?: string;
     no_telepon?: string;

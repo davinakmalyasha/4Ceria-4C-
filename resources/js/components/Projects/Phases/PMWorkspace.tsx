@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
     LayoutDashboard, ClipboardList, 
@@ -157,6 +157,49 @@ export default function PMWorkspace({ project, user, onRefresh, phaseKey, onNavi
     ].map(b => ({ ...b, bid_type: b.structural_id ? 'structural' : 'mep' }));
 
     const totalAlertsCount = pendingAddendums.length + recommendedBids.length;
+
+    // Timeline extensions: previously filed by pros but invisible — neither
+    // PM review nor owner decision had any UI, so requests sat forever.
+    const [pendingExtensions, setPendingExtensions] = useState<any[]>([]);
+    useEffect(() => {
+        let cancelled = false;
+        axios.get(`/projects/${project.id}/extensions`)
+            .then(res => {
+                if (cancelled) return;
+                setPendingExtensions((res.data.data || []).filter((e: any) =>
+                    ['proposed', 'pm_reviewed'].includes(e.status)
+                ));
+            })
+            .catch(() => {});
+        return () => { cancelled = true; };
+    }, [project?.id]);
+
+    const isAssignedPM = user?.role_type === 'project_manager' && project?.pm_id === user?.id;
+    const isProjectOwner = user?.id === project?.user_id;
+
+    const handleExtensionReview = async (extension: any, status: 'pm_reviewed' | 'rejected') => {
+        try {
+            await axios.post(`/projects/${project.id}/extensions/${extension.id}/pm-review`, {
+                status,
+                pm_notes: status === 'rejected' ? window.prompt('Reason for rejection (optional):') || '' : undefined,
+            });
+            showToast(`Extension ${status === 'pm_reviewed' ? 'reviewed and forwarded to owner' : 'rejected'}.`, 'success');
+            setPendingExtensions(prev => prev.filter(e => e.id !== extension.id));
+        } catch (err: any) {
+            showToast(err.response?.data?.message || 'Failed to review extension.', 'error');
+        }
+    };
+
+    const handleExtensionDecision = async (extension: any, status: 'approved' | 'rejected') => {
+        try {
+            await axios.post(`/projects/${project.id}/extensions/${extension.id}/owner-decide`, { status });
+            showToast(`Extension ${status}. Project deadline updated.` , 'success');
+            setPendingExtensions(prev => prev.filter(e => e.id !== extension.id));
+            onRefresh?.();
+        } catch (err: any) {
+            showToast(err.response?.data?.message || 'Failed to decide extension.', 'error');
+        }
+    };
 
     const pendingHandovers: { phase: string; title: string; submittedAt: string; state: 'awaiting_pm' | 'awaiting_owner' | 'completed' }[] = [];
     const completed = project.completed_phases || [];
@@ -359,7 +402,7 @@ export default function PMWorkspace({ project, user, onRefresh, phaseKey, onNavi
             {activeSubTab === 'dashboard' ? (
                 <div className="space-y-8">
                     {/* Unified Grouped Approvals Board */}
-                    {(pendingHandovers.length > 0 || pendingMilestones.length > 0 || pendingAddendums.length > 0 || recommendedBids.length > 0) && (
+                    {(pendingHandovers.length > 0 || pendingMilestones.length > 0 || pendingAddendums.length > 0 || recommendedBids.length > 0 || pendingExtensions.length > 0) && (
                         <div className="space-y-3">
                             <div className="flex items-center gap-2 border-b border-zinc-100 pb-2">
                                 <span className="w-2 h-2 rounded-full bg-zinc-900 animate-pulse" />
@@ -371,6 +414,11 @@ export default function PMWorkspace({ project, user, onRefresh, phaseKey, onNavi
                                 pendingHandovers={pendingHandovers}
                                 pendingAddendums={pendingAddendums}
                                 recommendedBids={recommendedBids}
+                                pendingExtensions={pendingExtensions}
+                                isAssignedPM={isAssignedPM}
+                                isProjectOwner={isProjectOwner}
+                                onExtensionReview={handleExtensionReview}
+                                onExtensionDecision={handleExtensionDecision}
                                 isLoading={isLoading}
                                 onVerifyMilestone={handleVerifyMilestone}
                                 onVerifyHandover={handleVerifyHandover}

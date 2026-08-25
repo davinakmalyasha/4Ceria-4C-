@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { X, Search, UserPlus, Loader2, ArrowDownAZ, ArrowUpZA, Hash, TrendingUp } from 'lucide-react';
 import { ContractorSubspecialty } from '../../types/sub_professional.types';
+import { getApiErrorMessage } from '../../utils/apiError';
 
 interface FirmSearchModalProps {
     userRoleType: string;
@@ -42,7 +43,7 @@ export default function FirmSearchModal({ userRoleType, onClose, onInvited }: Fi
         if (isContractor) {
             axios.get<{ data: ContractorSubspecialty[] }>('/contractor-subspecialties')
                 .then(res => setSubspecialties(res.data?.data || []))
-                .catch(() => {});
+                .catch((err) => { console.warn(getApiErrorMessage(err, 'Failed to load subspecialties')); });
         }
     }, [isContractor]);
 

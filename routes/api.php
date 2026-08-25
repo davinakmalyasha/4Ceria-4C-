@@ -62,18 +62,19 @@ Route::get('/houses/{house}/questions', [\App\Http\Controllers\Api\HouseQAContro
 // Notary Consultations (BUGFIX: the SPA's ConsultationModal already called
 // POST /consultations — the endpoint was missing and 404'd)
 Route::middleware('auth:sanctum')->group(function () {
-    Route::get('/consultations', [\App\Http\Controllers\Api\ConsultationController::class, 'index']);
-    Route::post('/consultations', [\App\Http\Controllers\Api\ConsultationController::class, 'store']);
+Route::get('/consultations', [\App\Http\Controllers\Api\ConsultationController::class, 'index']);
+Route::post('/consultations', [\App\Http\Controllers\Api\ConsultationController::class, 'store']);
+Route::post('/consultations/{consultation}/respond', [\App\Http\Controllers\Api\ConsultationController::class, 'respond']);
 });
 
 // Geocoding Proxy Public Routes
 Route::get('/geocode/reverse', [\App\Http\Controllers\Api\GeocodeController::class, 'reverse']);
 Route::get('/geocode/search', [\App\Http\Controllers\Api\GeocodeController::class, 'search']);
 
-// Registration Draft Public Routes
-Route::get('/registration/draft/{tempId}', [\App\Http\Controllers\Api\RegistrationDraftController::class, 'show']);
-Route::post('/registration/draft/{tempId}', [\App\Http\Controllers\Api\RegistrationDraftController::class, 'store']);
-Route::post('/registration/submit/{tempId}', [\App\Http\Controllers\Api\RegistrationDraftController::class, 'submit']);
+// NOTE: the unauthenticated registration-draft endpoints were removed
+// (dead surface + security audit finding: anonymous Redis writes,
+// hijackable tempIds, unthrottled account minting). The live registration
+// flows are POST /register and POST /pro-register.
 
 
 // Materials Marketplace Public Routes
@@ -106,7 +107,6 @@ Route::middleware(['auth:sanctum', 'freeze_pending_termination'])->group(functio
     // House Q&A
     Route::post('/houses/{house}/questions', [\App\Http\Controllers\Api\HouseQAController::class, 'storeQuestion']);
     Route::post('/questions/{question}/answers', [\App\Http\Controllers\Api\HouseQAController::class, 'storeAnswer']);
-    Route::delete('/questions/{question}', [\App\Http\Controllers\Api\HouseQAController::class, 'deleteQuestion']);
 
     // Protected API endpoints
     Route::get('/portfolios', [\App\Http\Controllers\Api\PortfolioController::class, 'index']);
@@ -132,16 +132,18 @@ Route::middleware(['auth:sanctum', 'freeze_pending_termination'])->group(functio
         Route::post('/bids/{bid}/confirm-fee', [ProjectController::class, 'confirmBidFee']);
         Route::post('/bids/{bid}/sign-contract', [ProjectController::class, 'signContract']);
         Route::post('/bids/{bid}/client-sign-contract', [ProjectController::class, 'clientSignContract']);
-        Route::post('/termins/{termin}/upload-proof', [ProjectPaymentTerminController::class, 'uploadProof']);
-        Route::post('/termins/{termin}/verify-payment', [ProjectPaymentTerminController::class, 'verifyPayment']);
+        // NOTE: legacy proof pair /termins/{termin}/upload-proof|verify-payment
+        // removed — superseded by /payments/{type}/{id}/* (PaymentVerificationController).
         Route::post('/bids/{bid}/accept-invite', [ProjectController::class, 'acceptInvite']);
         Route::post('/bids/{bid}/reject-invite', [ProjectController::class, 'rejectInvite']);
-        Route::post('/bids/{bid}/verify-payment', [ProjectController::class, 'verifyBidPayment']);
-        Route::post('/bids/{bid}/upload-payment-proof', [ProjectController::class, 'uploadBidPaymentProof']);
+        // NOTE: dead bid-level proof pair removed; the live payment flow is
+        // POST /projects/{project}/verify-payment (verifyDesignPayment) and
+        // the unified /payments/{type}/{id}/* endpoints.
         Route::post('/terminate', [\App\Http\Controllers\Api\ProjectTerminationController::class, 'fireProfessional']);
         Route::post('/resign', [\App\Http\Controllers\Api\ProjectTerminationController::class, 'resignFromProject']);
         
         // Mutual Termination Routes
+        Route::get('/mutual-termination', [\App\Http\Controllers\Api\ProjectMutualTerminationController::class, 'index']);
         Route::post('/mutual-termination/initiate', [\App\Http\Controllers\Api\ProjectMutualTerminationController::class, 'initiate']);
         Route::post('/mutual-termination/{termination}/respond', [\App\Http\Controllers\Api\ProjectMutualTerminationController::class, 'respond']);
         Route::post('/mutual-termination/{termination}/escalate', [\App\Http\Controllers\Api\ProjectMutualTerminationController::class, 'escalate']);
@@ -193,16 +195,16 @@ Route::middleware(['auth:sanctum', 'freeze_pending_termination'])->group(functio
         Route::post('/seal-legal', [ProjectPhaseController::class, 'sealLegal']);
         Route::post('/authorize-phase', [ProjectPhaseController::class, 'authorizePhase']);
         Route::post('/kickoff', [ProjectPhaseController::class, 'issueKickoff']);
-        Route::post('/verify-design', [ProjectPhaseController::class, 'verifyDesign']);
-        Route::post('/verify-construction', [ProjectPhaseController::class, 'verifyConstruction']);
-        Route::post('/verify-interior', [ProjectPhaseController::class, 'verifyInterior']);
+        // NOTE: dead verify-design/construction/interior trio removed — the
+        // live phase verification flow runs through verify-legal and
+        // technical-audit-submit.
         Route::post('/verify-legal', [ProjectPhaseController::class, 'verifyLegal']);
         Route::get('/legal-financials', [ProjectLegalController::class, 'getFinancials']);
         Route::post('/legal-disbursements', [ProjectLegalController::class, 'storeDisbursement']);
         Route::post('/legal-disbursements/{id}/verify', [ProjectLegalController::class, 'verifyDisbursement']);
-        Route::post('/finalize-legal-scope', [ProjectLegalController::class, 'finalizeLegalScope']);
 
-        Route::post('/milestones/{milestone}/furniture-addendum', [ProjectAddendumController::class, 'createFurnitureAddendum']);
+        // NOTE: finalize-legal-scope removed (zero consumers; legal scope is
+        // synced via the static syncProjectLegalScope lifecycle calls).
         Route::post('/handover/approve', [ProjectHandoverController::class, 'approveHandover']);
         Route::post('/handover/reject', [ProjectHandoverController::class, 'requestHandoverRevision']);
 
@@ -240,7 +242,6 @@ Route::middleware(['auth:sanctum', 'freeze_pending_termination'])->group(functio
         Route::post('/approve-engineering-hire/{addendum}', [ProjectEngineeringController::class, 'approveEngineeringHire']);
         Route::post('/reject-engineering-hire/{addendum}', [ProjectEngineeringController::class, 'rejectEngineeringHire']);
         Route::post('/approve-engineering', [ProjectEngineeringController::class, 'approveEngineeringIntegration']);
-        Route::post('/invite-engineering-vendor', [\App\Http\Controllers\Api\EngineeringProcurementController::class, 'inviteVendor']);
         Route::post('/submit-engineering-interview', [\App\Http\Controllers\Api\EngineeringProcurementController::class, 'submitInterview']);
         Route::post('/authorize-specialist', [ProjectEngineeringController::class, 'authorizeSpecialist']);
         Route::post('/reject-specialist', [ProjectEngineeringController::class, 'rejectSpecialist']);
@@ -260,7 +261,8 @@ Route::middleware(['auth:sanctum', 'freeze_pending_termination'])->group(functio
         Route::post('/revise-construction-brief', [ProjectController::class, 'reviseConstructionBrief']);
         Route::post('/verify-pbg', [ProjectController::class, 'verifyPBG']);
         Route::post('/verify-slf', [ProjectController::class, 'verifySLF']);
-        Route::post('/finalize', [\App\Http\Controllers\Api\ProjectHandoverController::class, 'finalizeProject']);
+        // NOTE: /finalize removed (zero consumers) — the live completion flow
+        // is initiate-walkthrough -> snag resolution -> owner-accept.
         Route::post('/mark-complete', [\App\Http\Controllers\Api\ProjectController::class, 'markComplete']);
 
         // Shareable Brief Link
@@ -288,10 +290,10 @@ Route::middleware(['auth:sanctum', 'freeze_pending_termination'])->group(functio
         Route::post('/documents/approve-design', [\App\Http\Controllers\Api\TechnicalDesignReviewController::class, 'approveDesign']);
         Route::post('/documents/revise-design', [\App\Http\Controllers\Api\TechnicalDesignReviewController::class, 'reviseDesign']);
 
-        // Ratings & Activity Log
-        Route::post('/rate', [ProjectActivityController::class, 'rateProject']);
+        // Ratings & Activity Log (NOTE: legacy /rate removed — reviews flow
+        // through POST /projects/{project}/review; pending-actions aggregator
+        // had zero consumers)
         Route::get('/activity', [ProjectActivityController::class, 'getActivity']);
-        Route::get('/pending-actions', [ProjectActivityController::class, 'getPendingActions']);
 
         // Project Executive Reports
         Route::get('/reports', [ProjectReportController::class, 'index']);
@@ -310,7 +312,7 @@ Route::middleware(['auth:sanctum', 'freeze_pending_termination'])->group(functio
         Route::put('/requirements/{requirement}', [ProjectRequirementController::class, 'update']);
         Route::delete('/requirements/{requirement}', [ProjectRequirementController::class, 'destroy']);
         Route::post('/requirements/{requirement}/usage', [ProjectRequirementController::class, 'logUsage']);
-        Route::post('/requirements/{requirement}/manual-procurement', [ProjectRequirementController::class, 'logExternalProcurement']);
+        // NOTE: manual-procurement removed (zero consumers; modes are restock/use)
         Route::post('/requirements/{requirement}/request-procurement', [ProjectRequirementController::class, 'requestProcurement']);
         Route::get('/requirements/{requirement}/history', [ProjectRequirementHistoryController::class, 'index']);
         Route::post('/requirements/{requirement}/restock', [ProjectRequirementHistoryController::class, 'restock']);
@@ -325,8 +327,8 @@ Route::middleware(['auth:sanctum', 'freeze_pending_termination'])->group(functio
         Route::delete('/material-folders/{folder}', [\App\Http\Controllers\Api\ProjectMaterialFolderController::class, 'destroy']);
         Route::post('/procurement-requests/{procurementRequest}/verify', [\App\Http\Controllers\Api\ProjectFeatureController::class, 'pmVerifyProcurement']);
         Route::post('/procurement-requests/{procurementRequest}/reject', [\App\Http\Controllers\Api\ProjectFeatureController::class, 'pmRejectProcurement']);
-        Route::post('/procurement-requests/{procurementRequest}/owner-approve', [ProjectRequirementController::class, 'ownerApproveProcurement']);
-        Route::post('/procurement-requests/{procurementRequest}/owner-reject', [ProjectRequirementController::class, 'ownerRejectProcurement']);
+        // NOTE: owner-approve/owner-reject procurement pair removed (zero
+        // consumers — the PM verify/reject pair above is the live flow).
 
         // Project Budget & Finance Endpoints
         Route::get('/budget', [\App\Http\Controllers\Api\ProjectBudgetController::class, 'getDashboard']);
@@ -363,11 +365,11 @@ Route::middleware(['auth:sanctum', 'freeze_pending_termination'])->group(functio
     // Aggregated unread counters for header heartbeat (single cheap query)
     Route::get('/me/unread-summary', \App\Http\Controllers\Api\UnreadSummaryController::class);
 
-    // Chat
-    Route::get('/conversations', [ChatController::class, 'index']);
-    Route::post('/conversations', [ChatController::class, 'store']);
-    Route::get('/conversations/{conversation}', [ChatController::class, 'show']);
-    Route::post('/conversations/{conversation}/messages', [ChatController::class, 'sendMessage']);
+// Chat
+Route::get('/conversations', [ChatController::class, 'index']);
+Route::post('/conversations', [ChatController::class, 'store']);
+Route::get('/conversations/{conversation}', [ChatController::class, 'show']);
+Route::post('/conversations/{conversation}/messages', [ChatController::class, 'sendMessage'])->middleware('throttle:30,1');
 
     // Supplier & Merchant Management
     Route::prefix('merchant')->group(function () {
@@ -397,6 +399,8 @@ Route::middleware(['auth:sanctum', 'freeze_pending_termination'])->group(functio
 
     // Material Orders / Fulfillment Flow
     Route::apiResource('material-orders', MaterialOrderController::class)->only(['index', 'show', 'update']);
+Route::post('/material-orders/{material_order}/payment-proof', [MaterialOrderController::class, 'uploadPaymentProof']);
+Route::post('/material-orders/{material_order}/verify-payment', [MaterialOrderController::class, 'verifyPayment']);
 
     // Material Order Review Routes
     Route::post('/material-order-reviews', [\App\Http\Controllers\MaterialOrderReviewController::class, 'store']);
@@ -405,7 +409,7 @@ Route::middleware(['auth:sanctum', 'freeze_pending_termination'])->group(functio
     Route::get('/suppliers/{supplier}/reviews', [\App\Http\Controllers\MaterialOrderReviewController::class, 'getBySupplier']);
 
     // Admin Routes
-    Route::middleware('admin')->prefix('admin')->group(function () {
+        Route::middleware('admin')->prefix('admin')->group(function () {
         Route::get('/stats', [\App\Http\Controllers\Api\Admin\AdminDashboardController::class, 'stats']);
         Route::get('/professionals', [\App\Http\Controllers\Api\Admin\VerificationController::class, 'index']);
         Route::get('/professionals/history', [\App\Http\Controllers\Api\Admin\VerificationController::class, 'history']);
@@ -420,13 +424,14 @@ Route::middleware(['auth:sanctum', 'freeze_pending_termination'])->group(functio
         Route::patch('/users/{user}/suspend', [\App\Http\Controllers\Api\Admin\AdminUserController::class, 'toggleSuspend']);
         Route::patch('/users/{user}/role', [\App\Http\Controllers\Api\Admin\AdminUserController::class, 'updateRole']);
 
-        // Supplier Verification
-        Route::get('/suppliers', [\App\Http\Controllers\Api\Admin\AdminSupplierController::class, 'index']);
-        Route::patch('/suppliers/{id}/status', [\App\Http\Controllers\Api\Admin\AdminSupplierController::class, 'updateStatus']);
+        // NOTE: the abandoned AdminSupplierController surface was removed —
+        // supplier verification is fully handled via /admin/professionals
+        // (VerificationController), which powers AdminVerification's
+        // Suppliers tab.
     });
 
-    // Notary services
-    Route::get('/notaris/services', [ProjectController::class, 'getNotarisServices']);
+    // NOTE: /notaris/services removed (zero consumers — notary services
+    // reach the UI via the profile payload).
 
     // Team Members (Firm Roster)
     Route::get('/team-members', [TeamMemberController::class, 'index']);
@@ -439,7 +444,6 @@ Route::middleware(['auth:sanctum', 'freeze_pending_termination'])->group(functio
     Route::post('/firm-members/update-profile', [FirmMemberController::class, 'updateProfile']);
     Route::get('/firm-members/suggestions', [FirmMemberController::class, 'suggestions']);
     Route::get('/firm-members/my-firms', [FirmMemberController::class, 'myFirms']);
-    Route::get('/firm-members/join-requests', [FirmMemberController::class, 'joinRequests']);
     Route::post('/firm-members/search', [FirmMemberController::class, 'search']);
     Route::post('/firm-members/invite', [FirmMemberController::class, 'invite']);
     Route::post('/firm-members/request-join', [FirmMemberController::class, 'requestJoin']);
@@ -447,7 +451,6 @@ Route::middleware(['auth:sanctum', 'freeze_pending_termination'])->group(functio
     Route::get('/firm-members/roster', [FirmMemberController::class, 'index']);
     Route::get('/firm-members/invitations', [FirmMemberController::class, 'invitations']);
     Route::get('/firm-members/browse-owners', [FirmMemberController::class, 'browseFirmOwners']);
-    Route::post('/firm-members/{firmMember}/resend', [FirmMemberController::class, 'resend']);
     Route::post('/firm-members/{firmMember}/cancel', [FirmMemberController::class, 'cancel']);
     Route::delete('/firm-members/{firmMember}', [FirmMemberController::class, 'remove']);
     Route::post('/firm-members/quick-assign', [FirmMemberController::class, 'quickAssign']);

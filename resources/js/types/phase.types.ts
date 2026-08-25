@@ -1,6 +1,6 @@
 export type PhaseKey = 'management' | 'legal' | 'technical' | 'design' | 'build' | 'materials' | 'interior' | 'handover';
 
-export type PhaseStatus = 'completed' | 'active' | 'pending' | 'skipped';
+type PhaseStatus = 'completed' | 'active' | 'pending' | 'skipped';
 
 export interface Phase {
     key: PhaseKey;
@@ -83,7 +83,7 @@ export const PHASE_ROLE_MAP: Record<PhaseKey, { bidKey: string; selectedKey: str
     handover:  { bidKey: '',                 selectedKey: '',                       profileKey: '' },
 };
 
-export type ProjectCategory = 'new_build' | 'renovation' | 'interior' | 'maintenance';
+type ProjectCategory = 'new_build' | 'renovation' | 'interior' | 'maintenance';
 
 const CATEGORY_LABELS: Record<ProjectCategory, Partial<Record<PhaseKey, { label: string; description: string }>>> = {
     new_build: {},
@@ -224,15 +224,6 @@ export interface WarrantyClaim {
         id: number;
         name: string;
     };
-}
-
-export interface TimelineExtension {
-    id: number;
-    reason: string;
-    days_requested: number;
-    status: 'proposed' | 'pm_reviewed' | 'approved' | 'rejected';
-    new_deadline_date?: string;
-    requester_name: string;
 }
 
 export interface ChangeOrder {

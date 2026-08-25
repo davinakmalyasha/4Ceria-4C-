@@ -6,6 +6,7 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
+import { ErrorBoundary } from './components/Common/ErrorBoundary';
 
 const LandingPage = React.lazy(() => import('./pages/LandingPage'));
 const Login = React.lazy(() => import('./pages/Login'));
@@ -37,37 +38,39 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
 
 function App() {
     return (
-        <AuthProvider>
-            <ToastProvider>
-                <React.Suspense fallback={<PageLoader />}>
-                    <Routes>
-                        <Route path="/" element={<LandingPage />} />
-                        <Route path="/login" element={<Login />} />
-                        <Route path="/register" element={<Register />} />
-                        <Route path="/pro/login" element={<Navigate to="/login" replace />} />
-                        <Route path="/pro/register" element={<ProfessionalRegister />} />
-                        <Route path="/dashboard" element={<Dashboard />} />
-                        <Route path="/help" element={<Docs />} />
-                        
-                        {/* Admin Routes */}
-                        <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
-                        <Route path="/admin/verification" element={<AdminRoute><AdminVerification /></AdminRoute>} />
-                        <Route path="/admin/verification/logs" element={<AdminRoute><AdminVerification /></AdminRoute>} />
-                        <Route path="/admin/houses" element={<AdminRoute><AdminHouses /></AdminRoute>} />
-                        <Route path="/admin/projects" element={<AdminRoute><AdminProjects /></AdminRoute>} />
+        <ErrorBoundary name="AppRoot">
+            <AuthProvider>
+                <ToastProvider>
+                    <React.Suspense fallback={<PageLoader />}>
+                        <Routes>
+                            <Route path="/" element={<LandingPage />} />
+                            <Route path="/login" element={<Login />} />
+                            <Route path="/register" element={<Register />} />
+                            <Route path="/pro/login" element={<Navigate to="/login" replace />} />
+                            <Route path="/pro/register" element={<ProfessionalRegister />} />
+                            <Route path="/dashboard" element={<Dashboard />} />
+                            <Route path="/help" element={<Docs />} />
 
-                        {/* Public Brief (no auth) */}
-                        <Route path="/brief/:token" element={<PublicBrief />} />
+                            {/* Admin Routes */}
+                            <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+                            <Route path="/admin/verification" element={<AdminRoute><AdminVerification /></AdminRoute>} />
+                            <Route path="/admin/verification/logs" element={<AdminRoute><AdminVerification /></AdminRoute>} />
+                            <Route path="/admin/houses" element={<AdminRoute><AdminHouses /></AdminRoute>} />
+                            <Route path="/admin/projects" element={<AdminRoute><AdminProjects /></AdminRoute>} />
 
-                        {/* Password Reset */}
-                        <Route path="/forgot-password" element={<ForgotPassword />} />
-                        <Route path="/reset-password/:token" element={<ResetPassword />} />
+                            {/* Public Brief (no auth) */}
+                            <Route path="/brief/:token" element={<PublicBrief />} />
 
-                        <Route path="*" element={<Navigate to="/" replace />} />
-                    </Routes>
-                </React.Suspense>
-            </ToastProvider>
-        </AuthProvider>
+                            {/* Password Reset */}
+                            <Route path="/forgot-password" element={<ForgotPassword />} />
+                            <Route path="/reset-password/:token" element={<ResetPassword />} />
+
+                            <Route path="*" element={<Navigate to="/" replace />} />
+                        </Routes>
+                    </React.Suspense>
+                </ToastProvider>
+            </AuthProvider>
+        </ErrorBoundary>
     );
 }
 

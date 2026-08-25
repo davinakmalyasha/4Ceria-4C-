@@ -1,5 +1,6 @@
 import React, { useState, useCallback, Suspense, lazy } from 'react';
 import axios from 'axios';
+import { formatCurrency } from '../../types/explore';
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { FileText } from 'lucide-react';
@@ -30,6 +31,7 @@ import ExploreArchitects from '../Architects/ExploreArchitects';
 import ExploreConstructors from '../Constructors/ExploreConstructors';
 import ExploreInterior from '../Interior/ExploreInterior';
 import ExploreNotaries from '../Notaris/ExploreNotaries';
+import ConsultationRequests from '../Notaris/ConsultationRequests';
 import ExploreEngineers from '../Engineers/ExploreEngineers';
 import { ExploreProjectManagers } from '../ProjectManagers/ExploreProjectManagers';
 import { HirePMWorkspace } from '../ProjectManagers/HirePMWorkspace';
@@ -201,9 +203,6 @@ export const DashboardTabs: React.FC<TabsProps> = (props) => {
             console.error("Failed to refresh project details dynamically", err);
         }
     }, [selectedProject?.id, onRefresh]);
-
-    const formatCurrency = (amount: number) => 
-        new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount);
 
     const getIsShortlistedPro = (proj: any) => {
         if (!user) return false;
@@ -407,6 +406,10 @@ export const DashboardTabs: React.FC<TabsProps> = (props) => {
                         myBidsCount={myBids.length} onViewMyBids={() => setActiveTab('my-bids')}
                         onPrefetch={prefetchProject}
                     />
+                )}
+
+                {activeTab === 'consultations' && user?.role_type === 'notaris' && (
+                    <ConsultationRequests user={user} />
                 )}
 
                 {activeTab === 'my-bids' && (

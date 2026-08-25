@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { PhaseKey } from '../types/phase.types';
 
-export type QuestionKey = 'hasLegal' | 'hasDesign' | 'hasConstructor' | 'needsInterior' | 'needsPM';
+type QuestionKey = 'hasLegal' | 'hasDesign' | 'hasConstructor' | 'needsInterior' | 'needsPM';
 
 export interface WizardAnswers {
     hasLegal: boolean | string | null;
@@ -128,7 +128,7 @@ export function useProjectWizard() {
     };
 }
 
-export function getActiveQuestions(category: string): QuestionKey[] {
+function getActiveQuestions(category: string): QuestionKey[] {
     if (category === 'new_build') return ['needsPM', 'hasLegal', 'hasDesign', 'hasConstructor'];
     if (category === 'renovation' || category === 'interior') return ['needsPM', 'hasDesign', 'hasConstructor'];
     return []; // maintenance skips questions

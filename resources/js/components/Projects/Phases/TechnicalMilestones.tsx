@@ -344,7 +344,7 @@ export default function TechnicalMilestones({
                                                 </div>
                                                 <span className="text-[9px] text-slate-400 font-bold flex items-center gap-1">
                                                     <Calendar size={10} />
-                                                    {new Date(m.created_at || Date.now()).toLocaleDateString()}
+                                                    {new Date(m.created_at || Date.now()).toLocaleDateString('id-ID')}
                                                 </span>
                                             </div>
                                         </div>
@@ -439,7 +439,7 @@ export default function TechnicalMilestones({
                                                 <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">Verified & Completed</span>
                                             </div>
                                             {m.lead_pro_verified_at && (
-                                                <span className="text-[8px] text-slate-400 font-bold uppercase tracking-tighter">Approved by Architect on {new Date(m.lead_pro_verified_at).toLocaleDateString()}</span>
+                                                <span className="text-[8px] text-slate-400 font-bold uppercase tracking-tighter">Approved by Architect on {new Date(m.lead_pro_verified_at).toLocaleDateString('id-ID')}</span>
                                             )}
                                         </div>
                                     )}

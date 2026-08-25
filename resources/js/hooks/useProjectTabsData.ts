@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 
-export type TabDataType = 'milestones' | 'paymentTermins' | 'documents' | 'comments' | 'activityLogs' | 'bids' | 'budget';
+type TabDataType = 'milestones' | 'paymentTermins' | 'documents' | 'comments' | 'activityLogs' | 'bids' | 'budget';
 
-export interface TabData {
+interface TabData {
     milestones: any[] | null;
     paymentTermins: any[] | null;
     documents: any[] | null;

@@ -17,7 +17,3 @@ export const NOTARY_SERVICE_SCOPES = [
     { id: 'general_legal', label: 'General Legal Advisory', description: 'Comprehensive legal counsel on construction-related matters.' },
 ];
 
-export const NOTARY_FEE_TYPES = [
-    { id: 'fixed', label: 'Fixed Professional Fee', description: 'A single flat rate for all listed professional services.' },
-    { id: 'percentage', label: 'Percentage of Transaction', description: 'Calculated as a percentage of the total property/transaction value (e.g. 1% cap).' },
-];

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Calendar, Users, ShieldCheck, CheckCircle2, Lock, ArrowUpRight, ShieldAlert } from 'lucide-react';
 import { getProfile } from '../../Shared/ProfilePreviewHelpers';
+import { formatCurrency as formatPrice } from '../../../types/explore';
 
 interface BiddingSidebarCardProps {
     project: any;
@@ -30,11 +31,6 @@ export const BiddingSidebarCard: React.FC<BiddingSidebarCardProps> = ({
     const deadlineStr = project?.deadline
         ? new Date(project.deadline).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
         : 'ASAP';
-
-    // Format Bid Price
-    const formatPrice = (price: number) => {
-        return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(price);
-    };
 
     return (
         <div className="space-y-6 sticky top-8">

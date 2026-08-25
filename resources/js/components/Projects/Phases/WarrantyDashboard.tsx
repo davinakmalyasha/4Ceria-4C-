@@ -3,6 +3,7 @@ import axios from 'axios';
 import { Shield, Clock, AlertCircle, CheckCircle, FilePlus, ChevronRight } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
 import { WarrantyClaim } from '../../../types/phase.types';
+import { getApiErrorMessage } from '../../../utils/apiError';
 
 interface WarrantyDashboardProps {
     project: any;
@@ -24,7 +25,7 @@ export default function WarrantyDashboard({ project, currentUser, isOwner, isCon
             const res = await axios.get(`/projects/${project.id}/warranty-claims`);
             setClaims(res.data.data);
         } catch (error) {
-            console.error('Failed to fetch claims');
+            showToast(getApiErrorMessage(error, 'Failed to fetch claims'), 'error');
         } finally {
             setLoading(false);
         }
@@ -52,7 +53,7 @@ export default function WarrantyDashboard({ project, currentUser, isOwner, isCon
             setNewClaimFiles(null);
             fetchClaims();
         } catch (error) {
-            showToast('Failed to file claim', 'error');
+            showToast(getApiErrorMessage(error, 'Failed to file claim'), 'error');
         }
     };
 
@@ -62,7 +63,7 @@ export default function WarrantyDashboard({ project, currentUser, isOwner, isCon
             showToast('Claim status updated', 'success');
             fetchClaims();
         } catch (error) {
-            showToast('Update failed', 'error');
+            showToast(getApiErrorMessage(error, 'Update failed'), 'error');
         }
     };
 

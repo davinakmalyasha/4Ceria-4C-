@@ -4,6 +4,7 @@ import axios from 'axios';
 import { ProfilePreviewCard } from '../Shared/ProfilePreviewCard';
 import { PortfolioManager } from './PortfolioManager';
 import { PortfolioProject } from '../../types/project.types';
+import { getApiErrorMessage } from '../../utils/apiError';
 
 interface Props {
     user: any;
@@ -17,7 +18,7 @@ export const UserProfileView: React.FC<Props> = ({ user, setIsEditingProfile }) 
         if (user?.id) {
             axios.get(`/portfolios?user_id=${user.id}`)
                 .then(res => setPortfolios(res.data))
-                .catch(() => {});
+                .catch((err) => { console.warn(getApiErrorMessage(err, 'Failed to load portfolios')); });
         }
     }, [user?.id]);
 

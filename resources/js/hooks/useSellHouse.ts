@@ -10,7 +10,7 @@ export interface RoomEntry {
     pics: File[] | null;
 }
 
-export interface HouseFormData {
+interface HouseFormData {
     name: string;
     price: string;
     house_desc: string;

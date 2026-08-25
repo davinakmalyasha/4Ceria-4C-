@@ -207,6 +207,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         axios.post('/logout').catch(() => {});
         window.location.href = '/login';
     }, []);
+
+    // Multi-tab session sync: when another tab logs out (or logs in), this
+    // tab follows via the storage event.
+    useEffect(() => {
+        const onStorage = (e: StorageEvent) => {
+            if (e.key === 'auth_token' && !e.newValue && localStorage.getItem('auth_token') === null) {
+                setUser(null);
+                setToken(null);
+                window.location.href = '/login';
+            }
+        };
+        window.addEventListener('storage', onStorage);
+        return () => window.removeEventListener('storage', onStorage);
+    }, []);
     
     const refreshUser = useCallback(async () => {
         try {

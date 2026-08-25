@@ -181,7 +181,7 @@ export default function DocumentVault({ project, isPro, targetRole, canDownload 
                                     </span>
                                 </div>
                                 <p className="text-[9px] font-bold text-slate-400 mt-3 uppercase tracking-wider">
-                                    Uploaded by {doc.uploader.name} • {new Date(doc.created_at).toLocaleDateString()}
+                                    Uploaded by {doc.uploader.name} • {new Date(doc.created_at).toLocaleDateString('id-ID')}
                                 </p>
                             </div>
 

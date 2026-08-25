@@ -7,7 +7,7 @@
  * Categories based on Indonesian notarial practice for house construction.
  */
 
-export interface LegalDocumentPreset {
+interface LegalDocumentPreset {
     id: string;
     label: string;
     desc: string;
@@ -16,28 +16,13 @@ export interface LegalDocumentPreset {
     responsibleRole: 'Notary' | 'Architect' | 'Architect & Notary' | 'Owner' | 'Any';
 }
 
-export type LegalCategory = 
+type LegalCategory = 
     | 'land_ownership'
     | 'personal_id'
     | 'construction_agreements'
     | 'permits'
     | 'financial_tax'
     | 'post_construction';
-
-export interface LegalCategoryMeta {
-    id: LegalCategory;
-    label: string;
-    desc: string;
-}
-
-export const LEGAL_CATEGORIES: LegalCategoryMeta[] = [
-    { id: 'land_ownership', label: 'Land Ownership & Verification', desc: 'Documents proving legal ownership of the land where the house will be built.' },
-    { id: 'personal_id', label: 'Personal Identification & Authority', desc: 'Identity verification and legal capacity to build.' },
-    { id: 'construction_agreements', label: 'Construction & Development Agreements', desc: 'Contracts governing the building process.' },
-    { id: 'permits', label: 'Permits & Regulatory Compliance', desc: 'Government approvals ensuring the building is legal.' },
-    { id: 'financial_tax', label: 'Financial & Tax Documents', desc: 'Tax and financing documentation related to the build.' },
-    { id: 'post_construction', label: 'Post-Construction / Finalization', desc: 'Handover and completion documents.' },
-];
 
 export const LEGAL_REQUIREMENTS: LegalDocumentPreset[] = [
     // ── Land Ownership & Verification ──────────────────────────────
@@ -280,5 +265,3 @@ export const LEGAL_REQUIREMENTS: LegalDocumentPreset[] = [
 export const getLegalRequirementById = (id: string): LegalDocumentPreset | undefined =>
     LEGAL_REQUIREMENTS.find(r => r.id === id);
 
-export const getLegalRequirementsByCategory = (category: LegalCategory): LegalDocumentPreset[] =>
-    LEGAL_REQUIREMENTS.filter(r => r.category === category);

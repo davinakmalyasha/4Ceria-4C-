@@ -47,35 +47,12 @@ export const PM_SERVICE_SCOPES = [
     }
 ];
 
-export const MANDATORY_PM_SCOPES = ['procurement', 'scheduling', 'quality_control', 'vendor_coordination'];
-
 export const PM_DELIVERABLES = [
     { id: 'weekly_report', label: 'Detailed Weekly Progress Reports' },
     { id: 'cost_tracking', label: 'Updated Cost vs. Budget Tracking' },
     { id: 'site_log', label: 'Master Site Daily Log Access' },
     { id: 'qc_checklist', label: 'Quality Control Checklists & Sign-offs' }
 ];
-
-export const MANDATORY_PM_DELIVERABLES = ['weekly_report', 'cost_tracking', 'site_log', 'qc_checklist'];
-
-export const formatPMProposal = ({ revisions, scopes, deliverables, feeType, userProposal }: any) => {
-    const scopeList = scopes.map((s: string) => ` - ${PM_SERVICE_SCOPES.find(x => x.id === s)?.label || s}`).join('\n');
-    const deliverableList = deliverables.map((d: string) => ` - ${PM_DELIVERABLES.find(x => x.id === d)?.label || d}`).join('\n');
-    
-    return `PROJECT MANAGEMENT PROPOSAL
-------------------------------
-FEE STRUCTURE: ${PM_FEE_TYPES.find(f => f.id === feeType)?.label}
-MANAGEMENT SCOPE:
-${scopeList}
-
-KEY DELIVERABLES:
-${deliverableList}
-
-PROFESSIONAL PROPOSAL:
-${userProposal}
-------------------------------
-Generated via 4Ceria Enterprise PM Protocol`;
-};
 
 export const stripPMAutomatedProposal = (proposal: string) => {
     if (!proposal) return '';

@@ -9,7 +9,7 @@ export type ConstructionSubRoleKey =
     | 'roofing'
     | 'finishing';
 
-export interface ConstructionSubRole {
+interface ConstructionSubRole {
     key: ConstructionSubRoleKey;
     label: string;
     labelId: string;
@@ -85,18 +85,3 @@ export const CONSTRUCTION_SUB_ROLES: ConstructionSubRole[] = [
     },
 ];
 
-export const CONSTRUCTION_SUB_ROLE_MAP: Record<string, string> = {
-    general: 'General Contractor',
-    civil: 'Civil & Structural',
-    mechanical: 'Mechanical',
-    electrical: 'Electrical',
-    plumbing: 'Plumbing',
-    roofing: 'Roofing & Waterproofing',
-    finishing: 'Finishing',
-};
-
-/** Fee types specifically for sub-contractor negotiation (simplified). */
-export const SUB_CONTRACTOR_FEE_TYPES = [
-    { id: 'fixed', label: 'Lump Sum (Harga Pasti)', description: 'Biaya tetap untuk seluruh lingkup pekerjaan sub-kontraktor.' },
-    { id: 'unit_price', label: 'Harga Satuan (Unit Price)', description: 'Berdasarkan volume pekerjaan aktual di lapangan.' },
-];

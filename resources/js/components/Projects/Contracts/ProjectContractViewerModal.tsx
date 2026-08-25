@@ -62,10 +62,18 @@ export default function ProjectContractViewerModal({
         const printWindow = window.open('', '_blank');
         if (!printWindow) return;
 
+        // SECURITY: escape interpolated values — an attacker-controlled
+        // project title would otherwise execute script in this window's
+        // origin (same-origin as the SPA). printContent itself is React-
+        // rendered markup, not raw user input.
+        const esc = (s: any) => String(s ?? '')
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
         printWindow.document.write(`
             <html>
                 <head>
-                    <title>Surat Perintah Kerja (SPK) - ${project.title}</title>
+                    <title>Surat Perintah Kerja (SPK) - ${esc(project.title)}</title>
                     <style>
                         body {
                             font-family: Arial, sans-serif;

@@ -1,10 +1,8 @@
-export type EntityType = 'individual' | 'company';
-
 export type ParentRole = 'arsitek' | 'kontraktor';
 
-export type SubProfessionalStatus = 'invited' | 'interviewing' | 'accepted' | 'recommended' | 'active' | 'completed' | 'removed';
+type SubProfessionalStatus = 'invited' | 'interviewing' | 'accepted' | 'recommended' | 'active' | 'completed' | 'removed';
 
-export type SubspecialtyCategory = 'construction' | 'mechanical' | 'finishing';
+type SubspecialtyCategory = 'construction' | 'mechanical' | 'finishing';
 
 export interface ContractorSubspecialty {
     id: number;
@@ -79,7 +77,7 @@ export interface ProposedTeamMember {
     note: string;
 }
 
-export interface FirmMemberUser {
+interface FirmMemberUser {
     id: number;
     name: string;
     unique_code: string;
@@ -130,18 +128,6 @@ export interface MyFirmEntry {
         phone?: string | null;
         no_telp?: string | null;
     };
-}
-
-export interface FirmPortfolio {
-    id: number;
-    user_id: number;
-    role_type: string;
-    title: string;
-    description: string;
-    image_path: string | null;
-    duration: string | null;
-    client_review: string | null;
-    created_at: string;
 }
 
 export interface JobPosting {

@@ -139,7 +139,7 @@ export default function MyBidsList({ bids, isLoading, onViewProject, initialSubT
                                     </div>
                                     <div className="flex items-center gap-4 text-xs font-medium text-gray-500 mb-4">
                                         <span className="flex items-center gap-1"><Building2 className="w-3.5 h-3.5" /> {bid.project?.location || 'Remote'}</span>
-                                        <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" /> {new Date(bid.created_at).toLocaleDateString()}</span>
+                                        <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" /> {new Date(bid.created_at).toLocaleDateString('id-ID')}</span>
                                     </div>
                                     <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100 text-sm text-gray-600">
                                         <span className="font-bold text-gray-800 pr-2 block mb-2 uppercase text-[10px] tracking-wider">Your Proposal:</span>

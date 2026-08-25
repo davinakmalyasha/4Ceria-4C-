@@ -1,4 +1,5 @@
 import React from 'react';
+import { CalendarClock, Check, X } from 'lucide-react';
 import ApprovalCard from './ApprovalCard';
 
 interface PMGroupedApprovalsProps {
@@ -7,6 +8,11 @@ interface PMGroupedApprovalsProps {
     pendingHandovers: any[];
     pendingAddendums: any[];
     recommendedBids: any[];
+    pendingExtensions?: any[];
+    isAssignedPM?: boolean;
+    isProjectOwner?: boolean;
+    onExtensionReview?: (extension: any, status: 'pm_reviewed' | 'rejected') => void;
+    onExtensionDecision?: (extension: any, status: 'approved' | 'rejected') => void;
     isLoading: boolean;
     onVerifyMilestone: (id: number, status: 'approved' | 'revision') => void;
     onVerifyHandover: (phase: string, action: 'approve' | 'reject') => void;
@@ -20,6 +26,11 @@ export default function PMGroupedApprovals({
     pendingHandovers,
     pendingAddendums,
     recommendedBids,
+    pendingExtensions = [],
+    isAssignedPM = false,
+    isProjectOwner = false,
+    onExtensionReview,
+    onExtensionDecision,
     isLoading,
     onVerifyMilestone,
     onVerifyHandover,
@@ -145,7 +156,72 @@ export default function PMGroupedApprovals({
     };
 
     return (
-        <div className="flex gap-4 overflow-x-auto pb-4 pt-1 -mx-2 px-2 scrollbar-thin scrollbar-thumb-zinc-250">
+        <div className="space-y-4">
+            {pendingExtensions.length > 0 && (
+                <div className="bg-white border border-amber-200 rounded-2xl p-4 space-y-3">
+                    <div className="flex items-center gap-2 border-b border-amber-100 pb-2">
+                        <CalendarClock size={14} className="text-amber-600" />
+                        <h4 className="text-xs font-black text-zinc-900 uppercase tracking-wider">Timeline Extension Requests</h4>
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700">
+                            {pendingExtensions.length}
+                        </span>
+                    </div>
+                    <div className="space-y-2">
+                        {pendingExtensions.map(ext => (
+                            <div key={ext.id} className="flex flex-wrap items-center gap-3 justify-between bg-amber-50/60 border border-amber-100 rounded-xl px-4 py-3">
+                                <div className="min-w-0 flex-1">
+                                    <p className="text-sm font-bold text-zinc-900 truncate">
+                                        +{ext.days_requested} days — {ext.reason}
+                                    </p>
+                                    <p className="text-[11px] text-zinc-500">
+                                        Requested by {ext.requester?.name || 'professional'}
+                                        {ext.status === 'pm_reviewed' ? ' · PM-reviewed, awaiting owner' : ''}
+                                        {ext.description ? ` · ${ext.description}` : ''}
+                                    </p>
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0">
+                                    {/* PM reviews proposed requests; owner makes the final call.
+                                        When no PM is assigned the owner decides directly. */}
+                                    {isAssignedPM && ext.status === 'proposed' && onExtensionReview && (
+                                        <>
+                                            <button
+                                                onClick={() => onExtensionReview(ext, 'pm_reviewed')}
+                                                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all"
+                                            >
+                                                <Check size={12} /> Endorse
+                                            </button>
+                                            <button
+                                                onClick={() => onExtensionReview(ext, 'rejected')}
+                                                className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-red-200 text-red-600 text-[10px] font-black uppercase tracking-widest hover:bg-red-50 transition-all"
+                                            >
+                                                <X size={12} /> Reject
+                                            </button>
+                                        </>
+                                    )}
+                                    {(isProjectOwner && (ext.status === 'pm_reviewed' || !project?.pm_id)) && onExtensionDecision && (
+                                        <>
+                                            <button
+                                                onClick={() => onExtensionDecision(ext, 'approved')}
+                                                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all"
+                                            >
+                                                <Check size={12} /> Approve
+                                            </button>
+                                            <button
+                                                onClick={() => onExtensionDecision(ext, 'rejected')}
+                                                className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-red-200 text-red-600 text-[10px] font-black uppercase tracking-widest hover:bg-red-50 transition-all"
+                                            >
+                                                <X size={12} /> Reject
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            <div className="flex gap-4 overflow-x-auto pb-4 pt-1 -mx-2 px-2 scrollbar-thin scrollbar-thumb-zinc-250">
             {phases.map(p => {
                 const list = getItems(p.key);
                 return (
@@ -182,6 +258,7 @@ export default function PMGroupedApprovals({
                     </div>
                 );
             })}
+            </div>
         </div>
     );
 }

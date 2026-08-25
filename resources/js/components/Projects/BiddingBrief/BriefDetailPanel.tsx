@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ProjectQA from '../ProjectQA';
-import { Layers, ArrowLeft, DollarSign, MapPin, Calendar, X, ZoomIn, Ruler, Maximize } from 'lucide-react';
+import { Layers, ArrowLeft, DollarSign, MapPin, Calendar, X, ZoomIn, Ruler, Maximize, Share2, Link2, Copy, Check } from 'lucide-react';
+import axios from 'axios';
 import { User } from '../../../context/AuthContext';
 import { Project } from '../../../types/project.types';
 
@@ -14,6 +15,10 @@ interface BriefDetailPanelProps {
 
 export const BriefDetailPanel: React.FC<BriefDetailPanelProps> = ({ project, user, onRefresh, onBack }) => {
     const [selectedImgUrl, setSelectedImgUrl] = useState<string | null>(null);
+    const [shareUrl, setShareUrl] = useState<string | null>(null);
+    const [shareBusy, setShareBusy] = useState(false);
+    const [copied, setCopied] = useState(false);
+    const isShareOwner = user && (project.user_id === user.id || user.role_type === 'kontraktor');
     const dims = React.useMemo(() => {
         if (!project?.project_dimensions) return null;
         try {
@@ -54,6 +59,39 @@ export const BriefDetailPanel: React.FC<BriefDetailPanelProps> = ({ project, use
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, []);
 
+    const handleGenerateShareLink = async () => {
+        setShareBusy(true);
+        try {
+            const res = await axios.post(`/projects/${project.id}/share-token`);
+            setShareUrl(res.data.share_url);
+        } catch (err: any) {
+            alert(err.response?.data?.message || 'Failed to generate share link.');
+        } finally {
+            setShareBusy(false);
+        }
+    };
+
+    const handleCopyShareLink = async () => {
+        if (!shareUrl) return;
+        try {
+            await navigator.clipboard.writeText(shareUrl);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        } catch { /* clipboard unavailable */ }
+    };
+
+    const handleRevokeShareLink = async () => {
+        setShareBusy(true);
+        try {
+            await axios.delete(`/projects/${project.id}/share-token`);
+            setShareUrl(null);
+        } catch (err: any) {
+            alert(err.response?.data?.message || 'Failed to revoke share link.');
+        } finally {
+            setShareBusy(false);
+        }
+    };
+
     return (
         <div className="space-y-6">
             {/* Project Overview Card */}
@@ -92,6 +130,39 @@ export const BriefDetailPanel: React.FC<BriefDetailPanelProps> = ({ project, use
                             </span>
                         </div>
                     </div>
+
+                    {/* Share Link (owner / hired contractor) — makes the
+                        built-and-cached PublicBrief page reachable */}
+                    {isShareOwner && (
+                        <div className="flex flex-wrap items-center gap-2 pt-1">
+                            {!shareUrl ? (
+                                <button
+                                    onClick={handleGenerateShareLink}
+                                    disabled={shareBusy}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-xs font-bold text-gray-600 hover:bg-gray-50 disabled:opacity-50 transition-all shadow-sm"
+                                >
+                                    <Share2 size={13} /> Generate Share Link
+                                </button>
+                            ) : (
+                                <>
+                                    <button
+                                        onClick={handleCopyShareLink}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-100 text-xs font-bold text-emerald-700 hover:bg-emerald-100 transition-all"
+                                        title={shareUrl}
+                                    >
+                                        {copied ? <Check size={13} /> : <Copy size={13} />} {copied ? 'Copied!' : 'Copy Public Link'}
+                                    </button>
+                                    <button
+                                        onClick={handleRevokeShareLink}
+                                        disabled={shareBusy}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-100 bg-white text-xs font-bold text-red-500 hover:bg-red-50 disabled:opacity-50 transition-all"
+                                    >
+                                        <Link2 size={13} /> Revoke
+                                    </button>
+                                </>
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 {/* Brief Description */}

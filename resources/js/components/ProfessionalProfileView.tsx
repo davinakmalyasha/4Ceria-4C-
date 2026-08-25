@@ -10,6 +10,7 @@ import { useAuth } from '../context/AuthContext';
 import LegalServiceCard from './Notaris/LegalServiceCard';
 import ConsultationModal from './Notaris/ConsultationModal';
 import FirmSquadProfile from './Dashboard/FirmSquadProfile';
+import { formatCurrency } from '../types/explore';
 
 interface ProfessionalProfileViewProps {
     type: 'architect' | 'constructor' | 'interior' | 'notaris' | 'project_manager' | 'structural' | 'mep';
@@ -36,10 +37,6 @@ export default function ProfessionalProfileView({ type, data, projects = [], onC
                          (type === 'project_manager' && user?.project_manager?.id === data.id) ||
                          (type === 'structural' && user?.structural_engineer?.id === data.id) ||
                          (type === 'mep' && user?.mep_engineer?.id === data.id);
-
-    const formatCurrency = (amount: number) => {
-        return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount);
-    };
 
     const isArchitect = type === 'architect';
     const isInterior = type === 'interior';

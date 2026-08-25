@@ -29,6 +29,7 @@ import SpecialistActionCenter from './SpecialistActionCenter';
 import { useToast } from '../../../context/ToastContext';
 import { PHASE_ORDER } from '../../../types/phase.types';
 import ConfirmModal from '../ConfirmModal';
+import MutualTerminationPanel from './MutualTerminationPanel';
 
 interface PhaseAssignedProProps {
     project: any;
@@ -914,6 +915,11 @@ export default function PhaseAssignedPro({
                 title="Undur Diri dari Proyek"
                 description="Apakah Anda yakin ingin mengundurkan diri? Tindakan ini akan menghapus Anda dari proyek dan membuka kembali bidding untuk Project Owner."
             />
+
+            {/* Amicable exit: backend + freeze middleware existed with zero UI */}
+            {isHiredPro && (
+                <MutualTerminationPanel project={project} user={user} onRefresh={onRefresh} />
+            )}
 
             <ConfirmModal
                 isOpen={confirmModal.isOpen}

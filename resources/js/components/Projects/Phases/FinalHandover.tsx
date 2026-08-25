@@ -21,6 +21,7 @@ export default function FinalHandover({ project, user, onRefresh }: FinalHandove
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isGeneratingBast, setIsGeneratingBast] = useState(false);
     const [acceptNotes, setAcceptNotes] = useState('');
+    const [verifyingGate, setVerifyingGate] = useState<'pbg' | 'slf' | null>(null);
     const warrantyDays = getWarrantyDays(project?.project_category || 'new_build');
     const isMaintenance = project?.project_category === 'maintenance';
     const isInterior = project?.project_category === 'interior';
@@ -32,6 +33,65 @@ export default function FinalHandover({ project, user, onRefresh }: FinalHandove
     const ownerAccepted = !!project.owner_accepted_at;
     const snagCounts = project.snag_counts || { open: 0, in_progress: 0, resolved: 0, accepted: 0 };
     const hasUnresolvedSnags = snagCounts.open > 0 || snagCounts.in_progress > 0;
+    // New-build projects hard-require SLF verification before finalization.
+    const needsRegulatoryGates = project?.project_category !== 'maintenance';
+    const pbgVerified = !!project?.pbg_verified_at;
+    const slfVerified = !!project?.slf_verified_at;
+
+    const handleVerifyGate = async (gate: 'pbg' | 'slf') => {
+        setVerifyingGate(gate);
+        try {
+            await axios.post(`/projects/${project.id}/verify-${gate}`);
+            showToast(gate.toUpperCase() + ' verified successfully.', 'success');
+            onRefresh();
+        } catch (err: any) {
+            showToast(err.response?.data?.message || `Failed to verify ${gate.toUpperCase()}.`, 'error');
+        } finally {
+            setVerifyingGate(null);
+        }
+    };
+
+    // Regulatory gates panel: previously these endpoints existed with NO UI,
+    // dead-ending new-build finalization with an SLF error nobody could fix.
+    const regulatoryGatesPanel = (needsRegulatoryGates && (isOwner || isPM)) ? (
+        <div className="bg-white border border-gray-200 rounded-[2rem] p-6 space-y-4">
+            <div className="flex items-center gap-3">
+                <FileText size={18} className="text-gray-700" />
+                <h4 className="text-xs font-black text-gray-900 uppercase tracking-widest">Regulatory Compliance Gates</h4>
+            </div>
+            <p className="text-xs text-gray-500">
+                New-build projects require permit & occupancy verification before final acceptance.
+            </p>
+            <div className="grid sm:grid-cols-2 gap-3">
+                <div className={`rounded-2xl border p-4 space-y-2 ${pbgVerified ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50/60'}`}>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">PBG — Building Permit</p>
+                    <p className="text-xs font-bold text-gray-700">{pbgVerified ? 'Verified' : 'Not yet verified'}</p>
+                    {!pbgVerified && (
+                        <button
+                            onClick={() => handleVerifyGate('pbg')}
+                            disabled={verifyingGate !== null}
+                            className="w-full py-2 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all disabled:opacity-50"
+                        >
+                            {verifyingGate === 'pbg' ? 'Verifying...' : 'Verify PBG'}
+                        </button>
+                    )}
+                </div>
+                <div className={`rounded-2xl border p-4 space-y-2 ${slfVerified ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50/60'}`}>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">SLF — Certificate of Occupancy</p>
+                    <p className="text-xs font-bold text-gray-700">{slfVerified ? 'Verified' : 'Required for finalization'}</p>
+                    {!slfVerified && (
+                        <button
+                            onClick={() => handleVerifyGate('slf')}
+                            disabled={verifyingGate !== null}
+                            className="w-full py-2 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all disabled:opacity-50"
+                        >
+                            {verifyingGate === 'slf' ? 'Verifying...' : 'Verify SLF'}
+                        </button>
+                    )}
+                </div>
+            </div>
+        </div>
+    ) : null;
 
     const handleInitiateWalkthrough = async () => {
         setIsSubmitting(true);
@@ -252,7 +312,9 @@ export default function FinalHandover({ project, user, onRefresh }: FinalHandove
 
             <SnagListManager project={project} user={user} onRefresh={onRefresh} />
 
-            {isOwner && !hasUnresolvedSnags && (
+            {regulatoryGatesPanel}
+
+            {isOwner && !hasUnresolvedSnags && (!needsRegulatoryGates || slfVerified) && (
                 <div className="bg-emerald-50 border-2 border-emerald-200 rounded-[2rem] p-8 space-y-4">
                     <div className="flex items-center gap-3">
                         <Key size={20} className="text-emerald-600" />
@@ -273,6 +335,14 @@ export default function FinalHandover({ project, user, onRefresh }: FinalHandove
                     >
                         {isSubmitting ? 'Memproses...' : `Terima & Mulai Garansi (${warrantyDays} Hari)`}
                     </button>
+                </div>
+            )}
+            {isOwner && !hasUnresolvedSnags && needsRegulatoryGates && !slfVerified && (
+                <div className="bg-amber-50 border border-amber-200 rounded-[2rem] p-5 text-center">
+                    <p className="text-xs font-bold text-amber-800">
+                        Semua cacat telah diperbaiki — namun SLF (Certificate of Occupancy) belum diverifikasi.
+                        Verifikasi SLF di atas untuk membuka penerimaan akhir.
+                    </p>
                 </div>
             )}
         </div>

@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Search, Grid, List, CheckCircle, Star, Filter, Heart, Gavel, Scale, ShieldCheck, MapPin } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { formatCurrency as formatIdr } from '../../types/explore';
 
 interface Notary {
     id: number;
@@ -17,8 +18,6 @@ interface Notary {
     is_verified?: boolean;
     services?: any[];
 }
-
-const formatIdr = (val: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(val);
 
 const NotaryCard = ({ notary, viewMode, onSelect }: { notary: Notary; viewMode: 'grid' | 'list'; onSelect: (n: Notary) => void; }) => {
     const isGrid = viewMode === 'grid';

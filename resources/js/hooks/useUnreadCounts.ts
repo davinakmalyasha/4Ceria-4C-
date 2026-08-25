@@ -1,7 +1,7 @@
 import { useSyncExternalStore, useCallback } from 'react';
 import axios from 'axios';
 
-export interface UnreadCounts {
+interface UnreadCounts {
     unread_messages: number;
     unread_notifications: number;
 }

@@ -6,19 +6,10 @@ import {
     Hammer, Wrench, Paintbrush, ShieldCheck
 } from 'lucide-react';
 
-export interface ProjectImage {
+interface ProjectImage {
     id: number;
     url: string;
     sort_order: number;
-}
-
-export interface FurnitureItem {
-    id: string;
-    name: string;
-    brand?: string;
-    price: number;
-    status: 'pending_procurement' | 'ordered' | 'installed';
-    addendum_id?: number | null;
 }
 
 export interface ProjectMilestone {
@@ -91,7 +82,7 @@ export interface Termin {
     milestone?: ProjectMilestone;
 }
 
-export interface MaterialOrder {
+interface MaterialOrder {
     id: number;
     project_id: number;
     supplier_id: number;
@@ -193,7 +184,7 @@ export interface Bid {
     created_at: string;
 }
 
-export interface ProjectExternalVendor {
+interface ProjectExternalVendor {
     id: number;
     team_member_id: number | null;
     phase_role: string;
@@ -397,8 +388,6 @@ export interface Project {
     is_mep_hired_4c?: boolean;
 }
 
-export type ProjectStatus = Project['status'];
-
 export interface ProjectFilter {
     search: string;
     status: string; // 'all' | 'open' | 'in_progress' | 'completed'
@@ -421,7 +410,7 @@ export const getStatusConfig = (status: string) => {
     return { label: status, icon: FileText, colors: 'text-gray-700 border-gray-200', bg: 'bg-gray-50' };
 };
 
-export const PROJECT_TYPE_CONFIG: Record<string, any> = {
+const PROJECT_TYPE_CONFIG: Record<string, any> = {
     umum: { icon: Home, label: 'Umum' },
     fondasi: { icon: ShieldCheck, label: 'Fondasi' },
     struktur: { icon: LayoutDashboard, label: 'Struktur' },

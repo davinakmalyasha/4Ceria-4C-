@@ -51,21 +51,6 @@ export const DEFAULT_TERMIN_TEMPLATE = [
 
 // === BID FORM PRESETS ===
 
-export const RAB_CATEGORIES = [
-    { id: 'structure', label: 'Pekerjaan Struktur', defaultPct: 35, description: 'Foundation, columns, beams, slabs' },
-    { id: 'mep', label: 'Instalasi MEP', defaultPct: 20, description: 'Electrical, plumbing, HVAC' },
-    { id: 'finishing', label: 'Pekerjaan Finishing', defaultPct: 25, description: 'Plastering, painting, tiling, fixtures' },
-    { id: 'overhead', label: 'Overhead & Profit', defaultPct: 15, description: 'Management, insurance, permits, margin' },
-    { id: 'contingency', label: 'Cadangan (Contingency)', defaultPct: 5, description: 'Buffer for unexpected conditions' },
-];
-
-export const WARRANTY_OPTIONS = [
-    { value: 3, label: '3 Bulan' },
-    { value: 6, label: '6 Bulan (Standard)' },
-    { value: 12, label: '12 Bulan (Premium)' },
-    { value: 24, label: '24 Bulan (Extended)' },
-];
-
 export const PAYMENT_SCHEDULE_OPTIONS = [
     { id: 'standard_5', label: 'Standard 5-Stage (30/20/25/15/10)', description: 'DP → Foundation → Structure → MEP → Handover' },
     { id: 'equal_4', label: 'Equal 4-Stage (25/25/25/25)', description: 'Quarterly milestone-based' },
@@ -73,61 +58,3 @@ export const PAYMENT_SCHEDULE_OPTIONS = [
     { id: 'custom', label: 'Custom Schedule', description: 'We will negotiate terms with the client' },
 ];
 
-export const CONTRACTOR_SERVICE_SCOPES = [
-    { 
-        id: 'civil_structure', 
-        label: 'Civil & Structural', 
-        description: 'Foundation, framing, walls, and all structural components.' 
-    },
-    { 
-        id: 'mep_install', 
-        label: 'Mechanical, Electrical, & Plumbing', 
-        description: 'Full installation of water, power, sewage, and HVAC systems.' 
-    },
-    { 
-        id: 'finishing_work', 
-        label: 'Finishing & Interior Fit-out', 
-        description: 'Tiling, painting, ceiling work, and final architectural finishes.' 
-    },
-    { 
-        id: 'site_management', 
-        label: 'Site Management & Safety', 
-        description: 'Professional supervision, security, and K3 compliance.' 
-    },
-    { 
-        id: 'external_works', 
-        label: 'External & Landscape', 
-        description: 'Drainage, paving, fencing, and initial garden setup.' 
-    }
-];
-
-export const CONTRACTOR_DELIVERABLES = [
-    { id: 'as_built', label: 'As-Built Drawings', icon: 'FileText' },
-    { id: 'warranty_cert', label: 'Structural Warranty Certificate', icon: 'Shield' },
-    { id: 'material_report', label: 'Detailed Material Usage Report', icon: 'List' },
-    { id: 'handover_docs', label: 'Final Handover Documentation (BAST)', icon: 'CheckSquare' }
-];
-
-export const CONTRACTOR_FEE_TYPES = [
-    { id: 'fixed', label: 'Lump Sum (Harga Pasti)', description: 'Total biaya konstruksi berdasarkan RAB yang disepakati.' },
-    { id: 'cost_plus', label: 'Cost + Fee (Biaya + Margin)', description: 'Biaya aktual material + tenaga kerja + margin kontraktor (10-15%).' },
-    { id: 'unit_price', label: 'Harga Satuan (Unit Price)', description: 'Berdasarkan volume pekerjaan aktual di lapangan (per m³, per m², dll).' },
-    { id: 'sqm', label: 'Harga per Meter Persegi', description: 'Tarif per m² luas bangunan — standar estimasi proyek di Indonesia.' },
-];
-
-export const CONTRACTOR_BID_EQUIPMENT = [
-    'Excavator', 'Crane', 'Concrete Mixer', 'Concrete Pump', 'Scaffolding',
-    'Vibrator', 'Truck Mixer', 'Theodolite', 'Plate Compactor', 'Bar Bender',
-];
-
-export const WORKFORCE_ROLES = [
-    { id: 'mandor', label: 'Mandor (Foreman)' },
-    { id: 'tukang', label: 'Tukang (Skilled Workers)' },
-    { id: 'kuli', label: 'Kuli (Laborers)' },
-];
-
-export const WORK_DAY_OPTIONS = [
-    { id: 'mon_sat', label: 'Monday - Saturday' },
-    { id: 'mon_fri', label: 'Monday - Friday' },
-    { id: 'custom', label: 'Custom Schedule' },
-];

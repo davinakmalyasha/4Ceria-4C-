@@ -4,6 +4,7 @@ import { Bell, CheckCircle, XCircle, Loader2, Inbox, Eye, MessageSquare, Smartph
 import { FirmInvitation } from '../../types/sub_professional.types';
 import { useToast } from '../../context/ToastContext';
 import ConfirmModal from '../Projects/ConfirmModal';
+import { getApiErrorMessage } from '../../utils/apiError';
 
 interface FirmInvitationsProps {
     isFullPage?: boolean;
@@ -31,7 +32,7 @@ export default function FirmInvitations({ isFullPage = false, onOpenChat }: Firm
     useEffect(() => {
         axios.get<{ data: FirmInvitation[] }>('/firm-members/invitations')
             .then(res => setInvitations(res.data?.data || []))
-            .catch(() => {})
+            .catch((err) => { showToast(getApiErrorMessage(err, 'Failed to load invitations'), 'error'); })
             .finally(() => setIsLoading(false));
     }, []);
 

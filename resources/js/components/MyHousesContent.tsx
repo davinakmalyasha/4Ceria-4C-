@@ -5,6 +5,7 @@ import axios from 'axios';
 import AutoHoverSlider from './UI/AutoHoverSlider';
 import PropertyDetailModal from './PropertyDetailModal';
 import EditPropertyModal from './EditPropertyModal';
+import { formatCurrency } from '../types/explore';
 
 interface Props {
     houses: any[];
@@ -18,10 +19,6 @@ export default function MyHousesContent({ houses, onAddProperty, onBack, onHouse
     const [selectedHouse, setSelectedHouse] = useState<any | null>(null);
     const [editingHouse, setEditingHouse] = useState<any | null>(null);
     const [isDeleting, setIsDeleting] = useState<number | null>(null);
-
-    const formatCurrency = (amount: number) => {
-        return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount);
-    };
 
     const handleDelete = async (houseId: number) => {
         if (!confirm('Are you sure you want to delete this property listing? This action cannot be undone.')) return;

@@ -5,8 +5,7 @@ import { InteriorDesigner, InteriorSortOption, InteriorViewMode, INTERIOR_SPECS 
 import { useInterior } from '../../hooks/useInterior';
 import { useFavorites } from '../../hooks/useFavorites';
 import CustomDropdown from '../UI/CustomDropdown';
-
-const formatIdr = (val: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(val);
+import { formatCurrency as formatIdr } from '../../types/explore';
 
 const InteriorCard = ({ designer, viewMode, onSelect, isFav, onToggleFav }: { designer: InteriorDesigner; viewMode: InteriorViewMode; onSelect: (d: InteriorDesigner) => void; isFav: boolean; onToggleFav: (e: React.MouseEvent, id: number) => void; }) => {
     const isGrid = viewMode === 'grid';

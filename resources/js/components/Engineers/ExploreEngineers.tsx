@@ -2,8 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Search, Grid, List, Star, Filter, Heart, ShieldCheck, Zap, HardHat } from 'lucide-react';
 import { motion } from 'framer-motion';
 import CustomDropdown from '../UI/CustomDropdown';
-
-const formatIdr = (val: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(val);
+import { formatCurrency as formatIdr } from '../../types/explore';
 
 interface Engineer {
     id: number;

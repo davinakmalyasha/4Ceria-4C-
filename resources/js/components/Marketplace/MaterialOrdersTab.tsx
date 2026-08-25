@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { Truck, Search, Filter, ChevronDown, Package } from 'lucide-react';
 import OrderCard from './OrderCard';
 import ReviewModal from './ReviewModal';
+import { getApiErrorMessage } from '../../utils/apiError';
 
 export default function MaterialOrdersTab() {
     const { user } = useAuth();
@@ -13,7 +14,8 @@ export default function MaterialOrdersTab() {
     const [isLoading, setIsLoading] = useState(true);
     const [isUpdating, setIsUpdating] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
-    
+    const [error, setError] = useState<string | null>(null);
+
     // Review Modal State
     const [isReviewOpen, setIsReviewOpen] = useState(false);
     const [selectedOrder, setSelectedOrder] = useState<any>(null);
@@ -24,11 +26,12 @@ export default function MaterialOrdersTab() {
 
     const fetchOrders = async () => {
         setIsLoading(true);
+        setError(null);
         try {
             const res = await axios.get('/material-orders');
             setOrders(res.data.data || []);
         } catch (err) {
-            console.error('Failed to fetch orders', err);
+            setError(getApiErrorMessage(err, 'Failed to load orders'));
         } finally {
             setIsLoading(false);
         }
@@ -51,7 +54,7 @@ export default function MaterialOrdersTab() {
             });
             setOrders(prev => prev.map(o => o.id === orderId ? res.data.data : o));
         } catch (err) {
-            console.error('Failed to update order', err);
+            setError(getApiErrorMessage(err, 'Failed to update order'));
         } finally {
             setIsUpdating(false);
         }
@@ -99,14 +102,17 @@ export default function MaterialOrdersTab() {
 
                 {/* Orders List */}
                 <div className="grid grid-cols-1 gap-6">
-                    {filteredOrders.length > 0 ? (
+                    {error ? (
+                        <ErrorState message={error} onRetry={fetchOrders} />
+                    ) : filteredOrders.length > 0 ? (
                         filteredOrders.map(order => (
-                            <OrderCard 
-                                key={order.id} 
-                                order={order} 
-                                isSupplier={isSupplier} 
+                            <OrderCard
+                                key={order.id}
+                                order={order}
+                                isSupplier={isSupplier}
                                 isUpdating={isUpdating}
                                 updateOrderStatus={updateOrderStatus}
+                                onRefresh={fetchOrders}
                                 onReview={(o) => {
                                     setSelectedOrder(o);
                                     setIsReviewOpen(true);
@@ -151,5 +157,20 @@ const EmptyState = () => (
             <h3 className="text-xl font-black text-gray-900 uppercase tracking-tight">No Active Missions</h3>
             <p className="text-sm font-medium text-gray-500">There are no orders matching your current criteria.</p>
         </div>
+    </div>
+);
+
+const ErrorState = ({ message, onRetry }: { message: string; onRetry: () => void }) => (
+    <div className="bg-red-50/50 border-2 border-dashed border-red-100 rounded-[3rem] p-16 flex flex-col items-center text-center space-y-6">
+        <div className="p-6 bg-white rounded-full shadow-sm text-red-300">
+            <Package size={48} />
+        </div>
+        <div className="space-y-2">
+            <h3 className="text-xl font-black text-gray-900 uppercase tracking-tight">Something Went Wrong</h3>
+            <p className="text-sm font-medium text-gray-500">{message}</p>
+        </div>
+        <button onClick={onRetry} className="px-6 py-3 bg-[#FF2D20] text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-600 transition-colors">
+            Try Again
+        </button>
     </div>
 );
