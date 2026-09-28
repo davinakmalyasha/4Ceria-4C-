@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { useDashboardData } from '../hooks/useDashboardData';
+import { useFavorites } from '../hooks/useFavorites';
 import { DashboardSidebar } from '../components/Dashboard/DashboardSidebar';
 import { DashboardHeader } from '../components/Dashboard/DashboardHeader';
 import { DashboardTabs } from '../components/Dashboard/DashboardTabs';
@@ -51,23 +52,20 @@ function DashboardContent() {
     // render". The conditional redirect now lives after ALL hooks (bottom of
     // this component).
 
-    // Wishlist logic for modal
-    const [wishlist, setWishlist] = useState<Set<number>>(() => {
-        try { return new Set(JSON.parse(localStorage.getItem('house_wishlist') || '[]')); } catch { return new Set(); }
-    });
-
-    useEffect(() => {
-        localStorage.setItem('house_wishlist', JSON.stringify([...wishlist]));
-    }, [wishlist]);
+    // Wishlist for the house details modal.
+    //
+    // BUGFIX (split-brain): this kept its OWN `house_wishlist` localStorage Set
+    // while useExploreHouses writes the heart to the server (/favorites, type
+    // `house`). Two sources of truth meant the modal's heart and the grid's
+    // heart could disagree, and — because the local ids never reached the API —
+    // a user who only ever saved from the modal saw an EMPTY "My Shortlist".
+    // Single source of truth: the server-backed favorites.
+    const { favorites: favoriteHouseIds, toggleFavorite: toggleFavoriteHouse } = useFavorites('house');
+    const wishlist = useMemo(() => new Set(favoriteHouseIds), [favoriteHouseIds]);
 
     const toggleWishlist = (e: React.MouseEvent, id: number) => {
         e.stopPropagation();
-        setWishlist(prev => {
-            const next = new Set(prev);
-            if (next.has(id)) next.delete(id);
-            else next.add(id);
-            return next;
-        });
+        toggleFavoriteHouse(id);
     };
 
     const selectedHouse = useMemo(() => 
@@ -193,7 +191,25 @@ function DashboardContent() {
         }
         
         if (tabParam) {
-            handleSetActiveTab(tabParam);
+            // Deep links from Web Push / notificationclick carry extra params:
+            // /dashboard?tab=chat&chat_user=ID or /dashboard?tab=project-detail&project=ID
+            const detail: Record<string, any> = { tab: tabParam };
+            const chatUser = params.get('chat_user');
+            if (chatUser) detail.chatUserId = Number(chatUser);
+            const project = params.get('project');
+            if (project) detail.projectId = Number(project);
+
+            if (detail.chatUserId || detail.projectId) {
+                window.dispatchEvent(new CustomEvent('switchDashboardTab', { detail }));
+            } else {
+                handleSetActiveTab(tabParam);
+            }
+
+            params.delete('tab');
+            params.delete('chat_user');
+            params.delete('project');
+            const rest = params.toString();
+            window.history.replaceState({}, '', window.location.pathname + (rest ? `?${rest}` : ''));
         }
     }, [user, isAuthLoading]);
 

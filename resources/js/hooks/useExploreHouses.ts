@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import type { MapRef } from 'react-map-gl/maplibre';
 import type { House } from '../types/explore';
 import { SortOption, ViewMode, ITEMS_PER_PAGE, MAX_COMPARE, getDistance, getCoords } from '../types/explore';
+import { useFavorites } from './useFavorites';
 import axios from 'axios';
 
 interface UseExploreHousesProps {
@@ -34,9 +35,13 @@ export function useExploreHouses({ houses: initialHouses, onSelectHouse }: UseEx
     const [viewMode, setViewMode] = useState<ViewMode>('grid');
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
-    const [wishlist, setWishlist] = useState<Set<number>>(() => {
-        try { return new Set(JSON.parse(localStorage.getItem('house_wishlist') || '[]')); } catch { return new Set(); }
-    });
+
+    // Saved houses live on the server (/favorites, type `house`) so they merge
+    // across devices and show up in "My Shortlist". The old local
+    // `house_wishlist` localStorage Set was a second source of truth that
+    // never reached the API.
+    const { favorites: favoriteHouseIds, toggleFavorite: toggleFavoriteHouse } = useFavorites('house');
+    const wishlist = useMemo(() => new Set(favoriteHouseIds), [favoriteHouseIds]);
 
     const [compareIds, setCompareIds] = useState<number[]>([]);
     const [showCompare, setShowCompare] = useState(false);
@@ -133,22 +138,7 @@ export function useExploreHouses({ houses: initialHouses, onSelectHouse }: UseEx
         return () => document.removeEventListener('mousedown', handler);
     }, []);
 
-    const wishlistTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
     const recentlyViewedTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-    useEffect(() => {
-        if (wishlistTimeout.current) clearTimeout(wishlistTimeout.current);
-        wishlistTimeout.current = setTimeout(() => {
-            try {
-                localStorage.setItem('house_wishlist', JSON.stringify([...wishlist]));
-            } catch (err) {
-                console.error('Failed to sync wishlist to storage', err);
-            }
-        }, 500); // 500ms Debounce
-        return () => {
-            if (wishlistTimeout.current) clearTimeout(wishlistTimeout.current);
-        };
-    }, [wishlist]);
 
     useEffect(() => {
         if (recentlyViewedTimeout.current) clearTimeout(recentlyViewedTimeout.current);
