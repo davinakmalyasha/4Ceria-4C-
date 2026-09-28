@@ -283,19 +283,19 @@ pm run typecheck
 
 ---
 
-# ROUND 2 � 2026-08-25 deep audit (security chain, regressions, rewires, true-dead removal)
+# ROUND 2 � 2026-08-25 deep audit (security chain, regressions, rewires, true-dead removal)
 
 Second pass after the round-1 hardening shipped. Six probes (4 subagent audits + 2 manual
 deep-dives), every critical claim re-verified by hand before touching anything.
 
 ## Critical security chain closed
-- PublicProfessionalController: directory payloads were RAW models � publicly shipping
+- PublicProfessionalController: directory payloads were RAW models � publicly shipping
   identity_number/npwp_number/siup_number, NPWP/SIUP/certificate doc paths and nested bank
   fields. Now strips all KYC-grade fields; portfolios stay public-by-design.
   User::$hidden += bank_name/bank_account_number/bank_account_name/unique_code (explicit
   attribute reads in UserResource unaffected).
 - StorageFallbackController: certificates/* presign branch REMOVED (any anonymous visitor
-  could mint 1h private-bucket URLs for scraped cert paths). portfolios/ kept � it powers
+  could mint 1h private-bucket URLs for scraped cert paths). portfolios/ kept � it powers
   ProfessionalProfileView links. Admin/owner cert viewing already flows through the
   authorized SecureVerificationDocumentController.
 - ProjectController::show(): membership gate added (owner/admin/PM/hired/sub-pro/bidder).
@@ -335,13 +335,13 @@ deep-dives), every critical claim re-verified by hand before touching anything.
 
 ## Frontend
 - Root ErrorBoundary wraps the whole app (white-screen of death eliminated).
-- Houses pagination FIXED (gate was 8>8=never; now totalPages>1) � results past page 1
+- Houses pagination FIXED (gate was 8>8=never; now totalPages>1) � results past page 1
   were unreachable since launch of server pagination.
 - Notifications: chat_message deep-links into chat tab w/ sender pre-opened; new type
   branches (payment_verified, milestone_approved/revision, consultation_*); opening the
   dropdown no longer bulk-marks everything read.
 - useDashboardData stale-response generation guard; AuthContext storage-event multi-tab logout.
-- Share-token generate/copy/revoke buttons (BriefDetailPanel) � PublicBrief feature finally reachable.
+- Share-token generate/copy/revoke buttons (BriefDetailPanel) � PublicBrief feature finally reachable.
 - FinalHandover regulatory gates panel: Approve Construction Brief -> Verify PBG -> Verify SLF,
   unblocking new-build finalization (endpoints existed with zero UI).
 - Extension approvals wired: PM endorse/reject + owner approve/reject strip in PMGroupedApprovals.
@@ -378,3 +378,139 @@ deep-dives), every critical claim re-verified by hand before touching anything.
   PDF/CSV report exports; account deletion/export; notification preference settings;
   refund/dispute arbitration beyond escalation flag; milestone-weighted progress %;
   snag-list SLA aging; mobile fixed-width polish (CompareTool/PMGroupedApprovals/ChatOverlay).
+
+---
+
+## 2026-09-22 — Refinement pass (D-batch + product batch + Web Push + Dispute Center)
+
+Owner appetite: "Fix + refinements + new features", effort unlimited. **No commits by agent.**
+
+### Correctness D1–D12 (see BACKLOG for per-item status)
+Handover relation fix, real `walkthrough_status`, markPaid enum/amount/affordability overhaul
+(ledger via `deductBudget`, 422 insufficient, generic 500s), budget-dashboard fallback removal,
+`allocated_tax`, schedule delay cascade (`original_target_end_date`/`shifted_days`), dead
+`checkAndActivateBid` deleted, docs truth-pass, typecheck baseline ratchet
+(`scripts/typecheck-baseline.mjs`, baseline 184 errors).
+
+### Product batch
+- **B1 favorites**: morph `favorites` table + `FavoriteController` + `useFavorites` rewrite +
+  SavedItemsDashboard 9 tabs (legacy localStorage merged once via `/favorites/merge`).
+- **B3 exports**: `utils/exporters.ts` (CSV + jsPDF), ProjectBudgetManager/PMSchedule buttons,
+  `GET /admin/projects/export` + AdminProjects CSV button.
+- **B4**: `ProjectScheduleService::calculateSummary` milestone-weighted (shape unchanged).
+- **B5**: `snags` config + `due_at`/`escalated_at` + `snags:escalate-overdue` dailyAt(07:00).
+
+### B2 Web Push (code complete; VAPID keys pending owner)
+- `minishlink/web-push` v11, `config/webpush.php`, `push_subscriptions` migration (endpoint
+  varchar(500) unique — MySQL 1170 on TEXT), `PushSubscription` model + controller, `SendWebPushJob`
+  (`$afterCommit` set in CONSTRUCTOR — redeclaring fatals against Queueable), single
+  `Notification::created` observer in AppServiceProvider (48 create sites covered).
+- Vite migrated to `injectManifest` (`srcDir: resources/js`, `filename: sw.ts`); `sw.ts` precache +
+  push/notificationclick handlers; `usePushNotifications` toggle in NotificationsDropdown.
+- Dashboard deep-links: `?tab=&chat_user=&project=`.
+- **OWNER ACTION (blocked — agent may not touch `.env`)**: paste these three lines into `.env`.
+  Generate a FRESH pair locally (the pair that was originally generated for this repo was exposed in an
+  agent transcript and must be considered compromised):
+  ```
+  # from the project root, with PHP 8.5:
+  # $env:OPENSSL_CONF="D:\laragon\bin\php\php-8.5.10-Win32-vs17-x64\extras\ssl\openssl.cnf"
+  # php -r "require 'vendor/autoload.php'; echo Minishlink\WebPush\VAPID::createVapidKeys()['publicKey'];"
+  VAPID_PUBLIC_KEY=<paste public key>
+  VAPID_PRIVATE_KEY=<paste private key>
+  VAPID_SUBJECT="mailto:support@4ceria.com"
+  ```
+  Never commit the private key; it is a live secret (see the 2026-09-23 hardening entry).
+
+### Track C — Dispute / arbitration center (complete)
+- Migrations `...000006_create_project_disputes` + `...000007_create_dispute_messages`; models
+  `ProjectDispute`/`DisputeMessage`; `DisputeService` (open/escalate/assertNoOpenDispute/canAccess/
+  reply/withdraw/adminAction, one-open-dispute 409, freeze 422); `ProjectDisputeController` +
+  `AdminDisputeController` (+evidence temporaryUrl routes both sides); 11 routes.
+- Freeze hooks: `PaymentVerificationService::uploadProof` (pre + under lock), `verifyProof`
+  (pre + under lock, skipped for `$adminOverride` used by release_payment), `markPaid` (inside
+  try → 422 reaches client). Escalation: `ProjectMutualTerminationController::escalate` now
+  materializes the dispute (idempotent for rejected|escalated statuses).
+- Refund ledger: negative `payment` row referenced by `ProjectDispute` FQCN (fits the unique
+  triple — one reversal per dispute); payment flipped payment_status→refunded (else status→
+  refunded; bids keep lifecycle status).
+- Frontend: `DisputePanel.tsx` mounted unconditionally in PhaseAssignedPro (self-hides on 403),
+  `AdminDisputes.tsx` + `/admin/disputes` route + AdminLayout Gavel nav with open-count badge.
+- Tests: `tests/DisputeCenterTest.php` **8 passed** (freeze/dismiss/withdraw, proof freeze,
+  escalation, release_payment, record_refund, terminate, outsider 403 + 409).
+
+### Verification gate (all green, 2026-09-22)
+`php -l` sweep clean → `composer dump-autoload` OK → `npm run typecheck:check` **184 = baseline**
+→ `npm run build` green (injectManifest, sw.ts 77 modules, precache 42 entries) →
+`artisan migrate` (000006/000007) → `smoke-api.php` **14 passed, 0 failed** →
+Pest: DisputeCenterTest **8**, RefinementRegression + MoneyIntegrity **28** (36 total) →
+manual Playwright pass **pending owner**.
+
+---
+
+## 2026-09-28 — Deep audit remediation (security · money integrity · performance · quality)
+
+Seven parallel read-only audits were run over the whole stack; the highest-severity claims
+were then re-verified by hand against the live database before any code was touched.
+**No commits by agent.**
+
+### Ship blockers (found by verification, not by audit)
+- **The amicable-exit flow had never worked.** `ProjectMutualTerminationController::initiate`
+  wrote `status => 'termination_pending'`, a value that was **never in the `projects.status`
+  ENUM** — a hard MySQL error under strict mode. Because that status could never be set,
+  `FreezeWorkspaceIfTerminationPending` (which keys off exactly it) was **dead code**, and the
+  dispute-escalation path this repo shipped a day earlier was unreachable.
+  Fix: migration `2026_09_23_000001` adds the value (idempotent, additive, refuses to roll
+  back while rows depend on it). Verified live.
+- **Payment forgery, end to end.** `storePaymentTermin` only checked `role_type !== 'user'`,
+  so any professional could mint a payment stage on ANY project with an arbitrary amount and
+  **themselves** as `recipient_id` — which `PaymentVerificationService` authorizes on. The
+  verifier never checked `payment_proof_path`. Chain closed by three independent guards
+  (participation, proof + `verifying` state, `TerminPlanService` contract-value bound).
+- **VAPID private key** had been written into this tracked file — removed, and the pair is
+  to be rotated by the owner (it was also printed in chat).
+
+### Money model unified (`ProjectFinancialService` is now the single source of truth)
+Previously four different "remaining budget" formulas coexisted, the only *enforced* one being
+`budget − Σ(payments)`; the summary the owner saw was derived from bids and never read the
+ledger, and "Add Funds" wrote a row without moving the ceiling. Now: ceiling column + ledger,
+`deductBudget()` for every payment type (termin/addendum/material/design fee previously bypassed
+the affordability check entirely), deposits/partial refunds, and a millisecond-precision cache
+key. `refund` is now a real ledger type with a `refunded_amount` accumulator per payment
+(migration `2026_09_23_000002`), so refunds are partial-capable and cannot exceed the payment.
+Change orders mint exactly one payable stage (unique `change_order_id`, migration
+`2026_09_23_000003`) and can no longer be approved twice.
+Also fixed: `MaterialOrder` has no `amount` column (the verify path read it — Rp 0 in prod,
+500 in dev); `fireProfessional` deleted milestones using the *project's* column name and had
+**always** thrown; terminated professionals keep no live payment rights; `markPaid` is now
+audited and notifies the payee; receipts moved off the world-readable `public` disk.
+
+### Tests: 15 → 60
+`phpunit.xml` named `tests/Unit` + `tests/Feature` (neither exists) so `artisan test` ran
+**1 of 3** suites. Fixed, and the duplicated MySQL/rollback harness was extracted to
+`tests/Support/DatabaseHarness.php` (now CI-safe: process env wins when there is no `.env`).
+New `tests/PaymentIntegrityTest.php` locks the forgery chain, the proof gate, refunded
+terminality, the escrow ceiling, partial-refund caps, the change-order guard, termination
+settlement, CSV neutralisation, token revocation and the non-muteable notification rule.
+
+### Performance
+maplibre (848 kB) moved off the dashboard's static import graph; the app stylesheet was being
+emitted and downloaded twice (−205 kB); ~20 composite indexes added for the 5 s chat poll, the
+15 s unread poll, activity and my-bids; `subProfessionals` eager-loaded (removes +50…200
+queries per project list); the dashboard no longer double-fetches on `/me`.
+
+### Quality
+6 live `ReferenceError`s fixed (two files rendered `<motion.form>` with no import — those
+screens crashed on open); `interior_approved_at` → `interior_locked_at` (a gate that never
+opened); TS type debt 184 → 96 by fixing the interfaces that lagged the API; CI added
+(`.github/workflows/ci.yml`, incl. a gitleaks job); production logging was being written to a
+container-local file and **discarded** on every deploy (`LOG_STACK` now includes `stderr`);
+scheduler tasks got `onOneServer()` because supervisord runs `schedule:run` on every replica.
+
+### Frontend
+CSP + HSTS + nosniff + frame-ancestors on the Vercel SPA origin (it had **no** headers at
+all); the bearer token is no longer attached to cross-origin presigned-storage requests;
+per-user namespacing for contract/negotiation/audit drafts (they previously carried a
+signature image and bank details across accounts on a shared device); the DED → construction
+brief → PBG chain got its missing UI (without it, `verify-pbg` 422'd forever and new-build
+handover was impossible); ~25 notification types got icons and deep-links; notary/supplier
+tabs became reachable; 25 sites stopped discarding the server's error message.
