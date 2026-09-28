@@ -41,11 +41,28 @@ class SupplierController extends Controller
                 return $query->get();
             });
 
+        // SECURITY: this route is unauthenticated. `show()` already applied the
+        // sensitive-field strip (email is NOT in User::$hidden), but index()
+        // returned the raw eager-loaded `user` models — so an anonymous scraper
+        // could enumerate every verified supplier's email from
+        // GET /api/marketplace/suppliers. The 600s cache makes it cheap.
+        $data->each(fn ($supplier) => $supplier->user?->makeHidden(self::SENSITIVE_USER_FIELDS));
+
         return response()->json([
             'status' => 'success',
             'data' => $data,
         ]);
     }
+
+    /**
+     * Identity/payment fields that must never leave the platform on an
+     * unauthenticated surface.
+     */
+    private const SENSITIVE_USER_FIELDS = [
+        'email', 'email_verified_at', 'google_id',
+        'two_factor_secret', 'two_factor_recovery_codes',
+        'bank_name', 'bank_account_number', 'bank_account_name', 'unique_code',
+    ];
 
     /**
      * Get details of a specific supplier.
@@ -66,7 +83,7 @@ class SupplierController extends Controller
 
         // SECURITY: this route is unauthenticated — strip owner identity data
         // (email is not in User::$hidden).
-        $sensitive = ['email', 'email_verified_at', 'google_id', 'two_factor_secret', 'two_factor_recovery_codes', 'bank_name', 'bank_account_number', 'bank_account_name', 'unique_code'];
+        $sensitive = self::SENSITIVE_USER_FIELDS;
         $supplier->user?->makeHidden($sensitive);
         $supplier->reviews->each(fn ($r) => $r->user?->makeHidden($sensitive));
 
