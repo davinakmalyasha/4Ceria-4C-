@@ -24,7 +24,7 @@ class UpdateProjectRequest extends FormRequest
         return [
             'title' => 'sometimes|string|max:255',
             'description' => 'sometimes|string',
-            'budget' => 'sometimes|numeric|min:0',
+            'budget' => 'sometimes|numeric|min:0|max:9999999999999999',
             'lokasi' => 'sometimes|string|max:255',
             'latitude' => 'nullable|string',
             'longitude' => 'nullable|string',

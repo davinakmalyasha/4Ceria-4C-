@@ -47,6 +47,38 @@ class ProjectController extends Controller
         ];
 
         if ($user) {
+            // PERF: ProjectResource decides contact visibility with
+            // subProfessionals()->where('user_id', $viewer)->where('status','active')->exists()
+            // whenever the viewer is not the owner / PM / selected pro, so an
+            // un-eager-loaded list cost one extra query per row (up to +50 per
+            // request). Eager-load exactly the rows that predicate looks at, so
+            // the resource's relationLoaded() branch answers it from memory
+            // and returns the identical boolean.
+            //
+            // Scoped to (user_id = viewer, status = 'active') on purpose: the
+            // relation is also serialized by ProjectResource's
+            // whenLoaded('subProfessionals') block, and this constraint keeps
+            // that block limited to the viewer's own assignments — no other
+            // sub-professional's rates, fees, scope notes or contact details
+            // are ever attached to the list response.
+            //
+            // The select is the union of the columns both relationLoaded()
+            // branches touch: user_id + status for the canViewPhone check, and
+            // project_id + the full serialized set for the sub_professionals
+            // block. project_id is the hasMany match key and MUST be present.
+            $relations['subProfessionals'] = function ($q) use ($user) {
+                $q->where('user_id', $user->id)
+                  ->where('status', 'active')
+                  ->select([
+                      'id', 'project_id', 'user_id', 'parent_role', 'sub_role',
+                      'assigned_by', 'status', 'rate', 'scope_notes',
+                      'lead_pro_notes', 'suggested_fee', 'accepted_at',
+                      'recommended_at', 'hired_at', 'completed_at',
+                      'created_at', 'updated_at',
+                  ])
+                  ->with(['user' => fn ($uq) => $uq->with('phoneNumber')]);
+            };
+
             $role = $user->role_type;
             if ($role === 'arsitek' && $user->arsitek) {
                 $relations['bidsArsitek'] = function ($q) use ($user) {
@@ -1462,6 +1494,7 @@ class ProjectController extends Controller
     public function acceptBid(Request $request, Project $project)
     {
         return DB::transaction(function () use ($request, $project) {
+            $project = Project::whereKey($project->id)->lockForUpdate()->firstOrFail();
             $user = Auth::user();
             $isOwner = $project->user_id === $user->id;
             $isPM = $project->pm_id && $user->role_type === 'project_manager' && $user->id === $project->pm_id;
@@ -1486,7 +1519,16 @@ class ProjectController extends Controller
                 'mep' => \App\Models\BidMep::class,
             };
 
-            $bidToCheck = $bidModel::where('id', $request->bid_id)->where('project_id', $project->id)->firstOrFail();
+            $bidToCheck = $bidModel::where('id', $request->bid_id)->where('project_id', $project->id)->lockForUpdate()->firstOrFail();
+            $projectColumn = config("bids.{$request->bid_type}.project_profile_column");
+            $committedBid = $bidModel::where('project_id', $project->id)
+                ->whereIn('status', ['contract_pending', 'awaiting_payment', 'accepted', 'active'])
+                ->lockForUpdate()
+                ->first();
+
+            if ($project->$projectColumn || $committedBid) {
+                return response()->json(['message' => 'This role already has a hired professional or a pending contract.'], 422);
+            }
 
             // Financial Safety Check: Prevent Rp 0 or Unconfirmed Hire
             if ($bidToCheck->status !== 'shortlisted' && $bidToCheck->status !== 'negotiating' && $bidToCheck->status !== 'pending') {
@@ -1922,6 +1964,19 @@ class ProjectController extends Controller
             return response()->json(['message' => 'The project must be approved before payment can be verified.'], 422);
         }
 
+        // Idempotency + dispute freeze: this endpoint re-runs milestone
+        // generation, so a second call silently recreated every deliverable
+        // milestone, and it previously moved money with no dispute check at all.
+        if ($project->design_payment_verified_at) {
+            return response()->json(['message' => 'The design fee has already been verified for this project.'], 422);
+        }
+
+        try {
+            app(\App\Services\DisputeService::class)->assertNoOpenDispute($project);
+        } catch (\Exception $e) {
+            return response()->json(['message' => $e->getMessage()], $e->getCode() ?: 422);
+        }
+
         \DB::beginTransaction();
         try {
             $project->update([
@@ -1937,19 +1992,43 @@ class ProjectController extends Controller
                     'paid_at' => now()
                 ]);
 
-                \App\Models\ProjectBudgetTransaction::updateOrCreate(
-                    [
+                // MONEY CORRECTNESS: this booked `$acceptedBid->price`, but for a
+                // PERCENTAGE-fee bid `price` is the percentage (e.g. 5) and
+                // `calculated_total` is the rupiah amount. A 5% bid on a
+                // Rp 200,000,000 project booked Rp 5 to the ledger, so the
+                // escrow believed ~Rp 10,000,000 was still free and the owner
+                // could over-commit the budget. Same rule as every other path.
+                $amount = (float) ($acceptedBid->calculated_total ?? $acceptedBid->price);
+
+                $financial = app(\App\Services\ProjectFinancialService::class);
+
+                if (! $financial->recordPayment(
+                    $project,
+                    $amount,
+                    'Paid Architect Base Fee (Verified by Professional)',
+                    'App\Models\BidArsitek',
+                    $acceptedBid->id
+                )) {
+                    throw new \Exception(
+                        'Project budget is insufficient for the design fee (Rp '.number_format($amount, 0, ',', '.')
+                        .'). Available: Rp '.number_format($financial->available($project), 0, ',', '.').'.',
+                        422
+                    );
+                }
+
+                // Payee confirmation — this endpoint previously notified nobody.
+                \App\Models\Notification::create([
+                    'user_id' => $project->user_id,
+                    'type' => 'payment_verified',
+                    'title' => 'Payment Verified',
+                    'body' => "Your Rp ".number_format($amount, 0, ',', '.')
+                        ." design fee for \"{$project->title}\" has been verified.",
+                    'data' => [
                         'project_id' => $project->id,
-                        'reference_model' => 'App\Models\BidArsitek',
-                        'reference_id' => $acceptedBid->id,
+                        'payment_type' => 'arsitek_bid',
+                        'payment_id' => $acceptedBid->id,
                     ],
-                    [
-                        'transaction_type' => 'payment',
-                        'amount' => $acceptedBid->price,
-                        'title' => 'Paid Architect Base Fee (Verified by Professional)',
-                        'transaction_date' => now(),
-                    ]
-                );
+                ]);
             }
 
 
@@ -2017,7 +2096,18 @@ class ProjectController extends Controller
             return new ProjectResource($project);
         } catch (\Exception $e) {
             \DB::rollBack();
-            \Log::error('verifyDesignPayment failed: '.$e->getMessage(), ['exception' => $e]);
+            \Log::error('verifyDesignPayment failed: '.$e->getMessage(), [
+                'project_id' => $project->id,
+                'exception' => $e,
+            ]);
+
+            // Business-rule failures (insufficient budget) must reach the
+            // professional verbatim; anything else stays generic.
+            $code = (int) $e->getCode();
+            if ($code >= 400 && $code < 600) {
+                return response()->json(['message' => $e->getMessage()], $code);
+            }
+
             return response()->json([
                 'message' => 'Failed to verify payment and generate roadmap.',
             ], 500);
@@ -2178,8 +2268,26 @@ class ProjectController extends Controller
         // SECURITY: lifecycle status transitions belong to dedicated flows
         // (handover/snag QA, mutual termination, markComplete). A hired
         // professional must never be able to force complete/cancel.
+        //
+        // The same applies to the OWNER's money and commercial fields. Only
+        // `status` was stripped before, so a hired contractor could set
+        // `budget` to an arbitrary figure AND, in the same request, rewrite the
+        // payment schedule (`payment_termins`, with `target_role` defaulting to
+        // their own role type) to match it — inflating what the owner is
+        // invoiced against a budget they never agreed to.
         if (!$isOwner) {
-            unset($data['status']);
+            unset(
+                $data['status'],
+                $data['budget'],
+                $data['deadline'],
+                $data['completed_phases'],
+                $data['negotiated_fee'],
+                $data['payment_instructions'],
+                $data['target_role'],
+                $data['requires_structural'],
+                $data['requires_mep'],
+                $data['wants_project_manager'],
+            );
         }
 
         // Robust JSON Handling: Merge instead of overwrite for structured details
