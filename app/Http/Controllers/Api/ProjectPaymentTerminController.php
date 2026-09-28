@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Project;
 use App\Models\ProjectPaymentTermin;
 use App\Models\ProjectActivityLog;
+use App\Services\DisputeService;
+use App\Services\TerminPlanService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Traits\HandlesProjectAuthorization;
@@ -24,36 +26,57 @@ class ProjectPaymentTerminController extends Controller
         return response()->json(['data' => $project->paymentTermins()->with('milestone')->get()]);
     }
 
-    public function storePaymentTermin(Request $request, Project $project)
+    public function storePaymentTermin(Request $request, Project $project, TerminPlanService $planService)
     {
         $user = Auth::user();
 
-        // Professionals or PM can create termins
-        if ($user->role_type === 'user') {
-            return response()->json(['message' => 'Unauthorized.'], 403);
+        // SECURITY (was: only `role_type !== 'user'`), which let ANY professional
+        // on the platform mint a payment stage on ANY project with an arbitrary
+        // amount and themselves as recipient_id — which PaymentVerificationService
+        // then authorized on `recipient_id`, so the same attacker could mark it
+        // paid and write a ledger row. This is a money-forgery chain, so a
+        // payment schedule now requires actual project participation.
+        $isOwner = (int) $project->user_id === (int) $user->id;
+        $isPM = $user->role_type === 'project_manager' && (int) $project->pm_id === (int) $user->id;
+
+        if (!$isOwner && !$isPM && ! $this->isHiredProfessional($project, $user)) {
+            return response()->json([
+                'message' => 'Unauthorized. Only the project owner, the assigned Project Manager, or a hired professional on this project may create a payment schedule.',
+            ], 403);
         }
+
+        // DISPUTE FREEZE: while a dispute is open the payment plan is contested.
+        app(DisputeService::class)->assertNoOpenDispute($project);
 
         $request->validate([
             'label' => 'required|string|max:255',
             'percentage' => 'required|numeric|min:0|max:100',
-            'amount' => 'required|integer|min:0',
+            'amount' => 'required|integer|min:0|max:99999999999999',
             'trigger_description' => 'nullable|string|max:255',
             // SECURITY: payments can never be created directly in a paid state;
             // paid is reserved for the proof-upload / verification flows.
             'status' => 'nullable|string|in:locked,pending,invoice_sent',
             'milestone_id' => 'nullable|exists:project_milestones,id',
             'notes' => 'nullable|string|max:1000',
-            'role_type' => 'nullable|string|in:arsitek,kontraktor,mep,interior,notaris',
+            'role_type' => 'nullable|string|in:arsitek,kontraktor,mep,interior,notaris,structural,project_manager',
         ]);
 
         $requestedRole = $request->role_type;
 
         // SECURITY: only the owner or assigned PM may create termins attributed
         // to ANOTHER role; professionals always create termins for their own role.
-        $canActForOthers = $user->id === $project->user_id
-            || ($user->role_type === 'project_manager' && $project->pm_id === $user->id);
+        $canActForOthers = $isOwner || $isPM;
         if (!$canActForOthers) {
             $requestedRole = $user->role_type;
+        }
+
+        $effectiveRole = $requestedRole ?? $user->role_type;
+
+        // A stage may never push the plan past the negotiated contract value.
+        try {
+            $planService->assertWithinContractValue($project, $effectiveRole, (float) $request->amount);
+        } catch (\Exception $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
         }
 
         $termin = $project->paymentTermins()->create([
@@ -64,17 +87,17 @@ class ProjectPaymentTerminController extends Controller
             'status' => $request->status ?? 'locked',
             'milestone_id' => $request->milestone_id,
             'notes' => $request->notes,
-            'role_type' => $requestedRole ?? $user->role_type,
+            'role_type' => $effectiveRole,
             'recipient_id' => ($requestedRole && $requestedRole !== $user->role_type) ? null : $user->id,
         ]);
         
 
         $this->logActivity($project, 'termin_added', "Payment termin added: {$request->label}");
 
-        return response()->json(['data' => $termin->load('milestone')]);
+        return response()->json(['data' => $termin->load('milestone')], 201);
     }
 
-    public function updatePaymentTermin(Request $request, Project $project, ProjectPaymentTermin $termin)
+    public function updatePaymentTermin(Request $request, Project $project, ProjectPaymentTermin $termin, TerminPlanService $planService)
     {
         $user = Auth::user();
 
@@ -93,10 +116,13 @@ class ProjectPaymentTerminController extends Controller
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
+        // DISPUTE FREEZE: plan edits are contested while a dispute is open.
+        app(DisputeService::class)->assertNoOpenDispute($project);
+
         $request->validate([
             'label' => 'nullable|string|max:255',
             'percentage' => 'nullable|numeric|min:0|max:100',
-            'amount' => 'nullable|integer|min:0',
+            'amount' => 'nullable|integer|min:0|max:99999999999999',
             'trigger_description' => 'nullable|string|max:255',
             // SECURITY: paid is a verification-flow outcome, never self-service.
             'status' => 'nullable|string|in:locked,pending,invoice_sent',
@@ -106,26 +132,23 @@ class ProjectPaymentTerminController extends Controller
 
         $updateData = $request->only(['label', 'percentage', 'amount', 'trigger_description', 'status', 'milestone_id', 'notes']);
 
-        // If status changes to 'paid', record the timestamp
-        if (isset($updateData['status']) && $updateData['status'] === 'paid' && $termin->status !== 'paid') {
-            $updateData['paid_at'] = now();
+        try {
+            // Never re-plan a stage the payer already funded or is verifying —
+            // otherwise the payee could change the amount after the owner
+            // uploaded a proof for a different figure.
+            $planService->assertNoInFlightDrift($project, [$updateData + ['id' => $termin->id]], $termin->role_type);
 
-            // Record in budget ledger (Link professional verification to balance reduction)
-            \App\Models\ProjectBudgetTransaction::updateOrCreate(
-                [
-                    'project_id' => $project->id,
-                    'reference_model' => 'App\Models\ProjectPaymentTermin',
-                    'reference_id' => $termin->id,
-                ],
-                [
-                    'transaction_type' => 'payment',
-                    'amount' => $termin->amount,
-                    'title' => "Paid Termin: {$termin->label} (Verified by Recipient)",
-                    'transaction_date' => now(),
-                ]
-            );
+            if (array_key_exists('amount', $updateData)) {
+                $planService->assertWithinContractValue(
+                    $project,
+                    $termin->role_type,
+                    (float) $updateData['amount'],
+                    $termin->id
+                );
+            }
+        } catch (\Exception $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
         }
-        
 
         $termin->update($updateData);
 
@@ -135,36 +158,6 @@ class ProjectPaymentTerminController extends Controller
 
 
 
-
-    private function checkAndActivateBid(Project $project, ProjectPaymentTermin $termin)
-    {
-        // Find the bid related to this termin and role
-        $bidModel = match ($termin->role_type) {
-            'arsitek' => \App\Models\BidArsitek::class,
-            'kontraktor' => \App\Models\BidKontraktor::class,
-            'notaris' => \App\Models\BidNotaris::class,
-            'interior' => \App\Models\BidInterior::class,
-            'project_manager' => \App\Models\BidProjectManager::class,
-            'structural' => \App\Models\BidStructural::class,
-            'mep' => \App\Models\BidMep::class,
-            default => null,
-        };
-
-        if (!$bidModel) return;
-
-        $bid = $bidModel::where('project_id', $project->id)
-            ->where('status', 'awaiting_payment')
-            ->first();
-
-        if ($bid) {
-            $bid->update(['status' => 'accepted']);
-            
-            // Also update the project's selected IDs if not already done
-            if ($termin->role_type === 'arsitek') $project->update(['selected_arsitek_id' => $bid->arsitek_id]);
-            if ($termin->role_type === 'kontraktor') $project->update(['selected_kontraktor_id' => $bid->kontraktor_id]);
-            if ($termin->role_type === 'project_manager') $project->update(['pm_id' => $bid->pm->user_id]);
-        }
-    }
 
     public function linkMilestone(Request $request, Project $project, ProjectPaymentTermin $termin)
     {
