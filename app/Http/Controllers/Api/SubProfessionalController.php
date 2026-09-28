@@ -6,14 +6,24 @@ use App\Http\Controllers\Controller;
 use App\Models\Project;
 use App\Models\ProjectSubProfessional;
 use App\Models\Notification;
+use App\Traits\HandlesProjectAuthorization;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class SubProfessionalController extends Controller
 {
+    use HandlesProjectAuthorization;
+
     public function index(Project $project): \Illuminate\Http\JsonResponse
     {
+        // SECURITY: the roster exposes names, role_type, sub_role, rate and
+        // assigned_by for every specialist on the project. Without a gate any
+        // authenticated user could enumerate it for any project id.
+        if (! $this->authorizeProjectAccess($project)) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
         $subs = $project->subProfessionals()
             ->with(['user:id,name,role_type', 'assignedByUser:id,name'])
             ->where('status', '!=', 'removed')

@@ -6,14 +6,25 @@ use App\Http\Controllers\Controller;
 use App\Models\Project;
 use App\Models\ProjectDailyLog;
 use App\Models\ProjectActivityLog;
+use App\Traits\HandlesProjectAuthorization;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class ProjectDailyLogController extends Controller
 {
+    use HandlesProjectAuthorization;
+
     public function index(Project $project)
     {
+        // SECURITY: site logs carry operational detail (weather, headcount,
+        // issues, photos) plus a fully serialized nested user record. This
+        // method had NO authorization at all, so any authenticated account
+        // could enumerate sequential project ids and read them.
+        if (! $this->authorizeProjectAccess($project)) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
         $logs = $project->dailyLogs()->with('user')->orderBy('log_date', 'desc')->get();
         return response()->json(['data' => $logs]);
     }
