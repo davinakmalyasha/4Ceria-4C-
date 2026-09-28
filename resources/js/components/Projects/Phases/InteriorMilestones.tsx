@@ -16,9 +16,10 @@ interface InteriorMilestonesProps {
     currentUser: any;
     isInteriorDesigner: boolean;
     isPM?: boolean;
+    onRefresh?: () => void;
 }
 
-export default function InteriorMilestones({ project, currentUser, isInteriorDesigner, isPM = false }: InteriorMilestonesProps) {
+export default function InteriorMilestones({ project, currentUser, isInteriorDesigner, isPM = false, onRefresh }: InteriorMilestonesProps) {
     const [milestones, setMilestones] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);

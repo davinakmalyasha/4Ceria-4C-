@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { 
     Send, CheckCircle2, Lock, Unlock, MessageCircle, Info, 
     CreditCard, Banknote, Clock, ShieldCheck, FileText, 
-    Paperclip, X, AlertCircle, Search, RefreshCw, Cloud, Settings
+    Paperclip, X, AlertCircle, Search, RefreshCw, Cloud, Settings, Zap
 } from 'lucide-react';
 import { Project, Termin } from '../../../types/project.types';
 import axios from 'axios';
@@ -10,6 +10,7 @@ import { useToast } from '../../../context/ToastContext';
 import TerminBuilder from './TerminBuilder';
 import PMTechnicalAuditBanner from './PMTechnicalAuditBanner';
 import ConfirmModal from '../ConfirmModal';
+import { getApiErrorMessage } from '../../..//utils/apiError';
 
 interface BriefingActionCenterProps {
     project: Project;
@@ -146,7 +147,7 @@ const BriefingActionCenter: React.FC<BriefingActionCenterProps> = ({
                 onProjectUpdate(response.data.data);
                 showToast(`${newFiles.length} file(s) uploaded`, 'success');
             } catch (err) {
-                showToast('Failed to upload files', 'error');
+                showToast(getApiErrorMessage(err, 'Failed to upload files'), 'error');
             } finally {
                 setIsAutoSaving(false);
             }
@@ -164,7 +165,7 @@ const BriefingActionCenter: React.FC<BriefingActionCenterProps> = ({
             onProjectUpdate(response.data.data);
             showToast('Attachment removed', 'success');
         } catch (err) {
-            showToast('Failed to remove attachment', 'error');
+            showToast(getApiErrorMessage(err, 'Failed to remove attachment'), 'error');
         } finally {
             setIsAutoSaving(false);
         }

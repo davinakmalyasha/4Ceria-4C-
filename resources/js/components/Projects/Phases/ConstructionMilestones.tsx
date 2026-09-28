@@ -38,6 +38,12 @@ interface Milestone {
 }
 
 export default function ConstructionMilestones({ project, currentUser, isContractor, isPM = false, filterType, onRefresh }: ConstructionMilestonesProps) {
+    // BUGFIX (live ReferenceError): `isOwner` was used to gate the owner-only
+    // change-order approval buttons but was never defined — the branch threw
+    // on click. Ownership is a fact of the project + user, not a prop, so derive
+    // it instead of threading a new one through every call site.
+    const isOwner = (currentUser?.id ?? null) === (project?.user_id ?? -1);
+
     const [milestones, setMilestones] = useState<Milestone[]>([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);

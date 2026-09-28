@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import axios from 'axios';
 import { 
     Palette, Plus, Trash2, CheckCircle2, 
@@ -7,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
 import { ProjectRequirement } from '../../../types/phase.types';
+import { getApiErrorMessage } from '../../..//utils/apiError';
 
 interface MaterialSwatchBoardProps {
     project: any;
@@ -65,7 +67,7 @@ export default function MaterialSwatchBoard({ project, isPro, isOwner }: Materia
             setNotes('');
             fetchMaterials();
         } catch (err) {
-            showToast('Failed to add swatch', 'error');
+            showToast(getApiErrorMessage(err, 'Failed to add swatch'), 'error');
         } finally { setSubmitting(false); }
     };
 

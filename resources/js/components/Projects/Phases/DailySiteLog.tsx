@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import axios from 'axios';
 import { Plus, Trash2, Camera, Sun, Cloud, CloudRain, CloudLightning, Users, CalendarDays, X, Save, Info, CheckCircle, ShieldCheck } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
