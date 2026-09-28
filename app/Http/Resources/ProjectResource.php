@@ -191,6 +191,8 @@ class ProjectResource extends JsonResource
             'pbg_verified_at' => $this->pbg_verified_at,
             'slf_verified_at' => $this->slf_verified_at,
             'final_walkthrough_at' => $this->final_walkthrough_at,
+            'walkthrough_status' => $this->walkthrough_status
+                ?? ($this->owner_accepted_at ? 'completed' : ($this->final_walkthrough_at ? 'pending' : null)),
             'owner_accepted_at' => $this->owner_accepted_at,
             'owner_acceptance_notes' => $this->owner_acceptance_notes,
             'owner_design_approved_at' => $this->owner_design_approved_at,
@@ -1353,16 +1355,75 @@ class ProjectResource extends JsonResource
             return $path;
         }
 
+        // PRIVATE DISK (2026-09-23): payment receipts were moved off the
+        // world-readable `public` disk to `railway` — a bank transfer receipt
+        // exposes both parties' account numbers, the balance and a reusable
+        // payment reference. Private objects need a short-lived presigned URL;
+        // concatenating a public URL for them produced a broken link.
+        if ($this->isPrivatePath($path)) {
+            return $this->presignedPrivateUrl($path);
+        }
+
+        return $this->publicUrl($path);
+    }
+
+    /**
+     * Paths stored on the private `railway` disk.
+     */
+    private function isPrivatePath(string $path): bool
+    {
+        return str_starts_with($path, 'receipts/');
+    }
+
+    /**
+     * Presigned URL for a private object, memoized per request (NOT in a static
+     * — statics survive across requests under Octane).
+     *
+     * Falls back to the public URL for objects uploaded before the move.
+     */
+    private function presignedPrivateUrl(string $path): ?string
+    {
+        $memoKey = 'private_url_'.$path;
+
+        try {
+            $request = request();
+
+            if ($request->attributes->has($memoKey)) {
+                return $request->attributes->get($memoKey);
+            }
+
+            $url = null;
+            $disk = \Illuminate\Support\Facades\Storage::disk('railway');
+
+            if ($disk->exists($path)) {
+                $url = $disk->temporaryUrl($path, now()->addMinutes(30));
+            } else {
+                // Legacy receipt still living on the public disk.
+                $url = $this->publicUrl($path);
+            }
+
+            $request->attributes->set($memoKey, $url);
+
+            return $url;
+        } catch (\Throwable $e) {
+            // A local/private driver without presign support must not break the
+            // whole project payload.
+            \Log::warning('Presign failed for '.$path.': '.$e->getMessage());
+
+            return $this->publicUrl($path);
+        }
+    }
+
+    private function publicUrl(string $path): string
+    {
         // Direct public URL generation (0ms concatenation)
         $driver = config('filesystems.disks.public.driver', 'local');
         if ($driver === 's3') {
             $publicUrl = config('filesystems.disks.public.url');
-            $url = rtrim($publicUrl, '/') . '/' . ltrim($path, '/');
-        } else {
-            $url = asset('storage/' . $path);
+            return rtrim($publicUrl, '/') . '/' . ltrim($path, '/');
         }
 
-        return $url;
+        return asset('storage/' . $path);
     }
 
     private function resolveDesignDetailsUrls($details): ?array
