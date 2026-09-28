@@ -93,3 +93,7 @@ frankenphp-worker.php
 # Owner-mandated test/verification assets (override scratch-script patterns above)
 !refinement-tests/
 !refinement-tests/**
+
+**/caddy
+frankenphp
+frankenphp-worker.php
