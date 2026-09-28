@@ -166,6 +166,27 @@ class BidProjectManagerController extends Controller
 
         DB::beginTransaction();
         try {
+            $project = Project::whereKey($project->id)->lockForUpdate()->firstOrFail();
+            $bid = BidProjectManager::whereKey($bid->id)
+                ->where('project_id', $project->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($project->user_id !== Auth::id()) {
+                DB::rollBack();
+                return response()->json(['message' => 'Unauthorized.'], 403);
+            }
+
+            if ($project->pm_id) {
+                DB::rollBack();
+                return response()->json(['message' => 'Project already has a Project Manager.'], 400);
+            }
+
+            if (!in_array($bid->status, ['shortlisted', 'negotiating'], true)) {
+                DB::rollBack();
+                return response()->json(['message' => 'You must shortlist or negotiate with this professional first before hiring.'], 422);
+            }
+
             // Standardize: pm_id in projects table references users.id
             $bid->loadMissing('pm.user');
             $pmUserId = $bid->pm->user_id;            $project->update(['pm_id' => $pmUserId]);
