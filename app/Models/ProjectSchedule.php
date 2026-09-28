@@ -14,6 +14,8 @@ class ProjectSchedule extends Model
         'phase_slug',
         'target_start_date',
         'target_end_date',
+        'original_target_end_date',
+        'shifted_days',
         'actual_start_date',
         'actual_end_date',
         'progress_percentage',
