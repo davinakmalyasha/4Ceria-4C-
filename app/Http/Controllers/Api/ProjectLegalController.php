@@ -29,7 +29,11 @@ class ProjectLegalController extends Controller
         }
 
         return response()->json([
-            'allocated_tax' => $project->budget * 0.1,
+            // Real figure: sum of tax estimates on hired notary bids
+            // (previously a hardcoded budget * 0.1 heuristic).
+            'allocated_tax' => (float) $project->bidsNotaris()
+                ->whereIn('status', ['accepted', 'awaiting_payment', 'active', 'contract_pending', 'completed'])
+                ->sum('tax_estimate'),
             'total_spent' => $project->paymentTermins()->where('status', 'paid')->sum('amount'),
             'pending_approval' => $project->paymentTermins()->where('status', 'pending')->sum('amount'),
             'disbursements' => $project->paymentTermins()
