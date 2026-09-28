@@ -125,6 +125,29 @@ class ProjectEngineeringController extends Controller
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
+        // SECURITY: this endpoint was guarded only by participation, so ANY
+        // participant (including a sub-professional) could delete ANY milestone
+        // — including an APPROVED one whose payment termin is already paid, and
+        // including the *PBG*/*IMB* milestones that satisfy the regulatory gate
+        // (ProjectMilestoneController::destroy has all of these guards; this
+        // twin had none). Only manual/generic log entries may be removed here.
+        $isManualLog = ($milestone->content['is_manual_log'] ?? false) === true
+            || $milestone->type === 'generic';
+
+        if (! $isManualLog) {
+            return response()->json([
+                'message' => 'Only manual engineering log entries can be removed here. Use the milestone endpoint for work-phase records.',
+            ], 400);
+        }
+
+        if ($milestone->approval_status === 'approved') {
+            return response()->json(['message' => 'Cannot delete an approved milestone.'], 400);
+        }
+
+        if ($milestone->linkedTermin && $milestone->linkedTermin->status === 'paid') {
+            return response()->json(['message' => 'Cannot delete a step linked to a PAID payment.'], 400);
+        }
+
         $milestone->delete();
         return response()->json(['message' => 'Log removed']);
     }

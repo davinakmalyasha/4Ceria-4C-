@@ -14,6 +14,13 @@ class ProjectRequirementHistoryController extends Controller
 {
     public function index(Project $project, ProjectRequirement $requirement)
     {
+        // SECURITY: {requirement} is route-model bound but NOT auto-scoped to
+        // {project} — without this check a participant of project A could read
+        // the material history of a requirement owned by project B.
+        if (! $this->assertRequirementInProject($project, $requirement)) {
+            return response()->json(['message' => 'Not found.'], 404);
+        }
+
         if (!$this->isAuthorizedPro($project, Auth::user())) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
@@ -29,6 +36,11 @@ class ProjectRequirementHistoryController extends Controller
     public function restock(Request $request, Project $project, ProjectRequirement $requirement)
     {
         $user = Auth::user();
+
+        if (! $this->assertRequirementInProject($project, $requirement)) {
+            return response()->json(['message' => 'Not found.'], 404);
+        }
+
         if (!$this->isAuthorizedPro($project, $user, ['kontraktor', 'project_manager', 'user'])) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
@@ -64,6 +76,11 @@ class ProjectRequirementHistoryController extends Controller
     public function use(Request $request, Project $project, ProjectRequirement $requirement)
     {
         $user = Auth::user();
+
+        if (! $this->assertRequirementInProject($project, $requirement)) {
+            return response()->json(['message' => 'Not found.'], 404);
+        }
+
         if (!$this->isAuthorizedPro($project, $user, ['kontraktor', 'project_manager', 'user'])) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
@@ -101,19 +118,35 @@ class ProjectRequirementHistoryController extends Controller
         });
     }
 
+    /**
+     * Route-model binding is not auto-scoped: every action on a nested
+     * requirement must re-check that it belongs to the project in the URL.
+     */
+    private function assertRequirementInProject(Project $project, ProjectRequirement $requirement): bool
+    {
+        return (int) $requirement->project_id === (int) $project->id;
+    }
+
     private function isAuthorizedPro(Project $project, $user, array $allowedRoles = [])
     {
         if (empty($allowedRoles)) {
             $allowedRoles = ['arsitek', 'kontraktor', 'mep', 'structural', 'project_manager', 'user', 'interior'];
         }
         
-        $isOwner = $project->user_id === $user->id && in_array('user', $allowedRoles);
-        $isHiredArsitek = $user->role_type === 'arsitek' && $project->selected_arsitek_id === $user->arsitek?->id && in_array('arsitek', $allowedRoles);
-        $isHiredKontraktor = $user->role_type === 'kontraktor' && $project->selected_kontraktor_id === $user->kontraktor?->id && in_array('kontraktor', $allowedRoles);
-        $isHiredPM = $user->role_type === 'project_manager' && $project->pm_id === $user->id && in_array('project_manager', $allowedRoles);
-        $isInterior = $user->role_type === 'interior' && in_array('interior', $allowedRoles);
+        $isOwner = (int) $project->user_id === (int) $user->id && in_array('user', $allowedRoles);
+        $isHiredArsitek = $user->role_type === 'arsitek' && (int) $project->selected_arsitek_id === (int) optional($user->arsitek)->id && in_array('arsitek', $allowedRoles);
+        $isHiredKontraktor = $user->role_type === 'kontraktor' && (int) $project->selected_kontraktor_id === (int) optional($user->kontraktor)->id && in_array('kontraktor', $allowedRoles);
+        $isHiredPM = $user->role_type === 'project_manager' && (int) $project->pm_id === (int) $user->id && in_array('project_manager', $allowedRoles);
 
-        return $isOwner || $isHiredArsitek || $isHiredKontraktor || $isHiredPM || $isInterior;
+        // SECURITY BUGFIX: the interior branch checked only the role type, so
+        // ANY interior-designer account on the platform passed — mirroring the
+        // hole that was already fixed in ProjectRequirementController::index.
+        // selected_interior_id stores a PROFILE id, never a user id.
+        $isHiredInterior = $user->role_type === 'interior'
+            && (int) $project->selected_interior_id === (int) optional($user->interior_profile)->id
+            && in_array('interior', $allowedRoles);
+
+        return $isOwner || $isHiredArsitek || $isHiredKontraktor || $isHiredPM || $isHiredInterior;
     }
 
     private function logActivity(Project $project, string $action, string $details): void
