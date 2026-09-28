@@ -239,6 +239,8 @@ export interface ChangeOrder {
     owner_notes?: string;
     requester?: { id: number; name: string; role_type: string };
     created_at: string;
+    /** Role the change order was raised against (ProjectChangeOrder). */
+    role_type?: string | null;
 }
 
 export interface ProjectRequirement {

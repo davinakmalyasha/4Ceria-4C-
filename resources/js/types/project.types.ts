@@ -1,5 +1,5 @@
 import { formatCurrency as exploreFormatCurrency } from './explore';
-import { ProjectSubProfessional, ProposedTeamMember } from './sub_professional.types';
+import { ProjectSubProfessional, ProposedTeamMember, TeamMember } from './sub_professional.types';
 import { 
     AlertCircle, CheckCircle, Clock, FileText, 
     Zap, Link as LinkIcon, Home, Compass, LayoutDashboard,
@@ -33,6 +33,10 @@ export interface ProjectMilestone {
         gallery?: string[];
         links?: { label: string; url: string }[];
         checklist?: { label: string; checked: boolean }[];
+        /** Links this milestone to a legal requirement slot. */
+        req_id?: string | number | null;
+        /** Manual engineering log entries (EngineeringManualLogs). */
+        is_manual_log?: boolean;
         [key: string]: any;
     };
     is_completed: boolean;
@@ -42,6 +46,12 @@ export interface ProjectMilestone {
     review_status?: 'pending' | 'approved' | 'revision_requested';
     sort_order: number;
     created_at: string;
+    /**
+     * Which lifecycle phase owns this milestone. Read by LegalVault and used
+     * for the per-phase handover gates. Was absent from this interface, so
+     * every read was a type error and the field was invisible to the compiler.
+     */
+    phase_context?: string | null;
 }
 
 // NOTE: this interface was previously declared TWICE with conflicting members
@@ -182,6 +192,17 @@ export interface Bid {
     proposed_milestones?: ProposedMilestone[] | null;
     proposed_team?: ProposedTeamMember[] | null;
     created_at: string;
+    /** Negotiation ceiling offered for this bid (ProjectResource). */
+    price_max?: number | null;
+    /** Full negotiation history for this bid (ProjectResource). */
+    negotiation_logs?: Array<Record<string, any>> | null;
+    /** Price items the professional itemised (ProjectResource). */
+    selected_services?: { name: string; price: number; [key: string]: any }[] | null;
+    /** Denormalised bidder profile, so lists need no second request. */
+    bidder?: { id: number; name: string; role_type: string; [key: string]: any } | null;
+    paid_at?: string | null;
+    payment_proof_path?: string | null;
+    verification_notes?: string | null;
 }
 
 interface ProjectExternalVendor {
@@ -337,17 +358,48 @@ export interface Project {
     design_details?: DesignDetails;
     bids_arsitek_count?: number;
     bids_kontraktor_count?: number;
+    bids_interior_count?: number;
+    bids_notaris_count?: number;
+    bids_mep_count?: number;
+    bids_structural_count?: number;
+    // Bid collections (ProjectResource serializes these directly).
+    bids_interior?: Bid[];
+    bids_notaris?: Bid[];
+    bids_mep?: Bid[];
+    bids_structural?: Bid[];
+    // Canonical escrow state — always ledger-derived (ProjectFinancialService).
+    budget_summary?: {
+        total: number;
+        paid: number;
+        allocated: number;
+        committed: number;
+        remaining: number;
+        available: number;
+        percent_used: number;
+    };
+    /** JSON-decoded project dimensions (site/building measurements). */
+    project_dimensions?: Record<string, any> | null;
+    /** Human-readable location label used across the professional profiles. */
+    lokasi?: string | null;
+    // Hired professional profiles, resolved server-side.
+    arsitek?: any | null;
+    kontraktor?: any | null;
+    notaris?: any | null;
+    interior?: any | null;
+    interior_profile?: any | null;
+    interior_engineer?: any | null;
+    structural_engineer?: any | null;
+    mep_engineer?: any | null;
+    project_manager?: any | null;
+    legal_completed_at?: string | null;
+    legal_locked_at?: string | null;
     bids_project_manager_count?: number;
     bids_arsitek?: Bid[];
     bids_kontraktor?: Bid[];
     bids_project_manager?: Bid[];
-    bids_structural?: Bid[];
-    bids_mep?: Bid[];
     target_role?: string;
     sub_professionals?: ProjectSubProfessional[];
     external_vendors?: ProjectExternalVendor[];
-    structural_engineer?: any;
-    mep_engineer?: any;
     structural_profile?: {
         name: string;
         type: 'platform_hired' | 'internal_team';
