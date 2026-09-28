@@ -16,6 +16,10 @@ interface SnagItem {
     resolution_photos: string[] | null;
     reporter?: { id: number; name: string };
     created_at: string;
+    due_at?: string | null;
+    escalated_at?: string | null;
+    is_overdue?: boolean;
+    age_days?: number;
 }
 
 interface SnagListManagerProps {
@@ -171,6 +175,11 @@ export default function SnagListManager({ project, user, onRefresh }: SnagListMa
                                         {style.icon}
                                         <h5 className="text-sm font-bold text-gray-900 truncate">{item.title}</h5>
                                         <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${SEVERITY_STYLES[item.severity]}`}>{item.severity}</span>
+                                        {item.is_overdue && (
+                                            <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-rose-600 text-white animate-pulse" title={item.due_at ? `Due ${new Date(item.due_at).toLocaleDateString('id-ID')}` : undefined}>
+                                                SLA Overdue{item.age_days ? ` · ${item.age_days}d` : ''}
+                                            </span>
+                                        )}
                                     </div>
                                     <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex-shrink-0">{item.status.replace('_', ' ')}</span>
                                 </div>

@@ -13,14 +13,30 @@ class ProjectSnagItem extends Model
         'project_id', 'title', 'description', 'location',
         'severity', 'photos', 'status', 'assigned_role',
         'reported_by', 'resolved_at', 'resolution_note',
-        'resolution_photos',
+        'resolution_photos', 'due_at', 'escalated_at',
     ];
 
     protected $casts = [
         'photos' => 'array',
         'resolved_at' => 'datetime',
         'resolution_photos' => 'array',
+        'due_at' => 'datetime',
+        'escalated_at' => 'datetime',
     ];
+
+    protected $appends = ['is_overdue', 'age_days'];
+
+    public function getIsOverdueAttribute(): bool
+    {
+        return $this->due_at !== null
+            && !in_array($this->status, ['resolved', 'accepted'], true)
+            && $this->due_at->isPast();
+    }
+
+    public function getAgeDaysAttribute(): int
+    {
+        return $this->created_at ? (int) $this->created_at->diffInDays(now()) : 0;
+    }
 
     /**
      * Resolve paths to S3 pre-signed URLs or fallbacks.
