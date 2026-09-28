@@ -5,28 +5,13 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig(({ mode }) => {
     const pwaPlugin = VitePWA({
+        strategies: 'injectManifest',
+        srcDir: 'resources/js',
+        filename: 'sw.ts',
         registerType: 'autoUpdate',
         injectRegister: 'auto',
-        workbox: {
+        injectManifest: {
             globPatterns: ['**/*.{js,css,html,png,svg,webp,woff2}'],
-            runtimeCaching: [
-                {
-                    urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
-                    handler: 'CacheFirst',
-                    options: {
-                        cacheName: 'google-fonts-stylesheets',
-                        expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 }
-                    }
-                },
-                {
-                    urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
-                    handler: 'CacheFirst',
-                    options: {
-                        cacheName: 'google-fonts-webfonts',
-                        expiration: { maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 * 365 }
-                    }
-                }
-            ]
         },
         manifest: {
             name: '4Ceria Portal',
