@@ -8,6 +8,16 @@ import { useToast } from '../context/ToastContext';
 export const useDashboardData = (activeTab: string = 'overview') => {
     const { user } = useAuth();
     const { showToast } = useToast();
+
+    // PERF: depend on the user's PRIMITIVE identity, never the `user` object.
+    // AuthContext hydrates from localStorage and then replaces `user` with the
+    // fresh /me response, which is a new object with the same `id`. Depending
+    // on the object re-ran all four core requests (2x payload) on every hard
+    // dashboard load. `roleType` is kept as a separate primitive dep so a real
+    // role change still refetches.
+    const userId = user?.id;
+    const roleType = user?.role_type;
+    const isPlainUser = roleType === 'user';
     
     // Core Data State
     const [houses, setHouses] = useState<House[]>([]);
@@ -50,7 +60,7 @@ export const useDashboardData = (activeTab: string = 'overview') => {
     const fetchGeneration = useRef(0);
 
     const fetchData = useCallback(async () => {
-        if (!user) return;
+        if (!userId) return;
 
         const generation = ++fetchGeneration.current;
         const isStale = () => fetchGeneration.current !== generation;
@@ -68,7 +78,7 @@ export const useDashboardData = (activeTab: string = 'overview') => {
                 const projectsData = res.data.data || [];
                 setProjects(projectsData);
                 
-                if (user.role_type === 'user') {
+                if (isPlainUser) {
                     const allBids: any[] = [];
                     projectsData.forEach((p: Project) => {
                         if (p.bids_arsitek) allBids.push(...p.bids_arsitek.map(b => ({ ...b, project_title: p.title })));
@@ -93,7 +103,7 @@ export const useDashboardData = (activeTab: string = 'overview') => {
             .finally(() => setIsFeedLoading(false));
 
         let historyPromise = Promise.resolve();
-        if (user.role_type === 'user') {
+        if (isPlainUser) {
             historyPromise = axios.get('/hire-history')
                 .then(res => {
                     if (isStale()) return;
@@ -110,7 +120,7 @@ export const useDashboardData = (activeTab: string = 'overview') => {
         }
 
         let bidsPromise = Promise.resolve();
-        if (user.role_type !== 'user') {
+        if (!isPlainUser) {
             bidsPromise = axios.get('/my-bids')
                 .then(res => {
                     if (isStale()) return;
@@ -134,16 +144,17 @@ export const useDashboardData = (activeTab: string = 'overview') => {
             .finally(() => {
                 setIsLoading(false);
             });
-    }, [user, showToast]);
+    }, [userId, roleType, showToast]);
 
     // Initial Fetch of Core Data
     useEffect(() => {
+        if (!userId) return;
         fetchData();
-    }, [fetchData]);
+    }, [fetchData, userId]);
 
     // Tab-Based Lazy Loading
     useEffect(() => {
-        if (!user) return;
+        if (!userId) return;
 
         const lazyGet = (key: string, url: string, setter: (data: any[]) => void, setLoading: (v: boolean) => void) => {
             if (lazyFetched[key]) return;
@@ -168,7 +179,7 @@ export const useDashboardData = (activeTab: string = 'overview') => {
         if (activeTab === 'project_manager') lazyGet('project_manager', '/project-manager', setProjectManagers, setIsProjectManagersLoading);
         if (activeTab === 'structural') lazyGet('structural', '/structural-engineers', setStructuralEngineers, setIsStructuralLoading);
         if (activeTab === 'mep') lazyGet('mep', '/mep-engineers', setMepEngineers, setIsMepLoading);
-    }, [activeTab, user, lazyFetched]);
+    }, [activeTab, userId, lazyFetched]);
 
     const refreshProjects = async () => {
         setIsProjectsLoading(true);

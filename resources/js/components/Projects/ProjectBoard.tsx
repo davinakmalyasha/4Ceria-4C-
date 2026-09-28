@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Project } from '../../types/project.types';
 import { useProjectFilters } from '../../hooks/useProjectFilters';
@@ -7,7 +7,22 @@ import ProjectCard, { ProjectCardSkeleton } from './ProjectCard';
 import ProjectEmptyState from './ProjectEmptyState';
 import ProjectStatsDashboard from './ProjectStatsDashboard';
 import ProjectKanban from './ProjectKanban';
-import ProjectMap from './ProjectMap';
+
+// PERF: ProjectMap pulls in react-map-gl + maplibre-gl (~850 kB of the
+// vendor-maps chunk). It is only rendered for professional roles that already
+// have projects on the board, so it must not sit on the dashboard's static
+// import graph — code-split it so _vendor-maps-* moves from the dashboard
+// chunk's `imports` to its `dynamicImports` (verified in build/manifest.json).
+const ProjectMap = React.lazy(() => import('./ProjectMap'));
+
+const ProjectMapSkeleton = () => (
+    <div className="w-full h-[480px] rounded-[1.5rem] bg-gray-100 border border-gray-200 animate-pulse flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+            <div className="w-8 h-8 rounded-full border-[3px] border-gray-300 border-t-[#FF2D20] animate-spin" />
+            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Loading map...</p>
+        </div>
+    </div>
+);
 
 interface ProjectBoardProps {
     projects: Project[];
@@ -23,6 +38,15 @@ interface ProjectBoardProps {
     onViewActiveBids?: () => void;
     onPrefetch?: (projectId: number) => void;
 }
+
+// Renders nothing; flips `mapReady` once the lazy map chunk has resolved and
+// ProjectMap has mounted. The auto-focus effect below keys off it so a
+// search/city change made while the chunk was still in flight is not lost
+// (previously the map was static-imported and mapRef was populated on mount).
+const MapReadySignal = ({ onReady }: { onReady: () => void }) => {
+    useEffect(() => { onReady(); }, [onReady]);
+    return null;
+};
 
 export default function ProjectBoard({ 
     projects, isLoading, userRole, onViewProject, onPostProject, onEditProject, onDeleteProject, onStatusChange, myBidsCount, onViewMyBids, onViewActiveBids, onPrefetch
@@ -46,9 +70,12 @@ export default function ProjectBoard({
 
     const hasQuery = search.trim() !== '' || statusFilter !== 'all' || selectedCity !== 'all';
 
+    const [mapReady, setMapReady] = useState(false);
+    const markMapReady = useCallback(() => setMapReady(true), []);
+
     // Auto-focus map on search results or city selection
     useEffect(() => {
-        if (!mapRef.current || allFilteredProjects.length === 0 || (!search && selectedCity === 'all')) return;
+        if (!mapReady || !mapRef.current || allFilteredProjects.length === 0 || (!search && selectedCity === 'all')) return;
 
         const timer = setTimeout(() => {
             if (allFilteredProjects.length === 1) {
@@ -82,7 +109,7 @@ export default function ProjectBoard({
         }, 800);
 
         return () => clearTimeout(timer);
-    }, [allFilteredProjects, search, selectedCity, mapRef]);
+    }, [allFilteredProjects, search, selectedCity, mapRef, mapReady]);
     
     return (
         <div className="w-full flex flex-col space-y-4">
@@ -94,34 +121,37 @@ export default function ProjectBoard({
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                 >
-                    <ProjectMap 
-                        processedProjects={allFilteredProjects}
-                        allProjects={projects}
-                        mapRef={mapRef}
-                        userLocation={userLocation}
-                        selectedCity={selectedCity}
-                        setSelectedCity={setSelectedCity}
-                        isDropdownOpen={isDropdownOpen}
-                        setIsDropdownOpen={setIsDropdownOpen}
-                        dropdownRef={dropdownRef}
-                        cities={cities}
-                        popupInfo={popupInfo}
-                        setPopupInfo={setPopupInfo}
-                        onFlyToUser={flyToUser}
-                        onSelectProject={onViewProject}
-                        search={search}
-                        onSearchChange={setSearch}
-                        sortBy={sortBy}
-                        onSortChange={setSortBy}
-                        viewMode={viewMode}
-                        onViewModeChange={setViewMode}
-                        totalBudget={stats.totalBudget}
-                        activeBidsCount={myBidsCount}
-                        completedCount={stats.completed}
-                        onViewMyBids={onViewMyBids}
-                        onViewActiveBids={onViewActiveBids}
-                        userRole={userRole}
-                    />
+                    <React.Suspense fallback={<ProjectMapSkeleton />}>
+                        <MapReadySignal onReady={markMapReady} />
+                        <ProjectMap 
+                            processedProjects={allFilteredProjects}
+                            allProjects={projects}
+                            mapRef={mapRef}
+                            userLocation={userLocation}
+                            selectedCity={selectedCity}
+                            setSelectedCity={setSelectedCity}
+                            isDropdownOpen={isDropdownOpen}
+                            setIsDropdownOpen={setIsDropdownOpen}
+                            dropdownRef={dropdownRef}
+                            cities={cities}
+                            popupInfo={popupInfo}
+                            setPopupInfo={setPopupInfo}
+                            onFlyToUser={flyToUser}
+                            onSelectProject={onViewProject}
+                            search={search}
+                            onSearchChange={setSearch}
+                            sortBy={sortBy}
+                            onSortChange={setSortBy}
+                            viewMode={viewMode}
+                            onViewModeChange={setViewMode}
+                            totalBudget={stats.totalBudget}
+                            activeBidsCount={myBidsCount}
+                            completedCount={stats.completed}
+                            onViewMyBids={onViewMyBids}
+                            onViewActiveBids={onViewActiveBids}
+                            userRole={userRole}
+                        />
+                    </React.Suspense>
                 </motion.div>
             )}
 

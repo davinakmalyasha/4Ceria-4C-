@@ -1,4 +1,8 @@
-import '../css/app.css';
+// PERF: resources/css/app.css is NOT imported here. It is a dedicated Vite
+// input (vite.config.js) and is already loaded by the @vite() call in
+// resources/views/app.blade.php, which stays the single authoritative link.
+// Importing it here too made Rollup emit a second, near-identical CSS bundle
+// (~205 kB duplicated on every page load).
 import '../css/index.css';
 import './bootstrap';
 import React from 'react';
@@ -17,6 +21,7 @@ const AdminDashboard = React.lazy(() => import('./pages/admin/AdminDashboard'));
 const AdminVerification = React.lazy(() => import('./pages/admin/AdminVerification'));
 const AdminHouses = React.lazy(() => import('./pages/admin/AdminHouses'));
 const AdminProjects = React.lazy(() => import('./pages/admin/AdminProjects'));
+const AdminDisputes = React.lazy(() => import('./pages/admin/AdminDisputes'));
 const PublicBrief = React.lazy(() => import('./pages/PublicBrief'));
 const Docs = React.lazy(() => import('./pages/Docs'));
 const ForgotPassword = React.lazy(() => import('./pages/ForgotPassword'));
@@ -57,6 +62,7 @@ function App() {
                             <Route path="/admin/verification/logs" element={<AdminRoute><AdminVerification /></AdminRoute>} />
                             <Route path="/admin/houses" element={<AdminRoute><AdminHouses /></AdminRoute>} />
                             <Route path="/admin/projects" element={<AdminRoute><AdminProjects /></AdminRoute>} />
+                            <Route path="/admin/disputes" element={<AdminRoute><AdminDisputes /></AdminRoute>} />
 
                             {/* Public Brief (no auth) */}
                             <Route path="/brief/:token" element={<PublicBrief />} />
