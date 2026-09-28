@@ -33,44 +33,14 @@ uses(Tests\TestCase::class);
 */
 
 beforeEach(function () {
-    // phpunit.xml pins DB_CONNECTION=sqlite + DB_DATABASE=:memory:; these tests
-    // must run on real MySQL, so we recover the original .env values.
-    $real = [];
-    foreach (file(base_path('.env'), FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
-        $line = trim($line);
-        if ($line === '' || str_starts_with($line, '#')) continue;
-        [$k, $v] = array_pad(explode('=', $line, 2), 2, null);
-        $real[trim($k)] = trim($v, " \t\"'");
-    }
-
-    config([
-        'database.default' => 'mysql',
-        'database.connections.mysql.database' => $real['DB_DATABASE'] ?? env('DB_DATABASE'),
-        'database.connections.mysql.host' => $real['DB_HOST'] ?? '127.0.0.1',
-        'database.connections.mysql.port' => $real['DB_PORT'] ?? '3306',
-        'database.connections.mysql.username' => $real['DB_USERNAME'] ?? 'root',
-        'database.connections.mysql.password' => $real['DB_PASSWORD'] ?? '',
-    ]);
-
-    DB::purge('mysql');
-
-    // Hard safety net: refuse to run against anything that looks wrong.
-    if (in_array(config('database.connections.mysql.database'), [':memory:', 'null', null], true)) {
-        $this->fail('Refusing to run money tests without a real MySQL database configured.');
-    }
-
-    DB::beginTransaction();
+    // Shared harness: real MySQL + explicit transaction, always rolled back.
+    // See tests/Support/DatabaseHarness.php for why sqlite is not an option
+    // and how the config is recovered in CI (no .env file present).
+    Tests\Support\DatabaseHarness::boot();
 });
 
 afterEach(function () {
-    // Discard EVERYTHING the test did — guaranteed even on assertion failure.
-    while (DB::transactionLevel() > 0) {
-        try {
-            DB::rollBack();
-        } catch (\Throwable $e) {
-            break;
-        }
-    }
+    Tests\Support\DatabaseHarness::rollback();
 });
 
 function moneyTestUser(string $suffix): User
@@ -121,6 +91,37 @@ it('rejects marking the same bid paid twice and writes only one ledger row', fun
             ->count()
     );
 });
+
+it('preserves an existing hiring commitment for a project role', function (string $role) {
+    $owner = moneyTestUser('hiring_owner');
+    $firstPro = moneyTestUser('first_pro');
+    $secondPro = moneyTestUser('second_pro');
+    $roleConfig = config("bids.{$role}");
+    $profileClass = $roleConfig['profile_model'];
+    $bidClass = $roleConfig['bid_model'];
+    $firstProfile = $profileClass::create(['user_id' => $firstPro->id, 'nama' => 'First']);
+    $secondProfile = $profileClass::create(['user_id' => $secondPro->id, 'nama' => 'Second']);
+    $project = Project::create(['title' => 'Hiring', 'user_id' => $owner->id, 'budget' => 10_000_000, 'status' => 'open']);
+    $committed = $bidClass::create([
+        'project_id' => $project->id, $roleConfig['bid_fk'] => $firstProfile->id,
+        'price' => 1_000_000, 'status' => 'contract_pending',
+        'proposal' => 'Committed proposal',
+    ]);
+    $candidate = $bidClass::create([
+        'project_id' => $project->id, $roleConfig['bid_fk'] => $secondProfile->id,
+        'price' => 1_000_000, 'status' => 'shortlisted',
+        'proposal' => 'Candidate proposal',
+    ]);
+
+    $response = $this->actingAs($owner, 'sanctum')
+        ->postJson("/api/projects/{$project->id}/accept-bid", ['bid_type' => $role, 'bid_id' => $candidate->id]);
+
+    $response->assertStatus(422);
+    expect($committed->fresh()->status)->toBe('contract_pending');
+    expect($candidate->fresh()->status)->toBe('shortlisted');
+    expect($candidate->fresh()->fee_agreed_at)->toBeNull();
+    expect($project->addendums()->count())->toBe(0);
+})->with(['arsitek', 'kontraktor', 'notaris', 'interior', 'structural', 'mep']);
 
 it('blocks re-signing a contract once a payment is verifying or paid', function () {
     $owner = moneyTestUser('owner2');
@@ -216,6 +217,51 @@ it('forbids unrelated users from verifying payment proofs', function () {
 
     $res->assertStatus(403);
 });
+
+it('preserves settled payment records during verification', function (string $type, string $action) {
+    \Illuminate\Support\Facades\Mail::fake();
+    $owner = moneyTestUser('settled_owner');
+    $payee = moneyTestUser('settled_payee');
+    $project = Project::create(['title' => 'Settled', 'user_id' => $owner->id, 'budget' => 10_000_000, 'status' => 'open']);
+
+    if ($type === 'arsitek_bid') {
+        $profile = Arsitek::create(['user_id' => $payee->id, 'nama' => 'Payee']);
+        $payment = BidArsitek::create([
+            'project_id' => $project->id, 'arsitek_id' => $profile->id,
+            'price' => 1_000_000, 'status' => 'active', 'payment_status' => 'paid',
+        ]);
+    } else {
+        $payment = ProjectPaymentTermin::create([
+            'project_id' => $project->id, 'label' => 'Settled termin',
+            'percentage' => 100, 'amount' => 1_000_000, 'status' => 'paid',
+            'role_type' => 'arsitek', 'recipient_id' => $payee->id,
+        ]);
+    }
+
+    $payment->refresh();
+    $before = $payment->getRawOriginal();
+    $ledger = ProjectBudgetTransaction::create([
+        'project_id' => $project->id, 'transaction_type' => 'payment',
+        'amount' => 1_000_000, 'title' => 'Settled payment',
+        'reference_model' => get_class($payment), 'reference_id' => $payment->id,
+        'transaction_date' => now()->subDay(),
+    ]);
+    $ledger->refresh();
+    $ledgerBefore = $ledger->getRawOriginal();
+
+    $response = $this->actingAs($payee, 'sanctum')
+        ->postJson("/api/projects/{$project->id}/payments/{$type}/{$payment->id}/verify-proof", [
+            'action' => $action, 'notes' => 'Review',
+        ]);
+
+    $response->assertStatus(422);
+    expect($payment->fresh()->getRawOriginal())->toBe($before);
+    expect($ledger->fresh()->getRawOriginal())->toBe($ledgerBefore);
+    expect(ProjectBudgetTransaction::where('project_id', $project->id)->count())->toBe(1);
+    expect(\App\Models\Notification::whereIn('user_id', [$owner->id, $payee->id])->count())->toBe(0);
+    \Illuminate\Support\Facades\Mail::assertNothingSent();
+    \Illuminate\Support\Facades\Mail::assertNothingQueued();
+})->with(['termin', 'arsitek_bid'])->with(['accept', 'reject']);
 
 it('does not treat a percentage fee as raw rupiah when the project has no budget', function () {
     $owner = moneyTestUser('own4');
@@ -382,6 +428,13 @@ it('invalidates the cached budget summary when a payment clears', function () {
         'role_type' => 'kontraktor',
         'recipient_id' => $proUser->id,
     ]);
+
+    // PROOF GATE (2026-09-23): verifyProof now refuses an accept with no
+    // transfer proof on file, so the real flow must upload one first — exactly
+    // what the SPA does (owner uploads, payee verifies). payment_proof_path is
+    // deliberately NOT mass-assignable (uploadProof sets the property
+    // directly), hence forceFill.
+    $termin->forceFill(['payment_proof_path' => 'receipts/test-proof.png'])->save();
 
     // Backdate so second-precision timestamp comparison is deterministic.
     $project->forceFill(['updated_at' => now()->subMinutes(5)])->saveQuietly();
