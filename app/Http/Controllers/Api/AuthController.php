@@ -83,18 +83,26 @@ class AuthController extends Controller
                 'role_type' => $request->role_type,
             ]);
 
+            // SECURITY: professional profiles are created UNVERIFIED. They were
+            // previously created as `verification_status => 'verified'`, which
+            // meant an anonymous POST /register could mass-create identities
+            // that immediately appeared in the public directories and bidding
+            // board and could be short-listed without ever reaching
+            // Admin\VerificationController (which only lists `pending` rows).
+            // `pending` is the correct bootstrap state — the professional
+            // uploads KYC and an admin approves it.
             if ($request->role_type === 'arsitek') {
-                Arsitek::create(['user_id' => $user->id, 'nama' => $user->name, 'rate_harga' => 0, 'pengalaman_tahun' => 0, 'verification_status' => 'verified']);
+                Arsitek::create(['user_id' => $user->id, 'nama' => $user->name, 'rate_harga' => 0, 'pengalaman_tahun' => 0, 'verification_status' => 'pending']);
             } elseif ($request->role_type === 'kontraktor') {
-                Kontraktor::create(['user_id' => $user->id, 'nama' => $user->name, 'verification_status' => 'verified']);
+                Kontraktor::create(['user_id' => $user->id, 'nama' => $user->name, 'verification_status' => 'pending']);
             } elseif ($request->role_type === 'notaris') {
-                NotarisProfile::create(['user_id' => $user->id, 'nama' => $user->name, 'rate_harga' => 0, 'pengalaman_tahun' => 0]);
+                NotarisProfile::create(['user_id' => $user->id, 'nama' => $user->name, 'rate_harga' => 0, 'pengalaman_tahun' => 0, 'verification_status' => 'pending']);
             } elseif ($request->role_type === 'interior') {
-                InteriorProfile::create(['user_id' => $user->id, 'nama' => $user->name, 'rate_harga' => 0, 'pengalaman_tahun' => 0]);
+                InteriorProfile::create(['user_id' => $user->id, 'nama' => $user->name, 'rate_harga' => 0, 'pengalaman_tahun' => 0, 'verification_status' => 'pending']);
             } elseif ($request->role_type === 'structural') {
-                StructuralEngineer::create(['user_id' => $user->id, 'nama' => $user->name, 'rate_harga' => 0, 'pengalaman_tahun' => 0]);
+                StructuralEngineer::create(['user_id' => $user->id, 'nama' => $user->name, 'rate_harga' => 0, 'pengalaman_tahun' => 0, 'verification_status' => 'pending']);
             } elseif ($request->role_type === 'mep') {
-                MepEngineer::create(['user_id' => $user->id, 'nama' => $user->name, 'rate_harga' => 0, 'pengalaman_tahun' => 0]);
+                MepEngineer::create(['user_id' => $user->id, 'nama' => $user->name, 'rate_harga' => 0, 'pengalaman_tahun' => 0, 'verification_status' => 'pending']);
             } elseif ($request->role_type === 'project_manager') {
                 \App\Models\ProjectManager::create([
                     'user_id' => $user->id,

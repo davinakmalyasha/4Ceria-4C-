@@ -44,6 +44,14 @@ class User extends Authenticatable
         'is_suspended',
     ];
 
+    protected $casts = [
+        // MySQL tinyint(1) otherwise hydrates as int 1, so strict comparisons
+        // (`is_suspended === true`) and the toggle logic in
+        // AdminUserController behaved inconsistently.
+        'is_suspended' => 'boolean',
+        'email_verified_at' => 'datetime',
+    ];
+
     protected static function booted(): void
     {
         static::creating(function (User $user): void {
@@ -154,6 +162,11 @@ class User extends Authenticatable
     public function chatMessages()
     {
         return $this->hasMany(ChatMessage::class, 'sender_id');
+    }
+
+    public function pushSubscriptions()
+    {
+        return $this->hasMany(PushSubscription::class);
     }
 
     public function courierProfile()

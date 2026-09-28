@@ -44,10 +44,21 @@ class AdminUserController extends Controller
             'is_suspended' => !$user->is_suspended
         ]);
 
+        // SECURITY: suspension previously only flipped a column, and nothing in
+        // the auth chain re-checks `is_suspended` after login — so a suspended
+        // account kept full API access with any bearer token it already held
+        // (2-day Sanctum expiry notwithstanding). Revoke every active token on
+        // suspension so the account is actually locked out.
+        if ($user->is_suspended) {
+            $user->tokens()->delete();
+        }
+
         Cache::forget('admin_dashboard_stats');
 
         return response()->json([
-            'message' => $user->is_suspended ? 'User account suspended successfully.' : 'User account activated successfully.',
+            'message' => $user->is_suspended
+                ? 'User account suspended successfully. All active sessions were revoked.'
+                : 'User account activated successfully.',
             'user' => $user->load('roles')
         ]);
     }
