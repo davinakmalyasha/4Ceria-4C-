@@ -124,6 +124,16 @@ class MaterialQuoteController extends Controller
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
+        // SECURITY: the supplier could self-declare its own quote paid with no
+        // money ever transferred — an honor-system path the equivalent ORDER
+        // flow already closed (MaterialOrderController::update requires a proof
+        // for the 'paid' transition, and verifyPayment is a separate endpoint).
+        if (empty($quote->payment_proof_path)) {
+            return response()->json([
+                'message' => 'A payment proof is required before this quote can be marked as paid.',
+            ], 422);
+        }
+
         $quote->update(['status' => 'paid']);
 
         return response()->json(['success' => true, 'message' => 'Quote marked as paid.', 'data' => $quote]);
