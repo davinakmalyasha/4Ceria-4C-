@@ -24,17 +24,35 @@ export default function EngineeringCoordination({ project, user, roleType, isArc
     const [isProcessing, setIsProcessing] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [openNoteIds, setOpenNoteIds] = useState<{documents: number[], milestones: number[]}>({documents: [], milestones: []});
-    const cacheKey = `draft_audit_${project.id}_${roleType}`;
+    // SECURITY: the draft key MUST be namespaced by user. Without the user id,
+    // the next person to open this project on a shared device inherits the
+    // previous engineer's unsent audit verdicts (approve/revise + notes) as
+    // their own. The legacy unscoped key is read once and migrated, then purged.
+    const legacyCacheKey = `draft_audit_${project.id}_${roleType}`;
+    const cacheKey = `draft_audit_${user?.id ?? 'anon'}_${project.id}_${roleType}`;
+    // BUGFIX: `project.interior_approved_at` does not exist (MySQL 1054/TS
+    // error) — the projects table stores `interior_locked_at`, matching the
+    // structural/mep pair below it. The interior gate therefore never opened.
     const approvedAt = roleType === 'structural' 
         ? project.structural_approved_at 
-        : (roleType === 'mep' ? project.mep_approved_at : project.interior_approved_at);
+        : (roleType === 'mep' ? project.mep_approved_at : project.interior_locked_at);
 
     const [auditData, setAuditData] = useState<{
         milestones: Record<number, { status: 'approved' | 'revision_requested', note: string }>,
         documents: Record<number, { status: 'approved' | 'revision_requested', note: string }>
     }>(() => {
         try {
-            const cached = localStorage.getItem(`draft_audit_${project.id}_${roleType}`);
+            // Migrate the pre-2026-09 unscoped draft into this user's namespace
+            // exactly once, so an in-progress audit is not lost.
+            if (!localStorage.getItem(cacheKey)) {
+                const legacy = localStorage.getItem(legacyCacheKey);
+                if (legacy) {
+                    localStorage.setItem(cacheKey, legacy);
+                    localStorage.removeItem(legacyCacheKey);
+                }
+            }
+
+            const cached = localStorage.getItem(cacheKey);
             if (cached) {
                 return JSON.parse(cached);
             }

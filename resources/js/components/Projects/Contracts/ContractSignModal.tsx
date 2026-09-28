@@ -7,7 +7,7 @@ import {
 import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { useToast } from '../../../context/ToastContext';
-import { useAuth } from '../../../context/AuthContext';
+import { useAuth, userScopedStorageKey, adoptLegacyDraft } from '../../../context/AuthContext';
 import { ProposedTeamMember } from '../../../types/sub_professional.types';
 
 interface ContractSignModalProps {
@@ -29,15 +29,31 @@ export const ContractSignModal: React.FC<ContractSignModalProps> = ({ isOpen, on
     const [bankAccountNo, setBankAccountNo] = useState('');
     const [bankAccountName, setBankAccountName] = useState('');
 
+    // The draft holds a signature image and bank details, so it is namespaced
+    // per user: on a shared device the next account must not inherit it.
+    const legacyDraftKey = `4ceria_contract_draft_${project.id}_${bid.id}`;
+    const draftKey = user?.id
+        ? userScopedStorageKey('4ceria_contract_draft_', user.id, project.id, bid.id)
+        : '';
+
     const saveDraft = (updates: any) => {
-        const key = `4ceria_contract_draft_${project.id}_${bid.id}`;
+        if (!draftKey) return;
         try {
-            const currentDraftStr = sessionStorage.getItem(key);
+            const currentDraftStr = sessionStorage.getItem(draftKey);
             const currentDraft = currentDraftStr ? JSON.parse(currentDraftStr) : {};
             const newDraft = { ...currentDraft, ...updates };
-            sessionStorage.setItem(key, JSON.stringify(newDraft));
+            sessionStorage.setItem(draftKey, JSON.stringify(newDraft));
         } catch (e) {
             console.error("Failed to save draft", e);
+        }
+    };
+
+    const clearDraft = () => {
+        try {
+            if (draftKey) sessionStorage.removeItem(draftKey);
+            sessionStorage.removeItem(legacyDraftKey);
+        } catch (e) {
+            // Storage unavailable.
         }
     };
 
@@ -331,10 +347,16 @@ export const ContractSignModal: React.FC<ContractSignModalProps> = ({ isOpen, on
 
     React.useEffect(() => {
         if (isOpen) {
-            const draftKey = `4ceria_contract_draft_${project.id}_${bid.id}`;
+            // One-time migration: a draft written before the key was namespaced
+            // is moved into this user's key (and deleted) so an in-flight
+            // signing is never lost.
+            if (draftKey) {
+                adoptLegacyDraft(legacyDraftKey, draftKey, sessionStorage);
+            }
+
             let draft: any = null;
             try {
-                const draftStr = sessionStorage.getItem(draftKey);
+                const draftStr = draftKey ? sessionStorage.getItem(draftKey) : null;
                 if (draftStr) {
                     draft = JSON.parse(draftStr);
                 }

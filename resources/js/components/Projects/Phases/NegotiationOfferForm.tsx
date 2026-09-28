@@ -128,6 +128,11 @@ export const NegotiationOfferForm: React.FC<Props> = ({ bid, project, proType, o
         proposedTeam: defaultProposedTeam
     }), [bid.fee_type, bid.price, defaultLengthInput, defaultWidthInput, defaultTermins, defaultMilestones, defaultProposedTeam]);
 
+    // Used to namespace the persisted negotiation draft per account (see
+    // useBidDraft) — a shared device must not hand one professional another
+    // professional's negotiated fee.
+    const currentUserId = user?.id ?? null;
+
     const {
         feeType,
         setFeeType,
@@ -148,7 +153,7 @@ export const NegotiationOfferForm: React.FC<Props> = ({ bid, project, proType, o
         clearDraft,
         resetDraft,
         isModified
-    } = useBidDraft(bid.id, defaults);
+    } = useBidDraft(bid.id, defaults, currentUserId);
 
     const dynamicArea = useMemo(() => {
         if (lengthInput > 0 && widthInput > 0) {

@@ -25,9 +25,37 @@ export function useBidDraft(
         termins: ProposedTermin[];
         milestones: ProposedMilestone[];
         proposedTeam: ProposedTeamMember[];
-    }
+    },
+    /**
+     * Current user id.
+     *
+     * SECURITY: the draft holds COMMERCIALLY SENSITIVE data (negotiated fee,
+     * termin percentages, milestone scope, private note). Keyed by bid id
+     * alone, the next person to open the same bid on a shared device inherits
+     * it as their own. Namespacing by user keeps drafts on one device tied to
+     * one account.
+     */
+    userId?: number | null
 ) {
-    const storageKey = `bid_draft_${bidId}`;
+    const legacyStorageKey = `bid_draft_${bidId}`;
+    const storageKey = `bid_draft_${userId ?? 'anon'}_${bidId}`;
+
+    // One-time migration of the pre-2026-09 unscoped key so an in-flight
+    // negotiation is not lost.
+    useEffect(() => {
+        try {
+            if (userId && !localStorage.getItem(storageKey)) {
+                const legacy = localStorage.getItem(legacyStorageKey);
+                if (legacy) {
+                    localStorage.setItem(storageKey, legacy);
+                    localStorage.removeItem(legacyStorageKey);
+                }
+            }
+        } catch {
+            /* storage unavailable (private mode) — drafts simply do not persist */
+        }
+    }, [userId, storageKey, legacyStorageKey]);
+
     const defaultsRef = useRef(defaults);
 
     // Keep defaults ref updated
