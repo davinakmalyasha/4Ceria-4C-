@@ -115,6 +115,7 @@ class Project extends Model
         'legal_handover_submitted_at',
         'legal_handover_notes',
         'final_walkthrough_at',
+        'walkthrough_status',
         'owner_accepted_at',
         'owner_acceptance_notes',
         'owner_design_approved_at',
@@ -350,6 +351,11 @@ class Project extends Model
         return $this->hasMany(ProjectSnagItem::class)->orderBy('created_at', 'desc');
     }
 
+    public function disputes()
+    {
+        return $this->hasMany(ProjectDispute::class)->orderBy('created_at', 'desc');
+    }
+
     public function changeOrders()
     {
         return $this->hasMany(ProjectChangeOrder::class)->orderBy('created_at', 'desc');
@@ -386,16 +392,28 @@ class Project extends Model
     }
 
     /**
-     * Calculate the current financial state of the project.
-     * Allocated = Sum of hired professionals + approved addendums + approved change orders.
+     * Canonical financial state for this project.
+     *
+     * The arithmetic itself lives in ProjectFinancialService (the single
+     * source of truth shared with the write-path guard). It previously lived
+     * here and was derived from BIDS + approved addendums + change orders,
+     * which disagreed with the enforcement rule in deductBudget
+     * (`budget - SUM(payment rows)`): a termin paid through the ledger was
+     * invisible here, while a `contract_pending` bid that was never paid was
+     * counted. The owner was therefore told one number while the server
+     * enforced another.
+     *
+     * Cache key uses MILLISECOND precision plus the newest ledger row, so two
+     * writes in the same second cannot serve a stale summary.
      */
     public function calculateBudgetSummary(): array
     {
-        // PERF: this used to fall back to 9–16 aggregate queries whenever the
-        // bid relations weren't eager-loaded (i.e. every owner view of
-        // /projects/{id} — the hottest endpoint). Cached for 60s keyed on the
-        // project's updated_at so any write invalidates it automatically.
-        $key = 'budget_summary_' . $this->id . '_' . optional($this->updated_at)->timestamp;
+        $ledgerTouch = \App\Models\ProjectBudgetTransaction::where('project_id', $this->id)
+            ->max('updated_at');
+
+        $key = 'budget_summary_'.$this->id.'_'
+            .optional($this->updated_at)->getTimestampMs()
+            .'_'.optional($ledgerTouch)->getTimestampMs();
 
         return \Illuminate\Support\Facades\Cache::remember($key, 60, function () {
             return $this->doCalculateBudgetSummary();
@@ -404,58 +422,6 @@ class Project extends Model
 
     private function doCalculateBudgetSummary(): array
     {
-        $hiredStatuses = ['accepted', 'awaiting_payment', 'active', 'contract_pending', 'completed'];
-        
-        $allocated = 0;
-        
-        // Helper to sum bids in memory if relation is loaded, or fallback to query
-        $sumBid = function(string $relationName) use ($hiredStatuses) {
-            if ($this->relationLoaded($relationName)) {
-                $bids = $this->getRelation($relationName);
-                $filtered = $bids->whereIn('status', $hiredStatuses);
-                
-                $sum = 0;
-                foreach ($filtered as $bid) {
-                    $sum += $bid->calculated_total ?: $bid->price;
-                }
-                return $sum;
-            }
-            
-            $rel = $this->{$relationName}();
-            return $rel->whereIn('status', $hiredStatuses)->sum('calculated_total') 
-                ?: $rel->whereIn('status', $hiredStatuses)->sum('price');
-        };
-
-        // Sum all accepted/active professional bids
-        $allocated += $sumBid('bidsArsitek');
-        $allocated += $sumBid('bidsKontraktor');
-        $allocated += $sumBid('bidsNotaris');
-        $allocated += $sumBid('bidsInterior');
-        $allocated += $sumBid('bidsProjectManager');
-        $allocated += $sumBid('bidsStructural');
-        $allocated += $sumBid('bidsMep');
-        
-        // Addendums (Professional extra fees / Material authorizations)
-        if ($this->relationLoaded('addendums')) {
-            $allocated += $this->addendums->whereIn('status', ['paid', 'approved', 'pm_reviewed'])->sum('amount');
-        } else {
-            $allocated += $this->addendums()->whereIn('status', ['paid', 'approved', 'pm_reviewed'])->sum('amount');
-        }
-        
-        // Change Orders
-        if ($this->relationLoaded('changeOrders')) {
-            $allocated += $this->changeOrders->where('status', 'owner_approved')->sum('cost_impact');
-        } else {
-            $allocated += $this->changeOrders()->where('status', 'owner_approved')->sum('cost_impact');
-        }
-
-        $totalBudget = (float) $this->budget;
-        
-        return [
-            'total' => $totalBudget,
-            'allocated' => (float) $allocated,
-            'remaining' => (float) ($totalBudget - $allocated),
-            'percent_used' => $totalBudget > 0 ? ($allocated / $totalBudget) * 100 : 0
-        ];
+        return app(\App\Services\ProjectFinancialService::class)->summary($this);
     }
 }
