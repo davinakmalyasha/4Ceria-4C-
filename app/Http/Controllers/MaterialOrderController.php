@@ -91,6 +91,12 @@ class MaterialOrderController extends Controller
 
     /**
      * Supplier verifies the uploaded proof and marks the order paid.
+     *
+     * 2026-09-23: this transition wrote NO `project_budget_transactions` row
+     * and never consulted the dispute freeze, so (a) material procurement was
+     * completely invisible to the escrow affordability check and (b) money
+     * could keep moving on a project under dispute. Both are now enforced;
+     * project-bound orders share the ledger with every other payment.
      */
     public function verifyPayment(MaterialOrder $materialOrder)
     {
@@ -106,10 +112,50 @@ class MaterialOrderController extends Controller
             return response()->json(['message' => 'This order is already marked as paid.'], 422);
         }
 
-        $materialOrder->update([
-            'status' => 'paid',
-            'paid_at' => now(),
-        ]);
+        try {
+            $project = $materialOrder->project_id
+                ? \App\Models\Project::find($materialOrder->project_id)
+                : null;
+
+            if ($project) {
+                // Payments are frozen while a dispute is open.
+                app(\App\Services\DisputeService::class)->assertNoOpenDispute($project);
+
+                $financial = app(\App\Services\ProjectFinancialService::class);
+                $amount = (float) ($materialOrder->total_price ?? 0) + (float) ($materialOrder->shipping_cost ?? 0);
+
+                if ($amount > 0 && ! $financial->recordPayment(
+                    $project,
+                    $amount,
+                    "Payment: Material Order #{$materialOrder->id}",
+                    'MaterialOrder',
+                    $materialOrder->id
+                )) {
+                    return response()->json([
+                        'message' => 'Project budget is insufficient for this material payment. Available: Rp '
+                            .number_format($financial->available($project), 0, ',', '.').'.',
+                    ], 422);
+                }
+            }
+
+            $materialOrder->update([
+                'status' => 'paid',
+                'paid_at' => now(),
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Material order payment verification failed', [
+                'order_id' => $materialOrder->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            $code = (int) $e->getCode();
+            if ($code >= 400 && $code < 600) {
+                return response()->json(['message' => $e->getMessage()], $code);
+            }
+
+            return response()->json(['success' => false, 'message' => 'Payment verification failed.'], 500);
+        }
+
         $this->orderService->decrementStock($materialOrder);
 
         if ($materialOrder->user_id !== $user->id) {
@@ -156,6 +202,18 @@ class MaterialOrderController extends Controller
             // Verifying an uploaded proof
         } else {
             return response()->json(['message' => 'Unauthorized to update this status'], 403);
+        }
+
+        // 2026-09-23: the status route can also flip an order to 'paid', which
+        // bypassed the ledger and the dispute freeze that verifyPayment now
+        // enforces. Funnel it through the same single path so exactly one
+        // ledger row can ever exist for an order.
+        if ($validated['status'] === 'paid' && $materialOrder->status !== 'paid') {
+            if ($materialOrder->payment_proof_path) {
+                return $this->verifyPayment($materialOrder);
+            }
+
+            return response()->json(['message' => 'A payment proof is required to mark this order paid.'], 422);
         }
 
         $updateData = [
