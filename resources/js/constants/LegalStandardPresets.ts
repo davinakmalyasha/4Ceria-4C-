@@ -14,6 +14,23 @@ interface LegalDocumentPreset {
     category: LegalCategory;
     milestone_code: string;
     responsibleRole: 'Notary' | 'Architect' | 'Architect & Notary' | 'Owner' | 'Any';
+    /**
+     * OPTIONAL extension point consumed by LegalVault.
+     *
+     * When true, the document is routed to a SPECIFIC professional (the
+     * notary/architect/... actually hired on the project) instead of the
+     * project workspace as a whole. No entry sets this yet, so the
+     * corresponding UI branch is currently inert — declared here so the
+     * consumer stays type-safe and the intent is documented rather than
+     * silently undefined.
+     */
+    isProfessionalSpecific?: boolean;
+    /**
+     * OPTIONAL dual-standard template download (SNI/BSN reference copy).
+     * No entry sets this yet; only populated once template files are actually
+     * published to public/templates/.
+     */
+    templateUrl?: string;
 }
 
 type LegalCategory = 

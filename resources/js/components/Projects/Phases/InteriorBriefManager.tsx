@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Save, Lock, Palette, Armchair, Lightbulb, Sparkles, Plus, Trash2 } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
+import { getApiErrorMessage } from '../../..//utils/apiError';
 
 interface InteriorBriefManagerProps {
     project: any;
@@ -66,7 +67,7 @@ export default function InteriorBriefManager({ project, isInteriorDesigner, onRe
             showToast('Interior brief saved', 'success');
             onRefresh();
         } catch (err) {
-            showToast('Failed to save brief', 'error');
+            showToast(getApiErrorMessage(err, 'Failed to save brief'), 'error');
         } finally {
             setSaving(false);
         }
