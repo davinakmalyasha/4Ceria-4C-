@@ -4,15 +4,22 @@
          bootstrap="vendor/autoload.php"
          colors="true"
 >
+    <!--
+        2026-09-23: the previous suite list named `tests/Unit` and
+        `tests/Feature` — NEITHER DIRECTORY EXISTS — plus a single explicit file.
+        Consequence: `php artisan test` silently ran ONE of the three suites, so
+        tests/DisputeCenterTest.php and tests/RefinementRegressionTest.php never
+        executed in the default command. `<directory>tests</directory>` picks up
+        every suite in the folder.
+
+        The suites run against real MySQL (each file recovers the .env config in
+        beforeEach and rolls back in afterEach) because the legacy migrations use
+        raw MySQL ALTER/ENUM statements that sqlite cannot execute. DML only —
+        never add DDL to a test file.
+    -->
     <testsuites>
         <testsuite name="Unit">
-            <directory>tests/Unit</directory>
-        </testsuite>
-        <testsuite name="Feature">
-            <directory>tests/Feature</directory>
-        </testsuite>
-        <testsuite name="Money">
-            <file>tests/MoneyIntegrityTest.php</file>
+            <directory>tests</directory>
         </testsuite>
     </testsuites>
     <source>
