@@ -26,6 +26,14 @@ class ProjectFeatureController extends Controller
             return response()->json(['message' => 'Unauthorized. Only the assigned PM can verify procurement requests.'], 403);
         }
 
+        // SECURITY: {procurementRequest} is route-bound but NOT scoped to
+        // {project}. Without this the PM of project A could verify a request
+        // belonging to project B — writing an addendum against project A while
+        // the requirement (and its name, in the addendum title) belongs to B.
+        if ((int) $procurementRequest->project_id !== (int) $project->id) {
+            return response()->json(['message' => 'Not found.'], 404);
+        }
+
         $request->validate([
             'estimated_cost' => 'required|numeric|min:0',
             'pm_note' => 'nullable|string|max:500',
@@ -90,6 +98,11 @@ class ProjectFeatureController extends Controller
 
         if ($user->role_type !== 'project_manager' || $project->pm_id !== $user->id) {
             return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        // SECURITY: parent-binding check — see pmVerifyProcurement.
+        if ((int) $procurementRequest->project_id !== (int) $project->id) {
+            return response()->json(['message' => 'Not found.'], 404);
         }
 
         $request->validate(['pm_note' => 'required|string|max:500']);
