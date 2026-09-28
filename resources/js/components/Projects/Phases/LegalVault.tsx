@@ -32,14 +32,6 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
     const [isSealing, setIsSealing] = useState(false);
     const [vaultView, setVaultView] = useState<'deliverables' | 'personal'>('deliverables');
 
-    if (!project) {
-        return (
-            <div className="py-20 text-center animate-pulse">
-                <ShieldCheck size={40} className="mx-auto text-zinc-100 mb-4" />
-                <p className="text-[10px] text-zinc-400 font-black uppercase tracking-widest">Hydrating Vault...</p>
-            </div>
-        );
-    }
     
     // Financial Modal State
     const [isRequestingDisbursement, setIsRequestingDisbursement] = useState(false);
@@ -73,12 +65,12 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
 
     // The source of truth: What the Notary finalized in the BriefManager + manual milestones
     const templateSlots = useMemo(() => {
-        const reqs = Array.isArray(project?.legal_requirements) ? project.legal_requirements : [];
+        const reqs = Array.isArray(project?.legal_requirements) ? project?.legal_requirements : [];
         let combined = [...reqs];
         
         // NEW FALLBACK: Try deriving from accepted bid's selected services if requirements is empty
-        if (combined.length === 0 && project.accepted_notaris_bid?.selected_services) {
-            const bidServices = project.accepted_notaris_bid.selected_services;
+        if (combined.length === 0 && project?.accepted_notaris_bid?.selected_services) {
+            const bidServices = project?.accepted_notaris_bid.selected_services;
             if (Array.isArray(bidServices)) {
                 combined = bidServices.map((s: any) => String(s.id || s));
             }
@@ -105,8 +97,8 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
             
             // Try to find title in bid services if it's a numeric ID
             let fallbackLabel = reqId.toUpperCase().replace('_', ' ');
-            if (is_numeric(reqId) && project.accepted_notaris_bid?.selected_services) {
-                const service = project.accepted_notaris_bid.selected_services.find((s: any) => String(s.id || s) === String(reqId));
+            if (is_numeric(reqId) && project?.accepted_notaris_bid?.selected_services) {
+                const service = project?.accepted_notaris_bid.selected_services.find((s: any) => String(s.id || s) === String(reqId));
                 if (service && typeof service === 'object') {
                     fallbackLabel = service.title || fallbackLabel;
                 }
@@ -161,7 +153,7 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
             });
 
         return [...presetSlots, ...manualSlots];
-    }, [project.legal_requirements, milestones, termins]);
+    }, [project?.legal_requirements, milestones, termins]);
 
     const activeSlots = useMemo(() => {
         if (vaultView === 'personal') {
@@ -211,7 +203,7 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
         else if (currentUser?.role_type === 'kontraktor') setActiveProRole('kontraktor');
         else if (currentUser?.role_type === 'interior') setActiveProRole('interior');
         else setActiveProRole('notaris'); // Default for PM/Owner global view
-    }, [project.id, defaultProRole]);
+    }, [project?.id, defaultProRole]);
 
     // Find the milestone matching the current slot
     const activeMilestone = useMemo(() => {
@@ -264,7 +256,7 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
         });
     }, [milestones, templateSlots]);
 
-    const isPhaseSealed = !!project.legal_completed_at;
+    const isPhaseSealed = !!project?.legal_completed_at;
 
     // Update editNote when activeMilestone changes
     useEffect(() => {
@@ -295,10 +287,10 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
             // This allows PMs to upload for a specific role correctly.
             const preset = getLegalRequirementById(selectedReqId);
             if (preset?.isProfessionalSpecific && activeProRole) {
-                if (activeProRole === 'notaris' && project.selected_notaris_id) formData.append('target_notaris_id', String(project.selected_notaris_id));
-                if (activeProRole === 'arsitek' && project.selected_arsitek_id) formData.append('target_arsitek_id', String(project.selected_arsitek_id));
-                if (activeProRole === 'kontraktor' && project.selected_kontraktor_id) formData.append('target_kontraktor_id', String(project.selected_kontraktor_id));
-                if (activeProRole === 'interior' && project.selected_interior_id) formData.append('target_interior_id', String(project.selected_interior_id));
+                if (activeProRole === 'notaris' && project?.selected_notaris_id) formData.append('target_notaris_id', String(project?.selected_notaris_id));
+                if (activeProRole === 'arsitek' && project?.selected_arsitek_id) formData.append('target_arsitek_id', String(project?.selected_arsitek_id));
+                if (activeProRole === 'kontraktor' && project?.selected_kontraktor_id) formData.append('target_kontraktor_id', String(project?.selected_kontraktor_id));
+                if (activeProRole === 'interior' && project?.selected_interior_id) formData.append('target_interior_id', String(project?.selected_interior_id));
             }
 
             if (activeMilestone) {
@@ -308,11 +300,11 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
                     formData.append('approval_status', 'pending');
                     formData.append('revision_notes', '');
                 }
-                await axios.post(`/projects/${project.id}/milestones/${activeMilestone.id}`, formData);
+                await axios.post(`/projects/${project?.id}/milestones/${activeMilestone.id}`, formData);
                 showToast('Vault entry updated', 'success');
             } else {
                 // Create new on the fly
-                await axios.post(`/projects/${project.id}/milestones`, formData);
+                await axios.post(`/projects/${project?.id}/milestones`, formData);
                 showToast(`Initialized slot: ${slot.label}`, 'success');
             }
             
@@ -326,7 +318,7 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
 
     const canUpload = useMemo(() => {
         if (isPhaseSealed) return false;
-        if (project.legal_handover_submitted_at) return false;
+        if (project?.legal_handover_submitted_at) return false;
         if (!selectedReqId) return false;
         
         const slot = templateSlots.find(s => s.id === selectedReqId);
@@ -345,7 +337,7 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
         if (isArchitect && (role === 'Architect' || role === 'Architect & Notary')) return true;
         
         return false;
-    }, [selectedReqId, isPhaseSealed, isNotaris, isArchitect, isPM, isOwner, templateSlots, project.legal_handover_submitted_at]);
+    }, [selectedReqId, isPhaseSealed, isNotaris, isArchitect, isPM, isOwner, templateSlots, project?.legal_handover_submitted_at]);
 
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files?.[0]) {
@@ -364,7 +356,7 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
         if (!window.confirm(confirmMsg)) return;
 
         try {
-            await axios.post(`/projects/${project.id}/payment-termins/${terminId}/link-milestone`, {
+            await axios.post(`/projects/${project?.id}/payment-termins/${terminId}/link-milestone`, {
                 milestone_id: milestoneId
             });
             showToast('Payment linked to progress step', 'success');
@@ -376,7 +368,7 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
 
     const handleUnlinkTermin = async (terminId: number) => {
         try {
-            await axios.post(`/projects/${project.id}/payment-termins/${terminId}/unlink-milestone`);
+            await axios.post(`/projects/${project?.id}/payment-termins/${terminId}/unlink-milestone`);
             showToast('Payment link removed', 'success');
             fetchMilestones();
         } catch (error) {
@@ -397,7 +389,7 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
             formData.append('phase_context', 'legal');
             formData.append('sort_order', String(milestones.length));
 
-            await axios.post(`/projects/${project.id}/milestones`, formData);
+            await axios.post(`/projects/${project?.id}/milestones`, formData);
             
             showToast('New progress step added', 'success');
             setIsAddingCustom(false);
@@ -426,7 +418,7 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
 
         if (!window.confirm("Are you sure you want to remove this custom progress step?")) return;
         try {
-            await axios.delete(`/projects/${project.id}/milestones/${id}`);
+            await axios.delete(`/projects/${project?.id}/milestones/${id}`);
             showToast('Progress step removed', 'success');
             setSelectedReqId(null);
             fetchMilestones();
@@ -446,7 +438,7 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
 
         setSubmittingId(String(activeMilestone.id));
         try {
-            await axios.post(`/projects/${project.id}/milestones/${activeMilestone.id}`, {
+            await axios.post(`/projects/${project?.id}/milestones/${activeMilestone.id}`, {
                 _method: 'PUT',
                 approval_status: status,
                 is_completed: status === 'approved',
@@ -468,7 +460,7 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
         
         setIsSealing(true);
         try {
-            await axios.post(`/projects/${project.id}/seal-legal`);
+            await axios.post(`/projects/${project?.id}/seal-legal`);
             showToast('Legal Phase formally sealed and archived', 'success');
             if (onUpdate) onUpdate();
             fetchMilestones();
@@ -483,7 +475,7 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
         e.preventDefault();
         setLoading(true);
         try {
-            await axios.post(`/projects/${project.id}/legal-disbursements`, {
+            await axios.post(`/projects/${project?.id}/legal-disbursements`, {
                 title: disbTitle,
                 amount: disbAmount,
                 description: disbDesc
@@ -501,7 +493,7 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
 
     const handleVerifyDisbursement = async (id: number, status: 'approved' | 'rejected') => {
         try {
-            await axios.post(`/projects/${project.id}/legal-disbursements/${id}/verify`, { status });
+            await axios.post(`/projects/${project?.id}/legal-disbursements/${id}/verify`, { status });
             showToast(`Budget order ${status}`, 'success');
             fetchMilestones();
         } catch (error) {
@@ -518,10 +510,10 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
 
     // Helper to check for architect deliverables from design phase
     const architectBlueprints = useMemo(() => {
-        const docBlueprints = (project.documents || []).filter((d: any) => d.category === 'blueprint');
+        const docBlueprints = (project?.documents || []).filter((d: any) => d.category === 'blueprint');
         const milestoneBlueprints = milestones.filter(m => m.phase_context === 'design' && (m.approval_status === 'approved' || m.is_completed));
         return [...docBlueprints, ...milestoneBlueprints];
-    }, [project.documents, milestones]);
+    }, [project?.documents, milestones]);
 
     // Regulatory Dependency Check (Frontend Warning)
     const checkDependency = (id: string) => {
@@ -582,6 +574,14 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
         );
     }
 
+    if (!project) {
+        return (
+            <div className="py-20 text-center animate-pulse">
+                <ShieldCheck size={40} className="mx-auto text-zinc-100 mb-4" />
+                <p className="text-[10px] text-zinc-400 font-black uppercase tracking-widest">Hydrating Vault...</p>
+            </div>
+        );
+    }
     return (
         <div className="space-y-8 animate-in fade-in duration-700">
             {/* Modal: Request Disbursement */}
@@ -859,10 +859,10 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
                                 {getLegalRequirementById(selectedReqId)?.isProfessionalSpecific && (
                                     <div className="flex flex-wrap items-center gap-2 p-2 bg-zinc-100/50 rounded-2xl w-fit">
                                         {[
-                                            { role: 'notaris', label: 'Notary', active: project.selected_notaris_id },
-                                            { role: 'arsitek', label: 'Architect', active: project.selected_arsitek_id },
-                                            { role: 'kontraktor', label: 'Contractor', active: project.selected_kontraktor_id },
-                                            { role: 'interior', label: 'Interior', active: project.selected_interior_id }
+                                            { role: 'notaris', label: 'Notary', active: project?.selected_notaris_id },
+                                            { role: 'arsitek', label: 'Architect', active: project?.selected_arsitek_id },
+                                            { role: 'kontraktor', label: 'Contractor', active: project?.selected_kontraktor_id },
+                                            { role: 'interior', label: 'Interior', active: project?.selected_interior_id }
                                         ].filter(p => p.active).map(p => (
                                             <button
                                                 key={p.role}
@@ -1233,7 +1233,7 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
                                 )}
 
                                 {/* Legal Phase Sealing CTA */}
-                                {!isPhaseSealed && !project.legal_handover_submitted_at && activeMilestone?.approval_status !== 'approved' && (allMilestonesApproved || isNotaris) && !unapprovedHasFile && (
+                                {!isPhaseSealed && !project?.legal_handover_submitted_at && activeMilestone?.approval_status !== 'approved' && (allMilestonesApproved || isNotaris) && !unapprovedHasFile && (
                                     <motion.div 
                                         initial={{ opacity: 0, scale: 0.95 }}
                                         animate={{ opacity: 1, scale: 1 }}

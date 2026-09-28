@@ -8,6 +8,7 @@ import {
 import { useToast } from '../../../context/ToastContext';
 import axios from 'axios';
 import { Project, ProjectDocument } from '../../../types/project.types';
+import { getApiErrorMessage } from '../../..//utils/apiError';
 
 interface PMLegalHubProps {
     project: any;
@@ -55,7 +56,7 @@ export const PMLegalHub: React.FC<PMLegalHubProps> = ({ project, user, onRefresh
             showToast('Document verified successfully', 'success');
             onRefresh?.();
         } catch (err) {
-            showToast('Failed to verify document', 'error');
+            showToast(getApiErrorMessage(err, 'Failed to verify document'), 'error');
         }
     };
 
@@ -71,7 +72,7 @@ export const PMLegalHub: React.FC<PMLegalHubProps> = ({ project, user, onRefresh
             showToast('Document uploaded for review', 'success');
             onRefresh?.();
         } catch (err) {
-            showToast('Upload failed', 'error');
+            showToast(getApiErrorMessage(err, 'Upload failed'), 'error');
         } finally {
             setIsUploading(false);
         }

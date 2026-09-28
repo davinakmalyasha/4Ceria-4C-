@@ -39,7 +39,7 @@ interface PhaseContentProps {
     onSwitchTab?: (tab: any) => void;
 }
 
-export default function PhaseContent({ 
+function PhaseContentInner({ 
     phase, project, user, onRefresh, 
     onPhaseComplete, onOpenChat, onViewProfile, onShortlist, onRecommend, subs = [],
     onSwitchTab 
@@ -98,8 +98,6 @@ export default function PhaseContent({
             setIsSealingConstruction(false);
         }
     };
-
-    if (!phase) return null;
 
     const isStructuralHired = (project.structural_id && (user?.structural_engineer?.id === project.structural_id || user?.id === project.structural_engineer?.user?.id)) ||
         (project.sub_professionals?.some((s: any) => s.user_id === user?.id && s.sub_role === 'structural' && s.status === 'active'));
@@ -160,17 +158,6 @@ export default function PhaseContent({
         }
         return false;
     }, [phase.key, engineeringSubTab, constructionSubTab, user, isHiredArchitect, isHiredInterior, isHiredContractor]);
-
-    if (!project) {
-        return (
-            <div className="py-20 text-center animate-pulse">
-                <div className="w-16 h-16 bg-zinc-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Activity size={32} className="text-zinc-300" />
-                </div>
-                <p className="text-[10px] text-zinc-400 font-black uppercase tracking-widest">Hydrating Phase Architecture...</p>
-            </div>
-        );
-    }
 
     const isHiredPM = project.pm_id && user?.id === project.pm_id;
 
@@ -951,4 +938,23 @@ export default function PhaseContent({
             </motion.div>
         </AnimatePresence>
     );
+}
+
+export default function PhaseContent(props: PhaseContentProps) {
+    const { phase, project } = props;
+
+    if (!phase) return null;
+
+    if (!project) {
+        return (
+            <div className="py-20 text-center animate-pulse">
+                <div className="w-16 h-16 bg-zinc-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Activity size={32} className="text-zinc-300" />
+                </div>
+                <p className="text-[10px] text-zinc-400 font-black uppercase tracking-widest">Hydrating Phase Architecture...</p>
+            </div>
+        );
+    }
+
+    return <PhaseContentInner {...props} />;
 }

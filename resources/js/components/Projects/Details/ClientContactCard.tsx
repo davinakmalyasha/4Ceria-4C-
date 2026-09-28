@@ -15,18 +15,18 @@ interface ClientContactCardProps {
 }
 
 export default function ClientContactCard({ owner, user, onOpenChat, isOwner, onRefresh }: ClientContactCardProps) {
-    if (!owner) return null;
-
     const [isEditing, setIsEditing] = React.useState(false);
-    const [editName, setEditName] = React.useState(owner.name || '');
-    const [editPhone, setEditPhone] = React.useState(owner.phone || '');
+    const [editName, setEditName] = React.useState(owner?.name || '');
+    const [editPhone, setEditPhone] = React.useState(owner?.phone || '');
     const [isLoading, setIsLoading] = React.useState(false);
 
     // Sync state when props change
     React.useEffect(() => {
-        setEditName(owner.name || '');
-        setEditPhone(owner.phone || '');
+        setEditName(owner?.name || '');
+        setEditPhone(owner?.phone || '');
     }, [owner]);
+
+    if (!owner) return null;
 
     const formatWhatsAppLink = (phone: string) => {
         let cleaned = phone.replace(/\D/g, '');

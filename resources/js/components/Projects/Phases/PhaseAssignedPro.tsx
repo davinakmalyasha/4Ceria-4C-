@@ -30,6 +30,8 @@ import { useToast } from '../../../context/ToastContext';
 import { PHASE_ORDER } from '../../../types/phase.types';
 import ConfirmModal from '../ConfirmModal';
 import MutualTerminationPanel from './MutualTerminationPanel';
+import DisputePanel from './DisputePanel';
+import ConstructionBriefGate from './ConstructionBriefGate';
 
 interface PhaseAssignedProProps {
     project: any;
@@ -51,7 +53,7 @@ interface PhaseAssignedProProps {
 export default function PhaseAssignedPro({
     project, phaseKey, activeSubRole, user, config,
     onRefresh, onPhaseComplete, onOpenChat, onViewProfile,
-    onGoToPayments, onGoToInterviews, onShortlist, onRecommend,
+    isContractor = false, onGoToPayments, onGoToInterviews, onShortlist, onRecommend,
     hideResignButton
 }: PhaseAssignedProProps) {
     const { showToast } = useToast();
@@ -111,8 +113,6 @@ export default function PhaseAssignedPro({
         (project.mep_id && (user?.mep_engineer?.id === project.mep_id || user?.id === project.mep_engineer?.user?.id)) ||
         (project.sub_professionals?.some((s: any) => s.user_id === user?.id && s.sub_role === 'mep' && s.status === 'active'))
     );
-
-    if (!pro && !externalVendor && phaseKey !== 'materials' && !(phaseKey === 'interior' && isHiredContractor)) return null;
 
     const name = pro 
         ? String(pro?.user?.name || pro?.nama || pro?.name || 'Professional') 
@@ -284,6 +284,8 @@ export default function PhaseAssignedPro({
     const canAuthorize = isOwner || isPM;
 
     const hasSubTabs = ['legal', 'design', 'build', 'materials', 'interior'].includes(phaseKey);
+
+    if (!pro && !externalVendor && phaseKey !== 'materials' && !(phaseKey === 'interior' && isHiredContractor)) return null;
 
     return (
         <div className="relative">
@@ -919,6 +921,24 @@ export default function PhaseAssignedPro({
             {/* Amicable exit: backend + freeze middleware existed with zero UI */}
             {isHiredPro && (
                 <MutualTerminationPanel project={project} user={user} onRefresh={onRefresh} />
+            )}
+
+            {/* Dispute / arbitration center — self-hides on 403 (mounted for
+                owner + pros + PM alike; only real participants see it) */}
+            <DisputePanel project={project} user={user} onRefresh={onRefresh} />
+
+            {/* Construction Brief (DED) review gate. Without this the owner
+                had no approve control and the contractor no submit control, so
+                `verify-pbg` 422'd forever and new-build handover could never
+                complete. Only relevant during the build phase. */}
+            {phaseKey === 'build' && (
+                <ConstructionBriefGate
+                    project={project}
+                    isContractor={isHiredContractor}
+                    isOwner={(project?.user_id ?? null) === (user?.id ?? -1)}
+                    isPM={isPM}
+                    onRefresh={onRefresh}
+                />
             )}
 
             <ConfirmModal

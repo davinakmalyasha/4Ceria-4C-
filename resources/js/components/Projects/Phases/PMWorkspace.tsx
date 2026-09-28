@@ -44,14 +44,6 @@ export default function PMWorkspace({ project, user, onRefresh, phaseKey, onNavi
         onConfirm: () => {},
     });
     
-    if (!project || !user) {
-        return (
-            <div className="py-20 text-center animate-pulse">
-                <LayoutDashboard size={40} className="mx-auto text-zinc-100 mb-4" />
-                <p className="text-[10px] text-zinc-400 font-black uppercase tracking-widest">Hydrating Management Hub...</p>
-            </div>
-        );
-    }
 
     const isManagementPhase = phaseKey === 'management';
     
@@ -77,12 +69,12 @@ export default function PMWorkspace({ project, user, onRefresh, phaseKey, onNavi
     );
 
     const getProfessionalDetails = (m: any) => {
-        if (m.notaris_id) return { role: 'Notaris', name: project.notaris?.user?.name || 'Notary' };
-        if (m.arsitek_id) return { role: 'Arsitek', name: project.arsitek?.user?.name || 'Architect' };
-        if (m.kontraktor_id) return { role: 'Kontraktor', name: project.kontraktor?.user?.name || 'Contractor' };
-        if (m.interior_id) return { role: 'Interior', name: project.interior?.user?.name || 'Interior Designer' };
-        if (m.structural_id) return { role: 'Struktur', name: project.structural_engineer?.user?.name || 'Structural Engineer' };
-        if (m.mep_id) return { role: 'MEP', name: project.mep_engineer?.user?.name || 'MEP Engineer' };
+        if (m.notaris_id) return { role: 'Notaris', name: project?.notaris?.user?.name || 'Notary' };
+        if (m.arsitek_id) return { role: 'Arsitek', name: project?.arsitek?.user?.name || 'Architect' };
+        if (m.kontraktor_id) return { role: 'Kontraktor', name: project?.kontraktor?.user?.name || 'Contractor' };
+        if (m.interior_id) return { role: 'Interior', name: project?.interior?.user?.name || 'Interior Designer' };
+        if (m.structural_id) return { role: 'Struktur', name: project?.structural_engineer?.user?.name || 'Structural Engineer' };
+        if (m.mep_id) return { role: 'MEP', name: project?.mep_engineer?.user?.name || 'MEP Engineer' };
         return { role: 'Professional', name: 'General' };
     };
 
@@ -103,7 +95,7 @@ export default function PMWorkspace({ project, user, onRefresh, phaseKey, onNavi
         const executeUpdate = async (notes = '') => {
             setIsLoading(true);
             try {
-                await axios.post(`/projects/${project.id}/milestones/${milestoneId}`, {
+                await axios.post(`/projects/${project?.id}/milestones/${milestoneId}`, {
                     _method: 'PUT',
                     approval_status: status,
                     is_completed: status === 'approved',
@@ -163,7 +155,7 @@ export default function PMWorkspace({ project, user, onRefresh, phaseKey, onNavi
     const [pendingExtensions, setPendingExtensions] = useState<any[]>([]);
     useEffect(() => {
         let cancelled = false;
-        axios.get(`/projects/${project.id}/extensions`)
+        axios.get(`/projects/${project?.id}/extensions`)
             .then(res => {
                 if (cancelled) return;
                 setPendingExtensions((res.data.data || []).filter((e: any) =>
@@ -179,7 +171,7 @@ export default function PMWorkspace({ project, user, onRefresh, phaseKey, onNavi
 
     const handleExtensionReview = async (extension: any, status: 'pm_reviewed' | 'rejected') => {
         try {
-            await axios.post(`/projects/${project.id}/extensions/${extension.id}/pm-review`, {
+            await axios.post(`/projects/${project?.id}/extensions/${extension.id}/pm-review`, {
                 status,
                 pm_notes: status === 'rejected' ? window.prompt('Reason for rejection (optional):') || '' : undefined,
             });
@@ -192,7 +184,7 @@ export default function PMWorkspace({ project, user, onRefresh, phaseKey, onNavi
 
     const handleExtensionDecision = async (extension: any, status: 'approved' | 'rejected') => {
         try {
-            await axios.post(`/projects/${project.id}/extensions/${extension.id}/owner-decide`, { status });
+            await axios.post(`/projects/${project?.id}/extensions/${extension.id}/owner-decide`, { status });
             showToast(`Extension ${status}. Project deadline updated.` , 'success');
             setPendingExtensions(prev => prev.filter(e => e.id !== extension.id));
             onRefresh?.();
@@ -202,27 +194,27 @@ export default function PMWorkspace({ project, user, onRefresh, phaseKey, onNavi
     };
 
     const pendingHandovers: { phase: string; title: string; submittedAt: string; state: 'awaiting_pm' | 'awaiting_owner' | 'completed' }[] = [];
-    const completed = project.completed_phases || [];
+    const completed = project?.completed_phases || [];
 
     // Legal handover
-    if (project.legal_handover_submitted_at) {
-        pendingHandovers.push({ phase: 'legal', title: 'Notary & Legality', submittedAt: project.legal_handover_submitted_at,
+    if (project?.legal_handover_submitted_at) {
+        pendingHandovers.push({ phase: 'legal', title: 'Notary & Legality', submittedAt: project?.legal_handover_submitted_at,
             state: completed.includes('legal') ? 'completed' : 'awaiting_pm' });
     }
     // Design handover
-    if (project.design_handover_submitted_at) {
-        pendingHandovers.push({ phase: 'design', title: 'Architecture & Engineering', submittedAt: project.design_handover_submitted_at,
-            state: completed.includes('design') ? 'completed' : (project.design_completed_at ? 'awaiting_owner' : 'awaiting_pm') });
+    if (project?.design_handover_submitted_at) {
+        pendingHandovers.push({ phase: 'design', title: 'Architecture & Engineering', submittedAt: project?.design_handover_submitted_at,
+            state: completed.includes('design') ? 'completed' : (project?.design_completed_at ? 'awaiting_owner' : 'awaiting_pm') });
     }
     // Construction handover
-    if (project.construction_handover_submitted_at) {
-        pendingHandovers.push({ phase: 'build', title: 'Construction & Build', submittedAt: project.construction_handover_submitted_at,
-            state: completed.includes('build') ? 'completed' : (project.construction_completed_at ? 'awaiting_owner' : 'awaiting_pm') });
+    if (project?.construction_handover_submitted_at) {
+        pendingHandovers.push({ phase: 'build', title: 'Construction & Build', submittedAt: project?.construction_handover_submitted_at,
+            state: completed.includes('build') ? 'completed' : (project?.construction_completed_at ? 'awaiting_owner' : 'awaiting_pm') });
     }
     // Interior handover
-    if (project.interior_handover_submitted_at) {
-        pendingHandovers.push({ phase: 'interior', title: 'Interior & Furnishing', submittedAt: project.interior_handover_submitted_at,
-            state: completed.includes('interior') ? 'completed' : (project.interior_completed_at ? 'awaiting_owner' : 'awaiting_pm') });
+    if (project?.interior_handover_submitted_at) {
+        pendingHandovers.push({ phase: 'interior', title: 'Interior & Furnishing', submittedAt: project?.interior_handover_submitted_at,
+            state: completed.includes('interior') ? 'completed' : (project?.interior_completed_at ? 'awaiting_owner' : 'awaiting_pm') });
     }
 
     const handleVerifyAddendum = async (addendum: any, status: 'approved' | 'rejected') => {
@@ -232,11 +224,11 @@ export default function PMWorkspace({ project, user, onRefresh, phaseKey, onNavi
             setIsLoading(true);
             try {
                 if (addendum.type === 'specialist_request') {
-                    await axios.post(`/projects/${project.id}/verify-engineering/${addendum.id}`, { status });
+                    await axios.post(`/projects/${project?.id}/verify-engineering/${addendum.id}`, { status });
                     showToast(`Specialist request ${status} successfully.`, 'success');
                 } else {
                     const action = status === 'approved' ? 'approve' : 'reject';
-                    await axios.post(`/projects/${project.id}/addendums/${addendum.id}/${action}`);
+                    await axios.post(`/projects/${project?.id}/addendums/${addendum.id}/${action}`);
                     showToast(`Addendum ${status} successfully.`, 'success');
                 }
                 onRefresh();
@@ -269,13 +261,13 @@ export default function PMWorkspace({ project, user, onRefresh, phaseKey, onNavi
             try {
                 if (action === 'approve') {
                     if (phase === 'legal') {
-                        await axios.post(`/projects/${project.id}/verify-legal`);
+                        await axios.post(`/projects/${project?.id}/verify-legal`);
                     } else {
-                        await axios.post(`/projects/${project.id}/handover/approve`, { phase });
+                        await axios.post(`/projects/${project?.id}/handover/approve`, { phase });
                     }
                     showToast(`${phase.toUpperCase()} handover approved & sealed.`, 'success');
                 } else {
-                    await axios.post(`/projects/${project.id}/handover/reject`, { phase, notes });
+                    await axios.post(`/projects/${project?.id}/handover/reject`, { phase, notes });
                     showToast(`${phase.toUpperCase()} handover revision requested.`, 'success');
                 }
                 onRefresh();
@@ -318,7 +310,7 @@ export default function PMWorkspace({ project, user, onRefresh, phaseKey, onNavi
         const executeAuthorize = async () => {
             setIsLoading(true);
             try {
-                await axios.post(`/projects/${project.id}/authorize-phase`, { phase, authorize });
+                await axios.post(`/projects/${project?.id}/authorize-phase`, { phase, authorize });
                 showToast(`Phase ${phase} ${authorize ? 'authorized' : 'authorization revoked'}.`, 'success');
                 onRefresh();
             } catch (error: any) {
@@ -344,6 +336,14 @@ export default function PMWorkspace({ project, user, onRefresh, phaseKey, onNavi
         });
     };
 
+    if (!project || !user) {
+        return (
+            <div className="py-20 text-center animate-pulse">
+                <LayoutDashboard size={40} className="mx-auto text-zinc-100 mb-4" />
+                <p className="text-[10px] text-zinc-400 font-black uppercase tracking-widest">Hydrating Management Hub...</p>
+            </div>
+        );
+    }
     return (
         <div className="space-y-8 animate-in fade-in duration-700">
             {/* PM Sub-Navigation - Only in Management Phase */}
@@ -475,11 +475,11 @@ export default function PMWorkspace({ project, user, onRefresh, phaseKey, onNavi
                                 <div className="flex items-center gap-3">
                                     <span className="text-[10px] font-black uppercase text-gray-700 tracking-wider">Design</span>
                                     <button 
-                                        onClick={() => handleAuthorizePhase('design', !project.design_authorized_at)}
+                                        onClick={() => handleAuthorizePhase('design', !project?.design_authorized_at)}
                                         disabled={isLoading}
-                                        className={`w-10 h-5 rounded-full transition-colors relative ${project.design_authorized_at ? 'bg-zinc-900' : 'bg-gray-300'}`}
+                                        className={`w-10 h-5 rounded-full transition-colors relative ${project?.design_authorized_at ? 'bg-zinc-900' : 'bg-gray-300'}`}
                                     >
-                                        <div className={`w-3.5 h-3.5 bg-white rounded-full absolute top-0.5 transition-transform ${project.design_authorized_at ? 'translate-x-6' : 'translate-x-0.5'}`} />
+                                        <div className={`w-3.5 h-3.5 bg-white rounded-full absolute top-0.5 transition-transform ${project?.design_authorized_at ? 'translate-x-6' : 'translate-x-0.5'}`} />
                                     </button>
                                 </div>
 
@@ -488,11 +488,11 @@ export default function PMWorkspace({ project, user, onRefresh, phaseKey, onNavi
                                 <div className="flex items-center gap-3">
                                     <span className="text-[10px] font-black uppercase text-gray-700 tracking-wider">Material</span>
                                     <button 
-                                        onClick={() => handleAuthorizePhase('materials', !project.materials_authorized_at)}
+                                        onClick={() => handleAuthorizePhase('materials', !project?.materials_authorized_at)}
                                         disabled={isLoading}
-                                        className={`w-10 h-5 rounded-full transition-colors relative ${project.materials_authorized_at ? 'bg-zinc-900' : 'bg-gray-300'}`}
+                                        className={`w-10 h-5 rounded-full transition-colors relative ${project?.materials_authorized_at ? 'bg-zinc-900' : 'bg-gray-300'}`}
                                     >
-                                        <div className={`w-3.5 h-3.5 bg-white rounded-full absolute top-0.5 transition-transform ${project.materials_authorized_at ? 'translate-x-6' : 'translate-x-0.5'}`} />
+                                        <div className={`w-3.5 h-3.5 bg-white rounded-full absolute top-0.5 transition-transform ${project?.materials_authorized_at ? 'translate-x-6' : 'translate-x-0.5'}`} />
                                     </button>
                                 </div>
 
@@ -501,11 +501,11 @@ export default function PMWorkspace({ project, user, onRefresh, phaseKey, onNavi
                                 <div className="flex items-center gap-3">
                                     <span className="text-[10px] font-black uppercase text-gray-700 tracking-wider">Construction</span>
                                     <button 
-                                        onClick={() => handleAuthorizePhase('build', !project.construction_authorized_at)}
+                                        onClick={() => handleAuthorizePhase('build', !project?.construction_authorized_at)}
                                         disabled={isLoading}
-                                        className={`w-10 h-5 rounded-full transition-colors relative ${project.construction_authorized_at ? 'bg-zinc-900' : 'bg-gray-300'}`}
+                                        className={`w-10 h-5 rounded-full transition-colors relative ${project?.construction_authorized_at ? 'bg-zinc-900' : 'bg-gray-300'}`}
                                     >
-                                        <div className={`w-3.5 h-3.5 bg-white rounded-full absolute top-0.5 transition-transform ${project.construction_authorized_at ? 'translate-x-6' : 'translate-x-0.5'}`} />
+                                        <div className={`w-3.5 h-3.5 bg-white rounded-full absolute top-0.5 transition-transform ${project?.construction_authorized_at ? 'translate-x-6' : 'translate-x-0.5'}`} />
                                     </button>
                                 </div>
                             </div>

@@ -9,6 +9,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '../../../context/ToastContext';
 import PMReportCard, { ProjectReport } from './PMReportCard';
 import PMReportFormModal from './PMReportFormModal';
+import { downloadCsv } from '../../../utils/exporters';
+import { getApiErrorMessage } from '../../..//utils/apiError';
 
 interface PMScheduleProps {
     project: any;
@@ -233,7 +235,7 @@ export default function PMSchedule({ project, user, onRefresh, onNavigateToRepor
             fetchTimeline();
             onRefresh?.();
         } catch (err) {
-            showToast('Failed to delete report', 'error');
+            showToast(getApiErrorMessage(err, 'Failed to delete report'), 'error');
         }
     };
 
@@ -273,7 +275,7 @@ export default function PMSchedule({ project, user, onRefresh, onNavigateToRepor
             fetchTimeline();
             fetchReports();
         } catch (err) {
-            showToast('Failed to link report', 'error');
+            showToast(getApiErrorMessage(err, 'Failed to link report'), 'error');
         } finally {
             setSubmitting(false);
         }
@@ -294,6 +296,28 @@ export default function PMSchedule({ project, user, onRefresh, onNavigateToRepor
                 </div>
 
                 <div className="flex items-center gap-6">
+                    {reports.length > 0 && (
+                        <button
+                            onClick={() => {
+                                downloadCsv(
+                                    `project-${project.id}-reports.csv`,
+                                    ['Published', 'Phase', 'Summary', 'Progress %', 'Budget Health'],
+                                    reports.map((report) => [
+                                        report.published_at ? new Date(report.published_at).toLocaleDateString('id-ID') : '',
+                                        report.phase_slug || 'General',
+                                        report.summary,
+                                        report.progress_percentage,
+                                        report.budget_health,
+                                    ])
+                                );
+                                showToast('Executive reports exported as CSV', 'success');
+                            }}
+                            className="flex items-center gap-2 px-5 py-2.5 bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 rounded-xl shadow-sm transition-all text-[10px] font-black uppercase tracking-widest cursor-pointer"
+                        >
+                            <FileText size={14} />
+                            Export Reports
+                        </button>
+                    )}
                     {isPM && (
                         <button
                             onClick={() => {
@@ -381,7 +405,15 @@ export default function PMSchedule({ project, user, onRefresh, onNavigateToRepor
                                                     <div className="flex items-center gap-1.5">
                                                         <Calendar size={12} />
                                                         <span>Target: {phase.target_end_date ? new Date(phase.target_end_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Not set'}</span>
+                                                        {phase.shifted_days > 0 && phase.original_target_end_date && (
+                                                            <span className="text-rose-500">(was {new Date(phase.original_target_end_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })})</span>
+                                                        )}
                                                     </div>
+                                                    {phase.shifted_days > 0 && (
+                                                        <span className="px-2 py-0.5 bg-rose-100 text-rose-700 rounded text-[9px] font-black uppercase tracking-widest">
+                                                            +{phase.shifted_days}d delay
+                                                        </span>
+                                                    )}
                                                     <div className="flex items-center gap-1.5">
                                                         <TrendingUp size={12} />
                                                         <span>{phase.progress_percentage}% Done</span>
