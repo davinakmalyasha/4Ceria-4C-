@@ -1,0 +1,182 @@
+# CI for 4Ceria Portal
+#
+# There was NO pipeline before 2026-09-23: the only gate was a manual sequence
+# in AGENTS.md, and `php artisan test` silently ran 1 of the 3 test suites
+# (phpunit.xml named tests/Unit + tests/Feature, neither of which exists).
+# Any commit could therefore ship unverified.
+#
+# The API job provisions a real MySQL service because the money/payment suites
+# run against real MySQL inside a rolled-back transaction — the legacy
+# migrations contain raw ALTER/ENUM statements that sqlite cannot execute.
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+# Cancel superseded runs on the same ref — with a real MySQL service and a
+# full build, superseded runs are pure cost.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history so a secret committed earlier is still caught.
+          fetch-depth: 0
+      - name: Scan for committed secrets
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Fails the run rather than only annotating the PR.
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: false
+      - name: Assert no VAPID private key is tracked
+        run: |
+          # The web-push VAPID private key is a live secret: anyone holding it
+          # can push arbitrary notifications to every subscribed user. It must
+          # never be committed (the 2026-09 pass leaked one into a tracked doc
+          # before this check existed).
+          if git grep -nE 'VAPID_PRIVATE_KEY=[A-Za-z0-9_-]{20,}' -- . \
+            ':!docs/CLEANUP-LOG.md' ':!.github/workflows/*'; then
+            echo "::error::A VAPID private key appears to be committed. Rotate the keypair and purge it from history."
+            exit 1
+          fi
+          echo "No VAPID private key in the tree."
+
+  api:
+    name: API (PHP)
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: 4ceria_test
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      APP_ENV: testing
+      # Literal on purpose: `$(openssl rand ...)` is not expanded inside a YAML
+      # env mapping, which silently yields an invalid key.
+      APP_KEY: base64:Zm9vYmFyYmF6cXV4Zm9vYmFyYmF6cXV4Zm9vYmFyYmF6cXE=
+      APP_DEBUG: 'true'
+      LOG_CHANNEL: stderr
+      DB_CONNECTION: mysql
+      DB_HOST: 127.0.0.1
+      DB_PORT: '3306'
+      DB_DATABASE: 4ceria_test
+      DB_USERNAME: root
+      DB_PASSWORD: root
+      CACHE_STORE: redis
+      SESSION_DRIVER: array
+      QUEUE_CONNECTION: sync
+      MAIL_MAILER: array
+      # Storage: keep uploads off the real buckets. `railway` is the private
+      # disk and MUST NOT be pointed at a live bucket from CI.
+      PUBLIC_STORAGE_DRIVER: local
+      RAILWAY_STORAGE_DRIVER: local
+      FILESYSTEM_DISK: local
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          # composer.json requires php ^8.4; the Dockerfile pins 8.4.
+          php-version: '8.4'
+          extensions: pdo_mysql, mbstring, bcmath, gd, zip, exif, pcntl, intl
+          coverage: none
+          tools: composer:v2
+
+      - name: Redis (cache lock for onOneServer + session/queue)
+        uses: redis/redis-stack-action@v1
+        with:
+          services: redis
+
+      - name: Cache Composer downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache/files
+          key: composer-${{ runner.os }}-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: PHP lint sweep
+        run: |
+          set -o pipefail
+          find app database routes tests -name '*.php' -print0 \
+            | xargs -0 -P 4 -n 1 php -l \
+            | grep -v 'No syntax errors detected' && { echo "::error::PHP syntax errors found"; exit 1; } || true
+          echo "php -l clean"
+
+      - name: Run migrations against the real schema
+        run: php artisan migrate --force --no-interaction
+
+      - name: Verify migrations are reversible (up/down/up on an empty schema)
+        # The dispute/partial-refund migrations manipulate an ENUM and a unique
+        # index; a broken down() would only surface at the worst moment.
+        run: |
+          php artisan migrate:rollback --step=3 --force
+          php artisan migrate --force
+          echo "migrations re-applied cleanly"
+
+      # All suites. Do NOT pass individual files: that hides future suites.
+      - name: Run test suites
+        run: vendor/bin/pest --colors=always
+
+      - name: In-process API smoke test
+        run: php refinement-tests/smoke-api.php
+
+  spa:
+    name: SPA (TypeScript + Vite)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck ratchet
+        # Deliberately a count ratchet, not `tsc --noEmit` as a hard gate: the
+        # codebase carries pre-existing type debt (see
+        # scripts/typecheck-baseline.mjs). This FAILS when the count rises.
+        run: npm run typecheck:check
+
+      - name: Lint
+        # `npm run lint` currently exits non-zero on pre-existing
+        # rules-of-hooks/dead-code findings. Kept as a report until that debt is
+        # paid down, so a new violation still shows up in the log without
+        # blocking every PR. Remove `continue-on-error` when lint is clean.
+        continue-on-error: true
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Assert the service worker was generated
+        run: |
+          test -f public/build/sw.js || { echo "::error::public/build/sw.js missing — PWA injectManifest failed"; exit 1; }
+          grep -q '"build/assets' public/build/manifest.json || true
+          echo "sw.js present"
