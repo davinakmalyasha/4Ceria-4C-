@@ -84,8 +84,76 @@ class AdminDashboardController extends Controller
         return response()->json($query->latest()->paginate(15));
     }
 
-    public function toggleHouseSuspend($id)
+    /**
+     * CSV export of the projects list (same filters as the paginated index).
+     */
+    public function exportProjects(Request $request)
     {
+        $query = Project::with('user');
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('title', 'like', "%{$search}%")
+                  ->orWhereHas('user', function ($uq) use ($search) {
+                      $uq->where('name', 'like', "%{$search}%");
+                  });
+            });
+        }
+
+        $projects = $query->latest()->limit(5000)->get();
+
+        return response()->streamDownload(function () use ($projects) {
+            $out = fopen('php://output', 'w');
+            // UTF-8 BOM so Excel reads Indonesian names correctly.
+            fwrite($out, "\xEF\xBB\xBF");
+            fputcsv($out, ['ID', 'Title', 'Owner', 'Status', 'Budget (IDR)', 'Created At']);
+            foreach ($projects as $project) {
+                fputcsv($out, [
+                    $project->id,
+                    self::csvCell($project->title),
+                    self::csvCell(optional($project->user)->name),
+                    $project->status,
+                    $project->budget,
+                    optional($project->created_at)->toDateTimeString(),
+                ]);
+            }
+            fclose($out);
+        }, 'projects-export-' . now()->format('Ymd-His') . '.csv', [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
+    }
+
+    /**
+     * CSV FORMULA-INJECTION GUARD.
+     *
+     * A project title or a user display name is fully attacker-controlled
+     * (`POST /register` accepts any name). Without neutralising the leading
+     * characters a spreadsheet evaluates the cell as a formula when the admin
+     * opens the export — `=HYPERLINK(...)` / DDE `=cmd|...` — executing in the
+     * ADMINISTRATOR's Excel session, with the admin's privileges and network
+     * position. This is a stored-injection path from a public registration
+     * field straight into a privileged user's desktop.
+     *
+     * Prefixing a single quote forces spreadsheet software to treat the value
+     * as literal text, which is the standard mitigation.
+     */
+    private static function csvCell($value): string
+    {
+        if ($value === null) {
+            return '';
+        }
+
+        $string = (string) $value;
+
+        if ($string !== '' && preg_match('/^[=+\-@\t\r]/', $string)) {
+            return "'" . $string;
+        }
+
+        return $string;
+    }
+
+    public function toggleHouseSuspend($id)    {
         $house = House::findOrFail($id);
         $house->update([
             'is_suspended' => !$house->is_suspended
