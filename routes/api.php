@@ -38,8 +38,11 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Cache;
 
-Route::post('/register', [AuthController::class, 'register']);
-// Brute-force protection: dedicated tight limiters on credential endpoints.
+// Brute-force / abuse protection: dedicated tight limiters on credential and
+// identity-minting endpoints. /register previously had only the global
+// anonymous bucket (60/min), which is enough to mass-create professional
+// accounts and spam the admin verification queue.
+Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:5,1');
 Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
 Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:5,1');
 Route::post('/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:5,1');
@@ -147,6 +150,14 @@ Route::middleware(['auth:sanctum', 'freeze_pending_termination'])->group(functio
         Route::post('/mutual-termination/initiate', [\App\Http\Controllers\Api\ProjectMutualTerminationController::class, 'initiate']);
         Route::post('/mutual-termination/{termination}/respond', [\App\Http\Controllers\Api\ProjectMutualTerminationController::class, 'respond']);
         Route::post('/mutual-termination/{termination}/escalate', [\App\Http\Controllers\Api\ProjectMutualTerminationController::class, 'escalate']);
+
+        // Dispute / arbitration center (participants)
+        Route::get('/disputes', [\App\Http\Controllers\Api\ProjectDisputeController::class, 'index']);
+        Route::post('/disputes', [\App\Http\Controllers\Api\ProjectDisputeController::class, 'store']);
+        Route::get('/disputes/{dispute}', [\App\Http\Controllers\Api\ProjectDisputeController::class, 'show']);
+        Route::post('/disputes/{dispute}/reply', [\App\Http\Controllers\Api\ProjectDisputeController::class, 'reply']);
+        Route::post('/disputes/{dispute}/withdraw', [\App\Http\Controllers\Api\ProjectDisputeController::class, 'withdraw']);
+        Route::get('/disputes/{dispute}/messages/{message}/evidence', [\App\Http\Controllers\Api\ProjectDisputeController::class, 'evidence']);
 
         // Project Manager Bidding
         Route::post('/pm-bids', [\App\Http\Controllers\Api\BidProjectManagerController::class, 'store']);
@@ -361,6 +372,22 @@ Route::middleware(['auth:sanctum', 'freeze_pending_termination'])->group(functio
     Route::get('/notifications', [NotificationController::class, 'index']);
     Route::post('/notifications/{notification}/read', [NotificationController::class, 'markAsRead']);
     Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
+    // Per-channel / per-type notification preferences. Money + dispute types
+    // are non-muteable (see NotificationPreferenceService::ALWAYS_ON).
+    Route::get('/notification-preferences', [\App\Http\Controllers\Api\NotificationPreferenceController::class, 'index']);
+    Route::put('/notification-preferences', [\App\Http\Controllers\Api\NotificationPreferenceController::class, 'update']);
+    Route::delete('/notification-preferences', [\App\Http\Controllers\Api\NotificationPreferenceController::class, 'destroy']);
+
+    // Web Push subscriptions (VAPID)
+    Route::get('/push/public-key', [\App\Http\Controllers\Api\PushSubscriptionController::class, 'publicKey']);
+    Route::post('/push/subscribe', [\App\Http\Controllers\Api\PushSubscriptionController::class, 'store']);
+    Route::post('/push/unsubscribe', [\App\Http\Controllers\Api\PushSubscriptionController::class, 'destroy']);
+
+    // Favorites / wishlist (server-side persistence)
+    Route::get('/favorites', [\App\Http\Controllers\Api\FavoriteController::class, 'index']);
+    Route::post('/favorites/toggle', [\App\Http\Controllers\Api\FavoriteController::class, 'toggle']);
+    Route::post('/favorites/merge', [\App\Http\Controllers\Api\FavoriteController::class, 'merge']);
+    Route::delete('/favorites/{favorite}', [\App\Http\Controllers\Api\FavoriteController::class, 'destroy']);
 
     // Aggregated unread counters for header heartbeat (single cheap query)
     Route::get('/me/unread-summary', \App\Http\Controllers\Api\UnreadSummaryController::class);
@@ -417,7 +444,17 @@ Route::post('/material-orders/{material_order}/verify-payment', [MaterialOrderCo
         Route::get('/houses', [\App\Http\Controllers\Api\Admin\AdminDashboardController::class, 'houses']);
         Route::patch('/houses/{id}/suspend', [\App\Http\Controllers\Api\Admin\AdminDashboardController::class, 'toggleHouseSuspend']);
         Route::get('/projects', [\App\Http\Controllers\Api\Admin\AdminDashboardController::class, 'projects']);
+        // SECURITY: bulk data egress — cap the rate so the whole project table
+        // cannot be walked repeatedly by a hijacked admin session.
+        Route::get('/projects/export', [\App\Http\Controllers\Api\Admin\AdminDashboardController::class, 'exportProjects'])->middleware('throttle:10,1');
         Route::post('/projects/{project}/force-terminate', [\App\Http\Controllers\Api\Admin\AdminDashboardController::class, 'terminateProject']);
+
+        // Dispute / arbitration center (admin)
+        Route::get('/disputes', [\App\Http\Controllers\Api\Admin\AdminDisputeController::class, 'index']);
+        Route::get('/disputes/{dispute}', [\App\Http\Controllers\Api\Admin\AdminDisputeController::class, 'show']);
+        Route::post('/disputes/{dispute}/reply', [\App\Http\Controllers\Api\Admin\AdminDisputeController::class, 'reply']);
+        Route::post('/disputes/{dispute}/act', [\App\Http\Controllers\Api\Admin\AdminDisputeController::class, 'act']);
+        Route::get('/disputes/{dispute}/messages/{message}/evidence', [\App\Http\Controllers\Api\Admin\AdminDisputeController::class, 'evidence']);
 
         // User Management
         Route::get('/users', [\App\Http\Controllers\Api\Admin\AdminUserController::class, 'index']);
