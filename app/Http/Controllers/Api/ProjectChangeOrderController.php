@@ -70,10 +70,23 @@ class ProjectChangeOrderController extends Controller
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'description' => 'required|string|max:2000',
-            'cost_impact' => 'required|numeric',
-            'time_impact_days' => 'nullable|integer|min:0',
-            'milestone_id' => 'nullable|exists:project_milestones,id',
+            // A negative cost impact was accepted and then folded into budget
+            // math as a credit, inflating the owner's remaining budget.
+            'cost_impact' => 'required|numeric|min:0|max:99999999999999',
+            'time_impact_days' => 'nullable|integer|min:0|max:3650',
+            'milestone_id' => 'nullable|integer|exists:project_milestones,id',
         ]);
+
+        // SECURITY: the milestone must belong to THIS project.
+        if (! empty($validated['milestone_id'])) {
+            $ownsMilestone = $project->milestones()->whereKey($validated['milestone_id'])->exists();
+            if (! $ownsMilestone) {
+                return response()->json(['message' => 'Not found.'], 404);
+            }
+        }
+
+        // DISPUTE FREEZE: no new financial commitments while a dispute is open.
+        app(\App\Services\DisputeService::class)->assertNoOpenDispute($project);
 
         DB::beginTransaction();
         try {
@@ -91,6 +104,10 @@ class ProjectChangeOrderController extends Controller
             return response()->json(['message' => 'Change order submitted.', 'data' => $order], 201);
         } catch (\Exception $e) {
             DB::rollBack();
+            \Log::error('Change-order submit failed: '.$e->getMessage(), [
+                'project_id' => $project->id,
+                'exception' => $e,
+            ]);
             return response()->json(['message' => 'Failed to submit change order.'], 500);
         }
     }
@@ -108,6 +125,15 @@ class ProjectChangeOrderController extends Controller
             return response()->json(['message' => 'Only the assigned PM can review change orders.'], 403);
         }
 
+        // STATE MACHINE: a decided change order cannot be re-reviewed (this
+        // method had no status guard, so a rejected order could be pushed back
+        // to pm_reviewed and re-approved, minting another payable stage).
+        if ($changeOrder->status !== 'proposed') {
+            return response()->json([
+                'message' => 'This change order has already been reviewed (status: '.$changeOrder->status.').',
+            ], 422);
+        }
+
         $validated = $request->validate([
             'pm_notes' => 'required|string|max:2000',
             'action' => 'required|in:approve,reject',
@@ -122,6 +148,7 @@ class ProjectChangeOrderController extends Controller
             return response()->json(['message' => 'Change order reviewed.', 'data' => $changeOrder->fresh()]);
         } catch (\Exception $e) {
             DB::rollBack();
+            \Log::error('Change-order review failed: '.$e->getMessage(), ['exception' => $e]);
             return response()->json(['message' => 'Review failed.'], 500);
         }
     }
@@ -144,34 +171,64 @@ class ProjectChangeOrderController extends Controller
             'owner_notes' => 'nullable|string|max:2000',
         ]);
 
+        // STATE MACHINE (money-critical): previously ANY action was accepted at
+        // any status, so approve → reject → approve minted a SECOND payable
+        // payment stage for the same change order. Each stage is an ordinary
+        // termin with its own reference, so the ledger dedupe could not catch
+        // it and the owner was charged twice for one change.
+        if (! in_array($changeOrder->status, ['proposed', 'pm_reviewed'], true)) {
+            return response()->json([
+                'message' => 'This change order has already been decided (status: '.$changeOrder->status.').',
+            ], 422);
+        }
+
+        app(\App\Services\DisputeService::class)->assertNoOpenDispute($project);
+
         DB::beginTransaction();
         try {
             $updates = ['owner_notes' => $validated['owner_notes'] ?? null];
             if ($validated['action'] === 'approve') {
                 $updates['status'] = 'owner_approved';
                 $updates['approved_at'] = now();
-                
-                // Financial Synchronization: Auto-generate a Payment Termin for the approved extra cost
+
+                // Financial Synchronization: exactly ONE payment stage for the
+                // approved extra cost. `change_order_id` carries a UNIQUE index
+                // (payment_termin_change_order_unique), so a duplicate is now
+                // impossible at the database level rather than by convention.
                 if ($changeOrder->cost_impact > 0) {
                     $milestone = $changeOrder->milestone;
                     $status = 'locked';
-                    
+
                     // If the milestone is already approved, the payment should be ready for the user to pay
                     if ($milestone && $milestone->approval_status === 'approved') {
                         $status = 'pending'; // 'pending' in this system means awaiting payment proof
                     }
 
+                    // Refuse to promise more than the escrow can ever pay.
+                    $financial = app(\App\Services\ProjectFinancialService::class);
+                    $available = $financial->available($project);
+
+                    if ((float) $changeOrder->cost_impact > $available + 0.01) {
+                        throw new \Exception(
+                            'This change order costs Rp '.number_format((float) $changeOrder->cost_impact, 0, ',', '.')
+                            .' but only Rp '.number_format($available, 0, ',', '.').' of escrow remains. '
+                            .'Increase the project budget before approving.',
+                            422
+                        );
+                    }
+
                     $project->paymentTermins()->create([
                         'label' => 'Change Order: ' . $changeOrder->title,
-                        'percentage' => 0, 
+                        'percentage' => 0,
                         'amount' => $changeOrder->cost_impact,
                         'retention_amount' => 0,
                         'net_amount' => $changeOrder->cost_impact,
                         'trigger_description' => 'Completion of Change Order: ' . $changeOrder->title,
                         'notes' => 'Auto-generated from approved Change Order #' . $changeOrder->id,
                         'status' => $status,
-                        'role_type' => $changeOrder->role_type ?? 'kontraktor', 
+                        'role_type' => $changeOrder->role_type ?? 'kontraktor',
                         'milestone_id' => $changeOrder->milestone_id,
+                        'change_order_id' => $changeOrder->id,
                     ]);
                 }
             } else {
@@ -185,9 +242,27 @@ class ProjectChangeOrderController extends Controller
             }
             DB::commit();
             return response()->json(['message' => 'Change order decided.', 'data' => $changeOrder->fresh()]);
+        } catch (\Illuminate\Database\UniqueConstraintViolationException $e) {
+            DB::rollBack();
+            // The one-stage-per-change-order guarantee fired.
+            return response()->json([
+                'message' => 'A payment stage already exists for this change order.',
+            ], 422);
         } catch (\Exception $e) {
             DB::rollBack();
-            \Log::error('Change-order decision failed: '.$e->getMessage(), ['exception' => $e]);
+            \Log::error('Change-order decision failed: '.$e->getMessage(), [
+                'project_id' => $project->id,
+                'change_order_id' => $changeOrder->id,
+                'exception' => $e,
+            ]);
+
+            // 422-class business rules (e.g. insufficient escrow) must reach the
+            // client verbatim; anything else is logged and generic.
+            $code = (int) $e->getCode();
+            if ($code >= 400 && $code < 600) {
+                return response()->json(['message' => $e->getMessage()], $code);
+            }
+
             return response()->json(['message' => 'Decision failed. Please try again.'], 500);
         }
     }
