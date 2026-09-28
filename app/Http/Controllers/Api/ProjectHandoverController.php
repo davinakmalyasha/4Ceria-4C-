@@ -81,6 +81,8 @@ class ProjectHandoverController extends Controller
                 'assigned_role' => $validated['assigned_role'] ?? null,
                 'reported_by' => $user->id,
                 'photos' => $photoPaths,
+                // SLA deadline by severity; escalated once by the daily command.
+                'due_at' => now()->addDays((int) config("snags.sla_days.{$validated['severity']}", 14)),
             ]);
 
             DB::commit();
@@ -222,7 +224,8 @@ class ProjectHandoverController extends Controller
 
         $project->update([
             'status' => 'completed_build',
-            'walkthrough_status' => 'pending'
+            'final_walkthrough_at' => now(),
+            'walkthrough_status' => 'in_progress'
         ]);
 
         $this->logActivity($project, 'walkthrough_initiated', "PM initiated the final project walkthrough.");
@@ -271,9 +274,14 @@ class ProjectHandoverController extends Controller
 
     private function loadFullProject(Project $project)
     {
+        // Project has per-role bid relations (bidsArsitek, bidsKontraktor, ...),
+        // NOT a generic `bids` relation — loading a nonexistent relation here
+        // made every handover approve/revision request 500.
         $project->load([
             'user', 'arsitek', 'kontraktor', 'interior', 'notaris', 'projectManager',
-            'bids', 'milestones', 'documents', 'comments', 'addendums'
+            'bidsArsitek', 'bidsKontraktor', 'bidsNotaris', 'bidsInterior',
+            'bidsProjectManager', 'bidsStructural', 'bidsMep',
+            'milestones', 'documents', 'comments', 'addendums', 'snagItems', 'paymentTermins'
         ]);
         return $project;
     }
