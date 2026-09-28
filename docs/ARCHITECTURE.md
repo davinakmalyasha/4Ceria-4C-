@@ -30,7 +30,7 @@ Local dev runs the same API under **Laravel Octane + FrankenPHP** on port 9000 (
    - `freeze_pending_termination` — blocks writes during pending project termination
 3. Exceptions render JSON for any `api/*` request (`shouldRenderJsonWhen`).
 4. Auth = Sanctum **bearer tokens** (no cookies/sessions for the SPA). Token model override throttles `last_used_at` writes to once per 5 min.
-5. SPA catch-all in `web.php` serves `SpaController@app` (the only reachable Blade view).
+5. SPA catch-all in `web.php` serves `SpaController@index` (the only reachable Blade view).
 
 ## Storage layout
 
@@ -44,9 +44,11 @@ Local dev runs the same API under **Laravel Octane + FrankenPHP** on port 9000 (
 
 ## Deploy pipeline
 
-- **API**: repo root `Dockerfile` → `docker/entrypoint.sh` runs `migrate --force` then supervisord (php-fpm + nginx). No config/route caching, no OPcache, no queue worker/scheduler yet — see `docs/audits/runtime-deploy.md`.
-- **SPA**: `vercel.json` rewrites; build command uses `VITE_STANDALONE=true vite build` → `dist/`.
-- **Migrations**: 223 files; notable generated-table migrations include `restore_legacy_tables` pair that recreates pre-Laravel tables (`house`, `rooms`, notifications, activity logs, etc.).
+- **API**: repo root `Dockerfile` → `docker/entrypoint.sh` runs `migrate --force`, then warms `config:cache` / `route:cache` / `view:cache` / `event:cache`, then supervisord (nginx + php-fpm + `queue:work` + a `schedule:run` loop). OPcache is enabled in the image. There is **no Octane in production** — Octane is a local-dev server only; `config/octane.php` does not govern prod.
+- **SPA**: `vercel.json` rewrites + security headers (CSP / HSTS / nosniff / frame-ancestors — the SPA origin had NO headers at all before 2026-09-23); build command uses `VITE_STANDALONE=true vite build` → `dist/`.
+- **Logging**: `LOG_STACK` must include `stderr` in containers. Supervisord only drains stdout and `storage/logs/*.log` sits on the container's ephemeral filesystem, so a file-only stack silently discards every error on deploy.
+- **Migrations**: 240 files; notable generated-table migrations include `restore_legacy_tables` pair that recreates pre-Laravel tables (`house`, `rooms`, notifications, activity logs, etc.).
+- **CI**: `.github/workflows/ci.yml` — MySQL 8 service, `php -l` sweep, migrations (with a rollback/re-apply check), all Pest suites, the in-process smoke test, `npm run typecheck:check`, `npm run build`, plus a gitleaks job that fails on committed secrets.
 
 ## Frontend structure
 

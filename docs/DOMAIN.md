@@ -6,13 +6,17 @@ Marketplace where **owners** post construction/renovation projects and hire veri
 
 `users.role_type`: `user` (owner/client) | professional roles: `arsitek`, `kontraktor`, `notaris`, `interior`, `structural`, `mep`, `project_manager`, `supplier`, `logistics`, plus sub-roles (`civil`, `mechanical`, `electrical`, `plumbing`, `roofing`, `finishing`). Admins exist via Spatie role + `role_type='admin'`.
 
-Each professional role has a profile table (`Arsitek`, `KontraktorProfile`, `NotarisProfile`, `InteriorProfile`, `StructuralProfile`, `MepProfile`, `ProjectManager`) keyed by `user_id`. Ratings live in per-role rating tables.
+Each professional role has a profile table (`Arsitek`, `Kontraktor`, `NotarisProfile`, `InteriorProfile`, `StructuralEngineer`, `MepEngineer`, `ProjectManager`) keyed by `user_id`. Ratings live in per-role rating tables.
 
 **ID convention trap**: bid tables store the *profile* id (e.g. `bids_arsitek.arsitek_id → arsitek.id`), but `projects.pm_id` and `projects.selected_*_id` columns mix conventions: `pm_id` = **user id**, while `selected_arsitek_id` etc. = **profile ids**.
 
 ## Project lifecycle
 
-Statuses flow: `open → accepted_kontraktor/planning → in_progress → awaiting_payment → contract_pending … completed | cancelled | terminated`. Key gates:
+`projects.status` is a **MySQL ENUM** — the only legal values are:
+`open, accepted_arsitek, accepted_kontraktor, awaiting_payment, in_progress, termination_pending, legal, procurement, completed_build, completed, cancelled`.
+Writing anything else is a hard error under strict mode. `termination_pending` (amicable exit) and the payment/contract states on the *bid* tables (`contract_pending`, `awaiting_payment`, `active`) are different things: bids have their own status enums. Check `SHOW COLUMNS FROM projects LIKE 'status'` before writing a status.
+
+Statuses flow: `open → accepted_arsitek → accepted_kontraktor → awaiting_payment → in_progress → (legal | procurement) → completed_build → completed`, with `cancelled` reachable from a mutual termination or admin dispute arbitration, and `termination_pending` used while an amicable exit is under review. Key gates:
 
 1. Owner publishes project (+ optional bidding brief / published roles JSON).
 2. Professionals **bid** via 7 parallel tables: `bids_arsitek`, `bids_kontraktor`, `bids_notaris`, `bids_interior`, `bids_project_manager`, `bids_structural`, `bids_mep`.
@@ -25,10 +29,20 @@ Statuses flow: `open → accepted_kontraktor/planning → in_progress → awaiti
 
 ## Money flow
 
-- Escrow-like semantics without a wallet table: `projects.budget` minus ledger = available; every debit inserts a `project_budget_transactions` row (reference_model/reference_id dedup — *no unique index yet*, race documented in audits).
-- Termin statuses: `locked → pending → invoice_sent → verifying → paid`. Proof upload by payer; verification by counterparty or PM.
-- Addendums/change-orders create extra budget authorizations; procurement requests route pro→PM→owner with cost estimates.
-- Materials marketplace: quotes (`material_quotes`) → orders (`material_orders`, unique `whatsapp_order_id`) → delivery jobs (`delivery_jobs`) → reviews. Stock decremented once via flag.
+- **The money model (single source of truth: `ProjectFinancialService`).** `projects.budget` is the escrow CEILING, mutated by owner deposits/adjustments (which also write a ledger row for the audit trail). `available = ceiling - SUM(ledger WHERE transaction_type IN ('payment','refund'))`. Every debit inserts a `project_budget_transactions` row; the unique index `budget_tx_reference_unique` on `(project_id, reference_model, reference_id, transaction_type)` allows exactly one `payment` AND one `refund` per reference, which is what makes a same-payment reversal safe while still blocking duplicates. `deductBudget()` enforces this for ALL payment types - bids, termins, addendums, material orders and the design fee.
+- **Refund accounting**: `project_*` and `bids_*` payment tables carry `refunded_amount`; a dispute refund writes a negative `refund` row attributed to the PAYMENT (not the dispute) and accumulates that column, so a payment can be partially refunded and never over-refunded. `paid`/`refunded` are terminal states.
+- Termin statuses: `locked → pending → invoice_sent → verifying → paid`, plus `void` (auto-set when the contract is fired/resigned so a departed professional cannot pull a debit).
+- Payment proof is MANDATORY before verification: `verifyProof` requires `payment_proof_path` and a `verifying` state. Receipts live on the private `railway` disk and are served as presigned URLs (`ProjectResource::presignedPrivateUrl`).
+- Addendums/change-orders create extra budget authorizations; a change order mints exactly ONE payment stage (`project_payment_termins.change_order_id` is UNIQUE) and cannot be re-approved.
+- Materials marketplace: quotes (`material_quotes`) → orders (`material_orders`, unique `whatsapp_order_id`) → delivery jobs (`delivery_jobs`) → reviews. Stock decremented once via flag. Project-bound orders post to the same escrow ledger.
+
+## Dispute / arbitration (`project_disputes` + `dispute_messages`)
+
+- One **open** dispute per project (409 otherwise). While open, payment paths are frozen with 422: `upload-proof`, `verify-proof` (unless admin override), and `budget/mark-paid`. Freeze lifts when the dispute is resolved/dismissed/withdrawn.
+- Opened by any project participant (`category` ∈ payment/quality/termination/delay/other) with an optional linked payment (`payment_type` + `payment_id`, termins chosen from the UI) and optional `disputed_amount`. A **rejected mutual termination escalates** into a dispute row (idempotent, links `termination_id`).
+- Thread lives in `dispute_messages` (optional evidence on the private `railway` disk, served via temporaryUrl). Participants reply/withdraw while open; admins reply anytime.
+- Admin arbitration closes with one of five actions: `dismiss` (unfreeze, nothing moves), `release_payment` (runs the full verifyProof accept path with `$adminOverride` — budget check, ledger, activation, notifications), `record_refund` (negative `payment` ledger row referenced by the dispute FQCN + underlying payment flipped to `refunded`; money moves off-platform), `terminate_project` (status `cancelled`), `custom` (free-form notes).
+- `DisputeService::assertNoOpenDispute()` is the single freeze gate; `DisputePanel.tsx` (project workspace) self-hides on 403; `AdminDisputes.tsx` is the arbitration queue under `/admin/disputes`.
 
 ## Collaboration surfaces
 
