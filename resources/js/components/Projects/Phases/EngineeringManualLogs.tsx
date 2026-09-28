@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '../../../context/ToastContext';
 import { ErrorBoundary } from '../../Common/ErrorBoundary';
+import { getApiErrorMessage } from '../../..//utils/apiError';
 
 interface EngineeringManualLogsProps {
     project: any;
@@ -58,7 +59,7 @@ export default function EngineeringManualLogs({ project, currentUser, onRefresh 
             showToast('Log removed', 'success');
             onRefresh();
         } catch (err: any) {
-            showToast('Failed to remove log', 'error');
+            showToast(getApiErrorMessage(err, 'Failed to remove log'), 'error');
         }
     };
 
@@ -80,7 +81,7 @@ export default function EngineeringManualLogs({ project, currentUser, onRefresh 
                 showToast('Base design uploaded', 'success');
                 onRefresh();
             } catch (err: any) {
-                showToast('Failed to upload design', 'error');
+                showToast(getApiErrorMessage(err, 'Failed to upload design'), 'error');
             } finally {
                 setIsSubmitting(false);
             }

@@ -29,7 +29,10 @@ export default function FinalHandover({ project, user, onRefresh }: FinalHandove
 
     const isOwner = user?.id === project.user_id;
     const isPM = user?.role_type === 'project_manager' && project.pm_id === user?.id;
-    const walkthroughStarted = !!project.final_walkthrough_at;
+    const walkthroughStarted =
+        project.walkthrough_status === 'in_progress' ||
+        project.walkthrough_status === 'completed' ||
+        !!project.final_walkthrough_at;
     const ownerAccepted = !!project.owner_accepted_at;
     const snagCounts = project.snag_counts || { open: 0, in_progress: 0, resolved: 0, accepted: 0 };
     const hasUnresolvedSnags = snagCounts.open > 0 || snagCounts.in_progress > 0;

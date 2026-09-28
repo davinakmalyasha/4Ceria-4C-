@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, CheckCircle, Briefcase, FileText, Send, Loader2 } from 'lucide-react';
 import axios from 'axios';
 import { useToast } from '../../context/ToastContext';
+import { getApiErrorMessage } from '../..//utils/apiError';
 
 interface AddMaterialToProjectModalProps {
     material: any;
@@ -24,7 +25,7 @@ export default function AddMaterialToProjectModal({ material, onClose }: AddMate
                 const res = await axios.get('/user/active-projects');
                 setProjects(res.data.data);
             } catch (err) {
-                showToast('Failed to load your projects', 'error');
+                showToast(getApiErrorMessage(err, 'Failed to load your projects'), 'error');
             } finally {
                 setIsLoading(false);
             }

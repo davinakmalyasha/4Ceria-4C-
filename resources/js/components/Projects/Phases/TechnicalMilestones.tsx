@@ -37,6 +37,9 @@ interface Milestone {
     };
     sort_order: number;
     is_completed: boolean;
+    // DB column is `lead_pro_verified_at` (NOT pm_verified_at).
+    lead_pro_verified_at?: string | null;
+    created_at?: string;
     pm_verified_at?: string;
     structural_id?: number;
     mep_id?: number;

@@ -12,6 +12,7 @@ import AddendumProposalModal from './AddendumProposalModal';
 import RequestSpecialistModal from './RequestSpecialistModal';
 import { TeamMember } from '../../../types/sub_professional.types';
 import { UserPlus, MessageCircle, Send } from 'lucide-react';
+import { getApiErrorMessage } from '../../..//utils/apiError';
 
 interface TechnicalResourcingProps {
     project: Project;
@@ -333,7 +334,7 @@ export default function TechnicalResourcing({
                                     showToast('Specialist request approved!', 'success');
                                     onRefresh();
                                 } catch (err) {
-                                    showToast('Failed to approve request', 'error');
+                                    showToast(getApiErrorMessage(err, 'Failed to approve request'), 'error');
                                 }
                             }}
                             className="flex-1 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-[9px] font-black uppercase tracking-widest transition-all shadow-sm"
@@ -348,7 +349,7 @@ export default function TechnicalResourcing({
                                     showToast('Specialist request rejected.', 'info');
                                     onRefresh();
                                 } catch (err) {
-                                    showToast('Failed to reject request', 'error');
+                                    showToast(getApiErrorMessage(err, 'Failed to reject request'), 'error');
                                 }
                             }}
                             className="px-3 py-2 bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-600 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all"

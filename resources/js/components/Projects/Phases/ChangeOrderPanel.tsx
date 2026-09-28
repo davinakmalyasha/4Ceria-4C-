@@ -7,6 +7,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '../../../context/ToastContext';
 import { ChangeOrder } from '../../../types/phase.types';
+import { getApiErrorMessage } from '../../..//utils/apiError';
 
 interface ChangeOrderPanelProps {
     project: any;
@@ -60,7 +61,7 @@ export default function ChangeOrderPanel({ project, isPM, isOwner, isPro }: Chan
             setTimeImpact('');
             fetchOrders();
         } catch (err) {
-            showToast('Failed to submit change order.', 'error');
+            showToast(getApiErrorMessage(err, 'Failed to submit change order.'), 'error');
         } finally {
             setSubmitting(false);
         }
@@ -81,7 +82,7 @@ export default function ChangeOrderPanel({ project, isPM, isOwner, isPro }: Chan
             showToast('Change order review submitted.', 'success');
             fetchOrders();
         } catch (err) {
-            showToast('Failed to review change order.', 'error');
+            showToast(getApiErrorMessage(err, 'Failed to review change order.'), 'error');
         }
     };
 
@@ -100,7 +101,7 @@ export default function ChangeOrderPanel({ project, isPM, isOwner, isPro }: Chan
             showToast('Decision recorded.', 'success');
             fetchOrders();
         } catch (err) {
-            showToast('Failed to record decision.', 'error');
+            showToast(getApiErrorMessage(err, 'Failed to record decision.'), 'error');
         }
     };
 

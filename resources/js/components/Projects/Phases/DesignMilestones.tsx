@@ -35,6 +35,8 @@ interface Milestone {
     };
     sort_order: number;
     is_completed: boolean;
+    lead_pro_verified_at?: string | null;
+    created_at?: string;
     pm_verified_at?: string;
     change_orders?: any[];
 }

@@ -11,6 +11,7 @@ import { useToast } from '../../context/ToastContext';
 import { PaymentProofModal } from './Contracts/PaymentProofModal';
 import FilePreviewModal from '../Common/FilePreviewModal';
 import { DEFAULT_TERMIN_TEMPLATE } from '../../constants/ContractorStandardPresets';
+import { getApiErrorMessage } from '../..//utils/apiError';
 
 interface ProjectPaymentsProps {
     project: any;
@@ -43,7 +44,7 @@ export default function ProjectPayments({ project, user, onRefresh, onOpenChat }
                 milestones: res.data?.data || []
             });
         } catch (e: any) {
-            showToast('Failed to load milestones', 'error');
+            showToast(getApiErrorMessage(e, 'Failed to load milestones'), 'error');
         }
     };
 

@@ -8,6 +8,8 @@ import {
 } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 import ChangeOrderPanel from './Phases/ChangeOrderPanel';
+import { downloadCsv, downloadPdfTable } from '../../utils/exporters';
+import { getApiErrorMessage } from '../..//utils/apiError';
 
 interface ProjectBudgetManagerProps {
     project: any;
@@ -39,6 +41,37 @@ export default function ProjectBudgetManager({ project, user, budgetData, onRefr
     // Specialist Modal State
     const [selectedSpecialist, setSelectedSpecialist] = useState<any>(null);
 
+    // ---- Financial exports (ledger) ----
+    const ledgerRows = useMemo(
+        () =>
+            (dashboardData?.transactions || []).map((t: any) => [
+                t.transaction_date ? new Date(t.transaction_date).toLocaleString('id-ID') : '',
+                t.title || '',
+                t.transaction_type || '',
+                Number(t.amount || 0),
+            ]),
+        [dashboardData]
+    );
+
+    const exportLedgerCsv = () => {
+        downloadCsv(
+            `project-${project.id}-ledger.csv`,
+            ['Date', 'Title', 'Type', 'Amount (IDR)'],
+            ledgerRows
+        );
+        showToast('Ledger exported as CSV', 'success');
+    };
+
+    const exportLedgerPdf = async () => {
+        await downloadPdfTable(
+            `project-${project.id}-ledger.pdf`,
+            `Budget Ledger — ${project.title || 'Project'}`,
+            ['Date', 'Title', 'Type', 'Amount (IDR)'],
+            ledgerRows
+        );
+        showToast('Ledger exported as PDF', 'success');
+    };
+
     // Negotiation State
     const [negotiatingId, setNegotiatingId] = useState<number | null>(null);
     const [counterAmount, setCounterAmount] = useState('');
@@ -57,7 +90,7 @@ export default function ProjectBudgetManager({ project, user, budgetData, onRefr
             showToast('Sandbox cost added', 'success');
             fetchDashboard();
         } catch (err) {
-            showToast('Failed to add sandbox item', 'error');
+            showToast(getApiErrorMessage(err, 'Failed to add sandbox item'), 'error');
         }
     };
 
@@ -66,7 +99,7 @@ export default function ProjectBudgetManager({ project, user, budgetData, onRefr
             await axios.put(`/projects/${project.id}/budget/sandbox/${id}`);
             fetchDashboard();
         } catch (err) {
-            showToast('Failed to toggle simulation', 'error');
+            showToast(getApiErrorMessage(err, 'Failed to toggle simulation'), 'error');
         }
     };
 
@@ -80,7 +113,7 @@ export default function ProjectBudgetManager({ project, user, budgetData, onRefr
             showToast('Simulation updated', 'success');
             fetchDashboard();
         } catch (err) {
-            showToast('Failed to update simulation', 'error');
+            showToast(getApiErrorMessage(err, 'Failed to update simulation'), 'error');
         }
     };
 
@@ -91,7 +124,7 @@ export default function ProjectBudgetManager({ project, user, budgetData, onRefr
             showToast('Simulation deleted', 'info');
             fetchDashboard();
         } catch (err) {
-            showToast('Failed to delete simulation', 'error');
+            showToast(getApiErrorMessage(err, 'Failed to delete simulation'), 'error');
         }
     };
 
@@ -118,11 +151,16 @@ export default function ProjectBudgetManager({ project, user, budgetData, onRefr
     const markPaid = async (type: string, id: number) => {
         if (!window.confirm('Mark this item as paid? This officially deducts money from your budget.')) return;
         try {
-            await axios.post(`/projects/${project.id}/budget/mark-paid`, { type, id });
+            const res = await axios.post(`/projects/${project.id}/budget/mark-paid`, { type, id });
             showToast('Payment confirmed and deducted!', 'success');
             fetchDashboard();
         } catch (err) {
-            showToast('Failed to process payment', 'error');
+            // The server explains WHY a payment is refused — most importantly
+            // the dispute freeze ("Payments are frozen: dispute #7 is open on
+            // this project"). A hard-coded "Failed to process payment" made
+            // that message unreachable, so owners concluded the app was broken
+            // instead of that a dispute was holding their money.
+            showToast(getApiErrorMessage(err, 'Failed to process payment'), 'error');
         }
     };
 
@@ -248,9 +286,21 @@ export default function ProjectBudgetManager({ project, user, budgetData, onRefr
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* LEFT COL: PROFESSIONAL LEDGER */}
                 <div className="space-y-6">
-                    <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
-                        <Banknote size={20} className="text-emerald-500" /> Pending Obligations & Ledgers
-                    </h3>
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                        <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                            <Banknote size={20} className="text-emerald-500" /> Pending Obligations & Ledgers
+                        </h3>
+                        {ledgerRows.length > 0 && (
+                            <div className="flex items-center gap-2">
+                                <button onClick={exportLedgerCsv} className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all">
+                                    Export CSV
+                                </button>
+                                <button onClick={exportLedgerPdf} className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all">
+                                    Export PDF
+                                </button>
+                            </div>
+                        )}
+                    </div>
                     
                     {/* Render Base Bids */}
                     {['arsitek', 'kontraktor', 'notaris', 'interior', 'project_manager'].map((type) => {
@@ -658,7 +708,7 @@ export default function ProjectBudgetManager({ project, user, budgetData, onRefr
                                                                 showToast('Agreement finalized and budget authorized!', 'success');
                                                                 window.location.reload(); 
                                                             } catch (err) {
-                                                                showToast('Failed to finalize', 'error');
+                                                                showToast(getApiErrorMessage(err, 'Failed to finalize'), 'error');
                                                             }
                                                         }}
                                                         className="px-6 py-3 bg-emerald-500 text-white hover:bg-emerald-600 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20 transition-all"

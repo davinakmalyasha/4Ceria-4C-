@@ -4,6 +4,7 @@ import { X, ChevronLeft, ChevronRight, Edit3, Trash2, Home, MapPin, Maximize, Be
 import axios from 'axios';
 import AddRoomModal from './AddRoomModal';
 import { useToast } from '../context/ToastContext';
+import { getApiErrorMessage } from '..//utils/apiError';
 
 
 interface Props {
@@ -74,7 +75,7 @@ export default function PropertyDetailModal({ house, onClose, onEdit, onDelete, 
             onHouseUpdated(response.data.house);
             showToast('Room deleted successfully', 'success');
         } catch (err) {
-            showToast('Failed to delete room', 'error');
+            showToast(getApiErrorMessage(err, 'Failed to delete room'), 'error');
         }
     };
 

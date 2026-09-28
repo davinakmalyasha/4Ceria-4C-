@@ -12,7 +12,8 @@ import {
     ShieldAlert,
     RefreshCw,
     XCircle,
-    Search
+    Search,
+    Download
 } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 
@@ -70,8 +71,31 @@ const AdminProjects: React.FC = () => {
         fetchProjects(page);
     };
 
-    const handleForceTerminate = (project: Project) => {
-        if (!window.confirm(`Are you absolutely sure you want to force-terminate project "${project.title}"? This cannot be undone.`)) {
+    const [isExporting, setIsExporting] = useState(false);
+
+    const handleExport = async () => {
+        setIsExporting(true);
+        try {
+            const res = await axios.get('/admin/projects/export', {
+                params: { search: searchTerm || undefined },
+                responseType: 'blob',
+            });
+            const url = URL.createObjectURL(res.data);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `projects-export-${new Date().toISOString().slice(0, 10)}.csv`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        } catch {
+            showToast('Export failed', 'error');
+        } finally {
+            setIsExporting(false);
+        }
+    };
+
+    const handleForceTerminate = (project: Project) => {        if (!window.confirm(`Are you absolutely sure you want to force-terminate project "${project.title}"? This cannot be undone.`)) {
             return;
         }
 
@@ -114,6 +138,15 @@ const AdminProjects: React.FC = () => {
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
                         </div>
+
+                        <button
+                            onClick={handleExport}
+                            disabled={isExporting}
+                            className="flex items-center gap-2 px-3 py-2 border border-neutral-200 bg-[#fafafa] hover:bg-neutral-50 rounded-xl text-[11px] font-bold text-neutral-500 hover:text-neutral-900 transition-colors disabled:opacity-50"
+                        >
+                            <Download size={14} />
+                            {isExporting ? 'Exporting...' : 'CSV'}
+                        </button>
 
                         <button onClick={() => fetchProjects(currentPage)} className="p-2 border border-neutral-200 bg-[#fafafa] hover:bg-neutral-50 rounded-xl text-neutral-500 hover:text-neutral-900 transition-colors">
                             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
