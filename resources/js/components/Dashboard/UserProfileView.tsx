@@ -4,7 +4,7 @@ import axios from 'axios';
 import { ProfilePreviewCard } from '../Shared/ProfilePreviewCard';
 import { PortfolioManager } from './PortfolioManager';
 import { PortfolioProject } from '../../types/project.types';
-import { getApiErrorMessage } from '../../utils/apiError';
+import { getApiErrorMessage } from '../..//utils/apiError';
 
 interface Props {
     user: any;

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { CalendarClock, Check, X, RefreshCw, CalendarPlus } from 'lucide-react';
 import axios from 'axios';
 import { useToast } from '../../context/ToastContext';
-import { getApiErrorMessage } from '../../utils/apiError';
+import { getApiErrorMessage } from '../..//utils/apiError';
 
 interface Props {
     user: any;

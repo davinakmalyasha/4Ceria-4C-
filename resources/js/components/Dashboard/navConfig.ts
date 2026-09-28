@@ -2,7 +2,7 @@ import React from 'react';
 import { 
     Home, Building, Users, ShoppingBag, Paintbrush, ShieldCheck, 
     Briefcase, Building2, Package, Search, CheckSquare, FileText, 
-    Truck, User, MessageSquare, FolderKanban
+    Truck, User, MessageSquare, FolderKanban, CalendarCheck
 } from 'lucide-react';
 
 export interface NavItem {
@@ -76,6 +76,14 @@ const PRO_NAV = (role: string): NavItem[] => {
         nav.push({ id: 'my-firm', label: 'My Firm', icon: Building2 });
     }
 
+    if (role === 'notaris') {
+        // A notary receives `consultation_requested` notifications, but the
+        // accept/decline inbox (DashboardTabs renders ConsultationRequests for
+        // activeTab === 'consultations') had NO nav entry and no dispatch path,
+        // so the notification was a dead end. Make it reachable.
+        nav.push({ id: 'consultations', label: 'Consultation Requests', icon: CalendarCheck });
+    }
+
     if (['structural', 'mep', 'interior', 'civil', 'mechanical', 'electrical', 'plumbing', 'roofing', 'finishing'].includes(role)) {
         nav.push({ id: 'my-firms', label: 'My Firms', icon: Building2 });
     }
@@ -87,7 +95,9 @@ const SUPPLIER_NAV: NavItem[] = [
     { id: 'overview', label: 'Dashboard', icon: Home },
     { id: 'store', label: 'My Store', icon: Building },
     { id: 'inventory', label: 'Inventory', icon: Package },
+    { id: 'quotes', label: 'Quotes', icon: FileText },
     { id: 'orders', label: 'Orders', icon: Truck },
+    { id: 'delivery-jobs', label: 'Delivery Jobs', icon: Search },
 ];
 
 const LOGISTICS_NAV: NavItem[] = [

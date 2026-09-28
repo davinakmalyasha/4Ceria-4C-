@@ -1,15 +1,16 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { 
-    LayoutDashboard, 
-    UserCheck, 
-    Home, 
-    Briefcase, 
-    LogOut, 
+import {
+    LayoutDashboard,
+    UserCheck,
+    Home,
+    Briefcase,
+    LogOut,
     Menu,
     X,
     Shield,
-    FileText
+    FileText,
+    Gavel
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
@@ -19,11 +20,15 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const location = useLocation();
     const [isSidebarOpen, setIsSidebarOpen] = React.useState(true);
     const [pendingCount, setPendingCount] = React.useState(0);
+    const [openDisputeCount, setOpenDisputeCount] = React.useState(0);
 
     React.useEffect(() => {
         axios.get('/admin/stats')
             .then(res => setPendingCount(res.data.pending_verifications || 0))
             .catch(err => console.error('Failed to fetch pending verifications', err));
+        axios.get('/admin/disputes', { params: { status: 'open', page: 1 } })
+            .then(res => setOpenDisputeCount(res.data.open_count || 0))
+            .catch(() => { /* non-fatal */ });
     }, []);
 
     const navItems = [
@@ -31,6 +36,7 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         { name: 'Verification Queue', path: '/admin/verification', icon: UserCheck },
         { name: 'Houses Moderation', path: '/admin/houses', icon: Home },
         { name: 'Projects Audit', path: '/admin/projects', icon: Briefcase },
+        { name: 'Dispute Center', path: '/admin/disputes', icon: Gavel },
     ];
 
     const isActive = (path: string) => location.pathname === path;
@@ -71,6 +77,11 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                             {item.name === 'Verification Queue' && pendingCount > 0 && (
                                 <span className={`absolute right-3 ${isSidebarOpen ? '' : 'top-1 right-1'} bg-red-500 text-white text-[9px] font-black w-5 h-5 flex items-center justify-center rounded-full`}>
                                     {pendingCount > 99 ? '99+' : pendingCount}
+                                </span>
+                            )}
+                            {item.name === 'Dispute Center' && openDisputeCount > 0 && (
+                                <span className={`absolute right-3 ${isSidebarOpen ? '' : 'top-1 right-1'} bg-red-500 text-white text-[9px] font-black w-5 h-5 flex items-center justify-center rounded-full`}>
+                                    {openDisputeCount > 99 ? '99+' : openDisputeCount}
                                 </span>
                             )}
                         </Link>

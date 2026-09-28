@@ -32,6 +32,7 @@ import { PortfolioManager } from './PortfolioManager';
 import FirmSearchModal from './FirmSearchModal';
 import QuickAssignModal from './QuickAssignModal';
 import ConfirmModal from '../Projects/ConfirmModal';
+import { getApiErrorMessage } from '../..//utils/apiError';
 
 interface FirmSquadProfileProps {
     ownerId: number;
@@ -169,7 +170,7 @@ export default function FirmSquadProfile({ ownerId, isGuestMode = false, onClose
                 firm_needed_roles: normalizedRoles
             });
         } catch (err: any) {
-            showToast('Failed to load squad profile.', 'error');
+            showToast(getApiErrorMessage(err, 'Failed to load squad profile.'), 'error');
         } finally {
             setIsLoading(false);
         }
@@ -395,7 +396,7 @@ export default function FirmSquadProfile({ ownerId, isGuestMode = false, onClose
             showToast('Portfolio project deleted!', 'success');
             fetchProfile();
         } catch (err: any) {
-            showToast('Failed to delete project', 'error');
+            showToast(getApiErrorMessage(err, 'Failed to delete project'), 'error');
         }
     };
 
@@ -423,7 +424,7 @@ export default function FirmSquadProfile({ ownerId, isGuestMode = false, onClose
             showToast('Member successfully offboarded.', 'success');
             fetchProfile();
         } catch (err: any) {
-            showToast('Failed to offboard member', 'error');
+            showToast(getApiErrorMessage(err, 'Failed to offboard member'), 'error');
         } finally {
             setActionLoading(null);
         }

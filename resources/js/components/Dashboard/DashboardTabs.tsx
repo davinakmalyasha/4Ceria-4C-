@@ -467,7 +467,8 @@ export const DashboardTabs: React.FC<TabsProps> = (props) => {
                     <SavedItemsDashboard houses={houses} architects={architects} constructors={constructors} 
                         onSelectHouse={() => setActiveTab('houses')}
                         onSelectArchitect={(a) => { setActiveTab('architects'); setSelectedProfessional({ type: 'architect', data: a }); }}
-                        onSelectConstructor={(c) => { setActiveTab('constructors'); setSelectedProfessional({ type: 'constructor', data: c }); }} />
+                        onSelectConstructor={(c) => { setActiveTab('constructors'); setSelectedProfessional({ type: 'constructor', data: c }); }}
+                        onBrowse={(tab) => { setSelectedProfessional(null); setActiveTab(tab); }} />
                 )}
 
                 {(activeTab === 'marketplace' || activeTab === 'marketplace-materials' || activeTab === 'marketplace-furniture') && (

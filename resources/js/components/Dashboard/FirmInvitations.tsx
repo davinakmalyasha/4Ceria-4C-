@@ -4,7 +4,7 @@ import { Bell, CheckCircle, XCircle, Loader2, Inbox, Eye, MessageSquare, Smartph
 import { FirmInvitation } from '../../types/sub_professional.types';
 import { useToast } from '../../context/ToastContext';
 import ConfirmModal from '../Projects/ConfirmModal';
-import { getApiErrorMessage } from '../../utils/apiError';
+import { getApiErrorMessage } from '../..//utils/apiError';
 
 interface FirmInvitationsProps {
     isFullPage?: boolean;
