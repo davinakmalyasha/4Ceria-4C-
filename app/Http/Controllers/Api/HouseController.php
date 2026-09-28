@@ -23,7 +23,9 @@ class HouseController extends Controller
     {
         $query = House::with(['housePic', 'user.phoneNumber', 'room.roomPic'])->where('is_suspended', false);
 
-        if ($request->boolean('mine') && Auth::check()) {
+        $isMine = $request->boolean('mine') && Auth::check();
+
+        if ($isMine) {
             $query->where('id_user', Auth::id());
         }
 
@@ -85,6 +87,15 @@ class HouseController extends Controller
             'bedrooms', 'bathrooms', 'min_area', 'sort', 'page', 'mine',
         ]);
         $perPage = min(max((int) $request->input('per_page', 12), 1), 50);
+
+        // SECURITY: `?mine=true` returns PER-USER rows (id_user = Auth::id()),
+        // but the cache key below is derived only from the filter params, so
+        // the first caller to warm the key would receive everybody else's
+        // "my houses" payload for 10 minutes. Per-user result sets are never
+        // cacheable under a shared key.
+        if ($isMine) {
+            return HouseResource::collection($query->paginate($perPage));
+        }
 
         $cacheKey = 'houses_list_' . md5(json_encode($filters) . "|{$perPage}");
         $supportsTags = in_array(config('cache.default'), ['redis', 'memcached']);
