@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\UploadedFile;
 use App\Models\Notification;
+use App\Services\DisputeService;
 use Exception;
 
 class PaymentVerificationService
@@ -27,7 +28,12 @@ class PaymentVerificationService
             throw new Exception("Unauthorized. Only the Project Owner or assigned Project Manager can upload payment proofs.", 403);
         }
 
+        // DISPUTE FREEZE: no payment movement while a dispute is open.
+        app(DisputeService::class)->assertNoOpenDispute($project);
+
         return DB::transaction(function () use ($project, $type, $id, $file) {
+            $project = Project::whereKey($project->id)->lockForUpdate()->firstOrFail();
+            app(DisputeService::class)->assertNoOpenDispute($project);
             $model = $this->getModel($type, $id, $project->id);
 
             if ($type === 'termin') {
@@ -66,11 +72,18 @@ class PaymentVerificationService
                 throw new Exception("This payment is already marked as paid and cannot be modified.", 422);
             }
 
-            // Store file securely
-            $path = $file->store('receipts', 'public');
+            // PRIVATE STORAGE (2026-09-23): receipts were written to the
+            // world-readable `public` disk under a guessable path
+            // (/storage/receipts/*). A bank transfer receipt exposes the
+            // payer's AND payee's account numbers, the exact amount, the
+            // running balance and a reusable payment reference — i.e. the
+            // counterparty's bank details. Bank details and every other
+            // private artefact belong on `railway` (AGENTS.md trap #5);
+            // they are surfaced back through presigned URLs.
+            $path = $file->store('receipts', 'railway');
 
-            if ($model->payment_proof_path && Storage::disk('public')->exists($model->payment_proof_path)) {
-                Storage::disk('public')->delete($model->payment_proof_path);
+            if ($model->payment_proof_path && Storage::disk('railway')->exists($model->payment_proof_path)) {
+                Storage::disk('railway')->delete($model->payment_proof_path);
             }
 
             $model->payment_proof_path = $path;
@@ -91,9 +104,20 @@ class PaymentVerificationService
     /**
      * Handles the verification of a payment receipt by a Professional or PM.
      */
-    public function verifyProof(Project $project, string $type, int $id, $user, string $action = 'accept', ?string $notes = null)
+    public function verifyProof(Project $project, string $type, int $id, $user, string $action = 'accept', ?string $notes = null, bool $adminOverride = false)
     {
-        return DB::transaction(function () use ($project, $type, $id, $user, $action, $notes) {
+        // DISPUTE FREEZE: refuse verification while a dispute is open.
+        // The admin override (DisputeService::release_payment) skips this —
+        // it runs while the dispute row is still open, as the closing action.
+        if (!$adminOverride) {
+            app(DisputeService::class)->assertNoOpenDispute($project);
+        }
+
+        return DB::transaction(function () use ($project, $type, $id, $user, $action, $notes, $adminOverride) {
+            $project = Project::whereKey($project->id)->lockForUpdate()->firstOrFail();
+            if (!$adminOverride) {
+                app(DisputeService::class)->assertNoOpenDispute($project);
+            }
             $model = $this->getModel($type, $id, $project->id);
 
             // R1: Security - Only assigned pros or PM can verify.
@@ -101,7 +125,12 @@ class PaymentVerificationService
             
             $bidTypes = ['arsitek_bid', 'kontraktor_bid', 'notaris_bid', 'interior_bid', 'pm_bid', 'structural_bid', 'mep_bid'];
             
-            if (in_array($type, $bidTypes)) {
+            if ($adminOverride) {
+                // Admin arbitration (DisputeService::release_payment) — skips
+                // the payee/PM authorization check only; freeze, budget,
+                // ledger, and activation still run.
+                $isAuthorized = true;
+            } elseif (in_array($type, $bidTypes)) {
                 $proUserId = $this->getBidderUserId($model, $type);
                 if ($user->id === $proUserId) {
                     $isAuthorized = true;
@@ -147,6 +176,69 @@ class PaymentVerificationService
 
             if (!$isAuthorized) {
                 throw new Exception("Unauthorized. You do not have permission to verify this payment.", 403);
+            }
+
+            $currentStatus = $model->payment_status ?? $model->status;
+            if ($currentStatus === 'paid') {
+                throw new Exception("This payment is already marked as paid and cannot be modified.", 422);
+            }
+
+            // 'refunded' is TERMINAL: a dispute refund flipped the payment to
+            // refunded and wrote a NEGATIVE ledger row, so the original
+            // positive row is still present. Without this guard the owner could
+            // re-charge the same payment and `deductBudget`'s dedupe
+            // (exists() on reference_model/reference_id) would short-circuit to
+            // `true` WITHOUT writing a row — money leaves the bank with nothing
+            // recorded. See DisputeService::adminAction('record_refund').
+            if ($currentStatus === 'refunded') {
+                throw new Exception("This payment was refunded through dispute arbitration and cannot be re-charged.", 422);
+            }
+
+            // DEAD-PAYMENT GUARD: a stage voided by contract termination, or a
+            // bid whose contract was terminated/resigned, is no longer payable.
+            // (`void` is already excluded by the status checks above; this
+            // covers the bid lifecycle states, which kept payment_status
+            // 'unpaid' after the professional was fired — leaving an in-flight
+            // proof verifiable by the very person who was dismissed.)
+            $lifecycle = $model->status ?? null;
+            if (in_array($lifecycle, ['terminated', 'resigned', 'void', 'cancelled'], true)) {
+                throw new Exception(
+                    'This payment is no longer payable — the related contract was '.$lifecycle.'.',
+                    422
+                );
+            }
+
+            // PROOF-OF-PAYMENT GATE. Previously the ONLY guard was
+            // `=== 'paid'`, so a payee could call verify-proof with action=accept
+            // for a payment the payer never even attempted, and the service
+            // would mark it paid, write a ledger row for the full amount, fire
+            // `payment_verified` notifications and mail the payee a
+            // platform-signed receipt. A termin could also be minted with an
+            // arbitrary amount (see ProjectPaymentTerminController) which made
+            // the whole chain self-service.
+            //
+            // The SPA already only renders the Accept control when a proof
+            // exists (PaymentProofModal), so this closes a server-side hole
+            // rather than changing intended UX.
+            //
+            // NOT applied to $adminOverride: dispute arbitration
+            // (`release_payment`) legitimately settles a payment whose proof
+            // the counterparty disputes, and the admin override is the escape
+            // hatch for that (it is gated on isAdmin inside the service).
+            if (!$adminOverride) {
+                if (empty($model->payment_proof_path)) {
+                    throw new Exception(
+                        "No transfer proof on file. The payer must upload a payment proof before this payment can be verified.",
+                        422
+                    );
+                }
+
+                if ($currentStatus !== 'verifying') {
+                    throw new Exception(
+                        "This payment is not awaiting verification. Expected status 'verifying' (proof uploaded by the payer), found '{$currentStatus}'.",
+                        422
+                    );
+                }
             }
 
             // --- HANDLE REJECTION ---
@@ -230,7 +322,16 @@ class PaymentVerificationService
                 
                 // CRITICAL FIX: Record transaction in budget ledger for termins/addendums
                 $financialService = app(\App\Services\ProjectFinancialService::class);
-                $amount = (float)$model->amount;
+                $amount = (float)($model->amount ?? $model->total_price ?? 0);
+                if ($type === 'material') {
+                    // BUGFIX: MaterialOrder has NO `amount` column. Reading it
+                    // raised MissingAttributeException in non-production (500 on
+                    // this endpoint) and silently became (float) null = 0 in
+                    // production — so every material "payment" booked a Rp 0
+                    // ledger row and material procurement was completely
+                    // invisible to the escrow affordability check.
+                    $amount = (float)($model->total_price ?? 0) + (float)($model->shipping_cost ?? 0);
+                }
                 $title = match($type) {
                     'termin' => "Payment: {$model->label} ({$model->role_type})",
                     'addendum' => "Payment: {$model->title}",
@@ -342,7 +443,21 @@ class PaymentVerificationService
                     }
                 }
 
-                $financialService->recordTransaction($project, $amount, 'payment', $title, $refModel, $model->id);
+                // AFFORDABILITY (2026-09-23): termin/addendum/material payments
+                // used to bypass the escrow check entirely (a bare
+                // updateOrCreate), so the ledger could exceed the budget and
+                // every later bid payment would 422. They now share
+                // deductBudget's guard and FAIL LOUDLY (422) rather than
+                // over-committing the escrow.
+                if (!$financialService->recordPayment($project, $amount, $title, $refModel, $model->id)) {
+                    throw new Exception(
+                        'Project budget is insufficient for this payment ('
+                        . number_format($amount) . '). Available: '
+                        . number_format($financialService->available($project))
+                        . '. Please increase the project budget first.',
+                        422
+                    );
+                }
 
                 // Budget math counts termins/addendums/material payments —
                 // touch the project so the cached calculateBudgetSummary
@@ -557,21 +672,21 @@ class PaymentVerificationService
     {
         switch ($type) {
             case 'termin':
-                $model = ProjectPaymentTermin::where('id', $id)->where('project_id', $projectId)->first();
+                $model = ProjectPaymentTermin::where('id', $id)->where('project_id', $projectId)->lockForUpdate()->first();
                 break;
             case 'addendum':
-                $model = ProjectAddendum::where('id', $id)->where('project_id', $projectId)->first();
+                $model = ProjectAddendum::where('id', $id)->where('project_id', $projectId)->lockForUpdate()->first();
                 break;
             case 'material':
-                $model = MaterialOrder::where('id', $id)->where('project_id', $projectId)->first();
+                $model = MaterialOrder::where('id', $id)->where('project_id', $projectId)->lockForUpdate()->first();
                 break;
-            case 'arsitek_bid': $model = \App\Models\BidArsitek::with(['arsitek.user'])->where('id', $id)->where('project_id', $projectId)->first(); break;
-            case 'kontraktor_bid': $model = \App\Models\BidKontraktor::with(['kontraktor.user'])->where('id', $id)->where('project_id', $projectId)->first(); break;
-            case 'notaris_bid': $model = \App\Models\BidNotaris::with(['notaris.user'])->where('id', $id)->where('project_id', $projectId)->first(); break;
-            case 'interior_bid': $model = \App\Models\BidInterior::with(['interior.user'])->where('id', $id)->where('project_id', $projectId)->first(); break;
-            case 'pm_bid': $model = \App\Models\BidProjectManager::with(['pm.user'])->where('id', $id)->where('project_id', $projectId)->first(); break;
-            case 'structural_bid': $model = \App\Models\BidStructural::with(['structuralEngineer.user'])->where('id', $id)->where('project_id', $projectId)->first(); break;
-            case 'mep_bid': $model = \App\Models\BidMep::with(['mepEngineer.user'])->where('id', $id)->where('project_id', $projectId)->first(); break;
+            case 'arsitek_bid': $model = \App\Models\BidArsitek::with(['arsitek.user'])->where('id', $id)->where('project_id', $projectId)->lockForUpdate()->first(); break;
+            case 'kontraktor_bid': $model = \App\Models\BidKontraktor::with(['kontraktor.user'])->where('id', $id)->where('project_id', $projectId)->lockForUpdate()->first(); break;
+            case 'notaris_bid': $model = \App\Models\BidNotaris::with(['notaris.user'])->where('id', $id)->where('project_id', $projectId)->lockForUpdate()->first(); break;
+            case 'interior_bid': $model = \App\Models\BidInterior::with(['interior.user'])->where('id', $id)->where('project_id', $projectId)->lockForUpdate()->first(); break;
+            case 'pm_bid': $model = \App\Models\BidProjectManager::with(['pm.user'])->where('id', $id)->where('project_id', $projectId)->lockForUpdate()->first(); break;
+            case 'structural_bid': $model = \App\Models\BidStructural::with(['structuralEngineer.user'])->where('id', $id)->where('project_id', $projectId)->lockForUpdate()->first(); break;
+            case 'mep_bid': $model = \App\Models\BidMep::with(['mepEngineer.user'])->where('id', $id)->where('project_id', $projectId)->lockForUpdate()->first(); break;
             default:
                 throw new Exception("Invalid payment type: {$type}", 400);
         }

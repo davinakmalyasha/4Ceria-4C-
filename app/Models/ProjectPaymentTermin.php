@@ -19,6 +19,7 @@ class ProjectPaymentTermin extends Model
         'trigger_description',
         'status',
         'milestone_id',
+        'change_order_id',
         'paid_at',
         'notes',
         'retention_amount',
