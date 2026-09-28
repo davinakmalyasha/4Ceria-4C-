@@ -11,6 +11,7 @@
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^3.0",
         "league/flysystem-aws-s3-v3": "^3.34",
+        "minishlink/web-push": "^11.0",
         "predis/predis": "^2.2",
         "resend/resend-laravel": "^1.4",
         "spatie/laravel-permission": "^6.16"
