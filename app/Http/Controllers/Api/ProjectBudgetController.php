@@ -67,9 +67,9 @@ class ProjectBudgetController extends Controller
                     'project_manager' => ($project->pm_id && $project->projectManager) ? [
                         'id' => $project->pm_id,
                         'pm' => ['user' => ['name' => optional($project->projectManager->user)->name ?? 'Project Manager']],
-                        'price' => $pmBid ? (string) ($pmBid->calculated_total ?? $pmBid->price) : '10000000',
-                        'payment_status' => $pmBid ? ($pmBid->payment_status ?? 'unpaid') : 'paid',
-                        'paid_at' => $pmBid ? ($pmBid->paid_at ? (string) $pmBid->paid_at : null) : $project->created_at
+                        'price' => $pmBid ? (string) ($pmBid->calculated_total ?? $pmBid->price) : null,
+                        'payment_status' => $pmBid ? ($pmBid->payment_status ?? 'unpaid') : null,
+                        'paid_at' => $pmBid && $pmBid->paid_at ? (string) $pmBid->paid_at : null
                     ] : null,
                     'arsitek' => $project->bidsArsitek->first() ? array_merge($project->bidsArsitek->first()->toArray(), ['price' => (string) $project->bidsArsitek->first()->price]) : null,
                     'kontraktor' => $project->bidsKontraktor->first() ? array_merge($project->bidsKontraktor->first()->toArray(), ['price' => (string) $project->bidsKontraktor->first()->price]) : null,
@@ -82,12 +82,13 @@ class ProjectBudgetController extends Controller
                 }),
             ]);
         } catch (\Exception $e) {
-            Log::error('Budget Dashboard Error: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
-            return response()->json(['message' => 'Dashboard error', 'error' => $e->getMessage()], 500);
+            Log::error('Budget Dashboard Error: ' . $e->getMessage(), ['project_id' => $project->id]);
+            // No raw exception text in the response body.
+            return response()->json(['message' => 'Dashboard error'], 500);
         }
     }
 
-    public function addTransaction(Request $request, Project $project)
+    public function addTransaction(Request $request, Project $project, \App\Services\ProjectFinancialService $financialService)
     {
         try {
             $userId = Auth::id();
@@ -100,30 +101,54 @@ class ProjectBudgetController extends Controller
 
             $request->validate([
                 'transaction_type' => 'required|in:deposit,adjustment_down',
-                'amount' => 'required|numeric|min:1',
+                'amount' => 'required|numeric|min:1|max:99999999999999',
                 'title' => 'required|string|max:255',
             ]);
 
-            $transaction = ProjectBudgetTransaction::create([
-                'project_id' => $project->id,
-                'transaction_type' => $request->transaction_type,
-                'amount' => $request->amount,
-                'title' => $request->title,
-                'transaction_date' => now(),
+            // SECURITY/CORRECTNESS: a `deposit` previously wrote ONLY a ledger
+            // row and never moved `projects.budget`, so the owner's "Add
+            // Funds" button appeared to add money while the server — which
+            // enforces `budget - SUM(payments)` — refused the resulting
+            // payments with "Insufficient project budget" and no explanation.
+            // The escrow CEILING now moves with the ledger row.
+            //
+            // `adjustment_down` is a reduction of the ceiling, which deductBudget
+            // already performed for non-payment types.
+            $ok = $financialService->deductBudget(
+                $project,
+                (float) $request->amount,
+                $request->transaction_type,
+                $request->title
+            );
+
+            if (! $ok) {
+                return response()->json(['message' => 'Transaction failed: insufficient escrow to reduce.'], 422);
+            }
+
+            $transaction = ProjectBudgetTransaction::where('project_id', $project->id)
+                ->whereNull('reference_id')
+                ->where('title', $request->title)
+                ->where('transaction_type', $request->transaction_type)
+                ->latest('id')
+                ->first();
+
+            Log::info('Transaction Recorded', ['id' => $transaction?->id]);
+
+            return response()->json([
+                'message' => 'Transaction recorded successfully',
+                'transaction' => $transaction,
+                'budget' => $project->fresh()->budget,
             ]);
-
-            Log::info('Transaction Recorded', ['id' => $transaction->id]);
-
-            return response()->json(['message' => 'Transaction recorded successfully', 'transaction' => $transaction]);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json(['message' => 'Validation error', 'errors' => $e->errors()], 422);
         } catch (\Exception $e) {
             Log::error('Budget Transaction Error: ' . $e->getMessage(), [
-                'input' => $request->all(),
+                'project_id' => $project->id,
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
             ]);
-            return response()->json(['message' => 'Transaction failed: ' . $e->getMessage()], 500);
+            // Never echo raw exception text to the client (it leaks internal
+            // detail); the message is logged with the project id instead.
+            return response()->json(['message' => 'Transaction failed. Please try again.'], 500);
         }
     }
 
@@ -208,8 +233,111 @@ class ProjectBudgetController extends Controller
         return response()->json(['message' => 'Sandbox item deleted successfully']);
     }
 
-    public function markPaid(Request $request, Project $project)
+    /**
+     * Tell the payee their money was released, and leave an audit trail.
+     *
+     * `source` is recorded on the activity row so arbitration can tell an
+     * owner-declared release apart from a counterparty-verified one.
+     */
+    private function recordPaymentReleased(Project $project, string $title, float $amount, string $type, int $id, string $source = 'owner_declared'): void
     {
+        $formatted = 'Rp '.number_format($amount, 0, ',', '.');
+
+        \App\Models\ProjectActivityLog::create([
+            'project_id' => $project->id,
+            'user_id' => Auth::id(),
+            'action' => 'payment_released',
+            'details' => "{$title} ({$formatted}) released by the project owner [source: {$source}, ref: {$type}#{$id}].",
+        ]);
+
+        // Resolve the payee so the right person is told.
+        $payeeId = null;
+
+        if ($type === 'termin') {
+            $termin = \App\Models\ProjectPaymentTermin::where('project_id', $project->id)->where('id', $id)->first();
+            $payeeId = $termin?->recipient_id;
+        } elseif (str_starts_with($type, 'bid_')) {
+            // Relation names come from the bid models (mirroring
+            // PaymentVerificationService::getBidderUserId): BidProjectManager
+            // exposes `pm`, BidStructural `structuralEngineer`, BidMep
+            // `mepEngineer` — not the column names.
+            $map = [
+                'bid_arsitek' => [\App\Models\BidArsitek::class, 'arsitek_id', 'arsitek'],
+                'bid_kontraktor' => [\App\Models\BidKontraktor::class, 'kontraktor_id', 'kontraktor'],
+                'bid_notaris' => [\App\Models\BidNotaris::class, 'notaris_id', 'notaris_profile'],
+                'bid_interior' => [\App\Models\BidInterior::class, 'interior_id', 'interior_profile'],
+                'bid_project_manager' => [\App\Models\BidProjectManager::class, 'pm_id', 'pm'],
+                'bid_structural' => [\App\Models\BidStructural::class, 'structural_engineer_id', 'structuralEngineer'],
+                'bid_mep' => [\App\Models\BidMep::class, 'mep_engineer_id', 'mepEngineer'],
+            ];
+
+            if (isset($map[$type])) {
+                [$class, $fk, $relation] = $map[$type];
+                $bid = $class::where('project_id', $project->id)->where('id', $id)->first();
+                $payeeId = $bid ? $bid->{$relation}?->user_id : null;
+            }
+        } elseif ($type === 'addendum') {
+            $addendum = \App\Models\ProjectAddendum::where('project_id', $project->id)->where('id', $id)->first();
+            $payeeId = $addendum?->user_id;
+        }
+
+        if ($payeeId && (int) $payeeId !== (int) Auth::id()) {
+            \App\Models\Notification::create([
+                'user_id' => $payeeId,
+                'type' => 'payment_verified',
+                'title' => 'Payment Released',
+                'body' => "The project owner confirmed payment of {$formatted} for \"{$title}\" on \"{$project->title}\".",
+                'data' => [
+                    'project_id' => $project->id,
+                    'payment_type' => $type,
+                    'payment_id' => $id,
+                ],
+            ]);
+        }
+    }
+
+    /**
+     * Refuse to re-charge a payment that dispute arbitration refunded.
+     *
+     * Bids track the payment in `payment_status`; termin/addendums in `status`.
+     * Both end up on the negative-reversal path, so both are checked here in
+     * one place instead of per branch.
+     */
+    private function assertNotRefunded(string $type, int $id, int $projectId): void
+    {
+        [$modelClass, $field] = match ($type) {
+            'bid_arsitek' => [\App\Models\BidArsitek::class, 'payment_status'],
+            'bid_kontraktor' => [\App\Models\BidKontraktor::class, 'payment_status'],
+            'bid_notaris' => [\App\Models\BidNotaris::class, 'payment_status'],
+            'bid_interior' => [\App\Models\BidInterior::class, 'payment_status'],
+            'bid_structural' => [\App\Models\BidStructural::class, 'payment_status'],
+            'bid_mep' => [\App\Models\BidMep::class, 'payment_status'],
+            'bid_project_manager' => [\App\Models\BidProjectManager::class, 'payment_status'],
+            'termin' => [\App\Models\ProjectPaymentTermin::class, 'status'],
+            'addendum' => [\App\Models\ProjectAddendum::class, 'status'],
+            default => [null, null],
+        };
+
+        if ($modelClass === null) {
+            return;
+        }
+
+        $row = $modelClass::where('project_id', $projectId)->where('id', $id)->first();
+
+        // Missing row: the per-branch findOrFail below produces the 404.
+        if (! $row) {
+            return;
+        }
+
+        if (($row->{$field} ?? null) === 'refunded') {
+            throw new \Exception(
+                'This payment was refunded through dispute arbitration and cannot be charged again. Open a new dispute if the refund itself is disputed.',
+                422
+            );
+        }
+    }
+
+    public function markPaid(Request $request, Project $project, \App\Services\ProjectFinancialService $financialService)    {
         $userId = Auth::id();
         $isOwner = $project->user_id === $userId;
         $isPM = $project->pm_id && Auth::user()->role_type === 'project_manager' && Auth::user()->id === $project->pm_id;
@@ -219,12 +347,27 @@ class ProjectBudgetController extends Controller
         }
 
         $request->validate([
-            'type' => 'required|in:bid_arsitek,bid_notaris,bid_interior,bid_structural,bid_mep,addendum,termin',
+            'type' => 'required|in:bid_arsitek,bid_kontraktor,bid_notaris,bid_interior,bid_structural,bid_mep,bid_project_manager,addendum,termin',
             'id' => 'required|integer'
         ]);
 
         DB::beginTransaction();
         try {
+            // DISPUTE FREEZE: 422 so the catch below surfaces the message to
+            // the client (it only echoes $e->getMessage() for code 422).
+            app(\App\Services\DisputeService::class)->assertNoOpenDispute($project);
+
+            // SECURITY (double-spend): a payment refunded through dispute
+            // arbitration carries payment_status/status = 'refunded' and has a
+            // NEGATIVE ledger row, while the original positive row is still
+            // present. Each branch below only refused `=== 'paid'`, so the
+            // owner could re-charge a refunded payment: the per-branch guard
+            // passed, and then ProjectFinancialService::deductBudget found the
+            // EXISTING row for that (reference_model, reference_id) and
+            // short-circuited to `true` WITHOUT inserting a row — money leaves
+            // the bank and the escrow ledger never learns about it.
+            $this->assertNotRefunded($request->type, (int) $request->id, (int) $project->id);
+
             $amount = 0;
             $title = '';
             $referenceModel = '';
@@ -235,16 +378,40 @@ class ProjectBudgetController extends Controller
                     throw new \Exception('This payment has already been marked as paid.', 422);
                 }
                 $bid->update(['payment_status' => 'paid', 'paid_at' => now()]);
-                $amount = $bid->price;
+                $amount = $bid->calculated_total ?? $bid->price;
                 $title = 'Paid Architect Base Fee';
                 $referenceModel = 'App\Models\BidArsitek';
+            } elseif ($request->type === 'bid_kontraktor') {
+                $bid = \App\Models\BidKontraktor::where('project_id', $project->id)->findOrFail($request->id);
+                if ($bid->payment_status === 'paid') {
+                    throw new \Exception('This payment has already been marked as paid.', 422);
+                }
+                $bid->update(['payment_status' => 'paid', 'paid_at' => now()]);
+                $amount = $bid->calculated_total ?? $bid->price;
+                $title = 'Paid Contractor Base Fee';
+                $referenceModel = 'App\Models\BidKontraktor';
+            } elseif ($request->type === 'bid_project_manager') {
+                $bid = \App\Models\BidProjectManager::where('project_id', $project->id)->findOrFail($request->id);
+                if ($bid->payment_status === 'paid') {
+                    throw new \Exception('This payment has already been marked as paid.', 422);
+                }
+                $bid->update(['payment_status' => 'paid', 'paid_at' => now()]);
+                $amount = $bid->calculated_total ?? $bid->price;
+                $title = 'Paid Project Manager Base Fee';
+                $referenceModel = 'App\Models\BidProjectManager';
+                // TRAP: bids_project_manager.pm_id is a PROFILE id while
+                // projects.pm_id stores the PM's USER id.
+                $pmProfile = \App\Models\ProjectManager::find($bid->pm_id);
+                if ($pmProfile && !$project->pm_id) {
+                    $project->update(['pm_id' => $pmProfile->user_id]);
+                }
             } elseif ($request->type === 'bid_notaris') {
                 $bid = \App\Models\BidNotaris::where('project_id', $project->id)->findOrFail($request->id);
                 if ($bid->payment_status === 'paid') {
                     throw new \Exception('This payment has already been marked as paid.', 422);
                 }
                 $bid->update(['payment_status' => 'paid', 'paid_at' => now()]);
-                $amount = $bid->price;
+                $amount = $bid->calculated_total ?? $bid->price;
                 $title = 'Paid Notaris Base Fee';
                 $referenceModel = 'App\Models\BidNotaris';
             } elseif ($request->type === 'bid_interior') {
@@ -253,7 +420,7 @@ class ProjectBudgetController extends Controller
                     throw new \Exception('This payment has already been marked as paid.', 422);
                 }
                 $bid->update(['payment_status' => 'paid', 'paid_at' => now()]);
-                $amount = $bid->price;
+                $amount = $bid->calculated_total ?? $bid->price;
                 $title = 'Paid Interior Designer Base Fee';
                 $referenceModel = 'App\Models\BidInterior';
             } elseif ($request->type === 'bid_structural') {
@@ -350,12 +517,39 @@ class ProjectBudgetController extends Controller
                         if ($bid) {
                             $bid->update(['payment_status' => 'paid', 'paid_at' => now()]);
                             $project->update(['structural_id' => $bid->structural_id]);
+
+                            // MONEY CORRECTNESS: this flipped the specialist bid
+                            // to paid WITHOUT any ledger row, so the escrow never
+                            // saw the money leave, the bid became permanently
+                            // un-payable (verifyProof rejects 'paid'), and the
+                            // amount vanished from every financial report.
+                            $specialistFee = (float) ($bid->calculated_total ?? $bid->price ?? 0);
+                            if ($specialistFee > 0) {
+                                $financialService->recordPayment(
+                                    $project,
+                                    $specialistFee,
+                                    'Paid Structural Engineer Fee (via specialist addendum)',
+                                    'App\Models\BidStructural',
+                                    $bid->id
+                                );
+                            }
                         }
                     } elseif ($addendum->recommended_bid_type === 'mep') {
                         $bid = \App\Models\BidMep::find($addendum->recommended_bid_id);
                         if ($bid) {
                             $bid->update(['payment_status' => 'paid', 'paid_at' => now()]);
                             $project->update(['mep_id' => $bid->mep_id]);
+
+                            $specialistFee = (float) ($bid->calculated_total ?? $bid->price ?? 0);
+                            if ($specialistFee > 0) {
+                                $financialService->recordPayment(
+                                    $project,
+                                    $specialistFee,
+                                    'Paid MEP Engineer Fee (via specialist addendum)',
+                                    'App\Models\BidMep',
+                                    $bid->id
+                                );
+                            }
                         }
                     }
                 }
@@ -380,28 +574,52 @@ class ProjectBudgetController extends Controller
                 $referenceModel = 'App\Models\ProjectPaymentTermin';
             }
 
-            // Create Transaction — updateOrCreate keyed on the reference triple so a
-            // payment can only ever produce ONE ledger row (double-spend guard).
-            ProjectBudgetTransaction::updateOrCreate(
-                [
-                    'project_id' => $project->id,
-                    'reference_model' => $referenceModel,
-                    'reference_id' => $request->id,
-                ],
-                [
-                    'transaction_type' => 'payment',
-                    'amount' => $amount,
-                    'title' => $title,
-                    'transaction_date' => now(),
-                ]
+            // Debit through the shared financial service so this legacy path has
+            // the same guarantees as verifyProof: project row lock (TOCTOU),
+            // affordability check against budget minus ledger, and one ledger
+            // row per reference (the unique index is the final backstop).
+            $deducted = $financialService->deductBudget(
+                $project,
+                (float) $amount,
+                'payment',
+                $title,
+                $referenceModel,
+                (int) $request->id
             );
 
+            if (!$deducted) {
+                throw new \Exception('Insufficient project budget to record this payment.', 422);
+            }
+
+            // AUDIT + NOTIFICATION (2026-09-23). markPaid is the owner's
+            // "I already transferred it" button — the most common real flow on a
+            // marketplace with no payment gateway — and it was completely
+            // silent: the professional's dashboard never changed, and dispute
+            // arbitration had no way to distinguish an owner-declared release
+            // from a counterparty-verified one.
+            $this->recordPaymentReleased($project, $title, (float) $amount, $request->type, (int) $request->id);
+
+            // Invalidate the cached budget summary immediately.
+            $project->touch();
+
             DB::commit();
-            return response()->json(['message' => 'Successfully marked as paid and deducted from budget.']);
+            return response()->json([
+                'message' => 'Successfully marked as paid and deducted from budget.',
+                'budget' => $project->fresh()->budget,
+            ]);
         } catch (\Exception $e) {
             DB::rollBack();
             $status = is_int($e->getCode()) && $e->getCode() >= 400 && $e->getCode() < 500 ? $e->getCode() : 500;
-            return response()->json(['message' => $status === 422 ? $e->getMessage() : 'Failed to process payment tracking.', 'error' => $status === 422 ? null : $e->getMessage()], $status);
+            if ($status !== 422) {
+                Log::error('markPaid failed: ' . $e->getMessage(), [
+                    'project_id' => $project->id,
+                    'type' => $request->type,
+                    'id' => $request->id,
+                ]);
+            }
+            return response()->json([
+                'message' => $status === 422 ? $e->getMessage() : 'Failed to process payment tracking.',
+            ], $status);
         }
     }
 
