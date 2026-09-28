@@ -92,6 +92,12 @@ if ($anySchedule) {
     echo "SKIP  unauth schedule check (no schedules in DB)\n";
 }
 
+// 2c. B1/B2 endpoints must reject anonymous callers (run BEFORE Auth::login)
+$res = dispatch($kernel, 'GET', '/api/favorites');
+check('favorites index unauthenticated -> 401', codeOf($res) === 401, 'status=' . codeOf($res));
+$res = dispatch($kernel, 'GET', '/api/push/public-key');
+check('push public-key unauthenticated -> 401', codeOf($res) === 401, 'status=' . codeOf($res));
+
 // 4. Authenticated unread summary + vault + schedule authorization
 $user = App\Models\User::where('email', 'admin@4c.id')->first() ?: App\Models\User::first();
 if ($user) {
@@ -104,6 +110,20 @@ if ($user) {
         'unread summary shape',
         isset($body['unread_messages'], $body['unread_notifications']),
         'keys=' . implode(',', array_keys(is_array($body) ? $body : []))
+    );
+
+    // B1 favorites: authed index returns resolved items
+    $res = dispatch($kernel, 'GET', '/api/favorites');
+    $favBody = json_decode($res->getContent(), true);
+    check('GET /api/favorites 200', codeOf($res) === 200, 'status=' . codeOf($res));
+    check('favorites payload has items', is_array($favBody) && array_key_exists('items', $favBody));
+
+    // B2 web push: 200 once VAPID keys are configured, 501 until then
+    $res = dispatch($kernel, 'GET', '/api/push/public-key');
+    check(
+        'GET /api/push/public-key configured-or-501',
+        in_array(codeOf($res), [200, 501], true),
+        'status=' . codeOf($res)
     );
 
     // Vault index must be blocked for a non-participant
