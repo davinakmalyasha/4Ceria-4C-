@@ -85,17 +85,26 @@ class ProjectTerminationController extends Controller
             }
 
             // 4. CLEANUP: Delete uncompleted milestones for this role.
-            // BUGFIX: milestones.pm_id stores the PM PROFILE id while
-            // projects.pm_id stores the USER id — the old direct comparison
-            // matched nothing for PM terminations.
-            $milestoneColumnValue = $column === 'pm_id'
+            // Milestones use their own column names (kontraktor_id, not
+            // selected_kontraktor_id) and, for the PM, store a PROFILE id while
+            // projects.pm_id stores a USER id.
+            $milestoneColumn = $this->getMilestoneColumnForRole($role);
+            $milestoneColumnValue = $role === 'pm'
                 ? (\App\Models\ProjectManager::find($professionalId)?->id ?? $professionalId)
                 : $project->$column;
 
             $project->milestones()
-                ->where($column, $milestoneColumnValue)
+                ->where($milestoneColumn, $milestoneColumnValue)
                 ->where('is_completed', false)
                 ->delete();
+
+            // 4b. MONEY SETTLEMENT: void every unpaid payment stage for this
+            // role. Previously termination touched milestones only, leaving
+            // `pending`/`invoice_sent` termins payable with the fired
+            // professional still set as `recipient_id` — and verifyProof
+            // authorizes on `recipient_id` alone, so a fired pro could still
+            // accept an in-flight proof and pull a ledger debit.
+            $this->settlePaymentStages($project, $role === 'pm' ? 'project_manager' : $role, 'terminated');
 
             // 5. Clear the professional from the project
             $project->update([$column => null]);
@@ -180,11 +189,20 @@ class ProjectTerminationController extends Controller
                 }
             }
 
-            // 4. CLEANUP: Delete uncompleted milestones for this role
+            // 4. CLEANUP: Delete uncompleted milestones for this role.
+            // Milestones use their own column names, and for the PM they store
+            // a PROFILE id while projects.pm_id stores a USER id.
+            $milestoneValue = $role === 'pm'
+                ? (\App\Models\ProjectManager::find($profileId)?->id ?? $profileId)
+                : $project->$column;
+
             $project->milestones()
-                ->where($column, $project->$column)
+                ->where($this->getMilestoneColumnForRole($role), $milestoneValue)
                 ->where('is_completed', false)
                 ->delete();
+
+            // 4b. MONEY SETTLEMENT — see fireProfessional.
+            $this->settlePaymentStages($project, $role === 'project_manager' ? 'project_manager' : $role, 'resigned');
 
             // 5. Clear the professional from the project
             $project->update([$column => null]);
@@ -199,6 +217,42 @@ class ProjectTerminationController extends Controller
         });
     }
 
+    /**
+     * Close out a departing professional's payment schedule.
+     *
+     * Any stage still `verifying` is left untouched and reported, because money
+     * is mid-flight and only dispute arbitration can settle it. Every unpaid
+     * stage becomes `void` so it can never be verified, and the owner gets an
+     * explicit count of what is being written off.
+     */
+    private function settlePaymentStages(Project $project, string $roleType, string $reason): array
+    {
+        $inFlight = $project->paymentTermins()
+            ->where('role_type', $roleType)
+            ->where('status', 'verifying')
+            ->pluck('id');
+
+        $voided = $project->paymentTermins()
+            ->where('role_type', $roleType)
+            ->whereIn('status', ['locked', 'pending', 'invoice_sent'])
+            ->update([
+                'status' => 'void',
+                'notes' => "Voided automatically — contract {$reason}.",
+            ]);
+
+        if ($voided || $inFlight->isNotEmpty()) {
+            ProjectActivityLog::create([
+                'project_id' => $project->id,
+                'user_id' => Auth::id(),
+                'action' => 'payment_stages_settled',
+                'details' => "Payment settlement for {$roleType} ({$reason}): {$voided} stage(s) voided"
+                    .($inFlight->isNotEmpty() ? ', '.count($inFlight).' stage(s) left in flight (verifying) for dispute arbitration' : '').'.',
+            ]);
+        }
+
+        return ['voided' => $voided, 'in_flight' => $inFlight->all()];
+    }
+
     private function getColumnForRole($role)
     {
         return match ($role) {
@@ -206,6 +260,27 @@ class ProjectTerminationController extends Controller
             'kontraktor' => 'selected_kontraktor_id',
             'interior' => 'selected_interior_id',
             'notaris' => 'selected_notaris_id',
+            'pm' => 'pm_id',
+            default => null,
+        };
+    }
+
+    /**
+     * The matching column on `project_milestones`.
+     *
+     * BUGFIX (found by tests/PaymentIntegrityTest): the milestone cleanup used
+     * the PROJECT's column name (`selected_kontraktor_id`) against
+     * `project_milestones`, which stores plain `kontraktor_id`. MySQL raised
+     * "Unknown column", so firing or any role other than the PM has ALWAYS
+     * 500'd at this step — the professional was never actually removed.
+     */
+    private function getMilestoneColumnForRole($role)
+    {
+        return match ($role) {
+            'arsitek' => 'arsitek_id',
+            'kontraktor' => 'kontraktor_id',
+            'interior' => 'interior_id',
+            'notaris' => 'notaris_id',
             'pm' => 'pm_id',
             default => null,
         };
@@ -226,8 +301,12 @@ class ProjectTerminationController extends Controller
             // BUGFIX: only looked for status='accepted', which doesn't exist
             // until the first termin is paid — early firings/resignations used
             // to skip the notification + reliability penalty entirely.
+            // 'active' was also missing: a bid whose payment already cleared
+            // (work underway) matched nothing, so it stayed 'active' forever,
+            // kept counting as allocated, and produced no termination record,
+            // notification or reliability penalty.
             $bid = $modelClass::where('project_id', $project->id)
-                ->whereIn('status', ['accepted', 'awaiting_payment', 'contract_pending'])
+                ->whereIn('status', ['accepted', 'awaiting_payment', 'contract_pending', 'active'])
                 ->latest()
                 ->first();
 
