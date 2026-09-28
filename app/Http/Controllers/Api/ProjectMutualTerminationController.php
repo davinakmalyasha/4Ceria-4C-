@@ -147,7 +147,9 @@ class ProjectMutualTerminationController extends Controller
     public function escalate(Project $project, ProjectTermination $termination)
     {
         $user = Auth::user();
-        if ($termination->project_id !== $project->id || $termination->status !== 'rejected') {
+        // Idempotent: allow re-escalating an already-escalated termination
+        // (network retry / double-click) — the service below dedupes disputes.
+        if ($termination->project_id !== $project->id || !in_array($termination->status, ['rejected', 'escalated'], true)) {
             return response()->json(['message' => 'Status pengajuan tidak valid untuk dieskalasi.'], 422);
         }
 
@@ -161,6 +163,12 @@ class ProjectMutualTerminationController extends Controller
 
         $termination->update(['status' => 'escalated']);
 
+        // Materialize the escalation as a real dispute row (idempotent —
+        // returns the existing open dispute if one is already open). This
+        // also freezes payments until an admin resolves the dispute.
+        $dispute = app(\App\Services\DisputeService::class)
+            ->escalateFromTermination($project, $termination, $user);
+
         ProjectActivityLog::create([
             'project_id' => $project->id,
             'user_id' => $user->id,
@@ -170,7 +178,8 @@ class ProjectMutualTerminationController extends Controller
 
         return response()->json([
             'message' => 'Perselisihan berhasil dieskalasi ke Admin Platform. Admin akan melakukan review menyeluruh.',
-            'data' => $termination
+            'data' => $termination,
+            'dispute' => $dispute,
         ]);
     }
 }
