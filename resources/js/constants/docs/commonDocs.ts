@@ -9,13 +9,17 @@ export const commonDocs: DocArticle[] = [
         sections: [
             {
                 type: 'text',
-                body: 'To protect clients and builders, we enforce a secured milestone escrow model. Funds are never sent directly — they pass through platform-secured accounts and are released only when work is verified.'
+                body: '4Ceria runs a milestone escrow LEDGER. Money moves by your own bank transfer, and the platform records and gates it rather than holding it. That distinction matters, so we state it plainly: no money ever passes through a 4Ceria bank account.'
+            },
+            {
+                type: 'text',
+                body: 'What the ledger does: it records every movement against the project budget, refuses a payment the budget cannot cover, blocks all payment routes while a dispute is open, and records every release with who authorised it. What it cannot do: recover money that was transferred to the wrong account, or make a transfer itself.'
             },
             {
                 type: 'step',
                 title: 'How Escrow Operates:',
                 steps: [
-                    { stepNumber: 1, title: 'Client deposits funds', description: 'When a professional is hired, the client deposits the agreed milestone payment into the platform escrow.' },
+                    { stepNumber: 1, title: 'Client funds the project budget', description: 'The client transfers the agreed amount to their own escrow arrangement and records it against the project, raising the spendable ceiling.' },
                     { stepNumber: 2, title: 'Professional completes work', description: 'The contractor or architect carries out the construction work and uploads photographic proof.' },
                     { stepNumber: 3, title: 'Client approves milestone', description: 'The client reviews the submitted proof and approves the completed milestone.' },
                     { stepNumber: 4, title: 'Admin verification', description: 'Platform admins verify the submission for quality and completeness.' },
@@ -58,28 +62,31 @@ export const commonDocs: DocArticle[] = [
     },
     {
         id: 'common-platform-fees',
-        title: 'Understanding Platform Fees',
+        title: 'Costs You Should Budget For',
         role: 'common',
-        summary: 'How 4Ceria\'s fee structure works for clients, professionals, and suppliers.',
+        summary: 'What actually costs money in a 4Ceria project today.',
         sections: [
             {
                 type: 'text',
-                body: '4Ceria charges a small platform fee to sustain operations, maintain security, and provide dispute resolution services. Understanding the fee structure helps you plan your budgets accurately.'
+                body: '4Ceria does not currently charge a platform fee. That is a deliberate current state, not a hidden charge, and we would rather tell you plainly than list fees that do not exist in the product.'
+            },
+            {
+                type: 'text',
+                body: 'What you WILL pay for on a project, and what the platform has no visibility into:'
             },
             {
                 type: 'list',
-                title: 'Fee Categories:',
+                title: 'Real costs, outside the platform:',
                 items: [
-                    'Project Fees: A percentage-based fee applied to project contracts when a professional is hired.',
-                    'Marketplace Fees: A commission on material sales processed through the marketplace.',
-                    'Shipping Fees: Calculated separately based on weight and distance — paid by the buyer to the courier.',
-                    'Escrow Fees: Nominal fee for escrow processing to cover secure payment infrastructure.'
+                    'Bank transfer fees, charged by your bank between the sending and receiving account.',
+                    'Material and shipping costs, which flow from the supplier and the courier, not through us.',
+                    'Professional fees, which are the negotiated bid amount and are visible in the project ledger.',
+                    'Taxes (PPN / PPh), which are a matter between you and your tax authority. 4Ceria does not issue invoices or withhold tax.'
                 ]
             },
             {
-                type: 'alert',
-                alertType: 'info',
-                body: 'All fees are transparently displayed during checkout and contract signing. There are no hidden charges — you always see the total cost before committing.'
+                type: 'text',
+                body: 'If a future release introduces a platform fee, it will be itemised on the project ledger next to the payment it applies to, not deducted invisibly.'
             }
         ]
     },

@@ -36,13 +36,14 @@ export const useProjectManagers = (initialData: ProjectManager[]) => {
                 case 'experience_desc':
                     return (b.pengalaman_tahun || 0) - (a.pengalaman_tahun || 0);
                 case 'recommended':
-                default:
+                default: {
                     // Score based on experience + rating
                     const ratingA = typeof a.average_rating === 'string' ? parseFloat(a.average_rating) : (a.average_rating || 0);
                     const ratingB = typeof b.average_rating === 'string' ? parseFloat(b.average_rating) : (b.average_rating || 0);
                     const scoreA = (a.pengalaman_tahun || 1) * 20 + (ratingA * 50);
                     const scoreB = (b.pengalaman_tahun || 1) * 20 + (ratingB * 50);
                     return scoreB - scoreA;
+                }
             }
         });
 

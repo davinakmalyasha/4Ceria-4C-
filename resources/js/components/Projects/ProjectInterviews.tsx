@@ -117,9 +117,9 @@ export default function ProjectInterviews({ project, onRefresh, onOpenChat, onRe
         const currentBid = interviewBids.find(b => b.id === bidId);
         if (!currentBid) return;
 
-        let title = '';
-        let description = '';
-        let variant: 'info' | 'success' | 'danger' = 'info';
+        let title: string;
+        let description: string;
+        let variant: 'info' | 'success' | 'danger';
 
         if (action === 'recommend') {
             if (onRecommend) {

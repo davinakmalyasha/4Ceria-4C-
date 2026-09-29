@@ -40,7 +40,7 @@ export default function PublicBrief() {
                     throw new Error("Received HTML instead of JSON. Check API route routing.");
                 }
 
-                let cleanData = res.data.project || res.data;
+                const cleanData = res.data.project || res.data;
                 
                 // Double-check construction_details isn't double-encoded as a string
                 if (typeof cleanData.construction_details === 'string') {

@@ -546,7 +546,11 @@ export const ContractSignModal: React.FC<ContractSignModalProps> = ({ isOpen, on
                 });
                 try {
                     sessionStorage.removeItem(`4ceria_contract_draft_${project.id}_${bid.id}`);
-                } catch (e) {}
+                } catch {
+                    // The contract is already signed server-side. A draft that
+                    // will not clear is cosmetic and must not fail the
+                    // success path.
+                }
                 showToast('Contract signed successfully!', 'success');
                 onSuccess();
                 onClose();
@@ -621,7 +625,10 @@ export const ContractSignModal: React.FC<ContractSignModalProps> = ({ isOpen, on
             });
             try {
                 sessionStorage.removeItem(`4ceria_contract_draft_${project.id}_${bid.id}`);
-            } catch (e) {}
+            } catch {
+                // Same as above: never let draft cleanup fail a successful
+                // signing.
+            }
             showToast('Contract signed successfully!', 'success');
             onSuccess();
             onClose();

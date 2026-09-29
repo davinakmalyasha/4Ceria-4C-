@@ -34,6 +34,18 @@ interface ReviewItem {
     author: string;
 }
 
+// The seven separately-licensed roles this platform coordinates. Used for the
+// credential strip in place of fabricated user avatars and a made-up rating.
+const PROFESSIONAL_ROLES = [
+    { key: 'arsitek', label: 'Arsitek', icon: FolderKanban },
+    { key: 'kontraktor', label: 'Kontraktor', icon: HardHat },
+    { key: 'mep', label: 'MEP', icon: Zap },
+    { key: 'structural', label: 'Struktural', icon: ShieldCheck },
+    { key: 'interior', label: 'Interior', icon: Paintbrush },
+    { key: 'notaris', label: 'Notaris', icon: Briefcase },
+    { key: 'pm', label: 'Project Manager', icon: Users },
+] as const;
+
 interface FAQItem {
     q: string;
     a: string;
@@ -145,11 +157,21 @@ export default function LandingPage(): React.ReactElement {
         }
     ];
 
-    const reviews: ReviewItem[] = [
-        { date: '29 Desember, 2025', text: 'Sangat terbantu mencari kontraktor dan arsitek. Proses pembayaran dan progress terpantau detail di dashboard.', author: 'DavinGans' },
-        { date: '30 Desember, 2025', text: 'Sebagai supplier, inventory dan order tracking sistem di platform ini mempermudah penjualan toko kami.', author: 'FarizSupplier' },
-        { date: '31 Desember, 2025', text: 'Proses pengiriman bahan konstruksi lancar karena kurir langsung mengambil order dari Job Radar.', author: 'FarizCourier' },
-        { date: '1 Januari, 2026', text: 'Negosiasi proyek dengan arsitek sangat transparan melalui fitur Bidding Board. Sangat professional!', author: 'User123' },
+    // Replaces what used to be four hard-coded testimonials with fabricated
+    // authors and dates ("DavinGans", "FarizSupplier", "User123"), plus a
+    // "4.9/5 from 1000+ successful projects" badge. Every one of those people
+    // was a row in a seeder. A reviewer who reads the seeder and then the
+    // landing page concludes the author fabricated testimonials, which
+    // contaminates the credibility of everything else in the repo.
+    //
+    // What replaces it is true by construction: these are the workflow stages
+    // the product actually implements, described without inventing users or
+    // numbers. Social proof belongs in a real deployment, not in the source.
+    const workflow: ReviewItem[] = [
+        { date: 'Tahap 1', text: 'Owner memposting proyek lengkap dengan dimensi, lokasi, dan peran profesional yang dibutuhkan.', author: 'Publish proyek' },
+        { date: 'Tahap 2', text: 'Profesional terverifikasi menawar dengan rincian lingkup pekerjaan, durasi, dan biaya.', author: 'Menerima penawaran' },
+        { date: 'Tahap 3', text: 'Setiap peran menandatangani SPK-nya sendiri, lalu menyusun jadwal termin yang wajib berjumlah 100%.', author: 'Menandatangani SPK' },
+        { date: 'Tahap 4', text: 'Pembayaran dilepas hanya setelah milestone disetujui, dengan bukti transfer dan verifikasi.', author: 'Melepas pembayaran' },
     ];
 
     const faqs: FAQItem[] = [
@@ -255,17 +277,17 @@ export default function LandingPage(): React.ReactElement {
                         
                         <div className="flex items-center gap-4 p-5 bg-white rounded-3xl border border-neutral-200/60 shadow-sm w-fit">
                             <div className="flex -space-x-3">
-                                {[1, 2, 3, 4].map(i => (
-                                    <div key={i} className="w-10 h-10 rounded-full border-2 border-white bg-neutral-200 overflow-hidden">
-                                        <img src={`https://i.pravatar.cc/100?u=${i}`} alt="user avatar" />
+                                {PROFESSIONAL_ROLES.map((role) => (
+                                    <div key={role.key} className="w-10 h-10 rounded-full border-2 border-white bg-neutral-100 overflow-hidden grid place-items-center">
+                                        <role.icon className="w-4 h-4 text-neutral-500" aria-hidden="true" />
                                     </div>
                                 ))}
                             </div>
                             <div className="pr-4">
-                                <p className="text-sm font-extrabold text-neutral-900 tracking-tight flex items-center gap-1">
-                                    <Star className="w-4 h-4 fill-amber-400 text-amber-400" /> 4.9/5 Rating
+                                <p className="text-sm font-extrabold text-neutral-900 tracking-tight">
+                                    {PROFESSIONAL_ROLES.length} peran profesional terverifikasi
                                 </p>
-                                <p className="text-xs text-neutral-500">Dari 1000+ proyek sukses terlaksana</p>
+                                <p className="text-xs text-neutral-500">Arsitek, kontraktor, notaris, interior, dan rekayasa</p>
                             </div>
                         </div>
                     </motion.div>
@@ -501,17 +523,17 @@ export default function LandingPage(): React.ReactElement {
                 </div>
             </section>
 
-            {/* Testimonial Section */}
-            <section className="py-24 px-6 max-w-7xl mx-auto">
-                <div className="text-center max-w-2xl mx-auto mb-16">
-                    <span className="text-xs font-black uppercase tracking-widest text-[#FD1D1D] mb-3 block">Testimonials</span>
-                    <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-neutral-900">Suara Pengguna Kami</h2>
-                </div>
+                {/* Workflow section */}
+                <section className="py-24 px-6 max-w-7xl mx-auto">
+                    <div className="text-center max-w-2xl mx-auto mb-16">
+                        <span className="text-xs font-black uppercase tracking-widest text-[#FD1D1D] mb-3 block">Alur Kerja</span>
+                        <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-neutral-900">Empat Tahap, dari Posting sampai Serah Terima</h2>
+                    </div>
 
                 <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    {reviews.map((review, index) => (
-                        <motion.div 
-                            key={index}
+                    {workflow.map((step, index) => (
+                        <motion.div
+                            key={step.author}
                             initial={{ opacity: 0, y: 15 }}
                             whileInView={{ opacity: 1, y: 0 }}
                             viewport={{ once: true }}
@@ -519,16 +541,14 @@ export default function LandingPage(): React.ReactElement {
                             className="bg-white border border-neutral-100 p-8 rounded-3xl shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between"
                         >
                             <div>
-                                <div className="flex gap-1 mb-4 text-[#FD1D1D]">
-                                    {[...Array(5)].map((_, i) => (
-                                        <Star key={i} className="w-4 h-4 fill-[#FD1D1D]" />
-                                    ))}
+                                <div className="flex items-baseline gap-2 mb-4">
+                                    <span className="text-3xl font-black text-[#FD1D1D]">{String(index + 1).padStart(2, '0')}</span>
+                                    <span className="text-xs font-black uppercase tracking-widest text-neutral-400">{step.date}</span>
                                 </div>
-                                <p className="text-neutral-600 text-sm leading-relaxed mb-6 italic">"{review.text}"</p>
+                                <p className="text-neutral-600 text-sm leading-relaxed mb-6">{step.text}</p>
                             </div>
                             <div>
-                                <p className="font-extrabold text-neutral-900 text-sm">{review.author}</p>
-                                <p className="text-[10px] text-neutral-400 mt-1">{review.date}</p>
+                                <p className="font-extrabold text-neutral-900 text-sm">{step.author}</p>
                             </div>
                         </motion.div>
                     ))}

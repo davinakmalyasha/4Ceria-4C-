@@ -36,10 +36,11 @@ export const useInterior = (initialData: InteriorDesigner[]) => {
                 case 'experience_desc':
                     return (b.pengalaman_tahun || 0) - (a.pengalaman_tahun || 0);
                 case 'recommended':
-                default:
+                default: {
                     const scoreA = (a.pengalaman_tahun || 1) * 10 - a.rate_harga / 100000;
                     const scoreB = (b.pengalaman_tahun || 1) * 10 - b.rate_harga / 100000;
                     return scoreB - scoreA;
+                }
             }
         });
 

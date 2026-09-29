@@ -133,8 +133,8 @@ export default function ProjectDetailPage({ project: projectProp, user, onBack, 
         if (!bid) return;
 
         const budget = Number(project.budget) || 0;
-        let negotiatedFee = 0;
-        
+        let negotiatedFee: number;
+
         if (bid.fee_type === 'percentage') {
             // Trust calculated_total ONLY if it's a realistic IDR amount (not a raw percentage)
             if (Number(bid.calculated_total) > 1000) {

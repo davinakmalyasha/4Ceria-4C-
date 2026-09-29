@@ -63,10 +63,11 @@ export const faqDocs: DocArticle[] = [
                 type: 'list',
                 title: 'Q: How does the escrow system work?',
                 items: [
-                    'When a client hires a professional, the agreed project fee is deposited into a secure platform escrow account.',
-                    'Funds are NOT sent directly to the professional upfront.',
-                    'Payments are released in installments (termin / milestones) as work is completed and verified.',
-                    'Both client approval and admin verification are required before funds are released.'
+                    '4Ceria maintains a milestone escrow LEDGER. It does not hold your money: transfers go from your account to the professional\'s, and the platform records and gates each one.',
+                    'Money is never sent as a single lump sum. It is released in installments (termin / milestones) as work completes.',
+                    'Each release requires the client to upload transfer proof and the payee to accept it. An admin can override.',
+                    'While a dispute is open, every payment route for that project is blocked until the dispute is resolved or withdrawn.',
+                    'The ledger will refuse a payment the project budget cannot cover, and it records who authorised every movement.'
                 ]
             },
             {

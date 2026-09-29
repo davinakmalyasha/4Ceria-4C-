@@ -43,15 +43,24 @@ const ensureArray = (value: any): any[] => {
                     return parsed.map(item => {
                         if (typeof item === 'string') {
                             try {
-                                const subParsed = JSON.parse(item);
-                                if (Array.isArray(subParsed)) return subParsed;
-                                return item;
-                            } catch(e) {}
+                                    const subParsed = JSON.parse(item);
+                                    if (Array.isArray(subParsed)) return subParsed;
+                                    return item;
+                                } catch {
+                                    // Scope can arrive as a JSON array or as a
+                                    // comma-separated string depending on which
+                                    // of the seven bid tables served it.
+                                    // Unparseable means "treat as a plain
+                                    // list", not "fail the card".
+                                }
                         }
                         return item;
                     }).flat();
                 }
-            } catch (e) {}
+            } catch {
+                // Same tolerant parse as above: fall through to the plain
+                // comma-separated split below.
+            }
         }
         return trimmed.split(',').map(x => x.trim()).filter(Boolean);
     }
@@ -345,7 +354,7 @@ export const BidReviewCard: React.FC<BidReviewCardProps> = ({
         ];
 
         // Find the first truthy value that isn't just whitespace or "null" string
-        let phone = possiblePhones.find(p => {
+        const phone = possiblePhones.find(p => {
             if (!p) return false;
             if (typeof p === 'string') {
                 const clean = p.trim().toLowerCase();

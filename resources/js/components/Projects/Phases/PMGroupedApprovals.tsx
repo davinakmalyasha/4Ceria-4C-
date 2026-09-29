@@ -82,8 +82,8 @@ export default function PMGroupedApprovals({
             }
 
             // Gather deliverables submitted by the sub-professionals
-            let files = Array.isArray(m.content?.gallery) ? [...m.content.gallery] : [];
-            let fileNames = m.content?.file_names ? { ...m.content.file_names } : {};
+            const files = Array.isArray(m.content?.gallery) ? [...m.content.gallery] : [];
+            const fileNames = m.content?.file_names ? { ...m.content.file_names } : {};
 
             if (isSubProfessional) {
                 let role = '';

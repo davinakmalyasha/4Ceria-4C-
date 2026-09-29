@@ -23,7 +23,10 @@ export default function CompactConversationList({ conversations, onSelect, isLoa
             if (parsed?.type === 'property_inquiry') {
                 return `🏠 ${parsed.inquiry?.mode === 'visit' ? 'Visit Inquiry' : 'Price Offer'}`;
             }
-        } catch {}
+        } catch {
+            // Best effort: a non-JSON body is just a chat message, and a
+            // malformed preview must never break the conversation list.
+        }
         return content;
     };
 

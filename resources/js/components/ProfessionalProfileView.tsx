@@ -105,7 +105,7 @@ export default function ProfessionalProfileView({ type, data, projects = [], onC
         ];
 
         // Find the first truthy value that isn't just whitespace or "null" string
-        let phone = possiblePhones.find(p => {
+        const phone = possiblePhones.find(p => {
             if (!p) return false;
             if (typeof p === 'string') {
                 const clean = p.trim().toLowerCase();

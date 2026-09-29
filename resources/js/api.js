@@ -53,7 +53,7 @@ const trustedOrigins = () => {
         if (apiOrigin && apiOrigin !== 'null') {
             origins.add(apiOrigin);
         }
-    } catch (e) {
+    } catch {
         // Relative/invalid base URL: only the SPA origin is trusted.
     }
     return origins;
@@ -66,7 +66,7 @@ const isAbsoluteUrl = (url) => ABSOLUTE_URL_RE.test(String(url || ''));
 const originOf = (url) => {
     try {
         return new URL(url, baseHref).origin;
-    } catch (e) {
+    } catch {
         return null;
     }
 };
@@ -74,7 +74,7 @@ const originOf = (url) => {
 const readToken = () => {
     try {
         return localStorage.getItem(TOKEN_STORAGE_KEY);
-    } catch (e) {
+    } catch {
         return null;
     }
 };
@@ -161,7 +161,7 @@ const handleExpiredSession = () => {
         try {
             localStorage.removeItem(TOKEN_STORAGE_KEY);
             localStorage.removeItem(PROFILE_STORAGE_KEY);
-        } catch (e) {
+        } catch {
             // Storage unavailable (private mode) - the redirect still applies.
         }
         window.__redirectingToLogin = true;

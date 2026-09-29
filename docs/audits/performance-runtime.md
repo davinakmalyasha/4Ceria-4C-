@@ -1,3 +1,14 @@
+
+> **STATUS: SUPERSEDED - 2026-08-24.** Do not act on this document.
+>
+> This audit predates the 2026-08-25, 09-22 and 09-28 remediation passes. Items 1-5 were all
+> fixed and are documented as fixed in [`../ARCHITECTURE.md`](../ARCHITECTURE.md): the entrypoint
+> caches all four bootstrap layers, OPcache is enabled, nginx gzips and serves `/build/` with
+> immutable caching, `public/hot` is excluded by `.dockerignore`, and supervisord runs a queue
+> worker and a scheduler. Items 6 and 7 were also addressed - queue pruning and token pruning
+> are scheduled in `routes/console.php`.
+>
+> Kept only as provenance for decisions recorded in [`../CLEANUP-LOG.md`](../CLEANUP-LOG.md).
 # Performance & runtime audit archive — 8-agent sweep (this pass)
 
 ## Production correctness (highest value — prod is silently degraded today)

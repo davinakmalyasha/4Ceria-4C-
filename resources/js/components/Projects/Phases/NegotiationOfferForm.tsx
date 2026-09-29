@@ -79,7 +79,12 @@ export const NegotiationOfferForm: React.FC<Props> = ({ bid, project, proType, o
     const parsedSelectedServices = useMemo(() => {
         if (Array.isArray(bid.selected_services)) return bid.selected_services;
         if (typeof bid.selected_services === 'string') {
-            try { return JSON.parse(bid.selected_services); } catch (e) {}
+            try {
+                return JSON.parse(bid.selected_services);
+            } catch {
+                // Notary services can arrive as a JSON string or a real array.
+                // An empty list is a valid state.
+            }
         }
         return [];
     }, [bid.selected_services]);
@@ -169,14 +174,11 @@ export const NegotiationOfferForm: React.FC<Props> = ({ bid, project, proType, o
         const area = dynamicArea;
 
         // Current calculated absolute base value
-        let currentAbsoluteValue = 0;
-        if (feeType === 'percentage') {
-            currentAbsoluteValue = (amount / 100) * budget;
-        } else if (feeType === 'sqm') {
-            currentAbsoluteValue = amount * area;
-        } else {
-            currentAbsoluteValue = amount;
-        }
+        const currentAbsoluteValue = feeType === 'percentage'
+            ? (amount / 100) * budget
+            : feeType === 'sqm'
+                ? amount * area
+                : amount;
 
         // Convert the absolute base value to the new structure's unit/rate
         let newAmount = 0;
@@ -255,7 +257,11 @@ export const NegotiationOfferForm: React.FC<Props> = ({ bid, project, proType, o
             if (Array.isArray(user?.notaris_profile?.services)) {
                 pServices = user.notaris_profile.services;
             } else if (typeof user?.notaris_profile?.services === 'string') {
-                try { pServices = JSON.parse(user.notaris_profile.services); } catch (e) {}
+                try {
+                    pServices = JSON.parse(user.notaris_profile.services);
+                } catch {
+                    // Same tolerant parse; falls through to the empty list.
+                }
             }
         }
         if (pServices.length > 0) return pServices;
@@ -273,16 +279,12 @@ export const NegotiationOfferForm: React.FC<Props> = ({ bid, project, proType, o
     const hasChanges = isModified;
 
     const getBaseOfferValue = () => {
-        let total = 0;
-        if (feeType === 'percentage') {
-            const budget = Number(project?.budget) || 0;
-            total = (amount / 100) * budget;
-        } else if (feeType === 'sqm') {
-            const area = dynamicArea;
-            total = amount * area;
-        } else {
-            total = amount;
-        }
+        const budget = Number(project?.budget) || 0;
+        const total = feeType === 'percentage'
+            ? (amount / 100) * budget
+            : feeType === 'sqm'
+                ? amount * dynamicArea
+                : amount;
         return isNaN(total) ? 0 : total;
     };
 

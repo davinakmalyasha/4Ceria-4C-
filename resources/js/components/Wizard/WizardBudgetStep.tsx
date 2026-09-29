@@ -110,8 +110,8 @@ export default function WizardBudgetStep({
                             const min = form.project_dimensions.building_size * 5000000;
                             const userB = Number(maxBudget || 0);
 
-                            let type: 'info' | 'warning' | 'success' = 'info';
-                            let content = '';
+                            let type: 'info' | 'warning' | 'success';
+                            let content: string;
 
                             if (userB > 0 && userB < min) {
                                 type = 'warning';

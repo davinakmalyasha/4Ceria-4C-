@@ -1,3 +1,19 @@
+> **STATUS: HISTORICAL - 2026-08-24. Findings below were not tracked to completion.**
+>
+> This audit has no status column, which makes it actively misleading: it still reads `FIX
+> REQUIRED` for items that later passes closed, and it does not mention the 12 authorization/IDOR
+> fixes (S10) or the CSP + per-request token scoping (S11) recorded in [`../BACKLOG.md`](../BACKLOG.md).
+> Two specific corrections:
+>
+> - **C1 (admin self-registration) is fixed.** Public registration no longer accepts
+>   `role_type=admin`; `tests/PaymentIntegrityTest.php` asserts a new profile is created
+>   `pending`, never pre-verified, and admin accounts come from a seeder.
+> - **`trustProxies` is configured.** `bootstrap/app.php` reads `TRUSTED_PROXIES` and falls back
+>   to `"*"` only when unset. Setting it in production is the remaining requirement, and the
+>   wildcard risk is documented in `.env.example` and [`../../SECURITY.md`](../../SECURITY.md).
+>
+> For the current, maintained security posture see [`../../SECURITY.md`](../../SECURITY.md),
+> which includes an honest "known limitations" section. This file is kept for provenance.
 # Security audit archive — 8-agent sweep (this pass)
 
 Consolidated findings from the security sweep. Severity as rated at discovery time. Items marked FIXED were addressed in this or earlier passes; everything else is open backlog. File:line references are from audit time and may drift after refactors.

@@ -27,10 +27,7 @@ const SpecialistActionCenter: React.FC<SpecialistActionCenterProps> = ({
     const isKickedOff = project[`${roleType}_kickoff_at`];
     
     // Status identification for UI
-    let status = 'draft';
-    if (isKickedOff) status = 'active';
-    else if (isPaid) status = 'paid';
-    else status = 'pending_payment';
+    const status = isKickedOff ? 'active' : isPaid ? 'paid' : 'pending_payment';
 
     const handleAction = async (endpoint: string, successMsg: string, extraData: any = {}) => {
         setIsLoading(true);

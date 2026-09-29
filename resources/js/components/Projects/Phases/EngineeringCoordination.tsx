@@ -120,7 +120,10 @@ export default function EngineeringCoordination({ project, user, roleType, isArc
             setOpenNoteIds({documents: [], milestones: []});
             try {
                 localStorage.removeItem(cacheKey);
-            } catch (e) {}
+            } catch {
+                // The server write already succeeded. A stale cache entry is
+                // harmless and gets overwritten on the next read.
+            }
             onRefresh();
         } catch (error: any) {
             showToast(error.response?.data?.message || 'Failed to submit revision notes.', 'error');
@@ -236,7 +239,10 @@ export default function EngineeringCoordination({ project, user, roleType, isArc
             setOpenNoteIds({documents: [], milestones: []});
             try {
                 localStorage.removeItem(cacheKey);
-            } catch (e) {}
+            } catch {
+                // The server write already succeeded. A stale cache entry is
+                // harmless and gets overwritten on the next read.
+            }
             onRefresh();
         } catch (error: any) {
             showToast(error.response?.data?.message || 'Failed to approve design.', 'error');

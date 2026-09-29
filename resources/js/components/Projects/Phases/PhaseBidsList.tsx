@@ -108,10 +108,10 @@ export default function PhaseBidsList({ bids, phaseKey, projectId, onRefresh, is
             return;
         }
 
-        let title = '';
-        let description = '';
-        let confirmText = 'Confirm';
-        let variant: 'info' | 'success' | 'danger' | 'warning' = 'info';
+        let title: string;
+        let description: string;
+        let confirmText: string;
+        let variant: 'info' | 'success' | 'danger' | 'warning';
 
         if (action === 'accept') {
             const currentBid = bids.find(b => b.id === bidId);
