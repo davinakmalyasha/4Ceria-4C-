@@ -31,8 +31,10 @@ D:\laragon\bin\php\php-8.5.10-Win32-vs17-x64\php.exe -l <file>          # syntax
 composer dump-autoload                                   # after adding/removing classes
 npm run typecheck:check                                  # ratchet — must not RISE (baseline 96)
 npm run build                                           # must stay green
-D:\laragon\bin\php\php-8.5.10-Win32-vs17-x64\php.exe refinement-tests\smoke-api.php   # in-process smoke (needs MySQL up)
+D:\laragon\bin\php\php-8.5.10-Win32-vs17-x64\php.exe artisan schema:verify           # from-scratch migration vs. every model
+D:\laragon\bin\php\php-8.5.10-Win32-vs17-x64\php.exe artisan money:detect-duplicates # ledger integrity
 D:\laragon\bin\php\php-8.5.10-Win32-vs17-x64\php.exe artisan test            # ALL Pest suites (real MySQL, rolled back)
+scripts\verify-schema.cmd <scratch_db>    # full migrate:fresh -> verify -> rollback -> re-migrate
 ```
 
 Requires Laragon running (MySQL on 3306) for anything touching the DB. The live database
@@ -48,10 +50,13 @@ Redis not required locally if you override drivers per-process (see README).
 4. **Policies auto-discover by convention**: `ProjectReportPolicy` has no registration but IS invoked via `$this->authorize()` in `Api/ProjectReportController`. Check convention pairs before declaring a policy dead.
 5. **Two storage disks**: `public` (driver switches local/s3 via `PUBLIC_STORAGE_DRIVER`; world-readable bucket) and `railway` (always S3/Tigris private bucket: contracts, KYC, payment receipts, requirement images, dispute evidence). Env vars are `RAILWAY_STORAGE_*`; see `docs/CLEANUP-LOG.md` deploy note.
 6. **`scripts/apply-octane-patches.php` mutates vendor/** on every `post-autoload-dump` (Windows FrankenPHP fixes). It echoes warnings instead of failing — check its output when Octane upgrades. It also runs inside the Docker `composer install`.
-7. The SPA catch-all route previously swallowed unmatched `/api/*` GETs with HTML 200s; JSON exception rendering for `api/*` now handled in `bootstrap/app.php` (`shouldRenderJsonWhen`).
+7. **The SPA catch-all used to swallow unmatched `/api/*` GETs with HTML 200s.** `shouldRenderJsonWhen` in `bootstrap/app.php` only fixed the *exception* path — a path matching no route at all still hit `routes/web.php`'s `/{any}`. The catch-all is now constrained with a negative lookahead and an explicit JSON 404 answers the rest. Keep it that way: the SPA cannot tell "renamed endpoint" from "success" otherwise.
 8. **`projects.status` is a MySQL ENUM.** Writing a value that is not in the list is a hard error under strict mode — this is how the entire amicable-exit flow stayed broken for months (see `docs/CLEANUP-LOG.md`, 2026-09-23). Before writing a status, check `SHOW COLUMNS FROM projects LIKE 'status'`.
-9. **Every payment path runs through `ProjectFinancialService`.** Never write a `project_budget_transactions` row directly, and never read `projects.budget` to answer "how much is left" — use `ProjectFinancialService::available()`/`summary()`. New payment endpoints must call `DisputeService::assertNoOpenDispute()`.
-10. **The API runs `migrate --force` on every container start** and `schedule:run` on every replica; scheduled tasks carry `onOneServer()` for that reason.
+9. **Never rewrite a MySQL ENUM with `MODIFY COLUMN`.** It is an `ALGORITHM=COPY` table rebuild that aborts the whole migration (error 1265) if any row holds a value you dropped — and the entrypoint runs `migrate --force` on *every* replica start. Use `App\Support\Schema\EnumValues::addValues()`, which only ever APPENDS. Two migrations in this repo once narrowed an ENUM by hand and needed emergency follow-up migrations to undo the damage.
+10. **Never `dropIndex()` a composite whose leading column is a foreign key.** InnoDB adopts such an index as the constraint's backing store and the drop fails with `1553 Cannot drop index ... needed in a foreign key constraint` — but only on a from-scratch migration, because a drifted database happens to already carry an incidental index. Use `App\Support\Schema\ForeignKeyIndexGuard::dropIndex()`.
+11. **A migration whose `up()` is empty is a landmine, not a no-op.** 37 of them were recorded as applied with a docblock claiming "consolidated into base migrations" — the consolidation never happened, so 26 columns referenced by live models did not exist and `migrate:fresh` could not reproduce the schema at all. If you add a migration that does nothing, delete it. `php artisan schema:verify` is the standing gate.
+12. **Every payment path runs through `ProjectFinancialService`.** Never write a `project_budget_transactions` row directly, and never read `projects.budget` to answer "how much is left" — use `ProjectFinancialService::available()`/`summary()`. New payment endpoints must call `DisputeService::assertNoOpenDispute()`. **Check the return value of `recordPayment()`** — discarding it is how a bid ends up `paid` with no ledger row.
+13. **The API runs `migrate --force` on every container start** and `schedule:run` on every replica; scheduled tasks carry `onOneServer()` for that reason. The `migrate` call itself is *not* guarded by `onOneServer()` — it is a live multi-replica race.
 
 ## Where things are
 
@@ -65,9 +70,10 @@ Redis not required locally if you override drivers per-process (see README).
 | Dispute/arbitration (payment freeze gate) | `app/Services/DisputeService.php` |
 | Auth/authz/upload conventions | `docs/CONVENTIONS.md` |
 | Infra & deploy topology | `docs/ARCHITECTURE.md` |
-| Past audits (security/perf/dead-code) | `docs/audits/` |
+| Past audits (security/perf/dead-code) | `docs/audits/` (archived) |
 | Cleanup history of this pass | `docs/CLEANUP-LOG.md` |
-| Archived legacy code | `_legacy/controllers/` (never autoload) |
+| Schema/model consistency gate | `php artisan schema:verify` |
+| Ledger integrity diagnostics | `php artisan money:detect-duplicates` |
 
 ## Working rules for agents
 
@@ -76,12 +82,13 @@ Redis not required locally if you override drivers per-process (see README).
 - **Full verification gate** after structural changes (CI runs the same list — see `.github/workflows/ci.yml`):
   1. `php -l` sweep over `app database routes tests`
   2. `composer dump-autoload`
-  3. `npm run typecheck:check` (ratchet — must not rise)
-  4. `npm run build`
+  3. `npm run typecheck:check` (ratchet — must not RISE, baseline 96)
+  4. `npm run build` **and** `VITE_STANDALONE=true npm run build` — production ships `dist/`, not `public/build`
   5. `artisan migrate --force` when a migration was added
-  6. `refinement-tests/smoke-api.php`
+  6. `artisan schema:verify` (or `scripts\verify-schema.cmd <scratch_db>` for the full round-trip)
   7. `artisan test` (all Pest suites; real MySQL, every test rolled back)
   8. manual Playwright pass (login → dashboard → project page)
 - Money changes are not "refinements" — they need a test in `tests/` and a look at `docs/DOMAIN.md`.
 - Dev-only quick-login lives in gitignored `resources/js/pages/dev/QuickLoginPanel.tsx`; keep it out of commits.
 - Test/scratch scripts belong in `refinement-tests/`. Suites share `tests/Support/DatabaseHarness.php` — do not re-roll the `.env` recovery or the transaction rollback per file.
+- Useful dev tooling belongs in `app/Console/Commands/`, not in `refinement-tests/` — a Pest suite is a test, an artisan command is a tool.
