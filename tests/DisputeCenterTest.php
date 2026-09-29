@@ -255,18 +255,33 @@ it('records a refund as a negative ledger row and marks the payment refunded', f
         ->assertStatus(200);
 
     // REFUND SEMANTICS (2026-09-23): the reversal is attributed to the PAYMENT
-    // it reverses (type `refund`), not to the dispute, and the payment carries a
-    // durable refunded_amount. The unique index is now
-    // (project_id, reference_model, reference_id, transaction_type) so exactly
-    // one payment + one refund may exist per reference.
+    // A reversal is keyed to the DISPUTE and names the PAYMENT it returns.
+    //
+    // UPDATED 2026-09-29. This assertion used to read
+    //   ->where('reference_model', 'App\Models\BidArsitek')
+    // i.e. a refund row referenced the payment, which meant the unique index
+    // (project_id, reference_model, reference_id, transaction_type) permitted
+    // only ONE refund per payment — verified empirically, not inferred. That
+    // made staged arbitration inexpressible and forced DisputeService to keep a
+    // redundant in-code guard, which is where the net-vs-gross cap bug came
+    // from.
+    //
+    // Now: `reference_*` is the dispute (so the index enforces one reversal per
+    // dispute, the idempotency that was actually wanted) and `reverses_*` is
+    // the payment (so the same payment can be refunded again from a later
+    // dispute). See 2026_09_29_000003_allow_multiple_refunds_per_payment.
     $reversal = ProjectBudgetTransaction::where('project_id', $project->id)
         ->where('transaction_type', 'refund')
-        ->where('reference_model', 'App\\Models\\BidArsitek')
-        ->where('reference_id', $bid->id)
+        ->where('reference_model', ProjectDispute::class)
+        ->where('reference_id', $dispute->id)
         ->first();
-    expect($reversal)->not->toBeNull();
-    expect((float) $reversal->amount)->toBe(-4_000_000.0);
-    expect((float) $bid->fresh()->refunded_amount)->toBe(4_000_000.0);
+
+    expect($reversal)->not->toBeNull()
+        ->and((float) $reversal->amount)->toBe(-4_000_000.0)
+        // ...and it points back at the payment it reverses.
+        ->and($reversal->reverses_model)->toBe('App\Models\BidArsitek')
+        ->and((int) $reversal->reverses_id)->toBe($bid->id)
+        ->and((float) $bid->fresh()->refunded_amount)->toBe(4_000_000.0);
 
     // Net ledger across payments+refunds is back to zero.
     $net = (float) ProjectBudgetTransaction::where('project_id', $project->id)

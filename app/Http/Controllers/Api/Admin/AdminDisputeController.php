@@ -109,7 +109,10 @@ class AdminDisputeController extends Controller
                 $request->user(),
                 $data['action'],
                 $data['notes'] ?? null,
-                isset($data['amount']) ? (float) $data['amount'] : null
+                // Passed through unconverted: DisputeService normalises it to
+                // App\Support\Money. Casting to float here is what let a
+                // fractional cent be lost before the cap was ever evaluated.
+                $data['amount'] ?? null
             );
         } catch (Exception $e) {
             return response()->json(['message' => $e->getMessage()], $e->getCode() >= 100 && $e->getCode() < 600 ? $e->getCode() : 422);

@@ -21,6 +21,7 @@ use App\Models\ProjectPaymentTermin;
 use App\Models\ProjectSubProfessional;
 use App\Models\ProjectTermination;
 use App\Models\User;
+use App\Support\Money;
 use App\Traits\HandlesProjectAuthorization;
 use Exception;
 use Illuminate\Http\UploadedFile;
@@ -230,8 +231,11 @@ class DisputeService
      *                      flipped to `refunded` (money moves off-platform)
      * terminate_project -> project status cancelled
      * custom            -> free-form resolution notes
+     *
+     * @param  Money|string|int|float|null  $amount  Only meaningful for
+     *                                            `record_refund`.
      */
-    public function adminAction(ProjectDispute $dispute, User $admin, string $action, ?string $notes = null, ?float $amount = null): ProjectDispute
+    public function adminAction(ProjectDispute $dispute, User $admin, string $action, ?string $notes = null, Money|string|int|float|null $amount = null): ProjectDispute
     {
         if (! $this->isAdmin($admin)) {
             throw new Exception('Unauthorized. Admin access required.', 403);
@@ -253,7 +257,7 @@ class DisputeService
             $logDetails = match ($action) {
                 'dismiss' => "Sengketa \"{$dispute->title}\" ditolak/di-dismiss oleh {$admin->name}. Pembayaran dicabut pembekuannya.",
                 'release_payment' => "Sengketa \"{$dispute->title}\" diselesaikan: pembayaran terkait DISETUJUI oleh {$admin->name}.",
-                'record_refund' => "Sengketa \"{$dispute->title}\" diselesaikan: refund Rp " . number_format((float) $amount, 0, ',', '.') . " dicatat oleh {$admin->name}.",
+                'record_refund' => "Sengketa \"{$dispute->title}\" diselesaikan: refund Rp " . Money::fromColumn($amount ?? 0)->toDecimal() . " dicatat oleh {$admin->name}.",
                 'terminate_project' => "Sengketa \"{$dispute->title}\" diselesaikan: proyek DIHENTIKAN oleh {$admin->name}.",
                 'custom' => "Sengketa \"{$dispute->title}\" diselesaikan (custom) oleh {$admin->name}.",
             };
@@ -275,7 +279,11 @@ class DisputeService
             }
 
             if ($action === 'record_refund') {
-                if (! $amount || $amount <= 0) {
+                $refund = $amount instanceof Money
+                    ? $amount
+                    : Money::fromColumn($amount ?? 0);
+
+                if (! $refund->isPositive()) {
                     throw new Exception('A positive refund amount is required.', 422);
                 }
 
@@ -296,64 +304,92 @@ class DisputeService
                     throw new Exception('The linked payment no longer exists on this project.', 422);
                 }
 
-                // How much of THAT payment was actually disbursed.
-                $paidForPayment = (float) ProjectBudgetTransaction::where('project_id', $project->id)
-                    ->where('reference_model', get_class($payment))
-                    ->where('reference_id', $payment->id)
-                    ->whereIn('transaction_type', ['payment', 'refund'])
-                    ->sum('amount');
+                $paymentClass = get_class($payment);
 
-                if ($paidForPayment <= 0) {
+                // GROSS figures only, computed separately.
+                //
+                // This block previously did:
+                //     $paidForPayment = SUM(where type IN (payment, refund))   // NET
+                //     $alreadyRefunded = (float) $payment->refunded_amount      // GROSS
+                //     $refundable      = $paidForPayment - $alreadyRefunded     // NET - GROSS
+                //
+                // which is meaningless. On a second refund the NET sum already
+                // has the first reversal subtracted out, so subtracting the
+                // GROSS again charged for it twice: refundable after one 4M
+                // reversal on a 10M payment read 2M instead of 6M, and the
+                // `fullyRefunded` test at the bottom compared GROSS against NET,
+                // so it flipped a payment to 'refunded' with 4M still out.
+                //
+                // Both aggregates come from the two named methods below rather
+                // than from queries written inline here. That is deliberate:
+                // when the two were written out separately, a fix to one did
+                // not reach the other, and the regression test could not tell
+                // the difference. The LEDGER is authoritative;
+                // `refunded_amount` on the payment row is a mirror the SPA
+                // renders and `money:reconcile` checks.
+                $paidGross = $this->paidAgainst($project->id, $paymentClass, (int) $payment->id);
+
+                if (! $paidGross->isPositive()) {
                     throw new Exception(
                         'That payment was never disbursed, so there is nothing to refund.',
                         422
                     );
                 }
 
-                // Durable, lock-guarded accounting of what has already been
-                // returned — prevents a second dispute from refunding the same
-                // money again.
-                $alreadyRefunded = (float) ($payment->refunded_amount ?? 0);
-                $refundable = $paidForPayment - $alreadyRefunded;
+                $refundedGross = $this->refundedAgainst($project->id, $paymentClass, (int) $payment->id);
+                $refundable = $paidGross->subtract($refundedGross);
 
-                if ($amount > $refundable + 0.01) {
+                if (! $refundable->isPositive()) {
+                    $refundable = Money::zero();
+                }
+
+                if ($refund->isGreaterThan($refundable)) {
                     throw new Exception(
                         'Refund exceeds what is still refundable on this payment. Paid: Rp '
-                        .number_format($paidForPayment, 0, ',', '.').', already refunded: Rp '
-                        .number_format($alreadyRefunded, 0, ',', '.').', refundable: Rp '
-                        .number_format(max($refundable, 0), 0, ',', '.').'.',
+                        .$paidGross->toDecimal().', already refunded: Rp '
+                        .$refundedGross->toDecimal().', refundable: Rp '
+                        .$refundable->toDecimal().'.',
                         422
                     );
                 }
 
-                if ($dispute->disputed_amount !== null && $amount > (float) $dispute->disputed_amount + 0.01) {
+                $disputedAmount = $dispute->disputed_amount;
+
+                if ($disputedAmount !== null && $refund->isGreaterThan(Money::fromColumn($disputedAmount))) {
                     throw new Exception(
-                        'Refund ('.number_format($amount, 0, ',', '.').') exceeds the disputed amount recorded on this dispute ('
-                        .number_format((float) $dispute->disputed_amount, 0, ',', '.').').',
+                        'Refund ('.$refund->toDecimal().') exceeds the disputed amount recorded on this dispute ('
+                        .Money::fromColumn($disputedAmount)->toDecimal().').',
                         422
                     );
                 }
 
-                // Reversal row: a negative `refund` attributed to the PAYMENT it
-                // reverses. The widened unique index
+                // Reversal row, keyed to the DISPUTE.
+                //
+                // `reference_*` names the dispute, so the existing unique index
                 // (project_id, reference_model, reference_id, transaction_type)
-                // permits exactly one payment + one refund per reference, so
-                // the same reversal can never be written twice.
+                // enforces exactly what arbitration needs: this dispute can be
+                // refunded at most once. `reverses_*` names the payment, so the
+                // same payment CAN be refunded again from a later dispute —
+                // which the pre-2026-09-29 index made impossible, and which an
+                // arbitration that releases money in stages genuinely needs.
                 ProjectBudgetTransaction::create([
                     'project_id' => $project->id,
                     'transaction_type' => 'refund',
-                    'amount' => -$amount,
+                    'amount' => $refund->negate()->toDecimal(),
                     'title' => "Dispute #{$dispute->id} refund: ".$this->paymentLabel($dispute),
-                    'reference_model' => get_class($payment),
-                    'reference_id' => $payment->id,
+                    'reference_model' => ProjectDispute::class,
+                    'reference_id' => $dispute->id,
+                    'reverses_model' => $paymentClass,
+                    'reverses_id' => $payment->id,
                     'transaction_date' => now(),
                 ]);
 
-                $payment->refunded_amount = $alreadyRefunded + $amount;
+                $newRefunded = $refundedGross->add($refund);
+                $payment->refunded_amount = $newRefunded->toDecimal();
 
-                // Flip the payment state: 'refunded' only once fully returned,
-                // otherwise it stays 'paid' with a partial refund recorded.
-                $fullyRefunded = ($alreadyRefunded + $amount) >= $paidForPayment - 0.01;
+                // Terminal only when the GROSS returned covers the GROSS paid.
+                $fullyRefunded = $newRefunded->isGreaterThanOrEqual($paidGross);
+
 
                 if ($fullyRefunded && ($payment->payment_status ?? $payment->status) === 'paid') {
                     // Bids carry BOTH payment_status and status — only flip the
@@ -399,6 +435,46 @@ class DisputeService
 
             return $dispute->fresh();
         });
+    }
+
+    /**
+     * Total already returned against a payment, as a POSITIVE amount.
+     *
+     * Refund rows carry a negative `amount`, so the sign is flipped here, in one
+     * place. Callers compare this against a positive `paidAgainst()` and never
+     * have to remember which direction the ledger stores.
+     *
+     * @param  class-string  $paymentModel
+     */
+    public function refundedAgainst(int $projectId, string $paymentModel, int $paymentId): Money
+    {
+        $sum = ProjectBudgetTransaction::where('project_id', $projectId)
+            ->where('reverses_model', $paymentModel)
+            ->where('reverses_id', $paymentId)
+            ->where('transaction_type', 'refund')
+            ->sum('amount');
+
+        return Money::fromColumn($sum)->abs();
+    }
+
+    /**
+     * Total disbursed against a payment, ignoring any reversals.
+     *
+     * This is the GROSS paid figure. It is deliberately separate from
+     * `refundedAgainst()`: the pre-2026-09-29 code derived the refund cap by
+     * netting one against the other, which double-counted every prior reversal.
+     *
+     * @param  class-string  $paymentModel
+     */
+    public function paidAgainst(int $projectId, string $paymentModel, int $paymentId): Money
+    {
+        $sum = ProjectBudgetTransaction::where('project_id', $projectId)
+            ->where('reference_model', $paymentModel)
+            ->where('reference_id', $paymentId)
+            ->where('transaction_type', 'payment')
+            ->sum('amount');
+
+        return Money::fromColumn($sum)->abs();
     }
 
     /**
