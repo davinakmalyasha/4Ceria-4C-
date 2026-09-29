@@ -12,6 +12,7 @@ use Illuminate\Http\UploadedFile;
 use App\Models\Notification;
 use App\Services\DisputeService;
 use Exception;
+use Illuminate\Database\Eloquent\Model;
 
 class PaymentVerificationService
 {
@@ -64,12 +65,49 @@ class PaymentVerificationService
                 }
             }
 
-            // SECURITY: never regress a settled payment. Re-uploading a proof
-            // after 'paid' would flip the record back to 'verifying' and let
-            // the payee re-verify (state churn / duplicate notification loop).
-            $currentStatus = isset($model->payment_status) ? $model->payment_status : ($model->status ?? null);
-            if ($currentStatus === 'paid') {
-                throw new Exception("This payment is already marked as paid and cannot be modified.", 422);
+            // SECURITY: never regress a SETTLED payment.
+            //
+            // Re-uploading a proof after 'paid' would flip the record back to
+            // 'verifying' and let the payee re-verify (state churn and a
+            // duplicate notification loop).
+            //
+            // 'refunded' and 'void' belong in this list too, and their ABSENCE
+            // was a live hole. `verifyProof` does guard both — but it reads the
+            // CURRENT status, which this method has just overwritten with
+            // 'verifying'. So the sequence
+            //
+            //     pay  ->  dispute refund  ->  uploadProof  ->  verifyProof
+            //
+            // walked straight past verifyProof's own `refunded` check at the
+            // line below: the state that would have refused no longer existed.
+            // verifyProof then accepted, `deductBudget`'s dedupe found the
+            // original row for that reference and short-circuited to `true`
+            // WITHOUT writing one, and the payment was re-asserted as 'paid'
+            // with no ledger row behind it. Paid twice in cash, once in state.
+            //
+            // The guard has to be on the transition INTO 'verifying', because
+            // that is the only moment the old state is still readable.
+            $currentStatus = $this->settlementState($model);
+
+            $settled = [
+                'paid' => 'This payment is already marked as paid and cannot be modified.',
+                'refunded' => 'This payment was refunded through dispute arbitration and cannot be re-charged.',
+                'void' => 'This payment stage was voided (contract terminated or re-signed) and is no longer payable.',
+            ];
+
+            if (isset($settled[$currentStatus])) {
+                throw new Exception($settled[$currentStatus], 422);
+            }
+
+            // A bid whose contract was terminated, resigned or cancelled keeps
+            // `payment_status = 'unpaid'`, so the settled-status check above does
+            // not see it. Those lifecycles are equally final for payment.
+            $lifecycle = $model->status ?? null;
+            if (in_array($lifecycle, ['terminated', 'resigned', 'void', 'cancelled'], true)) {
+                throw new Exception(
+                    'This payment is no longer payable — the related contract was '.$lifecycle.'.',
+                    422
+                );
             }
 
             // PRIVATE STORAGE (2026-09-23): receipts were written to the
@@ -99,6 +137,24 @@ class PaymentVerificationService
 
             return $model;
         });
+    }
+
+    /**
+     * The payment-settlement state of a model, in ONE place.
+     *
+     * Bids carry the money state in `payment_status`; termin and addendums in
+     * `status`. Reading that choice inline in two places is how the two
+     * disagreed — `uploadProof` and `verifyProof` each had their own
+     * `$model->payment_status ?? $model->status`, and a fix to one did not reach
+     * the other.
+     *
+     * @param  Model  $model
+     */
+    private function settlementState(Model $model): ?string
+    {
+        return isset($model->payment_status)
+            ? $model->payment_status
+            : ($model->status ?? null);
     }
 
     /**
@@ -178,7 +234,7 @@ class PaymentVerificationService
                 throw new Exception("Unauthorized. You do not have permission to verify this payment.", 403);
             }
 
-            $currentStatus = $model->payment_status ?? $model->status;
+            $currentStatus = $this->settlementState($model);
             if ($currentStatus === 'paid') {
                 throw new Exception("This payment is already marked as paid and cannot be modified.", 422);
             }
