@@ -489,7 +489,18 @@ class ProjectBudgetController extends Controller
                             [
                                 'user_id' => $specialistUserId,
                                 'parent_role' => $addendum->role_type,
-                                'assigned_by' => $addendum->user_id,
+                                // AUDIT: `assigned_by` is "who hired this sub-
+                                // professional". It was being filled with
+                                // `$addendum->user_id`, which is the AUTHOR of the
+                                // addendum — a professional who merely proposed the
+                                // hire. So the record claimed the specialist was
+                                // assigned by themselves, and arbitration could not
+                                // tell who actually committed to the sub-contract.
+                                // The actor performing the hire is the owner (or PM)
+                                // confirming payment, i.e. the authenticated caller.
+                                // The column is NOT NULL, so a system-created
+                                // addendum with a null author also 500'd here.
+                                'assigned_by' => $userId,
                                 'status' => 'active',
                                 'rate' => $addendum->amount,
                                 'lead_pro_notes' => "Assigned via Paid Addendum: {$specialistName}",
