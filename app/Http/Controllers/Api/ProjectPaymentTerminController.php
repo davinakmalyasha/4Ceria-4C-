@@ -58,7 +58,10 @@ class ProjectPaymentTerminController extends Controller
             'status' => 'nullable|string|in:locked,pending,invoice_sent',
             'milestone_id' => 'nullable|exists:project_milestones,id',
             'notes' => 'nullable|string|max:1000',
-            'role_type' => 'nullable|string|in:arsitek,kontraktor,mep,interior,notaris,structural,project_manager',
+            'role_type' => 'nullable|string',
+            // The role list is validated by TerminPlanService::assertKnownRole()
+            // rather than an inline `in:` rule, so there is one list in the
+            // codebase instead of four. See config/bids.php.
         ]);
 
         $requestedRole = $request->role_type;
@@ -72,8 +75,14 @@ class ProjectPaymentTerminController extends Controller
 
         $effectiveRole = $requestedRole ?? $user->role_type;
 
-        // A stage may never push the plan past the negotiated contract value.
         try {
+            // A stage must belong to one of the seven licensed roles. An owner
+            // who omits `role_type` falls through to `$user->role_type`, which
+            // is the string 'user' — matching no contract, so the bound below
+            // would silently no-op and a garbage stage would be written.
+            $planService->assertKnownRole($effectiveRole);
+
+            // A stage may never push the plan past the negotiated contract value.
             $planService->assertWithinContractValue($project, $effectiveRole, (float) $request->amount);
         } catch (\Exception $e) {
             return response()->json(['message' => $e->getMessage()], 422);

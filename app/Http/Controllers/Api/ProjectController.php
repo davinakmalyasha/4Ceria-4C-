@@ -2290,6 +2290,15 @@ class ProjectController extends Controller
             );
         }
 
+        // `payment_termins` is validated by UpdateProjectRequest (`:55`) but is
+        // NOT a column on `projects` and NOT in `Project::$fillable`. Leaving it
+        // in `$data` made `$project->update($data)` throw
+        // MassAssignmentException, so this endpoint returned a 500 for every
+        // request that carried a payment schedule — the schedule rewrite below
+        // was unreachable. It is a nested side effect, not a project attribute,
+        // so it is removed from the column payload and handled on its own.
+        unset($data['payment_termins']);
+
         // Robust JSON Handling: Merge instead of overwrite for structured details
         if ($request->has('design_details')) {
             $data['design_details'] = array_merge(
@@ -2407,19 +2416,31 @@ class ProjectController extends Controller
             unset($data['negotiated_fee'], $data['payment_instructions']);
         }
 
-        $project->update($data);
-
-        // Sync Payment Termins if provided
+        // Sync the payment plan. Wrapped with the project write in ONE
+        // transaction below so a rejected plan cannot leave the project
+        // half-updated or the schedule wiped.
         if ($request->has('payment_termins')) {
-            // SECURITY: a professional may only rewrite termins for their OWN
-            // role; rewriting another role's plan requires owner or assigned PM.
+            $terminPlan = app(\App\Services\TerminPlanService::class);
+
+            // a professional may only rewrite termins for their OWN role;
+            // rewriting another role's plan requires owner or assigned PM.
             $targetRole = $request->input('target_role', $user->role_type);
             $canActForOthers = $isOwner || ($isPM && (int) $project->pm_id === (int) $user->id);
             if (!$canActForOthers && $targetRole !== $user->role_type) {
                 return response()->json(['message' => 'Unauthorized. You can only modify payment termins for your own role.'], 403);
             }
 
-            // SECURITY: never destroy money-in-flight records — if any termin
+            // A stage has to belong to one of the seven licensed roles. Without
+            // this, an owner who omits `target_role` defaults it to their own
+            // `role_type` — the string 'user' — which matches no contract, so
+            // every bound below silently no-ops.
+            try {
+                $terminPlan->assertKnownRole($targetRole);
+            } catch (\Exception $e) {
+                return response()->json(['message' => $e->getMessage()], 422);
+            }
+
+            // never destroy money-in-flight records — if any termin
             // of this role is verifying/paid, refuse the wholesale delete.
             $inFlight = $project->paymentTermins()
                 ->where('role_type', $targetRole)
@@ -2429,31 +2450,74 @@ class ProjectController extends Controller
                 return response()->json(['message' => 'Cannot replace payment termins while any of them is verifying or paid.'], 422);
             }
 
-            $project->paymentTermins()->where('role_type', $targetRole)->delete();
+            // THE MISSING BOUND.
+            //
+            // This path previously called no integrity guard at all. It deleted
+            // the role's stages and recreated them from the request body, so a
+            // hired professional could post
+            //     {"payment_termins":[{"label":"DP","percentage":100,
+            //                             "amount": 280000000}]}
+            // against a Rp 50,000,000 contract and get a 200. The escrow
+            // happily paid it later, because `deductBudget` only checks that
+            // the PROJECT budget can cover the amount — not that the amount was
+            // ever agreed.
+            //
+            // `ProjectPaymentTerminController::storePaymentTermin` has always
+            // had this bound. The two paths must share it, which is the entire
+            // reason TerminPlanService exists.
+            $submitted = $request->input('payment_termins', []);
 
-            foreach ($request->payment_termins as $termin) {
-                $project->paymentTermins()->create([
-                    'label' => $termin['label'],
-                    'percentage' => $termin['percentage'],
-                    'amount' => $termin['amount'],
-                    'trigger_description' => $termin['trigger_description'] ?? null,
-                    'milestone_id' => $termin['milestone_id'] ?? null,
-                    'notes' => $termin['notes'] ?? null,
-                    'role_type' => $targetRole,
-                    'recipient_id' => $targetRole === $user->role_type ? $user->id : null,
-                    'status' => 'locked',
-                ]);
+            $plannedTotal = 0.0;
+            foreach ($submitted as $termin) {
+                $plannedTotal += (float) ($termin['amount'] ?? 0);
+            }
+
+            try {
+                $terminPlan->assertPercentagesWithinWhole($targetRole, $submitted);
+                $terminPlan->assertTotalWithinContractValue($project, $targetRole, $plannedTotal);
+            } catch (\Exception $e) {
+                // TerminPlanService raises a domain violation with a 4xx code,
+                // which Laravel does not translate on its own — without this the
+                // guard surfaces as a 500. Same shape as the sibling controller.
+                return response()->json(['message' => $e->getMessage()], 422);
             }
         }
 
-        if (isset($data['status'])) {
-            ProjectActivityLog::create([
-                'project_id' => $project->id,
-                'user_id' => Auth::id(),
-                'action' => 'status_changed',
-                'details' => "Status changed to {$data['status']}",
-            ]);
-        }
+        // The project write and the plan rewrite move together, so a plan that
+        // the guards reject cannot leave the project updated against a schedule
+        // that was never applied.
+        DB::transaction(function () use ($project, $data, $request, $user, $isOwner, $isPM) {
+            $project->update($data);
+
+            if ($request->has('payment_termins')) {
+                $targetRole = $request->input('target_role', $user->role_type);
+
+                $project->paymentTermins()->where('role_type', $targetRole)->delete();
+
+                foreach ($request->payment_termins as $termin) {
+                    $project->paymentTermins()->create([
+                        'label' => $termin['label'],
+                        'percentage' => $termin['percentage'],
+                        'amount' => $termin['amount'],
+                        'trigger_description' => $termin['trigger_description'] ?? null,
+                        'milestone_id' => $termin['milestone_id'] ?? null,
+                        'notes' => $termin['notes'] ?? null,
+                        'role_type' => $targetRole,
+                        'recipient_id' => $targetRole === $user->role_type ? $user->id : null,
+                        'status' => 'locked',
+                    ]);
+                }
+            }
+
+            if (isset($data['status'])) {
+                ProjectActivityLog::create([
+                    'project_id' => $project->id,
+                    'user_id' => Auth::id(),
+                    'action' => 'status_changed',
+                    'details' => "Status changed to {$data['status']}",
+                ]);
+            }
+        });
 
         return new ProjectResource($project);
     }

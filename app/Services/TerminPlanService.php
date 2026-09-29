@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Project;
+use App\Support\Money;
 use Exception;
 use Illuminate\Support\Collection;
 
@@ -21,6 +22,47 @@ class TerminPlanService
 {
     public const PERCENTAGE_TOLERANCE = 0.01;
     public const AMOUNT_TOLERANCE = 1000; // Rp
+
+    /**
+     * The seven licensed professional roles a payment stage may belong to.
+     *
+     * Read from `config/bids.php` rather than restated, because that config is
+     * already the role registry — a second list here is exactly how the seven
+     * tables drifted apart in the first place.
+     */
+    public static function knownRoles(): array
+    {
+        return array_keys(config('bids', []));
+    }
+
+    /**
+     * A payment stage must belong to one of the seven licensed roles.
+     *
+     * Load-bearing, and not hypothetical. `project_payment_termins.role_type`
+     * is a plain varchar, and the bulk-replace path defaults it to the caller's
+     * own `role_type`. For an owner that is the literal string `'user'`, which
+     * matches no professional role — so `contractValueFor()` returns null, every
+     * bound silently no-ops, and a garbage `role_type = 'user'` stage is
+     * written that is invisible to the contract value, the bid matrix and the
+     * payment report.
+     *
+     * `'user'` and `'admin'` are therefore rejected: an owner pays against a
+     * role's schedule, they do not have a payment schedule of their own.
+     */
+    public function assertKnownRole(?string $roleType): void
+    {
+        if ($roleType !== null && in_array($roleType, self::knownRoles(), true)) {
+            return;
+        }
+
+        throw new Exception(
+            'A payment stage must be addressed to one of the licensed roles ('
+            .implode(', ', self::knownRoles()).'). Received: '
+            .($roleType === null ? 'null' : "'{$roleType}'").'.'
+            .' The owner pays against a role\'s schedule; they do not have their own.',
+            422
+        );
+    }
 
     /**
      * The negotiated contract value for a role, taken from the accepted bid
@@ -75,18 +117,73 @@ class TerminPlanService
      */
     public function assertWithinContractValue(Project $project, string $roleType, float $amount, ?int $excludeTerminId = null): void
     {
+        $this->assertTotalWithinContractValue(
+            $project,
+            $roleType,
+            $this->plannedTotal($project, $roleType, $excludeTerminId) + $amount
+        );
+    }
+
+    /**
+     * Same bound, for a caller that already HAS the total.
+     *
+     * Needed by the wholesale plan-replace path, where every existing stage for
+     * the role is about to be deleted. `assertWithinContractValue()` only
+     * excludes a single termin id, so passing the new total through it would
+     * add the soon-to-be-deleted stages on top and reject valid plans.
+     *
+     * Comparison is exact, in integer minor units — the previous version was a
+     * float `>` against a `+ 1000` business tolerance, where the boundary was
+     * whatever the double rounding produced.
+     */
+    public function assertTotalWithinContractValue(Project $project, string $roleType, Money|string|int|float $total): void
+    {
         $contractValue = $this->contractValueFor($project, $roleType);
 
         if ($contractValue === null || $contractValue <= 0) {
             return; // no accepted contract yet — nothing to bound against
         }
 
-        $planned = $this->plannedTotal($project, $roleType, $excludeTerminId) + $amount;
+        $limit = Money::of($contractValue)->add(Money::of(self::AMOUNT_TOLERANCE));
 
-        if ($planned > $contractValue + self::AMOUNT_TOLERANCE) {
+        if (Money::fromColumn($total)->isGreaterThan($limit)) {
+            $proposed = Money::fromColumn($total);
+
             throw new Exception(
                 'Payment plan exceeds the negotiated contract value for this role. '
-                .'Planned: Rp '.number_format($planned, 0, ',', '.').' of Rp '.number_format($contractValue, 0, ',', '.').'.',
+                .'Planned: Rp '.$proposed->toDecimal().' of Rp '
+                .Money::of($contractValue)->toDecimal().'.',
+                422
+            );
+        }
+    }
+
+    /**
+     * Percentages are a SPLIT of the contract value, so they cannot exceed 100.
+     *
+     * A plan may legitimately be incomplete while a professional builds it
+     * stage by stage, so this deliberately does NOT require exactly 100 — that
+     * is `assertPlanComplete()`'s job, enforced only where a plan becomes
+     * binding. It only rejects the impossible.
+     *
+     * @param  iterable<array-key, mixed>  $termins  the plan as submitted
+     */
+    public function assertPercentagesWithinWhole(string $roleType, iterable $termins): void
+    {
+        $total = 0.0;
+
+        foreach ($termins as $termin) {
+            $total += (float) (is_array($termin) ? ($termin['percentage'] ?? 0) : ($termin->percentage ?? 0));
+        }
+
+        if (abs($total - 100) <= self::PERCENTAGE_TOLERANCE) {
+            return;
+        }
+
+        if ($total > 100) {
+            throw new Exception(
+                "Payment schedule cannot total more than 100% (received {$total}%). "
+                .'Percentages are a split of the agreed fee, not an increment.',
                 422
             );
         }
