@@ -24,6 +24,13 @@ class BidNotaris extends Model
     ];
 
     protected $casts = [
+        'fee_percentage' => 'decimal:2',
+        'tax_estimate' => 'decimal:2',
+        'calculated_total' => 'decimal:2',
+        'unit_price' => 'decimal:2',
+        'price' => 'decimal:2',
+        'quantity' => 'decimal:2',
+        'refunded_amount' => 'decimal:2',
         'selected_services' => 'array',
         'proposed_termins' => 'array',
         'proposed_milestones' => 'array',

@@ -24,6 +24,15 @@ class Supplier extends Model
         'foto',
     ];
 
+    /**
+     * Money is a fixed-point string; coordinates and ratios are floats.
+     * See App\Support\Money for why the two are cast differently.
+     */
+    protected $casts = [
+        'latitude' => 'float',
+        'longitude' => 'float',
+    ];
+
     protected static function booted(): void
     {
         static::saved(function ($supplier) {

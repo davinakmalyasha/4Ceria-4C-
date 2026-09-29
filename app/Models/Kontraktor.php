@@ -42,6 +42,7 @@ class Kontraktor extends Model
     ];
 
     protected $casts = [
+        'rate_harga' => 'decimal:2',
         'subspecialties' => 'array',
     ];
 

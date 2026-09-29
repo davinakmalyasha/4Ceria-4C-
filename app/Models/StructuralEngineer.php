@@ -38,6 +38,14 @@ class StructuralEngineer extends Model
         'siup',
     ];
 
+    /**
+     * Money is a fixed-point string; coordinates and ratios are floats.
+     * See App\Support\Money for why the two are cast differently.
+     */
+    protected $casts = [
+        'rate_harga' => 'decimal:2',
+    ];
+
     public function user()
     {
         return $this->belongsTo(User::class, 'user_id');

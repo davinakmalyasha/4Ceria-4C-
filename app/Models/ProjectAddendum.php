@@ -35,6 +35,7 @@ class ProjectAddendum extends Model
     ];
 
     protected $casts = [
+        'refunded_amount' => 'decimal:2',
         'amount' => 'decimal:2',
         'counter_offer_amount' => 'decimal:2',
         'paid_at' => 'datetime',

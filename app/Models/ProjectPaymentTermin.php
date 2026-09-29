@@ -29,6 +29,10 @@ class ProjectPaymentTermin extends Model
     ];
 
     protected $casts = [
+        'amount' => 'decimal:2',
+        'retention_amount' => 'decimal:2',
+        'net_amount' => 'decimal:2',
+        'refunded_amount' => 'decimal:2',
         'paid_at' => 'datetime',
         'percentage' => 'decimal:2',
     ];

@@ -132,6 +132,8 @@ class Project extends Model
     ];
 
     protected $casts = [
+        'latitude' => 'float',
+        'longitude' => 'float',
         'budget' => 'decimal:2',
         'needed_phases' => 'array',
         'completed_phases' => 'array',

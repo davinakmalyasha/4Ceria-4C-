@@ -24,6 +24,11 @@ class BidInterior extends Model
     ];
 
     protected $casts = [
+        'calculated_total' => 'decimal:2',
+        'unit_price' => 'decimal:2',
+        'price' => 'decimal:2',
+        'quantity' => 'decimal:2',
+        'refunded_amount' => 'decimal:2',
         'scopes' => 'array',
         'deliverables' => 'array',
         'proposed_termins' => 'array',

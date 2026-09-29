@@ -36,6 +36,10 @@ class MaterialOrder extends Model
     ];
 
     protected $casts = [
+        'latitude' => 'float',
+        'longitude' => 'float',
+        'total_weight' => 'decimal:2',
+        'refunded_amount' => 'decimal:2',
         'total_price' => 'decimal:2',
         'shipping_cost' => 'decimal:2',
         'paid_at' => 'datetime',

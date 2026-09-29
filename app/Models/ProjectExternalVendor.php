@@ -18,6 +18,15 @@ class ProjectExternalVendor extends Model
         'notes',
     ];
 
+    /**
+     * `agreed_fee` is a fixed-point string, never a float. It is written by
+     * ProjectPhaseService through ProjectFinancialService::deductBudget(), so
+     * the cast has to survive the write-then-read round trip intact.
+     */
+    protected $casts = [
+        'agreed_fee' => 'decimal:2',
+    ];
+
     public function project()
     {
         return $this->belongsTo(Project::class);

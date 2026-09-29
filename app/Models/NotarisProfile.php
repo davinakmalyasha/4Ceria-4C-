@@ -39,6 +39,14 @@ class NotarisProfile extends Model
         'siup',
     ];
 
+    /**
+     * Money is a fixed-point string; coordinates and ratios are floats.
+     * See App\Support\Money for why the two are cast differently.
+     */
+    protected $casts = [
+        'rate_harga' => 'decimal:2',
+    ];
+
     protected $appends = ['average_rating', 'review_count', 'is_verified'];
 
     public function getIsVerifiedAttribute(): bool

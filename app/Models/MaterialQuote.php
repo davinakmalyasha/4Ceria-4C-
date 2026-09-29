@@ -26,6 +26,10 @@ class MaterialQuote extends Model
     ];
 
     protected $casts = [
+        'latitude' => 'float',
+        'longitude' => 'float',
+        'total_weight' => 'decimal:2',
+        'shipping_cost' => 'decimal:2',
         'items' => 'array',
         'total_amount' => 'decimal:2',
     ];

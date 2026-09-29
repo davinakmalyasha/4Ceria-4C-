@@ -31,6 +31,19 @@ class House extends Model
 
     public $timestamps = true;
 
+    /**
+     * Money is cast to a fixed-point string, never a float.
+     *
+     * `decimal:2` returns a STRING. That is deliberate: a float would lose
+     * precision above ~15 significant digits, and a listing price is compared
+     * against a mortgage affordability calculation, so a drifting figure here
+     * becomes a wrong "you qualify" answer. The SPA must convert at the display
+     * edge, never by re-deriving.
+     */
+    protected $casts = [
+        'price' => 'decimal:2',
+    ];
+
     protected static function booted(): void
     {
         static::saved(function ($house) {
