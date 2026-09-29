@@ -523,14 +523,30 @@ class ProjectBudgetController extends Controller
                             // saw the money leave, the bid became permanently
                             // un-payable (verifyProof rejects 'paid'), and the
                             // amount vanished from every financial report.
+                            //
+                            // MONEY CORRECTNESS (2026-09-29): the call below also
+                            // DISCARDED its return value. `recordPayment()`
+                            // returns false when the escrow cannot cover the fee,
+                            // in which case no ledger row is written — but the
+                            // `payment_status = 'paid'` write above had already
+                            // been committed, leaving a bid permanently
+                            // un-payable with no money ever leaving escrow. This
+                            // is the exact shape money:detect-duplicates flags
+                            // (and it had already produced one such row in the
+                            // dev data). Throwing rolls the whole thing back,
+                            // so the bid is only marked paid if it is also paid.
                             $specialistFee = (float) ($bid->calculated_total ?? $bid->price ?? 0);
-                            if ($specialistFee > 0) {
-                                $financialService->recordPayment(
-                                    $project,
-                                    $specialistFee,
-                                    'Paid Structural Engineer Fee (via specialist addendum)',
-                                    'App\Models\BidStructural',
-                                    $bid->id
+                            if ($specialistFee > 0 && ! $financialService->recordPayment(
+                                $project,
+                                $specialistFee,
+                                'Paid Structural Engineer Fee (via specialist addendum)',
+                                'App\Models\BidStructural',
+                                $bid->id
+                            )) {
+                                throw new \Exception(
+                                    'Insufficient project budget to record the structural engineer fee of '
+                                    .'Rp '.number_format($specialistFee, 0, ',', '.').'.',
+                                    422
                                 );
                             }
                         }
@@ -541,13 +557,17 @@ class ProjectBudgetController extends Controller
                             $project->update(['mep_id' => $bid->mep_id]);
 
                             $specialistFee = (float) ($bid->calculated_total ?? $bid->price ?? 0);
-                            if ($specialistFee > 0) {
-                                $financialService->recordPayment(
-                                    $project,
-                                    $specialistFee,
-                                    'Paid MEP Engineer Fee (via specialist addendum)',
-                                    'App\Models\BidMep',
-                                    $bid->id
+                            if ($specialistFee > 0 && ! $financialService->recordPayment(
+                                $project,
+                                $specialistFee,
+                                'Paid MEP Engineer Fee (via specialist addendum)',
+                                'App\Models\BidMep',
+                                $bid->id
+                            )) {
+                                throw new \Exception(
+                                    'Insufficient project budget to record the MEP engineer fee of '
+                                    .'Rp '.number_format($specialistFee, 0, ',', '.').'.',
+                                    422
                                 );
                             }
                         }
