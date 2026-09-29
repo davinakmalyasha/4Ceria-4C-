@@ -94,6 +94,11 @@ frankenphp-worker.php
 !refinement-tests/
 !refinement-tests/**
 
+# Local working documents (audit findings, refinement plan, working notes)
+/REFINEMENT-PLAN.md
+/REFINEMENT-*.md
+/NOTES-*.md
+
 **/caddy
 frankenphp
 frankenphp-worker.php

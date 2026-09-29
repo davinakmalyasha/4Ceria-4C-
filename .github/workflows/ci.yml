@@ -118,11 +118,26 @@ jobs:
         run: composer install --no-interaction --prefer-dist --no-progress
 
       - name: PHP lint sweep
+        # This gate used to fail OPEN. The pipeline was
+        #   find ... | xargs php -l | grep -v 'No syntax errors' && { exit 1; } || true
+        # Under `set -o pipefail` the pipeline status is the rightmost non-zero
+        # status, so a parse error made xargs exit 123, grep exit 0 (it found
+        # and printed the error), pipefail propagated 123 -> the `&&` branch was
+        # SKIPPED -> `|| true` swallowed it -> the step printed "php -l clean"
+        # and passed. AGENTS.md verification-gate item #1 was unenforced.
+        #
+        # Correct shape: capture the filtered output first, then decide on the
+        # captured string. Never gate on a pipeline's exit status.
         run: |
-          set -o pipefail
-          find app database routes tests -name '*.php' -print0 \
-            | xargs -0 -P 4 -n 1 php -l \
-            | grep -v 'No syntax errors detected' && { echo "::error::PHP syntax errors found"; exit 1; } || true
+          set -euo pipefail
+          out=$(find app database routes tests -name '*.php' -print0 \
+                | xargs -0 -P 4 -n 1 php -l 2>&1 \
+                | grep -v 'No syntax errors detected' || true)
+          if [ -n "$out" ]; then
+            echo "$out"
+            echo "::error::PHP syntax errors found"
+            exit 1
+          fi
           echo "php -l clean"
 
       - name: Run migrations against the real schema
@@ -137,11 +152,75 @@ jobs:
           echo "migrations re-applied cleanly"
 
       # All suites. Do NOT pass individual files: that hides future suites.
+      # The API-surface smoke assertions that used to live in the bespoke
+      # `refinement-tests/smoke-api.php` are now `tests/ApiSmokeTest.php`,
+      # which builds its own fixtures and therefore works on an EMPTY
+      # database — the old script read live rows and hard-failed whenever CI
+      # migrated without seeding.
       - name: Run test suites
         run: vendor/bin/pest --colors=always
 
-      - name: In-process API smoke test
-        run: php refinement-tests/smoke-api.php
+  schema:
+    name: Schema integrity
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: 4ceria_schema
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      APP_ENV: testing
+      APP_KEY: base64:Zm9vYmFyYmF6cXV4Zm9vYmFyYmF6cXV4Zm9vYmFyYmF6cXE=
+      DB_CONNECTION: mysql
+      DB_HOST: 127.0.0.1
+      DB_PORT: '3306'
+      DB_DATABASE: 4ceria_schema
+      DB_USERNAME: root
+      DB_PASSWORD: root
+      CACHE_STORE: file
+      SESSION_DRIVER: array
+      QUEUE_CONNECTION: sync
+      PUBLIC_STORAGE_DRIVER: local
+      RAILWAY_STORAGE_DRIVER: local
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_mysql, mbstring, bcmath, gd, zip, exif, pcntl, intl
+          coverage: none
+          tools: composer:v2
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      # THE GATE THAT MATTERS MOST FOR SCHEMA HONESTY.
+      #
+      # 37 of the 240 migrations were recorded as applied while their up() was
+      # an empty stub ("NO-OP: columns consolidated into base migrations" — the
+      # consolidation was never performed). That left 26 columns referenced by
+      # live models absent from the database, and a `migrate:fresh` produced a
+      # schema that could not run the app. Nothing detected it: the suite ran
+      # against the already-drifted dev database, and no step compared the two.
+      #
+      # `schema:verify` therefore migrates a THROWAWAY database from scratch and
+      # asserts that every model $fillable/$casts entry and every relation
+      # foreign key actually exists. Any migration that claims to add a column
+      # but does not now fails the build.
+      - name: Verify a from-scratch migration matches the models
+        run: php artisan schema:verify
 
   spa:
     name: SPA (TypeScript + Vite)
@@ -165,14 +244,25 @@ jobs:
         run: npm run typecheck:check
 
       - name: Lint
-        # `npm run lint` currently exits non-zero on pre-existing
-        # rules-of-hooks/dead-code findings. Kept as a report until that debt is
-        # paid down, so a new violation still shows up in the log without
-        # blocking every PR. Remove `continue-on-error` when lint is clean.
-        continue-on-error: true
+        # A real gate as of 2026-09-29. It was `continue-on-error: true` with
+        # 101 errors outstanding, which is the same as no gate at all: the step
+        # could never fail, so a new violation changed nothing.
+        #
+        # The 101 were not all real defects. 18 of them were `no-undef` on
+        # `window` / `localStorage` / `URL` in `api.js` and `bootstrap.js` -
+        # a misconfiguration, because plain `.js` files were being linted
+        # against `js.configs.recommended` with no browser globals declared.
+        # eslint.config.js now declares the DOM surface explicitly and scopes
+        # the TypeScript rules to `.ts`/`.tsx`.
+        #
+        # 1,723 warnings remain and do NOT fail the build. The largest groups
+        # are `@typescript-eslint/no-explicit-any` (~1,000) and the
+        # react-hooks v7 compiler rules. Those are real work, tracked in the
+        # refinement plan; the point of the gate is that the ERROR count cannot
+        # grow again.
         run: npm run lint
 
-      - name: Build
+      - name: Build (Laravel-integrated)
         run: npm run build
 
       - name: Assert the service worker was generated
@@ -180,3 +270,23 @@ jobs:
           test -f public/build/sw.js || { echo "::error::public/build/sw.js missing — PWA injectManifest failed"; exit 1; }
           grep -q '"build/assets' public/build/manifest.json || true
           echo "sw.js present"
+
+      # Production does NOT ship public/build. Vercel builds the standalone SPA
+      # into dist/ (vite.config.js:51-67, `VITE_STANDALONE=true`), which is the
+      # only build whose `index.html` references hashed /assets/* URLs that the
+      # vercel.json immutable cache rule applies to. Until this step existed,
+      # CI proved a build that is never shipped and the shipped build path had
+      # never been executed at all.
+      - name: Build (standalone — the artifact Vercel actually serves)
+        env:
+          VITE_STANDALONE: 'true'
+          VITE_API_URL: https://api.example.test
+        run: npm run build
+
+      - name: Assert the standalone artifacts
+        run: |
+          test -f dist/index.html || { echo "::error::dist/index.html missing"; exit 1; }
+          test -f dist/sw.js     || { echo "::error::dist/sw.js missing — PWA injectManifest failed in standalone mode"; exit 1; }
+          grep -q '"/assets/' dist/index.html || { echo "::error::standalone index.html does not reference hashed /assets/*"; exit 1; }
+          echo "standalone dist/ present and hashed"
+
