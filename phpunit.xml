@@ -5,39 +5,74 @@
          colors="true"
 >
     <!--
-        2026-09-23: the previous suite list named `tests/Unit` and
-        `tests/Feature` — NEITHER DIRECTORY EXISTS — plus a single explicit file.
-        Consequence: `php artisan test` silently ran ONE of the three suites, so
-        tests/DisputeCenterTest.php and tests/RefinementRegressionTest.php never
-        executed in the default command. `<directory>tests</directory>` picks up
-        every suite in the folder.
+        SUITE STRUCTURE (rewritten 2026-09-29)
 
-        The suites run against real MySQL (each file recovers the .env config in
-        beforeEach and rolls back in afterEach) because the legacy migrations use
-        raw MySQL ALTER/ENUM statements that sqlite cannot execute. DML only —
-        never add DDL to a test file.
+        HISTORY. The suite list once named `tests/Unit` and `tests/Feature` —
+        neither directory existed — so `php artisan test` silently ran one file
+        and two suites never executed. That was fixed on 2026-09-23 by pointing a
+        single suite at the whole `tests` directory.
+
+        THAT FIX IS NOW INCOMPLETE, because two real subdirectories exist and the
+        binding in tests/Pest.php is wrong for both of them:
+
+          * `tests/Pest.php` had `->use(RefreshDatabase::class)->in('Feature')`
+            while no `Feature` directory existed, so the trait never applied to
+            anything. The moment a `tests/Feature` directory is created,
+            `RefreshDatabase` starts running — which wraps every test in
+            migrate:fresh. Against the developer's real MySQL database, that
+            DROPS EVERY TABLE mid-suite. The money suites rely on the opposite
+            model (DatabaseHarness wraps each test in an explicit transaction it
+            rolls back, so fixtures vanish and data is never persisted).
+
+          * A pure-logic suite must NOT boot Laravel or touch a database at all.
+            `App\Support\Money` is a value object; testing it through the
+            application kernel would be both slow and misleading.
+
+        So the suites are now declared explicitly:
+
+          Unit      tests/Unit        plain PHPUnit TestCase, no app, no database
+          Feature   tests/Feature     Laravel TestCase, DatabaseHarness transaction
+          Money     tests/*Test.php   Laravel TestCase, DatabaseHarness transaction
+                     (the four root-level money suites, kept where they are so
+                      the file history is not churned)
     -->
     <testsuites>
         <testsuite name="Unit">
-            <directory>tests</directory>
+            <directory>tests/Unit</directory>
+        </testsuite>
+        <testsuite name="Feature">
+            <directory>tests/Feature</directory>
+        </testsuite>
+        <testsuite name="Money">
+            <directory suffix="Test.php">tests</directory>
         </testsuite>
     </testsuites>
+
     <source>
         <include>
             <directory>app</directory>
         </include>
     </source>
+
     <php>
         <env name="APP_ENV" value="testing"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="CACHE_STORE" value="array"/>
-        <env name="DB_CONNECTION" value="sqlite"/>
-        <env name="DB_DATABASE" value=":memory:"/>
         <env name="MAIL_MAILER" value="array"/>
-        <env name="PULSE_ENABLED" value="false"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>
-        <env name="TELESCOPE_ENABLED" value="false"/>
+        <!--
+            DB_* are deliberately NOT pinned here. The money suites recover the
+            real MySQL connection in DatabaseHarness::boot() and wrap each test
+            in a transaction it rolls back; pinning sqlite here would either be
+            ignored (DatabaseHarness overrides it) or, worse, silently run money
+            assertions against SQLite — which cannot execute the raw
+            ALTER/ENUM statements in the migration history.
+
+            The suites run against real MySQL because the legacy migrations
+            contain raw MySQL ALTER/ENUM statements that sqlite cannot execute.
+            DML only — never add DDL to a test file.
+        -->
     </php>
 </phpunit>

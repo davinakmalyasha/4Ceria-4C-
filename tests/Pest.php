@@ -5,56 +5,51 @@
 | Test Case
 |--------------------------------------------------------------------------
 |
-| The closure you provide to your test functions is always bound to a specific PHPUnit test
-| case class. By default, that class is "PHPUnit\Framework\TestCase". Of course, you may
-| need to change it using the "pest()" function to bind a different classes or traits.
+| Three distinct kinds of test live in this repository, and they must NOT share
+| a binding:
+|
+|   tests/Unit        Pure logic. No Laravel, no database. The binding is the
+|                     default `PHPUnit\Framework\TestCase`. App\Support\Money
+|                     is a value object — booting the kernel to test it would
+|                     be slower and would hide the fact that it has no
+|                     dependencies.
+|
+|   tests/Feature     Laravel TestCase, real MySQL, one transaction per test,
+|                     always rolled back (tests/Support/DatabaseHarness.php).
+|
+|   tests/*Test.php   The four root-level money suites, same harness. They stay
+|                     at the root so the file history is not churned.
+|
+| WHY THERE IS NO `RefreshDatabase` ANYWHERE
+| -----------------------------------------
+| It was bound with `->in('Feature')` while no `Feature` directory existed, so
+| it never applied to anything. The day a `tests/Feature` directory appeared it
+| would have started running — and `RefreshDatabase` wraps each test in
+| migrate:fresh, which drops every table. Against the developer's real MySQL
+| database that destroys the data the money suites are about to assert on.
+|
+| The safety model for every database test is explicit and per-file instead:
+|
+|   beforeEach => DatabaseHarness::boot()      recover MySQL, BEGIN
+|   afterEach  => DatabaseHarness::rollback()  unwind every level, always
+|
+| DML only. Never add DDL to a test.
 |
 */
 
+// Database-backed suites. Deliberately WITHOUT RefreshDatabase — see above.
 pest()->extend(Tests\TestCase::class)
-    ->use(Illuminate\Foundation\Testing\RefreshDatabase::class)
     ->in('Feature');
 
-/*
-|--------------------------------------------------------------------------
-| Money-Integrity Suite (tests/MoneyIntegrityTest.php)
-|--------------------------------------------------------------------------
-|
-| These tests run against the REAL MySQL connection but each test is wrapped
-| in an explicit BEGIN ... ROLLBACK (see beforeEach/afterEach in the file) —
-| no data is ever persisted. This is required because the legacy migrations
-| use raw MySQL ALTER/ENUM statements that sqlite cannot execute.
-|
-| SAFETY: only DML happens inside these tests; never add DDL there.
-*/
+pest()->extend(Tests\TestCase::class)
+    ->in('Money');
 
 /*
 |--------------------------------------------------------------------------
 | Expectations
 |--------------------------------------------------------------------------
-|
-| When you're writing tests, you often need to check that values meet certain conditions. The
-| "expect()" function gives you access to a set of "expectations" methods that you can use
-| to assert different things. Of course, you may extend the Expectation API at any time.
-|
 */
 
 expect()->extend('toBeOne', function () {
     return $this->toBe(1);
 });
-
-/*
-|--------------------------------------------------------------------------
-| Functions
-|--------------------------------------------------------------------------
-|
-| While Pest is very powerful out-of-the-box, you may have some testing code specific to your
-| project that you don't want to repeat in every file. Here you can also expose helpers as
-| global functions to help you to reduce the number of lines of code in your test files.
-|
-*/
-
-function something()
-{
-    // ..
-}
