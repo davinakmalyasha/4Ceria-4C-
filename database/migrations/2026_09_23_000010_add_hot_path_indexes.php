@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\Schema\ForeignKeyIndexGuard;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -131,6 +132,27 @@ return new class extends Migration
                 });
             }
         }
+
+        // A composite index whose leading column is a foreign key is NOT
+        // purely additive: if the table has no standalone index on that column,
+        // InnoDB adopts the composite as the constraint's backing store, and
+        // `down()` can then no longer drop it
+        //   1553 Cannot drop index '<name>': needed in a foreign key constraint
+        //
+        // `project_activity_logs` is exactly that case: its only project_id
+        // index IS `project_activity_logs_project_created_idx`. Give every
+        // affected foreign-key column its own index so each composite below
+        // remains a pure addition — which is what this file's docblock claims
+        // it is — and therefore reversible.
+        foreach ($this->hotPathIndexes() as $table => $indexes) {
+            if (! Schema::hasTable($table)) {
+                continue;
+            }
+
+            foreach ($indexes as [$indexName, $columns]) {
+                ForeignKeyIndexGuard::ensureBackingIndex($table, $columns[0], $indexName);
+            }
+        }
     }
 
     public function down(): void
@@ -141,13 +163,11 @@ return new class extends Migration
             }
 
             foreach ($indexes as [$indexName, $columns]) {
-                if (!$this->indexExists($table, $indexName)) {
-                    continue;
-                }
-
-                Schema::table($table, function (Blueprint $t) use ($indexName) {
-                    $t->dropIndex($indexName);
-                });
+                // ForeignKeyIndexGuard, not a bare dropIndex: it guarantees a
+                // standalone index covers the leading column first, so the
+                // composite can be removed even when InnoDB had adopted it as
+                // the backing store for a foreign key.
+                ForeignKeyIndexGuard::dropIndex($table, $indexName, $columns[0]);
             }
         }
     }

@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\Schema\ForeignKeyIndexGuard;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -47,6 +48,25 @@ return new class extends Migration
         if ($hasOld) {
             $columns = collect($this->indexColumns('project_budget_transactions', 'budget_tx_reference_unique'));
             if (! $columns->contains('transaction_type')) {
+                // MySQL backs a foreign key with the leftmost index whose first
+                // column matches. `budget_tx_reference_unique` starts with
+                // `project_id`, so while it is the only such index it IS the
+                // project's FK backing store and dropping it fails with
+                //   1553 Cannot drop index 'budget_tx_reference_unique':
+                //       needed in a foreign key constraint
+                //
+                // This only bites on a FROM-SCRATCH migration. On a database
+                // that had been ALTERed over months, some earlier incidental
+                // index already covered `project_id`, so the drop silently
+                // succeeded and nobody noticed that `migrate:fresh` had never
+                // worked. `2026_09_23_000010` adds the dedicated
+                // `budget_tx_project_type_idx`, but it runs AFTER this file, so
+                // it cannot help here.
+                //
+                // Give the foreign key its own index before narrowing the
+                // unique one, so the drop is legal on any schema.
+                ForeignKeyIndexGuard::ensureBackingIndex('project_budget_transactions', 'project_id', 'budget_tx_reference_unique');
+
                 Schema::table('project_budget_transactions', function (Blueprint $table) {
                     $table->dropUnique('budget_tx_reference_unique');
                 });
@@ -96,6 +116,13 @@ return new class extends Migration
         if (Schema::hasTable('project_budget_transactions')) {
             $columns = collect($this->indexColumns('project_budget_transactions', 'budget_tx_reference_unique'));
             if ($columns->contains('transaction_type')) {
+                // Same FK-backing-index hazard as `up()`: narrowing the unique
+                // index back to three columns still leaves it starting with
+                // `project_id`, so it keeps backing the foreign key and can be
+                // dropped safely — but the dedicated index must exist first in
+                // case anything else relied on it.
+                ForeignKeyIndexGuard::ensureBackingIndex('project_budget_transactions', 'project_id', 'budget_tx_reference_unique');
+
                 Schema::table('project_budget_transactions', function (Blueprint $table) {
                     $table->dropUnique('budget_tx_reference_unique');
                 });
