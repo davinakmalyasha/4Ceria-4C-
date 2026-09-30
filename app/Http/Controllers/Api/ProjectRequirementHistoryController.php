@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Support\Hire;
 use App\Models\Project;
 use App\Models\ProjectRequirement;
 use App\Models\ProjectRequirementHistory;
@@ -134,8 +135,8 @@ class ProjectRequirementHistoryController extends Controller
         }
         
         $isOwner = (int) $project->user_id === (int) $user->id && in_array('user', $allowedRoles);
-        $isHiredArsitek = $user->role_type === 'arsitek' && (int) $project->selected_arsitek_id === (int) optional($user->arsitek)->id && in_array('arsitek', $allowedRoles);
-        $isHiredKontraktor = $user->role_type === 'kontraktor' && (int) $project->selected_kontraktor_id === (int) optional($user->kontraktor)->id && in_array('kontraktor', $allowedRoles);
+        $isHiredArsitek = $user->role_type === 'arsitek' && Hire::matches($project, $user, 'arsitek') && in_array('arsitek', $allowedRoles);
+        $isHiredKontraktor = $user->role_type === 'kontraktor' && Hire::matches($project, $user, 'kontraktor') && in_array('kontraktor', $allowedRoles);
         $isHiredPM = $user->role_type === 'project_manager' && (int) $project->pm_id === (int) $user->id && in_array('project_manager', $allowedRoles);
 
         // SECURITY BUGFIX: the interior branch checked only the role type, so
@@ -143,7 +144,7 @@ class ProjectRequirementHistoryController extends Controller
         // hole that was already fixed in ProjectRequirementController::index.
         // selected_interior_id stores a PROFILE id, never a user id.
         $isHiredInterior = $user->role_type === 'interior'
-            && (int) $project->selected_interior_id === (int) optional($user->interior_profile)->id
+            && Hire::matches($project, $user, 'interior')
             && in_array('interior', $allowedRoles);
 
         return $isOwner || $isHiredArsitek || $isHiredKontraktor || $isHiredPM || $isHiredInterior;

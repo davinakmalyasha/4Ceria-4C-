@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Support\Hire;
 use App\Models\Project;
 use App\Models\ProjectActivityLog;
 use App\Models\Notification;
@@ -21,12 +22,12 @@ class TechnicalDesignReviewController extends Controller
             return ($role === 'structural' && $project->structuralEngineer?->user_id === $u->id) ||
                    ($role === 'mep' && $project->mepEngineer?->user_id === $u->id) ||
                    ($role === 'interior' && $project->interior?->user_id === $u->id) ||
-                   ($u->role_type === 'arsitek' && $project->selected_arsitek_id === $u->arsitek?->id) ||
+                   ($u->role_type === 'arsitek' && Hire::matches($project, $u, 'arsitek')) ||
                    ($project->user_id === $u->id);
         }
         return ($u->role_type === 'project_manager' && $project->pm_id === $u->id) ||
                ($project->user_id === $u->id) ||
-               ($u->role_type === 'arsitek' && $project->selected_arsitek_id === $u->arsitek?->id);
+               ($u->role_type === 'arsitek' && Hire::matches($project, $u, 'arsitek'));
     }
 
     private function notify($userId, string $type, string $title, string $body, int $projectId): void

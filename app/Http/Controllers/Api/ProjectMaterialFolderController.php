@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Support\Hire;
 use App\Models\Project;
 use App\Models\ProjectMaterialFolder;
 use Illuminate\Http\Request;
@@ -91,14 +92,14 @@ class ProjectMaterialFolderController extends Controller
         }
         
         $isOwner = $project->user_id === $user->id && in_array('user', $allowedRoles);
-        $isHiredArsitek = $user->role_type === 'arsitek' && $project->selected_arsitek_id === $user->arsitek?->id && in_array('arsitek', $allowedRoles);
-        $isHiredKontraktor = $user->role_type === 'kontraktor' && $project->selected_kontraktor_id === $user->kontraktor?->id && in_array('kontraktor', $allowedRoles);
+        $isHiredArsitek = $user->role_type === 'arsitek' && Hire::matches($project, $user, 'arsitek') && in_array('arsitek', $allowedRoles);
+        $isHiredKontraktor = $user->role_type === 'kontraktor' && Hire::matches($project, $user, 'kontraktor') && in_array('kontraktor', $allowedRoles);
         $isHiredPM = $user->role_type === 'project_manager' && $project->pm_id === $user->id && in_array('project_manager', $allowedRoles);
         // SECURITY: interior designers must be HIRED on this project — an
         // unscoped role check previously let ANY interior user edit folders.
-        $isInterior = $user->role_type === 'interior' && (int) $project->selected_interior_id === (int) $user->interior_profile?->id && in_array('interior', $allowedRoles);
-        $isHiredStructural = $user->role_type === 'structural' && $project->structural_id === $user->structural_engineer?->id && in_array('structural', $allowedRoles);
-        $isHiredMEP = $user->role_type === 'mep' && $project->mep_id === $user->mep_engineer?->id && in_array('mep', $allowedRoles);
+        $isInterior = $user->role_type === 'interior' && Hire::matches($project, $user, 'interior') && in_array('interior', $allowedRoles);
+        $isHiredStructural = $user->role_type === 'structural' && Hire::matches($project, $user, 'structural') && in_array('structural', $allowedRoles);
+        $isHiredMEP = $user->role_type === 'mep' && Hire::matches($project, $user, 'mep') && in_array('mep', $allowedRoles);
 
         return $isOwner || $isHiredArsitek || $isHiredKontraktor || $isHiredPM || $isInterior || $isHiredStructural || $isHiredMEP;
     }

@@ -1811,8 +1811,12 @@ class ProjectController extends Controller
      */
     public function submitPlanning(Project $project, Request $request)
     {
-        // Only the selected architect can propose the plan
-        if ($project->selected_arsitek_id !== Auth::user()->arsitek?->id) {
+        // Only the selected architect can propose the plan.
+        //
+        // `Hire::matches()` rather than a direct comparison: `!==` against a
+        // null relation id is `null !== null` -> FALSE, so the check PASSED for a
+        // user with no arsiteks profile on a project with no architect.
+        if (! \App\Support\Hire::matches($project, Auth::user(), 'arsitek')) {
             return response()->json(['message' => 'Only the assigned architect can propose a design brief.'], 403);
         }
 
@@ -1988,8 +1992,10 @@ class ProjectController extends Controller
      */
     public function verifyDesignPayment(Project $project)
     {
-        // Only the selected architect can verify payment
-        if ($project->selected_arsitek_id !== Auth::user()->arsitek?->id) {
+        // Only the selected architect can verify payment. See the note on
+        // submitPlanning: `!==` against a null relation id is `false`, so the
+        // direct comparison passed for a profiled-null architect.
+        if (! \App\Support\Hire::matches($project, Auth::user(), 'arsitek')) {
             return response()->json(['message' => 'Only the assigned architect can verify payments.'], 403);
         }
 

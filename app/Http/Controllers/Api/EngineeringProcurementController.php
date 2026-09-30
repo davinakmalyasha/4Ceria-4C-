@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Support\Hire;
 use App\Models\Project;
 use App\Models\BidStructural;
 use App\Models\BidMep;
@@ -23,7 +24,7 @@ class EngineeringProcurementController extends Controller
             // Only Architect can interview and recommend
             $isArchitect = $project->selected_arsitek_id && 
                           $user->role_type === 'arsitek' && 
-                          (int) $project->selected_arsitek_id === (int) $user->arsitek?->id;
+                          Hire::matches($project, $user, 'arsitek');
             
             if (!$isArchitect) {
                 return response()->json(['message' => 'Unauthorized. Only the Project Architect can interview specialized engineers.'], 403);

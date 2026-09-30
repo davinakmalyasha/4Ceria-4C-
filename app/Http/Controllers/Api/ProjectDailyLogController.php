@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Support\Hire;
 use App\Models\Project;
 use App\Models\ProjectDailyLog;
 use App\Models\ProjectActivityLog;
@@ -34,7 +35,7 @@ class ProjectDailyLogController extends Controller
         $user = Auth::user();
         
         // Authorization: Only the hired contractor, PM, or active sub-professional can log site activity
-        $isHiredKontraktor = $user->role_type === 'kontraktor' && $project->selected_kontraktor_id === $user->kontraktor?->id;
+        $isHiredKontraktor = $user->role_type === 'kontraktor' && Hire::matches($project, $user, 'kontraktor');
         $isHiredPM = $user->role_type === 'project_manager' && $project->pm_id === $user->id;
         $isSubPro = DB::table('project_sub_professionals')
             ->where('project_id', $project->id)

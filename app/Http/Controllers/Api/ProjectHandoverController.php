@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ProjectResource;
+use App\Support\Hire;
 use App\Models\Project;
 use App\Models\ProjectSnagItem;
 use App\Services\BASTService;
@@ -105,10 +106,10 @@ class ProjectHandoverController extends Controller
         // Only the assigned contractor (or interior designer for interior snags)
         // may progress/resolve their own defects — never an unrelated user.
         $isAssignedContractor = $user->role_type === 'kontraktor'
-            && (int) $project->selected_kontraktor_id === (int) optional($user->kontraktor)->id
+            && Hire::matches($project, $user, 'kontraktor')
             && in_array($snagItem->assigned_role, ['kontraktor', null]);
         $isAssignedInterior = $user->role_type === 'interior'
-            && (int) $project->selected_interior_id === (int) optional($user->interior_profile)->id
+            && Hire::matches($project, $user, 'interior')
             && $snagItem->assigned_role === 'interior';
 
         if (!$isAssignedContractor && !$isAssignedInterior) {

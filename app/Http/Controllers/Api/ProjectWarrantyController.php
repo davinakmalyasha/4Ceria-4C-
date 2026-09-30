@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Support\Hire;
 use App\Models\Project;
 use App\Models\ProjectWarrantyClaim;
 use App\Traits\HandlesProjectAuthorization;
@@ -92,7 +93,7 @@ class ProjectWarrantyController extends Controller
         // owner may move a claim through its lifecycle; cost_impact is
         // owner-approvable and must never be negative.
         $isContractor = $user->role_type === 'kontraktor'
-            && (int) $project->selected_kontraktor_id === (int) optional($user->kontraktor)->id;
+            && Hire::matches($project, $user, 'kontraktor');
         $isOwner = $this->isProjectOwner($project, $user);
 
         if (!$isContractor && !$isOwner) {

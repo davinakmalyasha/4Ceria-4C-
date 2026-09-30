@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Support\Hire;
 use App\Models\Project;
 use App\Models\ProjectPaymentTermin;
 use App\Models\ProjectActivityLog;
@@ -238,7 +239,7 @@ class ProjectPaymentTerminController extends Controller
         // Never allow deleting termins with money in flight.
         if (!$isOwner && !$isPM) {
             $isHiredForThisRole = $user->role_type === 'kontraktor'
-                && (int) $project->selected_kontraktor_id === (int) optional($user->kontraktor)->id
+                && Hire::matches($project, $user, 'kontraktor')
                 && $termin->role_type === 'kontraktor';
 
             if (!$isHiredForThisRole) {

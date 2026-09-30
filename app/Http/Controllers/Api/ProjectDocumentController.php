@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Support\Hire;
 use App\Models\Project;
 use App\Models\ProjectDocument;
 use App\Models\ProjectActivityLog;
@@ -31,12 +32,12 @@ class ProjectDocumentController extends Controller
         $isOwner = $project->user_id === $user->id;
         $isPM = $user->role_type === 'project_manager' && $project->pm_id === $user->id;
         $isHiredPro = false;
-        if ($user->role_type === 'arsitek' && $project->selected_arsitek_id === $user->arsitek?->id) $isHiredPro = true;
-        if ($user->role_type === 'kontraktor' && $project->selected_kontraktor_id === $user->kontraktor?->id) $isHiredPro = true;
-        if ($user->role_type === 'notaris' && $project->selected_notaris_id === $user->notaris_profile?->id) $isHiredPro = true;
-        if ($user->role_type === 'interior' && $project->selected_interior_id === $user->interior_profile?->id) $isHiredPro = true;
-        if ($user->role_type === 'structural' && $project->structural_id === $user->structural_engineer?->id) $isHiredPro = true;
-        if ($user->role_type === 'mep' && $project->mep_id === $user->mep_engineer?->id) $isHiredPro = true;
+        if ($user->role_type === 'arsitek' && Hire::matches($project, $user, 'arsitek')) $isHiredPro = true;
+        if ($user->role_type === 'kontraktor' && Hire::matches($project, $user, 'kontraktor')) $isHiredPro = true;
+        if ($user->role_type === 'notaris' && Hire::matches($project, $user, 'notaris')) $isHiredPro = true;
+        if ($user->role_type === 'interior' && Hire::matches($project, $user, 'interior')) $isHiredPro = true;
+        if ($user->role_type === 'structural' && Hire::matches($project, $user, 'structural')) $isHiredPro = true;
+        if ($user->role_type === 'mep' && Hire::matches($project, $user, 'mep')) $isHiredPro = true;
 
         if ($isOwner || $isPM || $isHiredPro) {
             return true;
