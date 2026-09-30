@@ -28,6 +28,44 @@ const ICON_MAP: Record<string, any> = {
     Shield, Pencil, Hammer, Package, Sofa, Key: KeyRound
 };
 
+/**
+ * `PHASE_CONFIG.roleNeeded` -> the role token the lifecycle endpoints expect.
+ *
+ * EXPLICIT and TOTAL on purpose. The previous inline chain was:
+ *
+ *     roleNeeded === 'arsitek' ? 'arsitek' :
+ *     roleNeeded === 'kontraktor' ? 'kontraktor' :
+ *     roleNeeded === 'interior' ? 'interior' :
+ *     roleNeeded === 'notaris' ? 'notaris' : 'pm'
+ *
+ * so ANY role outside those four fell through to 'pm'. The `technical` phase's
+ * `roleNeeded` is 'structural' — that phase is "Struktur, MEP, & Sondir Tanah"
+ * — so an owner clicking "fire" on the structural engineer sent
+ * `role_type: 'pm'` and TERMINATED THE PROJECT MANAGER instead. The same chain,
+ * with the same bug, appeared twice: once on the fire/resign button and once on
+ * the rating button.
+ *
+ * `project_manager` maps to `pm` because that is the token the terminate
+ * endpoint, the bid tables and the project columns all use; `users.role_type`
+ * spells it the long way. The API accepts both.
+ *
+ * The lookup falls back to the RAW value rather than to 'pm', so an unmapped
+ * role produces a 422 instead of terminating somebody who was never fired.
+ */
+const LIFECYCLE_ROLE_TOKEN: Record<string, string> = {
+    arsitek: 'arsitek',
+    kontraktor: 'kontraktor',
+    interior: 'interior',
+    notaris: 'notaris',
+    project_manager: 'pm',
+    pm: 'pm',
+    structural: 'structural',
+    mep: 'mep',
+};
+
+const toLifecycleRoleToken = (roleNeeded: string): string =>
+    LIFECYCLE_ROLE_TOKEN[roleNeeded] ?? roleNeeded;
+
 export default function ProjectBrief({ project, user, onRefresh, onSwitchToProcess, onSwitchTab, onOpenChat }: ProjectBriefProps) {
     const { showToast } = useToast();
     const dims = React.useMemo(() => {
@@ -448,10 +486,7 @@ export default function ProjectBrief({ project, user, onRefresh, onSwitchToProce
                                                                 setTerminationModal({
                                                                     isOpen: true,
                                                                     type: isOwner ? 'fire' : 'resign',
-                                                                    roleType: cfg.roleNeeded === 'arsitek' ? 'arsitek' : 
-                                                                             cfg.roleNeeded === 'kontraktor' ? 'kontraktor' :
-                                                                             cfg.roleNeeded === 'interior' ? 'interior' : 
-                                                                             cfg.roleNeeded === 'notaris' ? 'notaris' : 'pm',
+                                                                    roleType: toLifecycleRoleToken(cfg.roleNeeded),
                                                                     roleLabel: cfg.label,
                                                                     proName: hiredPro.nama || hiredPro.user?.name || 'Professional'
                                                                 });
@@ -471,10 +506,7 @@ export default function ProjectBrief({ project, user, onRefresh, onSwitchToProce
                                                                     e.stopPropagation();
                                                                     setRatingModal({
                                                                         isOpen: true,
-                                                                        roleType: cfg.roleNeeded === 'arsitek' ? 'arsitek' : 
-                                                                                cfg.roleNeeded === 'kontraktor' ? 'kontraktor' :
-                                                                                cfg.roleNeeded === 'interior' ? 'interior' : 
-                                                                                cfg.roleNeeded === 'notaris' ? 'notaris' : 'pm',
+roleType: toLifecycleRoleToken(cfg.roleNeeded),
                                                                         proName: hiredPro.nama || hiredPro.user?.name || 'Professional'
                                                                     });
                                                                 }}

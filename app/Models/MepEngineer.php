@@ -36,6 +36,11 @@ class MepEngineer extends Model
         'siup_number',
         'npwp',
         'siup',
+        // Accountability. ProjectTerminationController deducts 10 on being
+        // fired and 5 on resigning, flooring at zero — the same rule the other
+        // five professional profiles carry. The column was added by
+        // 2026_09_29_000008; until then this update threw MassAssignmentException.
+        'reliability_score',
     ];
 
     /**
@@ -44,6 +49,7 @@ class MepEngineer extends Model
      */
     protected $casts = [
         'rate_harga' => 'decimal:2',
+        'reliability_score' => 'integer',
     ];
 
     public function user()
