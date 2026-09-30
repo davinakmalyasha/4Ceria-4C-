@@ -154,16 +154,25 @@ Invoke-Step "schema round-trip on $ScratchDb" {
 Invoke-Step 'pest (full suite)' { & $Php vendor/bin/pest --colors=never } | Out-Null
 
 # ---------------------------------------------------- ledger diagnostics
-# `money:detect-duplicates` is a DIAGNOSTIC, not a build gate: on a database
-# with pre-existing violations it reports them and exits non-zero, which is
-# the correct behaviour. Its findings are triaged in the refinement plan, not
-# silenced here, so it is reported but does not fail the run.
+# `money:detect-duplicates` and `money:reconcile` are DIAGNOSTICS, not build
+# gates: on a database with pre-existing violations they report them and exit
+# non-zero, which is correct behaviour. Their findings are triaged in the
+# refinement plan, not silenced here, so both are reported without failing the
+# run.
 Write-Host ''
-Write-Host "==> money:detect-duplicates (informational)" -ForegroundColor Cyan
+Write-Host '==> money:detect-duplicates (informational)' -ForegroundColor Cyan
 & $Php artisan money:detect-duplicates --no-interaction
 $moneyExit = $LASTEXITCODE
 if ($moneyExit -ne 0) {
-    Write-Host "    reported findings (does not fail the gate) - see REFINEMENT-PLAN.md" -ForegroundColor Yellow
+    Write-Host '    reported findings (does not fail the gate) - see REFINEMENT-PLAN.md' -ForegroundColor Yellow
+}
+
+Write-Host ''
+Write-Host '==> money:reconcile (informational)' -ForegroundColor Cyan
+& $Php artisan money:reconcile --no-interaction
+$reconcileExit = $LASTEXITCODE
+if ($reconcileExit -ne 0) {
+    Write-Host '    reported invariant violations (does not fail the gate)' -ForegroundColor Yellow
 }
 
 # ------------------------------------------------------------------ result
