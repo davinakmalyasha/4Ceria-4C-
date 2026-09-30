@@ -471,33 +471,70 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
         }
     };
 
+    // A notary/architect disbursement is a PAYMENT STAGE, not a bespoke
+    // record. The old /legal-disbursements pair was a second representation of
+    // the same money and had drifted: the SPA sent `{ status: 'rejected' }`
+    // where the controller read `action`, so REJECTING WROTE `verified`, and
+    // "verifying" never called deductBudget, so approving moved no money.
+    // Payment stages are the only path that posts to the ledger.
     const handleDisbursementSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
         try {
-            await axios.post(`/projects/${project?.id}/legal-disbursements`, {
-                title: disbTitle,
-                amount: disbAmount,
-                description: disbDesc
+            const amount = Number(disbAmount);
+            if (!Number.isFinite(amount) || amount <= 0) {
+                showToast('Enter a valid amount', 'error');
+                return;
+            }
+
+            await axios.post(`/projects/${project?.id}/payment-termins`, {
+                label: disbTitle,
+                // Percentage is deliberately 0. The legacy table recorded only
+                // an absolute amount, and a payment stage needs both. Sending
+                // 0 is honest — the share of the contract this represents is
+                // unknown — whereas inventing one would corrupt every
+                // percentage roll-up the owner sees.
+                percentage: 0,
+                amount,
+                // Pass the role tab through rather than defaulting to 'notaris':
+                // a silent mislabel here would file a contractor's fee as a
+                // notary's. The server still validates it as one of the seven
+                // licensed roles (TerminPlanService::assertKnownRole).
+                role_type: activeProRole,
+                trigger_description: disbDesc,
+                notes: disbDesc,
+                status: 'pending',
             });
             showToast('Disbursement request sent', 'success');
             setIsRequestingDisbursement(false);
             setDisbTitle(''); setDisbAmount(''); setDisbDesc('');
             fetchMilestones();
         } catch (error: any) {
-            showToast('Failed to request disbursement', 'error');
+            // Surface the server's reason. The affordability and contract-value
+            // guards return a specific message and a generic "failed" would
+            // hide the one thing the user needs to know.
+            const msg = error?.response?.data?.message
+                || 'Failed to request disbursement';
+            showToast(msg, 'error');
         } finally {
             setLoading(false);
         }
     };
 
-    const handleVerifyDisbursement = async (id: number, status: 'approved' | 'rejected') => {
+    // Approve = pay. A stage is released through the same mark-paid path every
+    // other professional payment uses, so the escrow ledger, the notification
+    // and the activity log all record it.
+    const handleVerifyDisbursement = async (id: number) => {
         try {
-            await axios.post(`/projects/${project?.id}/legal-disbursements/${id}/verify`, { status });
-            showToast(`Budget order ${status}`, 'success');
+            await axios.post(`/projects/${project?.id}/budget/mark-paid`, {
+                type: 'termin',
+                id,
+            });
+            showToast('Disbursement released', 'success');
             fetchMilestones();
-        } catch (error) {
-            showToast('Verification failed', 'error');
+        } catch (error: any) {
+            const msg = error?.response?.data?.message || 'Verification failed';
+            showToast(msg, 'error');
         }
     };
 
@@ -600,7 +637,7 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
                                 </div>
                                 <div>
                                     <h3 className="text-xl font-black text-zinc-900">Request Disbursement</h3>
-                                    <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Withdraw from Government Tax Escrow</p>
+                                    <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Payment Stage — released from your escrow ledger</p>
                                 </div>
                             </div>
 
@@ -628,7 +665,7 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-2 ml-1">Notes / Receipt Link</label>
+                                    <label className="block text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-2 ml-1">Notes / Purpose</label>
                                     <textarea 
                                         value={disbDesc} 
                                         onChange={e => setDisbDesc(e.target.value)}
@@ -966,6 +1003,25 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
                                                                         </button>
                                                                     )}
                                                                 </div>
+                                                                {/* The approve step the /legal-disbursements pair
+                                                                    used to provide — except this goes through the
+                                                                    ledger, so the release is recorded and refused if
+                                                                    it would overdraw. Gated on isOwner, not
+                                                                    canApprove: mark-paid is owner-only on the
+                                                                    server even though canApprove treats the PM as an
+                                                                    approver. That PM inconsistency is tracked
+                                                                    separately rather than papered over here. */}
+                                                                {linkedTermin.status !== 'paid'
+                                                                    && ['pending', 'invoice_sent', 'locked'].includes(linkedTermin.status)
+                                                                    && isOwner
+                                                                    && !isPhaseSealed && (
+                                                                    <button
+                                                                        onClick={() => handleVerifyDisbursement(linkedTermin.id)}
+                                                                        className="px-4 py-2 bg-zinc-900 hover:bg-black text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm shadow-zinc-200"
+                                                                    >
+                                                                        Release {formatIDR(linkedTermin.amount)}
+                                                                    </button>
+                                                                )}
                                                             </div>
                                                         ) : (
                                                             isNotaris && !isPhaseSealed && (

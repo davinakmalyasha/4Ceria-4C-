@@ -40,6 +40,12 @@ dist/
 *.orig.*
 .agents/
 /tmp/
+
+# ...but a SQL fixture that a committed verification script depends on is CODE,
+# not data. `scripts/disbursement-migration-seed.sql` seeds the throwaway
+# database in verify-disbursement-migration.cmd; without it that proof cannot
+# run on a fresh clone. Scoped to scripts/ so database DUMPS stay ignored.
+!scripts/*.sql
 /scratch/
 /resources/js/scratch/
 

@@ -211,8 +211,22 @@ Route::middleware(['auth:sanctum', 'freeze_pending_termination'])->group(functio
         // technical-audit-submit.
         Route::post('/verify-legal', [ProjectPhaseController::class, 'verifyLegal']);
         Route::get('/legal-financials', [ProjectLegalController::class, 'getFinancials']);
-        Route::post('/legal-disbursements', [ProjectLegalController::class, 'storeDisbursement']);
-        Route::post('/legal-disbursements/{id}/verify', [ProjectLegalController::class, 'verifyDisbursement']);
+
+        // NOTE: the /legal-disbursements request/approve pair is gone. It was a
+        // second representation of notary/architect money alongside
+        // project_payment_termins, and it had drifted: the SPA POSTed
+        // `{ status: 'rejected' }` where the controller read `action`, so
+        // REJECTING WROTE `verified`; "verified" never called deductBudget and
+        // wrote no ledger row, so approving moved no money; and creation
+        // always 422'd because the SPA sent `description` where `purpose` was
+        // required. The read side had already moved to termin.
+        //
+        // Notary/architect disbursements are now requested as a payment stage:
+        //   POST   /projects/{project}/payment-termins
+        //   POST   /projects/{project}/budget/mark-paid   (type=termin)
+        // which is the same path every other professional payment takes, and
+        // the only one that posts to the ledger. Data was preserved by
+        // 2026_09_29_000006 before the table was dropped in 000007.
 
         // NOTE: finalize-legal-scope removed (zero consumers; legal scope is
         // synced via the static syncProjectLegalScope lifecycle calls).

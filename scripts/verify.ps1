@@ -103,11 +103,44 @@ if (-not $SkipFrontend) {
 }
 
 # ------------------------------------------------------------ autoloader
-# Composer hangs in some environments here; --no-scripts keeps
-# scripts/apply-octane-patches.php (which mutates vendor/) out of the gate.
-Invoke-Step 'composer dump-autoload' {
-    & composer dump-autoload --no-interaction --no-scripts
-} | Out-Null
+# BOUNDED, and non-fatal by design.
+#
+# `composer dump-autoload` HANGS in this environment: it reaches "Generating
+# optimized autoload files" and never exits (observed at 3, 5 and 20 minutes,
+# with and without --no-scripts, with COMPOSER_DISABLE_NETWORK=1, and with
+# --no-plugins). A gate that hangs forever is worse than no gate, so this step
+# runs the process with a hard timeout and WARNS rather than blocking.
+#
+# Two other traps here, both of which produce a confusing failure:
+#   - bare `composer` on PATH runs PHP 8.3, which is BELOW the `php: ^8.4`
+#     floor in composer.json. Use the interpreter directly, via the .phar.
+#   - composer.json wires `post-autoload-dump` to
+#     scripts/apply-octane-patches.php, which MUTATES vendor/. That must not
+#     run as part of a verification pass, hence --no-scripts.
+$ComposerTimeoutSeconds = 180
+$composerPhar = 'D:\laragon\bin\composer\composer.phar'
+
+if (-not (Test-Path $composerPhar)) {
+    Write-Host "    skipped: composer.phar not found at $composerPhar" -ForegroundColor Yellow
+} else {
+    Write-Host ''
+    Write-Host "==> composer dump-autoload (bounded, non-fatal)" -ForegroundColor Cyan
+
+    $composerOut = [System.IO.Path]::GetTempFileName()
+    $proc = Start-Process -FilePath $Php `
+        -ArgumentList @($composerPhar, 'dump-autoload', '--no-interaction', '--no-scripts', '--no-plugins') `
+        -NoNewWindow -PassThru -RedirectStandardOutput $composerOut -RedirectStandardError $composerOut
+
+    if ($proc.WaitForExit($ComposerTimeoutSeconds * 1000)) {
+        Write-Host '    ok'
+    } else {
+        Write-Host "    WARNING: composer dump-autoload did not finish within $ComposerTimeoutSeconds s" -ForegroundColor Yellow
+        Write-Host '    It hangs in this environment. Non-fatal, but the committed' -ForegroundColor Yellow
+        Write-Host '    classmap may be stale for classes added since the last run.' -ForegroundColor Yellow
+        try { $proc.Kill() } catch { }
+    }
+    Remove-Item $composerOut -ErrorAction SilentlyContinue
+}
 
 # ------------------------------------------------------ schema round-trip
 # Runs against $ScratchDb via DB_DATABASE, so the working database is
