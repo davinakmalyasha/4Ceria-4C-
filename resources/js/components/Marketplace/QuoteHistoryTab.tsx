@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FileText, Clock, CheckCircle, ExternalLink, Package, MapPin, Building, ChevronRight, User, ShoppingBag, Plus, MessageSquare, CreditCard, Truck, Download, AlertCircle } from 'lucide-react';
+import { FileText, Clock, CheckCircle, ExternalLink, Package, MapPin, Building, ChevronRight, User, ShoppingBag, Plus, MessageSquare, CreditCard, Truck, Download, AlertCircle, Upload } from 'lucide-react';
 
 export default function QuoteHistoryTab({ user }: { user?: any }) {
     const [quotes, setQuotes] = useState<any[]>([]);
@@ -14,6 +14,12 @@ export default function QuoteHistoryTab({ user }: { user?: any }) {
     const [showReceipt, setShowReceipt] = useState(false);
     const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
     const receiptRef = useRef<HTMLDivElement>(null);
+// Buyer-side receipt upload state. `proofInputRef` exists so the file input can
+// be reset after a successful send — otherwise re-selecting the same file fires
+// no change event and the buyer cannot retry or replace it.
+const [isUploadingProof, setIsUploadingProof] = useState<number | null>(null);
+const [isConfirming, setIsConfirming] = useState<number | null>(null);
+const proofInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         if (notification) {
@@ -22,17 +28,22 @@ export default function QuoteHistoryTab({ user }: { user?: any }) {
         }
     }, [notification]);
 
+    // Hoisted to component scope (was declared INSIDE the effect) because
+    // `handleUploadProof` needs to refresh the list after the buyer sends a
+    // receipt. A function scoped to the effect body is invisible to every other
+    // handler, which would have failed at runtime as a ReferenceError.
+    const fetchQuotes = async () => {
+        try {
+            const res = await axios.get('/material-quotes');
+            setQuotes(res.data.data || []);
+        } catch (err) {
+            console.error('Failed to fetch quotes', err);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     useEffect(() => {
-        const fetchQuotes = async () => {
-            try {
-                const res = await axios.get('/material-quotes');
-                setQuotes(res.data.data || []);
-            } catch (err) {
-                console.error('Failed to fetch quotes', err);
-            } finally {
-                setIsLoading(false);
-            }
-        };
         fetchQuotes();
     }, []);
 
@@ -91,16 +102,59 @@ export default function QuoteHistoryTab({ user }: { user?: any }) {
         }
     };
 
-    const handleMarkPaid = async (quoteId: number) => {
+    // The BUYER attaches the transfer receipt.
+    //
+    // Without this the supplier's "Konfirmasi Pembayaran" button could never
+    // succeed: `mark-paid` requires a `payment_proof_path`, and prior to
+    // 2026-09-29 nothing in the product could write one for a quote — the
+    // endpoint did not exist and the table had no such column. So the payment
+    // step was unreachable for every material quote.
+    const handleUploadProof = async (quoteId: number, file: File) => {
+        if (!file) return;
+        setIsUploadingProof(quoteId);
         try {
-            const res = await axios.put(`/material-quotes/${quoteId}/mark-paid`);
+            const body = new FormData();
+            body.append('payment_proof', file);
+            await axios.post(`/material-quotes/${quoteId}/payment-proof`, body, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
+            await fetchQuotes();
+            setNotification({
+                message: 'Bukti transfer terkirim. Menunggu konfirmasi pemasok.',
+                type: 'success',
+            });
+        } catch (err: any) {
+            setNotification({
+                message: err?.response?.data?.message || 'Gagal mengunggah bukti transfer.',
+                type: 'error',
+            });
+        } finally {
+            setIsUploadingProof(null);
+            if (proofInputRef.current) proofInputRef.current.value = '';
+        }
+    };
+
+    const handleMarkPaid = async (quoteId: number) => {
+        setIsConfirming(quoteId);
+        try {
+            const res = await axios.put(`/material-quotes/${quoteId}/mark-paid`, {
+                payment_notes: approvalNotes || undefined,
+            });
             if (res.data.success) {
-                setQuotes(prev => prev.map(q => q.id === quoteId ? { ...q, status: 'paid' } : q));
+                setQuotes(prev => prev.map(q => q.id === quoteId ? { ...q, ...res.data.data } : q));
                 setNotification({ message: 'Pembayaran dikonfirmasi! Pesanan siap diproses.', type: 'success' });
             }
-        } catch (err) {
+        } catch (err: any) {
+            // Surface the server's reason. The affordability check and the
+            // dispute freeze return specific messages, and a generic
+            // "Gagal konfirmasi" would hide the one thing the supplier needs.
             console.error('Failed to mark paid', err);
-            setNotification({ message: 'Gagal konfirmasi pembayaran.', type: 'error' });
+            setNotification({
+                message: err?.response?.data?.message || 'Gagal konfirmasi pembayaran.',
+                type: 'error',
+            });
+        } finally {
+            setIsConfirming(null);
         }
     };
 
@@ -176,7 +230,7 @@ export default function QuoteHistoryTab({ user }: { user?: any }) {
 
                 if (!showReceipt) {
                     return (
-                        <button 
+                        <button
                             onClick={() => setShowReceipt(true)}
                             className="flex-1 py-3 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-md hover:shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 px-6"
                         >
@@ -184,19 +238,63 @@ export default function QuoteHistoryTab({ user }: { user?: any }) {
                         </button>
                     );
                 }
+
+                // BUYER: attach the transfer receipt. The supplier's confirm
+                // below is gated on this, so until it exists the payment step
+                // is unreachable — which is exactly why the supplier control is
+                // disabled rather than hidden: the reason is visible.
+                if (user?.role_type !== 'supplier') {
+                    const alreadyUploaded = !!quote.payment_proof_path;
+                    return (
+                        <div className="flex gap-2 w-full sm:w-auto items-center">
+                            <label className="flex-1 inline-flex py-3 bg-zinc-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-md hover:shadow-lg transition-all active:scale-95 items-center justify-center gap-2 px-6 cursor-pointer">
+                                <Upload size={14} />
+                                {isUploadingProof === quote.id
+                                    ? 'Mengunggah...'
+                                    : (alreadyUploaded ? 'Ganti Bukti Transfer' : 'Unggah Bukti Transfer')}
+                                <input
+                                    ref={proofInputRef}
+                                    type="file"
+                                    accept="image/jpeg,image/png,image/webp,application/pdf"
+                                    className="hidden"
+                                    disabled={isUploadingProof === quote.id}
+                                    onChange={(e) => handleUploadProof(quote.id, e.target.files?.[0] as File)}
+                                />
+                            </label>
+                            {alreadyUploaded && (
+                                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 whitespace-nowrap">
+                                    Terkirim
+                                </span>
+                            )}
+                        </div>
+                    );
+                }
+
+                // SUPPLIER: confirm. Disabled until the buyer has sent a receipt,
+                // with the requirement stated rather than leaving a button that
+                // returns 422 on click.
                 return (
                     <div className="flex gap-2 w-full sm:w-auto">
-                        <button 
+                        <button
                             onClick={() => handleDownloadReceipt(quote.id)}
                             className="inline-flex py-3 bg-gray-100 text-gray-700 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-sm hover:bg-gray-200 transition-all active:scale-95 items-center justify-center gap-2 px-4"
                         >
                             <Download size={14} /> PDF
                         </button>
-                        <button 
+                        <button
                             onClick={() => handleMarkPaid(quote.id)}
-                            className="flex-1 py-3 bg-amber-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-md hover:shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 px-6 whitespace-nowrap"
+                            disabled={!quote.payment_proof_path || isConfirming === quote.id}
+                            title={quote.payment_proof_path
+                                ? 'Konfirmasi pembayaran'
+                                : 'Menunggu bukti transfer dari pembeli'}
+                            className="flex-1 py-3 bg-amber-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-md hover:shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 px-6 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
                         >
-                            <CheckCircle size={14} /> Konfirmasi Pembayaran
+                            <CheckCircle size={14} />
+                            {isConfirming === quote.id
+                                ? 'Memproses...'
+                                : (quote.payment_proof_path
+                                    ? 'Konfirmasi Pembayaran'
+                                    : 'Menunggu Bukti Transfer')}
                         </button>
                     </div>
                 );

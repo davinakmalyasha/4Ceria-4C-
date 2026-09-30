@@ -21,18 +21,26 @@ class MaterialQuote extends Model
         'note',
         'latitude',
         'longitude',
-        'address_detail',
-        'total_weight',
-    ];
-
-    protected $casts = [
-        'latitude' => 'float',
-        'longitude' => 'float',
-        'total_weight' => 'decimal:2',
-        'shipping_cost' => 'decimal:2',
-        'items' => 'array',
-        'total_amount' => 'decimal:2',
-    ];
+'address_detail',
+   'total_weight',
+   'payment_proof_path',
+   'paid_at',
+   'payment_verified_by',
+   'payment_verified_at',
+   'payment_notes',
+   ];
+   
+protected $casts = [
+   'latitude' => 'float',
+   'longitude' => 'float',
+   'total_weight' => 'decimal:2',
+   'shipping_cost' => 'decimal:2',
+   'items' => 'array',
+   'total_amount' => 'decimal:2',
+   'paid_at' => 'datetime',
+   'payment_verified_at' => 'datetime',
+   'payment_verified_by' => 'integer',
+   ];
 
     public function user()
     {

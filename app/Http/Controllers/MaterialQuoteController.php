@@ -3,8 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\MaterialQuote;
+use App\Models\Project;
+use App\Services\DisputeService;
+use App\Services\ProjectFinancialService;
+use App\Support\Money;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 
 class MaterialQuoteController extends Controller
 {
@@ -117,6 +122,91 @@ class MaterialQuoteController extends Controller
         return response()->json(['success' => true, 'message' => 'Payment requested from buyer.', 'data' => $quote]);
     }
 
+    /**
+     * The BUYER uploads a transfer receipt for the quote.
+     *
+     * Added 2026-09-29. `markAsPaid` had always required a `payment_proof_path`
+     * — correctly, since a supplier must not self-declare its own quote paid —
+     * but `material_quotes` had no such column and nothing wrote one. The guard
+     * therefore blocked the only payment transition a quote had, and a material
+     * quote could never be paid at all.
+     *
+     * The equivalent ORDER flow already worked this way (buyer uploads,
+     * supplier confirms in `verifyPayment`). This brings the quote flow onto the
+     * same footing rather than weakening the guard that was right.
+     */
+    public function uploadPaymentProof(Request $request, MaterialQuote $quote)
+    {
+        $user = Auth::user();
+
+        // Only the buyer, or the PM acting for the project, may attach a receipt.
+        $isPm = $user->role_type === 'project_manager'
+            && $quote->project
+            && (int) $quote->project->pm_id === (int) $user->id;
+
+        if ($quote->user_id !== $user->id && !$isPm) {
+            return response()->json(['message' => 'Only the buyer can upload a payment proof.'], 403);
+        }
+
+        // `awaiting_payment` is the only state where a payment is expected. Once
+        // the supplier has confirmed, a second receipt is not a correction — it
+        // is an attempt to re-open a settled payment.
+        if ($quote->status !== 'awaiting_payment') {
+            return response()->json([
+                'message' => "This quote is not awaiting payment (current: {$quote->status}).",
+            ], 422);
+        }
+
+        $validated = $request->validate([
+            'payment_proof' => 'required|file|mimes:jpg,jpeg,png,webp,pdf|max:5120',
+        ]);
+
+        // PRIVATE vault disk, NOT `public`.
+        //
+        // A bank transfer receipt exposes account numbers, the payer's name and
+        // often a running balance. The ORDER flow stored these on the
+        // world-readable `public` disk, so a receipt URL was guessable or
+        // shareable and stayed live forever. See the sibling method below for
+        // the same change applied to orders.
+        $path = $validated['payment_proof']->store(
+            'payment_proofs',
+            config('filesystems.vault_disk', 'railway')
+        );
+
+        $quote->update(['payment_proof_path' => $path]);
+
+        \App\Models\Notification::create([
+            'user_id' => $quote->supplier->user_id,
+            'type' => 'quote_payment_proof',
+            'title' => 'Payment Proof Uploaded',
+            'body' => "The buyer uploaded a payment proof for quote #{$quote->id}. Please verify it to proceed.",
+            'data' => ['material_quote_id' => $quote->id],
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Payment proof uploaded. Waiting for supplier verification.',
+            'data' => $quote->fresh(),
+        ]);
+    }
+
+    /**
+     * The SUPPLIER confirms the buyer's proof — the transition that actually
+     * moves the money.
+     *
+     * 2026-09-29. This previously set `status = 'paid'` and stopped. On a
+     * project-bound quote that meant:
+     *
+     *   * no `project_budget_transactions` row, so the disbursement was invisible
+     *     to `available`, to `paidTotal` and to every financial figure — while
+     *     the quote's own ORDER counterpart already posted to the ledger;
+     *   * no dispute freeze, so money kept moving on a project under arbitration;
+     *   * no affordability check, so a quote could commit escrow the project
+     *     did not hold.
+     *
+     * Mirrors MaterialOrderController::verifyPayment so the two procurement
+     * paths cannot diverge a third time.
+     */
     public function markAsPaid(Request $request, MaterialQuote $quote)
     {
         $user = Auth::user();
@@ -124,19 +214,74 @@ class MaterialQuoteController extends Controller
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        // SECURITY: the supplier could self-declare its own quote paid with no
-        // money ever transferred — an honor-system path the equivalent ORDER
-        // flow already closed (MaterialOrderController::update requires a proof
-        // for the 'paid' transition, and verifyPayment is a separate endpoint).
+        // SECURITY: a supplier could self-declare its own quote paid with no
+        // money ever transferred. Keep the guard; it is now satisfiable because
+        // uploadPaymentProof exists.
         if (empty($quote->payment_proof_path)) {
             return response()->json([
                 'message' => 'A payment proof is required before this quote can be marked as paid.',
             ], 422);
         }
 
-        $quote->update(['status' => 'paid']);
+        if ($quote->status === 'paid') {
+            return response()->json([
+                'message' => 'This quote has already been marked as paid.',
+            ], 422);
+        }
 
-        return response()->json(['success' => true, 'message' => 'Quote marked as paid.', 'data' => $quote]);
+        $notes = $request->validate([
+            'payment_notes' => 'nullable|string|max:1000',
+        ])['payment_notes'] ?? null;
+
+        // total_amount + shipping_cost, exactly as the ORDER flow charges, and
+        // as exact integer minor units rather than two floats.
+        $amount = Money::fromColumn($quote->total_amount)
+            ->add(Money::fromColumn($quote->shipping_cost));
+
+        try {
+            $project = $quote->project_id ? Project::find($quote->project_id) : null;
+
+            if ($project) {
+                // Frozen while a dispute is open.
+                app(DisputeService::class)->assertNoOpenDispute($project);
+
+                $financial = app(ProjectFinancialService::class);
+
+                if ($amount->isPositive() && ! $financial->recordPayment(
+                    $project,
+                    $amount,
+                    "Payment: Material Quote #{$quote->id}",
+                    MaterialQuote::class,
+                    $quote->id
+                )) {
+                    return response()->json([
+                        'message' => 'Project budget is insufficient for this material payment. Available: Rp '
+                            .number_format($financial->available($project), 0, ',', '.').'.',
+                    ], 422);
+                }
+            }
+
+            $quote->update([
+                'status' => 'paid',
+                'paid_at' => now(),
+                'payment_verified_by' => $user->id,
+                'payment_verified_at' => now(),
+                'payment_notes' => $notes,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Material quote payment confirmation failed', [
+                'quote_id' => $quote->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Quote marked as paid.',
+            'data' => $quote->fresh(),
+        ]);
     }
 
     public function postDeliveryJob(Request $request, MaterialQuote $quote)

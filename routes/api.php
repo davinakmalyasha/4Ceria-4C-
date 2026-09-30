@@ -433,6 +433,9 @@ Route::post('/conversations/{conversation}/messages', [ChatController::class, 's
     Route::get('/material-quotes', [MaterialQuoteController::class, 'index']);
     Route::post('/material-quotes', [MaterialQuoteController::class, 'store']);
     Route::put('/material-quotes/{quote}/request-payment', [MaterialQuoteController::class, 'requestPayment']);
+    // The buyer's half of the two-step. `mark-paid` requires a proof, so
+    // without this the guard blocked every quote payment.
+    Route::post('/material-quotes/{quote}/payment-proof', [MaterialQuoteController::class, 'uploadPaymentProof']);
     Route::put('/material-quotes/{quote}/mark-paid', [MaterialQuoteController::class, 'markAsPaid']);
     Route::post('/material-quotes/{quote}/post-delivery-job', [MaterialQuoteController::class, 'postDeliveryJob']);
     Route::get('/delivery-jobs', [MaterialQuoteController::class, 'getDeliveryJobs']);

@@ -73,7 +73,17 @@ class MaterialOrderController extends Controller
             'payment_proof' => 'required|file|mimes:jpg,jpeg,png,webp,pdf|max:5120',
         ]);
 
-        $path = $request->file('payment_proof')->store('payment_proofs', 'public');
+        // PRIVATE vault disk, NOT `public` (2026-09-29).
+        //
+        // A bank transfer receipt exposes account numbers, the payer's name and
+        // often a running balance. These were being written to the
+        // world-readable `public` disk, so a receipt URL was guessable or
+        // shareable and stayed live indefinitely. The project-document path
+        // already used `vault_disk` for exactly this class of file.
+        $path = $request->file('payment_proof')->store(
+            'payment_proofs',
+            config('filesystems.vault_disk', 'railway')
+        );
         $materialOrder->update([
             'payment_proof_path' => $path,
         ]);
