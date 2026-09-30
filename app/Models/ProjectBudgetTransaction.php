@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * One row per movement against a project's escrow.
@@ -43,12 +44,18 @@ class ProjectBudgetTransaction extends Model
         'reverses_model',
         'reverses_id',
         'transaction_date',
+        // Who caused this movement. Deliberately NOT a foreign key: this table is
+        // an immutable historical record, so deleting a user must not erase the
+        // fact that they moved the money.
+        'actor_user_id',
+        'actor_role',
     ];
 
     protected $casts = [
         'amount' => 'decimal:2',
         'transaction_date' => 'datetime',
         'reverses_id' => 'integer',
+        'actor_user_id' => 'integer',
     ];
 
     public function project()
@@ -67,5 +74,29 @@ class ProjectBudgetTransaction extends Model
     public function isReversal(): bool
     {
         return $this->transaction_type === 'refund';
+    }
+
+    /**
+     * The user who caused this movement, if a human did.
+     *
+     * NULL means no human actor — a scheduled settlement, a reconciliation
+     * repair, or a system-generated opening balance. That is a real answer, not
+     * missing data, which is why the column is nullable rather than defaulted to
+     * some system user.
+     */
+    public function actor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'actor_user_id');
+    }
+
+    /**
+     * Was a person behind this row at all?
+     *
+     * Lets `money:reconcile` separate "system-initiated, expected" from
+     * "money moved and nobody can say who", which are very different findings.
+     */
+    public function hasHumanActor(): bool
+    {
+        return $this->actor_user_id !== null;
     }
 }

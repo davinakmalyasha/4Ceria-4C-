@@ -422,6 +422,13 @@ class ProjectController extends Controller
                     'amount' => $openingBudget->toDecimal(),
                     'title' => 'Opening project budget',
                     'transaction_date' => now(),
+                    // The owner establishing the ceiling. Recorded explicitly
+                    // rather than left NULL, because this row is the baseline
+                    // every later ceiling movement is reconciled against — so
+                    // "who set the original figure" is the first question
+                    // `money:reconcile` has to answer about it.
+                    'actor_user_id' => Auth::id(),
+                    'actor_role' => Auth::user()?->role_type,
                 ]);
             }
 

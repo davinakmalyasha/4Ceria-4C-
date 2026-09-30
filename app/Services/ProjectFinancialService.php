@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Project;
 use App\Models\ProjectBudgetTransaction;
 use App\Support\Money;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -228,7 +229,19 @@ class ProjectFinancialService
     ): bool {
         $money = $amount instanceof Money ? $amount : Money::fromColumn($amount);
 
-        return DB::transaction(function () use ($project, $money, $type, $title, $refModel, $refId) {
+        // WHO is acting. Resolved once here, from the authenticated session,
+        // so no caller can attribute a movement to another user — and so a
+        // future caller cannot forget to record it, which is how all four
+        // existing callers came to omit it entirely.
+        //
+        // NULL is a real answer, not a fallback: a scheduled settlement or a
+        // reconciliation repair has no human actor, and a fabricated id would be
+        // worse than an honest absence.
+        $actor = Auth::user();
+        $actorId = $actor?->id;
+        $actorRole = $actor?->role_type;
+
+        return DB::transaction(function () use ($project, $money, $type, $title, $refModel, $refId, $actorId, $actorRole) {
             // Normalize to FQCN so every code path writes ONE canonical
             // spelling — the unique ledger index (project_id,
             // reference_model, reference_id, transaction_type) can only dedupe
@@ -316,6 +329,18 @@ class ProjectFinancialService
                     'reference_model' => $refModel,
                     'reference_id' => $refId,
                     'transaction_date' => now(),
+                    // WHO moved the money, resolved here rather than at each
+                    // call site. `deductBudget` is the single funnel every write
+                    // path passes through, so capturing the actor here means a
+                    // future caller cannot forget — which is exactly how the four
+                    // existing callers all omitted it.
+                    //
+                    // Resolved from the authenticated user rather than passed
+                    // in, so a caller cannot attribute a movement to someone
+                    // else. NULL when there is no authenticated user, which is
+                    // correct for a scheduled or system-initiated movement.
+                    'actor_user_id' => $actorId,
+                    'actor_role' => $actorRole,
                 ]);
             } catch (\Illuminate\Database\UniqueConstraintViolationException $e) {
                 return true;

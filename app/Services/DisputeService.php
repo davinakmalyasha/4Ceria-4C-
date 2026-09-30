@@ -382,6 +382,20 @@ class DisputeService
                     'reverses_model' => $paymentClass,
                     'reverses_id' => $payment->id,
                     'transaction_date' => now(),
+                    // A REFUND IS THE MOST SENSITIVE MOVEMENT IN THE SYSTEM,
+                    // and before 2026-09-29 it recorded nothing about who
+                    // authorised it. The only nearby trace was prose in
+                    // `project_activity_logs`, so "which admin issued this
+                    // refund?" was unanswerable from the append-only ledger —
+                    // which is precisely the question arbitration exists to
+                    // answer.
+                    //
+                    // `$admin` is the authenticated arbitrator performing THIS
+                    // action, which is the actor. `dispute.resolved_by` is
+                    // written further down, so reading it here would capture the
+                    // PREVIOUS resolver rather than the one issuing this refund.
+                    'actor_user_id' => $admin->id,
+                    'actor_role' => $admin->role_type,
                 ]);
 
                 $newRefunded = $refundedGross->add($refund);
