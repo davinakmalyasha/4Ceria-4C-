@@ -3189,7 +3189,7 @@ class ProjectController extends Controller
     public function confirmBidFee(Project $project, $bidId, Request $request)
     {
         $user = Auth::user();
-        $request->validate(['bid_type' => 'required|string']);
+        $request->validate(['bid_type' => $this->bidTypeRule()]);
 
         $bidModel = $this->getBidModel($request->bid_type);
         $bid = $bidModel::where('id', $bidId)->where('project_id', $project->id)->firstOrFail();
@@ -3233,7 +3233,7 @@ class ProjectController extends Controller
     {
         $user = Auth::user();
         $request->validate([
-            'bid_type' => 'required|string',
+            'bid_type' => $this->bidTypeRule(),
             'termins' => 'required|array|min:1',
             'termins.*.label' => 'required|string',
             'termins.*.percentage' => 'required|numeric|min:0|max:100',
@@ -3272,41 +3272,88 @@ class ProjectController extends Controller
             ], 422);
         }
 
-        // Robustly derive expected total: prioritize calculated_total, fallback to manual calc for percentage fees
-        $expectedTotal = (float) ($bid->calculated_total > 0 ? $bid->calculated_total : 0);
-        if ($expectedTotal <= 0) {
-            if ($bid->fee_type === 'percentage') {
-                $expectedTotal = ($bid->price / 100) * ($project->budget ?? 0);
-            } else {
-                $expectedTotal = $bid->price;
-            }
-        }
+        // THE EXPECTED TOTAL IS DERIVED ONCE, BY TerminPlanService.
+        //
+        // This used to be a third, local derivation:
+        //
+        //     $expectedTotal = calculated_total > 0 ? calculated_total : 0;
+        //     if ($expectedTotal <= 0 && $bid->fee_type === 'percentage') {
+        //         $expectedTotal = ($bid->price / 100) * ($project->budget ?? 0);
+        //     } else { $expectedTotal = $bid->price; }
+        //
+        // which disagreed with `TerminPlanService::contractValueFor()` (that one
+        // is `calculated_total ?? price`, with no budget-percentage fallback).
+        // The same contract was therefore worth two different amounts depending
+        // on which code read it — and this one runs on the path that makes the
+        // contract BINDING.
+        $terminPlan = app(\App\Services\TerminPlanService::class);
+        $expectedTotal = $terminPlan->contractValueFor($project, $request->bid_type);
 
-        // Validate termin total matches agreed fee
-        $totalPercentage = collect($request->termins)->sum('percentage');
-        if (abs($totalPercentage - 100) > 0.01) {
-            return response()->json(['message' => 'Total termin percentage must be exactly 100%.'], 422);
-        }
-
-        $totalAmount = collect($request->termins)->sum('amount');
-        
         // Critical Block: Prevent hiring for Rp 0
-        if ($expectedTotal <= 0) {
-            return response()->json(['message' => 'Contract value cannot be zero. Please negotiate a fee first.'], 422);
+        if ($expectedTotal === null || $expectedTotal <= 0) {
+            return response()->json([
+                'message' => 'Contract value cannot be zero. Please negotiate a fee first.',
+            ], 422);
         }
 
-        if ($totalAmount <= 0 || abs($totalAmount - $expectedTotal) > 1000) { 
-            // If amount is zero or significantly off, we might allow it ONLY if we can recalculate it
-            if ($totalAmount <= 0) {
-                // We will recalculate below, so we don't block here yet
-            } else {
-                return response()->json([
-                    'message' => 'The total amount of payment termins (Rp ' . number_format($totalAmount) . ') does not match the negotiated contract value (Rp ' . number_format($expectedTotal) . ').'
-                ], 422);
-            }
+        // Percentages are a SPLIT of the agreed fee, not an increment, so they
+        // must total exactly 100. `assertPercentagesWithinWhole()` also rejects
+        // >100, which the previous local check did not.
+        $terminPlan->assertPercentagesWithinWhole($request->bid_type, $request->termins);
+
+        // A stage amount of zero is REJECTED, not recalculated.
+        //
+        // The old code skipped the total check when `$totalAmount <= 0`
+        // ("we will recalculate below") and then rebuilt each amount with
+        //
+        //     $amount = round(($percentage / 100) * $expectedTotal);
+        //
+        // — a float multiply plus `round()`, applied AFTER the check that should
+        // have caught it. A client sending all-zero amounts got stages written
+        // whose sum did not equal the agreed fee, and nothing reconciled them
+        // afterwards. A professional is SIGNING a contract here; they should be
+        // shown the figures they agreed to, not handed derived ones.
+        $totalAmount = collect($request->termins)->sum('amount');
+
+        $zeroAmountStage = collect($request->termins)
+            ->first(fn ($t) => (float) ($t['amount'] ?? 0) <= 0);
+
+        if ($zeroAmountStage !== null) {
+            return response()->json([
+                'message' => 'Every payment stage must carry an amount. Stage "'
+                    .($zeroAmountStage['label'] ?? 'untitled')
+                    .'" was submitted as Rp 0; supply the amounts you agreed rather '
+                    .'than having the server derive them.',
+            ], 422);
         }
 
-        return DB::transaction(function () use ($project, $bid, $request, $user, $expectedTotal) {
+        // The plan total must equal the agreed fee. Exact integer minor units,
+        // with the tolerance owned by TerminPlanService rather than restated here.
+        $terminPlan->assertTotalWithinContractValue($project, $request->bid_type, $totalAmount);
+
+        // ...and it must not undershoot either. `assertTotalWithinContractValue`
+        // is one-sided (it bounds the ceiling), because during plan BUILDING a
+        // partial schedule is legitimate. On the binding path a shortfall is
+        // not: it would sign a contract for less than was negotiated.
+        $shortfall = \App\Support\Money::of($expectedTotal)
+            ->subtract(\App\Support\Money::fromColumn($totalAmount))
+            ->toFloat();
+
+        if ($shortfall > 0) {
+            return response()->json([
+                'message' => 'The total of the payment stages (Rp '
+                    .number_format((float) $totalAmount, 0, ',', '.')
+                    .') is Rp ' . number_format($shortfall, 0, ',', '.')
+                    .' short of the negotiated contract value (Rp '
+                    .number_format((float) $expectedTotal, 0, ',', '.').').',
+            ], 422);
+        }
+
+        // `$expectedTotal` is NOT captured: after the guards above moved out, the
+        // closure no longer reads it. Keeping an unused capture would imply the
+        // persisted stages are still checked against it here — they are, by
+        // `assertPlanComplete()`, which reads the DATABASE.
+        return DB::transaction(function () use ($project, $bid, $request, $user, $terminPlan) {
             // 0. Update Project Payment Instructions using validated bank details
             $bankType = trim($request->bank_type);
             $bankAccountNo = trim($request->bank_account_no);
@@ -3394,12 +3441,13 @@ class ProjectController extends Controller
                 }
 
                 $percentage = (float) $t['percentage'];
+                // No recalculation here. The old fail-safe did
+                // `round(($percentage / 100) * $expectedTotal)` when the client
+                // sent 0 — a float multiply plus `round()`, which loses minor
+                // units so the stages stop summing to the agreed fee. Zero
+                // amounts are now rejected up front, so this branch is gone
+                // rather than merely unreachable.
                 $amount = (float) $t['amount'];
-
-                // RECALCULATION FAIL-SAFE: If frontend sent 0, calculate from expected total
-                if ($amount <= 0 && $expectedTotal > 0) {
-                    $amount = round(($percentage / 100) * $expectedTotal);
-                }
 
                 $project->paymentTermins()->create([
                     'label' => $t['label'],
@@ -3414,6 +3462,21 @@ class ProjectController extends Controller
 
             // 3. Keep status as contract_pending until client reviews and signs
             $bid->update(['status' => 'contract_pending']);
+
+            // POST-WRITE ASSERTION, inside the transaction.
+            //
+            // `assertPlanComplete()` existed from the start of TerminPlanService
+            // and was NEVER CALLED — its own docblock said it should be enforced
+            // "where a plan becomes binding (signContract)", which is exactly
+            // here. The pre-write checks above validate the SUBMISSION; this
+            // validates what was actually PERSISTED, which is a different
+            // question and the one that decides whether money may move.
+            //
+            // Inside `DB::transaction` deliberately: if the persisted plan does
+            // not reconcile, the exception rolls the whole signing back rather
+            // than leaving a `contract_pending` bid attached to a broken
+            // schedule.
+            $terminPlan->assertPlanComplete($project->fresh(), $request->bid_type);
 
             // 3b. Auto-assign proposed team members as sub-professionals (Disabled to allow manual contractor section assignment)
             /*
@@ -3584,7 +3647,7 @@ class ProjectController extends Controller
     {
         $user = Auth::user();
         $request->validate([
-            'bid_type' => 'required|string',
+            'bid_type' => $this->bidTypeRule(),
             'signature' => 'required|string',
         ]);
 
@@ -3612,6 +3675,22 @@ class ProjectController extends Controller
         if (!$proSignatureExists) {
             return response()->json(['message' => 'The professional must sign the contract first.'], 422);
         }
+
+        // THE OWNER'S COUNTER-SIGNATURE IS WHAT BINDS THE PLAN.
+        //
+        // This endpoint had NO plan-integrity check at all. The professional's
+        // `signContract` validated the SUBMISSION with a float comparison, but
+        // the owner's counter-signature — the act that makes the schedule
+        // enforceable and the money payable — accepted whatever was on the
+        // table. A plan could therefore be bound with stages that do not total
+        // the negotiated fee.
+        //
+        // `assertPlanComplete()` has existed since TerminPlanService was written
+        // and its own docblock said it belonged "where a plan becomes BINDING
+        // (signContract)". This is that place, and the professional's sign is
+        // the other half.
+        app(\App\Services\TerminPlanService::class)
+            ->assertPlanComplete($project->fresh(), $request->bid_type);
 
         return DB::transaction(function () use ($project, $bid, $request, $user, $timestamp) {
             // Save client signature
@@ -3657,7 +3736,7 @@ class ProjectController extends Controller
     public function acceptInvite(Project $project, $bidId, Request $request)
     {
         $user = Auth::user();
-        $request->validate(['bid_type' => 'required|string']);
+        $request->validate(['bid_type' => $this->bidTypeRule()]);
 
         $bidModel = $this->getBidModel($request->bid_type);
         $bid = $bidModel::where('id', $bidId)->where('project_id', $project->id)->firstOrFail();
@@ -3680,7 +3759,7 @@ class ProjectController extends Controller
     public function rejectInvite(Project $project, $bidId, Request $request)
     {
         $user = Auth::user();
-        $request->validate(['bid_type' => 'required|string']);
+        $request->validate(['bid_type' => $this->bidTypeRule()]);
 
         $bidModel = $this->getBidModel($request->bid_type);
         $bid = $bidModel::where('id', $bidId)->where('project_id', $project->id)->firstOrFail();
@@ -3696,12 +3775,31 @@ class ProjectController extends Controller
         });
     }
 
-    private function getBidModel($type)
+private function getBidModel($type)
     {
         // Single source of truth: config/bids.php (was one of FIVE hand-rolled
         // role maps that had to be kept in sync manually).
         return config("bids.{$type}.bid_model")
-            ?? throw new \InvalidArgumentException("Unknown bid type: {$type}");
+        ?? throw new \InvalidArgumentException("Unknown bid type: {$type}");
+    }
+
+    /**
+     * The `bid_type` validation rule.
+     *
+     * `bid_type` was `'required|string'` in five places, so an unknown value
+     * reached `getBidModel()` and hit its `InvalidArgumentException` — an
+     * UNCAUGHT exception, so the caller got a **500** for what is plainly a
+     * client mistake. A bad role should be a 422 that names the valid roles.
+     *
+     * The list is derived from `config/bids.php`, the same registry
+     * `TerminPlanService::knownRoles()` and the bid tables use, so a seventh
+     * role cannot be added in one place and forgotten here. It is also the
+     * vocabulary `project_payment_termins.role_type` is written with, which is
+     * what makes `signContract`'s `role_type => $request->bid_type` correct.
+     */
+    private function bidTypeRule(): string
+    {
+        return 'required|string|in:' . implode(',', \App\Services\TerminPlanService::knownRoles());
     }
 
     private function getBidderUserId($bid, $type)

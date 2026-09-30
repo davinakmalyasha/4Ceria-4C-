@@ -11,6 +11,52 @@ use Illuminate\Support\Facades\DB;
 class ProjectContractService
 {
     /**
+     * The project's address, from columns that actually exist.
+     *
+     * WHY A HELPER
+     * ------------
+     * `projects` has NO `location_address` column. Reading it throws
+     * MissingAttributeException under `Model::shouldBeStrict(!isProduction())`
+     * — so it is a 500 locally and a silent null in production.
+     *
+     * That reference was fixed once, in `generateSPKDraft`, and left in place
+     * in `storeContractSnapshot`. The snapshot builder is the one that runs on
+     * the OWNER'S COUNTER-SIGNATURE, so the half-fix turned it into: signing
+     * works when `lokasi` is populated and fails when it is not — and `lokasi`
+     * is nullable, so that is a reachable state. Same drift pattern as the
+     * `/legal-disbursements` and material-quote pairs, now the fourth instance.
+     *
+     * One helper, two call sites, so it cannot diverge again.
+     *
+     * `lokasi` is the free-text address the owner typed at creation and is
+     * preferred because it is what they actually entered. The structured
+     * columns are the fallback, assembled in address order rather than left as a
+     * bare `city`, because a legally-binding snapshot with only a city name is
+     * not much of a location.
+     */
+    private static function projectLocation(Project $project): string
+    {
+        $lokasi = trim((string) ($project->lokasi ?? ''));
+
+        if ($lokasi !== '') {
+            return $lokasi;
+        }
+
+        return collect([
+            $project->street_name,
+            $project->kelurahan,
+            $project->kecamatan,
+            $project->city,
+            $project->province,
+            $project->postal_code,
+        ])
+            ->map(fn ($part) => trim((string) ($part ?? '')))
+            ->filter()
+            ->unique()
+            ->implode(', ');
+    }
+
+    /**
      * Generate a digital SPK (Work Order) draft for a bid.
      */
     public function generateSPKDraft(Project $project, $bid, string $roleType)
@@ -22,10 +68,10 @@ class ProjectContractService
             $content = [
                 'title' => "SURAT PERINTAH KERJA (SPK)",
                 'project' => $project->title,
-                // BUGFIX: projects has no location_address column — this line
-                // threw MissingAttributeException under strict mode. Fall back
-                // through the columns that DO exist.
-                'location' => $project->lokasi ?? ($project->city ?? null),
+                // See self::projectLocation() — `location_address` does not
+                // exist on `projects`, so reading it throws
+                // MissingAttributeException under strict mode.
+                'location' => self::projectLocation($project),
                 'owner' => $project->user->name,
                 'professional' => $proName,
                 'role' => strtoupper($roleType),
@@ -131,7 +177,7 @@ class ProjectContractService
                 'project' => [
                     'id' => $project->id,
                     'title' => $project->title,
-                    'location' => $project->lokasi ?? $project->location_address,
+                    'location' => self::projectLocation($project),
                 ],
                 'client' => [
                     'id' => $project->user_id,
