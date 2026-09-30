@@ -240,14 +240,38 @@ class ProjectResource extends JsonResource
                     ? $this->changeOrders->whereNotIn('status', ['rejected', 'implemented'])->count()
                     : 0,
             ],
-            'budget_summary' => ($request->route('project') || $request->routeIs('*.show'))
-                ? $this->calculateBudgetSummary()
-                : [
-                    'total' => (float) $this->budget,
-                    'allocated' => 0.0,
-                    'remaining' => (float) $this->budget,
-                    'percent_used' => 0.0
-                ],
+            // BUDGET SUMMARY IS OMITTED, NEVER FABRICATED (2026-09-29).
+            //
+            // This used to fall back to a stub:
+            //
+            //     ['total' => budget, 'allocated' => 0.0,
+            //      'remaining' => budget, 'percent_used' => 0.0]
+            //
+            // on every response where the project was not the route model. The
+            // stub exists to avoid an N+1 in list endpoints, but the price of it
+            // is that `GET /api/projects` reported, for EVERY project with
+            // payments against it:
+            //
+            //     remaining == the full ceiling
+            //     allocated == 0
+            //     percent_used == 0
+            //
+            // i.e. a confident, structurally-typed lie. The dashboard's project
+            // cards and `ProjectBrief` both read it, so a client asking a list
+            // endpoint for money got a figure that was wrong in the flattering
+            // direction while looking exactly like the real one.
+            //
+            // `calculateBudgetSummary()` reads the ledger, so it cannot be
+            // produced for a list without one query per project. Omitting the
+            // key is the honest answer: the consumer knows there is no
+            // authoritative figure and can say so. `ProjectBrief` was updated in
+            // the same change — it previously fell back to `project.budget`,
+            // which would have displayed the FULL CEILING as "remaining", i.e.
+            // strictly worse than the stub it was compensating for.
+            'budget_summary' => $this->when(
+                $request->route('project') || $request->routeIs('*.show'),
+                fn () => $this->calculateBudgetSummary()
+            ),
             'client_history' => $this->when(
                 array_key_exists('client_history', $this->resource->getAttributes()),
                 fn() => $this->client_history

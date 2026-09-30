@@ -83,11 +83,13 @@ Redis not required locally if you override drivers per-process (see README).
   1. `php -l` sweep over `app database routes tests`
   2. `composer dump-autoload`
   3. `npm run typecheck:check` (ratchet — must not RISE, baseline 96)
-  4. `npm run build` **and** `VITE_STANDALONE=true npm run build` — production ships `dist/`, not `public/build`
-  5. `artisan migrate --force` when a migration was added
-  6. `artisan schema:verify` (or `scripts\verify-schema.cmd <scratch_db>` for the full round-trip)
-  7. `artisan test` (all Pest suites; real MySQL, every test rolled back)
-  8. manual Playwright pass (login → dashboard → project page)
+  4. `npm run test` (vitest — SPA unit + component tests)
+  5. `npm run build` **and** `VITE_STANDALONE=true npm run build` — production ships `dist/`, not `public/build`
+  6. `artisan migrate --force` when a migration was added
+  7. `artisan schema:verify` (or `scripts\verify-schema.cmd <scratch_db>` for the full round-trip)
+  8. `artisan test` (all Pest suites; real MySQL, every test rolled back)
+  9. manual Playwright pass (login → dashboard → project page)
+  10. `composer verify` runs steps 1-8 locally
 - Money changes are not "refinements" — they need a test in `tests/` and a look at `docs/DOMAIN.md`.
 - Dev-only quick-login lives in gitignored `resources/js/pages/dev/QuickLoginPanel.tsx`; keep it out of commits.
 - Test/scratch scripts belong in `refinement-tests/`. Suites share `tests/Support/DatabaseHarness.php` — do not re-roll the `.env` recovery or the transaction rollback per file.

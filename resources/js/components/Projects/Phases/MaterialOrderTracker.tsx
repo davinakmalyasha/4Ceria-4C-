@@ -7,6 +7,11 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '../../../context/ToastContext';
+import {
+    paidViaMarketplace,
+    committedNotPaid,
+    declaredExternal,
+} from '../../../lib/procurement';
 
 interface MaterialOrderTrackerProps {
     project: any;
@@ -24,6 +29,10 @@ interface Order {
     id: number;
     status: string;
     total_price: number;
+    /** Charged to the escrow alongside `total_price` by
+        `MaterialOrderController::verifyPayment`. Absent from this type until
+        now, which is why the old "Total Spent" tile ignored delivery. */
+    shipping_cost?: number | null;
     created_at: string;
     supplier?: { business_name: string; user?: { name: string } };
     items: OrderItem[];
@@ -139,9 +148,15 @@ export default function MaterialOrderTracker({ project, currentUser }: MaterialO
     });
 
     const activeOrders = orders.filter(o => o.status !== 'cancelled');
-    const marketplaceSpent = activeOrders.reduce((sum, o) => sum + Number(o.total_price || 0), 0);
-    const manualSpent = requirements.reduce((sum: number, req: any) => sum + Number(req.external_cost || 0), 0);
-    const totalSpent = marketplaceSpent + manualSpent;
+
+    // The arithmetic lives in lib/procurement so it can be tested. It was
+    // inline here and labelled "Total Spent", which it was not: the old figure
+    // counted PENDING orders, ignored shipping, ignored quotes, never netted a
+    // refund, and added a free-text external_cost that has no ledger row. Every
+    // divergence flattered the number. See the module docblock.
+    const paidViaMarketplaceTotal = paidViaMarketplace(activeOrders);
+    const committedNotPaidTotal = committedNotPaid(activeOrders, requirements);
+    const declaredExternalTotal = declaredExternal(requirements);
 
     const activeRequests = procurementRequests.filter(r => r.status === 'pending_pm');
     const isPM = currentUser?.role_type === 'project_manager' && project.pm_id === currentUser.id;
@@ -238,9 +253,36 @@ export default function MaterialOrderTracker({ project, currentUser }: MaterialO
                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">In Transit</p>
                     <h4 className="text-2xl font-black text-slate-700">{orders.filter(o => o.status === 'shipped').length}</h4>
                 </div>
-                <div className="p-5 bg-amber-50 rounded-2xl border border-amber-100">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-amber-600 mb-1">Total Spent</p>
-                    <h4 className="text-lg font-black text-amber-800">Rp {totalSpent.toLocaleString('id-ID')}</h4>
+                {/* data-testid on the two money tiles. A money figure that cannot be
+                    addressed cannot be asserted on, and the previous inline
+                    arithmetic had no test seam at all — which is how "Total
+                    Spent" could disagree with the ledger by 2.1x unnoticed. */}
+                <div data-testid="procurement-paid"
+                    className="p-5 bg-emerald-50 rounded-2xl border border-emerald-100">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 mb-1">Paid</p>
+                    <h4 className="text-lg font-black text-emerald-800">
+                        Rp {paidViaMarketplaceTotal.toLocaleString('id-ID')}
+                    </h4>
+                    <p className="text-[9px] text-emerald-600/70 mt-1 leading-tight">
+                        Released through the escrow ledger
+                        {declaredExternalTotal > 0 && (
+                            <span className="block">
+                                Excludes Rp {declaredExternalTotal.toLocaleString('id-ID')} declared
+                                outside escrow
+                            </span>
+                        )}
+                    </p>
+                </div>
+                <div data-testid="procurement-committed"
+                    className="p-5 bg-amber-50 rounded-2xl border border-amber-100">
+                    {/* Was "Total Spent", which counted unpaid orders. */}
+                    <p className="text-[10px] font-black uppercase tracking-widest text-amber-600 mb-1">Committed, Not Yet Paid</p>
+                    <h4 className="text-lg font-black text-amber-800">
+                        Rp {committedNotPaidTotal.toLocaleString('id-ID')}
+                    </h4>
+                    <p className="text-[9px] text-amber-600/70 mt-1 leading-tight">
+                        Ordered or declared. Not yet in the ledger.
+                    </p>
                 </div>
             </div>
 

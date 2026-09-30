@@ -87,6 +87,7 @@ Invoke-Step 'php -l (app database routes tests)' {
 # RISES above the recorded baseline. It is allowed to fall.
 if (-not $SkipFrontend) {
     Invoke-Step 'typecheck (ratchet, must not rise)' { npm run typecheck:check } | Out-Null
+    Invoke-Step 'SPA unit tests (vitest)' { npm run test } | Out-Null
     Invoke-Step 'eslint (errors must be zero)' { npx eslint . --quiet } | Out-Null
 }
 

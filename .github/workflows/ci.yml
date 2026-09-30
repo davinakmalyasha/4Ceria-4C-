@@ -243,6 +243,18 @@ jobs:
         # scripts/typecheck-baseline.mjs). This FAILS when the count rises.
         run: npm run typecheck:check
 
+      - name: SPA unit tests
+        # There was NO client test runner at all before 2026-09-29, so every
+        # figure the SPA computed was unverified. That is how "Total Spent"
+        # came to label a sum of unpaid orders plus a free-text field —
+        # disagreeing with ProjectFinancialService by 2.1x in the flattering
+        # direction, while looking exactly right.
+        #
+        # `npm run test` runs vitest over `resources/js/**/*.test.{ts,tsx}`. It
+        # is a HARD gate, not a report: a money figure that can be asserted on
+        # is a money figure that cannot silently drift.
+        run: npm run test
+
       - name: Lint
         # A real gate as of 2026-09-29. It was `continue-on-error: true` with
         # 101 errors outstanding, which is the same as no gate at all: the step

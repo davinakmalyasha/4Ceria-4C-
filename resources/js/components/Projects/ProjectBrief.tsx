@@ -106,6 +106,11 @@ export default function ProjectBrief({ project, user, onRefresh, onSwitchToProce
 
     const isOwner = user?.id === project.user_id;
 
+// `budget_summary` is present ONLY on responses where the project is the route
+// model or the show route, because it reads the ledger and cannot be produced
+// for a list without an N+1. It is omitted rather than approximated.
+const hasBudgetSummary = typeof project?.budget_summary?.remaining === 'number';
+
     const handleTerminate = async (reason: string) => {
         try {
             const endpoint = terminationModal.type === 'fire' ? 'terminate' : 'resign';
@@ -174,10 +179,26 @@ export default function ProjectBrief({ project, user, onRefresh, onSwitchToProce
                         <DollarSign size={15} />
                     </div>
                     <div className="min-w-0">
-                        <span className="text-[9px] text-gray-400 font-bold block uppercase tracking-wide leading-none">Remaining Budget</span>
+                        <span className="text-[9px] text-gray-400 font-bold block uppercase tracking-wide leading-none">
+                            {/* No fallback to `project.budget`. The server now
+                                omits `budget_summary` on list responses rather
+                                than fabricating one (see ProjectResource) —
+                                the old stub reported `remaining` as the full
+                                ceiling for every project with payments against
+                                it. Falling back to `budget` here would print
+                                the whole ceiling as "remaining", which is
+                                strictly worse. Show only what is known. */}
+                            {hasBudgetSummary ? 'Remaining Budget' : 'Project Budget (ceiling)'}
+                        </span>
                         <span className="text-xs font-black text-gray-950 mt-0.5 block">
-                            Rp {Number(project?.budget_summary?.remaining ?? project?.budget ?? 0).toLocaleString('id-ID')}
-                            <span className="text-[9px] text-gray-400 font-normal ml-1">/ Rp {Number(project?.budget || 0).toLocaleString('id-ID')}</span>
+                            {hasBudgetSummary
+                                ? `Rp ${Number(project.budget_summary!.remaining).toLocaleString('id-ID')}`
+                                : `Rp ${Number(project?.budget || 0).toLocaleString('id-ID')}`}
+                            <span className="text-[9px] text-gray-400 font-normal ml-1">
+                                {hasBudgetSummary
+                                    ? `/ Rp ${Number(project?.budget || 0).toLocaleString('id-ID')}`
+                                    : '— ledger balance not loaded'}
+                            </span>
                         </span>
                     </div>
                 </div>
