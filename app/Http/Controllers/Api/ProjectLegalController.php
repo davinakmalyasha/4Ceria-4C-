@@ -28,14 +28,37 @@ class ProjectLegalController extends Controller
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
+        $financial = app(\App\Services\ProjectFinancialService::class);
+
         return response()->json([
             // Real figure: sum of tax estimates on hired notary bids
             // (previously a hardcoded budget * 0.1 heuristic).
             'allocated_tax' => (float) $project->bidsNotaris()
                 ->whereIn('status', ['accepted', 'awaiting_payment', 'active', 'contract_pending', 'completed'])
                 ->sum('tax_estimate'),
-            'total_spent' => $project->paymentTermins()->where('status', 'paid')->sum('amount'),
-            'pending_approval' => $project->paymentTermins()->where('status', 'pending')->sum('amount'),
+            // BUGFIX: these three figures were computed straight off
+            // `payment_termins`, which is only ONE of several places money can
+            // leave a project. A professional fee verified through
+            // `PaymentVerificationService`, an addendum marked paid, a material
+            // order or an imported vendor fee all post to the ledger and never
+            // touch a termin — so `total_spent` reported a fraction of what the
+            // client had actually paid, and `pending_approval` ignored approved
+            // unpaid addendums entirely.
+            //
+            // They now come from ProjectFinancialService, which is the same
+            // arithmetic the write-path guard enforces. The point of a summary
+            // is that it cannot disagree with what the server will allow.
+            //
+            // The float keys are kept because the SPA consumes them; the exact
+            // integer minor-unit value is exposed alongside as
+            // `total_spent_cents`, the same approach ProjectFinancialService::
+            // summary() takes.
+            'total_spent' => $financial->paidTotalMoney($project->id)->toFloat(),
+            'total_spent_cents' => $financial->paidTotalMoney($project->id)->toInt(),
+            'pending_approval' => $financial->committedUnpaidMoney($project)->toFloat(),
+            // Still termin-scoped and role-filtered: this is the NOTARY/ARCHITECT
+            // schedule, a projection of a payment plan, not a financial total.
+            // It must not become a second definition of the figures above.
             'disbursements' => $project->paymentTermins()
                 ->whereIn('role_type', ['notaris', 'arsitek'])
                 ->orderBy('created_at', 'desc')

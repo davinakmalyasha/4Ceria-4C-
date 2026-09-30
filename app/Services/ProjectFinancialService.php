@@ -46,6 +46,24 @@ use Illuminate\Support\Facades\Log;
 class ProjectFinancialService
 {
     /**
+     * Ledger row types that count as money leaving the escrow.
+     *
+     * `payment` is a disbursement (positive). `refund` is DisputeService's
+     * reversal (negative), so it MUST be in the same sum — otherwise refunded
+     * money stays consumed and every figure derived from it overstates what the
+     * client actually paid.
+     *
+     * `deposit` and `adjustment_down` are deliberately excluded: `deposit`
+     * raises the `projects.budget` ceiling rather than spending it, and
+     * `adjustment_down` lowers that ceiling. Both move the ceiling, and
+     * `available` is derived from the ceiling, so counting them as
+     * disbursements would subtract the same movement twice.
+     *
+     * @var list<string>
+     */
+    public const DISBURSEMENT_TYPES = ['payment', 'refund'];
+
+    /**
      * Total actually disbursed, net of dispute refunds.
      *
      * `refund` rows are reversals written by DisputeService (negative amounts),
@@ -63,10 +81,50 @@ class ProjectFinancialService
     public function paidTotalMoney(int $projectId): Money
     {
         $sum = ProjectBudgetTransaction::where('project_id', $projectId)
-            ->whereIn('transaction_type', ['payment', 'refund'])
+            ->whereIn('transaction_type', self::DISBURSEMENT_TYPES)
             ->sum('amount');
 
         return Money::fromColumn($sum);
+    }
+
+    /**
+     * Net disbursed per project owner, keyed by user id.
+     *
+     * EXISTS SO THE `payment + refund` RULE LIVES IN ONE PLACE.
+     *
+     * `ProjectController::attachClientHistory` used to inline
+     * `->where('transaction_type', 'payment')` for the figure it labels
+     * `total_spent` on a professional's public `client_history`. Refunds are
+     * NEGATIVE ledger rows, so excluding them counted money that dispute
+     * arbitration had already returned to the client as still spent — an
+     * inflated figure on a page anyone can read, and one that rose every time a
+     * professional was wrongly judged and the refund was issued.
+     *
+     * This is a single grouped query rather than a call per project: the caller
+     * renders a list of many owners, and N+1 would be worse than the duplication
+     * it replaces. The invariant still lives here, so a future transaction type
+     * that counts as disbursed is added in one place.
+     *
+     * @param  list<int>  $ownerIds
+     * @return array<int, Money>  keyed by user id; absent where nothing was paid
+     */
+    public function paidTotalByOwner(array $ownerIds): array
+    {
+        if ($ownerIds === []) {
+            return [];
+        }
+
+        $rows = ProjectBudgetTransaction::query()
+            ->join('projects', 'project_budget_transactions.project_id', '=', 'projects.id')
+            ->whereIn('projects.user_id', $ownerIds)
+            ->whereIn('project_budget_transactions.transaction_type', self::DISBURSEMENT_TYPES)
+            ->groupBy('projects.user_id')
+            ->selectRaw('projects.user_id as owner_id, SUM(project_budget_transactions.amount) as total')
+            ->get();
+
+        return $rows->mapWithKeys(
+            fn ($row) => [(int) $row->owner_id => Money::fromColumn($row->total)]
+        )->all();
     }
 
     /**

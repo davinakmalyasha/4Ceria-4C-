@@ -3718,14 +3718,22 @@ class ProjectController extends Controller
             ->select('user_id', DB::raw('count(*) as count'))
             ->pluck('count', 'user_id');
 
-        $totalSpent = ProjectBudgetTransaction::whereIn('project_id', function($q) use ($userIds) {
-                $q->select('id')->from('projects')->whereIn('user_id', $userIds);
-            })
-            ->where('transaction_type', 'payment')
-            ->join('projects', 'project_budget_transactions.project_id', '=', 'projects.id')
-            ->groupBy('projects.user_id')
-            ->select('projects.user_id', DB::raw('sum(project_budget_transactions.amount) as total'))
-            ->pluck('total', 'projects.user_id');
+        // Net disbursed per owner, refunds subtracted.
+        //
+        // BUGFIX: this was `->where('transaction_type', 'payment')` with no
+        // refund term. Refunds are NEGATIVE ledger rows, so disputed-and-
+        // returned money still counted as spent — inflating `total_spent` on
+        // a professional's PUBLIC client_history, and inflating it further
+        // every time arbitration correctly refunded them. It is a marketing
+        // figure, so it being wrong in the platform's own favour is the worst
+        // direction for it to be wrong in.
+        //
+        // Routed through the service so the `payment + refund` rule lives in
+        // one place (see ProjectFinancialService::DISBURSEMENT_TYPES) instead
+        // of being restated here. Still one grouped query — the caller renders
+        // many owners, and a call per project would be N+1.
+        $totalSpentByOwner = app(\App\Services\ProjectFinancialService::class)
+            ->paidTotalByOwner($userIds);
 
         foreach ($collection as $project) {
             $uid = $project->user_id;
@@ -3736,7 +3744,7 @@ class ProjectController extends Controller
                 'projects_hired' => $pHired,
                 'hire_rate' => $pPosted > 0 ? round(($pHired / $pPosted) * 100) : 0,
                 'active_projects' => $activeCounts[$uid] ?? 0,
-                'total_spent' => (float) ($totalSpent[$uid] ?? 0),
+                'total_spent' => $totalSpentByOwner[$uid]?->toFloat() ?? 0.0,
                 'member_since' => $project->user?->created_at ? $project->user->created_at->format('M Y') : null,
             ];
         }
