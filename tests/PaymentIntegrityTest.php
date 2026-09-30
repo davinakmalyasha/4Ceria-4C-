@@ -358,12 +358,24 @@ it('stops a hired professional from rewriting the owner budget', function () {
     $project = Project::create(['title' => 'P', 'user_id' => $owner->id, 'budget' => 10_000_000, 'status' => 'in_progress']);
     $project->update(['selected_kontraktor_id' => $profile->id]);
 
+    // STATUS CHANGED 2026-09-29: 200 -> 422.
+    //
+    // This test asserted 200 because the ORIGINAL behaviour silently UNSET the
+    // disallowed `budget` (and `deadline`) for a non-owner and returned success.
+    // The escrow ceiling is now refused outright for EVERY caller, owner
+    // included, because the write must go through the ledger-backed endpoint
+    // (see EscrowCeilingAuditTest and B10). A silent unset returned 200 while
+    // doing nothing, which is the same "reported success, did nothing" shape
+    // the suite has been removing throughout this pass.
+    //
+    // What is being asserted is unchanged: neither the budget nor the deadline
+    // moved.
     $this->actingAs($proUser, 'sanctum')
         ->postJson("/api/projects/{$project->id}/update", [
             'budget' => 900_000_000,
             'deadline' => now()->addYear()->toDateString(),
         ])
-        ->assertStatus(200);
+        ->assertStatus(422);
 
     $project->refresh();
     expect((float) $project->budget)->toBe(10_000_000.0);

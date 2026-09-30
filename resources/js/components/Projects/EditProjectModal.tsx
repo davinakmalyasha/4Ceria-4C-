@@ -14,7 +14,18 @@ interface Props {
 export default function EditProjectModal({ project, onClose, onSuccess }: Props) {
     const [title, setTitle] = useState(project.title);
     const [description, setDescription] = useState(project.description);
-    const [budget, setBudget] = useState(project.budget.toString());
+    // The BUDGET IS NOT EDITABLE HERE. It used to be appended to this same
+    // FormData and written straight to `projects.budget` by the generic project
+    // update, which changed the escrow ceiling with no ledger row, no activity
+    // log and nothing for dispute arbitration to read. The server now rejects
+    // `budget` on this endpoint with a 422 pointing at the ledger-backed route,
+    // so the field below posts the DELTA to
+    // `POST /projects/{id}/budget/transactions` instead.
+    //
+    // The displayed value is read-only so the owner can still see the ceiling.
+    const [budgetDelta, setBudgetDelta] = useState('');
+    const [budgetDirection, setBudgetDirection] = useState<'deposit' | 'adjustment_down'>('deposit');
+    const [budgetReason, setBudgetReason] = useState('');
     const [lokasi, setLokasi] = useState(project.location || '');
     const [lat, setLat] = useState(project.latitude || '-6.200000');
     const [lng, setLng] = useState(project.longitude || '106.816666');
@@ -65,7 +76,6 @@ export default function EditProjectModal({ project, onClose, onSuccess }: Props)
         formData.append('_method', 'PUT'); // Required for Laravel to handle multipart/form-data on updates
         formData.append('title', title);
         formData.append('description', description);
-        formData.append('budget', budget);
         formData.append('lokasi', lokasi);
         formData.append('target_role', targetRole);
         formData.append('deadline', deadline);
@@ -91,6 +101,23 @@ export default function EditProjectModal({ project, onClose, onSuccess }: Props)
             const res = await axios.post(`/projects/${project.id}`, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
+
+            // The budget adjustment is a SECOND, ledger-backed request. Doing
+            // it here rather than in the same payload is deliberate: it keeps
+            // the "edit the project's details" concern separate from the "move
+            // money in or out of the escrow" concern, and the latter must be a
+            // distinct audited action with its own reason string.
+            if (budgetDelta.trim() && Number(budgetDelta) > 0) {
+                await axios.post(`/projects/${project.id}/budget/transactions`, {
+                    transaction_type: budgetDirection,
+                    amount: Number(budgetDelta),
+                    title: budgetReason.trim()
+                        || (budgetDirection === 'deposit'
+                            ? 'Additional project funds'
+                            : 'Budget reduction'),
+                });
+            }
+
             onSuccess(res.data.data || res.data);
         } catch (err: any) {
             setError(err.response?.data?.message || 'Failed to update project. Please try again.');
@@ -161,11 +188,58 @@ export default function EditProjectModal({ project, onClose, onSuccess }: Props)
                             <label className="block text-sm font-bold text-gray-700 mb-1">Description</label>
                             <textarea value={description} onChange={e => setDescription(e.target.value)} required rows={4} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#FF2D20]/20 focus:border-[#FF2D20] outline-none transition-all resize-none placeholder:text-gray-400" placeholder="Explain what requirements you hold..." />
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">Budget (Rp)</label>
-                                <input type="number" value={budget} onChange={e => setBudget(e.target.value)} required min="100000" className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#FF2D20]/20 focus:border-[#FF2D20] outline-none transition-all" />
+                        {/* Escrow ceiling. NOT freely editable — see the note on
+                            budgetDelta above. Shown read-only so the owner can
+                            see it, with the delta controls beneath it. */}
+                        <div className="p-4 bg-gray-50 rounded-xl border border-gray-200 space-y-3">
+                            <div className="flex items-center justify-between">
+                                <label className="block text-sm font-bold text-gray-700">Escrow Budget (Rp)</label>
+                                <span className="text-lg font-black text-gray-900 tabular-nums">
+                                    {Number(project.budget).toLocaleString('id-ID')}
+                                </span>
                             </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-600 mb-1">Change</label>
+                                    <select
+                                        value={budgetDirection}
+                                        onChange={e => setBudgetDirection(e.target.value as 'deposit' | 'adjustment_down')}
+                                        className="w-full px-3 py-2.5 rounded-xl border border-gray-200 bg-white focus:ring-2 focus:ring-[#FF2D20]/20 outline-none text-sm"
+                                    >
+                                        <option value="deposit">Add funds to escrow</option>
+                                        <option value="adjustment_down">Reduce escrow ceiling</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-600 mb-1">Amount (Rp)</label>
+                                    <input
+                                        type="number"
+                                        value={budgetDelta}
+                                        onChange={e => setBudgetDelta(e.target.value)}
+                                        placeholder="0"
+                                        min="1"
+                                        className="w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#FF2D20]/20 focus:border-[#FF2D20] outline-none text-sm"
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold text-gray-600 mb-1">Reason (recorded in the ledger)</label>
+                                <input
+                                    type="text"
+                                    value={budgetReason}
+                                    onChange={e => setBudgetReason(e.target.value)}
+                                    placeholder="e.g. Owner top-up for additional works"
+                                    className="w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#FF2D20]/20 focus:border-[#FF2D20] outline-none text-sm"
+                                />
+                            </div>
+
+                            <p className="text-[11px] text-gray-500 leading-relaxed">
+                                Every budget change is written to the project ledger with this
+                                reason, so it can be explained later. Leave the amount empty
+                                to edit only the project details.
+                            </p>
                         </div>
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-1">Project Location (Map)</label>

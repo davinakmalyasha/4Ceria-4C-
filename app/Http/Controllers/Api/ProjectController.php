@@ -399,6 +399,32 @@ class ProjectController extends Controller
         try {
             $project = Project::create($data);
 
+            // Record the OPENING ceiling in the ledger.
+            //
+            // Without this, `projects.budget` begins life as an unexplained
+            // number: no ledger row exists to account for it, so the escrow
+            // ceiling can never be reconciled against the ledger that is
+            // supposed to explain it. Once an owner can raise the ceiling with
+            // a deposit (POST /budget/transactions), `SUM(deposit) -
+            // SUM(adjustment_down)` is the ceiling's true value — but only if
+            // the starting point is on the record too.
+            //
+            // Written directly rather than through `deductBudget()`'s deposit
+            // path, which would ALSO `increment('budget')` and so double the
+            // opening amount: `Project::create` has already set the column.
+            // The row is a plain positive `deposit`, which is excluded from
+            // `paidTotal` by DISBURSEMENT_TYPES, so `available` is unaffected.
+            $openingBudget = \App\Support\Money::fromColumn($project->budget);
+            if ($openingBudget->isPositive()) {
+                ProjectBudgetTransaction::create([
+                    'project_id' => $project->id,
+                    'transaction_type' => 'deposit',
+                    'amount' => $openingBudget->toDecimal(),
+                    'title' => 'Opening project budget',
+                    'transaction_date' => now(),
+                ]);
+            }
+
             // Save External Vendors
             foreach ($externalVendors as $role => $vendor) {
                 if (!empty($vendor['contact_person']) && !empty($vendor['phone_number'])) {
@@ -2261,6 +2287,39 @@ class ProjectController extends Controller
 
         if (!$isOwner && !$isWorker && !$isPM) {
             return response()->json(['message' => 'Unauthorized. Must be project owner, hired professional, or PM.'], 403);
+        }
+
+        // THE ESCROW CEILING IS NOT EDITABLE HERE.
+        //
+        // `UpdateProjectRequest` still accepts `budget`, and `$project->update()`
+        // wrote it straight to the column — so the owner could rewrite the
+        // ceiling with NO ledger row, no activity-log entry and no
+        // `money:detect-duplicates` report. The escrow balance would change with
+        // no record of who changed it or why, which is precisely the question
+        // dispute arbitration has to answer.
+        //
+        // There is already a correct endpoint for this:
+        // `POST /projects/{id}/budget/transactions` with
+        // `transaction_type: deposit|adjustment_down`, which moves the ceiling
+        // through `deductBudget` and records the movement. Two paths existed
+        // and only one of them was auditable.
+        //
+        // Rejecting rather than silently unsetting matters: a silent unset
+        // returns 200 and the owner believes their edit applied, which is the
+        // same "reported success, did nothing" shape as the `/legal-
+        // disbursements` create endpoint that always 422'd.
+        //
+        // Non-owners had `budget` unset further down for a different reason
+        // (they may not edit the owner's budget at all); this guard runs first
+        // and applies to the owner, who legitimately may change it — just not
+        // by writing the column.
+        if ($request->has('budget')) {
+            return response()->json([
+                'message' => 'The project budget cannot be edited directly. '
+                    .'Use POST /projects/{$project->id}/budget/transactions with '
+                    .'transaction_type "deposit" (to add funds) or "adjustment_down" (to reduce), '
+                    .'so the change is recorded in the ledger.',
+            ], 422);
         }
 
         $data = $request->validated();
