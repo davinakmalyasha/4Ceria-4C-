@@ -57,6 +57,21 @@ class UpdateProjectRequest extends FormRequest
             'payment_termins.*.percentage' => 'required|numeric|min:0|max:100',
             'payment_termins.*.amount' => 'required|numeric|min:0',
             'payment_termins.*.notes' => 'nullable|string|max:250',
+            // Was MISSING entirely, while `ProjectController::update()` writes
+            // `$termin['milestone_id']` straight from the payload:
+            //
+            //     $termin->update(['milestone_id' => $arr['milestone_id'] ?? null]);
+            //
+            // so a project update could link a payment stage to a milestone on a
+            // DIFFERENT project -- and approving that foreign milestone unlocks
+            // the stage via ProjectMilestoneController::unlockLinkedTermin().
+            //
+            // No project id is passed: a FormRequest does not have the bound
+            // model, so the rule reads it from the route.
+            'payment_termins.*.milestone_id' => [
+                'nullable',
+                new \App\Rules\MilestoneBelongsToProject,
+            ],
             'legal_requirements' => 'nullable|array',
             'legal_requirements.*' => 'string',
             'needed_phases' => 'nullable|string', // JSON array of design,build,interior,legal

@@ -57,7 +57,7 @@ class ProjectPaymentTerminController extends Controller
             // SECURITY: payments can never be created directly in a paid state;
             // paid is reserved for the proof-upload / verification flows.
             'status' => 'nullable|string|in:locked,pending,invoice_sent',
-            'milestone_id' => 'nullable|exists:project_milestones,id',
+            'milestone_id' => ['nullable', new \App\Rules\MilestoneBelongsToProject((int) $project->id)],
             'notes' => 'nullable|string|max:1000',
             'role_type' => 'nullable|string',
             // The role list is validated by TerminPlanService::assertKnownRole()
@@ -136,7 +136,7 @@ class ProjectPaymentTerminController extends Controller
             'trigger_description' => 'nullable|string|max:255',
             // SECURITY: paid is a verification-flow outcome, never self-service.
             'status' => 'nullable|string|in:locked,pending,invoice_sent',
-            'milestone_id' => 'nullable|exists:project_milestones,id',
+            'milestone_id' => ['nullable', new \App\Rules\MilestoneBelongsToProject((int) $project->id)],
             'notes' => 'nullable|string|max:1000',
         ]);
 
@@ -184,7 +184,7 @@ class ProjectPaymentTerminController extends Controller
         }
 
         $request->validate([
-            'milestone_id' => 'required|exists:project_milestones,id'
+            'milestone_id' => ['required', new \App\Rules\MilestoneBelongsToProject((int) $project->id)],
         ]);
 
         // Check if this termin is already linked to another milestone
