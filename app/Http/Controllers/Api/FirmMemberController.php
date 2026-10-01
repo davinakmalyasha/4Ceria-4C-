@@ -331,7 +331,17 @@ class FirmMemberController extends Controller
                 'username' => $owner->username,
                 'pic' => $owner->pic ? asset('storage/' . $owner->pic) : null,
                 'role_type' => $owner->role_type,
-                'unique_code' => $owner->unique_code,
+                // `unique_code` was returned here, and `User::$hidden` classifies
+                // it as PII. It is the 6-character firm LOOKUP code, and this
+                // endpoint takes `{ownerId}` from the route -- so any authenticated
+                // user could enumerate architects and contractors and read their
+                // lookup codes.
+                //
+                // Nothing needs it here: `browseFirmOwners()` in this same
+                // controller already resolves the code only for the authenticated
+                // OWNER of the firm. A public roster view should carry the
+                // owner's id, which is already in the payload above.
+                'unique_code' => null,
             ],
             'firm_name' => $owner->firm_name ?? ($owner->role_type === 'arsitek' ? ($owner->arsitek->company_name ?? $owner->name) : ($owner->kontraktor->company_name ?? $owner->name)),
             'firm_slogan' => $owner->firm_slogan,
