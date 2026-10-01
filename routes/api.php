@@ -71,8 +71,9 @@ Route::post('/consultations/{consultation}/respond', [\App\Http\Controllers\Api\
 });
 
 // Geocoding Proxy Public Routes
-Route::get('/geocode/reverse', [\App\Http\Controllers\Api\GeocodeController::class, 'reverse']);
-Route::get('/geocode/search', [\App\Http\Controllers\Api\GeocodeController::class, 'search']);
+// Throttled: these proxy an outbound call to nominatim.openstreetmap.org. Unthrottled, an anonymous caller uses this app as a relay until the platform's IP is blocked, and the 30-day cache turns it into a Redis-key-space amplifier (see GeocodeController's cacheKey().
+Route::get('/geocode/reverse', [\App\Http\Controllers\Api\GeocodeController::class, 'reverse'])->middleware('throttle:30,1');
+Route::get('/geocode/search', [\App\Http\Controllers\Api\GeocodeController::class, 'search'])->middleware('throttle:30,1');
 
 // NOTE: the unauthenticated registration-draft endpoints were removed
 // (dead surface + security audit finding: anonymous Redis writes,

@@ -3368,7 +3368,24 @@ class ProjectController extends Controller
             'milestones' => 'nullable|array',
             'milestones.*.title' => 'required|string|max:255',
             'milestones.*.description' => 'nullable|string',
-            'signature' => 'nullable|string',
+            // A signature is a base64 data URL for a real image.
+            //
+            // Previously `'nullable|string'` with no length bound and no format
+            // check, and the handler's only test was
+            // `preg_match('/^data:image\/(\w+);base64,/')` before
+            // `base64_decode()` and `put()` at `.../signature_{role}_{bid}_{ts}.png`.
+            // So a professional could put ARBITRARY BYTES at a `.png` path in the
+            // private vault, unbounded in size -- filling the bucket, or leaving a
+            // file that is not an image but is served as one.
+            //
+            // 1.5 MB of base64 is roughly a 1 MB image, comfortably above a
+            // signature and far below anything a caller legitimately sends.
+            'signature' => [
+                'nullable',
+                'string',
+                'max:1572864',
+                'regex:/^data:image\/(png|jpe?g|webp);base64,[A-Za-z0-9+\/=]+$/',
+            ],
             'bank_type' => 'required|string|max:255',
             'bank_account_no' => 'required|string|regex:/^[0-9]+$/|min:5|max:30',
             'bank_account_name' => 'required|string|min:3|max:255',

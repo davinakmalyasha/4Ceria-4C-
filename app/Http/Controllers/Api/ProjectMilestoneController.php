@@ -247,10 +247,26 @@ class ProjectMilestoneController extends Controller
 
             DB::commit();
             return response()->json(['data' => $milestone->load(['arsitek.user', 'kontraktor.user', 'notaris.user', 'interior.user', 'structural.user', 'mep.user', 'changeOrders'])]);
-        } catch (\Exception $e) {
+} catch (\Exception $e) {
             DB::rollBack();
-            \Log::error("Failed to store milestone: " . $e->getMessage());
-            return response()->json(['message' => 'Internal server error: ' . $e->getMessage()], 500);
+
+            // Log the detail, return none of it.
+            //
+            // The message was echoed to the client as
+            // `'Internal server error: ' . $e->getMessage()`, which hands out
+            // table names, column names and SQL fragments to every project
+            // participant. Under `Model::shouldBeStrict(!isProduction())` the
+            // exception is routinely the ENUM mismatch from a bad status literal
+            // -- so this endpoint was publishing the exact schema detail an
+            // attacker would use to find the next bad write.
+            \Log::error('Failed to store milestone', [
+                'project_id' => $project->id,
+                'exception' => $e,
+            ]);
+
+            return response()->json([
+                'message' => 'We could not save that milestone. Please try again.',
+            ], 500);
         }
     }
 
