@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Support\Hire;
 use Illuminate\Http\Request;
 use App\Models\Project;
 use App\Models\ProjectBudgetTransaction;
@@ -658,19 +659,20 @@ class ProjectBudgetController extends Controller
     public function createAddendum(Request $request, Project $project)
     {
         // Only hired professionals can create addendums
-        $userId = Auth::id();
-        $roleType = Auth::user()->role_type;
-        
-        $isHired = false;
-        if ($roleType === 'arsitek' && $project->selected_arsitek_id == optional(Auth::user()->arsitek)->id) $isHired = true;
-        if ($roleType === 'kontraktor' && $project->selected_kontraktor_id == optional(Auth::user()->kontraktor)->id) $isHired = true;
-        if ($roleType === 'notaris' && $project->selected_notaris_id == optional(Auth::user()->notaris_profile)->id) $isHired = true;
-        if ($roleType === 'interior' && $project->selected_interior_id == optional(Auth::user()->interior_profile)->id) $isHired = true;
-        if ($roleType === 'project_manager' && Auth::user()->id === $project->pm_id) $isHired = true;
+        $user = Auth::user();
 
-        if (!$isHired) {
+        // Was five `== optional(...)->id` comparisons, one per role, using LOOSE
+        // equality. With no architect on the project and no profile on the user
+        // that is `null == null`, which is TRUE in PHP -- so any user whose
+        // role_type matched a role the project had not filled would pass. It is
+        // the same null-comparison family as the Hire bug, hand-rolled again.
+        // Delegated to the one implementation.
+        if (!Hire::matches($project, $user, (string) $user->role_type)) {
             return response()->json(['message' => 'Unauthorized. Must be hired professional.'], 403);
         }
+
+        $roleType = $user->role_type;
+        $userId = $user->id;
 
         $request->validate([
             'title' => 'required|string|max:255',
@@ -708,18 +710,35 @@ class ProjectBudgetController extends Controller
 
     public function handleAddendumStatus(Request $request, Project $project, $addendumId)
     {
-        $userId = Auth::id();
-        $isOwner = $project->user_id === $userId;
-        $isPM = $project->pm_id && Auth::user()->role_type === 'project_manager' && Auth::user()->id === $project->pm_id;
+        $user = Auth::user();
 
-        // Define if user is the proposing professional
         $addendum = ProjectAddendum::where('project_id', $project->id)->find($addendumId);
-        $isPro = $addendum && $addendum->user_id == $userId;
 
-        // Both Owner and PM can authorize/manage budget items for tracking
-        // Professionals can only interact if it's their addendum and it's in negotiating state
-        if (!$isOwner && !$isPM && !($isPro && $addendum && $addendum->status === 'negotiating')) {
-            return response()->json(['message' => 'Unauthorized. Only the project owner, manager, or proposing professional (during negotiation) can manage this.'], 403);
+        if (!$addendum) {
+            return response()->json(['message' => 'Addendum not found.'], 404);
+        }
+
+        // Two distinct powers, deliberately not merged:
+        //
+        //   AUTHORISER  the owner or the assigned PM. Decides money.
+        //   PROPOSER    the professional who raised it. May only respond to a
+        //               counter-offer, and may never authorise their own fee.
+        //
+        // The bug this replaces: the gate was
+        //
+        //     !($isPro && $addendum->status === 'negotiating')
+        //
+        // which admitted the proposer ONLY while negotiating -- and then let that
+        // same caller pass any status from the validator, including
+        // `approved_unpaid`, plus an arbitrary `amount`. So a professional could
+        // authorise their own fee and set its value in one call, and the
+        // notification it produced was hardcoded to say "Budget Authorized by
+        // Owner" (line 751) -- a forged approval attributed to the client.
+        $isAuthoriser = Hire::isOwnerOrAssignedPm($project, $user);
+        $isProposer = (int) $addendum->user_id === (int) $user->id;
+
+        if (!$isAuthoriser && !$isProposer) {
+            return response()->json(['message' => 'Unauthorized. Only the project owner or assigned PM can authorise budget items.'], 403);
         }
 
         $request->validate([
@@ -729,33 +748,76 @@ class ProjectBudgetController extends Controller
             'negotiation_note' => 'nullable|string',
         ]);
 
-        if (!$addendum) {
-            return response()->json(['message' => 'Addendum not found.'], 404);
+        // THE PROPOSER'S ALLOWED MOVES, IN ONE PLACE.
+        //
+        // A counter-offer may be accepted, or answered with a revised counter.
+        // Both are non-monetary positions in a negotiation. Authorising,
+        // rejecting and re-submitting are the author's decisions, not the
+        // proposer's.
+        $proposerMaySet = ['accepted_by_pro', 'negotiating'];
+
+        if (!$isAuthoriser) {
+            if (!in_array($request->status, $proposerMaySet, true)) {
+                return response()->json([
+                    'message' => 'A professional may accept or counter a negotiation, but cannot authorise or reject their own addendum. That is the Owner\'s or PM\'s decision.',
+                ], 403);
+            }
+
+            if ($addendum->status !== 'negotiating') {
+                return response()->json(['message' => 'This addendum has no open negotiation to respond to.'], 422);
+            }
+
+            // Counter-offer fields are the OTHER side's instrument. A proposer
+            // writing them would be forging the counter they are responding to.
+            if ($request->has('counter_offer_amount') || $request->has('negotiation_note')) {
+                return response()->json([
+                    'message' => 'Counter-offer amount and note are set by the Owner or PM, not by the proposing professional.',
+                ], 403);
+            }
         }
 
-        if ($addendum->status !== 'pending_approval' && $addendum->status !== 'negotiating' && $addendum->status !== 'accepted_by_pro') {
+        if (!in_array($addendum->status, ['pending_approval', 'negotiating', 'accepted_by_pro'], true)) {
             return response()->json(['message' => 'This item has already been processed or is not in a negotiable state.'], 422);
         }
 
-        return DB::transaction(function () use ($request, $project, $addendum) {
+        return DB::transaction(function () use ($request, $project, $addendum, $isAuthoriser, $user) {
             $financialService = app(\App\Services\ProjectFinancialService::class);
-            
-            // Update amount if provided (e.g. refining an estimate)
-            if ($request->has('amount')) {
+
+            // WHO is acting, for the audit trail and the notification copy. The
+            // old code hardcoded "Owner" for anyone who was not the PM, so a
+            // professional's action was announced to the client as the client's
+            // own approval.
+            $actorLabel = $user->role_type === 'project_manager' ? 'Project Manager' : 'Owner';
+
+            // The amount may only be revised while a negotiation is OPEN, and
+            // only by the authoriser or the proposer (both branches reach here).
+            // Once the item is authorised or accepted, the figure is binding.
+            if ($request->has('amount') && in_array($addendum->status, ['pending_approval', 'negotiating'], true)) {
                 $addendum->amount = $request->amount;
+            } elseif ($request->has('amount')) {
+                return response()->json([
+                    'message' => 'The agreed amount is binding once an addendum leaves negotiation.',
+                ], 422);
             }
-            
-                $addendum->update(['status' => $request->status]);
+
+            // ACCEPTING a counter-offer adopts the counter figure. Letting the
+            // proposer keep their own number while nominally "accepting" the
+            // other side's would be the forgery this whole method exists to
+            // prevent.
+            if ($request->status === 'accepted_by_pro' && $addendum->counter_offer_amount !== null) {
+                $addendum->amount = $addendum->counter_offer_amount;
+            }
+
+            $addendum->update(['status' => $request->status]);
     
                 if ($request->status === 'approved_unpaid') {
-                    $roleLabel = Auth::user()->role_type === 'project_manager' ? 'Project Manager' : 'Owner';
-
-                    // Notify relevant parties - Owner needs to know it's time to pay
-                    $notificationTitle = "Budget Authorized by {$roleLabel}";
-                    $notificationBody = "The {$roleLabel} has approved the budget of Rp " . number_format($addendum->amount, 0, ',', '.') . " for \"{$addendum->title}\". Please proceed with the payment.";
+                    // Authoriser-only: the proposer is structurally unable to
+                    // reach this branch (see $proposerMaySet).
+                    $notificationTitle = "Budget Authorized by {$actorLabel}";
+                    $notificationBody = "The {$actorLabel} has approved the budget of Rp " . number_format($addendum->amount, 0, ',', '.') . " for \"{$addendum->title}\". Please proceed with the payment.";
 
                     // If PM authorized, notify Owner. If Owner authorized, notify PM.
-                    $notifyId = (Auth::user()->role_type === 'project_manager') ? $project->user_id : $project->pm_id;
+                    $notifyId = ($user->role_type === 'project_manager') ? $project->user_id : $project->pm_id;
 
                     if ($notifyId) {
                         \App\Models\Notification::create([
@@ -771,52 +833,100 @@ class ProjectBudgetController extends Controller
                         'project_id' => $project->id,
                         'user_id' => Auth::id(),
                         'action' => 'budget_authorized',
-                        'details' => "{$roleLabel} authorized budget: {$addendum->title} (Rp " . number_format($addendum->amount, 0, ',', '.') . ") - Awaiting Payment",
+                        'details' => "{$actorLabel} authorized budget: {$addendum->title} (Rp " . number_format($addendum->amount, 0, ',', '.') . ") - Awaiting Payment",
                     ]);
 
                     return response()->json(['message' => 'Budget authorized successfully. Awaiting payment from the Project Owner.']);
                 }
 
             if ($request->status === 'negotiating') {
-                $roleLabel = Auth::user()->role_type === 'project_manager' ? 'Project Manager' : 'Owner';
-                
-                $addendum->update([
-                    'status' => 'negotiating',
-                    'counter_offer_amount' => $request->counter_offer_amount,
-                    'negotiation_note' => $request->negotiation_note
-                ]);
+                // Reachable by BOTH sides now: the authoriser opening a
+                // negotiation, or the proposer answering one with a revised
+                // counter. Each notifies the OTHER side.
+                if ($isAuthoriser) {
+                    // Notify the professional who proposed it.
+                    if ($addendum->user_id) {
+                        \App\Models\Notification::create([
+                            'user_id' => $addendum->user_id,
+                            'type' => 'budget_negotiation',
+                            'title' => 'Fee Negotiation Requested',
+                            'body' => "The {$actorLabel} has requested a fee negotiation for \"{$addendum->title}\". Counter-offer: Rp " . number_format($request->counter_offer_amount, 0, ',', '.'),
+                            'data' => ['project_id' => $project->id],
+                        ]);
+                    }
 
-                // Notify the professional who proposed it
-                if ($addendum->user_id) {
+                    $addendum->update([
+                        'status' => 'negotiating',
+                        'counter_offer_amount' => $request->counter_offer_amount,
+                        'negotiation_note' => $request->negotiation_note
+                    ]);
+
+                    \App\Models\ProjectActivityLog::create([
+                        'project_id' => $project->id,
+                        'user_id' => Auth::id(),
+                        'action' => 'budget_negotiating',
+                        'details' => "{$actorLabel} requested fee negotiation for: {$addendum->title} (Counter-offer: Rp " . number_format($request->counter_offer_amount, 0, ',', '.') . ")",
+                    ]);
+                } else {
+                    // The proposer revising their own counter. The author's
+                    // instrument is left untouched -- overwriting
+                    // `counter_offer_amount` here would destroy the position
+                    // they are answering.
+                    $addendum->update(['status' => 'negotiating']);
+
+                    $notifyId = ($project->pm_id) ? $project->pm_id : $project->user_id;
+
                     \App\Models\Notification::create([
-                        'user_id' => $addendum->user_id,
+                        'user_id' => $notifyId,
                         'type' => 'budget_negotiation',
-                        'title' => 'Fee Negotiation Requested',
-                        'body' => "The {$roleLabel} has requested a fee negotiation for \"{$addendum->title}\". Counter-offer: Rp " . number_format($request->counter_offer_amount, 0, ',', '.'),
+                        'title' => 'Revised Fee Proposed',
+                        'body' => "The {$addendum->role_type} revised their fee for \"{$addendum->title}\" to Rp " . number_format($addendum->amount, 0, ',', '.') . '.',
                         'data' => ['project_id' => $project->id],
                     ]);
-                }
 
-                \App\Models\ProjectActivityLog::create([
-                    'project_id' => $project->id,
-                    'user_id' => Auth::id(),
-                    'action' => 'budget_negotiating',
-                    'details' => "{$roleLabel} requested fee negotiation for: {$addendum->title} (Counter-offer: Rp " . number_format($request->counter_offer_amount, 0, ',', '.') . ")",
-                ]);
+                    \App\Models\ProjectActivityLog::create([
+                        'project_id' => $project->id,
+                        'user_id' => Auth::id(),
+                        'action' => 'budget_negotiating',
+                        'details' => "Professional revised fee for: {$addendum->title} (Rp " . number_format($addendum->amount, 0, ',', '.') . ")",
+                    ]);
+                }
 
                 return response()->json(['message' => 'Negotiation request sent.']);
             }
 
-            // Rejected — professional stays assigned but no money is deducted
-            $roleLabel = Auth::user()->role_type === 'project_manager' ? 'Project Manager' : 'Owner';
-            $notifyId = (Auth::user()->role_type === 'project_manager') ? $project->user_id : $project->pm_id;
+            if ($request->status === 'accepted_by_pro') {
+                // The proposer accepted the author's counter-offer. The figure was
+                // already moved onto `$addendum->amount` above.
+                $addendum->update(['status' => 'accepted_by_pro']);
+
+                \App\Models\Notification::create([
+                    'user_id' => ($project->pm_id) ? $project->pm_id : $project->user_id,
+                    'type' => 'budget_counter_accepted',
+                    'title' => 'Counter-offer Accepted',
+                    'body' => "The {$addendum->role_type} accepted the fee of Rp " . number_format($addendum->amount, 0, ',', '.') . " for \"{$addendum->title}\". It is ready to be authorised.",
+                    'data' => ['project_id' => $project->id, 'addendum_id' => $addendum->id],
+                ]);
+
+                \App\Models\ProjectActivityLog::create([
+                    'project_id' => $project->id,
+                    'user_id' => Auth::id(),
+                    'action' => 'budget_counter_accepted',
+                    'details' => "Professional accepted counter-offer for: {$addendum->title} (Rp " . number_format($addendum->amount, 0, ',', '.') . ")",
+                ]);
+
+                return response()->json(['message' => 'Counter-offer accepted. Awaiting authorisation.']);
+            }
+
+            // Rejected — authoriser-only, same reason as approved_unpaid.
+            $notifyId = ($user->role_type === 'project_manager') ? $project->user_id : $project->pm_id;
 
             if ($notifyId) {
                 \App\Models\Notification::create([
                     'user_id' => $notifyId,
                     'type' => 'budget_rejected',
-                    'title' => "Budget Authorization Rejected by {$roleLabel}",
-                    'body' => "The {$roleLabel} has rejected the budget for \"{$addendum->title}\". Please discuss with the {$roleLabel}.",
+                    'title' => "Budget Authorization Rejected by {$actorLabel}",
+                    'body' => "The {$actorLabel} has rejected the budget for \"{$addendum->title}\". Please discuss with the {$actorLabel}.",
                     'data' => ['project_id' => $project->id],
                 ]);
             }
@@ -825,7 +935,7 @@ class ProjectBudgetController extends Controller
                 'project_id' => $project->id,
                 'user_id' => Auth::id(),
                 'action' => 'budget_rejected',
-                'details' => "{$roleLabel} rejected budget: {$addendum->title}",
+                'details' => "{$actorLabel} rejected budget: {$addendum->title}",
             ]);
 
             return response()->json(['message' => 'Budget authorization rejected.']);
