@@ -27,7 +27,7 @@ jobs:
     name: Secret scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # Full history so a secret committed earlier is still caught.
           fetch-depth: 0
@@ -91,7 +91,7 @@ jobs:
       FILESYSTEM_DISK: local
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
@@ -193,7 +193,7 @@ jobs:
       RAILWAY_STORAGE_DRIVER: local
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
@@ -226,7 +226,7 @@ jobs:
     name: SPA (TypeScript + Vite)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Node
         uses: actions/setup-node@v4
