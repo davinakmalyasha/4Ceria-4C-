@@ -1850,10 +1850,42 @@ class ProjectController extends Controller
         }
 
         return DB::transaction(function () use ($project) {
+            // `design_payment_verified_at` is NOT set here, and that is the fix.
+            //
+            // This method used to write it:
+            //
+            //     $project->update([
+            //         'planning_status'    => 'approved',
+            //         'planning_approved_at' => now(),
+            //         'design_payment_verified_at' => now(),   // <-- here
+            //     ]);
+            //
+            // but `design_payment_verified_at` is the IDEMPOTENCY GUARD AND
+            // money flag of `verifyDesignPayment()`:
+            //
+            //     if ($project->design_payment_verified_at) {
+            //         return ...'The design fee has already been verified...', 422;
+            //     }
+            //     ...
+            //     $financial->recordPayment(...);
+            //
+            // So approving the plan permanently blocked the only endpoint that
+            // records the design fee. Every project with a PM gate reached this
+            // on its way to approval, so the deadlock was total, not rare:
+            //
+            //   - `recordPayment()` never ran, so the escrow ledger held no row
+            //     for the architect's fee and `available()` overstated free
+            //     budget by the whole design fee;
+            //   - the architect's bid never reached `payment_status = paid`;
+            //   - and the 422 a real client then hit said the fee had "already
+            //     been verified", which is the opposite of what happened.
+            //
+            // Approving a design brief is not a payment event. The two now have
+            // separate columns and separate endpoints, and the flag is set only
+            // where money actually moves.
             $project->update([
                 'planning_status' => 'approved',
                 'planning_approved_at' => now(),
-                'design_payment_verified_at' => now(),
             ]);
 
             return new ProjectResource($project);
