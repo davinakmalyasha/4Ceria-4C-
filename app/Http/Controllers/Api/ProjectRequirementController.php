@@ -249,10 +249,23 @@ class ProjectRequirementController extends Controller
 
         // Enforce Zero Frontend Trust Auth
         $isHiredKontraktor = $user->role_type === 'kontraktor' && Hire::matches($project, $user, 'kontraktor');
+// `status = 'hired'` WAS NEVER A MEMBER OF THE ENUM.
+        //
+        // project_sub_professionals.status is
+        //   enum('invited','interviewing','accepted','recommended','active',
+        //         'completed','removed')
+        // so this `exists()` was permanently FALSE and `$isSubContractor` could
+        // never be true: a sub-contractor engaged under the lead contractor could
+        // never request procurement, no matter what state their row was in.
+        //
+        // `SubProfessionalController` writes `'active'` when the assignment is
+        // taken up, and that is the state that means "currently engaged", so that
+        // is what is matched. `accepted` is deliberately NOT included: being
+        // accepted is not the same as being engaged on site.
         $isSubContractor = \App\Models\ProjectSubProfessional::where('project_id', $project->id)
             ->where('user_id', $user->id)
             ->where('parent_role', 'kontraktor')
-            ->where('status', 'hired')
+            ->where('status', 'active')
             ->exists();
         $isPM = $user->role_type === 'project_manager' && $project->pm_id === $user->id;
         $isOwner = $project->user_id === $user->id;

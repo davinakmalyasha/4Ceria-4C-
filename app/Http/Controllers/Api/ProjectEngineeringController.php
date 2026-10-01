@@ -193,7 +193,15 @@ class ProjectEngineeringController extends Controller
                     'mep' => \App\Models\BidMep::class,
                     'interior' => \App\Models\BidInterior::class,
                 };
-                $bid = $bidModel::find($addendum->recommended_bid_id);
+                // SCOPED TO THIS PROJECT.
+                //
+                // `find($id)` resolved by primary key alone, so a
+                // `recommended_bid_id` belonging to a DIFFERENT project could be
+                // flipped to `awaiting_payment` from this project's addendum --
+                // which is what makes it payable. The addendum is authorised
+                // against this project, so the bid it points at must belong to it.
+                $bid = $bidModel::where('project_id', $project->id)
+                    ->find($addendum->recommended_bid_id);
                 if ($bid) {
                     $bid->update(['status' => 'awaiting_payment']);
                 }

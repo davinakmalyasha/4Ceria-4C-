@@ -525,7 +525,16 @@ class ProjectBudgetController extends Controller
                 // Also handle 4C Specialist hiring addendums
                 if ($addendum->recommended_bid_id && $addendum->recommended_bid_type) {
                     if ($addendum->recommended_bid_type === 'structural') {
-                        $bid = \App\Models\BidStructural::find($addendum->recommended_bid_id);
+                        // SCOPED TO THIS PROJECT.
+                        //
+                        // `find($id)` resolved the row by primary key alone, so a
+                        // `recommended_bid_id` pointing at ANOTHER project's bid
+                        // had its amount debited from THIS project's escrow and
+                        // set `structural_id` from the other project's engineer.
+                        // The addendum is validated and authorised against this
+                        // project, so the bid it points at must belong to it too.
+                        $bid = \App\Models\BidStructural::where('project_id', $project->id)
+                            ->find($addendum->recommended_bid_id);
                         if ($bid) {
                             $bid->update(['payment_status' => 'paid', 'paid_at' => now()]);
                             $project->update(['structural_id' => $bid->structural_id]);
@@ -563,7 +572,9 @@ class ProjectBudgetController extends Controller
                             }
                         }
                     } elseif ($addendum->recommended_bid_type === 'mep') {
-                        $bid = \App\Models\BidMep::find($addendum->recommended_bid_id);
+                        // Scoped to this project, as above.
+                        $bid = \App\Models\BidMep::where('project_id', $project->id)
+                            ->find($addendum->recommended_bid_id);
                         if ($bid) {
                             $bid->update(['payment_status' => 'paid', 'paid_at' => now()]);
                             $project->update(['mep_id' => $bid->mep_id]);

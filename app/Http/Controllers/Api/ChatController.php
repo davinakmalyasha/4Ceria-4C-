@@ -119,6 +119,36 @@ class ChatController extends Controller
             return response()->json(['message' => 'Cannot chat with yourself.'], 400);
         }
 
+        // STAFF ARE NOT A CHAT TARGET.
+        //
+        // `user_id` accepted any account id, so any authenticated user could open
+        // a conversation with -- and then message -- an ADMINISTRATOR. Nothing in
+        // the product sends a user to chat with staff, so that path existed only to
+        // be abused: notification spam and staff harassment, from a newly
+        // registered account.
+        $target = User::find($user2);
+
+        if ($target === null) {
+            return response()->json(['message' => 'User not found.'], 404);
+        }
+
+        if ($target->role_type === 'admin' || $target->hasRole('admin')) {
+            return response()->json([
+                'message' => 'Staff accounts cannot receive direct messages.',
+            ], 403);
+        }
+
+        // NOT YET: a shared-context requirement (the two parties must meet on a
+        // project -- one an owner/PM, the other a hired professional or a bidder).
+        // That is the real fix for an open relay, and it is a product decision
+        // rather than a bug fix: every SPA entry point that opens a conversation
+        // would have to be mapped first, or legitimate messaging breaks. Recorded
+        // as remaining work rather than imposed here.
+        //
+        // In the meantime the route carries `throttle:10,1`, which is what
+        // `sendMessage` already had -- the conversation-creation endpoint was the
+        // one without a limit.
+
         // Ensure user_one_id is always the smaller ID for consistency (matches the unique index if we had one, but we used user_one/user_two)
         // Actually, let's just find existing conversation regardless of order
         $conversation = Conversation::where(function ($q) use ($user1, $user2) {

@@ -258,11 +258,24 @@ class MaterialOrderController extends Controller
         // If status changed to 'delivered', sync to project site inventory
         if ($newStatus === 'delivered' && $oldStatus !== 'delivered') {
             foreach ($materialOrder->items as $item) {
-                if ($item->requirement_id) {
-                    $requirement = \App\Models\ProjectRequirement::find($item->requirement_id);
-                    if ($requirement) {
-                        $requirement->increment('quantity_on_site', $item->quantity);
-                    }
+                if (! $item->requirement_id) {
+                    continue;
+                }
+
+                // SCOPED TO THIS ORDER'S PROJECT.
+                //
+                // `items.*.requirement_id` is validated with a bare
+                // `exists:project_requirements,id`, so it only proves the row
+                // exists SOMEWHERE. A supplier could submit a quote with no
+                // `project_id` (or their own) and an item pointing at a VICTIM
+                // project's requirement; marking the order delivered then
+                // incremented the victim's `quantity_on_site`, inflating their
+                // bill of materials and every stock report derived from it.
+                $requirement = \App\Models\ProjectRequirement::where('project_id', $materialOrder->project_id)
+                    ->find($item->requirement_id);
+
+                if ($requirement) {
+                    $requirement->increment('quantity_on_site', $item->quantity);
                 }
             }
         }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Resources\MaterialOrderReviewResource;
 use App\Models\MaterialOrder;
 use App\Models\MaterialOrderReview;
 use Illuminate\Http\Request;
@@ -123,13 +124,24 @@ class MaterialOrderReviewController extends Controller
 
         $reviews = $query->paginate(10);
 
-        // SECURITY: hide reviewer identity data (email is not in User::$hidden).
-        $sensitive = ['email', 'email_verified_at', 'google_id', 'two_factor_secret', 'two_factor_recovery_codes', 'bank_name', 'bank_account_number', 'bank_account_name', 'unique_code'];
-        $reviews->getCollection()->each(fn ($r) => $r->user?->makeHidden($sensitive));
-
+        // An ALLOWLIST, not a denylist.
+        //
+        // This used to hide keys on ONE relation:
+        //
+        //     $sensitive = ['email', 'bank_account_number', ...];
+        //     $reviews->each(fn ($r) => $r->user?->makeHidden($sensitive));
+        //
+        // while eager-loading `order.items.material`, and `MaterialOrder` has no
+        // `$hidden` at all. So every review carried the buyer's `delivery_address`,
+        // `address_detail`, `latitude`, `longitude`, `total_price`,
+        // `whatsapp_order_id`, `payment_proof_path`, `notes` and
+        // `verification_notes` -- readable by ANY authenticated user, which is
+        // every other registered account and every competing supplier.
+        //
+        // See MaterialOrderReviewResource for the field-by-field rationale.
         return response()->json([
             'status' => 'success',
-            'data' => $reviews,
+            'data' => MaterialOrderReviewResource::collection($reviews),
         ]);
     }
 

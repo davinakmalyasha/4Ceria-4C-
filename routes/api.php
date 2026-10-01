@@ -409,7 +409,9 @@ Route::middleware(['auth:sanctum', 'freeze_pending_termination'])->group(functio
 
 // Chat
 Route::get('/conversations', [ChatController::class, 'index']);
-Route::post('/conversations', [ChatController::class, 'store']);
+// Throttled: sendMessage already was, but conversation CREATION was not, so a
+// single account could mint unlimited conversations (and notifications) in a loop.
+Route::post('/conversations', [ChatController::class, 'store'])->middleware('throttle:10,1');
 Route::get('/conversations/{conversation}', [ChatController::class, 'show']);
 Route::post('/conversations/{conversation}/messages', [ChatController::class, 'sendMessage'])->middleware('throttle:30,1');
 

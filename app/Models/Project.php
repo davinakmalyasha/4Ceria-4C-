@@ -248,6 +248,34 @@ class Project extends Model
         return $this->hasMany(ProjectMilestone::class);
     }
 
+    /**
+     * Procurement requests raised against this project's BOM.
+     *
+     * MISSING, and the code that needs it has been failing:
+     *
+     *     $project->procurementRequests()->create([...])
+     *
+     * in `ProjectRequirementController::requestProcurement()` -- which raises the
+     * "Call to undefined method App\Models\Project::procurementRequests()" 500.
+     *
+     * That path was UNREACHABLE until now, because the same method gated it on
+     *
+     *     ->where('status', 'hired')
+     *
+     * and `hired` is not a member of the `project_sub_professionals.status` enum,
+     * so `$isSubContractor` was permanently false. Fixing the enum value is what
+     * exposed this second, latent 500 underneath -- which is worth recording,
+     * because it means a sub-contractor had never successfully requested
+     * procurement and the whole flow had never been executed once.
+     *
+     * `hasMany` with an explicit key rather than the bare `project_id`
+     * convention, so it cannot silently break if the FK name changes.
+     */
+    public function procurementRequests()
+    {
+        return $this->hasMany(ProjectProcurementRequest::class, 'project_id');
+    }
+
     public function comments()
     {
         return $this->hasMany(ProjectComment::class)->orderBy('created_at', 'asc');
