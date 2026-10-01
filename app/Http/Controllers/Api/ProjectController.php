@@ -3367,20 +3367,34 @@ class ProjectController extends Controller
         // persisted stages are still checked against it here — they are, by
         // `assertPlanComplete()`, which reads the DATABASE.
         return DB::transaction(function () use ($project, $bid, $request, $user, $terminPlan) {
-            // 0. Update Project Payment Instructions using validated bank details
+            // 0. Bank details go to the SIGNER'S OWN record, and only there.
+            //
+            // This used to be followed by:
+            //
+            //     $project->update(['payment_instructions' =>
+            //         "Bank: {$bankType} | No. Rekening: {$no} | A/N: {$name}"]);
+            //
+            // which is a counterparty writing into the OWNER's authoritative
+            // payment-instruction field — the one `BriefingActionCenter` lets the
+            // owner edit and `ProjectPayments` renders to the owner as "transfer
+            // escrow here". It was also a single project-level column shared by
+            // all seven roles, so signing was last-writer-wins: architect signs,
+            // contractor signs, and the owner is left with one account belonging
+            // to neither role in particular.
+            //
+            // The owner's own instructions stay the owner's, and the payout
+            // destination per role is DERIVED from this structured, per-user data
+            // by PayoutDestinationService. Nothing trustworthy was lost: this
+            // line was the field's only non-owner writer.
             $bankType = trim($request->bank_type);
             $bankAccountNo = trim($request->bank_account_no);
             $bankAccountName = trim($request->bank_account_name);
-            
-            // Save to professional user profile
+
             $user->update([
                 'bank_name' => $bankType,
                 'bank_account_number' => $bankAccountNo,
                 'bank_account_name' => $bankAccountName,
             ]);
-
-            $paymentInstructions = "Bank: {$bankType} | No. Rekening: {$bankAccountNo} | A/N: {$bankAccountName}";
-            $project->update(['payment_instructions' => $paymentInstructions]);
 
             // Save professional signature if provided
             if ($request->signature) {
@@ -3914,7 +3928,7 @@ private function getBidModel($type)
                 'projects_hired' => $pHired,
                 'hire_rate' => $pPosted > 0 ? round(($pHired / $pPosted) * 100) : 0,
                 'active_projects' => $activeCounts[$uid] ?? 0,
-                'total_spent' => $totalSpentByOwner[$uid]?->toFloat() ?? 0.0,
+                'total_spent' => ($totalSpentByOwner[$uid] ?? null)?->toFloat() ?? 0.0,
                 'member_since' => $project->user?->created_at ? $project->user->created_at->format('M Y') : null,
             ];
         }

@@ -313,7 +313,27 @@ export interface Project {
     planning_status?: 'draft' | 'proposed' | 'pm_verified' | 'approved';
     planning_iteration?: number;
     negotiated_fee?: number;
+    /**
+     * The OWNER's own free-text note. Not the professional's: `signContract` used
+     * to overwrite this with each signer's bank details, which let a counterparty
+     * replace the client's authoritative "transfer here" string. Payout now comes
+     * from `payout_destinations`.
+     */
     payment_instructions?: string;
+    /**
+     * Where to transfer escrow, per hired role, derived from each professional's
+     * own `users.bank_*`. Owner/PM/admin only; absent for other viewers.
+     */
+    payout_destinations?: Record<string, {
+        role: string;
+        label?: string;
+        name?: string | null;
+        bank_name?: string | null;
+        bank_account_number?: string | null;
+        bank_account_name?: string | null;
+        /** false = signed without bank details; treat as a blocker. */
+        complete?: boolean;
+    }>;
     planning_submitted_at?: string;
     planning_pm_verified_at?: string;
     planning_approved_at?: string;

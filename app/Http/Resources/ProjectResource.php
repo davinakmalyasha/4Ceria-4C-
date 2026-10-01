@@ -5,6 +5,9 @@ namespace App\Http\Resources;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
+use App\Services\PayoutDestinationService;
+use App\Support\Hire;
+
 class ProjectResource extends JsonResource
 {
     public function toArray(Request $request): array
@@ -307,6 +310,9 @@ class ProjectResource extends JsonResource
             'mep_approved_at' => $this->mep_approved_at,
             'interior_approved_at' => $this->owner_interior_approved_at,
             'share_token' => $this->isPrivilegedViewer() ? $this->share_token : null,
+            // Who to pay, per role, from each professional's own structured bank
+            // record. Owner/PM/admin only; null for anyone else.
+            'payout_destinations' => $this->payoutDestinations(),
             'legal_detail' => $this->legal_detail,
             'wants_to_discuss_later' => (bool) $this->wants_to_discuss_later,
             'published_bidding_roles' => $this->published_bidding_roles ?? [],
@@ -1340,8 +1346,28 @@ class ProjectResource extends JsonResource
             return true;
         }
 
-        return (int) $this->resource->user_id === (int) $viewer->id
-            || ($this->resource->pm_id && (int) $this->resource->pm_id === (int) $viewer->id);
+        // Delegated rather than restated: this was a third copy of the
+        // owner-or-assigned-PM test, and copies of an authorization test are how
+        // the null-comparison family of bugs started. See App\Support\Hire.
+        return Hire::isOwnerOrAssignedPm($this->resource, $viewer);
+    }
+
+    /**
+     * Per-role payout destinations for the owner.
+     *
+     * Owner/PM/admin only. These are the bank details of the COUNTERPARTIES —
+     * who the client should transfer escrow to, and for which role. Deriving
+     * them here, per role, is what replaced a single shared
+     * `projects.payment_instructions` column that any hired professional could
+     * overwrite and that all seven roles raced to own.
+     */
+    private function payoutDestinations(): ?array
+    {
+        if (! $this->isPrivilegedViewer()) {
+            return null;
+        }
+
+        return app(PayoutDestinationService::class)->forProject($this->resource);
     }
 
     private function pii($value)

@@ -374,7 +374,27 @@ export const ContractSignModal: React.FC<ContractSignModalProps> = ({ isOpen, on
             } else {
                 let initialInstructions = '';
                 if (isClient || bid?.pro_signature_url) {
-                    initialInstructions = bid?.payment_instructions || project?.payment_instructions || '';
+                    // For the CLIENT, prefer the STRUCTURED per-role payout
+                    // destination over the free-text blob.
+                    //
+                    // `project.payment_instructions` is the OWNER's own field.
+                    // It used to also be written by every professional who signed
+                    // (in `signContract`), which made a counterparty able to
+                    // replace the client's authoritative "transfer here" string —
+                    // and because one project-level column served all seven
+                    // roles, signing was last-writer-wins. That server write has
+                    // been removed; `payout_destinations` now derives each role's
+                    // destination from the professional's own `users.bank_*`.
+                    const destination = project?.payout_destinations?.[bidType];
+
+                    if (destination) {
+                        setBankType(destination.bank_name || '');
+                        setBankAccountNo(destination.bank_account_number || '');
+                        setBankAccountName(destination.bank_account_name || '');
+                    } else {
+                        initialInstructions = bid?.payment_instructions || project?.payment_instructions || '';
+                    }
+
                     if (isClient && bid?.client_signature_url) {
                         setProfessionalSigUrl(bid.client_signature_url);
                         setHasSigned(true);

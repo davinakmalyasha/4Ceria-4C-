@@ -20,6 +20,39 @@ interface ProjectPaymentsProps {
     onOpenChat?: (user: any) => void;
 }
 
+export interface PayoutDestination {
+    role: string;
+    label?: string;
+    name?: string | null;
+    bank_name?: string | null;
+    bank_account_number?: string | null;
+    bank_account_name?: string | null;
+    complete?: boolean;
+}
+
+/**
+ * The payout destination(s) for a payment group.
+ *
+ * `engineering` is the one group that merges TWO professionals (structural and
+ * mep share a phase), so it resolves per `role_type` on each payment rather than
+ * by the group key — otherwise the group would show one person's account for
+ * two people's invoices.
+ *
+ * Derived from `payout_destinations`, which the API builds from each hired
+ * professional's own `users.bank_*`. The previous source,
+ * `project.payment_instructions`, was a single shared string that any hired
+ * professional could overwrite at signing.
+ */
+export function destinationsForGroup(group: any, all: PayoutDestination[] = []): PayoutDestination[] {
+    const byRole = new Map(all.map(d => [d.role, d]));
+
+    const keys = group?.roleType === 'engineering'
+        ? [...new Set((group.payments || []).map((p: any) => p.role_type).filter(Boolean))]
+        : [group?.roleType].filter(Boolean);
+
+    return keys.map(k => byRole.get(k)).filter(Boolean) as PayoutDestination[];
+}
+
 export default function ProjectPayments({ project, user, onRefresh, onOpenChat }: ProjectPaymentsProps) {
     const { showToast } = useToast();
     const [selectedBid, setSelectedBid] = useState<any>(null);
@@ -474,7 +507,41 @@ export default function ProjectPayments({ project, user, onRefresh, onOpenChat }
                                                 </div>
                                             </div>
                                             <div className="text-sm text-zinc-600 font-bold leading-relaxed bg-white p-5 rounded-2xl border border-zinc-200 shadow-sm italic">
-                                                {project?.payment_instructions || group.verificationNotes || group.pmNotes || group.architectNotes || 'Please contact the professional via WhatsApp or Chat to get their bank account details for transfer.'}
+                                                {(() => {
+                                                    const destinations = destinationsForGroup(
+                                                        group,
+                                                        project?.payout_destinations || [],
+                                                    );
+
+                                                    if (destinations.length === 0) {
+                                                        return project?.payment_instructions
+                                                            || group.verificationNotes
+                                                            || group.pmNotes
+                                                            || group.architectNotes
+                                                            || 'This professional has not provided bank details yet. Do not transfer until they appear here — the platform cannot verify an account that was never recorded.';
+                                                    }
+
+                                                    return (
+                                                        <div className="space-y-3 not-italic">
+                                                            {destinations.map(d => (
+                                                                <div key={d.role} className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                                                                    <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest shrink-0">
+                                                                        {d.label || d.role}
+                                                                    </span>
+                                                                    <span className="font-black text-zinc-900">{d.name || '—'}</span>
+                                                                    <span className="text-zinc-500">
+                                                                        {d.bank_name || '—'} · {d.bank_account_number || '—'} · {d.bank_account_name || '—'}
+                                                                    </span>
+                                                                    {!d.complete && (
+                                                                        <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-amber-600">
+                                                                            <AlertCircle size={11} /> incomplete
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    );
+                                                })()}
                                             </div>
                                         </div>
                                     )}
