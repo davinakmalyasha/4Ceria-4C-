@@ -162,7 +162,7 @@ class ProjectDocumentController extends Controller
         // L9 FIX: delete from the SAME disk the file was written to (vault
         // disk, default railway) — the old public-disk delete was a no-op
         // that left private contract files alive after "deletion".
-        Storage::disk(config('filesystems.vault_disk', 'railway'))->delete($document->file_path);
+        Storage::disk(\App\Support\Vault::disk())->delete($document->file_path);
         $document->delete();
         
         $this->logActivity($project, 'document_deleted', "Removed: {$name}");

@@ -253,7 +253,7 @@ class ProfileController extends Controller
             foreach (['file_portofolio', 'npwp'] as $oldField) {
                 $oldPath = $profile->$oldField;
                 if ($oldPath && !in_array($oldPath, [$updates['file_portofolio'] ?? null, $updates['npwp'] ?? null], true)) {
-                    Storage::disk('railway')->delete($oldPath);
+                    Storage::disk(\App\Support\Vault::disk())->delete($oldPath);
                 }
             }
             // SECURITY: file_portofolio is KYC-grade (KTP scans / NPWP land
@@ -270,7 +270,7 @@ class ProfileController extends Controller
             foreach (['file_sertifikat', 'siup'] as $oldField) {
                 $oldPath = $profile->$oldField;
                 if ($oldPath && !in_array($oldPath, [$updates['file_sertifikat'] ?? null, $updates['siup'] ?? null], true)) {
-                    Storage::disk('railway')->delete($oldPath);
+                    Storage::disk(\App\Support\Vault::disk())->delete($oldPath);
                 }
             }
             // SECURITY: SIUP/business licenses are KYC-grade — private bucket.

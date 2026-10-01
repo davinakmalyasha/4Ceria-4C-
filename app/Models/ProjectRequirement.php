@@ -51,9 +51,12 @@ class ProjectRequirement extends Model
         }
 
         try {
-            return \Illuminate\Support\Facades\Storage::disk('railway')->temporaryUrl($this->image_path, now()->addHours(24));
+            // Requirement images live on the private vault disk in production and
+            // on `public` locally; this previously named `railway` only, so a
+            // locally stored requirement image rendered a broken link.
+            return \App\Support\Vault::url($this->image_path, 24);
         } catch (\Throwable $e) {
-            return \Illuminate\Support\Facades\Storage::disk('railway')->url($this->image_path);
+            return null;
         }
     }
 

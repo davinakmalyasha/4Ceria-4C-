@@ -120,8 +120,8 @@ class PaymentVerificationService
             // they are surfaced back through presigned URLs.
             $path = $file->store('receipts', 'railway');
 
-            if ($model->payment_proof_path && Storage::disk('railway')->exists($model->payment_proof_path)) {
-                Storage::disk('railway')->delete($model->payment_proof_path);
+            if ($model->payment_proof_path && Storage::disk(\App\Support\Vault::disk())->exists($model->payment_proof_path)) {
+                Storage::disk(\App\Support\Vault::disk())->delete($model->payment_proof_path);
             }
 
             $model->payment_proof_path = $path;

@@ -15,18 +15,22 @@ class ProjectContractService
      *
      * WHY A HELPER
      * ------------
-     * `projects` has NO `location_address` column. Reading it throws
+* `projects` has NO `location_address` column. Reading it throws
      * MissingAttributeException under `Model::shouldBeStrict(!isProduction())`
      * — so it is a 500 locally and a silent null in production.
      *
-     * That reference was fixed once, in `generateSPKDraft`, and left in place
-     * in `storeContractSnapshot`. The snapshot builder is the one that runs on
-     * the OWNER'S COUNTER-SIGNATURE, so the half-fix turned it into: signing
-     * works when `lokasi` is populated and fails when it is not — and `lokasi`
-     * is nullable, so that is a reachable state. Same drift pattern as the
-     * `/legal-disbursements` and material-quote pairs, now the fourth instance.
+     * That reference was fixed once, in `generateSPKDraft`, and left in place in
+     * BOTH `storeContractSnapshot` and the counter-signature snapshot builder.
+     * The snapshot builder is the one that runs on the OWNER'S COUNTER-SIGNATURE,
+     * so the half-fix turned it into: signing works when `lokasi` is populated
+     * and fails when it is not — and `lokasi` is nullable, so that is a reachable
+     * state. Same drift pattern as the `/legal-disbursements` and material-quote
+     * pairs, then a fourth instance when a third call site was added here and the
+     * helper was not used.
      *
-     * One helper, two call sites, so it cannot diverge again.
+     * ONE helper, and now ALL call sites, so it cannot diverge again. A grep for
+     * `location_address` returns only this docblock and the two SPA lines fixed
+     * alongside it.
      *
      * `lokasi` is the free-text address the owner typed at creation and is
      * preferred because it is what they actually entered. The structured
@@ -34,7 +38,12 @@ class ProjectContractService
      * bare `city`, because a legally-binding snapshot with only a city name is
      * not much of a location.
      */
-    private static function projectLocation(Project $project): string
+    /**
+     * The project's address, NEVER empty.
+     *
+     * @return string
+     */
+    public static function projectLocation(Project $project): string
     {
         $lokasi = trim((string) ($project->lokasi ?? ''));
 
@@ -42,7 +51,7 @@ class ProjectContractService
             return $lokasi;
         }
 
-        return collect([
+        $structured = collect([
             $project->street_name,
             $project->kelurahan,
             $project->kecamatan,
@@ -54,6 +63,16 @@ class ProjectContractService
             ->filter()
             ->unique()
             ->implode(', ');
+
+        // A total function. This is interpolated into a binding contract
+        // clause, so returning "" produced
+        //
+        //     "... yang berlokasi di  dengan rincian lingkup ..."
+        //
+        // Every field can legitimately be NULL for a project created without an
+        // address, so the empty case is reachable and must read as a placeholder
+        // a human must complete, not as a gap.
+        return $structured !== '' ? $structured : 'Lokasi Proyek';
     }
 
     /**
@@ -199,7 +218,7 @@ class ProjectContractService
                     'signed_at' => now()->toDateTimeString(),
                 ],
                 'articles' => [
-                    ['title' => 'PASAL 1: LINGKUP PEKERJAAN', 'content' => "Pihak Pertama memberikan tugas kepada Pihak Kedua, dan Pihak Kedua menerima tugas tersebut untuk melaksanakan pekerjaan {$project->title} yang berlokasi di " . ($project->lokasi ?? $project->location_address ?? 'Lokasi Proyek') . " dengan rincian lingkup tugas sesuai kesepakatan dan standar pengerjaan platform 4Ceria."],
+                    ['title' => 'PASAL 1: LINGKUP PEKERJAAN', 'content' => "Pihak Pertama memberikan tugas kepada Pihak Kedua, dan Pihak Kedua menerima tugas tersebut untuk melaksanakan pekerjaan {$project->title} yang berlokasi di " . self::projectLocation($project) . " dengan rincian lingkup tugas sesuai kesepakatan dan standar pengerjaan platform 4Ceria."],
                     ['title' => 'PASAL 2: NILAI PEKERJAAN & JASA', 'content' => "Total nilai pekerjaan disepakati sebesar Rp " . number_format($fee, 0, ',', '.') . ". Jumlah ini sudah termasuk seluruh paket dasar jasa profesional serta dokumen-dokumen hukum pendukung yang telah dipilih dan disepakati di platform."],
                     ['title' => 'PASAL 3: SKEMA PEMBAYARAN ESCROW', 'content' => "Pembayaran dilakukan secara termin menggunakan sistem Rekening Bersama (Escrow) 4Ceria. Setiap pencairan dana hanya dilakukan setelah deliverables/scope pada termin bersangkutan diunggah di dalam Document Vault dan disetujui oleh Pihak Pertama atau Project Manager yang ditunjuk."],
                     ['title' => 'PASAL 4: PENYELESAIAN PERSELISIHAN', 'content' => "Apabila terjadi perselisihan atau perbedaan pendapat dalam pelaksanaan perjanjian ini, para pihak sepakat untuk menyelesaikan secara musyawarah mufakat, atau menggunakan layanan mediasi yang disediakan oleh platform 4Ceria sebelum menempuh jalur hukum formal."],
@@ -209,7 +228,7 @@ class ProjectContractService
             $fileName = "SPK_{$roleType}_{$project->id}_signed.json";
             $filePath = "contracts/project_{$project->id}/" . $fileName;
             
-            \Illuminate\Support\Facades\Storage::disk('railway')->put($filePath, json_encode($snapshotData, JSON_PRETTY_PRINT));
+            \Illuminate\Support\Facades\Storage::disk(\App\Support\Vault::disk())->put($filePath, json_encode($snapshotData, JSON_PRETTY_PRINT));
 
             return ProjectDocument::updateOrCreate(
                 [

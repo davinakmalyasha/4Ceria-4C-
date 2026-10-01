@@ -20,10 +20,14 @@ class ProjectDocument extends Model
             return null;
         }
 
-        // Check if the path points to private (Railway) storage items
+        // Check if the path points to private (vault) storage items
         if (str_starts_with($this->file_path, 'contracts/') || str_starts_with($this->file_path, 'verifications/') || $this->category === 'spk') {
-            if (\Illuminate\Support\Facades\Storage::disk('railway')->exists($this->file_path)) {
-                return \Illuminate\Support\Facades\Storage::disk('railway')->temporaryUrl($this->file_path, now()->addMinutes(15));
+            // Resolves BOTH layouts: the configured vault disk in production and
+            // `public` locally (VAULT_DISK=public). See App\Support\Vault.
+            $private = \App\Support\Vault::url($this->file_path, 15);
+
+            if ($private !== null) {
+                return $private;
             }
         }
 

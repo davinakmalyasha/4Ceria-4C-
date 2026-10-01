@@ -1443,14 +1443,10 @@ class ProjectResource extends JsonResource
             }
 
             $url = null;
-            $disk = \Illuminate\Support\Facades\Storage::disk('railway');
-
-            if ($disk->exists($path)) {
-                $url = $disk->temporaryUrl($path, now()->addMinutes(30));
-            } else {
-                // Legacy receipt still living on the public disk.
-                $url = $this->publicUrl($path);
-            }
+            // The configured vault disk, not a hardcoded 'railway' -- otherwise a
+            // locally stored private file resolves as missing and silently falls
+            // through to the public URL.
+            $url = \App\Support\Vault::url($path, 30);
 
             $request->attributes->set($memoKey, $url);
 

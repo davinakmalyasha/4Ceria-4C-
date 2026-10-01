@@ -309,7 +309,7 @@ export default function ProjectContractViewerModal({
                             <div className="space-y-2">
                                 <h5 className="font-extrabold text-stone-850 text-[10px] uppercase tracking-wide">PASAL 1: LINGKUP PEKERJAAN</h5>
                                 <p className="text-justify pl-4 border-l border-stone-200">
-                                    Pihak Pertama memberikan tugas kepada Pihak Kedua, dan Pihak Kedua menerima tugas tersebut untuk melaksanakan pekerjaan <strong>{snapshot?.project?.title || project.title}</strong> yang berlokasi di <strong>{snapshot?.project?.location || project.lokasi || project.location_address || 'Lokasi Proyek'}</strong> dengan rincian lingkup tugas sesuai kesepakatan dan standar pengerjaan platform 4Ceria.
+                                    Pihak Pertama memberikan tugas kepada Pihak Kedua, dan Pihak Kedua menerima tugas tersebut untuk melaksanakan pekerjaan <strong>{snapshot?.project?.title || project.title}</strong> yang berlokasi di <strong>{snapshot?.project?.location || project.lokasi || 'Lokasi Proyek'}</strong> dengan rincian lingkup tugas sesuai kesepakatan dan standar pengerjaan platform 4Ceria.
                                 </p>
                             </div>
 

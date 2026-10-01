@@ -623,7 +623,7 @@ class DisputeService
             throw new Exception('This message has no evidence attachment.', 404);
         }
 
-        $disk = Storage::disk('railway');
+        $disk = Storage::disk(\App\Support\Vault::disk());
 
         if (! $disk->exists($message->evidence_path)) {
             throw new Exception('Evidence file not found.', 404);

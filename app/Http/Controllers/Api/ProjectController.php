@@ -3438,7 +3438,7 @@ class ProjectController extends Controller
                     if ($signatureData !== false) {
                         $timestamp = $bid->created_at ? $bid->created_at->timestamp : time();
                         $fileName = "signature_{$request->bid_type}_{$bid->id}_{$timestamp}.png";
-                        Storage::disk('railway')->put("contracts/project_{$project->id}/signatures/" . $fileName, $signatureData);
+                        Storage::disk(\App\Support\Vault::disk())->put("contracts/project_{$project->id}/signatures/" . $fileName, $signatureData);
                         \Illuminate\Support\Facades\Cache::forget("sig_exists_{$project->id}_{$request->bid_type}_{$bid->id}_{$timestamp}");
                     }
                 }
@@ -3727,9 +3727,9 @@ class ProjectController extends Controller
         $timestamp = $bid->created_at ? $bid->created_at->timestamp : time();
         $proFileName = "signature_{$request->bid_type}_{$bid->id}_{$timestamp}.png";
         
-        $proSignatureExists = Storage::disk('railway')->exists("contracts/project_{$project->id}/signatures/" . $proFileName) ||
+        $proSignatureExists = Storage::disk(\App\Support\Vault::disk())->exists("contracts/project_{$project->id}/signatures/" . $proFileName) ||
                               Storage::disk('public')->exists("contracts/project_{$project->id}/signatures/" . $proFileName) ||
-                              Storage::disk('railway')->exists("signatures/" . $proFileName) ||
+                              Storage::disk(\App\Support\Vault::disk())->exists("signatures/" . $proFileName) ||
                               Storage::disk('public')->exists("signatures/" . $proFileName);
         if (!$proSignatureExists) {
             return response()->json(['message' => 'The professional must sign the contract first.'], 422);
@@ -3760,7 +3760,7 @@ class ProjectController extends Controller
                 
                 if ($signatureData !== false) {
                     $fileName = "signature_{$request->bid_type}_{$bid->id}_{$timestamp}_client.png";
-                    Storage::disk('railway')->put("contracts/project_{$project->id}/signatures/" . $fileName, $signatureData);
+                    Storage::disk(\App\Support\Vault::disk())->put("contracts/project_{$project->id}/signatures/" . $fileName, $signatureData);
                     \Illuminate\Support\Facades\Cache::forget("sig_exists_{$project->id}_{$request->bid_type}_{$bid->id}_{$timestamp}_client");
                 }
             } else {

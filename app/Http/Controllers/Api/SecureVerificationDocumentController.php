@@ -78,7 +78,7 @@ class SecureVerificationDocumentController extends Controller
                 $options['ResponseContentDisposition'] = 'inline; filename="' . basename($path) . '"';
             }
 
-            $temporaryUrl = Storage::disk('railway')->temporaryUrl($path, now()->addMinutes(5), $options);
+            $temporaryUrl = Storage::disk(\App\Support\Vault::disk())->temporaryUrl($path, now()->addMinutes(5), $options);
             return response()->json(['url' => $temporaryUrl]);
         } catch (\Exception $e) {
             // S3 SDK errors can embed bucket names/endpoints — log, don't echo

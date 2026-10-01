@@ -246,7 +246,7 @@ export const ContractSignModal: React.FC<ContractSignModalProps> = ({ isOpen, on
                 <div className="space-y-1.5">
                     <h5 className="font-bold text-stone-850 text-[10px]">PASAL 1: LINGKUP PEKERJAAN</h5>
                     <p className="text-justify pl-3 border-l border-stone-200">
-                        Pihak Pertama memberikan tugas kepada Pihak Kedua, dan Pihak Kedua menerima tugas tersebut untuk melaksanakan pekerjaan <strong>{project.title}</strong> yang berlokasi di <strong>{project.lokasi || project.location_address || 'Lokasi Proyek'}</strong> dengan rincian lingkup tugas sesuai kesepakatan dan standar pengerjaan platform 4Ceria.
+                        Pihak Pertama memberikan tugas kepada Pihak Kedua, dan Pihak Kedua menerima tugas tersebut untuk melaksanakan pekerjaan <strong>{project.title}</strong> yang berlokasi di <strong>{project.lokasi || 'Lokasi Proyek'}</strong> dengan rincian lingkup tugas sesuai kesepakatan dan standar pengerjaan platform 4Ceria.
                     </p>
                 </div>
 
