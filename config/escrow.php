@@ -39,6 +39,32 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Platform fee
+    |--------------------------------------------------------------------------
+    |
+    | ZERO BY DEFAULT, deliberately. The product copy in
+    | `resources/js/constants/docs/commonDocs.ts` states:
+    |
+    |   "4Ceria does not currently charge a platform fee. That is a deliberate
+    |    current state, not a hidden charge, and we would rather tell you plainly
+    |    than list fees that do not exist in the product."
+    |
+    | and
+    |
+    |   "If a future release introduces a platform fee, it will be itemised on the
+    |    project ledger next to the payment it applies to, not deducted invisibly."
+    |
+    | So the default keeps that copy literally true, and when a percentage IS set,
+    | PlatformFeeService writes a SEPARATE `platform_fee` ledger row beside the
+    | payment it applies to -- never a combined figure, and never taken out of the
+    | professional's fee.
+    |
+    */
+
+    'platform_fee_percent' => (float) env('ESCROW_PLATFORM_FEE_PERCENT', 0),
+
+    /*
+    |--------------------------------------------------------------------------
     | Warranty / defects-liability window
     |--------------------------------------------------------------------------
     |

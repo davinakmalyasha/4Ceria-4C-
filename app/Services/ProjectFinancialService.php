@@ -263,8 +263,30 @@ class ProjectFinancialService
                     ? substr($refModel, strrpos($refModel, '\\') + 1)
                     : $refModel;
 
+                // `transaction_type` IS part of this check, and must be.
+                //
+                // The unique index `budget_tx_reference_unique` is
+                // (project_id, reference_model, reference_id, transaction_type) --
+                // so the DATABASE permits a second movement of a DIFFERENT type
+                // against the same reference. This check omitted the type, making
+                // the application STRICTER than the schema: a `platform_fee` sharing
+                // a payment's reference was treated as a duplicate of it and
+                // silently RETURNED TRUE WITHOUT INSERTING A ROW.
+                //
+                // That failure mode is the dangerous kind: `recordPayment()` reports
+                // success, the caller believes it was charged, and the ledger has no
+                // record of it. It also affected `adjustment_down` after a `payment`
+                // on the same termin.
+                //
+                // Double-charge protection is UNHARMED: a repeat of the same payment
+                // against the same reference is still the same type, so it still
+                // matches. What is now permitted is what the index always intended.
+                //
+                // `transaction_type` is never taken from a request in any call site,
+                // so this cannot be widened by a client.
                 $exists = ProjectBudgetTransaction::where('project_id', $project->id)
                     ->where('reference_id', $refId)
+                    ->where('transaction_type', $type)
                     ->where(function ($q) use ($refModel, $shortName) {
                         $q->where('reference_model', $refModel)
                             ->orWhere('reference_model', $shortName);
@@ -378,6 +400,29 @@ class ProjectFinancialService
     ): bool {
         $money = $amount instanceof Money ? $amount : Money::fromColumn($amount);
 
-        return $this->deductBudget($project, $money, 'payment', $title, $refModel, $refId);
+        $written = $this->deductBudget($project, $money, 'payment', $title, $refModel, $refId);
+
+        // THE PLATFORM FEE IS ITEMISED BESIDE THE PAYMENT, NOT FOLDED INTO IT.
+        //
+        // This is the single chokepoint every payment goes through -- callers pass
+        // `type => 'bid_arsitek'`, `'termin'`, `MaterialQuote`, and so on, and all of
+        // them end up calling `recordPayment()`. Charging the fee here is therefore
+        // the one place that guarantees it cannot be forgotten by the next caller,
+        // which is exactly how `retention_amount` ended up hardcoded to 0 in one of
+        // six sites.
+        //
+        // It is a SEPARATE row of type `platform_fee`, sharing the payment's
+        // reference, so a client can reconcile the two -- and so the fee is never
+        // taken out of the professional's fee. `PlatformFeeService` no-ops while
+        // `escrow.platform_fee_percent` is 0, which is the default and keeps the
+        // shipped product copy literally true.
+        //
+        // Only attempted when the payment itself was written, so a deduplicated or
+        // refused payment cannot attract a fee.
+        if ($written && $refModel !== null && $refId !== null) {
+            app(PlatformFeeService::class)->recordFor($project, $money, $refModel, $refId, $title);
+        }
+
+        return $written;
     }
 }

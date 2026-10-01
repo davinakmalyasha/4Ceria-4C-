@@ -49,10 +49,11 @@ use Illuminate\Support\Facades\DB;
  *    bypasses the guard. Both are worth knowing.
  *
  * 5. RETENTION RECORDED BUT NOT RELEASED.
- *    `retention_amount` has exactly one write site and it hardcodes 0, so this
- *    is expected to report nothing until D1 lands. It is included so the
- *    invariant is pinned BEFORE retention becomes real, rather than discovered
- *    afterwards.
+ *    Retention is real as of D1: `ProjectPaymentTermin::creating()` fills the
+ *    split so no stage can be minted with a zeroed column by forgetting, and
+ *    `escrow:release-retention` marks each stage released in the same transaction
+ *    that writes its ledger row. A hit here means the scheduled command has not
+ *    run, or the balance is legitimately held back by an open warranty claim.
  *
  * READ-ONLY, ALWAYS
  * -----------------
@@ -329,10 +330,18 @@ class ReconcileEscrowCommand extends Command
     /**
      * 5. Retention must eventually be released.
      *
-     * `retention_amount` has one write site and it hardcodes 0, so this reports
-     * nothing until D1 makes retention real. It is pinned NOW because the
-     * invariant is only checkable once a non-zero value can exist, and finding
-     * it after the fact would be too late.
+     * WAS: "`retention_amount` has one write site and it hardcodes 0, so this
+     * reports nothing until D1 makes retention real." It is pinned NOW because the
+     * invariant is only checkable once a non-zero value can exist, and finding it
+     * after the fact would be too late.
+     *
+     * NOW: retention is real. `ProjectPaymentTermin::creating()` fills the split,
+     * so a stage cannot be minted with `retention_amount = 0` by forgetting, and
+     * `escrow:release-retention` marks each stage released in the same transaction
+     * that writes its ledger row. So this check has something to bite on: it will
+     * fire on a balance that has been held past the warranty date with nothing
+     * released -- which means either the scheduled command has not run, or it is
+     * being blocked by an open warranty claim (which it reports separately).
      */
     private function checkRetentionNeverReleased(bool $details, ?string $projectId): int
     {

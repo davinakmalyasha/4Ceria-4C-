@@ -33,6 +33,24 @@ Artisan::command('inspire', function () {
     ->onOneServer()
     ->withoutOverlapping(30);
 
+// Retention: release balances whose warranty period has expired.
+//
+// DAILY, not hourly. A retention balance becomes releasable by the passage of
+// time, so there is nothing to gain from checking more often, and the command
+// issues one grouped query plus a per-project claim query -- cheap, but still a
+// query set every hour for a decision that can only change once a day.
+//
+// `onOneServer()` is doing real work here, not just polish. The command is
+// idempotent by design (it re-reads `retention_released_at` inside the
+// transaction that writes the ledger row), so a duplicate run pays nothing
+// twice -- but paying nothing twice still costs a transaction and a lock on every
+// replica. The guard avoids that, and `withoutOverlapping()` covers a slow run
+// overlapping its own next tick.
+\Illuminate\Support\Facades\Schedule::command('escrow:release-retention')
+    ->dailyAt('06:30')
+    ->onOneServer()
+    ->withoutOverlapping(30);
+
 // PERF: keep hot tables (notifications, tokens, failed jobs) from growing
 // forever. Notification::prunable() targets read-and-older-than-90d rows.
 \Illuminate\Support\Facades\Schedule::command('model:prune')
