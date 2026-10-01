@@ -75,6 +75,43 @@ class RetentionService
     }
 
     /**
+     * What a termin payment should actually debit.
+     *
+     * READS THE PERSISTED SPLIT, never recomputes it. The stage was split once,
+     * when it was created, at the retention rate the parties agreed to. If the
+     * configured rate is changed afterwards, a recompute would silently move the
+     * professional's net -- and the figure would no longer match the one they
+     * accepted at negotiation. The stored `net_amount` is the contract; this
+     * reads the contract.
+     *
+     * Legacy rows (created before D1) have `net_amount` of 0 because the column
+     * did not exist. For those the gross is returned: they carry no retention to
+     * withhold, so there is nothing to split, and paying 0 for a stage the client
+     * approved would be a far worse answer than paying what was contracted.
+     *
+     * @return array{net: Money, retention: Money}
+     */
+    public function forTermin(ProjectPaymentTermin $termin): array
+    {
+        $gross = Money::fromColumn($termin->amount);
+        $net = Money::fromColumn($termin->net_amount);
+        $retention = Money::fromColumn($termin->retention_amount);
+
+        if (! $net->isPositive() && $retention->isPositive()) {
+            // A half-written split is not a legacy row, it is corruption. Paying
+            // the gross would overpay; the honest answer is to hold back the
+            // recorded retention and let `money:reconcile` flag the stage.
+            return ['net' => $gross->subtract($retention), 'retention' => $retention];
+        }
+
+        if (! $net->isPositive() && ! $retention->isPositive()) {
+            return ['net' => $gross, 'retention' => Money::zero()];
+        }
+
+        return ['net' => $net, 'retention' => $retention];
+    }
+
+    /**
      * Apply retention to a stage and persist the split.
      *
      * Safe to call more than once for the same stage: recomputes from `amount`

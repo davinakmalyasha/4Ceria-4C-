@@ -130,7 +130,7 @@ export default function ExploreArchitects({ architects, isLoading, onSelectArchi
                 <>
                     <div className={`max-w-7xl mx-auto w-full grid gap-6 ${viewMode === 'grid' ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' : 'grid-cols-1 md:grid-cols-2'}`}>
                         {displayed.map(arch => (
-                            <ArchitectCard key={arch.id || Math.random()} arch={arch} viewMode={viewMode} onSelect={onSelectArchitect} isFav={isFavorite(arch.id)} onToggleFav={handleToggleFav} />
+                            <ArchitectCard key={arch.id} arch={arch} viewMode={viewMode} onSelect={onSelectArchitect} isFav={isFavorite(arch.id)} onToggleFav={handleToggleFav} />
                         ))}
                     </div>
                     {hasMore && (

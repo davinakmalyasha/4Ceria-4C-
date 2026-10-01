@@ -131,10 +131,23 @@ class ReleaseExpiredRetentionCommand extends Command
                         // ceiling -- but a project whose budget was reduced after
                         // the fact could not be, and returning false rather than
                         // throwing leaves the stage unreleased for the next run.
+                        //
+                        // THE TYPE MUST BE `retention_release`, NOT `payment`.
+                        //
+                        // `deductBudget()` dedupes on (project_id, reference_id,
+                        // transaction_type, reference_model). The termin's own
+                        // payment already occupies (this project, this termin,
+                        // 'payment', ProjectPaymentTermin). Releasing under the
+                        // same type therefore MATCHED that row, returned `true`
+                        // WITHOUT INSERTING, and the command marked the stage
+                        // released and reported success -- so the escrow was never
+                        // debited and the retention was neither held nor released.
+                        // A silent no-op that reports success, which is the worst
+                        // of the failure modes AGENTS.md trap 12 warns about.
                         if (! $financial->deductBudget(
                             $project,
                             $amount,
-                            'payment',
+                            'retention_release',
                             "Retention released: {$stage->label} (warranty expired)",
                             \App\Models\ProjectPaymentTermin::class,
                             $stage->id,

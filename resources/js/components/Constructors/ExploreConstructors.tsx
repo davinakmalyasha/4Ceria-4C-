@@ -130,7 +130,7 @@ export default function ExploreConstructors({ constructors, isLoading, onSelectC
                 <>
                     <div className={`max-w-7xl mx-auto w-full grid gap-6 ${viewMode === 'grid' ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' : 'grid-cols-1 md:grid-cols-2'}`}>
                         {displayed.map(cons => (
-                            <ConstructorCard key={cons.id || Math.random()} cons={cons} viewMode={viewMode} onSelect={onSelectConstructor} isFav={isFavorite(cons.id)} onToggleFav={handleToggleFav} />
+                            <ConstructorCard key={cons.id} cons={cons} viewMode={viewMode} onSelect={onSelectConstructor} isFav={isFavorite(cons.id)} onToggleFav={handleToggleFav} />
                         ))}
                     </div>
                     {hasMore && (

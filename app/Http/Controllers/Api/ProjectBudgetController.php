@@ -239,10 +239,20 @@ class ProjectBudgetController extends Controller
      *
      * `source` is recorded on the activity row so arbitration can tell an
      * owner-declared release apart from a counterparty-verified one.
+     *
+     * ACCEPTS `Money`, NOT JUST `float`. For a termin the amount is the net after
+     * retention and arrives as an `App\Support\Money`. The old `float` signature
+     * forced a `(float)` cast at the call site, which threw on the object and
+     * turned a successful payment into a 500 -- after the ledger row had already
+     * been written, so the professional was paid and the owner got an error.
+     * Formatting goes through `Money` for the same reason it exists everywhere
+     * else: `number_format` on a float is how a sen becomes a visible lie.
      */
-    private function recordPaymentReleased(Project $project, string $title, float $amount, string $type, int $id, string $source = 'owner_declared'): void
+    private function recordPaymentReleased(Project $project, string $title, \App\Support\Money|float|int|string $amount, string $type, int $id, string $source = 'owner_declared'): void
     {
-        $formatted = 'Rp '.number_format($amount, 0, ',', '.');
+        $money = $amount instanceof \App\Support\Money ? $amount : \App\Support\Money::fromColumn($amount);
+
+        $formatted = 'Rp '.number_format($money->toFloat(), 0, ',', '.');
 
         \App\Models\ProjectActivityLog::create([
             'project_id' => $project->id,
@@ -602,7 +612,25 @@ class ProjectBudgetController extends Controller
                     throw new \Exception('This payment has already been marked as paid.', 422);
                 }
                 $termin->update(['status' => 'paid', 'paid_at' => now()]);
-                $amount = $termin->amount;
+
+                // DEBIT THE NET, NOT THE GROSS. This is what makes retention real.
+                //
+                // `$termin->amount` is the contracted stage value. Retention is the
+                // slice of it held back until the warranty expires, so paying the
+                // GROSS here would hand the professional money that is supposed to
+                // stay in escrow -- and the later release would then be a SECOND
+                // debit of the same rupiah, against a ceiling that no longer had it.
+                //
+                // `net_amount` is computed from the gross by
+                // `ProjectPaymentTermin::creating()` using the configured retention
+                // percent, so this cannot drift from the figure shown at negotiation.
+                //
+                // Termin rows predating D1 have `net_amount` of 0. Falling back to
+                // the gross for those is the honest answer: they carry no retention
+                // to withhold, and paying 0 would be worse than paying the contract.
+                $retentionHeld = app(\App\Services\RetentionService::class)->forTermin($termin);
+                $amount = $retentionHeld['net'];
+
                 
                 // CRITICAL FIX: Include role in title so it's not always "Contractor"
                 $roleLabel = match($termin->role_type) {
@@ -621,9 +649,15 @@ class ProjectBudgetController extends Controller
             // the same guarantees as verifyProof: project row lock (TOCTOU),
             // affordability check against budget minus ledger, and one ledger
             // row per reference (the unique index is the final backstop).
+            //
+            // NO `(float)` CAST. For a termin `$amount` is now an `App\Support\Money`
+            // (the net, after retention), and casting it threw when the object was
+            // reached. `deductBudget()` accepts `Money|string|int|float` and converts
+            // internally, so passing it through untouched is both correct and the
+            // reason a float never has to appear on a money path.
             $deducted = $financialService->deductBudget(
                 $project,
-                (float) $amount,
+                $amount,
                 'payment',
                 $title,
                 $referenceModel,
@@ -640,7 +674,7 @@ class ProjectBudgetController extends Controller
             // silent: the professional's dashboard never changed, and dispute
             // arbitration had no way to distinguish an owner-declared release
             // from a counterparty-verified one.
-            $this->recordPaymentReleased($project, $title, (float) $amount, $request->type, (int) $request->id);
+            $this->recordPaymentReleased($project, $title, $amount, $request->type, (int) $request->id);
 
             // Invalidate the cached budget summary immediately.
             $project->touch();

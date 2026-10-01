@@ -34,6 +34,28 @@ export default defineConfig(({ mode }) => {
     // bundle with maplibre inline).
     const manualChunks = (id) => {
         if (id.includes('node_modules')) {
+            // LAZY-ONLY LIBRARIES. RETURN `undefined` SO THE DYNAMIC IMPORT WINS.
+            //
+            // The three PDF/canvas call sites are all already correct --
+            // `await import('jspdf')` at utils/exporters.ts:35,
+            // QuoteHistoryTab.tsx:83 and FinalHandover.tsx:162. The dynamic
+            // import boundary was then UNDONE by the `return 'vendor'`
+            // catch-all below, because a manual-chunk assignment takes
+            // precedence over Rollup's own code splitting.
+            //
+            // Verified against the committed build: the eager `vendor-*.js` chunk
+            // held 92 jsPDF hits and 23 html2canvas hits, while every feature
+            // chunk that needs them held zero -- a single copy, in the chunk
+            // `index.html` modulepreloads. ~530 KB raw / ~200 KB gzip of PDF
+            // machinery, downloaded and parsed on the landing page by every
+            // visitor, for a feature behind a button.
+            //
+            // `undefined` is the documented way to opt a module out of a
+            // catch-all chunk, so Rollup places it in its own async chunk and
+            // fetches it on first use.
+            if (id.includes('jspdf') || id.includes('html2canvas')) {
+                return undefined;
+            }
             if (id.includes('maplibre-gl') || id.includes('mapbox-gl') || id.includes('leaflet')) {
                 return 'vendor-maps';
             }
@@ -57,7 +79,15 @@ export default defineConfig(({ mode }) => {
             build: {
                 outDir: 'dist',
                 rollupOptions: {
-                    input: 'index.html',
+                    // `resources/css/app.css` IS THE ONLY FILE WITH `@tailwind`
+                    // DIRECTIVES. Without it in this input list, the standalone
+                    // build emitted `index-*.css` from `resources/css/index.css`
+                    // alone -- confirmed to contain no `--tw-` variable and no
+                    // `.container{` rule -- so the frontend Vercel serves shipped
+                    // with NO Tailwind at all. The Laravel build listed the file,
+                    // which is why this was invisible locally: the two modes
+                    // silently disagreed.
+                    input: ['index.html', 'resources/css/app.css'],
                     output: {
                         manualChunks,
                     },

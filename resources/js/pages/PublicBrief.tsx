@@ -29,7 +29,13 @@ export default function PublicBrief() {
             try {
                 // FORCE absolute URL to avoid Laravel SPA redirect issues
                 const apiUrl = `${window.location.origin}/api/brief/${token}`;
-                console.log("Fetching Site Manual from:", apiUrl);
+
+                // DEV ONLY. The token in that URL IS the credential -- `/brief/:token`
+                // is unauthenticated, and printing the URL to the console of a shared
+                // browser or a screenshot leaks the capability to anyone who sees it.
+                if (import.meta.env.DEV) {
+                    console.log("Fetching Site Manual from:", apiUrl);
+                }
                 
                 const res = await axios.get(apiUrl, {
                     headers: { 'Accept': 'application/json' }
@@ -49,7 +55,12 @@ export default function PublicBrief() {
                     } catch (e) { console.error("Parse Error", e); }
                 }
                 
-                console.log("Verified Public Data:", cleanData);
+                // DEV ONLY. `cleanData` is the entire project record -- budget,
+                // requirements, comments. Unguarded, this dumped a client's whole
+                // build to the console of a link they were sent.
+                if (import.meta.env.DEV) {
+                    console.log("Verified Public Data:", cleanData);
+                }
                 setData(cleanData);
             } catch (err: any) {
                 console.error("Critical Fetch Error:", err);

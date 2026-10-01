@@ -60,9 +60,56 @@ class ProjectFinancialService
      * `available` is derived from the ceiling, so counting them as
      * disbursements would subtract the same movement twice.
      *
+     * `platform_fee` and `retention_release` are ALSO disbursements and were
+     * missing from this list, which made `available()` overstate what remained.
+     *
+     * The failure is silent and one-directional: `deductBudget()` DOES check the
+     * fee against `available` before writing it, so the write is refused when the
+     * escrow cannot cover it -- but the sum that produced `available` never
+     * subtracted it afterwards. So the owner watched their remaining balance stay
+     * frozen while money left the account, and a project could absorb fee after
+     * fee past a ceiling that looked untouched. Nothing errored; the number was
+     * just wrong.
+     *
+     * `retention_release` belongs here for the same reason and is what makes D1/D2
+     * coherent: the termin payment debits only the NET (retention is withheld,
+     * staying inside the escrow), and the release debits the withheld part later.
+     * Both legs spend the ceiling, so both must count.
+     *
      * @var list<string>
      */
-    public const DISBURSEMENT_TYPES = ['payment', 'refund'];
+    public const DISBURSEMENT_TYPES = ['payment', 'refund', 'platform_fee', 'retention_release'];
+
+    /**
+     * Money that reached a PROFESSIONAL, for public-facing figures.
+     *
+     * Deliberately NARROWER than {@see DISBURSEMENT_TYPES}. `paidTotalByOwner()`
+     * feeds `client_history.total_spent` on a professional's PUBLIC profile -- the
+     * number of rupiah a client says they spent on that professional. A platform
+     * fee is not part of it: it is the platform's revenue, not the professional's
+     * income, and counting it would inflate a public figure to flatter nobody.
+     *
+     * `retention_release` IS included: it is the professional's own withheld money
+     * finally reaching them, so it is part of what a client spent on them.
+     *
+     * @var list<string>
+     */
+    public const PROFESSIONAL_EARNINGS_TYPES = ['payment', 'refund', 'retention_release'];
+
+    /**
+     * Movements that spend the escrow WITHOUT moving the ceiling.
+     *
+     * These are counted by `availableMoney()` (it subtracts them from
+     * `projects.budget`) and must therefore NOT also be applied to the `budget`
+     * column -- doing both charges the client twice for one movement.
+     *
+     * This is the set that the old `$type !== 'payment'` test failed to
+     * recognise. Anything NOT in this list is a structural adjustment and does
+     * move the ceiling: `deposit` raises it, `adjustment_down` lowers it.
+     *
+     * @var list<string>
+     */
+    public const CEILING_NEUTRAL_TYPES = ['payment', 'refund', 'platform_fee', 'retention_release'];
 
     /**
      * Total actually disbursed, net of dispute refunds.
@@ -118,7 +165,7 @@ class ProjectFinancialService
         $rows = ProjectBudgetTransaction::query()
             ->join('projects', 'project_budget_transactions.project_id', '=', 'projects.id')
             ->whereIn('projects.user_id', $ownerIds)
-            ->whereIn('project_budget_transactions.transaction_type', self::DISBURSEMENT_TYPES)
+            ->whereIn('project_budget_transactions.transaction_type', self::PROFESSIONAL_EARNINGS_TYPES)
             ->groupBy('projects.user_id')
             ->selectRaw('projects.user_id as owner_id, SUM(project_budget_transactions.amount) as total')
             ->get();
@@ -330,7 +377,22 @@ class ProjectFinancialService
             // 2. Update the escrow ceiling ONLY for structural adjustments.
             // Payments never touch the column — they are deducted from the
             // "available" calculation, so decrementing here would double-count.
-            if ($type !== 'payment') {
+            //
+            // THE TEST IS A MEMBERSHIP, NOT `!== 'payment'`.
+            //
+            // `platform_fee` and `retention_release` spend the ceiling without
+            // moving it, exactly as a payment does. The old `$type !== 'payment'`
+            // test sent both down the `else` branch and DECREMENTED
+            // `projects.budget` — and because both are also in
+            // `DISBURSEMENT_TYPES` (which `availableMoney` subtracts), the same
+            // rupiah was subtracted twice. A platform fee enabled on a 100M
+            // project dropped the reported ceiling to 99M and the available
+            // balance to 98M, for a 1M fee.
+            //
+            // A `retention_release` did worse: it decremented the ceiling for
+            // money that was never outside it, so the escrow quietly shrank on
+            // every warranty expiry.
+            if (! in_array($type, self::CEILING_NEUTRAL_TYPES, true)) {
                 if ($type === 'deposit') {
                     $locked->increment('budget', $money->toDecimal());
                 } else {

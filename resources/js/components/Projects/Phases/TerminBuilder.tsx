@@ -26,10 +26,19 @@ const TerminBuilder: React.FC<TerminBuilderProps> = ({
         const newTermin: Partial<Termin> = {
             label: `Termin ${termins.length + 1}`,
             percentage: remaining > 0 ? remaining : 0,
-            amount: totalFee * ((remaining > 0 ? remaining : 0) / 100),
+            // ROUND TO THE RUPIAH. IDR HAS NO MINOR UNIT.
+            //
+            // `totalFee * (remaining / 100)` with totalFee = 33,333,333 and
+            // remaining = 30 yields 9,999,999.9 -- a float in a field that
+            // becomes `decimal(18,2)` escrow money. `ContractSignModal` already
+            // wraps the identical computation in `Math.round` (lines 627, 805),
+            // so the builder and the signer disagreed by up to a sen.
+            amount: Math.round(totalFee * ((remaining > 0 ? remaining : 0) / 100)),
             status: 'locked',
-            milestone_id: null
-        };
+            milestone_id: null,
+            // A stable identity for this row. See the `key` below.
+            _uid: `termin-${Date.now()}-${termins.length}`,
+        } as Partial<Termin> & { _uid: string };
         onUpdate([...termins, newTermin]);
     };
 
@@ -43,7 +52,7 @@ const TerminBuilder: React.FC<TerminBuilderProps> = ({
 
         // Recalculate amount if percentage changed
         if (field === 'percentage') {
-            newTermins[index].amount = totalFee * (Number(value) / 100);
+            newTermins[index].amount = Math.round(totalFee * (Number(value) / 100));
         }
         // Recalculate percentage if amount changed
         if (field === 'amount') {
@@ -81,7 +90,7 @@ const TerminBuilder: React.FC<TerminBuilderProps> = ({
             <div className="space-y-3">
                 {termins.map((termin, idx) => (
                     <div 
-                        key={idx} 
+                        key={(termin as any)._uid ?? idx} 
                         className={`p-4 rounded-2xl border transition-all ${
                             isEditable ? 'bg-white border-zinc-200 shadow-sm' : 'bg-zinc-50 border-zinc-100'
                         }`}

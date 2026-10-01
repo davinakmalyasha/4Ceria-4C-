@@ -379,6 +379,20 @@ class PaymentVerificationService
                 // CRITICAL FIX: Record transaction in budget ledger for termins/addendums
                 $financialService = app(\App\Services\ProjectFinancialService::class);
                 $amount = (float)($model->amount ?? $model->total_price ?? 0);
+
+                // DEBIT THE NET FOR A TERMIN, SO RETENTION IS ACTUALLY WITHHELD.
+                //
+                // `$model->amount` is the contracted gross. Paying it in full would
+                // release the retention immediately, defeating D1 entirely, and the
+                // later release would then try to spend the same rupiah a second
+                // time. `forTermin()` reads the split persisted when the stage was
+                // created and falls back to the gross for pre-D1 rows, which carry
+                // no retention to hold back.
+                if ($type === 'termin') {
+                    $split = app(\App\Services\RetentionService::class)->forTermin($model);
+                    $amount = $split['net']->toFloat();
+                }
+
                 if ($type === 'material') {
                     // BUGFIX: MaterialOrder has NO `amount` column. Reading it
                     // raised MissingAttributeException in non-production (500 on

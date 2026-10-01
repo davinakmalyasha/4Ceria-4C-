@@ -27,6 +27,33 @@ export const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
 const REQUEST_TIMEOUT = 8000; // 8 seconds
 
+/**
+ * Uploads get their own, much larger budget.
+ *
+ * The 8 s default is right for JSON reads and badly wrong for the 56
+ * `new FormData()` call sites, none of which overrode it: contract PDFs, KYC
+ * identity documents, payment proofs, portfolio images, site photos and dispute
+ * evidence. A 5 MB scanned ID over Indonesian mobile broadband exceeds 8 s
+ * routinely, and the request is aborted mid-transfer.
+ *
+ * It failed in the worst possible way. `getApiErrorMessage` maps `ECONNABORTED`
+ * to "Permintaan took too long to respond" -- so the user was told to retry a
+ * request that was guaranteed to time out again, on the exact documents that
+ * carry a contract or a payment.
+ *
+ * HANDLED IN ONE PLACE, NOT AT 56 CALL SITES. The response is a stream, so the
+ * time budget has to cover the whole upload, and a per-call-site constant is
+ * exactly the sort of thing the next contributor forgets. The explicit
+ * per-request `timeout` still wins, so a caller can always override.
+ */
+const UPLOAD_TIMEOUT = 120000; // 2 minutes
+
+const isUpload = (data) =>
+    (typeof FormData !== 'undefined' && data instanceof FormData) ||
+    (typeof Blob !== 'undefined' && data instanceof Blob) ||
+    (typeof ArrayBuffer !== 'undefined' && data instanceof ArrayBuffer) ||
+    (typeof URLSearchParams !== 'undefined' && data instanceof URLSearchParams);
+
 // Cache settings for static lookup references
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache expiry
 const cacheableUrls = [
@@ -182,6 +209,12 @@ export const configureApiInstance = (instance) => {
     // NOTE: deliberately NO `Authorization` here - see applyScopedAuth().
     instance.interceptors.request.use((config) => {
         config.metadata = { startTime: new Date().getTime() };
+
+        // Only RAISE the budget, never lower it, and never override a value the
+        // caller set explicitly.
+        if (config.timeout === undefined || config.timeout === REQUEST_TIMEOUT) {
+            config.timeout = isUpload(config.data) ? UPLOAD_TIMEOUT : REQUEST_TIMEOUT;
+        }
 
         if (config.method?.toLowerCase() === 'get' && isCacheableUrl(config.url)) {
             const cacheKey = cacheKeyFor(config);
