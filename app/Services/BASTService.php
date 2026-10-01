@@ -53,7 +53,21 @@ class BASTService
             ],
             'legal_clauses' => [
                 'BAST ini merupakan bukti sah penyerahan pekerjaan dari PIHAK KEDUA kepada PIHAK PERTAMA.',
-                'PIHAK KEDUA bertanggung jawab penuh atas Masa Pemeliharaan selama 180 hari sejak tanggal penandatanganan.',
+                // The DAYS come from config so they cannot contradict
+                // `warranty_end_at`, which ProjectLifecycleService computes from the
+                // same value. These were previously two independent hardcoded 180s,
+                // so changing the window in one place produced a contract that
+                // disagreed with its own expiry date.
+                //
+                // `warranty_months_display` is used for the human-readable phrase
+                // because "6 bulan" is what an Indonesian construction contract
+                // says, while the arithmetic stays in exact days. The two are NOT
+                // derived from each other: 6 months is not 180 days, and pretending
+                // otherwise would move a date money is released against.
+                'PIHAK KEDUA bertanggung jawab penuh atas Masa Pemeliharaan selama '
+                    .(int) config('escrow.warranty_days', 180)
+                    .' hari ('.(int) config('escrow.warranty_months_display', 6)
+                    .' bulan) sejak tanggal penandatanganan.',
                 'Seluruh cacat pekerjaan (snag list) yang terdata sebelumnya telah dinyatakan selesai dan diperbaiki.'
             ]
         ];

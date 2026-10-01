@@ -221,7 +221,7 @@ class ProjectLifecycleService
                 'owner_accepted_at' => now(),
                 'walkthrough_status' => 'completed',
                 'warranty_start_at' => now(),
-                'warranty_end_at' => now()->addDays(180), // Standard 6-month maintenance
+                'warranty_end_at' => now()->addDays((int) config('escrow.warranty_days', 180)), // configurable; was hardcoded here AND in the BAST copy
             ]);
 
             $this->logActivity($project, 'project_finalized', 'Project officially completed and handed over.');
