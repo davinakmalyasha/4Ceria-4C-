@@ -19,7 +19,13 @@ class BidArsitek extends Model
         'fee_type', 'unit_price', 'quantity', 'calculated_total',
         'offered_by_id', 'fee_agreed_at', 'negotiation_count',
         'verification_notes', 'payment_proof_path', 'is_recommended',
-        'proposed_termins', 'proposed_milestones', 'proposed_team'
+        'proposed_termins', 'proposed_milestones', 'proposed_team',
+        // `bids_arsitek` HAS a `style` column and `submitBid()` writes
+        // `'style' => $request->style`, but it was missing here. With
+        // `Model::shouldBeStrict(!isProduction())` that is a 500 in development
+        // and a SILENTLY DROPPED VALUE in production -- so an architect's chosen
+        // design style was never actually stored for any real user.
+        'style',
     ];
 
     protected $casts = [

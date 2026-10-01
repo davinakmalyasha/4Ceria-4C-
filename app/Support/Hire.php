@@ -80,28 +80,69 @@ final class Hire
         return array_keys(config('bids', []));
     }
 
-    /**
-     * The user's profile id for a role, or null when they have none.
-     */
-    public static function profileIdFor(string $role, ?User $user): ?int
-    {
-        if (! $user) {
-            return null;
-        }
-
-        if ($role === 'project_manager') {
-            // `projects.pm_id` stores the PM's USER id, not a profile id.
-            return (int) $user->id;
-        }
-
-        $relation = self::RELATIONS[$role] ?? null;
-
-        if ($relation === null || ! method_exists($user, $relation)) {
-            return null;
-        }
-
-        return $user->{$relation}?->id;
+/**
+ * The user's PROFILE MODEL for a role, or null when they have none.
+ *
+ * THE vocabulary split lives here, once, and there are deliberately TWO accessors
+ * because the two callers need different things:
+ *
+ *   profileIdFor()  the id to compare against a PROJECT COLUMN. For `pm` that is
+ *                  a USER id, because `projects.pm_id` stores one. Used by
+ *                  matches(), so it MUST keep that behaviour.
+ *   profile()       the ROW itself, for anything reading a column on the
+ *                  profile -- verification status, reliability score, licences.
+ *
+ * Using `profileIdFor()` to fetch a profile row is a real bug, not a style
+ * choice: for a PM it hands you a USER id, and `ProjectManager::find($userId)`
+ * resolves a coincidentally-numbered row belonging to a DIFFERENT person, so you
+ * read that person's verification status. That is the same class of mistake as
+ * the null comparisons this class exists to prevent.
+ *
+ * @return \Illuminate\Database\Eloquent\Model|null
+ */
+public static function profile(string $role, ?User $user)
+{
+    if (! $user) {
+        return null;
     }
+
+    if ($role === 'project_manager') {
+        return $user->project_manager;
+    }
+
+    $relation = self::RELATIONS[$role] ?? null;
+
+    if ($relation === null || ! method_exists($user, $relation)) {
+        return null;
+    }
+
+    return $user->{$relation};
+}
+
+/**
+ * The id to compare against the PROJECT column for a role, or null.
+ *
+ * For `project_manager` this is deliberately the USER id, because
+ * `projects.pm_id` stores a user id. Use `profile()` when you need the row.
+ */
+public static function profileIdFor(string $role, ?User $user): ?int
+{
+    if (! $user) {
+        return null;
+    }
+
+    if ($role === 'project_manager') {
+        return (int) $user->id;
+    }
+
+    $relation = self::RELATIONS[$role] ?? null;
+
+    if ($relation === null || ! method_exists($user, $relation)) {
+        return null;
+    }
+
+    return $user->{$relation}?->id;
+}
 
     /**
      * Is `$user` the hired professional for `$role` on `$project`?

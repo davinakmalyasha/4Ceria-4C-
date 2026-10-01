@@ -771,6 +771,45 @@ class ProjectController extends Controller
             return response()->json(['message' => 'Only verified professionals can submit bids.'], 403);
         }
 
+        // VERIFICATION, NOT JUST ROLE.
+        //
+        // The error message above says "Only verified professionals can submit
+        // bids", but the only test was the role list -- so the check did not do
+        // what it claimed.
+        //
+        // This is the other half of the registration fix. `register()` was
+        // corrected so that new profiles are created `pending` rather than
+        // `verified`, which stops them appearing in the public directories --
+        // but an unverified account could still BID, get shortlisted, and enter
+        // the owner's shortlist. Closing the directory without closing bidding
+        // leaves the product's central promise ("we check our professionals")
+        // resting on a UI affordance rather than a server-side gate.
+        //
+        // `Hire::profileIdFor()` resolves the profile for the caller's role and
+        // already encodes the PM special case (`projects.pm_id` stores a USER id,
+        // every other role a PROFILE id), so no second role map is needed here.
+        // The PROFILE ROW, not an id to compare against a project column.
+        //
+        // `Hire::profileIdFor()` returns the PM's USER id, because that is what
+        // `projects.pm_id` stores. Feeding that to `ProjectManager::find()`
+        // resolves a coincidentally-numbered row belonging to a DIFFERENT person
+        // and reads THEIR verification status -- which is exactly what this gate
+        // must not do. `Hire::profile()` returns the row for the PM as well as
+        // every other role, so the vocabulary split is handled once.
+        $profile = Hire::profile((string) $user->role_type, $user);
+
+        if ($profile === null) {
+            return response()->json([
+                'message' => 'Complete your professional profile before bidding.',
+            ], 403);
+        }
+
+        if ($profile->verification_status !== 'verified') {
+            return response()->json([
+                'message' => 'Your professional profile is still awaiting verification, so you cannot bid yet. We will notify you once it is approved.',
+            ], 403);
+        }
+
         $allowedStatuses = [
             'open', 'accepted_arsitek', 'accepted_kontraktor', 'procurement', 
             'in_progress', 'completed_build', 'awaiting_payment', 'contract_pending', 'planning'

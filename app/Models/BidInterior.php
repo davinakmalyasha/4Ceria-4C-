@@ -20,7 +20,11 @@ class BidInterior extends Model
         'fee_type', 'unit_price', 'quantity', 'calculated_total',
         'offered_by_id', 'fee_agreed_at', 'negotiation_count',
         'verification_notes', 'payment_proof_path', 'is_recommended',
-        'proposed_termins', 'proposed_milestones'
+        'proposed_termins', 'proposed_milestones',
+        // `bids_interior` has a `style` column and `submitBid()` writes it.
+        // Missing here meant a silently dropped value in production and a 500 in
+        // development. Same defect as BidArsitek.
+        'style',
     ];
 
     protected $casts = [
