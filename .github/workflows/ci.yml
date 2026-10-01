@@ -32,7 +32,7 @@ jobs:
           # Full history so a secret committed earlier is still caught.
           fetch-depth: 0
       - name: Scan for committed secrets
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Fails the run rather than only annotating the PR.
