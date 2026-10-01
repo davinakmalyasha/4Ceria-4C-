@@ -60,7 +60,7 @@ afterEach(function () {
     Tests\Support\DatabaseHarness::rollback();
 });
 
-function makeUser(string $roleType, string $tag): User
+function bypassUser(string $roleType, string $tag): User
 {
     return User::create([
         'name' => "$roleType $tag", 'username' => "u_$tag" . uniqid(),
@@ -76,12 +76,12 @@ function makeUser(string $roleType, string $tag): User
  */
 function profileLessUser(string $roleType, string $tag): User
 {
-    return makeUser($roleType, $tag);
+    return bypassUser($roleType, $tag);
 }
 
 function ownerProject(string $tag, array $columns = []): array
 {
-    $owner = makeUser('user', "own_$tag");
+    $owner = bypassUser('user', "own_$tag");
     $project = Project::create(array_merge([
         'title' => "Job $tag", 'user_id' => $owner->id,
         'budget' => 500_000_000, 'status' => 'in_progress',
@@ -139,7 +139,7 @@ it('does not delete unassigned milestones when a profile-less caller resigns', f
 });
 
 it('still lets a GENUINELY hired professional resign', function () {
-    $pro = makeUser('arsitek', 'good');
+    $pro = bypassUser('arsitek', 'good');
 
     $profile = \App\Models\Arsitek::create([
         'user_id' => $pro->id, 'nama' => 'Studio',
@@ -156,14 +156,14 @@ it('still lets a GENUINELY hired professional resign', function () {
 });
 
 it('refuses a professional who holds a profile but is not hired on THIS project', function () {
-    $pro = makeUser('arsitek', 'other');
+    $pro = bypassUser('arsitek', 'other');
     $profile = \App\Models\Arsitek::create([
         'user_id' => $pro->id, 'nama' => 'Studio',
         'verification_status' => 'verified',
     ]);
 
     // The project HAS an architect, just a different one.
-    $other = makeUser('arsitek', 'third');
+    $other = bypassUser('arsitek', 'third');
     $otherProfile = \App\Models\Arsitek::create([
         'user_id' => $other->id, 'nama' => 'Other',
         'verification_status' => 'verified',
@@ -183,7 +183,7 @@ it('refuses a professional who holds a profile but is not hired on THIS project'
 it('refuses a specialist assignment from a profile-less lead professional', function () {
     $attacker = profileLessUser('arsitek', 'assign');
 
-    $specialist = makeUser('structural', 'spec');
+    $specialist = bypassUser('structural', 'spec');
     $specProfile = \App\Models\StructuralEngineer::create([
         'user_id' => $specialist->id, 'nama' => 'S',
         'verification_status' => 'verified',
@@ -212,13 +212,13 @@ it('refuses a specialist assignment from a profile-less lead professional', func
 });
 
 it('refuses a specialist assignment by a contractor on an architect project', function () {
-    $contractor = makeUser('kontraktor', 'kc');
+    $contractor = bypassUser('kontraktor', 'kc');
     $kontraktorProfile = \App\Models\Kontraktor::create([
         'user_id' => $contractor->id, 'nama' => 'K',
         'verification_status' => 'verified',
     ]);
 
-    $specialist = makeUser('mep', 'spec2');
+    $specialist = bypassUser('mep', 'spec2');
     \App\Models\MepEngineer::create([
         'user_id' => $specialist->id, 'nama' => 'M',
         'verification_status' => 'verified',
@@ -248,13 +248,13 @@ it('refuses a specialist assignment by a contractor on an architect project', fu
 });
 
 it('refuses a specialist assignment by a lead hired on a DIFFERENT project', function () {
-    $pro = makeUser('arsitek', 'lead');
+    $pro = bypassUser('arsitek', 'lead');
     $profile = \App\Models\Arsitek::create([
         'user_id' => $pro->id, 'nama' => 'Studio',
         'verification_status' => 'verified',
     ]);
 
-    $specialist = makeUser('structural', 'spec3');
+    $specialist = bypassUser('structural', 'spec3');
     \App\Models\StructuralEngineer::create([
         'user_id' => $specialist->id, 'nama' => 'S',
         'verification_status' => 'verified',

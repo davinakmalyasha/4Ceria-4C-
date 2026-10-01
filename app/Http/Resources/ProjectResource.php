@@ -420,7 +420,7 @@ class ProjectResource extends JsonResource
                 ]);
             }),
             'bids_arsitek' => $this->whenLoaded('bidsArsitek', function () {
-                return $this->bidsArsitek->map(function ($bid) {
+                return $this->visibleBids('bidsArsitek')->map(function ($bid) {
                     return [
                         'id' => $bid->id,
                         'price' => $bid->price,
@@ -488,7 +488,7 @@ class ProjectResource extends JsonResource
                 });
             }),
             'bids_kontraktor' => $this->whenLoaded('bidsKontraktor', function () {
-                return $this->bidsKontraktor->map(function ($bid) {
+                return $this->visibleBids('bidsKontraktor')->map(function ($bid) {
                     return [
                         'id' => $bid->id,
                         'price' => $bid->price,
@@ -561,7 +561,7 @@ class ProjectResource extends JsonResource
                 });
             }),
             'bids_notaris' => $this->whenLoaded('bidsNotaris', function () {
-                return $this->bidsNotaris->map(function ($bid) {
+                return $this->visibleBids('bidsNotaris')->map(function ($bid) {
                     return [
                         'id' => $bid->id,
                         'price' => $bid->price,
@@ -619,7 +619,7 @@ class ProjectResource extends JsonResource
                 });
             }),
             'bids_interior' => $this->whenLoaded('bidsInterior', function () {
-                return $this->bidsInterior->map(function ($bid) {
+                return $this->visibleBids('bidsInterior')->map(function ($bid) {
                     return [
                         'id' => $bid->id,
                         'price' => $bid->price,
@@ -684,7 +684,7 @@ class ProjectResource extends JsonResource
                 });
             }),
             'bids_project_manager' => $this->whenLoaded('bidsProjectManager', function () {
-                return $this->bidsProjectManager->map(function ($bid) {
+                return $this->visibleBids('bidsProjectManager')->map(function ($bid) {
                     return [
                         'id' => $bid->id,
                         'price' => $bid->price,
@@ -887,7 +887,7 @@ class ProjectResource extends JsonResource
                 ];
             }),
             'bids_structural' => $this->whenLoaded('bidsStructural', function () {
-                return $this->bidsStructural->map(function ($bid) {
+                return $this->visibleBids('bidsStructural')->map(function ($bid) {
                     return [
                         'id' => $bid->id,
                         'price' => $bid->price,
@@ -958,7 +958,7 @@ class ProjectResource extends JsonResource
                 });
             }),
             'bids_mep' => $this->whenLoaded('bidsMep', function () {
-                return $this->bidsMep->map(function ($bid) {
+                return $this->visibleBids('bidsMep')->map(function ($bid) {
                     return [
                         'id' => $bid->id,
                         'price' => $bid->price,
@@ -1368,6 +1368,122 @@ class ProjectResource extends JsonResource
         }
 
         return app(PayoutDestinationService::class)->forProject($this->resource);
+    }
+
+    /**
+     * The bid relations this viewer is allowed to see in full.
+     *
+     * WHY THIS EXISTS — CRITICAL
+     * ---------------------------
+     * `GET /api/projects?feed=true&with_bids=true` applied
+     *
+     *     $query->with([
+     *         'bidsArsitek.arsitek.user.phoneNumber',
+     *         'bidsKontraktor.kontraktor.user.phoneNumber',
+     *         ...all seven...
+     *     ]);
+     *
+     * UNCONDITIONALLY, before any feed scoping -- and `feed=true` is the
+     * professional discovery board, which by design returns projects belonging
+     * to OTHER owners. So any professional on the platform could request
+     * `with_bids=true` and read, for every competing bid on every project they
+     * could see:
+     *
+     *   price / calculated_total   the rival's fee
+     *   proposal                   their full pitch
+     *   negotiation_logs           the OWNER's private fee-negotiation notes with
+     *                             the rival, including `changes_detected`
+     *   payment_proof_path         resolved to a 30-minute presigned URL for the
+     *                             rival's BANK TRANSFER RECEIPT
+     *   verification_notes         the owner's internal assessment
+     *   proposed_termins /
+     *   proposed_milestones /      their commercial schedule and team
+     *   proposed_team
+     *   pro_signature_url /
+     *   client_signature_url       signatures of both parties
+     *   bidder.phone               their phone number
+     *
+     * Nothing in those seven blocks was gated -- `isPrivilegedViewer()` guarded
+     * `email`, but the commercially sensitive fields sat beside it ungated.
+     *
+     * THE RULE
+     * --------
+     *   owner / assigned PM / admin   sees every bid (unchanged; they must, to
+     *                                 shortlist)
+     *   the bidder themselves         sees only their own bid
+     *   anyone else                   sees none
+     *
+     * Bid COUNTS stay public via the `withCount` calls, because "3 architects
+     * have bid" is what a professional legitimately needs from a board.
+     *
+     * Enforced here rather than by trimming the eager-load list, so that adding
+     * a relation, or a caller reaching ProjectResource from a new route, cannot
+     * reopen it. `$bid->{profileColumn}` maps a bid row to the profile that made
+     * it, via `config('bids')`.
+     */
+    private function visibleBids(string $relation)
+    {
+        $collection = $this->resource->{$relation};
+
+        if ($this->isPrivilegedViewer()) {
+            return $collection;
+        }
+
+        $viewer = request()?->user();
+
+        if (! $viewer) {
+            // An anonymous caller. `with_bids=true` on the public listing is not
+            // a thing.
+            return $collection->take(0);
+        }
+
+        // WHICH ROLE does this relation hold bids for? Derived from the relation
+        // name via `config('bids')`, NOT from the viewer's role_type.
+        //
+        // Using the viewer's role was a bug in this method's first draft: for an
+        // architect, `config('bids.arsitek.bid_fk')` is `arsitek_id`, so
+        // filtering `bids_kontraktor` by `kontraktor_id === <an Arsitek id>`
+        // matches any contractor whose id happens to collide with the
+        // architect's profile id -- i.e. ids are per-table and overlap freely.
+        // The bid column belongs to the relation, not to the viewer.
+        $bidRole = null;
+
+        foreach ((array) config('bids') as $candidateRole => $candidateConfig) {
+            if (($candidateConfig['relation'] ?? null) === $relation) {
+                $bidRole = (string) $candidateRole;
+                break;
+            }
+        }
+
+        if ($bidRole === null) {
+            return $collection->take(0);
+        }
+
+        // A viewer can only ever see bids in a role THEY hold. Without this, an
+        // architect asking for `bids_kontraktor` would be filtered against their
+        // own architect profile id, which is not what the column means.
+        if ((string) $viewer->role_type !== $bidRole) {
+            return $collection->take(0);
+        }
+
+        // The PM's bid table stores a PROFILE id while `projects.pm_id` stores a
+        // USER id -- the vocabulary split documented in config/bids.php. `Hire`
+        // already resolves that correctly, so it is reused rather than restated.
+        $ownProfileId = Hire::profileIdFor($bidRole, $viewer);
+
+        if ($ownProfileId === null) {
+            return $collection->take(0);
+        }
+
+        $bidFk = config("bids.{$bidRole}.bid_fk");
+
+        if ($bidFk === null) {
+            return $collection->take(0);
+        }
+
+        return $collection->filter(
+            fn ($bid) => (int) ($bid->{$bidFk} ?? 0) === (int) $ownProfileId
+        )->values();
     }
 
     private function pii($value)
