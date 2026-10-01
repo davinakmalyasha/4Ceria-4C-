@@ -125,11 +125,27 @@ class AuthController extends Controller
                     'is_active' => true,
                 ]);
             } elseif (in_array($request->role_type, ['civil', 'mechanical', 'electrical', 'plumbing', 'roofing', 'finishing'])) {
+                // `pending`, NOT `verified`.
+                //
+                // This branch kept the pre-fix `'verified'` when the seven
+                // branches above it were corrected, so an anonymous
+                // `POST /api/register` with `role_type=civil` (or mechanical,
+                // electrical, plumbing, roofing, finishing) still mass-created
+                // an identity that:
+                //
+                //   - was returned by `GET /api/kontraktor`, whose query filters
+                //     `verification_status = 'verified'` (see
+                //     PublicProfessionalController::directory()), and
+                //   - so never reached Admin\VerificationController, which only
+                //     lists `pending` rows.
+                //
+                // Six role names, i.e. the whole sub-contractor segment, was the
+                // way straight back into the hole the comment above describes.
                 Kontraktor::create([
                     'user_id' => $user->id,
                     'nama' => $user->name,
                     'jenis' => 'Sub-Contractor',
-                    'verification_status' => 'verified',
+                    'verification_status' => 'pending',
                 ]);
             }
 
