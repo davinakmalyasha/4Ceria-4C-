@@ -165,8 +165,20 @@ class SubProfessionalController extends Controller
         }
 
         $sub->update([
-            'status' => 'declined',
-            'completed_at' => now(),
+            // `'declined'` is NOT a member of the ENUM:
+            //   enum('invited','interviewing','accepted','recommended',
+            //        'active','completed','removed')
+            // so under STRICT_TRANS_TABLES this was ERROR 1265 -- the decline
+            // button 500'd, which also meant the unlink logic below never ran and
+            // the core slot (structural_id / mep_id) stayed occupied by a
+            // specialist who had already walked away.
+            //
+            // `removed` is the existing terminal value for an assignment that
+            // ended without completing.
+            'status' => 'removed',
+            // A decline is not a completion, so `completed_at` stays NULL. It was
+            // being stamped with now(), which reported a finished job.
+            'completed_at' => null,
         ]);
 
         // Unlink from project core slots

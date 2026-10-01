@@ -2715,14 +2715,30 @@ class ProjectController extends Controller
 
         DB::beginTransaction();
         try {
-            // Cancel and archive all outstanding proposals
-            $project->bidsArsitek()->where('status', 'pending')->update(['status' => 'cancelled']);
-            $project->bidsKontraktor()->where('status', 'pending')->update(['status' => 'cancelled']);
-            $project->bidsNotaris()->where('status', 'pending')->update(['status' => 'cancelled']);
-            $project->bidsInterior()->where('status', 'pending')->update(['status' => 'cancelled']);
-            $project->bidsProjectManager()->where('status', 'pending')->update(['status' => 'cancelled']);
-            $project->bidsStructural()->where('status', 'pending')->update(['status' => 'cancelled']);
-            $project->bidsMep()->where('status', 'pending')->update(['status' => 'cancelled']);
+            // Cancel and archive all outstanding proposals.
+            //
+            // `'cancelled'` is NOT a member of the bids_* status ENUM:
+            //   enum('pending','shortlisted','invited','negotiating',
+            //        'contract_pending','awaiting_payment','accepted','active',
+            //        'rejected','declined','terminated','resigned')
+            // Under STRICT_TRANS_TABLES every one of these updates raised
+            // ERROR 1265 "Data truncated", so `DELETE /api/projects/{id}` 500'd and
+            // rolled back for EVERY owner whose project had even one pending bid.
+            //
+            // `terminated` is the existing value that means the engagement ended
+            // by the client's decision, which is what cancelling on project
+            // deletion is. `rejected` would be wrong: nobody evaluated these.
+            //
+            // Never widen the ENUM here to accommodate a bad literal -- see
+            // migration 2026_10_01_000011 for the case where appending IS the
+            // right answer.
+            $project->bidsArsitek()->where('status', 'pending')->update(['status' => 'terminated']);
+            $project->bidsKontraktor()->where('status', 'pending')->update(['status' => 'terminated']);
+            $project->bidsNotaris()->where('status', 'pending')->update(['status' => 'terminated']);
+            $project->bidsInterior()->where('status', 'pending')->update(['status' => 'terminated']);
+            $project->bidsProjectManager()->where('status', 'pending')->update(['status' => 'terminated']);
+            $project->bidsStructural()->where('status', 'pending')->update(['status' => 'terminated']);
+            $project->bidsMep()->where('status', 'pending')->update(['status' => 'terminated']);
 
             $project->delete();
             DB::commit();
