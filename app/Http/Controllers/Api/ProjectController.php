@@ -7,6 +7,7 @@ use App\Http\Requests\StoreProjectRequest;
 use App\Http\Requests\UpdateProjectRequest;
 use App\Http\Resources\ProjectResource;
 use App\Services\ProjectPhaseService;
+use App\Support\Hire;
 use App\Models\Notification;
 use App\Models\Project;
 use App\Models\ProjectActivityLog;
@@ -2514,11 +2515,37 @@ class ProjectController extends Controller
             $data['requires_mep'] = filter_var($request->requires_mep, FILTER_VALIDATE_BOOLEAN);
         }
 
-        // Only architect can update negotiated fee and payment instructions
-        $isArsitek = Auth::user()->role_type === 'arsitek' && Auth::user()->arsitek?->id === $project->selected_arsitek_id;
-        if (!$isArsitek && !$isOwner) {
-            unset($data['negotiated_fee'], $data['payment_instructions']);
-        }
+        // `negotiated_fee` and `payment_instructions` are OWNER-ONLY here, and the
+        // owner-only `unset()` above already enforces that for every non-owner.
+        //
+        // This block used to be:
+        //
+        //     $isArsitek = Auth::user()->role_type === 'arsitek'
+        //         && Auth::user()->arsitek?->id === $project->selected_arsitek_id;
+        //     if (!$isArsitek && !$isOwner) {
+        //         unset($data['negotiated_fee'], $data['payment_instructions']);
+        //     }
+        //
+        // Two things were wrong with it, and in opposite directions:
+        //
+        // 1. It was DEAD. The unconditional non-owner `unset()` further up already
+        //    removed both keys, so `$isArsitek` could not change the outcome.
+        //    Dead authorization code is worse than none -- it reads as a policy
+        //    that does not exist.
+        //
+        // 2. It was a null-comparison trap: no column guard, so `null === null`
+        //    would have made a profile-less `role_type=arsitek` "the architect".
+        //    That was not exploitable ONLY because of the deadness in (1); the
+        //    moment the earlier `unset()` were relaxed, it would have become live
+        //    and would have handed a caller the figure the whole termin plan is
+        //    validated against.
+        //
+        // A professional negotiates their fee through the bid negotiation flow
+        // (`negotiation_count` / `fee_agreed_at` on the bid), which is where the
+        // counterparty can also see and respond to it -- not by PATCHing the
+        // project.
+        // See ProjectResource::visibleBids(), which only shows negotiation state
+        // to the owner, the PM, and the bidder themselves.
 
         // Sync the payment plan. Wrapped with the project write in ONE
         // transaction below so a rejected plan cannot leave the project

@@ -9,6 +9,7 @@ use App\Http\Resources\ProjectResource;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use App\Traits\HandlesProjectAuthorization;
+use App\Support\Hire;
 
 class ProjectPhaseController extends Controller
 {
@@ -25,8 +26,24 @@ class ProjectPhaseController extends Controller
     {
         $user = Auth::user();
 
-        // Security: only the assigned architect can seal the design
-        if ($user->role_type !== 'arsitek' || $project->selected_arsitek_id !== optional($user->arsitek)->id) {
+        // SECURITY: only the ASSIGNED architect can seal the design.
+        //
+        // This was:
+        //
+        //     if ($user->role_type !== 'arsitek'
+        //         || $project->selected_arsitek_id !== optional($user->arsitek)->id)
+        //
+        // which is NOT a fix for the null-comparison family, because both sides
+        // can be null at the same time: a `role_type = 'arsitek'` user holding no
+        // `arsiteks` row, on a project with no architect, gives
+        // `null !== null` => false, so the guard PASSES and the caller writes
+        // `design_handover_submitted_at` on a foreign project.
+        //
+        // `Hire::matches()` requires all four: the role is held, a profile
+        // exists, the project's column is non-null, and the ids match. Reachable
+        // state: Admin\AdminUserController::updateRole changes `role_type` with no
+        // profile side-effect.
+        if (! Hire::matches($project, $user, 'arsitek')) {
             return response()->json(['message' => 'Unauthorized. Only the hired architect can seal the design.'], 403);
         }
 
@@ -90,7 +107,10 @@ class ProjectPhaseController extends Controller
     {
         $user = Auth::user();
 
-        if ($user->role_type !== 'kontraktor' || $project->selected_kontraktor_id !== $user->kontraktor?->id) {
+        // See sealDesign(): `null !== null` is false, so the previous inline
+        // comparison passed for a profile-less contractor on a project with no
+        // contractor, letting them seal construction on a foreign project.
+        if (! Hire::matches($project, $user, 'kontraktor')) {
             return response()->json(['message' => 'Unauthorized. Only the hired contractor can seal construction.'], 403);
         }
 
@@ -132,7 +152,8 @@ class ProjectPhaseController extends Controller
     {
         $user = Auth::user();
 
-        if ($user->role_type !== 'interior' || $project->selected_interior_id !== optional($user->interior_profile)->id) {
+        // See sealDesign().
+        if (! Hire::matches($project, $user, 'interior')) {
             return response()->json(['message' => 'Unauthorized. Only the hired interior designer can seal.'], 403);
         }
 
@@ -174,7 +195,8 @@ class ProjectPhaseController extends Controller
     {
         $user = Auth::user();
 
-        if ($user->role_type !== 'notaris' || $project->selected_notaris_id !== optional($user->notaris_profile)->id) {
+        // See sealDesign().
+        if (! Hire::matches($project, $user, 'notaris')) {
             return response()->json(['message' => 'Unauthorized. Only the hired notary can seal the legal phase.'], 403);
         }
 

@@ -15,9 +15,38 @@ use Illuminate\Support\Facades\DB;
 
 class TechnicalDesignReviewController extends Controller
 {
+/**
+     * @param  'specialist'  may submit/revise their own deliverables
+     * @param  'pm'          may APPROVE a design integration
+     *
+     * WHY THE TWO MODES DIFFER
+     * -----------------------
+     * `'specialist'` is a participation right: the structural / MEP / interior
+     * engineer (and the lead architect) submit their own work, so admitting them
+     * is correct.
+     *
+     * `'pm'` is a lifecycle DECISION, and it is the payment trigger.
+     * `approveDesign()` bulk-updates the phase's milestones to
+     * `approval_status = approved` and then flips every linked payment termin
+     * from `locked` / `pending` to `pending`.
+     *
+     * It previously also admitted:
+     *
+     *     ($u->role_type === 'arsitek' && Hire::matches($project, $u, 'arsitek'))
+     *
+     * so the lead architect could approve their OWN design integration and unlock
+     * every payment stage linked to it -- being both the author and the approver,
+     * on the one action that releases money. Restricted to the owner and the
+     * assigned PM via `Hire::isOwnerOrAssignedPm()`.
+     */
     private function checkAuth($project, string $role, string $mode): bool
     {
         $u = Auth::user();
+
+        if (!$u) {
+            return false;
+        }
+
         if ($mode === 'specialist') {
             return ($role === 'structural' && $project->structuralEngineer?->user_id === $u->id) ||
                    ($role === 'mep' && $project->mepEngineer?->user_id === $u->id) ||
@@ -25,9 +54,8 @@ class TechnicalDesignReviewController extends Controller
                    ($u->role_type === 'arsitek' && Hire::matches($project, $u, 'arsitek')) ||
                    ($project->user_id === $u->id);
         }
-        return ($u->role_type === 'project_manager' && $project->pm_id === $u->id) ||
-               ($project->user_id === $u->id) ||
-               ($u->role_type === 'arsitek' && Hire::matches($project, $u, 'arsitek'));
+
+        return Hire::isOwnerOrAssignedPm($project, $u);
     }
 
     private function notify($userId, string $type, string $title, string $body, int $projectId): void

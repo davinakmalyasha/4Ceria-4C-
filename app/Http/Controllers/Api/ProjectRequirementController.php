@@ -353,14 +353,33 @@ class ProjectRequirementController extends Controller
         // SECURITY: interior designers must be HIRED on this project — an
         // unscoped role check previously let ANY interior user edit BOM data.
         $isInterior = $user->role_type === 'interior' && Hire::matches($project, $user, 'interior') && in_array('interior', $allowedRoles);
-        $isHiredStructural = $user->role_type === 'structural' && 
-            ($project->structural_id === optional($user->structural_engineer)->id || 
-             $project->subProfessionals()->where('user_id', $user->id)->where('sub_role', 'structural')->where('status', 'active')->exists()) && 
+// SECURITY: structural and MEP engineers must be HIRED on this project.
+        //
+        // These two used to be:
+        //
+        //     $project->structural_id === optional($user->structural_engineer)->id
+        //     $project->mep_id        === optional($user->mep_engineer)->id
+        //
+        // which fails OPEN for the same reason as the rest of this family: a
+        // `role_type = 'structural'` user with no `structural_engineers` row, on a
+        // project with no structural engineer, gives `null === null` => true. So
+        // any profile-less structural or MEP account could read and write the
+        // bill of materials, folders, stock levels, usage history and procurement
+        // requests of ANY project that had not yet hired one.
+        //
+        // `Hire::matches()` handles the core slot (it reads `structural_id` /
+        // `mep_id` from `config('bids')`, which is where those columns are
+        // defined) and the active sub-professional branch is kept explicitly,
+        // because a specialist engaged as a sub-professional is legitimately
+        // authorised without holding the core slot.
+        $isHiredStructural = $user->role_type === 'structural' &&
+            (Hire::matches($project, $user, 'structural') ||
+             $project->subProfessionals()->where('user_id', $user->id)->where('sub_role', 'structural')->where('status', 'active')->exists()) &&
             in_array('structural', $allowedRoles);
 
-        $isHiredMEP = $user->role_type === 'mep' && 
-            ($project->mep_id === optional($user->mep_engineer)->id || 
-             $project->subProfessionals()->where('user_id', $user->id)->where('sub_role', 'mep')->where('status', 'active')->exists()) && 
+        $isHiredMEP = $user->role_type === 'mep' &&
+            (Hire::matches($project, $user, 'mep') ||
+             $project->subProfessionals()->where('user_id', $user->id)->where('sub_role', 'mep')->where('status', 'active')->exists()) &&
             in_array('mep', $allowedRoles);
 
         return $isOwner || $isHiredArsitek || $isHiredKontraktor || $isHiredPM || $isInterior || $isHiredStructural || $isHiredMEP;

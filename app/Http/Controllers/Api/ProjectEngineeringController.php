@@ -154,10 +154,21 @@ class ProjectEngineeringController extends Controller
 
     /**
      * Authorize a specialist hiring request (Addendum).
+     *
+     * OWNER / ASSIGNED PM ONLY. This was `authorizeProjectAccess`, which admits
+     * ANY participant on the project -- owner, assigned PM, every hired
+     * professional and every active sub-professional. So a hired specialist
+     * could authorise their own hiring request, which at `verifyEngineeringRequest`
+     * sets an addendum to `authorized` and makes an ARBITRARY-AMOUNT fee payable.
+     *
+     * `requestEngineeringRole`, `storeLog`, `deleteLog` and
+     * `rejectEngineeringBid` deliberately keep the participation gate: asking for
+     * a role, uploading an engineering log and declining your own bid are
+     * participation rights, not lifecycle decisions.
      */
     public function authorizeSpecialist(Request $request, Project $project)
     {
-        if (!$this->authorizeProjectAccess($project)) {
+        if (!$this->isOwnerOrAssignedPm($project)) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
@@ -204,7 +215,7 @@ class ProjectEngineeringController extends Controller
      */
     public function rejectSpecialist(Request $request, Project $project)
     {
-        if (!$this->authorizeProjectAccess($project)) {
+        if (!$this->isOwnerOrAssignedPm($project)) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
@@ -296,7 +307,7 @@ class ProjectEngineeringController extends Controller
             return response()->json(['message' => 'Not found.'], 404);
         }
 
-        if (!$this->authorizeProjectAccess($project)) {
+        if (!$this->isOwnerOrAssignedPm($project)) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
         
@@ -346,7 +357,7 @@ class ProjectEngineeringController extends Controller
             return response()->json(['message' => 'Not found.'], 404);
         }
 
-        if (!$this->authorizeProjectAccess($project)) {
+        if (!$this->isOwnerOrAssignedPm($project)) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
@@ -374,7 +385,7 @@ class ProjectEngineeringController extends Controller
             return response()->json(['message' => 'Not found.'], 404);
         }
 
-        if (!$this->authorizeProjectAccess($project)) {
+        if (!$this->isOwnerOrAssignedPm($project)) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
@@ -397,7 +408,7 @@ class ProjectEngineeringController extends Controller
      */
     public function approveEngineeringIntegration(Request $request, Project $project)
     {
-        if (!$this->authorizeProjectAccess($project)) {
+        if (!$this->isOwnerOrAssignedPm($project)) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
         $request->validate(['role_type' => 'required|in:structural,mep,interior']);
