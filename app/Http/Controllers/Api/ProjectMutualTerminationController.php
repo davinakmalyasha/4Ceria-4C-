@@ -7,6 +7,7 @@ use App\Models\Project;
 use App\Models\ProjectTermination;
 use App\Models\ProjectActivityLog;
 use App\Traits\HandlesProjectAuthorization;
+use App\Support\Hire;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -104,12 +105,26 @@ class ProjectMutualTerminationController extends Controller
             abort(403, 'Anda tidak bisa menanggapi pengajuan yang Anda buat sendiri.');
         }
 
-        // Only project participants may accept/reject a termination request.
-        $isParticipant = $this->isProjectOwner($project, $user)
-            || (int) $project->pm_id === (int) $user->id
-            || $this->isHiredProfessional($project, $user);
-        if (!$isParticipant) {
-            abort(403, 'Unauthorized.');
+        // OWNER OR ASSIGNED PM ONLY, NOT MERE PARTICIPATION.
+        //
+        // Accepting writes `projects.status = 'cancelled'` below -- it ends the
+        // whole engagement. The previous gate was
+        //
+        //     $isParticipant = $this->isProjectOwner($project, $user)
+        //         || (int) $project->pm_id === (int) $user->id
+        //         || $this->isHiredProfessional($project, $user);
+        //
+        // so ANY hired professional or active sub-professional on the project
+        // could accept someone else's termination request and cancel the project
+        // outright. A specialist engaged for one phase had the power to terminate
+        // the client's entire build.
+        //
+        // Participation is the wrong test for a decision of this magnitude: the
+        // same reasoning already applied to specialist hiring, engineering
+        // approvals, phase sealing and warranty closure, which is why
+        // `Hire::isOwnerOrAssignedPm()` exists.
+        if (!Hire::isOwnerOrAssignedPm($project, $user)) {
+            abort(403, 'Hanya Owner atau Project Manager yang dapat menanggapi pengajuan pembatalan.');
         }
 
         if ($termination->status !== 'pending') {
