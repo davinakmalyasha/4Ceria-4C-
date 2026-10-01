@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\TaggedCache;
+
 use App\Models\Material;
 use App\Models\MaterialImage;
 use App\Models\Supplier;
@@ -245,9 +247,9 @@ class MaterialController extends Controller
     {
         $supportsTags = in_array(config('cache.default'), ['redis', 'memcached']);
         if ($supportsTags) {
-            Cache::tags(['materials'])->flush();
-        } else {
-            Cache::flush();
+        TaggedCache::flush('materials');
+
+
         }
     }
 }

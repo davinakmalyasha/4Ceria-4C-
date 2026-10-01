@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Support\TaggedCache;
+
 use Illuminate\Database\Eloquent\Model;
 
 class Room extends Model
@@ -22,18 +24,18 @@ class Room extends Model
         static::saved(function ($room) {
             $supportsTags = in_array(config('cache.default'), ['redis', 'memcached']);
             if ($supportsTags) {
-                \Illuminate\Support\Facades\Cache::tags(['houses'])->flush();
-            } else {
-                \Illuminate\Support\Facades\Cache::flush();
+        TaggedCache::flush('houses');
+
+
             }
         });
 
         static::deleted(function ($room) {
             $supportsTags = in_array(config('cache.default'), ['redis', 'memcached']);
             if ($supportsTags) {
-                \Illuminate\Support\Facades\Cache::tags(['houses'])->flush();
-            } else {
-                \Illuminate\Support\Facades\Cache::flush();
+        TaggedCache::flush('houses');
+
+
             }
         });
     }

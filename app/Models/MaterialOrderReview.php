@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Support\TaggedCache;
+
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -32,18 +34,18 @@ class MaterialOrderReview extends Model
         static::saved(function ($review) {
             $supportsTags = in_array(config('cache.default'), ['redis', 'memcached']);
             if ($supportsTags) {
-                \Illuminate\Support\Facades\Cache::tags(['suppliers'])->flush();
-            } else {
-                \Illuminate\Support\Facades\Cache::flush();
+        TaggedCache::flush('suppliers');
+
+
             }
         });
 
         static::deleted(function ($review) {
             $supportsTags = in_array(config('cache.default'), ['redis', 'memcached']);
             if ($supportsTags) {
-                \Illuminate\Support\Facades\Cache::tags(['suppliers'])->flush();
-            } else {
-                \Illuminate\Support\Facades\Cache::flush();
+        TaggedCache::flush('suppliers');
+
+
             }
         });
     }

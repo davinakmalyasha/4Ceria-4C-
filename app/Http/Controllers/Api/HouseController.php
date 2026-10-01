@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Support\TaggedCache;
+
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreHouseRequest;
 use App\Http\Requests\UpdateHouseRequest;
@@ -190,9 +192,9 @@ class HouseController extends Controller
 
             $supportsTags = in_array(config('cache.default'), ['redis', 'memcached']);
             if ($supportsTags) {
-                \Illuminate\Support\Facades\Cache::tags(['houses'])->flush();
-            } else {
-                \Illuminate\Support\Facades\Cache::flush();
+        TaggedCache::flush('houses');
+
+
             }
 
             return new HouseResource($house->load(['housePic', 'room', 'room.roomPic']));
@@ -336,9 +338,9 @@ class HouseController extends Controller
 
         $supportsTags = in_array(config('cache.default'), ['redis', 'memcached']);
         if ($supportsTags) {
-            \Illuminate\Support\Facades\Cache::tags(['houses'])->flush();
-        } else {
-            \Illuminate\Support\Facades\Cache::flush();
+        TaggedCache::flush('houses');
+
+
         }
 
         return new HouseResource($house->load(['housePic', 'room', 'room.roomPic']));
@@ -355,9 +357,9 @@ class HouseController extends Controller
 
         $supportsTags = in_array(config('cache.default'), ['redis', 'memcached']);
         if ($supportsTags) {
-            \Illuminate\Support\Facades\Cache::tags(['houses'])->flush();
-        } else {
-            \Illuminate\Support\Facades\Cache::flush();
+        TaggedCache::flush('houses');
+
+
         }
 
         return response()->json(['message' => 'House deleted successfully']);

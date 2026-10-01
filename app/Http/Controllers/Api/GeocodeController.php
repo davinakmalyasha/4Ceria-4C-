@@ -26,6 +26,10 @@ class GeocodeController extends Controller
 
         $cacheKey = "geocode:reverse:lat:{$lat}:lng:{$lng}";
 
+        // Distinguish a hit from a miss BEFORE remembering, so the promotion below
+        // can be limited to a miss.
+        $wasCached = Cache::has($cacheKey);
+
         // Cache misses are short-lived so a transient Nominatim outage is not
         // poisoned into the cache for 30 days.
         $data = Cache::remember($cacheKey, 300, function () use ($lat, $lng) {
@@ -46,8 +50,19 @@ class GeocodeController extends Controller
             return response()->json(['message' => 'Geocoding service unavailable'], 503);
         }
 
-        // Promote successful lookups to the long-TTL key.
-        Cache::put($cacheKey, $data, 2592000); // 30 days
+        // Promote to the long-TTL key ONLY on a miss.
+        //
+        // This ran unconditionally after `remember()`, so every successful request
+        // rewrote the entry: a write on every read, and the 300 s branch above was
+        // dead for anything that had ever succeeded. Nominatim address data also
+        // changes -- a road renamed or a place re-administrated -- so 30 days is
+        // long enough to serve a stale address to someone filling in a project
+        // form. Seven days is long enough to absorb the repeat lookups that
+        // actually matter (someone typing the same address) and short enough to
+        // notice a change.
+        if (! $wasCached) {
+            Cache::put($cacheKey, $data, 604800); // 7 days
+        }
 
         return response()->json($data);
     }
@@ -65,6 +80,7 @@ class GeocodeController extends Controller
         $cacheKey = "geocode:search:" . md5($query);
 
         // Short TTL on failures; successful searches are promoted below.
+        $wasCached = Cache::has($cacheKey);
         $data = Cache::remember($cacheKey, 300, function () use ($query) {
             $response = Http::withHeaders([
                 'User-Agent' => '4Ceria-App-Backend'
@@ -82,7 +98,12 @@ class GeocodeController extends Controller
             return response()->json(['message' => 'Geocoding service unavailable'], 503);
         }
 
-        Cache::put($cacheKey, $data, 2592000); // 30 days
+        // Same miss-only promotion as `reverse()`. See that comment: this used
+        // to write on every hit, and a 30-day TTL on address data that changes
+        // means a renamed road stays in production for a month.
+        if (! $wasCached) {
+            Cache::put($cacheKey, $data, 604800); // 7 days
+        }
 
         return response()->json($data);
     }

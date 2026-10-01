@@ -14,7 +14,17 @@ class SupplierController extends Controller
      */
     public function index(Request $request)
     {
-        $cacheKey = 'suppliers_list_' . md5(json_encode($request->all()));
+        // SECURITY/PERF: the cache key is built ONLY from the whitelisted filter
+        // params below, never from `$request->all()`. Hashing every parameter
+        // means a script sending `?x=<random>` mints a brand-new cache entry per
+        // request, so the key space grows without bound and every entry occupies
+        // Redis until its TTL expires -- a cheap amplifier against the same store
+        // that holds sessions and queue locks.
+        //
+        // `HouseController::index()` already does exactly this, with the same
+        // comment; these two were simply never brought along.
+        $filters = $request->only(['category', 'search', 'sort', 'page']);
+        $cacheKey = 'suppliers_list_' . md5(json_encode($filters));
         $supportsTags = in_array(config('cache.default'), ['redis', 'memcached']);
 
         $query = Supplier::with(['user'])
