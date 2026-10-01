@@ -55,12 +55,27 @@ describe('TaggedCache never flushes the whole store', function () {
         expect(Cache::store('file')->get('session:keepme'))->toBe('payload');
     });
 
-    it('tolerates a key that is not present', function () {
+    it('tolerates a key that is not present, without touching anything else', function () {
+        // The previous version of this test ended in `expect(true)->toBeTrue()`.
+        // It could not fail, and it existed only to prove that `Cache::forget`
+        // does not throw on a missing key -- which it does not, so the assertion
+        // had nothing to assert.
+        //
+        // The behaviour worth pinning is the one a caller depends on: forgetting
+        // an absent key is a no-op that leaves the rest of the store alone. If
+        // someone "fixed" the miss by flushing, this fails.
         config()->set('cache.default', 'file');
+        Cache::store('file')->put('list:present', ['a'], 600);
+        Cache::store('file')->put('session:xyz', 'session-payload', 600);
 
-        TaggedCache::flush('houses', ['never:written']);
+        TaggedCache::flush('houses', ['never:written', 'list:present']);
 
-        expect(true)->toBeTrue();
+        // The absent key is still simply absent -- no exception, no surprise.
+        expect(Cache::store('file')->get('never:written'))->toBeNull();
+        // The present key really was forgotten.
+        expect(Cache::store('file')->get('list:present'))->toBeNull();
+        // And nothing beyond the requested keys was disturbed.
+        expect(Cache::store('file')->get('session:xyz'))->toBe('session-payload');
     });
 });
 

@@ -274,6 +274,67 @@ it('rounds a percentage half-up at the currency scale', function () {
     expect(Money::of('0.10')->percentage(5)->toDecimal())->toBe('0.01');
 });
 
+it('rounds a NEGATIVE percentage away from zero, never toward it', function () {
+    // THE BUG THIS PINS
+    //
+    // `percentage()` used to be
+    //
+    //     intdiv($this->minor * $basisPoints + 5000, 10000)
+    //
+    // `intdiv()` truncates toward zero, so the `+ 5000` half-up offset could only
+    // ever push a result UP. On a negative amount that is the wrong direction, and
+    // when the product is small enough for the offset to dominate it rounds the
+    // wrong way entirely:
+    //
+    //     -1000 minor x 50 bp = -50000
+    //     (-50000 + 5000) / 10000  ->  intdiv(-45000, 10000)  ->  -4
+    //     expected                                        -5
+    //
+    // So 5% of -Rp 1.00 returned -Rp 0.04 instead of -Rp 0.05 -- a one-sen
+    // understatement on every negative percentage. Refunds, reversals and
+    // negative adjustments are real movements in this codebase and every one of
+    // them goes through `Money`, so a rounding rule that only holds for positive
+    // amounts is a latent misstatement in the ledger.
+    expect(Money::of('-1.00')->percentage(5)->toDecimal())->toBe('-0.05')
+        ->and(Money::of('-10.00')->percentage(5)->toDecimal())->toBe('-0.50')
+        ->and(Money::of('-1000000.00')->percentage(11)->toDecimal())->toBe('-110000.00')
+        ->and(Money::of('-1000000.00')->percentage('11.5')->toDecimal())->toBe('-115000.00');
+});
+
+it('is symmetric about the origin, for both signs', function () {
+    // The property that makes the rounding rule safe to rely on:
+    // percentage() is ODD, so the negative of an answer is the answer for the
+    // negated amount. A one-sided rounding rule cannot satisfy this, which is
+    // exactly how the bias above was found.
+    //
+    // The expected value is built with `negate()` rather than by prefixing a
+    // minus sign to the decimal string: when a slice rounds to zero the correct
+    // answer for the negative side is `0.00`, and concatenating would demand the
+    // non-existent `-0.00`.
+    foreach (['0.10', '1.00', '10.00', '100.00', '999999.99', '0.05', '0.01'] as $amount) {
+        foreach ([0, 1, 5, 11, 33.3, 50, 99.99, 100] as $rate) {
+            $positive = Money::of($amount)->percentage($rate);
+            $negative = Money::of('-'.$amount)->percentage($rate);
+
+            expect($negative->toDecimal())->toBe($positive->negate()->toDecimal())
+                ->and($positive->add($negative)->toDecimal())->toBe('0.00');
+        }
+    }
+});
+
+it('never loses a sen to rounding across a whole-rupiah total', function () {
+    // The consequence that matters: if each slice were rounded toward zero, the
+    // slices would not add back up to the original. Half-away-from-zero is
+    // symmetric, so a negative and a positive slice of the same magnitude cancel
+    // exactly rather than leaving a residue.
+    $total = Money::of('1000000.00');
+    $fivePercent = $total->percentage(5);
+
+    expect($fivePercent->toDecimal())->toBe('50000.00')
+        ->and($fivePercent->negate()->toDecimal())->toBe('-50000.00')
+        ->and($fivePercent->add($fivePercent->negate())->toDecimal())->toBe('0.00');
+});
+
 it('rejects a percentage it cannot represent', function () {
     Money::of('100')->percentage('eleven');
 })->throws(InvalidArgumentException::class);

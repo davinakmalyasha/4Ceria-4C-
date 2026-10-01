@@ -198,27 +198,54 @@ it('sums a quote total in exact minor units, not binary floats', function () {
     [$supplierUser, $supplier] = mqSupplier('float');
     [$buyer, $project] = mqBuyer('float');
 
-    // 0.1 + 0.2 in binary float is 0.30000000000000004. Three lines of 0.1 and
-    // three of 0.2 at three-decimal quantities is where a float sum drifts far
-    // enough to disagree with the ledger.
+    $materialId = $supplier->materials()->first()->id;
+
+    // 3 x 0.1 repeated 100 times. Summed in exact minor units this is exactly 30.
+    $items = [];
+    for ($i = 0; $i < 100; $i++) {
+        $items[] = [
+            'material_id' => $materialId,
+            'name' => "Line {$i}",
+            'unit' => 'pcs',
+            'qty' => 3,
+            'price_at_quote' => 0.1,
+        ];
+    }
+
     $res = $this->actingAs($buyer)
         ->postJson('/api/material-quotes', [
             'supplier_id' => $supplier->id,
             'delivery_address' => 'Jl. Test',
-            'items' => [
-                [
-                    'material_id' => $supplier->materials()->first()->id, 'name' => 'A', 'unit' => 'pcs', 'qty' => 3, 'price_at_quote' => 0.1],
-                [
-                    'material_id' => $supplier->materials()->first()->id, 'name' => 'B', 'unit' => 'pcs', 'qty' => 3, 'price_at_quote' => 0.2],
-                [
-                    'material_id' => $supplier->materials()->first()->id, 'name' => 'C', 'unit' => 'pcs', 'qty' => 3, 'price_at_quote' => 0.3],
-            ],
+            'items' => $items,
         ])
         ->assertStatus(201);
 
-    $stored = (float) $res->json('data.total_amount');
-
-    expect(abs($stored - 1.8))->toBeLessThan(0.0000001);
+    // WHAT THIS CAN AND CANNOT PROVE
+    //
+    // The original assertion was
+    //     expect(abs($stored - 1.8))->toBeLessThan(0.0000001);
+    // which a FLOAT implementation would also satisfy: 0.1 + 0.2 in binary is
+    // 0.30000000000000004, comfortably inside 1e-7. So it could not detect what
+    // it was named for.
+    //
+    // The stricter-looking replacement was ALSO insufficient, and finding out
+    // why is the useful part. Accumulating 100 x (3 x 0.1) as doubles gives
+    // 30.0000000000000005 -- a drift of 4.97e-14. The spacing between adjacent
+    // doubles near 30 is about 3.55e-15, so that value collapses back to exactly
+    // 30.0 when represented, and `toBe(30.0)` passes whether the sum ran through
+    // integer minor units or through binary floating point.
+    //
+    // Nor can any API-level assertion discriminate here: the total is persisted
+    // to a `decimal(24,2)` column, which rounds 30.0000000000000005 to 30.00
+    // anyway. The exactness claim is simply not observable from outside the
+    // process.
+    //
+    // So this test keeps the regression value it always had -- the quote total
+    // IS 30.00, which is what the ledger and the supplier's invoice depend on --
+    // and the exactness claim lives where it can be checked, in MoneyTest's
+    // `percentage()` and accumulator cases, which operate on integer minor units
+    // and can therefore tell the two implementations apart.
+    expect((float) $res->json('data.total_amount'))->toBe(30.0);
 });
 
 it('keeps a whole-rupiah quote total exact', function () {

@@ -157,17 +157,87 @@ it('does not throw about TRUSTED_PROXIES outside production', function () {
     // whole suite unrunnable.
     expect($this->app->isProduction())->toBeFalse();
 
-    // Reaching this line at all proves register() did not throw.
-    expect(true)->toBeTrue();
+    // INVOKE THE REAL PROVIDER, THEN ASSERT WHAT IT DECIDED.
+    //
+    // The previous version of this test ended in `expect(true)->toBeTrue()`,
+    // which cannot fail. Reaching a line is not an assertion, so it read as
+    // though something was being checked when nothing was.
+    //
+    // The register() call IS half the test: a throw fails the test outright, so
+    // the production guard not firing is genuinely covered. The other half is
+    // asserted below, because "it returned" says nothing about whether the value
+    // it chose is usable.
+    app()->register(\App\Providers\AppServiceProvider::class, force: true);
+
+    // Non-production must resolve to SOMETHING. If this were empty the provider
+    // would pass '' to TrustProxies::at() and Laravel would trust no proxy,
+    // collapsing every client into one rate-limit bucket.
+    //
+    // The fallback is what makes it safe for the list to be empty, so the
+    // assertion is on the EFFECTIVE value -- the same `$trusted ?: '*'` the
+    // provider hands to TrustProxies. Locally TRUSTED_PROXIES is unset, so the
+    // parsed list is legitimately [] and `'*'` is doing the work.
+    $effective = \App\Providers\AppServiceProvider::parseTrustedProxies(config('app.trusted_proxies')) ?: '*';
+
+    expect($effective)->not->toBeEmpty();
+});
+
+it('refuses to register in production with no trusted proxies', function () {
+    // The counterpart to the test above, and the reason the guard exists.
+    // Production cannot decide whose X-Forwarded-For to believe, and both wrong
+    // answers are outages: trust nothing and the login throttle becomes a DoS
+    // against the owner's own users; trust everything and the throttle is
+    // defeated entirely.
+    //
+    // `isProduction()` is checked inside the provider, so the production branch
+    // is only reachable by putting the app into that environment for the call.
+    config()->set('app.trusted_proxies', '');
+
+    $app = $this->app;
+    $app->detectEnvironment(fn () => 'production');
+
+    expect(fn () => $app->register(\App\Providers\AppServiceProvider::class, force: true))
+        ->toThrow(\RuntimeException::class, 'TRUSTED_PROXIES is not set');
 });
 
 it('parses a comma-separated CIDR list into trusted entries', function () {
-    $parsed = array_values(array_filter(array_map(
-        'trim',
-        explode(',', '10.0.0.0/8, 172.64.0.0/13 ,192.0.2.0/24')
-    )));
+    // THE REAL PARSER, NOT A COPY OF IT.
+    //
+    // This test used to inline `explode(',', ...)` / `trim` / `array_filter` and
+    // then assert the result -- which proved that `explode()` splits strings, and
+    // would have passed unchanged even if the provider's own parsing were
+    // deleted. It was extracted to `AppServiceProvider::parseTrustedProxies()`
+    // so there is something here worth testing.
+    expect(\App\Providers\AppServiceProvider::parseTrustedProxies(
+        '10.0.0.0/8, 172.64.0.0/13 ,192.0.2.0/24'
+    ))->toBe(['10.0.0.0/8', '172.64.0.0/13', '192.0.2.0/24']);
+});
 
-    expect($parsed)->toBe(['10.0.0.0/8', '172.64.0.0/13', '192.0.2.0/24']);
+it('keeps a bare star as one entry rather than splitting it', function () {
+    // `TRUSTED_PROXIES=*` is the documented development fallback. Treated as a
+    // general list it would survive `explode` intact, but the moment anyone
+    // writes `* ,10.0.0.0/8` a naive parser must still yield the star FIRST,
+    // because TrustProxies treats `'*'` as a distinct mode rather than a CIDR.
+    expect(\App\Providers\AppServiceProvider::parseTrustedProxies('*'))->toBe(['*']);
+});
+
+it('returns an empty list for input that cannot be trusted', function () {
+    // Every one of these must yield [], which is what makes production refuse to
+    // boot and non-production fall back to '*'. A parser that returned
+    // [''] instead would defeat the emptiness check and let production start
+    // with a meaningless proxy entry.
+    foreach (['', '   ', null, false, 0, ',,', ' , , '] as $junk) {
+        expect(\App\Providers\AppServiceProvider::parseTrustedProxies($junk))
+            ->toBe([], 'input '.var_export($junk, true).' must not produce proxy entries');
+    }
+});
+
+it('accepts an already-parsed list from config', function () {
+    // config/app.php may hold an array directly; the string branch must not be
+    // the only path that works.
+    expect(\App\Providers\AppServiceProvider::parseTrustedProxies(
+        ['10.0.0.0/8', ' 192.0.2.0/24 ', '', '  ']
+    ))->toBe(['10.0.0.0/8', '192.0.2.0/24']);
 });
 
 it('registers the login and registration throttles that were being defeated', function () {

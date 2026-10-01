@@ -44,11 +44,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $trusted = config('app.trusted_proxies');
-
-        if (is_string($trusted)) {
-            $trusted = array_values(array_filter(array_map('trim', explode(',', $trusted))));
-        }
+        $trusted = self::parseTrustedProxies(config('app.trusted_proxies'));
 
         if ($this->app->isProduction() && empty($trusted)) {
             throw new \RuntimeException(
@@ -66,6 +62,49 @@ class AppServiceProvider extends ServiceProvider
 
         // Static, so it must be set before the middleware pipeline runs.
         \Illuminate\Http\Middleware\TrustProxies::at($trusted ?: '*');
+    }
+
+    /**
+     * Normalise the TRUSTED_PROXIES config value into a list of proxy entries.
+     *
+     * EXTRACTED SO IT CAN ACTUALLY BE TESTED. This chain used to be inline in
+     * `register()`, which is not reachable from a test: `withMiddleware()` runs
+     * without env or config populated, so the only way to cover the parsing was
+     * to copy it into the test -- which asserted that `explode()` splits strings.
+     * A test that reimplements the thing it is testing passes forever and
+     * protects nothing.
+     *
+     * Returns `[]` for every unusable input rather than throwing, because the
+     * caller's decision about emptiness is environment-dependent: production
+     * refuses to boot, and non-production falls back to `'*'` so artisan serve
+     * and Octane keep working.
+     *
+     * @return list<string>
+     */
+    public static function parseTrustedProxies(mixed $trusted): array
+    {
+        // Already a list (a config array, or a .env value Laravel parsed).
+        if (is_array($trusted)) {
+            return array_values(array_filter(
+                array_map(fn ($v) => trim((string) $v), $trusted),
+                fn ($v) => $v !== ''
+            ));
+        }
+
+        if (! is_string($trusted)) {
+            return [];
+        }
+
+        // `TRUSTED_PROXIES=*` is the documented "trust whatever is in front" form
+        // and must survive as a single entry, not be split on nothing.
+        if (trim($trusted) === '*') {
+            return ['*'];
+        }
+
+        return array_values(array_filter(
+            array_map('trim', explode(',', $trusted)),
+            fn ($v) => $v !== ''
+        ));
     }
 
     /**

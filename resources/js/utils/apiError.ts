@@ -80,11 +80,6 @@ export function getApiErrorStatus(err: unknown): number | null {
     return null;
 }
 
-/** True when the request failed with the given HTTP status code. */
-export function isApiErrorStatus(err: unknown, status: number): boolean {
-    return getApiErrorStatus(err) === status;
-}
-
 /**
  * Resolves the most specific message available for a failed request.
  *

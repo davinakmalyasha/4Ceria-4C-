@@ -231,17 +231,48 @@ final class Money implements JsonSerializable, Stringable
     }
 
     /**
-     * A percentage of this amount, rounded half-up to the currency scale.
+     * A percentage of this amount, rounded HALF AWAY FROM ZERO.
      *
-     * The rounding is explicit rather than inherited from float behaviour.
+     * The rounding is explicit rather than inherited from float behaviour, and
+     * it is applied to the SIGNED product -- not to a magnitude with a sign
+     * reapplied afterwards.
+     *
+     * WHY HALF AWAY FROM ZERO, AND WHY THAT MATTERS FOR NEGATIVES
+     * -----------------------------------------------------------
+     * This used to be:
+     *
+     *     intdiv($this->minor * $basisPoints + 5000, 10000)
+     *
+     * which is correct for positive amounts and biased for negative ones.
+     * `intdiv()` truncates TOWARD ZERO, so the `+ 5000` half-up offset only ever
+     * pushes the result up. On a negative amount it pushes a rounding decision
+     * in the wrong direction, and can round the WRONG WAY entirely once the
+     * product is small enough that the offset dominates:
+     *
+     *     -1000 minor x 50 bp = -50000; (-50000 + 5000) / 10000 = 0 (truncated)
+     *     expected -5, returned 0
+     *
+     * So `-1.00` at 5% gave `0` instead of `-0.05`. Refunds, reversals and
+     * negative adjustments are all real money movements in this codebase, and
+     * `Money` is the single source of truth for all of them.
+     *
+     * The sign is applied after rounding the magnitude, which makes the
+     * behaviour symmetric: percentage() is odd about the origin, so
+     * `(-x)->percentage(p) === -(x->percentage(p))` for every p.
      */
     public function percentage(string|int|float $percentage): self
     {
         $basisPoints = self::toBasisPoints($percentage);
 
-        // basisPoints / 10000, done in integers.
+        $product = $this->minor * $basisPoints;
+
+        // Round the magnitude half away from zero, then restore the sign.
+        // `$product` is already signed, so this is the magnitude of the product.
+        $sign = $product < 0 ? -1 : 1;
+        $magnitude = abs($product);
+
         return new self(
-            intdiv($this->minor * $basisPoints + 5000, 10000),
+            $sign * intdiv($magnitude + 5000, 10000),
             $this->currency
         );
     }

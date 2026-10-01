@@ -1,7 +1,7 @@
 import React from 'react';
 import { Plus, Trash2, Shield, CheckCircle2 } from 'lucide-react';
 import { ProposedTermin, ProposedMilestone } from '../../../../types/project.types';
-import { ServiceItem } from '../../Details/ServiceCatalogPicker';
+import { ServiceItem } from '../../../../types/service.types';
 
 interface Props {
     termins: ProposedTermin[];
