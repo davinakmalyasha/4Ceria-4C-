@@ -57,9 +57,28 @@ class MaterialQuoteController extends Controller
             'delivery_method' => 'nullable|string',
         ]);
 
-        $totalAmount = collect($validated['items'])->sum(function ($item) {
-            return $item['price_at_quote'] * $item['qty'];
-        });
+        // Money is accumulated as EXACT integer minor units.
+        //
+        // This was:
+        //
+        //     $totalAmount = collect($validated['items'])
+        //         ->sum(fn ($item) => $item['price_at_quote'] * $item['qty']);
+        //
+        // a binary-float multiply accumulated per line, and this total later
+        // becomes a ledger amount through `recordPayment()`. So the escrow
+        // balance and the merchant's own statement could disagree by a
+        // cent-scale drift, in a system whose whole premise is that the ledger is
+        // exact. `markAsPaid()` in this same file already used `Money`; this
+        // site had not been converted.
+        $totalAmount = Money::zero();
+
+        foreach ($validated['items'] as $item) {
+            $totalAmount = $totalAmount->add(
+                Money::fromColumn($item['price_at_quote'])->multiplyBy((int) $item['qty'])
+            );
+        }
+
+        $totalAmountValue = $totalAmount->toFloat();
 
         // L6 FIX: a quote may only be linked to a project the requester owns
         // (or where they are an active sub-professional) — otherwise any user
@@ -85,7 +104,7 @@ class MaterialQuoteController extends Controller
             'delivery_address' => $validated['delivery_address'],
             'address_detail' => $validated['address_detail'] ?? null,
             'delivery_method' => $validated['delivery_method'] ?? 'Supplier Fleet',
-            'total_amount' => $totalAmount,
+            'total_amount' => $totalAmountValue,
             'status' => 'pending',
             'note' => $validated['note'] ?? null,
             'latitude' => $validated['latitude'] ?? null,
@@ -99,7 +118,52 @@ class MaterialQuoteController extends Controller
         ], 201);
     }
 
-    public function requestPayment(Request $request, MaterialQuote $quote)
+    /**
+ * The platform's own price for shipping this quote, or null when the platform
+ * does not price that delivery arrangement.
+ *
+ * ONE implementation, used by both `approve()` (which charges it to the order)
+ * and `requestPayment()` (which refuses to exceed it). The duplication this
+ * replaces was the actual bug: the tariff was computed in `approve()` only, so
+ * nothing constrained the figure the supplier typed into `requestPayment()`.
+ *
+ * Pricing rule, unchanged: `Rp 50.000` for the first 5 km, then `Rp 4.000` per
+ * extra km, over the Haversine great-circle distance with a 1.3x routing
+ * multiplier.
+ */
+private function platformShippingTariff(MaterialQuote $quote, $user, string $deliveryMethod): ?Money
+{
+    if ($deliveryMethod !== 'Hire Platform Courier') {
+        return null;
+    }
+
+    if (! $quote->latitude || ! $quote->longitude || ! $user->supplier?->latitude || ! $user->supplier?->longitude) {
+        return null;
+    }
+
+    $lat1 = deg2rad((float) $user->supplier->latitude);
+    $lon1 = deg2rad((float) $user->supplier->longitude);
+    $lat2 = deg2rad((float) $quote->latitude);
+    $lon2 = deg2rad((float) $quote->longitude);
+
+    $dLat = $lat2 - $lat1;
+    $dLon = $lon2 - $lon1;
+
+    $a = sin($dLat / 2) * sin($dLat / 2) + cos($lat1) * cos($lat2) * sin($dLon / 2) * sin($dLon / 2);
+    $c = 2 * asin(sqrt($a));
+
+    $distanceKm = (6371 * $c) * 1.3; // Earth's radius in km, 1.3x routing multiplier
+
+    $baseFee = 50000;
+
+    if ($distanceKm <= 5) {
+        return Money::fromColumn($baseFee);
+    }
+
+    return Money::fromColumn($baseFee + ceil(($distanceKm - 5) * 4000));
+}
+
+public function requestPayment(Request $request, MaterialQuote $quote)
     {
         $user = Auth::user();
         if ($user->role_type !== 'supplier' || !$user->supplier || $quote->supplier_id !== $user->supplier->id) {
@@ -112,8 +176,53 @@ class MaterialQuoteController extends Controller
             'total_weight' => 'nullable|string',
         ]);
 
+        // THE SUPPLIER DOES NOT SET THE SHIPPING CHARGE.
+        //
+        // `requestPayment()` validated `shipping_cost` with only `min:0`, and
+        // that number then became the `markAsPaid()` amount, which debits the
+        // BUYER'S PROJECT ESCROW via `ProjectFinancialService::recordPayment()`.
+        // So a supplier could name any figure at all and drain escrow.
+        //
+        // The platform already owns a tariff -- a Haversine calculation with a
+        // routing multiplier, `Rp 50.000` for the first 5 km and `Rp 4.000` per
+        // extra km -- and `approve()` used it. That calculation is now a single
+        // method used by both paths, so the charge can never diverge from the
+        // published tariff again.
+        //
+        // A supplier may still DISCOUNT below the tariff (and for delivery
+        // arrangements the platform does not price, they supply the figure), but
+        // may never exceed it.
+        $requested = Money::fromColumn($validated['shipping_cost']);
+        $tariff = $this->platformShippingTariff($quote, $user, $validated['delivery_method']);
+
+        if ($tariff !== null && $requested->isGreaterThan($tariff)) {
+            return response()->json([
+                'message' => 'Shipping cost exceeds the platform tariff for this delivery method. '
+                    .'The maximum chargeable is Rp '.number_format($tariff->toFloat(), 0, ',', '.')
+                    .'. Lower your figure or arrange delivery outside the platform.',
+            ], 422);
+        }
+
+        // Where the platform cannot price the delivery (supplier-arranged, or
+        // missing coordinates) there is no tariff to compare against, so a
+        // sanity ceiling applies instead: shipping may not exceed the goods
+        // value. That is deliberately generous -- it is a backstop against
+        // draining escrow through a fabricated freight line, not a pricing rule.
+        if ($tariff === null) {
+            $goodsValue = Money::fromColumn($quote->total_amount);
+
+            if ($goodsValue->isPositive() && $requested->isGreaterThan($goodsValue)) {
+                return response()->json([
+                    'message' => 'Shipping cost exceeds the value of the goods. '
+                        .'This delivery method is not priced by the platform, so a freight '
+                        .'charge above the goods total requires a separate agreement with the '
+                        .'buyer.',
+                ], 422);
+            }
+        }
+
         $quote->update([
-            'shipping_cost' => $validated['shipping_cost'],
+            'shipping_cost' => $requested->toFloat(),
             'delivery_method' => $validated['delivery_method'],
             'total_weight' => $validated['total_weight'] ?? $quote->total_weight,
             'status' => 'awaiting_payment',
@@ -226,6 +335,27 @@ class MaterialQuoteController extends Controller
         if ($quote->status === 'paid') {
             return response()->json([
                 'message' => 'This quote has already been marked as paid.',
+            ], 422);
+        }
+
+        // A REFUNDED quote must be terminal, exactly as it is on a termin.
+        //
+        // Only `=== 'paid'` was refused, so after a dispute refund had moved the
+        // quote to `refunded`, a second `markAsPaid()` passed the guard. It then
+        // called `recordPayment()`, which finds the existing ledger row for
+        // `(MaterialQuote, id)` and short-circuits to true WITHOUT writing a
+        // second row -- so the quote was re-asserted as `paid` while the escrow
+        // held a refund, i.e. the money was gone but the ledger said the buyer
+        // still owed it. `ProjectBudgetController::markPaid()` carries an
+        // `assertNotRefunded()` for precisely this; the quote path was missing it.
+        // Only `status`, because `material_quotes` has no `refunded_amount` and no
+        // `payment_status` -- DisputeService flips whichever field exists, and for
+        // a quote that is `status`. Reading a column that does not exist throws
+        // under `Model::shouldBeStrict()`, which is how a defensive-looking
+        // guard becomes a 500.
+        if ($quote->status === 'refunded') {
+            return response()->json([
+                'message' => 'This quote was refunded and cannot be marked as paid again.',
             ], 422);
         }
 
@@ -367,30 +497,11 @@ class MaterialQuoteController extends Controller
             $calculatedShippingCost = $shippingCost;
 
             if ($deliveryMethod === 'Hire Platform Courier' && $quote->latitude && $quote->longitude && $user->supplier->latitude && $user->supplier->longitude) {
-                // Haversine Formula for Distance Calculation
-                $lat1 = deg2rad($user->supplier->latitude);
-                $lon1 = deg2rad($user->supplier->longitude);
-                $lat2 = deg2rad($quote->latitude);
-                $lon2 = deg2rad($quote->longitude);
+                // The tariff itself now lives in platformShippingTariff() so that
+                // this path and `requestPayment()` cannot diverge.
+                $tariff = $this->platformShippingTariff($quote, $user, $deliveryMethod);
 
-                $dLat = $lat2 - $lat1;
-                $dLon = $lon2 - $lon1;
-
-                $a = sin($dLat / 2) * sin($dLat / 2) + cos($lat1) * cos($lat2) * sin($dLon / 2) * sin($dLon / 2);
-                $c = 2 * asin(sqrt($a));
-                $radius = 6371; // Earth's radius in km
-
-                $straightDistance = $radius * $c;
-                $distanceKm = $straightDistance * 1.3; // 1.3x routing multiplier
-
-                // Pricing Rule: Rp 50.000 for first 5km, Rp 4.000 per extra km
-                $baseFee = 50000;
-                if ($distanceKm > 5) {
-                    $extraDistance = $distanceKm - 5;
-                    $calculatedShippingCost = $baseFee + ceil($extraDistance * 4000);
-                } else {
-                    $calculatedShippingCost = $baseFee;
-                }
+                $calculatedShippingCost = $tariff?->toFloat() ?? $shippingCost;
             }
 
             // 2. Create formal MaterialOrder
