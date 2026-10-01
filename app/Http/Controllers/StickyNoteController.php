@@ -55,7 +55,15 @@ class StickyNoteController extends Controller
 
     public function update(Request $request, Project $project, StickyNote $stickyNote)
     {
-        if ($stickyNote->user_id !== Auth::id()) {
+        // Authorship is not enough: route model binding resolves `{stickyNote}` by
+        // primary key alone, so `PUT /api/projects/{ANY}/sticky-notes/{id}` would
+        // have accepted a note belonging to a different project as long as the
+        // caller had written it. The `{project}` segment was decorative.
+        if ((int) $stickyNote->project_id !== (int) $project->id) {
+            return response()->json(['message' => 'Not found'], 404);
+        }
+
+        if ((int) $stickyNote->user_id !== (int) Auth::id()) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -72,7 +80,13 @@ class StickyNoteController extends Controller
 
     public function destroy(Project $project, StickyNote $stickyNote)
     {
-        if ($stickyNote->user_id !== Auth::id()) {
+        // See update(): `{stickyNote}` is bound by primary key, so the project
+        // segment must be verified or it is meaningless.
+        if ((int) $stickyNote->project_id !== (int) $project->id) {
+            return response()->json(['message' => 'Not found'], 404);
+        }
+
+        if ((int) $stickyNote->user_id !== (int) Auth::id()) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 

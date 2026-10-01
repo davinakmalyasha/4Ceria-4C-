@@ -99,9 +99,25 @@ class ProjectDailyLogController extends Controller
         return response()->json(['data' => $log->load('user')]);
     }
 
-    public function destroy(Project $project, ProjectDailyLog $dailyLog)
+public function destroy(Project $project, ProjectDailyLog $dailyLog)
     {
-        if ($dailyLog->user_id !== Auth::id()) {
+        // TWO checks, not one.
+        //
+        // The authorship check alone was the whole of this method's
+        // authorization, and route model binding resolves `{dailyLog}` by primary
+        // key alone -- so `DELETE /api/projects/{ANY}/daily-logs/{id}` accepted a
+        // log belonging to a DIFFERENT project as long as the caller had authored
+        // it. The `{project}` segment was decorative, and `logActivity()` below
+        // then wrote the deletion record against the wrong project, corrupting
+        // the audit trail as a side effect of the confusion.
+        //
+        // The project binding check is the pattern used across this codebase for
+        // nested resources.
+        if ((int) $dailyLog->project_id !== (int) $project->id) {
+            return response()->json(['message' => 'Not found.'], 404);
+        }
+
+        if ((int) $dailyLog->user_id !== (int) Auth::id()) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
