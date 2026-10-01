@@ -263,6 +263,18 @@ class FirmMemberController extends Controller
             return response()->json(['message' => 'Unauthorized. You must be the hired lead professional on this project.'], 403);
         }
 
+        // MONEY IS FROZEN WHILE A DISPUTE IS OPEN.
+        //
+        // The addendum below carries an attacker-chosen `rate` and becomes payable
+        // once the owner or PM authorises it, so it is a new financial commitment.
+        // `ProjectChangeOrderController` and `ProjectPaymentTerminController` both
+        // refuse this while a dispute is open; assigning a specialist did not.
+        try {
+            app(\App\Services\DisputeService::class)->assertNoOpenDispute($project);
+        } catch (\Exception $e) {
+            return response()->json(['message' => $e->getMessage()], $e->getCode() ?: 422);
+        }
+
         // 3. Has this assignment proposal already been submitted or approved?
         $exists = \App\Models\ProjectAddendum::where('project_id', $validated['project_id'])
             ->where('assigned_user_id', $validated['member_user_id'])

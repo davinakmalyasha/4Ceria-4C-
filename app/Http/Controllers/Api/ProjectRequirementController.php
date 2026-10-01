@@ -257,8 +257,21 @@ class ProjectRequirementController extends Controller
         $isPM = $user->role_type === 'project_manager' && $project->pm_id === $user->id;
         $isOwner = $project->user_id === $user->id;
 
-        if (!$isHiredKontraktor && !$isSubContractor && !$isPM && !$isOwner) {
+if (!$isHiredKontraktor && !$isSubContractor && !$isPM && !$isOwner) {
             return response()->json(['message' => 'Unauthorized. Only contractors, hired helper sub-professionals, or managers can request procurement.'], 403);
+        }
+
+        // MONEY IS FROZEN WHILE A DISPUTE IS OPEN.
+        //
+        // This creates an addendum at `quantity_needed * estimated_unit_cost`, a
+        // new payable obligation. `ProjectChangeOrderController` and
+        // `ProjectPaymentTerminController` both refuse this while a dispute is
+        // open; procurement requests did not, so a project under arbitration could
+        // still accumulate new costs.
+        try {
+            app(\App\Services\DisputeService::class)->assertNoOpenDispute($project);
+        } catch (\Exception $e) {
+            return response()->json(['message' => $e->getMessage()], $e->getCode() ?: 422);
         }
 
         $validated = $request->validate([

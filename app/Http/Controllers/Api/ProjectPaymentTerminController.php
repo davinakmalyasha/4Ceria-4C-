@@ -183,8 +183,17 @@ class ProjectPaymentTerminController extends Controller
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
+// DISPUTE FREEZE: while a dispute is open the payment plan is contested.
+        //
+        // `storePaymentTermin()` and `updatePaymentTermin()` both freeze, and a
+        // LINK is just as much a movement of the payment trigger as an amount
+        // change: linking a stage to a milestone is what allows that stage to be
+        // unlocked by a milestone approval, so doing it mid-arbitration changes
+        // when money becomes payable without moving any money yet.
+        app(DisputeService::class)->assertNoOpenDispute($project);
+
         $request->validate([
-            'milestone_id' => ['required', new \App\Rules\MilestoneBelongsToProject((int) $project->id)],
+            'milestone_id' => ['required', new \App\Rules\MilestoneBelongsToProject((int) $project->id)]
         ]);
 
         // Check if this termin is already linked to another milestone
@@ -217,6 +226,10 @@ class ProjectPaymentTerminController extends Controller
         if ($termin->recipient_id !== $user->id && $project->pm_id !== $user->id) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
+
+// DISPUTE FREEZE: see linkMilestone(). Unlinking detaches the trigger that
+        // would have released the money, so it is equally contested mid-arbitration.
+        app(DisputeService::class)->assertNoOpenDispute($project);
 
         $termin->update(['milestone_id' => null]);
         return response()->json(['message' => 'Payment unlinked.']);

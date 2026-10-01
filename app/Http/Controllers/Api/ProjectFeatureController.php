@@ -43,6 +43,23 @@ class ProjectFeatureController extends Controller
             return response()->json(['message' => 'Request is not in a verifiable state'], 422);
         }
 
+        // MONEY IS FROZEN WHILE A DISPUTE IS OPEN.
+        //
+        // This is the one site in this controller that creates a financial
+        // commitment: an addendum at an UNBOUNDED `estimated_cost` that the owner
+        // is then asked to approve and pay. `ProjectChangeOrderController` does
+        // exactly this check at both of its sites (lines 89 and 185), and
+        // `ProjectPaymentTerminController` does it too -- so the absence here was
+        // an omission rather than a decision.
+        //
+        // Without it, a project under arbitration can still acquire new payable
+        // obligations, which is precisely what arbitration is meant to freeze.
+        try {
+            app(\App\Services\DisputeService::class)->assertNoOpenDispute($project);
+        } catch (\Exception $e) {
+            return response()->json(['message' => $e->getMessage()], $e->getCode() ?: 422);
+        }
+
         \DB::beginTransaction();
         try {
             $procurementRequest->update([
