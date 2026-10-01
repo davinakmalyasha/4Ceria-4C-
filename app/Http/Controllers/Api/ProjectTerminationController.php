@@ -10,6 +10,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
+use App\Support\Hire;
+
 class ProjectTerminationController extends Controller
 {
     /**
@@ -150,11 +152,40 @@ class ProjectTerminationController extends Controller
         $role = self::normaliseRole((string) $user->role_type);
         $column = $this->getColumnForRole($role);
 
-        // BUGFIX: for the PM role, projects.pm_id holds the USER id — compare
-        // against $user->id; every other role compares profile ids.
-        $isHired = $role === 'pm'
-            ? (int) $project->pm_id === (int) $user->id
-            : ($column && (int) $project->$column === (int) $this->getProfileIdForUser($user, $role));
+        // `Hire::matches()` is the one implementation of "is this user the hired
+        // professional for this role", and it requires BOTH sides present.
+        //
+        // The local version this replaces was:
+        //
+        //     $isHired = $role === 'pm'
+        //         ? (int) $project->pm_id === (int) $user->id
+        //         : ($column && (int) $project->$column
+        //             === (int) $this->getProfileIdForUser($user, $role));
+        //
+        // With no professional of that role on the project and no profile on the
+        // user, `getProfileIdForUser()` returns null and the project column is
+        // null, so the comparison is `(int)null === (int)null` -- TRUE in PHP.
+        //
+        // A user whose `role_type` is any of the six non-PM licensed roles, but
+        // who holds no profile, therefore passes. That state is reachable via
+        // Admin\AdminUserController::updateRole, which changes `role_type` with
+        // no profile side-effect. `POST /api/projects/{any}/resign` then:
+        //
+        //   - voided every unpaid payment stage of that role
+        //     (`settlePaymentStages`, below);
+        //   - ran `$project->milestones()->where('structural_id', null)`, which
+        //     SQL translates to `structural_id IS NULL` and therefore DELETED
+        //     every incomplete milestone of ANY unassigned role;
+        //   - and billed the attacker a reliability-score penalty.
+        //
+        // `Hire` speaks the `config/bids.php` vocabulary, this controller speaks
+        // the `pm` short form, so the role is translated at the boundary rather
+        // than by adding a second vocabulary to `Hire`.
+        $isHired = Hire::matches(
+            $project,
+            $user,
+            self::toTerminRoleType($role),
+        );
 
         if (!$isHired) {
             return response()->json(['message' => 'You are not hired for this role on this project.'], 403);
@@ -208,14 +239,26 @@ class ProjectTerminationController extends Controller
             // 4. CLEANUP: Delete uncompleted milestones for this role.
             // Milestones use their own column names, and for the PM they store
             // a PROFILE id while projects.pm_id stores a USER id.
+            //
+            // The null guard is load-bearing, not defensive noise. `where($col,
+            // null)` becomes `WHERE $col IS NULL`, which matches EVERY
+            // unassigned milestone of ANY role -- so on a project where this
+            // professional had never been assigned, resigning deleted the whole
+            // unassigned milestone set. `Hire::matches()` above now guarantees
+            // the column is populated, and this guard makes the invariant local
+            // to the code that depends on it.
             $milestoneValue = $role === 'pm'
                 ? (\App\Models\ProjectManager::find($profileId)?->id ?? $profileId)
                 : $project->$column;
 
-            $project->milestones()
-                ->where($this->getMilestoneColumnForRole($role), $milestoneValue)
-                ->where('is_completed', false)
-                ->delete();
+            $milestoneColumn = $this->getMilestoneColumnForRole($role);
+
+            if ($milestoneValue !== null && $milestoneColumn !== null) {
+                $project->milestones()
+                    ->where($milestoneColumn, $milestoneValue)
+                    ->where('is_completed', false)
+                    ->delete();
+            }
 
             // 4b. MONEY SETTLEMENT — see fireProfessional.
             //

@@ -245,14 +245,21 @@ class FirmMemberController extends Controller
         }
 
         // 2. Is the owner hired on the target project?
+        //
+        // Was three hand-rolled checks, two of them loose-equality id
+        // comparisons against `optional(...)->id`. With no architect on the
+        // project and no `arsiteks` row on the user, `null == null` is TRUE in
+        // PHP, so a user whose `role_type` is `arsitek` but who holds no profile
+        // passed -- and then created a `specialist_assignment` addendum at an
+        // attacker-chosen `rate`, which the owner or PM can then authorise and
+        // pay. Reachable state: Admin\AdminUserController::updateRole changes
+        // `role_type` with no profile side-effect.
+        //
+        // Delegated to `Hire::matches()`, which requires both sides present and
+        // additionally requires the caller to actually hold the role.
         $project = \App\Models\Project::findOrFail($validated['project_id']);
-        $isHired = false;
-        
-        if ($user->role_type === 'arsitek' && $project->selected_arsitek_id == optional($user->arsitek)->id) $isHired = true;
-        if ($user->role_type === 'kontraktor' && $project->selected_kontraktor_id == optional($user->kontraktor)->id) $isHired = true;
-        if ($user->role_type === 'project_manager' && $project->pm_id === $user->id) $isHired = true;
 
-        if (!$isHired) {
+        if (!\App\Support\Hire::matches($project, $user, (string) $user->role_type)) {
             return response()->json(['message' => 'Unauthorized. You must be the hired lead professional on this project.'], 403);
         }
 
