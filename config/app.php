@@ -30,6 +30,25 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Trusted Proxies
+    |--------------------------------------------------------------------------
+    |
+    | Comma-separated CIDR list of the reverse proxy / platform edge that
+    | terminates TLS in front of this application (Railway, Cloudflare, an nginx
+    | sidecar, ...). Read here rather than via `env()` inside
+    | bootstrap/app.php's withMiddleware(), because neither `env()` nor `config()`
+    | is reliably populated at that point in the boot sequence -- which is how this
+    | setting silently ended up on "*" in production.
+    |
+    | Consumed by AppServiceProvider::register(), which refuses to boot in
+    | production when this is empty. See .env.example for the full rationale.
+    |
+    */
+
+    'trusted_proxies' => env('TRUSTED_PROXIES'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Debug Mode
     |--------------------------------------------------------------------------
     |

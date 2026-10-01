@@ -16,13 +16,28 @@ return Application::configure(basePath: dirname(__DIR__))
         // Railway terminates TLS at its edge; without trusting the proxy,
         // every request shares the edge IP and rate-limit buckets collapse
         // into one global bucket (login lockout DoS, wrong audit IPs).
-        // SECURITY: pin to TRUSTED_PROXIES (CIDR list) in production — "*"
-        // lets clients spoof X-Forwarded-For and rotate throttle buckets.
-        // Local dev falls back to "*" so artisan serve / octane keep working.
+        //
+        // Trusting "*" is the other side of that coin: it lets any client set
+        // X-Forwarded-For and mint a fresh rate-limit bucket per request, which
+        // defeats `throttle:5,1` on /register and `throttle:10,1` on /login.
+        //
+        // This decision is therefore NOT made here. `env()` and `config()` are both
+        // unavailable inside withMiddleware() -- the container is not bound yet,
+        // and the dotenv repository has not run -- so a check here silently reads
+        // "unset" for every deployment and quietly takes the insecure branch. That
+        // is exactly how production ended up on "*" while this file's own comment
+        // said it must not be.
+        //
+        // It lives in AppServiceProvider::register() instead, which runs with the
+        // environment loaded, and which FAILS LOUDLY in production rather than
+        // failing open.
         $trustedProxies = env('TRUSTED_PROXIES');
-        if (!empty($trustedProxies)) {
+
+        if (! empty($trustedProxies)) {
             $middleware->trustProxies(at: array_map('trim', explode(',', $trustedProxies)));
         } else {
+            // Overwritten by the provider for non-production environments, where
+            // artisan serve / Octane sit behind arbitrary local infrastructure.
             $middleware->trustProxies(at: '*');
         }
         $middleware->web(append: [
