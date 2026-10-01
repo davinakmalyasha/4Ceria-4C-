@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Project;
+use Illuminate\Http\Request;
 use App\Models\User;
 
 /**
@@ -49,6 +50,35 @@ use App\Models\User;
 final class PayoutDestinationService
 {
     /**
+     * Per-request profile-id -> User memo.
+     *
+     * WHY THIS EXISTS -- AN N+1 I INTRODUCED
+     * -----------------------------------------
+     * `ProjectResource` calls `forProject()` for EVERY row of a collection, and
+     * each call issued up to seven queries (one `findMany` per profile model class
+     * present, plus `User::find()` for the PM). On `GET /api/projects?all=true`
+     * -- which the dashboard fires on mount for every role -- that is up to 13
+     * queries per row across a 200-row page.
+     *
+     * Ids are unique per table but they OVERLAP across tables: architect profile
+     * 42 and contractor profile 42 are different rows. So a naive request-scoped
+     * `User::findMany(allIds)` would return the wrong person's bank details. The
+     * memo is therefore keyed by MODEL CLASS + id, which is exactly the key the
+     * grouped query below already uses, and a miss simply falls through to the
+     * normal path.
+     *
+     * Stored on the request rather than as an instance property, because one
+     * Resource collection is serialised by one request but the service is resolved
+     * fresh from the container per call in some paths.
+     */
+    private static function memoFor(Request $request): array
+    {
+        return $request->attributes->get(self::MEMO_KEY, []);
+    }
+
+    private const MEMO_KEY = 'payout_destination_user_memo';
+
+    /**
      * Payout destination per hired role, keyed by role, in `config('bids')` order.
      *
      * Roles with nobody hired are OMITTED rather than emitted empty, so "nobody
@@ -59,6 +89,8 @@ final class PayoutDestinationService
      */
     public function forProject(Project $project): array
     {
+        $request = request();
+        $memo = self::memoFor($request);
         // Pass 1 — what does the project say is hired?
         //
         // `projects.pm_id` holds the PM's USER id; every other `selected_*`
@@ -82,16 +114,22 @@ final class PayoutDestinationService
             }
         }
 
-        // Pass 2 — resolve to users in two queries rather than seven.
-        $usersByProfileId = $this->usersForProfileIds($profileIdsByRole);
+        // Pass 2 — resolve to users, reading the per-request memo first.
+        //
+        // Only the profile ids NOT already seen are queried, so a 200-row page
+        // costs one query per profile model class per row *only on the first row
+        // that mentions that class*, and nothing at all afterwards.
+        $usersByProfileIds = $this->usersForProfileIds($profileIdsByRole, $memo, $request);
 
         // Pass 3 — emit in registry order.
         $destinations = [];
 
         foreach (config('bids') as $role => $config) {
+            $profileModel = $config['profile_model'] ?? null;
+
             $user = match (true) {
-                $role === 'project_manager' && $pmUserId !== null => User::find($pmUserId),
-                isset($profileIdsByRole[$role]) => $usersByProfileId[$profileIdsByRole[$role]] ?? null,
+                $role === 'project_manager' && $pmUserId !== null => $this->userFor($memo, User::class, $pmUserId, $request),
+                isset($profileIdsByRole[$role]) => $usersByProfileIds[$profileModel . ':' . $profileIdsByRole[$role]] ?? null,
                 default => null,
             };
 
@@ -117,10 +155,25 @@ final class PayoutDestinationService
     /**
      * Profile id => User for the six profile-id roles, batched by model class.
      *
+     * The return is keyed by `"ModelClass:id"`, NOT by the bare profile id.
+     *
+     * A REAL BUG, caught by the performance suite: profile ids are unique per
+     * table but they OVERLAP across tables. Architect profile 42 and contractor
+     * profile 42 are different rows belonging to different people. Keying the
+     * result by the bare id meant whichever model was iterated last OVERWROTE the
+     * other, so a project could be shown the CONTRACTOR's bank details under the
+     * ARCHITECT's role -- telling the owner to pay the wrong person for the wrong
+     * stage.
+     *
+     * The memo was always keyed by class+id (see MEMO_KEY above); the returned
+     * map was not, which is exactly the kind of half-fix that survives review.
+     * Both are keyed the same way now.
+     *
      * @param  array<string, int>  $profileIdsByRole
-     * @return array<int, User>  keyed by the raw profile id
+     * @param  array<string, User|null>  $memo  mutated in place
+     * @return array<string, User>  keyed by "ModelClass:id"
      */
-    private function usersForProfileIds(array $profileIdsByRole): array
+    private function usersForProfileIds(array $profileIdsByRole, array &$memo, Request $request): array
     {
         if ($profileIdsByRole === []) {
             return [];
@@ -134,14 +187,63 @@ final class PayoutDestinationService
         $found = [];
 
         foreach ($grouped as $profileModel => $ids) {
-            foreach ($profileModel::with('user')->findMany(array_values(array_unique($ids))) as $profile) {
-                if ($profile->user) {
-                    $found[$profile->id] = $profile->user;
+            // Split on the memo. Ids already resolved for THIS model class are
+            // reused without a query; the rest are fetched in one statement.
+            $wanted = [];
+            foreach (array_unique($ids) as $id) {
+                $key = $profileModel . ':' . $id;
+
+                if (array_key_exists($key, $memo)) {
+                    if ($memo[$key] !== null) {
+                        $found[$key] = $memo[$key];
+                    }
+
+                    continue;
                 }
+
+                $wanted[] = $id;
+            }
+
+            if ($wanted === []) {
+                continue;
+            }
+
+            foreach ($profileModel::with('user')->findMany($wanted) as $profile) {
+                $user = $profile->user;
+                $memo[$profileModel . ':' . $profile->id] = $user;
+                $found[$profileModel . ':' . $profile->id] = $user;
+            }
+
+            // A profile id that resolved to nothing is memoised as null, so a page
+            // with 200 dangling references costs one query rather than 200.
+            foreach ($wanted as $id) {
+                $memo[$profileModel . ':' . $id] ??= null;
             }
         }
 
+        $request->attributes->set(self::MEMO_KEY, $memo);
+
         return $found;
+    }
+
+    /**
+     * `User::find()` through the same memo, keyed on the users table.
+     *
+     * The PM's id is a USER id, so it is memoised under `User::` and cannot
+     * collide with a profile id even though the numeric values may match.
+     *
+     * @param  array<string, User|null>  $memo
+     */
+    private function userFor(array &$memo, string $model, int $id, Request $request): ?User
+    {
+        $key = $model . ':' . $id;
+
+        if (! array_key_exists($key, $memo)) {
+            $memo[$key] = $model::find($id);
+            $request->attributes->set(self::MEMO_KEY, $memo);
+        }
+
+        return $memo[$key];
     }
 
     /**

@@ -74,25 +74,43 @@ class PublicProfessionalController extends Controller
         return $query->with($with)->withCount('projects');
     }
 
-    /**
-     * Cache a directory listing.
-     *
-     * Tag-based where the cache driver supports it, so a profile's
-     * verification changing can invalidate the list rather than leaving a
-     * pending profile listed for the full TTL.
-     *
-     * @param  Builder  $query
-     * @param  list<string>  $with
-     */
-    private function remember(string $key, $query, array $with = [])
-    {
-        $builder = fn () => $this->directory($query, $with)->get();
-        $supportsTags = in_array(config('cache.default'), ['redis', 'memcached'], true);
+/**
+ * Cache a directory listing.
+ *
+ * Tag-based where the cache driver supports it, so a profile's verification
+ * changing can invalidate the list rather than leaving a pending profile listed
+ * for the full TTL.
+ *
+ * PAGINATED AND BOUNDED. This was an unbounded `->get()`, which meant one request
+ * could serialise every architect in the database — profile, user, phone numbers,
+ * ratings, images and a project count each — and then write the whole thing into
+ * Redis for 600 s. Seven directories, seven times the problem.
+ *
+ * `min(perPage, 100)` is a hard ceiling rather than trust in the client: an
+ * anonymous caller must not be able to ask for the whole table by passing
+ * `per_page=100000`, and a directory has no reason to render 100 rows of phone
+ * numbers on one page.
+ *
+ * The PAGE NUMBER is part of the cache key, so page 2 does not serve page 1.
+ */
+private function remember(string $key, $query, array $with = [])
+{
+    $request = request();
 
-        return $supportsTags
-            ? Cache::tags(['professionals', 'directories'])->remember($key, 600, $builder)
-            : Cache::remember($key, 600, $builder);
-    }
+    $perPage = (int) $request->query('per_page', 24);
+    $perPage = max(1, min($perPage, 100));
+    $page = max(1, (int) $request->query('page', 1));
+
+    $cacheKey = $key . '_p' . $page . '_n' . $perPage;
+
+    $builder = fn () => $this->directory($query, $with)->paginate($perPage, ['*'], 'page', $page);
+
+    $supportsTags = in_array(config('cache.default'), ['redis', 'memcached'], true);
+
+    return $supportsTags
+        ? Cache::tags(['professionals', 'directories'])->remember($cacheKey, 600, $builder)
+        : Cache::remember($cacheKey, 600, $builder);
+}
 
     public function getArsiteks()
     {
