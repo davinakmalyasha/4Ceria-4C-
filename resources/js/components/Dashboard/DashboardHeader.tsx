@@ -16,7 +16,7 @@ interface HeaderProps {
 
 const BrandLogo: React.FC<{ onClick: () => void }> = ({ onClick }) => (
     <button onClick={onClick} className="flex items-center gap-2 shrink-0 select-none hover:opacity-90 transition-opacity focus:outline-none">
-        <img className="w-8 h-8 object-contain" src="/storage/Assets/Logo4C.png" alt="4C Logo" />
+        <img className="w-8 h-8 object-contain" src="/assets/Logo4C.png" alt="4C Logo" />
         <span className="text-sm font-extrabold text-neutral-800 tracking-tight">4Ceria</span>
     </button>
 );

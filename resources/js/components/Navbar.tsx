@@ -55,7 +55,7 @@ export default function Navbar() {
                 {/* Left side: Logo & Brand */}
                 <div className="flex items-center gap-3 shrink-0">
                     <Link to="/" className="flex items-center gap-2">
-                        <img className="w-8 h-8 object-contain" src="/storage/Assets/Logo4C.png" alt="4C Logo" />
+                        <img className="w-8 h-8 object-contain" src="/assets/Logo4C.png" alt="4C Logo" />
                         <span className="text-sm font-extrabold text-neutral-800 tracking-tight">4Ceria</span>
                     </Link>
                 </div>

@@ -75,7 +75,7 @@ export default function LandingPage(): React.ReactElement {
                         <div className="absolute inset-0 bg-gradient-to-tr from-red-500 to-amber-500 rounded-[2.5rem] opacity-20 blur-md animate-pulse" />
                         
                         <div className="relative w-16 h-16 flex items-center justify-center">
-                            <img className="w-16 h-16 object-contain" src="/storage/Assets/Logo4C.png" alt="4C Logo" />
+                            <img className="w-16 h-16 object-contain" src="/assets/Logo4C.png" alt="4C Logo" />
                         </div>
                     </div>
 
@@ -621,7 +621,7 @@ export default function LandingPage(): React.ReactElement {
                     <div className="bawahKelompok6">
                         <div className="kiriBawahKelompok6">
                             <div className="tengahKelompok6">
-                                <img src="/storage/Assets/Logo4C.png" alt="Logo" />
+                                <img src="/assets/Logo4C.png" alt="Logo" />
                                 <h3>4C 4Construction By 4C Team</h3>
                             </div>
                             <div className="textIsiKelompok6">
