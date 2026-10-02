@@ -35,12 +35,21 @@ class DatabaseSeeder extends Seeder
         // $user = User::find(2);
         // $user->assignRole('admin');
 
+        // ORDER MATTERS. `RestoreUsersSeeder` creates the accounts every later
+        // seeder looks up; `DemoBiddingBoardSeeder` needs both the accounts and
+        // the professional profiles `DummyProfessionalDataSeeder` attaches to
+        // them. The address constants live in `Support\DemoAccount`, so these
+        // entries are coupled by class reference rather than by a string.
         $this->call([
             RestoreUsersSeeder::class,
             DummyProfessionalDataSeeder::class,
             RestoreLegalLedgerSeeder::class,
             NotarisServicesSeeder::class,
             SubContractorSeeder::class,
+            // Last: it turns the completed-project showcase above into a
+            // marketplace with something open on it, which is what the discovery
+            // and bidding-board screens filter for.
+            DemoBiddingBoardSeeder::class,
         ]);
     }
 }
