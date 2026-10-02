@@ -1,9 +1,55 @@
-param([string]$ProjectRoot = "C:\laragon\www\4C-Web")
+<#
+.SYNOPSIS
+    Regenerates the PWA brand icons in public/ from the theme colours.
+
+.DESCRIPTION
+    Draws the "4C" mark at each required size and writes:
+        public/pwa-192x192.png
+        public/pwa-512x512.png
+        public/favicon.ico   (a PNG-compressed 32px ICO entry)
+
+    The colours are the ones declared in vite.config.ts's PWA manifest, so the
+    icons and the installed-app chrome cannot drift apart silently:
+        dark #09090b   (theme_color / background_color)
+        red  #FF2D20   (brand accent)
+
+    The generated files ARE committed. This script exists so they can be
+    regenerated after a brand change, not so they can be built at deploy time --
+    which would mean shipping a Windows-only System.Drawing dependency into a
+    Linux container.
+
+.PARAMETER ProjectRoot
+    Repository root. Defaults to the parent of this script's own directory, so
+    the script works from any checkout on any machine.
+
+.EXAMPLE
+    powershell -ExecutionPolicy Bypass -File scripts/generate-pwa-icons.ps1
+
+.NOTES
+    Requires Windows (System.Drawing). On other platforms the committed PNGs are
+    already correct and this script is simply not applicable.
+#>
+param(
+    [string]$ProjectRoot = (Split-Path -Parent $PSScriptRoot)
+)
+
+$ErrorActionPreference = 'Stop'
+
+if (-not $ProjectRoot) {
+    throw "Could not resolve the repository root from '$PSScriptRoot'. Pass -ProjectRoot explicitly."
+}
+
+$publicDir = Join-Path $ProjectRoot 'public'
+
+if (-not (Test-Path -LiteralPath $publicDir)) {
+    throw "No public/ directory at '$publicDir'. Pass -ProjectRoot <repo-root>."
+}
 
 Add-Type -AssemblyName System.Drawing
 
 function New-BrandIcon {
     param([int]$Size)
+
     $bmp = New-Object System.Drawing.Bitmap($Size, $Size)
     $g = [System.Drawing.Graphics]::FromImage($bmp)
     $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
@@ -40,13 +86,13 @@ function New-BrandIcon {
 }
 
 $png192 = New-BrandIcon -Size 192
-$png192.Save((Join-Path $ProjectRoot "public\pwa-192x192.png"), [System.Drawing.Imaging.ImageFormat]::Png)
+$png192.Save((Join-Path $publicDir 'pwa-192x192.png'), [System.Drawing.Imaging.ImageFormat]::Png)
 $png192.Dispose()
 
 $png512 = New-BrandIcon -Size 512
-$png512.Save((Join-Path $ProjectRoot "public\pwa-512x512.png"), [System.Drawing.Imaging.ImageFormat]::Png)
+$png512.Save((Join-Path $publicDir 'pwa-512x512.png'), [System.Drawing.Imaging.ImageFormat]::Png)
 
-# Build a valid .ico wrapping the 512 png scaled to 32px (PNG-compressed ICO entry)
+# Build a valid .ico wrapping a 32px PNG (PNG-compressed ICO entry).
 $ms = New-Object System.IO.MemoryStream
 $png32 = New-BrandIcon -Size 32
 $pngStream = New-Object System.IO.MemoryStream
@@ -67,8 +113,23 @@ $bw.Write([UInt32]$pngBytes.Length)
 $bw.Write([UInt32]22)         # offset (6 + 16)
 $bw.Write($pngBytes)
 $bw.Flush()
-[System.IO.File]::WriteAllBytes((Join-Path $ProjectRoot "public\favicon.ico"), $ms.ToArray())
+[System.IO.File]::WriteAllBytes((Join-Path $publicDir 'favicon.ico'), $ms.ToArray())
 $bw.Dispose(); $ms.Dispose(); $pngStream.Dispose(); $png32.Dispose(); $png512.Dispose()
 
-Write-Output "generated:"
-Get-ChildItem (Join-Path $ProjectRoot "public") -Include "pwa-*.png","favicon.ico" -Recurse | ForEach-Object { "$($_.Name) - $($_.Length) bytes" }
+Write-Output "generated under ${publicDir}:"
+
+# Name the three files explicitly. `Get-ChildItem -LiteralPath <dir> -Include ...`
+# only honours -Include when the path ends in a wildcard, so pairing it with
+# -LiteralPath and -Recurse silently ignored the filter and printed the entire
+# public/ tree -- build artifacts, service worker, every chunk.
+$generated = @('pwa-192x192.png', 'pwa-512x512.png', 'favicon.ico')
+
+foreach ($name in $generated) {
+    $item = Get-Item -LiteralPath (Join-Path $publicDir $name) -ErrorAction SilentlyContinue
+
+    if ($item) {
+        "  {0} - {1} bytes" -f $item.Name, $item.Length
+    } else {
+        "  {0} - MISSING" -f $name
+    }
+}

@@ -92,5 +92,5 @@ Redis not required locally if you override drivers per-process (see README).
   10. `composer verify` runs steps 1-8 locally
 - Money changes are not "refinements" — they need a test in `tests/` and a look at `docs/DOMAIN.md`.
 - Dev-only quick-login lives in gitignored `resources/js/pages/dev/QuickLoginPanel.tsx`; keep it out of commits.
-- Test/scratch scripts belong in `refinement-tests/`. Suites share `tests/Support/DatabaseHarness.php` — do not re-roll the `.env` recovery or the transaction rollback per file.
-- Useful dev tooling belongs in `app/Console/Commands/`, not in `refinement-tests/` — a Pest suite is a test, an artisan command is a tool.
+- Test/scratch scripts: name them `debug_*.php`, `verify_*.php`, `seed_*.php` and put them at the **repository root**. The `.gitignore` patterns are anchored with a leading `/`, so they match the root only. Suites share `tests/Support/DatabaseHarness.php` — do not re-roll the `.env` recovery or the transaction rollback per file.
+- Useful dev tooling belongs in `app/Console/Commands/`, not in a scratch file — a Pest suite is a test, an artisan command is a tool.

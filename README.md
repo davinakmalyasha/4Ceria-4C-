@@ -190,7 +190,7 @@ CI builds **both**, because building only the first proves an artifact that is n
 | `tests/` | Pest suites, all against real MySQL, all rolled back |
 | `docs/` | Architecture, domain model, conventions, API map, backlog |
 | `AGENTS.md` | **Read this before changing anything** — 13 traps that have each cost real time |
-| `refinement-tests/` | Local scratch scripts (gitignored conventions apply) |
+| `scripts/` | Verification entry points, codemods, and committed asset generators |
 
 ## Documentation
 

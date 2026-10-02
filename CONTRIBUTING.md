@@ -94,8 +94,12 @@ is left" — use `available()` / `summary()`. Check the return value of `recordP
 - Build fixtures through a scenario factory. Do not add a fifth copy of a hand-rolled user
   builder.
 - DML only. Never DDL in a test.
-- Test scratch scripts go in `refinement-tests/`. Dev tooling belongs in
-  `app/Console/Commands/` — a Pest suite is a test, an artisan command is a tool.
+- A throwaway script is a local file, not a directory: put it at the repository
+  root and name it `debug_*.php`, `verify_*.php`, `seed_*.php` and so on. Those
+  patterns are anchored to the root in `.gitignore`, so they are ignored there and
+  nowhere else — a file called `test_login.php` inside `tests/` is tracked
+  normally. Dev tooling belongs in `app/Console/Commands/` — a Pest suite is a
+  test, an artisan command is a tool.
 
 ## Where things belong
 
@@ -112,4 +116,11 @@ is left" — use `available()` / `summary()`. Check the return value of `recordP
 ## Local-only files
 
 Keep out of commits: `.env`, `resources/js/pages/dev/` (the quick-login panel),
-`refinement-tests/` scratch scripts, and `REFINEMENT-PLAN.md` (a local working document).
+and the local working documents `REFINEMENT-PLAN.md` / `FINAL-SWEEP.md`.
+
+Scratch scripts do not need a home directory. Name them `debug_*.php`,
+`verify_*.php`, `seed_*.php` and drop them at the repository root; the patterns
+in `.gitignore` are anchored with a leading `/` so they match the root and
+nothing else. That anchoring is deliberate — unanchored, they also matched
+`tests/Feature/test_login.php` and silently kept it out of the repository, with
+no error from `git add`.
