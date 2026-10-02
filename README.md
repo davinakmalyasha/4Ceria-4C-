@@ -9,6 +9,20 @@ milestone escrow **ledger**. Milestones gate payment. Disputes freeze it. Handov
 
 ---
 
+## Screenshots
+
+Seed the database (`php artisan migrate && php artisan db:seed`) and sign in as any demo
+account — every one uses the password `123456`, and the addresses are listed in
+`database/seeders/Support/DemoAccount.php`.
+
+| Professional dashboard | Bidding board | Project tender |
+|---|---|---|
+| ![Dashboard](docs/screenshots/dashboard-pm.png) | ![Bidding board](docs/screenshots/bidding-board.png) | ![Project detail](docs/screenshots/project-detail.png) |
+| Role-aware landing, open-tender counts, shortcuts | Discovery feed filtered by the viewer's role, budget and phase | Bid count, required specialties, tender CTA, Q&A thread |
+
+The map on the bidding board needs a tile-provider key (`VITE_MAP_TILE_KEY`); it is hidden
+from the screenshot above for that reason rather than faked.
+
 ## The problem
 
 Indonesian house construction is coordinated in a WhatsApp group and a notebook, and it fails
@@ -59,6 +73,40 @@ account to the professional's, and the platform records and gates each one.
 | Caps refunds at what that payment actually received | — |
 
 There is currently **no platform fee**. That is a deliberate current state, not a hidden charge.
+
+### Three questions the ledger answers separately
+
+Most of the difficulty in this file is one distinction kept straight: *spending* the escrow,
+*moving* the escrow, and *reaching a professional* are three different questions. Conflating them
+is how a client gets charged twice for one movement.
+
+| Constant | Answers | Members |
+|---|---|---|
+| `DISBURSEMENT_TYPES` | how much left the account | `payment`, `refund`, `platform_fee`, `retention_release` |
+| `CEILING_NEUTRAL_TYPES` | which movements must **not** also touch `projects.budget` | the same four |
+| `PROFESSIONAL_EARNINGS_TYPES` | how much reached a professional (feeds the public `client_history`) | `payment`, `refund`, `retention_release` — **not** the fee |
+
+A `platform_fee` is the platform's revenue, not the professional's income, so counting it in a
+professional's public earnings figure would flatter nobody. Retention release *is* included: it is
+the professional's own withheld money finally arriving.
+
+### Retention is withheld, not just displayed
+
+Each payment stage stores a split at creation — `retention_amount` held until the warranty
+expires, `net_amount` payable now, and `retention_amount + net_amount === amount` exactly. The
+completion payment debits the **net**; the release debits the withheld part later, as its own
+`retention_release` row.
+
+That separate type is not cosmetic. `deductBudget()` de-duplicates on
+`(reference, transaction_type)`, so a release recorded as another `payment` on the same termin
+matches the completion row and returns `true` **without inserting** — while the command still
+marked the stage released and reported success. Retention was neither held nor released; it
+simply disappeared. `RetentionService::forTermin()` reads the split that was persisted rather than
+recomputing it, so a later change to the retention rate cannot move a net the parties already
+agreed.
+
+The release is blocked while a claim is open or being fixed, is idempotent because every replica
+runs the schedule, and runs from `escrow:release-retention`.
 
 ## The three hardest problems, and where they live
 
@@ -209,15 +257,27 @@ Stated rather than hidden:
 
 - **No payment gateway.** Money moves by manual bank transfer with human proof verification.
   There is no automated hold or release.
-- **No platform fee, payouts or invoices.** The ledger records budget consumption, not who is
-  owed. `retention_amount` / `net_amount` exist on `project_payment_termins` but are not yet
-  written, so Indonesian 5% retention (potong) is not implemented.
+- **No automated payouts, and no invoices.** The ledger records budget consumption, not who is
+  owed, and 4Ceria does not issue tax invoices — which is what the product copy says. A platform
+  fee *is* implemented (`PlatformFeeService`, recorded as its own `retention_release`-style
+  separate row beside the payment) but is **0% by default**, so nothing is charged unless
+  `ESCROW_PLATFORM_FEE_PERCENT` is set. Indonesian retention (*potong*) **is** implemented and
+  released on warranty expiry; see the escrow section above.
 - **Seven parallel bid tables.** 235 columns for 52 distinct names, with several type
   inconsistencies between them. `config/bids.php` is meant to paper over this and only partially
   does.
 - **Type debt.** `tsconfig.json` is not `strict`. `npm run typecheck:check` is a ratchet against
-  a recorded baseline, and the baseline is not zero.
-- **No frontend test runner yet.** The backend has 75 tests; the SPA has none.
+  a recorded baseline of 96 errors, and the baseline is not zero.
+- **The feed filters on a JSON column.** The discovery board reads
+  `projects.published_bidding_roles` with `whereJsonContains` in eight places — one per
+  professional role — which no btree index can serve, so each is a table scan. The fix is a
+  `project_published_roles` join table mirrored from that column; it is not built.
+- **Some landing-page images are not in the repository.** The partner and institutional logos and
+  the marketing photography on the landing page are third-party assets that were never committed,
+  so they 404 on a fresh clone. The brand logo *is* committed (`public/assets/Logo4C.png`,
+  generated by `scripts/generate-pwa-icons.ps1`); the rest need supplying.
+- **Test coverage is backend-heavy.** 546 Pest assertions-heavy tests against real MySQL, and 20
+  Vitest tests for the SPA. The Vue/React side is the thinner of the two.
 
 ## License
 
