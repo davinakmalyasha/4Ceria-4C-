@@ -1,6 +1,10 @@
 {
     "private": true,
     "type": "module",
+    "engines": {
+        "//": "Floor, not a pin: CI and .nvmrc both target Node 20, and the build also passes on 26. Declared so a contributor on something older gets a warning instead of a Vite error.",
+        "node": ">=20"
+    },
     "scripts": {
         "build": "vite build",
         "dev": "vite",

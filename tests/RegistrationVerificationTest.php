@@ -114,7 +114,20 @@ it('does NOT publish a freshly registered sub-contractor in the public directory
 });
 
 it('leaves an ordinary client registration without a professional profile', function () {
+    // SCOPED TO THE FIXTURE, NOT THE TABLE.
+    //
+    // This asserted `Kontraktor::count() === 0`, which is a statement about the
+    // WHOLE DATABASE rather than about this registration. It passed only because
+    // the development database happened to be empty -- running it after
+    // `db:seed` failed with "Failed asserting that 7 is identical to 0", against
+    // seven seeded contractors this test never created and does not care about.
+    //
+    // A test that depends on the database being empty is not testing the code; it
+    // is testing the last person who ran db:seed. The property worth keeping is
+    // "registering as a client adds no contractor profile", so measure the delta.
+    $before = Kontraktor::count();
+
     registerAs('user');
 
-    expect(Kontraktor::count())->toBe(0);
+    expect(Kontraktor::count())->toBe($before);
 });

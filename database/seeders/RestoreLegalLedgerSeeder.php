@@ -99,8 +99,23 @@ class RestoreLegalLedgerSeeder extends Seeder
         );
 
         // Sync with transactions to show in the Master Budget Vault
+        //
+        // `reference_model` MUST be the fully-qualified class name. Every write path
+        // in the application goes through `ProjectFinancialService::deductBudget()`,
+        // which normalises a short name to its FQCN before inserting, and
+        // migration `2026_08_25_000001_normalize_ledger_reference_models` repaired
+        // the rows that predate that normalisation.
+        //
+        // This seeder wrote the SHORT name, so its row matched neither. That is
+        // invisible until something reads the ledger the strict way:
+        // `money:detect-duplicates` reports "addendum marked paid with no ledger
+        // entry" for a payment that demonstrably has one, and
+        // `money:reconcile` disagrees with the dashboard about the same figure.
+        //
+        // Use `::class` rather than a literal so the two can never drift apart
+        // again.
         $project->budgetTransactions()->updateOrCreate(
-            ['reference_model' => 'ProjectAddendum', 'reference_id' => $paidDis->id],
+            ['reference_model' => ProjectAddendum::class, 'reference_id' => $paidDis->id],
             [
                 'transaction_type' => 'payment',
                 'amount' => $paidDis->amount,

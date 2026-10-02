@@ -318,11 +318,18 @@ it('charges a quote with no project through the normal confirmation, with no led
         'status' => 'awaiting_payment',
     ]);
 
+    $transactionsBefore = ProjectBudgetTransaction::count();
+
     uploadProof($buyer, $quote)->assertStatus(200);
     confirmPaid($supplierUser, $quote)->assertStatus(200);
 
+    // The claim is "a quote with no project writes NO ledger row" -- so count only
+    // what this scenario added. Asserting the table total was 0 depended on an
+    // empty database and failed against a seeded one with "Failed asserting that 1
+    // is identical to 0", where the 1 was an unrelated escrow row from a fixture
+    // in another scenario.
     expect($quote->fresh()->status)->toBe('paid')
-        ->and(ProjectBudgetTransaction::count())->toBe(0);
+        ->and(ProjectBudgetTransaction::count())->toBe($transactionsBefore);
 });
 
 it('charges exactly the goods plus shipping, with no float drift', function () {
