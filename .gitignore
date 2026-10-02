@@ -1,112 +1,150 @@
-/.phpunit.cache
+# ---------------------------------------------------------------------------
+# Dependencies and build output
+# ---------------------------------------------------------------------------
 /node_modules
+/vendor
+/.phpunit.cache
+/.phpunit.result.cache
+
+# Vite emits the Laravel build here; the standalone Vercel build goes to dist/.
 /public/build
 /public/hot
 /public/storage
-/storage/*.key
-/storage/pail
-/vendor
-.env
-.env.backup
-.env.production
-.phpactor.json
-.phpunit.result.cache
-Homestead.json
-Homestead.yaml
-auth.json
-npm-debug.log
-yarn-error.log
-/.fleet
-/.idea
-/.vscode
-/.zed
-
-# OS generated files
-.DS_Store
-Thumbs.db
-ehthumbs.db
-
-# Vite
-.vite/
 dist/
+.vite/
 
-# Mobile PA Project
-/mobile/
-
-# Safety & Security Ignores
-*.sql
-*.log
-*.txt
-*.orig.*
-.agents/
-/tmp/
-
-# ...but a SQL fixture that a committed verification script depends on is CODE,
-# not data. `scripts/disbursement-migration-seed.sql` seeds the throwaway
-# database in verify-disbursement-migration.cmd; without it that proof cannot
-# run on a fresh clone. Scoped to scripts/ so database DUMPS stay ignored.
-!scripts/*.sql
-/scratch/
-/resources/js/scratch/
-
-# Temporary / Scratch Debug Scripts (PHP)
-check_*.php
-fix_*.php
-test_*.php
-scratch_*.php
-seed_*.php
-inspect_*.php
-restore_*.php
-cleanup_*.php
-final_*.php
-deep_*.php
-verify_*.php
-debug_*.php
-tmp_*.php
-debug_*.json
-
-# Local-only dev tooling & secrets
-.mcp.json
-.codex/
-.claude/
-
-# Local-only frontend dev helpers (quick login etc.)
-/resources/js/pages/dev/
-
-# Office lock files / temp artifacts
-~$*
-*.tmp
-
-# Large local archives & nested tooling repos
-mobile.zip
-/word-mcp-server/
-/word-mcp-server.venv/
-
-
-
-**/caddy
+# Octane / FrankenPHP workers written into the public root at boot.
+/**/caddy
 frankenphp
 frankenphp-worker.php
 
-# MCP browser-tooling debug output
-/.playwright-mcp/
+# ---------------------------------------------------------------------------
+# Secrets. `.env` is the only one that must never be tracked.
+# ---------------------------------------------------------------------------
+.env
+.env.backup
+.env.production
+/storage/*.key
+/storage/pail
+auth.json
 
-# Stray design-review screenshots at repo root
+# ---------------------------------------------------------------------------
+# OS and editor noise
+# ---------------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+ehthumbs.db
+.idea
+.vscode
+.zed
+.fleet
+phpactor.json
+Homestead.json
+Homestead.yaml
+
+# Office lock files, editor temp files
+~$*
+*.tmp
+
+# ---------------------------------------------------------------------------
+# Runtime logs
+#
+# `.log` is safe to match globally: no source file in this repository is a log.
+# The sibling `*.txt` rule was REMOVED -- see the note below.
+# ---------------------------------------------------------------------------
+*.log
+npm-debug.log
+yarn-error.log
+
+# ---------------------------------------------------------------------------
+# Database DUMPS
+#
+# Scoped to a directory rather than matched by extension, because a `.sql` file
+# under `scripts/` is CODE: `scripts/disbursement-migration-seed.sql` seeds the
+# throwaway database that `verify-disbursement-migration.cmd` builds, and
+# without it that proof cannot run on a fresh clone.
+# ---------------------------------------------------------------------------
+*.sql
+!scripts/*.sql
+
+# ---------------------------------------------------------------------------
+# SCRATCH SCRIPTS -- ANCHORED TO THE REPOSITORY ROOT, DELIBERATELY
+#
+# These used to be unanchored (`debug_*.php` rather than `/debug_*.php`), which
+# made them match at ANY depth. Verified consequences, none of which reported an
+# error -- `git add` simply did not stage the file:
+#
+#     tests/Feature/test_login.php            would be ignored (test_*.php)
+#     app/Services/verify_helper.php          would be ignored (verify_*.php)
+#     database/seeders/seed_demo.php          would be ignored (seed_*.php)
+#     app/Http/Middleware/debug_headers.php   would be ignored (debug_*.php)
+#     tests/Unit/cleanup_helper.php           would be ignored (cleanup_*.php)
+#
+# That is the worst possible failure mode for a `.gitignore`: a file that a
+# developer wrote, reviewed and committed to locally, permanently absent from
+# the repository with no warning. It is also why this file had grown a block of
+# `!` negations to force specific files back in.
+#
+# The leading `/` restricts each pattern to the repository root, which is where
+# a one-off debug script actually lives. A legitimately named file anywhere else
+# is now tracked normally.
+# ---------------------------------------------------------------------------
+/check_*.php
+/fix_*.php
+/seed_*.php
+/scratch_*.php
+/inspect_*.php
+/restore_*.php
+/cleanup_*.php
+/final_*.php
+/deep_*.php
+/verify_*.php
+/debug_*.php
+/tmp_*.php
+/debug_*.json
 /hero-centered-check.png
 /hero-centered-final.png
 /houses-tab-fixed.png
 
-# Owner-mandated test/verification assets (override scratch-script patterns above)
-!refinement-tests/
-!refinement-tests/**
+# Scratch directories
+/scratch/
+/tmp/
+/resources/js/scratch/
+/mobile/
 
-# Local working documents (audit findings, refinement plan, working notes)
+# NOTE: there is deliberately no `*.txt` rule. The previous file had one, and it
+# was broad enough to silently exclude legitimate text files anywhere -- a
+# `docs/notes.txt`, a `public/security.txt`. `public/robots.txt` survived only
+# because it was committed before the rule was added. Text files are ordinary
+# source; ignore them by path when you mean a specific one.
+
+# ---------------------------------------------------------------------------
+# Local-only tooling and local-only dev helpers
+# ---------------------------------------------------------------------------
+.mcp.json
+.codex/
+.claude/
+.agents/
+/.playwright-mcp/
+/.mcp.json
+
+# Dev-only quick-login panel. Never committed: it bypasses authentication.
+/resources/js/pages/dev/
+
+# Nested tooling repos and local archives
+/word-mcp-server/
+/word-mcp-server.venv/
+mobile.zip
+
+# ---------------------------------------------------------------------------
+# Local working documents
+#
+# These record in-flight thinking and the history of a single pass. The
+# committed record of what changed and why is the commit messages, plus
+# `docs/CLEANUP-LOG.md`. A reviewer should not have to read a working file to
+# understand the repository.
 /REFINEMENT-PLAN.md
 /REFINEMENT-*.md
 /NOTES-*.md
 /FINAL-SWEEP.md
 /FINAL-SWEEP-*.md
-
-**/caddy
-frankenphp
-frankenphp-worker.php
