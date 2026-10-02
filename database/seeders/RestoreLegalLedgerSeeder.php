@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use Database\Seeders\Support\DemoAccount;
 use App\Models\BidNotaris;
 use App\Models\Project;
 use App\Models\ProjectAddendum;
@@ -14,8 +15,8 @@ class RestoreLegalLedgerSeeder extends Seeder
 {
     public function run(): void
     {
-        $client = User::where('email', 'client@4c.id')->first();
-        $notaryUser = User::where('email', 'rede@gmail.com')->first();
+        $client = User::where('email', DemoAccount::CLIENT)->first();
+        $notaryUser = User::where('email', DemoAccount::NOTARIS)->first();
         $pmUser = User::where('email', 'pm@4c.id')->first();
 
         if (!$client || !$notaryUser || !$pmUser) {

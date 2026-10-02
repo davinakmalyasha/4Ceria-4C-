@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use Database\Seeders\Support\DemoAccount;
 use App\Models\Arsitek;
 use App\Models\CourierProfile;
 use App\Models\InteriorProfile;
@@ -22,7 +23,7 @@ class DummyProfessionalDataSeeder extends Seeder
     public function run(): void
     {
         // 1. Architect Dummy Data (Giska)
-        $arsitekUser = User::where('email', 'giska@gmail.com')->first();
+        $arsitekUser = User::where('email', DemoAccount::ARSITEK)->first();
         if ($arsitekUser) {
             Arsitek::updateOrCreate(
                 ['user_id' => $arsitekUser->id],
@@ -42,7 +43,7 @@ class DummyProfessionalDataSeeder extends Seeder
         }
 
         // 2. Contractor Dummy Data (Anindia)
-        $kontraktorUser = User::where('email', 'anindia@gmail.com')->first();
+        $kontraktorUser = User::where('email', DemoAccount::KONTRAKTOR)->first();
         if ($kontraktorUser) {
             Kontraktor::updateOrCreate(
                 ['user_id' => $kontraktorUser->id],
@@ -62,7 +63,7 @@ class DummyProfessionalDataSeeder extends Seeder
         }
 
         // 3. Interior Designer Dummy Data (Abel)
-        $interiorUser = User::where('email', 'abel@gmail.com')->first();
+        $interiorUser = User::where('email', DemoAccount::INTERIOR)->first();
         if ($interiorUser) {
             InteriorProfile::updateOrCreate(
                 ['user_id' => $interiorUser->id],
@@ -82,7 +83,7 @@ class DummyProfessionalDataSeeder extends Seeder
         }
 
         // 4. Notary Dummy Data (Rede)
-        $notarisUser = User::where('email', 'rede@gmail.com')->first();
+        $notarisUser = User::where('email', DemoAccount::NOTARIS)->first();
         if ($notarisUser) {
             NotarisProfile::updateOrCreate(
                 ['user_id' => $notarisUser->id],
@@ -103,7 +104,7 @@ class DummyProfessionalDataSeeder extends Seeder
         }
 
         // 5. Driver / Courier Dummy Data (Fariz)
-        $driverUser = User::where('email', 'fariz@gmail.com')->first();
+        $driverUser = User::where('email', DemoAccount::COURIER)->first();
         if ($driverUser) {
             CourierProfile::updateOrCreate(
                 ['user_id' => $driverUser->id],
@@ -116,7 +117,7 @@ class DummyProfessionalDataSeeder extends Seeder
         }
 
         // 6. Structural Engineer Dummy Data (Budi)
-        $structuralUser = User::where('email', 'budi_struc@gmail.com')->first();
+        $structuralUser = User::where('email', DemoAccount::STRUCTURAL)->first();
         if ($structuralUser) {
             StructuralEngineer::updateOrCreate(
                 ['user_id' => $structuralUser->id],
@@ -134,7 +135,7 @@ class DummyProfessionalDataSeeder extends Seeder
         }
 
         // 7. MEP Engineer Dummy Data (Andi)
-        $mepUser = User::where('email', 'andi_mep@gmail.com')->first();
+        $mepUser = User::where('email', DemoAccount::MEP)->first();
         if ($mepUser) {
             MepEngineer::updateOrCreate(
                 ['user_id' => $mepUser->id],
@@ -152,7 +153,7 @@ class DummyProfessionalDataSeeder extends Seeder
         }
 
         // 8. Project Manager Dummy Data (Aisha)
-        $pmUser = User::where('email', 'aisha@gmail.com')->first();
+        $pmUser = User::where('email', DemoAccount::PROJECT_MANAGER)->first();
         if ($pmUser) {
             ProjectManager::updateOrCreate(
                 ['user_id' => $pmUser->id],
@@ -170,7 +171,7 @@ class DummyProfessionalDataSeeder extends Seeder
         }
 
         // 6. Interior Products (Akmal - Supplier)
-        $supplierUser = User::where('email', 'akmal@gmail.com')->first();
+        $supplierUser = User::where('email', DemoAccount::SUPPLIER)->first();
         if ($supplierUser) {
             $supplier = Supplier::updateOrCreate(
                 ['user_id' => $supplierUser->id],
@@ -229,7 +230,7 @@ class DummyProfessionalDataSeeder extends Seeder
 
         $portfolios = [
             [
-                'email' => 'giska@gmail.com',
+                'email' => DemoAccount::ARSITEK,
                 'role' => 'arsitek',
                 'projects' => [
                     [
@@ -248,7 +249,7 @@ class DummyProfessionalDataSeeder extends Seeder
                 ],
             ],
             [
-                'email' => 'anindia@gmail.com',
+                'email' => DemoAccount::KONTRAKTOR,
                 'role' => 'kontraktor',
                 'projects' => [
                     [
@@ -261,7 +262,7 @@ class DummyProfessionalDataSeeder extends Seeder
                 ],
             ],
             [
-                'email' => 'abel@gmail.com',
+                'email' => DemoAccount::INTERIOR,
                 'role' => 'interior',
                 'projects' => [
                     [

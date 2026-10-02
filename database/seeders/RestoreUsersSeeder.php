@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\User;
+use Database\Seeders\Support\DemoAccount;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\Models\Role;
@@ -28,49 +29,56 @@ class RestoreUsersSeeder extends Seeder
             Role::firstOrCreate(['name' => $roleName, 'guard_name' => 'web']);
         }
 
-        $password = Hash::make('123456');
+        // DEMO CREDENTIALS. Every account shares one known password so a
+        // reviewer can log in as any role without a signup dance. This is only
+        // ever appropriate because `db:seed` targets a local database.
+        $password = Hash::make(DemoAccount::PASSWORD);
 
         // 2. Create Core Professional Users
+        //
+        // Addresses come from DemoAccount rather than inline, because every other
+        // seeder looks these accounts UP by address. See that class for why that
+        // coupling through a string literal was worth removing.
         $professionals = [
             [
                 'name' => 'Giska (Architect)',
-                'email' => 'giska@gmail.com',
+                'email' => DemoAccount::ARSITEK,
                 'username' => 'giska',
                 'role_type' => 'arsitek',
             ],
             [
                 'name' => 'Anindia (Contractor)',
-                'email' => 'anindia@gmail.com',
+                'email' => DemoAccount::KONTRAKTOR,
                 'username' => 'anindia',
                 'role_type' => 'kontraktor',
             ],
             [
                 'name' => 'Abel (Interior)',
-                'email' => 'abel@gmail.com',
+                'email' => DemoAccount::INTERIOR,
                 'username' => 'abel',
                 'role_type' => 'interior',
             ],
             [
                 'name' => 'Rede (Notary)',
-                'email' => 'rede@gmail.com',
+                'email' => DemoAccount::NOTARIS,
                 'username' => 'rede',
                 'role_type' => 'notaris',
             ],
             [
                 'name' => 'Fariz (Courier)',
-                'email' => 'fariz@gmail.com',
+                'email' => DemoAccount::COURIER,
                 'username' => 'fariz',
-                'role_type' => 'user', 
+                'role_type' => 'user',
             ],
             [
                 'name' => 'Akmal (Supplier)',
-                'email' => 'akmal@gmail.com',
+                'email' => DemoAccount::SUPPLIER,
                 'username' => 'akmal',
                 'role_type' => 'user',
             ],
             [
                 'name' => 'Aisha (PM)',
-                'email' => 'aisha@gmail.com',
+                'email' => DemoAccount::PROJECT_MANAGER,
                 'username' => 'aisha',
                 'role_type' => 'project_manager',
             ],
@@ -82,13 +90,13 @@ class RestoreUsersSeeder extends Seeder
             ],
             [
                 'name' => 'Budi (Structural)',
-                'email' => 'budi_struc@gmail.com',
+                'email' => DemoAccount::STRUCTURAL,
                 'username' => 'budi_struc',
                 'role_type' => 'structural',
             ],
             [
                 'name' => 'Andi (MEP)',
-                'email' => 'andi_mep@gmail.com',
+                'email' => DemoAccount::MEP,
                 'username' => 'andi_mep',
                 'role_type' => 'mep',
             ]
@@ -113,7 +121,7 @@ class RestoreUsersSeeder extends Seeder
 
         // 3. Create Client/Owner
         $client = User::updateOrCreate(
-            ['email' => 'client@4c.id'],
+            ['email' => DemoAccount::CLIENT],
             [
                 'name' => 'Malya (Project Owner)',
                 'username' => 'malya',
@@ -125,12 +133,15 @@ class RestoreUsersSeeder extends Seeder
              $client->assignRole('user');
         }
 
-        // 4. Create Davin (Normal User)
+        // 4. Create an ordinary (non-professional) user
+        //
+        // Previously this was seeded under the repository owner's personal Gmail
+        // address. Demo data in a public repository does not need a real inbox.
         $davin = User::updateOrCreate(
-            ['email' => 'davinyasa06@gmail.com'],
+            ['email' => DemoAccount::ORDINARY_USER],
             [
                 'name' => 'Davin',
-                'username' => 'davinyasa06',
+                'username' => 'davin',
                 'password' => $password,
                 'role_type' => 'user',
             ]
@@ -152,7 +163,7 @@ class RestoreUsersSeeder extends Seeder
             ]
         );
         if (!$admin->hasRole('admin')) {
-            $admin->assignRole('admin');
+             $admin->assignRole('admin');
         }
     }
 }

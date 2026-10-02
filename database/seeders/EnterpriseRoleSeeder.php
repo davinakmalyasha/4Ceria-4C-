@@ -22,7 +22,7 @@ class EnterpriseRoleSeeder extends Seeder
 
         // 2. Create Raman (MEP Engineer)
         $mepUser = User::firstOrCreate(
-            ['email' => 'raman@gmail.com'],
+            ['email' => 'raman@example.test'],
             [
                 'name' => 'Raman',
                 'username' => 'raman_mep',

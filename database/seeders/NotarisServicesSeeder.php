@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use Database\Seeders\Support\DemoAccount;
 use App\Models\NotarisProfile;
 use Illuminate\Database\Seeder;
 
@@ -9,7 +10,7 @@ class NotarisServicesSeeder extends Seeder
 {
     public function run()
     {
-        $notaryUser = \App\Models\User::where('email', 'rede@gmail.com')->first();
+        $notaryUser = \App\Models\User::where('email', DemoAccount::NOTARIS)->first();
         if (!$notaryUser) {
             return;
         }
