@@ -73,6 +73,14 @@ env:
   # happens during `package:discover`, so `composer install` itself failed
   # before a single test ran. Four copies meant a fix could reach three.
   APP_KEY: base64:AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyA=
+
+  # The application REFUSES TO BOOT without this (AppServiceProvider::register,
+  # defect B10): trusting nothing collapses every request into one rate-limit
+  # bucket, trusting everything lets a client mint a fresh one. In CI the only
+  # proxy is the runner itself, so loopback is the honest answer — and without
+  # it `package:discover` throws, which fails `composer install` before a test
+  # runs.
+  TRUSTED_PROXIES: 127.0.0.1/32,::1/128
   COMPOSER_ALLOW_SUPERUSER: '1'
   # The suites run against real MySQL because the legacy migrations contain
   # raw MySQL ALTER/ENUM statements that sqlite cannot execute. DML only —

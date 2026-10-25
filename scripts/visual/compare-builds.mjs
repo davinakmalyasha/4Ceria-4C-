@@ -41,7 +41,7 @@
  *   1 — an unaccepted change, or a dropped class
  */
 
-import { readFileSync, existsSync, readdirSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync, mkdirSync } from 'node:fs';
 import { resolve, join, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
@@ -54,6 +54,10 @@ const arg = (name, fallback = null) => {
 };
 
 const baselineDir = resolve(ROOT, arg('baseline', 'spec/visual-baseline'));
+
+// The capture writes into .tmp/visual/, and a fresh checkout has no .tmp — the
+// ENOENT surfaced only on a clean Linux runner, where nothing had created it.
+mkdirSync(join(ROOT, '.tmp', 'visual'), { recursive: true });
 const cssArgument = arg('css');
 
 if (!cssArgument) {
