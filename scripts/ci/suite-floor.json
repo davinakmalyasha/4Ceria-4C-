@@ -1,0 +1,22 @@
+{
+  "_comment": [
+    "The RISING FLOOR for the legacy suite.",
+    "",
+    "The Laravel application is the ORACLE for the Go rewrite: it is the",
+    "reference implementation the Go port is compared against, byte for byte,",
+    "endpoint by endpoint. A test that is deleted is therefore a silent",
+    "reduction in the definition of \"identical\", and a suite that shrinks is",
+    "the oracle losing the ability to judge.",
+    "",
+    "So the count is a FLOOR, not a report. It may only go UP. Raising it is",
+    "free; lowering it requires deleting this file's value AND writing down",
+    "why in docs/CLEANUP-LOG.md.",
+    "",
+    "The numbers below were measured on PHP 8.5 / MySQL 9.6 at commit 4b610b7",
+    "and re-measured after the Week 1 defect fixes (B1-B19), the contract",
+    "capture (B20-B27) and the JSON encoding differential.",
+    "See docs/adr/0019-the-legacy-suite-is-the-oracle.md."
+  ],
+  "tests": 651,
+  "assertions": 2423
+}

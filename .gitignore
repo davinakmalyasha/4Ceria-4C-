@@ -63,9 +63,14 @@ yarn-error.log
 # under `scripts/` is CODE: `scripts/disbursement-migration-seed.sql` seeds the
 # throwaway database that `verify-disbursement-migration.cmd` builds, and
 # without it that proof cannot run on a fresh clone.
+#
+# The PostgreSQL baseline is also CODE, not a dump: `db/postgres/migrations/`
+# holds the forward-only migration files the rewrite is built from, and they
+# have to be versioned like any other source.
 # ---------------------------------------------------------------------------
 *.sql
 !scripts/*.sql
+!db/postgres/migrations/*.sql
 
 # ---------------------------------------------------------------------------
 # SCRATCH SCRIPTS -- ANCHORED TO THE REPOSITORY ROOT, DELIBERATELY
@@ -148,3 +153,14 @@ mobile.zip
 /NOTES-*.md
 /FINAL-SWEEP.md
 /FINAL-SWEEP-*.md
+
+# Visual-comparison scratch: the captured computed styles are large and are
+# regenerated on demand. The COMMITTED baseline lives in
+# `spec/visual-baseline/`.
+/.tmp/
+
+# PHPUnit/JUnit output written by the suite-floor assertion (scripts/ci/assert-suite-floor.php).
+/junit.xml
+
+# Go build output (go build ./cmd/etl writes etl.exe here on Windows).
+/*.exe

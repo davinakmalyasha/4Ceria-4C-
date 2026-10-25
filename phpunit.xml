@@ -44,7 +44,25 @@
             <directory>tests/Feature</directory>
         </testsuite>
         <testsuite name="Money">
+            <!--
+                The four root-level money suites, kept where they are so the file
+                history is not churned.
+
+                The `<exclude>` elements matter. `tests/` with a `Test.php`
+                suffix also matches `tests/Unit/**` and `tests/Feature/**`, so
+                without them the same file lands in two suites and PHPUnit 11+
+                says so:
+
+                    WARN Cannot add file tests\Unit\MoneyTest.php to test suite
+                         "Money" as it was already added to test suite "Unit"
+
+                PHPUnit then skips the duplicate, so no test runs twice — but a
+                warning in the report is a warning a human learns to ignore,
+                and this suite is the ORACLE. The declaration is now disjoint.
+            -->
             <directory suffix="Test.php">tests</directory>
+            <exclude>tests/Unit</exclude>
+            <exclude>tests/Feature</exclude>
         </testsuite>
     </testsuites>
 

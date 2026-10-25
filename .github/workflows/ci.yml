@@ -1,13 +1,50 @@
 # CI for 4Ceria Portal
 #
+# HISTORY — WHY THIS FILE LOOKS THE WAY IT DOES
+# =============================================
+#
 # There was NO pipeline before 2026-09-23: the only gate was a manual sequence
 # in AGENTS.md, and `php artisan test` silently ran 1 of the 3 test suites
-# (phpunit.xml named tests/Unit + tests/Feature, neither of which exists).
+# (phpunit.xml named tests/Unit + tests/Feature, neither of which existed).
 # Any commit could therefore ship unverified.
 #
-# The API job provisions a real MySQL service because the money/payment suites
-# run against real MySQL inside a rolled-back transaction — the legacy
-# migrations contain raw ALTER/ENUM statements that sqlite cannot execute.
+# The pipeline that was added then had THREE defects, each of which made the
+# whole thing a green lie:
+#
+#   1. `redis/redis-stack-action@v1` — that repository does not exist
+#      (`GET /repos/redis/redis-stack-action` → 404). The job died at ACTION
+#      RESOLUTION, before a single line of project code ran. Every run since
+#      2026-09-28 was red for a reason unrelated to the project, and the
+#      constant redness became background noise that nobody read.
+#
+#   2. The `schema` job provisioned an EMPTY MySQL and ran `schema:verify`
+#      with no `migrate` step. `schema:verify` checks the CURRENT connection,
+#      so it could only ever fail — it never had a chance to mean anything.
+#
+#   3. `composer verify` ran `"@php scripts/verify.ps1"`. Composer handed the
+#      PowerShell file to PHP, which parsed no `<?php` tags, echoed the whole
+#      file as text and exited 0. The local verification gate was a no-op that
+#      printed a script instead of running it.
+#
+# WHAT IS FIXED HERE
+# ------------------
+#   - Every action is pinned to a full 40-hex commit SHA, and every container
+#     image to a digest. `scripts/ci/action-policy.sh` enforces it, and it is
+#     itself a CI job — a policy that is only written down is not a policy.
+#   - The `schema` job MIGRATES first, then verifies, then performs a FULL
+#     `migrate:reset` → `migrate` round-trip. That round-trip was broken in
+#     seven places and had never been executed, because the job could never
+#     get past step one.
+#   - The suite count is a RISING FLOOR (`scripts/ci/suite-floor.json`). A
+#     test suite that shrinks is the oracle losing the ability to judge the
+#     port, and a green CI run says nothing about how much it checked.
+#   - The built ARTIFACT is asserted, not the exit code: `dist/` (what Vercel
+#     serves) shipped without Tailwind for months while every build was green.
+#
+# The API job provisions a real MySQL because the money/payment suites run
+# against real MySQL inside a rolled-back transaction — the legacy migrations
+# contain raw ALTER/ENUM statements that sqlite cannot execute.
+
 name: CI
 
 on:
@@ -22,21 +59,58 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Least privilege by default. A job that needs more declares it.
+permissions:
+  contents: read
+
+env:
+  COMPOSER_ALLOW_SUPERUSER: '1'
+  # The suites run against real MySQL because the legacy migrations contain
+  # raw MySQL ALTER/ENUM statements that sqlite cannot execute. DML only —
+  # never add DDL to a test file.
+  PHP_EXTENSIONS: pdo_mysql, mbstring, bcmath, gd, zip, exif, pcntl, intl
+
 jobs:
+  # ---------------------------------------------------------------------------
+  # The supply-chain policy is itself a check. A rule that is only written
+  # down is not a rule.
+  # ---------------------------------------------------------------------------
+  action-policy:
+    name: Action policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Assert every action and image is pinned
+        run: bash scripts/ci/action-policy.sh
+
+  # ---------------------------------------------------------------------------
+  # Secrets. gitleaks runs from a PINNED IMAGE rather than a third-party
+  # action: one fewer thing whose maintainers can move a tag.
+  # ---------------------------------------------------------------------------
   secrets:
     name: Secret scan
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # Full history so a secret committed earlier is still caught.
           fetch-depth: 0
+
       - name: Scan for committed secrets
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Fails the run rather than only annotating the PR.
-          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: false
+        run: |
+          docker run --rm -v "$PWD:/repo" \
+            zricethezav/gitleaks@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f \
+            detect --source=/repo --no-banner --redact --verbose --exit-code 1
+
       - name: Assert no VAPID private key is tracked
         run: |
           # The web-push VAPID private key is a live secret: anyone holding it
@@ -50,22 +124,42 @@ jobs:
           fi
           echo "No VAPID private key in the tree."
 
+  # ---------------------------------------------------------------------------
+  # The PHP half of the suite. It has never run in CI — the job died at action
+  # resolution — so this is the first time these 546 tests are actually
+  # enforced.
+  #
+  # Matrix: the Dockerfile ships PHP 8.4 (the composer.json floor) and the
+  # local toolchain is 8.5. Both are exercised.
+  # ---------------------------------------------------------------------------
   api:
-    name: API (PHP)
+    name: API (PHP ${{ matrix.php }})
     runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.4', '8.5']
 
     services:
       mysql:
-        image: mysql:8.0
+        image: mysql:9.6@sha256:c5df04bee1a42b74a5841c6409e669cf62126cd0416f00c1cea8ab933b9361b9
         env:
           MYSQL_ROOT_PASSWORD: root
+          # root@'%' so the runner can reach the server over TCP. Without it
+          # only root@localhost exists, and 127.0.0.1 is not localhost.
+          MYSQL_ROOT_HOST: '%'
           MYSQL_DATABASE: 4ceria_test
         ports: ['3306:3306']
         options: >-
-          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot --silent"
           --health-interval=10s
           --health-timeout=5s
-          --health-retries=10
+          --health-retries=15
+          --health-start-period=30s
 
     env:
       APP_ENV: testing
@@ -80,7 +174,14 @@ jobs:
       DB_DATABASE: 4ceria_test
       DB_USERNAME: root
       DB_PASSWORD: root
-      CACHE_STORE: redis
+      # `array`, not `redis`. Four test files call `Cache::flush()` — which on a
+      # SHARED cache store wipes every other test's entries. On a per-process
+      # store the flush is confined to the test that asked for it.
+      #
+      # No Redis service is provisioned at all: nothing in `app/` calls
+      # `Redis::` directly, the session driver is `array` and the queue is
+      # `sync`, so a Redis container would have been pure cost.
+      CACHE_STORE: array
       SESSION_DRIVER: array
       QUEUE_CONNECTION: sync
       MAIL_MAILER: array
@@ -91,24 +192,19 @@ jobs:
       FILESYSTEM_DISK: local
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up PHP
-        uses: shivammathur/setup-php@v2
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
         with:
-          # composer.json requires php ^8.4; the Dockerfile pins 8.4.
-          php-version: '8.4'
-          extensions: pdo_mysql, mbstring, bcmath, gd, zip, exif, pcntl, intl
+          php-version: ${{ matrix.php }}
+          extensions: ${{ env.PHP_EXTENSIONS }}
           coverage: none
           tools: composer:v2
 
-      - name: Redis (cache lock for onOneServer + session/queue)
-        uses: redis/redis-stack-action@v1
-        with:
-          services: redis
-
       - name: Cache Composer downloads
-        uses: actions/cache@v4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.composer/cache/files
           key: composer-${{ runner.os }}-${{ hashFiles('composer.lock') }}
@@ -143,14 +239,6 @@ jobs:
       - name: Run migrations against the real schema
         run: php artisan migrate --force --no-interaction
 
-      - name: Verify migrations are reversible (up/down/up on an empty schema)
-        # The dispute/partial-refund migrations manipulate an ENUM and a unique
-        # index; a broken down() would only surface at the worst moment.
-        run: |
-          php artisan migrate:rollback --step=3 --force
-          php artisan migrate --force
-          echo "migrations re-applied cleanly"
-
       # All suites. Do NOT pass individual files: that hides future suites.
       # The API-surface smoke assertions that used to live in the bespoke
       # `refinement-tests/smoke-api.php` are now `tests/ApiSmokeTest.php`,
@@ -158,24 +246,47 @@ jobs:
       # database — the old script read live rows and hard-failed whenever CI
       # migrated without seeding.
       - name: Run test suites
-        run: vendor/bin/pest --colors=always
+        run: vendor/bin/pest --colors=always --log-junit junit.xml
 
+      # The oracle must not shrink. A deleted test narrows the definition of
+      # "identical" for the Go port, and a green CI run says nothing about how
+      # much it checked.
+      - name: Assert the suite did not shrink
+        run: php scripts/ci/assert-suite-floor.php junit.xml
+
+      - name: Publish the test report
+        if: always()
+        uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0
+        with:
+          name: API tests (PHP ${{ matrix.php }})
+          path: junit.xml
+          reporter: java-junit
+          fail-on-error: 'false'
+
+  # ---------------------------------------------------------------------------
+  # Schema integrity — and the round-trip that had never been executed.
+  # ---------------------------------------------------------------------------
   schema:
     name: Schema integrity
     runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
 
     services:
       mysql:
-        image: mysql:8.0
+        image: mysql:9.6@sha256:c5df04bee1a42b74a5841c6409e669cf62126cd0416f00c1cea8ab933b9361b9
         env:
           MYSQL_ROOT_PASSWORD: root
+          MYSQL_ROOT_HOST: '%'
           MYSQL_DATABASE: 4ceria_schema
         ports: ['3306:3306']
         options: >-
-          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot --silent"
           --health-interval=10s
           --health-timeout=5s
-          --health-retries=10
+          --health-retries=15
+          --health-start-period=30s
 
     env:
       APP_ENV: testing
@@ -186,20 +297,21 @@ jobs:
       DB_DATABASE: 4ceria_schema
       DB_USERNAME: root
       DB_PASSWORD: root
-      CACHE_STORE: file
+      CACHE_STORE: array
       SESSION_DRIVER: array
       QUEUE_CONNECTION: sync
       PUBLIC_STORAGE_DRIVER: local
       RAILWAY_STORAGE_DRIVER: local
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up PHP
-        uses: shivammathur/setup-php@v2
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
         with:
-          php-version: '8.4'
-          extensions: pdo_mysql, mbstring, bcmath, gd, zip, exif, pcntl, intl
+          php-version: '8.5'
+          extensions: ${{ env.PHP_EXTENSIONS }}
           coverage: none
           tools: composer:v2
 
@@ -219,19 +331,438 @@ jobs:
       # asserts that every model $fillable/$casts entry and every relation
       # foreign key actually exists. Any migration that claims to add a column
       # but does not now fails the build.
+      #
+      # NOTE: the migration runs HERE, in the same job, before the verification.
+      # The old pipeline split "provision" and "verify" across two jobs, so the
+      # check ran against an empty database and could only ever fail.
+      - name: Migrate from scratch
+        run: php artisan migrate --force --no-interaction
+
       - name: Verify a from-scratch migration matches the models
-        run: php artisan schema:verify
+        run: php artisan schema:verify --relations
+
+      # THE ROUND-TRIP. `migrate:reset` then `migrate` on the SAME database.
+      #
+      # This had never been executed — the job could not get past the missing
+      # `migrate` step — and it was broken in seven places: two `down()`
+      # methods dropped an index that InnoDB had adopted as a foreign key's
+      # backing store (MySQL error 1553), one dropped a column that a later
+      # migration had already removed (error 1091), and one addressed a table
+      # that a later migration created and dropped again (error 1146).
+      #
+      # A `down()` that cannot run is a `down()` that has never been tested,
+      # and the deployment runs `migrate --force` on every replica start.
+      - name: Roll the whole schema back
+        run: php artisan migrate:reset --force --no-interaction
+
+      - name: Re-apply the whole schema
+        run: php artisan migrate --force --no-interaction
+
+      - name: Verify the round-tripped schema still matches the models
+        run: php artisan schema:verify --relations
+
+  # ---------------------------------------------------------------------------
+  # The SPA. The standalone build is the artifact Vercel serves, and it is
+  # asserted separately — it shipped without Tailwind for months while every
+  # build was green.
+  # ---------------------------------------------------------------------------
+  # The route-set parity gate.
+  #
+  # The rewrite moves 296 API endpoints from Laravel to Go. "Without losing
+  # one" is not something a person can check by reading — the tables are four
+  # hundred lines long, and the endpoint that goes missing is the one nobody
+  # was looking at. A route that exists in Laravel and not in Go is a 404 in
+  # production that no test caught, because the test called the Go handler
+  # directly.
+  route-parity:
+    name: Route-set parity
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    env:
+      GOEXPERIMENT: nojsonv2
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: '8.4'
+          extensions: pdo_mysql, mbstring, bcmath, intl
+          coverage: none
+          tools: composer:v2
+
+      - name: Install the PHP dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      # The third route table is the Go gateway's, so this job needs Go.
+      - name: Set up Go
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version: '1.27.2'
+          cache: true
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      - name: Install the Node dependencies
+        run: npm ci
+
+      # The manifest is GENERATED. The check is that it is up to date, not
+      # that it is correct — the gate below compares it against the route
+      # table, and a stale manifest fails there too.
+      - name: The manifest must be up to date
+        run: php artisan routes:export --check
+
+      - name: The manifest, the Laravel route table and the Go route table must agree
+        run: node tools/parity/routes-against-gateway.mjs
+
+      # docs/PARITY.md is generated from the manifest and the golden files and
+      # COMMITTED. A stale matrix says the rewrite is less (or more) done than
+      # it is, and a hand-edited one is a claim nothing verified.
+      - name: The parity matrix must be up to date
+        run: node tools/parity/matrix.mjs --check
+
+  # The contract capture.
+  #
+  # The golden files are the ORACLE for the Go rewrite: 296 recordings of
+  # what the legacy application answers, byte for byte, so the Go port can be
+  # compared against them.
+  #
+  # The gate re-records them and compares, so a change in the legacy
+  # application's answers — or in the capture's own determinism — fails the
+  # build. The capture is what found the five server errors the recordings
+  # now prove are gone.
+  contract-capture:
+    name: Contract capture
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+
+    services:
+      mysql:
+        image: mysql:9.6@sha256:c5df04bee1a42b74a5841c6409e669cf62126cd0416f00c1cea8ab933b9361b9
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_ROOT_HOST: '%'
+          MYSQL_DATABASE: 4ceria
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=15
+          --health-start-period=30s
+
+    env:
+      APP_ENV: testing
+      APP_KEY: base64:Zm9vYmFyYmF6cXV4Zm9vYmFyYmF6cXV4Zm9vYmFyYmF6cXE=
+      APP_DEBUG: 'true'
+      LOG_CHANNEL: stderr
+      DB_CONNECTION: mysql
+      DB_HOST: 127.0.0.1
+      DB_PORT: '3306'
+      DB_DATABASE: 4ceria
+      DB_USERNAME: root
+      DB_PASSWORD: root
+      CACHE_STORE: array
+      SESSION_DRIVER: array
+      QUEUE_CONNECTION: sync
+      MAIL_MAILER: array
+      PUBLIC_STORAGE_DRIVER: local
+      RAILWAY_STORAGE_DRIVER: local
+      FILESYSTEM_DISK: local
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: '8.4'
+          extensions: pdo_mysql, mbstring, bcmath, intl
+          coverage: none
+          tools: composer:v2
+
+      - name: Install the PHP dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      # The schema has to EXIST before anything can be recorded against it.
+      - name: Migrate the legacy schema
+        run: php artisan migrate --force --no-interaction
+
+      - name: The recorded contracts must match the current application
+        run: php artisan contract:capture --check
+
+  # The money differential.
+  #
+  # The Go `money` package is a PORT of the PHP `App\Support\Money`, and the
+  # Laravel application is what the port replaces. So the PHP answers are the
+  # reference: a Go answer that differs is a change in a number the running
+  # system produces.
+  #
+  # A shared test suite would not do this. It proves each implementation
+  # matches the EXPECTATION; a differential proves the two implementations
+  # match EACH OTHER, which is the actual question when one of them is a port.
+  #
+  # The corpus is fixed-seed, so a failure is reproducible.
+  money-diff:
+    name: Money differential (PHP vs Go)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+
+    env:
+      GOEXPERIMENT: nojsonv2
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version: '1.27.2'
+          cache: true
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: '8.4'
+          extensions: pdo_mysql, mbstring, bcmath, intl
+          coverage: none
+          tools: composer:v2
+
+      - name: Install the PHP dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Compute the PHP answers
+        run: php tools/money/compute-php.php --corpus=tools/money/corpus.json --out=.tmp/money-php.json
+
+      - name: Compute the Go answers
+        run: go run ./cmd/moneydiff --corpus=tools/money/corpus.json --out=.tmp/money-go.json
+
+      - name: The two must agree
+        run: node tools/money/compare.mjs --php=.tmp/money-php.json --go=.tmp/money-go.json --corpus=tools/money/corpus.json
+
+  # The PostgreSQL baseline.
+  #
+  # The rewrite's target engine is PostgreSQL, and its baseline is a
+  # HAND-WRITTEN translation of the live MySQL schema. A hand-written
+  # translation drifts, so the baseline is checked by a tool that reads the
+  # LIVE MySQL schema and diffs it against the baseline — every table, every
+  # column, every enum type, every enum VALUE IN ORDER, every foreign key,
+  # every index, and every column DEFAULT.
+  #
+  # The baseline is also built FROM SCRATCH. A baseline that has only ever
+  # been applied to a database that already existed is not a baseline: the
+  # failures that matter — an ordering assumption, an extension that is not
+  # installed, a migration that depends on state a previous one created —
+  # only appear on a clean build.
+  #
+  # Both engines run here, because the comparison is between them.
+  postgres-baseline:
+    name: PostgreSQL baseline
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+
+    services:
+      mysql:
+        image: mysql:9.6@sha256:c5df04bee1a42b74a5841c6409e669cf62126cd0416f00c1cea8ab933b9361b9
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_ROOT_HOST: '%'
+          MYSQL_DATABASE: 4ceria
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=15
+          --health-start-period=30s
+
+      postgres:
+        image: postgres:17@sha256:a63c1ea3f6a3a5a1621f97d2aba3b30faecfab4224c1b0000cc85ced57bb1939
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=15
+          --health-start-period=30s
+
+    env:
+      APP_ENV: testing
+      APP_KEY: base64:Zm9vYmFyYmF6cXV4Zm9vYmFyYmF6cXV4Zm9vYmFyYmF6cXE=
+      APP_DEBUG: 'true'
+      LOG_CHANNEL: stderr
+      DB_CONNECTION: mysql
+      DB_HOST: 127.0.0.1
+      DB_PORT: '3306'
+      DB_DATABASE: 4ceria
+      DB_USERNAME: root
+      DB_PASSWORD: root
+      CACHE_STORE: array
+      SESSION_DRIVER: array
+      QUEUE_CONNECTION: sync
+      MAIL_MAILER: array
+      PUBLIC_STORAGE_DRIVER: local
+      RAILWAY_STORAGE_DRIVER: local
+      FILESYSTEM_DISK: local
+      MYSQL_DATABASE: 4ceria
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGPASSWORD: postgres
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: '8.4'
+          extensions: pdo_mysql, mbstring, bcmath, intl
+          coverage: none
+          tools: composer:v2
+
+      - name: Install the PHP dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      - name: Install the Node dependencies
+        run: npm ci
+
+      # The legacy schema has to EXIST before it can be diffed against. The
+      # migrations are the only thing that creates it.
+      - name: Migrate the legacy schema
+        run: php artisan migrate --force --no-interaction
+
+      # The ETL steps below compare ROW COUNTS. On an empty database both
+      # sides are zero and the comparison passes without exercising anything,
+      # so the demo data has to be there for the check to mean something.
+      - name: Seed the legacy database
+        run: php artisan db:seed --force --no-interaction
+
+      - name: The baseline must build from scratch and match the legacy schema
+        run: node tools/db/verify-postgres-baseline.mjs --database=4ceria_pgcheck --pg-dsn=postgres://postgres:postgres@127.0.0.1:5432/4ceria_pgcheck
+
+      # The SHAPE is checked above. This checks the CONTENT: the ETL has to be
+      # able to put the live rows into that shape, and the two databases have to
+      # agree on how many there are.
+      #
+      # It has already earned its keep in CI's own terms: the first run refused a
+      # zero-amount ledger row (the voided duplicate of Rp 5 500 000) because the
+      # target's CHECK constraints forbade it, which sent us back to the
+      # constraint rather than to a "skip bad rows" flag.
+      - name: Set up Go
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version: '1.27.2'
+          cache: true
+
+      - name: The ETL must reproduce the MySQL rows in PostgreSQL
+        run: go run ./cmd/etl -all -truncate
+        env:
+          GOEXPERIMENT: nojsonv2
+          MYSQL_DSN: root:${{ env.DB_PASSWORD }}@tcp(127.0.0.1:3306)/4ceria?parseTime=false
+          DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/4ceria_pgcheck
+
+      - name: The two databases must hold the same number of rows
+        run: go run ./cmd/etl -all -verify
+        env:
+          GOEXPERIMENT: nojsonv2
+          MYSQL_DSN: root:${{ env.DB_PASSWORD }}@tcp(127.0.0.1:3306)/4ceria?parseTime=false
+          DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/4ceria_pgcheck
+
+  # The JSON encoding differential.
+  #
+  # The rewrite's contract is that a Go response body is BYTE-IDENTICAL to the
+  # Laravel one. PHP's `json_encode` and Go's `encoding/json` do not produce
+  # the same bytes: PHP escapes the forward slash, escapes every non-ASCII
+  # character as \uXXXX, has one-character escapes for \b and \f, keeps an
+  # array's keys in insertion order, and formats floats with its own
+  # thresholds. Every one of those differences is invisible to a comparison
+  # that parses the JSON first — and visible to a client.
+  #
+  # So the two encoders are run over the same fixed-seed corpus and compared
+  # byte for byte.
+  json-diff:
+    name: JSON encoding differential (PHP vs Go)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+
+    env:
+      GOEXPERIMENT: nojsonv2
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version: '1.27.2'
+          cache: true
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: '8.4'
+          extensions: pdo_mysql, mbstring, bcmath, intl
+          coverage: none
+          tools: composer:v2
+
+      - name: Install the PHP dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Compute the PHP answers
+        run: php tools/json/compute-php.php --corpus=tools/json/corpus.json --out=.tmp/json-php.json
+
+      - name: Compute the Go answers
+        run: go run ./cmd/jsondiff --corpus=tools/json/corpus.json --out=.tmp/json-go.json
+
+      - name: The two must agree
+        run: node tools/json/compare.mjs --php=.tmp/json-php.json --go=.tmp/json-go.json --corpus=tools/json/corpus.json
 
   spa:
     name: SPA (TypeScript + Vite)
     runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '20'
+          node-version-file: '.nvmrc'
           cache: npm
 
       - name: Install dependencies
@@ -242,6 +773,17 @@ jobs:
         # codebase carries pre-existing type debt (see
         # scripts/typecheck-baseline.mjs). This FAILS when the count rises.
         run: npm run typecheck:check
+
+      - name: TypeScript 7 and TypeScript 6 must agree
+        # TypeScript 7 ships no programmatic API, so the ecosystem still runs
+        # against the TypeScript 6 API and the two compilers live side by side
+        # (ADR-0011). Microsoft states that 7 reports "the same errors,
+        # locations, and messages" as 6.
+        #
+        # The ratchet COUNTS errors, so two compilers that reported the same
+        # COUNT with different ERRORS would pass it and hide a regression.
+        # This compares the lists, line for line.
+        run: npm run typecheck:parity
 
       - name: SPA unit tests
         # There was NO client test runner at all before 2026-09-29, so every
@@ -280,11 +822,10 @@ jobs:
       - name: Assert the service worker was generated
         run: |
           test -f public/build/sw.js || { echo "::error::public/build/sw.js missing — PWA injectManifest failed"; exit 1; }
-          grep -q '"build/assets' public/build/manifest.json || true
           echo "sw.js present"
 
       # Production does NOT ship public/build. Vercel builds the standalone SPA
-      # into dist/ (vite.config.js:51-67, `VITE_STANDALONE=true`), which is the
+      # into dist/ (vite.config.js, `VITE_STANDALONE=true`), which is the
       # only build whose `index.html` references hashed /assets/* URLs that the
       # vercel.json immutable cache rule applies to. Until this step existed,
       # CI proved a build that is never shipped and the shipped build path had
@@ -302,3 +843,140 @@ jobs:
           grep -q '"/assets/' dist/index.html || { echo "::error::standalone index.html does not reference hashed /assets/*"; exit 1; }
           echo "standalone dist/ present and hashed"
 
+      # A green build is not a correct build. This asserts the ARTIFACT: that
+      # both build modes ship a Tailwind-bearing stylesheet, and that the
+      # project theme comes after Tailwind so its `z-index: 1000` still wins.
+      - name: Assert both build modes ship their stylesheet
+        run: node scripts/ci/assert-build-assets.mjs
+
+      # THE VISUAL GATE.
+      #
+      # A build that succeeds is not a build that renders the same. This
+      # captures the COMPUTED STYLE of every class the stylesheet defines — in
+      # a real browser — and diffs it against the committed Tailwind v3
+      # baseline.
+      #
+      # A textual diff of the two stylesheets cannot answer the question:
+      # Tailwind v3 emits `--tw-*` shadow variables and composes `box-shadow`
+      # from three shadows, v4 emits `@property` declarations and composes it
+      # from five. The files are structurally different while doing the same
+      # work. The computed style is the ground truth.
+      #
+      # The baseline is `spec/visual-baseline/`, and the report it produces is
+      # `docs/TW4-UPGRADE-DELTA.md`.
+      - name: Install the browser
+        run: npx playwright install --with-deps chromium
+
+      - name: The rendering must match the committed baseline
+        run: node scripts/visual/compare-builds.mjs --css=public/build/assets/app-*.css
+
+  # The Go domain suites.
+  #
+  # `route-parity` builds the gateway, and the differentials compare Go against
+  # PHP — but neither runs the Go packages' OWN assertions. Those are the tests
+  # for the things PHP has no equivalent for: the three escrow type-lists, the
+  # retention truncation, the refund's reversal, the JSON encoder's escapes.
+  #
+  # `gofmt` and `go vet` are here for the same reason a linter is anywhere: a
+  # formatting diff is noise in every future review, and `vet` catches the
+  # printf-shaped mistakes the compiler does not.
+  go:
+    name: Go domain suites
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    env:
+      # Go 1.27 ships encoding/json/v2, and the release notes state the encoded
+      # output may differ — which would break the byte-for-byte contract for a
+      # reason unrelated to the port (AGENTS.md).
+      GOEXPERIMENT: nojsonv2
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version: '1.27.2'
+          cache: true
+
+      - name: Formatting
+        run: |
+          unformatted=$(gofmt -l ./cmd ./internal)
+          if [ -n "$unformatted" ]; then
+            echo "::error::gofmt reports unformatted files:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: The domain suites
+        run: go test ./...
+
+  # The Next.js port.
+  #
+  # `web/` is a SECOND application, and it has its own failure modes: a
+  # stylesheet that has drifted from the design it must reproduce, a type
+  # error, a build that only works with a dev server. All three are cheap to
+  # check and expensive to discover at cutover.
+  #
+  # The stylesheet check is the important one. `web/styles/` is generated from
+  # `resources/css/` — the files the LEGACY application ships — because the
+  # visual contract is pixel identity (P-2). Two hand-maintained copies of
+  # 1 600 lines diverge on the first afternoon, and the screenshots blame the
+  # component.
+  web:
+    name: Next.js port
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install the port's dependencies
+        working-directory: web
+        run: npm ci
+
+      - name: The port must ship the same stylesheet
+        working-directory: web
+        run: npm run sync:styles:check
+
+      - name: The port must ship the same help content
+        working-directory: web
+        run: npm run sync:content:check
+
+      - name: Type check
+        working-directory: web
+        run: npx tsc --noEmit
+
+      - name: Build
+        working-directory: web
+        run: npm run build
+
+      # THE VISUAL GATE FOR THE PORT IS NOT HERE, ON PURPOSE.
+      #
+      # A screenshot baseline is captured on ONE machine, and glyph
+      # rasterisation differs between operating systems. The committed PNGs were
+      # captured on Windows, so comparing them on a Linux runner would report a
+      # font difference as a design regression.
+      #
+      # The port's real gate is `node tools/visual/compare-upstreams.mjs`, which
+      # photographs the LEGACY app and the PORT in the same browser, seconds
+      # apart, and diffs those. It needs both applications running against the
+      # seeded database, so it belongs in the cutover job (see
+      # docs/REWRITE-PLAN.md) rather than in a build job that has no database.
