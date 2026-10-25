@@ -162,6 +162,52 @@ dispute:   open ──withdraw──> withdrawn        open ──admin action�
 - **Deploy** — SPA on Vercel (standalone `dist/` build), API as a Docker image on Railway
   (nginx + php-fpm + queue worker + scheduler under supervisord).
 
+## Roadmap — the Go + PostgreSQL + Next.js rewrite
+
+This application is being rewritten to **Go 1.27.2 + PostgreSQL 17 + Next.js 16**, under two
+hard constraints: **100 % feature parity** and a **byte-identical** frontend. The rewrite
+is executed as a strangler — this application stays deployed and green throughout, and
+serves as the oracle the rewrite is judged against.
+
+| | |
+|---|---|
+| [`docs/REWRITE-PLAN.md`](docs/REWRITE-PLAN.md) | The master plan: the measured baseline, the 16 live defects, the target architecture, the parity contract, the 19 slices, the cutover and rollback runbooks, the CI matrix, the risk register, and the first two weeks day by day. |
+| [`docs/adr/`](docs/adr/) | The 22 decisions, with their context, their consequences and the alternatives rejected. |
+| [`docs/MONEY.md`](docs/MONEY.md) | The escrow model and its 50 machine-checked invariants. |
+| [`docs/PORTING.md`](docs/PORTING.md) | How to port one endpoint, and the definition of done. |
+| [`docs/PARITY.md`](docs/PARITY.md) | The generated matrix: every endpoint, its parity tier, its upstream, and what verified it. |
+
+**The parity is machine-checked**, not asserted: route-set equality, middleware parity,
+three-way URI classification, recorded golden files, a zero-tolerance visual-regression
+gate whose baseline can only change through an accepted ADR, and a floor on the legacy
+test suite that may only rise.
+
+### Where the rewrite actually is
+
+| Piece | State |
+|---|---|
+| **Route parity** | 296 routes / 300 method-URI pairs. The manifest, the Laravel route table and the Go router agree, including the normalised middleware and the rate limit. |
+| **Contract capture** | All 300 endpoints recorded into `spec/contracts/laravel/`, byte-for-byte reproducible. Found and fixed eight live defects on the way (B23–B30). |
+| **Go gateway** | `cmd/gateway` serves every route from the manifest, answers `501` until a handler exists, and exposes `/internal/routes`, `/healthz`, `/readyz`. The JSON 404 is PHP-identical. |
+| **Go escrow** | `internal/domain/escrow` — the three type-lists, the retention split, the platform fee, the service. 52 Go tests, plus `db/postgres/tests/escrow_behaviour.sql` driving the real SQL function on a from-scratch database. |
+| **JSON encoder** | `internal/jsonphp` — a port of `json_encode` with PHP's flags. 3,333 differential cases agree byte for byte. |
+| **PostgreSQL** | The baseline builds from scratch, matches the live MySQL schema (86 tables, 36 enum types), and is checked in CI. |
+| **ETL** | `cmd/etl` copies the live data into PostgreSQL through `COPY`, in foreign-key order, and `-verify` compares row counts on both sides. It runs in the gate. |
+| **Go endpoints** | `GET /api/admin/stats`, `GET /api/notifications` and `GET /api/user/active-projects` are served by Go from PostgreSQL and answer **byte-identically** to Laravel — including the key order of `role_distribution` and the JSON document embedded in each notification. |
+| **Shadow comparator** | `tools/parity/shadow.mjs` compares one route; `shadow-all.mjs` compares every PORTED route and runs in the gate. Status, content type and body, **byte for byte**. |
+| **Visual baseline** | 51 screens captured from this application, deterministic across runs. |
+| **Next.js port** | **The whole visual baseline matches**: 51 screens — every guest route, all 38 dashboard tabs across four roles, the public tabs signed out, and all six `/admin/*` screens — photographed beside this application. 47 are byte-for-byte identical; 4 differ by 200–320 pixels, inside the declared antialiasing budget. |
+| **Port infrastructure** | A BFF (`/api/*` forwards the cookie's token), a `react-router-dom` shim onto Next's router, and an axios bootstrap — which is why the ported screens reuse this application's own components. |
+
+The port's stylesheets and Help Centre content are **generated** from this application's
+files, so the design and the prose cannot fork.
+
+```bash
+php scripts/verify.php                                   # the whole gate
+node tools/parity/matrix.mjs                             # regenerate docs/PARITY.md
+node tools/visual/compare-upstreams.mjs --screen=guest.route.login
+```
+
 ## Getting started
 
 Requires **PHP >= 8.4** — the `php` on `PATH` may be older and will fail to parse vendor code.
@@ -239,6 +285,11 @@ CI builds **both**, because building only the first proves an artifact that is n
 | `docs/` | Architecture, domain model, conventions, API map, backlog |
 | `AGENTS.md` | **Read this before changing anything** — 13 traps that have each cost real time |
 | `scripts/` | Verification entry points, codemods, and committed asset generators |
+| `cmd/` `internal/` | The Go services: the gateway, the escrow domain, the JSON encoder, the differentials |
+| `db/postgres/` | The PostgreSQL baseline (9 migrations) and the escrow's SQL behaviour test |
+| `routing/routes.yaml` | The generated route manifest — the Go router and the parity gate both read it |
+| `spec/` | The oracle: 300 recorded contracts, the visual baseline, the enum manifest |
+| `web/` | The Next.js 16 port (RSC + Server Actions + httpOnly cookies) |
 
 ## Documentation
 

@@ -26,10 +26,10 @@ This document details the critical performance and UX bottlenecks on the website
 Grid layout cards (e.g. professional register grids and supplier marketplace products) load card photos without defining aspect-ratio wrappers. While images are downloading, their height is 0px. Once loaded, they expand, pushing the cards down and causing cumulative layout shifts (CLS) on directories.
 
 ### The Solution
-Add explicit aspect-ratio utility container classes (like `aspect-square` or `aspect-[4/3]`) to image wrappers, ensuring the grid card preserves image space before the browser finishes the download:
+Add explicit aspect-ratio utility container classes (like `aspect-square` or `aspect-4/3`) to image wrappers, ensuring the grid card preserves image space before the browser finishes the download:
 
 ```html
-<div className="w-full aspect-[4/3] rounded-2xl overflow-hidden bg-neutral-100 shrink-0">
+<div className="w-full aspect-4/3 rounded-2xl overflow-hidden bg-neutral-100 shrink-0">
     <img 
         src={item.image_url} 
         loading="lazy" 
@@ -206,9 +206,9 @@ In [HouseCard.tsx](file:///c:/laragon/www/4C-Web/resources/js/components/Explore
 ```typescript
 // L150-156
 <div className="flex items-center gap-1.5"><BedDouble size={15} className="text-gray-400 group-hover:text-[#FF2D20] transition-colors" /><span className="pt-0.5">{house.rooms?.bedrooms || 0} Beds</span></div>
-<div className="w-[1px] h-4 bg-gray-200" />
+<div className="w-px h-4 bg-gray-200" />
 <div className="flex items-center gap-1.5"><Bath size={15} className="text-gray-400 group-hover:text-[#FF2D20] transition-colors" /><span className="pt-0.5">{house.rooms?.bathrooms || 0} Baths</span></div>
-<div className="w-[1px] h-4 bg-gray-200" />
+<div className="w-px h-4 bg-gray-200" />
 <div className="flex items-center gap-1.5"><Maximize size={15} className="text-gray-400 group-hover:text-[#FF2D20] transition-colors" /><span className="pt-0.5">{house.dimensions?.width}x{house.dimensions?.length}m</span></div>
 ```
 Each standard React wrapper here resolves to a full nested JSX node structure: `<svg xmlns="http://www.w3.org/2000/svg" ...><path .../></svg>` evaluated repeatedly on every card mount and re-render.

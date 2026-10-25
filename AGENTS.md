@@ -29,12 +29,21 @@ composer dev
 # Lint / build / verify
 D:\laragon\bin\php\php-8.5.10-Win32-vs17-x64\php.exe -l <file>          # syntax
 composer dump-autoload                                   # after adding/removing classes
-npm run typecheck:check                                  # ratchet — must not RISE (baseline 96)
+npm run typecheck:check                                  # ratchet — must not RISE (baseline 94)
 npm run build                                           # must stay green
-D:\laragon\bin\php\php-8.5.10-Win32-vs17-x64\php.exe artisan schema:verify           # from-scratch migration vs. every model
+D:\laragon\bin\php\php-8.5.10-Win32-vs17-x64\php.exe artisan schema:verify --relations  # from-scratch migration vs. every model
 D:\laragon\bin\php\php-8.5.10-Win32-vs17-x64\php.exe artisan money:detect-duplicates # ledger integrity
 D:\laragon\bin\php\php-8.5.10-Win32-vs17-x64\php.exe artisan test            # ALL Pest suites (real MySQL, rolled back)
+D:\laragon\bin\php\php-8.5.10-Win32-vs17-x64\php.exe artisan routes:export # regenerate routing/routes.yaml
 scripts\verify-schema.cmd <scratch_db>    # full migrate:fresh -> verify -> rollback -> re-migrate
+
+# The rewrite's instruments (see docs/WEEK-1-REPORT.md)
+node tools/parity/routes.mjs               # manifest vs. Laravel route table vs. Go route table
+npm run typecheck:parity                   # TypeScript 7 and 6 must report the SAME errors
+node tools/visual/compare-builds.mjs --css=public/build/assets/app-*.css   # the rendering vs. the baseline
+node tools/money/compare.mjs --php=.tmp/money-php.json --go=.tmp/money-go.json
+go test ./...                              # the Go domain packages
+go run ./cmd/moneydiff --corpus=tools/money/corpus.json --out=.tmp/money-go.json
 ```
 
 Requires Laragon running (MySQL on 3306) for anything touching the DB. The live database
@@ -42,10 +51,17 @@ is `4ceria` in the datadir `D:\laragon\data\mysql-9.6` (start
 `D:\laragon\bin\mysql\mysql-9.6.0-winx64\bin\mysqld.exe --defaults-file=...\my.ini`).
 Redis not required locally if you override drivers per-process (see README).
 
+**The Go module lives at the repository ROOT** (`go.mod`, `cmd/`, `internal/`) — not in a
+subdirectory. `cmd/gateway`, `cmd/moneydiff`, `internal/domain/{money,identity,authz}`.
+`go.mod` declares `go 1.27.2`; the local toolchain is 1.26.5 and Go's `GOTOOLCHAIN`
+mechanism fetches 1.27.2 automatically. Set `GOEXPERIMENT=nojsonv2` for the parity phase:
+Go 1.27 ships `encoding/json/v2`, and the release notes state the encoded output may
+differ, which would break the byte-for-byte contract for reasons unrelated to the port.
+
 ## Critical traps (learned the hard way)
 
 1. **`Model::shouldBeStrict(!isProduction())` runs in `AppServiceProvider:32`.** Locally, any lazy-load or missing attribute throws 500s. Production is silent — bugs can hide there.
-2. **`projects.pm_id` stores the PM's USER id**, while bid tables store profile ids (`arsitek_id` etc.). Never "fix" one to match the other.
+2. **Every `selected_*` column on `projects` — `pm_id` included — stores a PROFILE id.** Bid tables store profile ids (`arsitek_id` etc.), and `projects.pm_id` now stores the PM's `project_managers.id`, the same value `bids_project_manager.pm_id` holds. (This was reversed until 2026-10-21: `projects.pm_id` held the PM's *USER* id, which is what `AGENTS.md` used to warn about. The `2026_10_21_000001_resolve_projects_pm_id_to_a_profile_id` migration changed it, and `Hire::isAssignedPm()` is now the single place that answers "is this user the project's PM?" — never compare `projects.pm_id` with `user->id` by hand.)
 3. **`syncProjectLegalScope()` looks unrouted but is called statically** from `ProjectController::acceptBid` and `signContract`. Don't delete it.
 4. **Policies auto-discover by convention**: `ProjectReportPolicy` has no registration but IS invoked via `$this->authorize()` in `Api/ProjectReportController`. Check convention pairs before declaring a policy dead.
 5. **Two storage disks**: `public` (driver switches local/s3 via `PUBLIC_STORAGE_DRIVER`; world-readable bucket) and `railway` (always S3/Tigris private bucket: contracts, KYC, payment receipts, requirement images, dispute evidence). Env vars are `RAILWAY_STORAGE_*`; see `docs/CLEANUP-LOG.md` deploy note.
@@ -82,14 +98,18 @@ Redis not required locally if you override drivers per-process (see README).
 - **Full verification gate** after structural changes (CI runs the same list — see `.github/workflows/ci.yml`):
   1. `php -l` sweep over `app database routes tests`
   2. `composer dump-autoload`
-  3. `npm run typecheck:check` (ratchet — must not RISE, baseline 96)
+  3. `npm run typecheck:check` (ratchet — must not RISE, baseline 94)
   4. `npm run test` (vitest — SPA unit + component tests)
   5. `npm run build` **and** `VITE_STANDALONE=true npm run build` — production ships `dist/`, not `public/build`
-  6. `artisan migrate --force` when a migration was added
-  7. `artisan schema:verify` (or `scripts\verify-schema.cmd <scratch_db>` for the full round-trip)
-  8. `artisan test` (all Pest suites; real MySQL, every test rolled back)
-  9. manual Playwright pass (login → dashboard → project page)
-  10. `composer verify` runs steps 1-8 locally
+  6. `node scripts/ci/assert-build-assets.mjs` — both build modes must ship a Tailwind-bearing stylesheet, in the right order
+  7. `bash scripts/ci/action-policy.sh` — every action pinned to a commit SHA, every image pinned to a digest
+  8. `artisan migrate --force` when a migration was added
+  9. `artisan schema:verify --relations` on a from-scratch database
+  10. `artisan migrate:reset` then `artisan migrate` — **every `down()` must work**; this round-trip was broken in seven places and had never been executed
+  11. `artisan test` (all Pest suites; real MySQL, every test rolled back) and `php scripts/ci/assert-suite-floor.php junit.xml` — the suite must not SHRINK
+  12. `artisan money:detect-duplicates` and `artisan money:reconcile`
+  13. manual Playwright pass (login → dashboard → project page)
+  14. `composer verify` runs steps 1-12 locally — **it is a real gate, not a no-op** (it used to run `php scripts/verify.ps1`, which printed the script and exited 0)
 - Money changes are not "refinements" — they need a test in `tests/` and a look at `docs/DOMAIN.md`.
 - Dev-only quick-login lives in gitignored `resources/js/pages/dev/QuickLoginPanel.tsx`; keep it out of commits.
 - Test/scratch scripts: name them `debug_*.php`, `verify_*.php`, `seed_*.php` and put them at the **repository root**. The `.gitignore` patterns are anchored with a leading `/`, so they match the root only. Suites share `tests/Support/DatabaseHarness.php` — do not re-roll the `.env` recovery or the transaction rollback per file.
