@@ -161,10 +161,12 @@ it('omits roles with nobody hired, so "no professional" is distinguishable from 
     expect($destinations)->toBe([]);
 });
 
-it('resolves the PM from the user id that projects.pm_id stores', function () {
-    // SPECIAL CASE per config/bids.php: `projects.pm_id` holds a USER id while
-    // every other selected_* column holds a PROFILE id. Conflating them resolves
-    // a profile id against users.id, which returns the WRONG person's bank.
+it('resolves the PM from the profile id that projects.pm_id stores', function () {
+    // `projects.pm_id` holds a PROFILE id — the same value
+    // `bids_project_manager.pm_id` holds, and the same value every other
+    // `selected_*` column holds. It USED to hold a USER id, and conflating the
+    // two resolved a profile id against `users.id`, which returns the WRONG
+    // person's bank details.
     $owner = ownerUser();
     $pm = professionalUser('project_manager', 'e');
 
@@ -172,7 +174,7 @@ it('resolves the PM from the user id that projects.pm_id stores', function () {
 
     $project = Project::create([
         'title' => 'Job', 'user_id' => $owner->id, 'budget' => 100_000_000,
-        'status' => 'in_progress', 'pm_id' => $pm->id,
+        'status' => 'in_progress', 'pm_id' => $pm->project_manager->id,
     ]);
 
     $destinations = app(PayoutDestinationService::class)->forProject($project->fresh());
@@ -209,7 +211,7 @@ it('does NOT expose payout_destinations to a hired COUNTERPARTY', function () {
     $kontraktor = professionalUser('kontraktor', 'h');
 
     $arsitek->update(['bank_name' => 'BCA', 'bank_account_number' => '111', 'bank_account_name' => 'A']);
-    $kontraktor->update(['bank_name' => 'BRI', 'bank_account_number' => '222', 'bank_account_name' => 'K']);
+    $kontraktor->update(['bank_name' => 'BRI', 'bank_account_number' => 'KONTR-BANK-222', 'bank_account_name' => 'K']);
 
     $project = Project::create([
         'title' => 'Job', 'user_id' => $owner->id, 'budget' => 100_000_000,
@@ -223,8 +225,21 @@ it('does NOT expose payout_destinations to a hired COUNTERPARTY', function () {
         ->assertStatus(200)
         ->json('data');
 
+    // The sentinel is a WORD, not a number.
+    //
+    // This assertion used to read `not->toContain('222')`, where '222' was the
+    // counterparty's bank account number. The payload carries a dozen
+    // auto-increment ids and a wall of numeric money figures, so a three-digit
+    // substring was a coin flip: whenever an id happened to contain "222" the
+    // test failed, and it passed otherwise. It was FLAKY, and the failure had
+    // nothing to do with the leak it was guarding — the id allocation depends
+    // on how many rows the earlier tests created, so it moved with the test
+    // order and with the suite's own history.
+    //
+    // A sentinel that cannot occur by accident makes the assertion mean what
+    // it says.
     expect($body['payout_destinations'] ?? null)->toBeNull()
-        ->and(json_encode($body))->not->toContain('222');
+        ->and(json_encode($body))->not->toContain('KONTR-BANK-222');
 });
 
 it('leaves the owner\'s own payment_instructions untouched when a professional signs', function () {

@@ -180,7 +180,7 @@ it('lets the ASSIGNED PM accept a cancellation', function () {
     $project = Project::create([
         'title' => 'Job pmok', 'user_id' => $owner->id,
         'budget' => 500_000_000, 'status' => 'in_progress',
-        'pm_id' => $pm->id, 'selected_kontraktor_id' => $contractor->kontraktor->id,
+        'pm_id' => $pm->project_manager->id, 'selected_kontraktor_id' => $contractor->kontraktor->id,
     ]);
 
     $termination = ProjectTermination::create([

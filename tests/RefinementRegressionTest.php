@@ -85,8 +85,8 @@ it('marks a project-manager base fee paid (enum gap + profile/user id trap)', fu
     $pmUser = refineTestUser('pm', 'project_manager');
     $profile = ProjectManager::create(['user_id' => $pmUser->id]);
     $project = Project::create(['title' => 'T', 'user_id' => $owner->id, 'budget' => 100_000_000, 'status' => 'in_progress']);
-    // pm_id stores the PM's USER id on projects.
-    $project->update(['pm_id' => $pmUser->id]);
+    // `projects.pm_id` stores the PM's PROFILE id.
+    $project->update(['pm_id' => $profile->id]);
 
     $bid = BidProjectManager::create([
         'project_id' => $project->id,
@@ -140,13 +140,13 @@ it('refuses markPaid when the budget cannot cover the payment and rolls back sta
 it('persists walkthrough status and the initiation timestamp', function () {
     $owner = refineTestUser('owner');
     $pmUser = refineTestUser('pm', 'project_manager');
-    ProjectManager::create(['user_id' => $pmUser->id]);
+    $pmProfile = ProjectManager::create(['user_id' => $pmUser->id]);
     $project = Project::create([
         'title' => 'T',
         'user_id' => $owner->id,
         'budget' => 50_000_000,
         'status' => 'in_progress',
-        'pm_id' => $pmUser->id,
+        'pm_id' => $pmProfile->id,
     ]);
 
     $this->actingAs($pmUser, 'sanctum')
@@ -161,13 +161,13 @@ it('persists walkthrough status and the initiation timestamp', function () {
 it('serves handover revision without eager-load relation errors', function () {
     $owner = refineTestUser('owner');
     $pmUser = refineTestUser('pm', 'project_manager');
-    ProjectManager::create(['user_id' => $pmUser->id]);
+    $pmProfile = ProjectManager::create(['user_id' => $pmUser->id]);
     $project = Project::create([
         'title' => 'T',
         'user_id' => $owner->id,
         'budget' => 50_000_000,
         'status' => 'in_progress',
-        'pm_id' => $pmUser->id,
+        'pm_id' => $pmProfile->id,
     ]);
 
     // Previously 500'd: loadFullProject() eager-loaded a `bids` relation that

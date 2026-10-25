@@ -122,7 +122,7 @@ it('is FALSE when the user has a profile but the project has no professional', f
 it('is TRUE only when the project actually names this profile', function (string $role) {
     $user = roleUser($role, 'real');
 
-    $column = config("bids.{$role}.project_profile_column");
+    $column = config("bids.{$role}.project_id_column");
     $profileId = Hire::profileIdFor($role, $user);
 
     $project = Project::create([
@@ -280,17 +280,28 @@ it('distinguishes the ASSIGNED project manager from any other manager', function
         'email' => 'pma' . uniqid() . '@example.test',
         'password' => Hash::make('password123'), 'role_type' => 'project_manager',
     ]);
+    $assignedProfile = ProjectManager::create([
+        'user_id' => $assigned->id, 'nama' => 'PM assigned',
+    ]);
     $other = User::create([
         'name' => 'PM other', 'username' => 'pmo' . uniqid(),
         'email' => 'pmo' . uniqid() . '@example.test',
         'password' => Hash::make('password123'), 'role_type' => 'project_manager',
     ]);
+    $otherProfile = ProjectManager::create([
+        'user_id' => $other->id, 'nama' => 'PM other',
+    ]);
 
-    // `projects.pm_id` stores the PM's USER id, and is NULL until assigned.
+    // `projects.pm_id` stores the PM's PROFILE id, and is NULL until
+    // assigned. It is the same value `bids_project_manager.pm_id` holds.
+    //
+    // The OTHER manager has a profile too, and it is a DIFFERENT one: profile
+    // ids are unique per table but they OVERLAP across tables, so a rule that
+    // compared the wrong two id spaces would let the other manager in.
     $project = Project::create([
         'title' => 'PM gate', 'user_id' => $owner->id,
         'budget' => 500_000_000, 'status' => 'in_progress',
-        'pm_id' => $assigned->id,
+        'pm_id' => $assignedProfile->id,
     ]);
 
     expect(Hire::isOwnerOrAssignedPm($project, $owner))->toBeTrue()

@@ -3,6 +3,7 @@
 use App\Models\Arsitek;
 use App\Models\BidArsitek;
 use App\Models\Project;
+use App\Models\ProjectAddendum;
 use App\Models\ProjectBudgetTransaction;
 use App\Models\ProjectDispute;
 use App\Models\ProjectPaymentTermin;
@@ -296,6 +297,129 @@ it('records a refund as a negative ledger row and marks the payment refunded', f
 
     expect($dispute->fresh()->status)->toBe('resolved');
     expect($dispute->fresh()->resolution)->toBe('record_refund');
+});
+
+it('records a refund against an ADDENDUM and keeps the ledger row', function () {
+    Mail::fake();
+    $owner = disputeTestUser('add_ref_owner');
+    $admin = disputeTestUser('add_ref_admin', 'admin');
+    $project = Project::create(['title' => 'Addendum refund', 'user_id' => $owner->id, 'budget' => 100_000_000, 'status' => 'in_progress']);
+
+    $addendum = ProjectAddendum::create([
+        'project_id' => $project->id,
+        'user_id' => $owner->id,
+        'role_type' => 'kontraktor',
+        'title' => 'Extra structural work',
+        'amount' => 6_000_000,
+        'status' => 'approved_unpaid',
+    ]);
+
+    // Settle it the way a real payment is settled, so the LEDGER is written by
+    // the application and not by the test.
+    $this->actingAs($owner, 'sanctum')
+        ->postJson("/api/projects/{$project->id}/budget/mark-paid", ['type' => 'addendum', 'id' => $addendum->id])
+        ->assertStatus(200);
+    expect($addendum->fresh()->status)->toBe('paid');
+
+    $this->actingAs($owner, 'sanctum')
+        ->postJson("/api/projects/{$project->id}/disputes", disputeOpenPayload([
+            'payment_type' => 'addendum',
+            'payment_id' => $addendum->id,
+            'disputed_amount' => 6_000_000,
+        ]))
+        ->assertStatus(201);
+
+    $dispute = ProjectDispute::where('project_id', $project->id)->firstOrFail();
+
+    // The arbitration. This is where the defect lives.
+    //
+    // `ProjectAddendum` has NO `payment_status` column, so the flip in
+    // `DisputeService` falls through to `status` — and `project_addendums.status`
+    // is a MySQL ENUM that did not contain `refunded`. Under strict mode that
+    // is SQLSTATE 1265, which aborts the transaction: the admin's resolution
+    // 500s AND the negative ledger row is rolled back with it, so the money
+    // never comes back and the dispute stays open.
+    $this->actingAs($admin, 'sanctum')
+        ->postJson("/api/admin/disputes/{$dispute->id}/act", [
+            'action' => 'record_refund',
+            'amount' => 6_000_000,
+            'notes' => 'The extra work was never performed.',
+        ])
+        ->assertStatus(200);
+
+    // The addendum is terminal: it cannot be charged again.
+    $addendum->refresh();
+    expect($addendum->status)->toBe('refunded');
+    expect((float) $addendum->refunded_amount)->toBe(6_000_000.0);
+
+    // The reversal survives the transaction that flipped the status.
+    $reversal = ProjectBudgetTransaction::where('project_id', $project->id)
+        ->where('transaction_type', 'refund')
+        ->where('reference_model', ProjectDispute::class)
+        ->where('reference_id', $dispute->id)
+        ->first();
+
+    expect($reversal)->not->toBeNull()
+        ->and((float) $reversal->amount)->toBe(-6_000_000.0)
+        ->and($reversal->reverses_model)->toBe('App\\Models\\ProjectAddendum')
+        ->and((int) $reversal->reverses_id)->toBe($addendum->id);
+
+    // Net ledger across payments+refunds is back to zero.
+    $net = (float) ProjectBudgetTransaction::where('project_id', $project->id)
+        ->whereIn('transaction_type', ['payment', 'refund'])
+        ->sum('amount');
+    expect($net)->toBe(0.0);
+
+    expect($dispute->fresh()->status)->toBe('resolved');
+    expect($dispute->fresh()->resolution)->toBe('record_refund');
+});
+
+it('refuses to re-charge an addendum that arbitration refunded', function () {
+    Mail::fake();
+    $owner = disputeTestUser('add_recharge_owner');
+    $admin = disputeTestUser('add_recharge_admin', 'admin');
+    $project = Project::create(['title' => 'Addendum recharge', 'user_id' => $owner->id, 'budget' => 100_000_000, 'status' => 'in_progress']);
+
+    $addendum = ProjectAddendum::create([
+        'project_id' => $project->id,
+        'user_id' => $owner->id,
+        'role_type' => 'kontraktor',
+        'title' => 'Refundable work',
+        'amount' => 3_000_000,
+        'status' => 'approved_unpaid',
+    ]);
+
+    $this->actingAs($owner, 'sanctum')
+        ->postJson("/api/projects/{$project->id}/budget/mark-paid", ['type' => 'addendum', 'id' => $addendum->id])
+        ->assertStatus(200);
+
+    $this->actingAs($owner, 'sanctum')
+        ->postJson("/api/projects/{$project->id}/disputes", disputeOpenPayload([
+            'payment_type' => 'addendum',
+            'payment_id' => $addendum->id,
+            'disputed_amount' => 3_000_000,
+        ]))
+        ->assertStatus(201);
+
+    $dispute = ProjectDispute::where('project_id', $project->id)->firstOrFail();
+
+    $this->actingAs($admin, 'sanctum')
+        ->postJson("/api/admin/disputes/{$dispute->id}/act", [
+            'action' => 'record_refund',
+            'amount' => 3_000_000,
+            'notes' => 'Refunded.',
+        ])
+        ->assertStatus(200);
+
+    // The dispute freeze lifts on resolution, so the owner CAN reach
+    // mark-paid again — and must be refused, because the money already came
+    // back. Without `refunded` in the ENUM this guard could not even read the
+    // state it exists to check.
+    $recharge = $this->actingAs($owner, 'sanctum')
+        ->postJson("/api/projects/{$project->id}/budget/mark-paid", ['type' => 'addendum', 'id' => $addendum->id]);
+    $recharge->assertStatus(422);
+
+    expect($addendum->fresh()->status)->toBe('refunded');
 });
 
 it('force-terminates the project through dispute arbitration', function () {

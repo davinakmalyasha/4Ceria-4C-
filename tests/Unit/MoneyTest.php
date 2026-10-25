@@ -368,3 +368,47 @@ it('is immutable — every operation returns a new instance', function () {
         ->and($b->toDecimal())->toBe('150.00')
         ->and($a)->not->toBe($b);
 });
+
+// ---------------------------------------------------------------------------
+// The overflow guards
+// ---------------------------------------------------------------------------
+
+it('computes a percentage exactly, at a magnitude the naive product overflows', function () {
+    // The legacy implementation multiplied the amount by the basis points in a
+    // PHP integer, and an integer overflow BECOMES A FLOAT. `intdiv(float, int)`
+    // then threw a TypeError from deep inside an escrow path:
+    //
+    //     intdiv(): Argument #1 ($num1) must be of type int, float given
+    //
+    // The multiplication is now DECOMPOSED — `magnitude = q * 10000 + r`, so
+    // `magnitude * bp / 10000` becomes `q * bp + r * bp / 10000` — which does
+    // not overflow, and is exact.
+    //
+    // The Go port computes the product in 128 bits and returns the same
+    // number, and the differential corpus proves it over 2 000 cases.
+    expect(Money::of('90071992547409.91')->percentage('11')->toDecimal())
+        ->toBe('9907919180215.09')
+        ->and(Money::of('-90071992547409.91')->percentage('35.51')->toDecimal())
+        ->toBe('-31984564553585.26');
+});
+
+it('refuses a percentage whose RESULT cannot be represented at all', function () {
+    // A million per cent of 2^53 minor units is 9.007e22, which is past the
+    // int64 ceiling whatever the decomposition does. There is no number to
+    // return, so it refuses with a message that says what to do.
+    Money::of('90071992547409.91')->percentage('1000000');
+})->throws(InvalidArgumentException::class, 'overflows the 64-bit minor-unit range');
+
+it('refuses a multiplication whose product would not be exact', function () {
+    // A float64 carries 15-16 significant digits, so above 2^53 the product
+    // silently loses its low bits and `round()` rounds the wrong quantity —
+    // faithfully, and to a different number.
+    Money::of('90071992547409.91')->multiplyBy(1.05);
+})->throws(InvalidArgumentException::class, 'exceeds the precision');
+
+it('multiplies a whole factor exactly, at any magnitude that fits', function () {
+    // A whole factor is multiplied in integers, so the only limit is the
+    // int64 range of the product.
+    expect(Money::of('90071992547409.91')->multiplyBy(3)->toDecimal())
+        ->toBe('270215977642229.73');
+});

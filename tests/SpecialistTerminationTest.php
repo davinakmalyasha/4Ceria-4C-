@@ -202,8 +202,9 @@ it('voids a RESIGNING project manager\'s stages, which the role token broke', fu
     $project = Project::create([
         'title' => 'PM resign', 'user_id' => $owner->id,
         'budget' => 500_000_000, 'status' => 'in_progress',
-        // TRAP: projects.pm_id stores the PM's USER id, not the profile id.
-        'pm_id' => $pmUser->id,
+        // `projects.pm_id` stores the PM's PROFILE id — the same value
+        // `bids_project_manager.pm_id` holds.
+        'pm_id' => $profile->id,
     ]);
 
     $pmStage = ProjectPaymentTermin::create([
