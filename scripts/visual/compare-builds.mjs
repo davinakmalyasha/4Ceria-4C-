@@ -41,8 +41,8 @@
  *   1 — an unaccepted change, or a dropped class
  */
 
-import { readFileSync, existsSync } from 'node:fs';
-import { resolve, join } from 'node:path';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
+import { resolve, join, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 
@@ -54,12 +54,47 @@ const arg = (name, fallback = null) => {
 };
 
 const baselineDir = resolve(ROOT, arg('baseline', 'spec/visual-baseline'));
-const cssPath = arg('css');
+const cssArgument = arg('css');
 
-if (!cssPath) {
-    console.error('Usage: node scripts/visual/compare-builds.mjs --css=<built.css> [--baseline=<dir>]');
+if (!cssArgument) {
+    console.error('Usage: node scripts/visual/compare-builds.mjs --css=<built.css|glob> [--baseline=<dir>]');
     process.exit(2);
 }
+
+// THE GLOB IS EXPANDED HERE, NOT BY THE SHELL.
+//
+// The CI step passes `--css=public/build/assets/app-*.css`, which Windows
+// expanded before the script saw it — so it passed locally and failed on the
+// runner with `ENOENT: … app-*.css`. A command that only works under one shell
+// is a command that works on one machine.
+//
+// Exactly one match is required: a build emitting two `app-*.css` files is a
+// build problem, and picking whichever the directory listing returned first
+// would hide it.
+function resolveCss(argument) {
+    if (!argument.includes('*')) {
+        return argument;
+    }
+
+    const directory = dirname(argument);
+    const pattern = new RegExp(
+        '^' + basename(argument).split('').map((ch) => ('.+^${}()|[]\\'.includes(ch) ? '\\' + ch : ch === '*' ? '.*' : ch)).join('') + '$',
+    );
+
+    const matches = readdirSync(argument.slice(0, argument.lastIndexOf('/') + 1) || '.')
+        .filter((name) => pattern.test(name));
+
+    if (matches.length !== 1) {
+        console.error(
+            `::error::--css=${argument} matched ${matches.length} file(s); exactly one is required.`,
+        );
+        process.exit(2);
+    }
+
+    return join(directory, matches[0]);
+}
+
+const cssPath = resolveCss(cssArgument);
 
 const baselineCss = join(baselineDir, 'tailwind-v3.css');
 const baselineSignatures = join(baselineDir, 'computed-v3.json');

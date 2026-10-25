@@ -59,11 +59,20 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+
 # Least privilege by default. A job that needs more declares it.
 permissions:
   contents: read
 
 env:
+  # THE APPLICATION KEY, ONCE.
+  #
+  # It used to be declared inline in four jobs, and all four copies were 35
+  # bytes long — AES-256-CBC needs exactly 32. Laravel threw "Unsupported
+  # cipher or incorrect key length" while resolving the encrypter, which
+  # happens during `package:discover`, so `composer install` itself failed
+  # before a single test ran. Four copies meant a fix could reach three.
+  APP_KEY: base64:AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyA=
   COMPOSER_ALLOW_SUPERUSER: '1'
   # The suites run against real MySQL because the legacy migrations contain
   # raw MySQL ALTER/ENUM statements that sqlite cannot execute. DML only —
@@ -165,7 +174,6 @@ jobs:
       APP_ENV: testing
       # Literal on purpose: `$(openssl rand ...)` is not expanded inside a YAML
       # env mapping, which silently yields an invalid key.
-      APP_KEY: base64:Zm9vYmFyYmF6cXV4Zm9vYmFyYmF6cXV4Zm9vYmFyYmF6cXE=
       APP_DEBUG: 'true'
       LOG_CHANNEL: stderr
       DB_CONNECTION: mysql
@@ -290,7 +298,6 @@ jobs:
 
     env:
       APP_ENV: testing
-      APP_KEY: base64:Zm9vYmFyYmF6cXV4Zm9vYmFyYmF6cXV4Zm9vYmFyYmF6cXE=
       DB_CONNECTION: mysql
       DB_HOST: 127.0.0.1
       DB_PORT: '3306'
@@ -464,7 +471,6 @@ jobs:
 
     env:
       APP_ENV: testing
-      APP_KEY: base64:Zm9vYmFyYmF6cXV4Zm9vYmFyYmF6cXV4Zm9vYmFyYmF6cXE=
       APP_DEBUG: 'true'
       LOG_CHANNEL: stderr
       DB_CONNECTION: mysql
@@ -609,7 +615,6 @@ jobs:
 
     env:
       APP_ENV: testing
-      APP_KEY: base64:Zm9vYmFyYmF6cXV4Zm9vYmFyYmF6cXV4Zm9vYmFyYmF6cXE=
       APP_DEBUG: 'true'
       LOG_CHANNEL: stderr
       DB_CONNECTION: mysql
