@@ -1,0 +1,59 @@
+-- =============================================================================
+-- 0009 — The addendum refund state.
+--
+-- WHY THIS FILE EXISTS
+-- --------------------
+-- B20. An addendum could not be REFUNDED.
+--
+-- `DisputeService::adminAction()` with `action=record_refund` resolves the
+-- disputed payment and, when the refund covers the whole payment, flips the
+-- payment to its terminal state. Bids carry BOTH `payment_status` (the money
+-- state) and `status` (the lifecycle), so the money state is flipped and the
+-- lifecycle is preserved. `project_addendums` has NO `payment_status` column,
+-- so the fallback flips `status` instead — and `project_addendums.status` was
+-- an ENUM that did not contain `refunded`.
+--
+-- In MySQL the write was rejected with error 1265 ("Data truncated for column
+-- 'status'"), and because the arbitration runs inside a transaction, the
+-- rejection took the whole resolution with it: the admin's arbitration failed,
+-- the NEGATIVE LEDGER ROW was rolled back, the money never came back, the
+-- addendum stayed `paid`, and the dispute stayed `open` — so the payment
+-- freeze never lifted and the project could not proceed at all.
+--
+-- The same shape as AGENTS.md trap #8, on a different column.
+--
+-- WHY A SEPARATE FILE
+-- -------------------
+-- `ALTER TYPE ... ADD VALUE` is not a rewrite: it appends a label to the
+-- type's catalogue entry, it does not rebuild the type, and it does not
+-- rewrite the rows that use it. It IS however restricted: it cannot run in the
+-- same transaction that CREATED the type. `project_addendums_status` was
+-- created in 0004, so that restriction does not bind here — but the
+-- restriction is the kind of thing that binds on a future re-run, on a
+-- squashed baseline, or on a from-scratch build that folds 0004 and 0009
+-- together. Keeping it in its own file makes the operation independent of
+-- where the type was created, and it keeps 0004 byte-stable.
+--
+-- WHY THE ENUM AND NOT A NEW COLUMN
+-- ---------------------------------
+-- The application already reads the refund state from `status`:
+--
+--     'addendum' => [\App\Models\ProjectAddendum::class, 'status'],
+--
+-- in `ProjectBudgetController::assertNotRefunded()`. And the marketplace
+-- already models a refund as a terminal value on the same column —
+-- `material_orders.status` carries `refunded`. The ENUM was the odd one out,
+-- not the code. See the MySQL migration
+-- `2026_10_21_000002_add_refunded_to_project_addendums_status.php` for the
+-- full argument and for the audit of every reader of this column.
+--
+-- EVERY READER
+-- ------------
+-- All of them use explicit value lists that do not include `refunded`, so a
+-- refunded addendum falls out of every one of them: the committed-unpaid sum,
+-- the payment-status derivation in `ProjectResource`, the duplicate-assignment
+-- check, and the negotiation state machine. The guard that is SUPPOSED to
+-- read it — `assertNotRefunded()` — now can, and that is the point.
+--
+
+ALTER TYPE project_addendums_status ADD VALUE IF NOT EXISTS 'refunded';
