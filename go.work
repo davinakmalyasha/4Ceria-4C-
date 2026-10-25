@@ -1,0 +1,36 @@
+// The Go workspace file.
+//
+// WHY IT EXISTS
+// -------------
+// This repository holds BOTH the legacy Laravel application and the Go
+// rewrite, and the Laravel application's Composer dependencies live in
+// `vendor/` at the repository ROOT.
+//
+// The Go toolchain sees a `vendor/` directory in the main module and
+// concludes that it is a GO vendor directory — the one that `go mod vendor`
+// writes, with a `modules.txt` manifest and all. Composer writes none of
+// that, so the Go build fails with:
+//
+//     go: inconsistent vendoring in D:\MyProject\4Ceria:
+//         github.com/go-chi/chi/v5@v5.5.0: is explicitly required in go.mod,
+//         but not marked as explicit in vendor/modules.txt
+//
+// and the only escape is `-mod=mod` on every invocation — an environment
+// variable that has to be set in CI, in the developer's shell, in the
+// editor's Go tooling, and in every script that runs `go build`.
+//
+// A workspace file solves it, because the Go toolchain IGNORES a vendor
+// directory in workspace mode. So the module stays at the repository root,
+// `go build ./...` works from the root with no flags, and Composer's
+// `vendor/` is left alone.
+//
+// The alternative — moving the Go module into a subdirectory — would also
+// work, but it would put the Go code somewhere other than the root, and the
+// root is where the plan, the CI jobs and the tools all expect it.
+//
+// `go.work` is checked in deliberately. It is not a local artefact: without
+// it, `go build` at the root fails for every developer and in CI.
+
+go 1.27.2
+
+use .
