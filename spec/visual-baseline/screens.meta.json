@@ -1,0 +1,10 @@
+{
+  "platform": "win32-x64",
+  "browser": "156.0.8078.4",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "freeze_time": "2026-01-01T00:00:00.000Z",
+  "screens": 51
+}

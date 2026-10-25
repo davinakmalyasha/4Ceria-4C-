@@ -1,0 +1,50 @@
+{
+    "_comment": [
+        "The ACCEPTED differences between the Tailwind v3 baseline and the",
+        "current build.",
+        "",
+        "A difference is only acceptable if it is DECLARED here. The gate fails on",
+        "any difference that is not on this list, so a new one cannot slip",
+        "through — and a difference that DISAPPEARS is reported too, because the",
+        "list should then be trimmed rather than left to rot.",
+        "",
+        "See docs/TW4-UPGRADE-DELTA.md for the full analysis."
+    ],
+
+    "classes": [
+        "bg-indigo-50/30",
+        "bg-purple-50/70"
+    ],
+
+    "reason": [
+        "Tailwind v4 mixes an alpha in OKLAB, and v3 mixed it in sRGB. The",
+        "result differs by 1 in 255 on two of three channels of a 30-70%",
+        "opacity overlay; composited over the page the final pixel moves by less",
+        "than one 8-bit step. There is no setting that makes v4 mix in sRGB.",
+        "",
+        "Every other class in the project computes to the same style, and the",
+        "rendered bounding box of every transformed element is identical to two",
+        "decimal places."
+    ],
+
+    "dropped": [
+        "bg-opacity-50"
+    ],
+
+    "droppedReason": [
+        "The `*-opacity-*` utilities were REMOVED in Tailwind v4, and the",
+        "upgrade codemod did not migrate this one. `bg-black bg-opacity-50`",
+        "became `bg-black/50`.",
+        "",
+        "This is the one place the class-by-class probe cannot express the",
+        "change: in v3 the colour and the opacity were TWO classes, and in v4",
+        "they are ONE. Probed alone, `bg-opacity-50` computes to a transparent",
+        "background (it sets a variable, not a colour) and `bg-black/50`",
+        "computes to `rgba(0, 0, 0, 0.5)` — so the two are not equal, even",
+        "though the rendered element is identical.",
+        "",
+        "The v3 half is listed here so the gate does not report it as a lost",
+        "class. The v4 half is in the ordinary class list and is compared like",
+        "everything else."
+    ]
+}

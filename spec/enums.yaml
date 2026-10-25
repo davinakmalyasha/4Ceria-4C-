@@ -1,0 +1,275 @@
+# GENERATED FILE — DO NOT EDIT BY HAND.
+#
+# Regenerate with:
+#   node tools/db/inspect-legacy-schema.mjs
+#
+# Source: the LIVE MySQL database `4ceria`, table
+# information_schema.COLUMNS, column_type for every column whose
+# data_type = "enum".
+#
+# The value ORDER is MySQL's. PostgreSQL's `pg_enum` sorts by the
+# enum's `enumsortorder`, so a reordered list is a behaviour
+# difference, not a cosmetic one: the application sorts and validates
+# against these lists (ADR-0007).
+#
+# Every entry below becomes ONE `CREATE TYPE ... AS ENUM (...)` in
+# db/postgres/migrations/, and is the source for the Go constants and
+# the TypeScript union.
+version: 1
+generated_at: '2026-10-25T15:21:11.865Z'
+source:
+  engine: mysql
+  database: 4ceria
+  information_schema_table: COLUMNS
+counts:
+  enum_columns: 44
+  enum_types: 36
+  enum_types_from_mysql: 28
+  enum_types_introduced_by_the_rewrite: 8
+
+enums:
+  bid_payment_status:
+    values: [unpaid, pending, verifying, paid, refunded]
+    origin: rewrite
+    provenance: 'The seven legacy `bids_*.payment_status` VARCHAR columns. The lifecycle is unread -> pending -> verifying -> paid, plus refunded (MONEY.md §9: paid and refunded are terminal).'
+    replaces: 'bids_*.payment_status on all seven legacy bid tables.'
+
+  bid_role:
+    values: [arsitek, kontraktor, notaris, interior, structural, mep, project_manager]
+    origin: rewrite
+    provenance: 'config/bids.php (the seven-role registry) and project_sub_professionals.parent_role, which carries the same seven values in the same order.'
+    replaces: 'project_addendums.recommended_bid_type (a free-text role name) and the seven per-role bid id columns.'
+
+  bid_status:
+    values: [pending, shortlisted, invited, negotiating, contract_pending, awaiting_payment, accepted, active, rejected, declined, terminated, resigned]
+    origin: mysql
+    sources:
+      - bids_arsitek.status
+      - bids_interior.status
+      - bids_kontraktor.status
+      - bids_notaris.status
+    # Shared by several legacy columns that carry the identical value list.
+    # PostgreSQL type name; the legacy generator name was bids_arsitek_status.
+    # The UNION of the seven legacy bid status columns. Four of them (bids_arsitek, bids_interior,
+    # bids_kontraktor, bids_notaris) are MySQL ENUMs carrying these twelve values in this order. The
+    # other three (bids_mep, bids_project_manager, bids_structural) are VARCHAR(255) columns
+    # defaulting to 'pending' — they carry no type constraint at all, and the same controller code
+    # paths write the same twelve values to all seven tables, so the union is the same twelve values.
+    # See docs/POSTGRES-SCHEMA.md.
+
+  bom_type:
+    values: [raw, finishing]
+    origin: mysql
+    sources:
+      - project_requirements.bom_type
+
+  budget_health:
+    values: [on_track, warning, critical]
+    origin: mysql
+    sources:
+      - project_reports.budget_health
+
+  contractor_subspecialties_category:
+    values: [construction, mechanical, finishing]
+    origin: mysql
+    sources:
+      - contractor_subspecialties.category
+
+  dispute_resolution:
+    values: [dismiss, release_payment, record_refund, terminate_project, custom]
+    origin: rewrite
+    provenance: 'project_disputes.resolution. The five admin arbitration actions (AdminDisputeController:96-127).'
+    replaces: 'project_disputes.resolution (VARCHAR(30)).'
+
+  dispute_status:
+    values: [open, resolved, dismissed, withdrawn]
+    origin: rewrite
+    provenance: 'project_disputes.status. DisputeService.php:203 writes withdrawn, :256 writes resolved/dismissed, and the row is created open. The order matches AdminDisputeController:26.'
+    replaces: 'project_disputes.status (VARCHAR(20)).'
+
+  entity_type:
+    values: [individual, company]
+    origin: mysql
+    sources:
+      - arsiteks.entity_type
+      - interior_profiles.entity_type
+      - kontraktors.entity_type
+      - mep_engineers.entity_type
+      - notaris_profiles.entity_type
+      - project_managers.entity_type
+      - structural_engineers.entity_type
+    # Shared by several legacy columns that carry the identical value list.
+
+  firm_members_status:
+    values: [invited, active, removed, requested]
+    origin: mysql
+    sources:
+      - firm_members.status
+
+  material_orders_status:
+    values: [pending, awaiting_payment, verifying, paid, shipping, delivered, completed, cancelled, processing, ready_for_pickup, refunded]
+    origin: mysql
+    sources:
+      - material_orders.status
+
+  notaris_consultations_status:
+    values: [pending, confirmed, completed, cancelled]
+    origin: mysql
+    sources:
+      - notaris_consultations.status
+
+  owner_role:
+    values: [arsitek, kontraktor, structural, mep, interior]
+    origin: mysql
+    sources:
+      - team_members.owner_role
+
+  parent_role:
+    values: [arsitek, kontraktor, notaris, interior, structural, mep, project_manager]
+    origin: mysql
+    sources:
+      - project_sub_professionals.parent_role
+
+  payment_termin_status:
+    values: [locked, pending, invoice_sent, verifying, accepted, paid, void]
+    origin: rewrite
+    provenance: 'project_payment_termins.status. MONEY.md §10.2 draws the state machine; the values are confirmed by ProjectPaymentTerminController (in:locked,pending,invoice_sent), ProjectTerminationController (out:void) and PaymentVerificationService (verifying, paid).'
+    replaces: 'project_payment_termins.status (VARCHAR(255), unconstrained — the most money-critical state machine in the app).'
+
+  phase_role:
+    values: [arsitek, kontraktor, notaris, interior, project_manager, structural, mep]
+    origin: mysql
+    sources:
+      - project_external_vendors.phase_role
+
+  project_addendums_status:
+    values: [pending_approval, approved, approved_unpaid, authorized, verifying, paid, rejected, negotiating, accepted_by_pro, refunded]
+    origin: mysql
+    sources:
+      - project_addendums.status
+
+  project_change_orders_status:
+    values: [proposed, pm_reviewed, owner_approved, rejected, implemented]
+    origin: mysql
+    sources:
+      - project_change_orders.status
+
+  project_construction_brief_status:
+    values: [draft, pending_review, revision_requested, approved]
+    origin: rewrite
+    provenance: 'projects.construction_brief_status. The four values the brief review writes.'
+    replaces: 'projects.construction_brief_status (VARCHAR(255)).'
+
+  project_planning_status:
+    values: [draft, proposed, approved, pm_verified]
+    origin: rewrite
+    provenance: 'projects.planning_status. The four values the planning workflow writes.'
+    replaces: 'projects.planning_status (VARCHAR(255)).'
+
+  project_procurement_requests_status:
+    values: [pending_pm, pending_owner, authorized, rejected]
+    origin: mysql
+    sources:
+      - project_procurement_requests.status
+
+  project_requirements_category:
+    values: [structural, architecture, mep, interior, general]
+    origin: mysql
+    sources:
+      - project_requirements.category
+
+  project_snag_items_status:
+    values: [open, in_progress, resolved, accepted]
+    origin: mysql
+    sources:
+      - project_snag_items.status
+
+  project_status:
+    values: [open, accepted_arsitek, accepted_kontraktor, awaiting_payment, in_progress, termination_pending, legal, procurement, completed_build, completed, cancelled]
+    origin: mysql
+    sources:
+      - projects.status
+    # PostgreSQL type name; the legacy generator name was projects_status.
+
+  project_sub_professionals_status:
+    values: [invited, interviewing, accepted, recommended, active, completed, removed]
+    origin: mysql
+    sources:
+      - project_sub_professionals.status
+
+  project_terminations_status:
+    values: [pending, accepted, rejected, escalated]
+    origin: mysql
+    sources:
+      - project_terminations.status
+
+  project_timeline_extensions_status:
+    values: [proposed, pm_reviewed, approved, rejected]
+    origin: mysql
+    sources:
+      - project_timeline_extensions.status
+
+  project_walkthrough_status:
+    values: [in_progress, completed]
+    origin: rewrite
+    provenance: 'projects.walkthrough_status. The two values the final walkthrough writes.'
+    replaces: 'projects.walkthrough_status (VARCHAR(255)).'
+
+  project_warranty_claims_status:
+    values: [open, fixing, resolved, closed]
+    origin: mysql
+    sources:
+      - project_warranty_claims.status
+
+  quality_level:
+    values: [standard, premium, luxury]
+    origin: mysql
+    sources:
+      - project_requirements.quality_level
+
+  requirement_history_type:
+    values: [restock, use]
+    origin: mysql
+    sources:
+      - project_requirement_histories.type
+    # PostgreSQL type name; the legacy generator name was type.
+
+  role_type:
+    values: [user, arsitek, kontraktor, admin, supplier, logistics, notaris, interior, project_manager, structural, mep, civil, mechanical, electrical, plumbing, roofing, finishing]
+    origin: mysql
+    sources:
+      - users.role_type
+
+  severity:
+    values: [minor, major, critical]
+    origin: mysql
+    sources:
+      - project_snag_items.severity
+
+  team_members_status:
+    values: [active, inactive]
+    origin: mysql
+    sources:
+      - team_members.status
+
+  transaction_type:
+    values: [deposit, adjustment_down, payment, refund, platform_fee, retention_release]
+    origin: mysql
+    sources:
+      - project_budget_transactions.transaction_type
+    # The escrow ledger vocabulary. MONEY.md §2 names the three membership lists that partition it:
+    # DISBURSEMENT_TYPES, CEILING_NEUTRAL_TYPES and PROFESSIONAL_EARNINGS_TYPES.
+
+  verification_status:
+    values: [pending, verified, rejected]
+    origin: mysql
+    sources:
+      - arsiteks.verification_status
+      - interior_profiles.verification_status
+      - kontraktors.verification_status
+      - mep_engineers.verification_status
+      - notaris_profiles.verification_status
+      - project_managers.verification_status
+      - structural_engineers.verification_status
+      - suppliers.verification_status
+    # Shared by several legacy columns that carry the identical value list.

@@ -1,0 +1,396 @@
+{
+  "version": 1,
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "freeze_time": "2026-01-01T00:00:00.000Z",
+  "session_storage_key": "auth_token",
+  "session_cookie": "4ceria_session",
+  "roles": {
+    "guest": null,
+    "user": "client@example.test",
+    "arsitek": "giska@example.test",
+    "kontraktor": "anindia@example.test",
+    "structural": "budi-struc@example.test",
+    "admin": "admin@4c.id"
+  },
+  "coverage": "representative: every distinct nav shape, not every role",
+  "skipped": [
+    {
+      "path": "/brief/:token",
+      "reason": "needs a fixture parameter (a share token, a reset token) that the seed does not carry"
+    },
+    {
+      "path": "/reset-password/:token",
+      "reason": "needs a fixture parameter (a share token, a reset token) that the seed does not carry"
+    },
+    {
+      "role": "supplier",
+      "reason": "no supplier user in the seed — its four tabs have no data to render"
+    },
+    {
+      "role": "logistics",
+      "reason": "no logistics user in the seed — its three tabs have no data to render"
+    }
+  ],
+  "screens": [
+    {
+      "id": "admin.route.admin",
+      "kind": "route",
+      "path": "/admin",
+      "tab": "",
+      "role": "admin"
+    },
+    {
+      "id": "admin.route.admin-disputes",
+      "kind": "route",
+      "path": "/admin/disputes",
+      "tab": "",
+      "role": "admin"
+    },
+    {
+      "id": "admin.route.admin-houses",
+      "kind": "route",
+      "path": "/admin/houses",
+      "tab": "",
+      "role": "admin"
+    },
+    {
+      "id": "admin.route.admin-projects",
+      "kind": "route",
+      "path": "/admin/projects",
+      "tab": "",
+      "role": "admin"
+    },
+    {
+      "id": "admin.route.admin-verification",
+      "kind": "route",
+      "path": "/admin/verification",
+      "tab": "",
+      "role": "admin"
+    },
+    {
+      "id": "admin.route.admin-verification-logs",
+      "kind": "route",
+      "path": "/admin/verification/logs",
+      "tab": "",
+      "role": "admin"
+    },
+    {
+      "id": "arsitek.tab.dashboardfind-engineers",
+      "kind": "tab",
+      "path": "/dashboard",
+      "tab": "find-engineers",
+      "role": "arsitek"
+    },
+    {
+      "id": "arsitek.tab.dashboardmanagement",
+      "kind": "tab",
+      "path": "/dashboard",
+      "tab": "management",
+      "role": "arsitek"
+    },
+    {
+      "id": "arsitek.tab.dashboardmy-bids",
+      "kind": "tab",
+      "path": "/dashboard",
+      "tab": "my-bids",
+      "role": "arsitek"
+    },
+    {
+      "id": "arsitek.tab.dashboardmy-firm",
+      "kind": "tab",
+      "path": "/dashboard",
+      "tab": "my-firm",
+      "role": "arsitek"
+    },
+    {
+      "id": "arsitek.tab.dashboardoverview",
+      "kind": "tab",
+      "path": "/dashboard",
+      "tab": "overview",
+      "role": "arsitek"
+    },
+    {
+      "id": "arsitek.tab.dashboardprojects",
+      "kind": "tab",
+      "path": "/dashboard",
+      "tab": "projects",
+      "role": "arsitek"
+    },
+    {
+      "id": "guest.route.forgot-password",
+      "kind": "route",
+      "path": "/forgot-password",
+      "tab": "",
+      "role": "guest"
+    },
+    {
+      "id": "guest.route.help",
+      "kind": "route",
+      "path": "/help",
+      "tab": "",
+      "role": "guest"
+    },
+    {
+      "id": "guest.route.login",
+      "kind": "route",
+      "path": "/login",
+      "tab": "",
+      "role": "guest"
+    },
+    {
+      "id": "guest.route.pro-register",
+      "kind": "route",
+      "path": "/pro/register",
+      "tab": "",
+      "role": "guest"
+    },
+    {
+      "id": "guest.route.register",
+      "kind": "route",
+      "path": "/register",
+      "tab": "",
+      "role": "guest"
+    },
+    {
+      "id": "guest.route.root",
+      "kind": "route",
+      "path": "/",
+      "tab": "",
+      "role": "guest"
+    },
+    {
+      "id": "guest.tab.dashboardarchitects",
+      "kind": "tab",
+      "path": "/dashboard",
+      "tab": "architects",
+      "role": "guest"
+    },
+    {
+      "id": "guest.tab.dashboardconstructors",
+      "kind": "tab",
+      "path": "/dashboard",
+      "tab": "constructors",
+      "role": "guest"
+    },
+    {
+      "id": "guest.tab.dashboardhouses",
+      "kind": "tab",
+      "path": "/dashboard",
+      "tab": "houses",
+      "role": "guest"
+    },
+    {
+      "id": "guest.tab.dashboardinterior",
+      "kind": "tab",
+      "path": "/dashboard",
+      "tab": "interior",
+      "role": "guest"
+    },
+    {
+      "id": "guest.tab.dashboardmarketplace-furniture",
+      "kind": "tab",
+      "path": "/dashboard",
+      "tab": "marketplace-furniture",
+      "role": "guest"
+    },
+    {
+      "id": "guest.tab.dashboardmarketplace-materials",
+      "kind": "tab",
+      "path": "/dashboard",
+      "tab": "marketplace-materials",
+      "role": "guest"
+    },
+    {
+      "id": "guest.tab.dashboardnotaris",
+      "kind": "tab",
+      "path": "/dashboard",
+      "tab": "notaris",
+      "role": "guest"
+    },
+    {
+      "id": "guest.tab.dashboardproject-manager",
+      "kind": "tab",
+      "path": "/dashboard",
+      "tab": "project_manager",
+      "role": "guest"
+    },
+    {
+      "id": "kontraktor.tab.dashboardfind-sub-contractors",
+      "kind": "tab",
+      "path": "/dashboard",
+      "tab": "find-sub-contractors",
+      "role": "kontraktor"
+    },
+    {
+      "id": "kontraktor.tab.dashboardmanagement",
+      "kind": "tab",
+      "path": "/dashboard",
+      "tab": "management",
+      "role": "kontraktor"
+    },
+    {
+      "id": "kontraktor.tab.dashboardmarketplace",
+      "kind": "tab",
+      "path": "/dashboard",
+      "tab": "marketplace",
+      "role": "kontraktor"
+    },
+    {
+      "id": "kontraktor.tab.dashboardmy-bids",
+      "kind": "tab",
+      "path": "/dashboard",
+      "tab": "my-bids",
+      "role": "kontraktor"
+    },
+    {
+      "id": "kontraktor.tab.dashboardmy-firm",
+      "kind": "tab",
+      "path": "/dashboard",
+      "tab": "my-firm",
+      "role": "kontraktor"
+    },
+    {
+      "id": "kontraktor.tab.dashboardoverview",
+      "kind": "tab",
+      "path": "/dashboard",
+      "tab": "overview",
+      "role": "kontraktor"
+    },
+    {
+      "id": "kontraktor.tab.dashboardprojects",
+      "kind": "tab",
+      "path": "/dashboard",
+      "tab": "projects",
+      "role": "kontraktor"
+    },
+    {
+      "id": "structural.tab.dashboardmanagement",
+      "kind": "tab",
+      "path": "/dashboard",
+      "tab": "management",
+      "role": "structural"
+    },
+    {
+      "id": "structural.tab.dashboardmy-bids",
+      "kind": "tab",
+      "path": "/dashboard",
+      "tab": "my-bids",
+      "role": "structural"
+    },
+    {
+      "id": "structural.tab.dashboardmy-firms",
+      "kind": "tab",
+      "path": "/dashboard",
+      "tab": "my-firms",
+      "role": "structural"
+    },
+    {
+      "id": "structural.tab.dashboardoverview",
+      "kind": "tab",
+      "path": "/dashboard",
+      "tab": "overview",
+      "role": "structural"
+    },
+    {
+      "id": "structural.tab.dashboardprojects",
+      "kind": "tab",
+      "path": "/dashboard",
+      "tab": "projects",
+      "role": "structural"
+    },
+    {
+      "id": "user.tab.dashboardarchitects",
+      "kind": "tab",
+      "path": "/dashboard",
+      "tab": "architects",
+      "role": "user"
+    },
+    {
+      "id": "user.tab.dashboardconstructors",
+      "kind": "tab",
+      "path": "/dashboard",
+      "tab": "constructors",
+      "role": "user"
+    },
+    {
+      "id": "user.tab.dashboardhire-history",
+      "kind": "tab",
+      "path": "/dashboard",
+      "tab": "hire-history",
+      "role": "user"
+    },
+    {
+      "id": "user.tab.dashboardhouses",
+      "kind": "tab",
+      "path": "/dashboard",
+      "tab": "houses",
+      "role": "user"
+    },
+    {
+      "id": "user.tab.dashboardinterior",
+      "kind": "tab",
+      "path": "/dashboard",
+      "tab": "interior",
+      "role": "user"
+    },
+    {
+      "id": "user.tab.dashboardmarketplace-furniture",
+      "kind": "tab",
+      "path": "/dashboard",
+      "tab": "marketplace-furniture",
+      "role": "user"
+    },
+    {
+      "id": "user.tab.dashboardmarketplace-materials",
+      "kind": "tab",
+      "path": "/dashboard",
+      "tab": "marketplace-materials",
+      "role": "user"
+    },
+    {
+      "id": "user.tab.dashboardmaterial-orders",
+      "kind": "tab",
+      "path": "/dashboard",
+      "tab": "material-orders",
+      "role": "user"
+    },
+    {
+      "id": "user.tab.dashboardmy-houses",
+      "kind": "tab",
+      "path": "/dashboard",
+      "tab": "my-houses",
+      "role": "user"
+    },
+    {
+      "id": "user.tab.dashboardnotaris",
+      "kind": "tab",
+      "path": "/dashboard",
+      "tab": "notaris",
+      "role": "user"
+    },
+    {
+      "id": "user.tab.dashboardoverview",
+      "kind": "tab",
+      "path": "/dashboard",
+      "tab": "overview",
+      "role": "user"
+    },
+    {
+      "id": "user.tab.dashboardproject-manager",
+      "kind": "tab",
+      "path": "/dashboard",
+      "tab": "project_manager",
+      "role": "user"
+    },
+    {
+      "id": "user.tab.dashboardprojects",
+      "kind": "tab",
+      "path": "/dashboard",
+      "tab": "projects",
+      "role": "user"
+    }
+  ]
+}
