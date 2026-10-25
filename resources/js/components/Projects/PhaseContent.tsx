@@ -159,7 +159,7 @@ function PhaseContentInner({
         return false;
     }, [phase.key, engineeringSubTab, constructionSubTab, user, isHiredArchitect, isHiredInterior, isHiredContractor]);
 
-    const isHiredPM = project.pm_id && user?.id === project.pm_id;
+    const isHiredPM = project.pm_id && user?.project_manager?.id === project.pm_id;
 
     const config = PHASE_ROLE_MAP[phase.key];
     const isOwner = user?.id === project?.user_id;
@@ -404,7 +404,7 @@ function PhaseContentInner({
                             {/* Sub-Phase Navigator (Left Sidebar on Desktop, Top Scrollbar on Mobile) */}
                             {hasSubTabs && (
                                 <div className="w-full lg:w-48 lg:shrink-0 flex flex-col gap-3">
-                                    <div className="flex flex-row lg:flex-col items-stretch gap-1.5 p-1.5 bg-slate-50 border border-slate-150/50 rounded-2xl lg:rounded-[1.5rem] overflow-x-auto lg:overflow-x-visible w-full">
+                                    <div className="flex flex-row lg:flex-col items-stretch gap-1.5 p-1.5 bg-slate-50 border border-slate-150/50 rounded-2xl lg:rounded-3xl overflow-x-auto lg:overflow-x-visible w-full">
                                         {(phase.key === 'design' || phase.key === 'technical') && (
                                             <>
                                                 <button 
@@ -694,7 +694,7 @@ function PhaseContentInner({
                                         {!currentHasPro && !isMaterialsPhase && canManage && !isPublished && currentRoleKey && (
                                             <div className="mb-8">
                                                 {isNewBuildLocked ? (
-                                                    <div className="bg-slate-50 border-2 border-slate-200 border-dashed rounded-[2rem] p-8 text-center space-y-4">
+                                                    <div className="bg-slate-50 border-2 border-slate-200 border-dashed rounded-4xl p-8 text-center space-y-4">
                                                         <div className="w-16 h-16 bg-slate-100 text-slate-400 rounded-2xl flex items-center justify-center mx-auto shadow-sm">
                                                             <Lock size={32} />
                                                         </div>
@@ -735,7 +735,7 @@ function PhaseContentInner({
                                         {(currentHasPro || isMaterialsPhase || isPublished || !currentRoleKey || isSpecialistWithBid) && (
                                             <>
                                                 {/* Architecture & Built Phase Pro Workspace */}
-                                                {(currentHasPro || isMaterialsPhase || (phase.key === 'interior' && isHiredContractor)) && (engineeringSubTab === 'architecture') && (!isBuildPhase || constructionSubTab === 'general') && !(phase.key === 'management' && user?.id === project.pm_id) && (
+                                                {(currentHasPro || isMaterialsPhase || (phase.key === 'interior' && isHiredContractor)) && (engineeringSubTab === 'architecture') && (!isBuildPhase || constructionSubTab === 'general') && !(phase.key === 'management' && user?.project_manager?.id === project.pm_id) && (
                                                     <ErrorBoundary name="PhaseAssignedPro">
                                                         <PhaseAssignedPro 
                                                             hideResignButton={hasSubTabs}
@@ -761,7 +761,7 @@ function PhaseContentInner({
                                                 {(phase.key === 'design' || phase.key === 'technical') && (engineeringSubTab === 'structural' || engineeringSubTab === 'mep' || engineeringSubTab === 'interior') && (
                                                     <ErrorBoundary name="TechnicalResourcing">
                                                         {!isPMAuthorized && isHiredSpecialistForActiveTab ? (
-                                                            <div className="p-12 text-center bg-slate-50 border-2 border-slate-100 rounded-[2rem] space-y-6 relative overflow-hidden group">
+                                                            <div className="p-12 text-center bg-slate-50 border-2 border-slate-100 rounded-4xl space-y-6 relative overflow-hidden group">
                                                                 <div className="absolute top-0 right-0 w-32 h-32 bg-slate-200/50 rounded-full blur-[80px] opacity-40 -translate-y-1/2 translate-x-1/2" />
                                                                 <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center mx-auto shadow-xl shadow-slate-100/50 border border-slate-100 transition-transform duration-500 group-hover:scale-110">
                                                                     <Lock size={36} className="text-red-500 animate-pulse" />
@@ -785,7 +785,7 @@ function PhaseContentInner({
                                                         ) : engineeringSubTab === 'interior' && user?.role_type === 'interior' && isInteriorHired ? (
                                                             <InteriorWorkspace project={project} user={user} onRefresh={onRefresh} />
                                                         ) : isInvitedSpecialistForTab ? (
-                                                            <div className="bg-amber-50 border border-amber-200 rounded-[2rem] p-10 text-center space-y-4">
+                                                            <div className="bg-amber-50 border border-amber-200 rounded-4xl p-10 text-center space-y-4">
                                                                 <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center mx-auto shadow-sm">
                                                                     <Sofa size={32} />
                                                                 </div>
@@ -825,7 +825,7 @@ function PhaseContentInner({
                                                 )}
 
                                                 {!currentHasPro && canManage && currentBids?.length > 0 && (!project.pm_id || isHiredPM || phase.key === 'management' || engineeringSubTab !== 'architecture') && (
-                                                    <div className="bg-slate-50 border border-slate-150 rounded-[2rem] p-10 text-center space-y-5">
+                                                    <div className="bg-slate-50 border border-slate-150 rounded-4xl p-10 text-center space-y-5">
                                                         <div className="w-14 h-14 bg-white text-slate-900 border border-slate-150/40 rounded-2xl flex items-center justify-center mx-auto shadow-sm">
                                                             <UserCheck size={24} />
                                                         </div>

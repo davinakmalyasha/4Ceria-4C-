@@ -118,7 +118,7 @@ export default function FirmInvitations({ isFullPage = false, onOpenChat }: Firm
                 const phone = firm_owner?.phone || firm_owner?.no_telp || null;
 
                 return (
-                    <div key={firm_owner.id} className="p-6 bg-indigo-50 border border-indigo-100 rounded-[2rem] shadow-sm hover:shadow-md transition-all space-y-4">
+                    <div key={firm_owner.id} className="p-6 bg-indigo-50 border border-indigo-100 rounded-4xl shadow-sm hover:shadow-md transition-all space-y-4">
                         {/* Top Info Header */}
                         <div className="flex items-start gap-4">
                             <div className="w-12 h-12 bg-indigo-100 rounded-2xl flex items-center justify-center text-indigo-600 shrink-0">

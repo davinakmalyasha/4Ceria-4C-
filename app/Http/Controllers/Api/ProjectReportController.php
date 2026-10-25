@@ -10,6 +10,7 @@ use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
+use App\Support\SafeError;
 
 class ProjectReportController extends Controller
 {
@@ -67,7 +68,7 @@ class ProjectReportController extends Controller
                 'report' => $report
             ], 201);
         } catch (\Exception $e) {
-            return response()->json(['message' => 'Failed to publish report: ' . $e->getMessage()], 500);
+            return response()->json(['message' => 'Failed to publish report: ' . SafeError::message($e)], 500);
         }
     }
 
@@ -102,7 +103,7 @@ class ProjectReportController extends Controller
                 'report' => $report
             ]);
         } catch (\Exception $e) {
-            return response()->json(['message' => 'Failed to update report: ' . $e->getMessage()], 500);
+            return response()->json(['message' => 'Failed to update report: ' . SafeError::message($e)], 500);
         }
     }
 

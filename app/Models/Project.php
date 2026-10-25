@@ -116,6 +116,11 @@ class Project extends Model
         'legal_handover_notes',
         'final_walkthrough_at',
         'walkthrough_status',
+        // B25. The column was missing entirely, so
+        // `POST /api/projects/{project}/mark-complete` answered 500 for every
+        // owner. See the migration
+        // `2026_10_21_000004_add_completed_at_to_projects.php`.
+        'completed_at',
         'owner_accepted_at',
         'owner_acceptance_notes',
         'owner_design_approved_at',
@@ -223,10 +228,35 @@ class Project extends Model
         return $this->hasMany(\App\Models\BidStructural::class, 'project_id');
     }
 
-    public function selectedArsitek()
-    {
-        return $this->belongsTo(User::class, 'selected_arsitek_id');
-    }
+    /*
+    |----------------------------------------------------------------------
+    | The hired professional
+    |----------------------------------------------------------------------
+    |
+    | `projects.selected_arsitek_id` holds an `arsiteks` PROFILE id — NOT a
+    | `users` id. The live data proves it:
+    |
+    |     projects.selected_arsitek_id = 6634  ->  architects.id 6634 exists
+    |                                            users.id 6634 does NOT
+    |
+    | `projects.pm_id` is the ONE exception in the whole schema: it holds the
+    | PM's USER id, because a PM may be assigned before their profile exists.
+    | Every other `selected_*`-style column holds a profile id.
+    |
+    | There used to be a `selectedArsitek()` relation here that was
+    | `belongsTo(User::class, 'selected_arsitek_id')` — joining `users.id` to an
+    | `arsiteks.id`. It could never resolve: the live value 6634 has no `users`
+    | row. It was ALSO the wrong SHAPE — the admin UI reads
+    | `selected_arsitek.nama`, and `users` has `name`, not `nama`, so the field
+    | was undefined even in the impossible case where the join did match.
+    |
+    | The relation is gone rather than repaired. `arsitek()` and `kontraktor()`
+    | below already express it correctly, and `ProjectResource` already emits
+    | them under the `arsitek` / `kontraktor` keys — so the admin endpoints now
+    | speak the same contract as `GET /api/projects/{id}` instead of a second,
+    | subtly different one.
+    |
+    */
 
     public function ratings()
     {
@@ -356,9 +386,19 @@ class Project extends Model
         return $this->hasMany(ProjectAddendum::class)->orderBy('created_at', 'desc');
     }
 
+    /**
+     * The assigned project manager — a `project_managers` PROFILE row.
+     *
+     * The third argument used to be `'user_id'`, which existed ONLY because
+     * `projects.pm_id` held a USER id. The pm_id resolution migration made
+     * the column hold the PM's PROFILE id — the same value
+     * `bids_project_manager.pm_id` holds — so the relation is now the
+     * ordinary `belongsTo(ProjectManager::class, 'pm_id')`, the same shape as
+     * the other six roles.
+     */
     public function projectManager()
     {
-        return $this->belongsTo(ProjectManager::class, 'pm_id', 'user_id');
+        return $this->belongsTo(ProjectManager::class, 'pm_id');
     }
 
     public function structuralEngineer()

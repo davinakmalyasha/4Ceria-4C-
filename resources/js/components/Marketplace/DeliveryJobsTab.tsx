@@ -94,7 +94,7 @@ function DeliveryJobCard({ job }: { job: DeliveryJob }) {
         >
             <div className="relative h-48 bg-slate-900 flex items-center justify-center overflow-hidden">
                 {/* Mock Map Background Grid */}
-                <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] bg-[size:20px_20px]"></div>
+                <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] bg-size-[20px_20px]"></div>
                 
                 {job.status === 'pending' ? (
                     <div className="relative z-10 flex flex-col items-center">

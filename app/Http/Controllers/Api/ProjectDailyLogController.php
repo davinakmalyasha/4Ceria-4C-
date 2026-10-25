@@ -36,7 +36,7 @@ class ProjectDailyLogController extends Controller
         
         // Authorization: Only the hired contractor, PM, or active sub-professional can log site activity
         $isHiredKontraktor = $user->role_type === 'kontraktor' && Hire::matches($project, $user, 'kontraktor');
-        $isHiredPM = $user->role_type === 'project_manager' && $project->pm_id === $user->id;
+        $isHiredPM = $user->role_type === 'project_manager' && Hire::isAssignedPm($project, $user);
         $isSubPro = DB::table('project_sub_professionals')
             ->where('project_id', $project->id)
             ->where('user_id', $user->id)
@@ -87,7 +87,7 @@ class ProjectDailyLogController extends Controller
                 'weather' => $validated['weather'],
                 'worker_count' => $validated['worker_count'],
                 'activities' => $validated['activities'],
-                'issues' => $validated['issues'],
+                'issues' => $validated['issues'] ?? null,
                 'photos' => $photos,
             ]);
 

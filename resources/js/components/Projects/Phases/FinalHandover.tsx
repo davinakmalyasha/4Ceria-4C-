@@ -28,7 +28,7 @@ export default function FinalHandover({ project, user, onRefresh }: FinalHandove
     const workLabel = isMaintenance ? 'perbaikan' : isInterior ? 'hasil interior' : 'bangunan';
 
     const isOwner = user?.id === project.user_id;
-    const isPM = user?.role_type === 'project_manager' && project.pm_id === user?.id;
+    const isPM = user?.role_type === 'project_manager' && project.pm_id === user?.project_manager?.id;
     const walkthroughStarted =
         project.walkthrough_status === 'in_progress' ||
         project.walkthrough_status === 'completed' ||
@@ -57,7 +57,7 @@ export default function FinalHandover({ project, user, onRefresh }: FinalHandove
     // Regulatory gates panel: previously these endpoints existed with NO UI,
     // dead-ending new-build finalization with an SLF error nobody could fix.
     const regulatoryGatesPanel = (needsRegulatoryGates && (isOwner || isPM)) ? (
-        <div className="bg-white border border-gray-200 rounded-[2rem] p-6 space-y-4">
+        <div className="bg-white border border-gray-200 rounded-4xl p-6 space-y-4">
             <div className="flex items-center gap-3">
                 <FileText size={18} className="text-gray-700" />
                 <h4 className="text-xs font-black text-gray-900 uppercase tracking-widest">Regulatory Compliance Gates</h4>
@@ -199,8 +199,8 @@ export default function FinalHandover({ project, user, onRefresh }: FinalHandove
 
         return (
             <div className="space-y-8">
-                <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border-2 border-emerald-200 rounded-[3rem] p-10 text-center space-y-6 shadow-xl shadow-emerald-900/5">
-                    <div className="w-24 h-24 bg-emerald-500 text-white rounded-[2rem] flex items-center justify-center mx-auto shadow-lg rotate-3">
+                <div className="bg-linear-to-br from-emerald-50 to-teal-50 border-2 border-emerald-200 rounded-[3rem] p-10 text-center space-y-6 shadow-xl shadow-emerald-900/5">
+                    <div className="w-24 h-24 bg-emerald-500 text-white rounded-4xl flex items-center justify-center mx-auto shadow-lg rotate-3">
                         <Trophy size={48} />
                     </div>
                     <div className="space-y-2">
@@ -251,7 +251,7 @@ export default function FinalHandover({ project, user, onRefresh }: FinalHandove
     // State 1: Pre-walkthrough
     if (!walkthroughStarted) {
         return (
-            <div className="bg-gray-50 border-2 border-dashed border-gray-200 rounded-[2rem] p-10 text-center space-y-6">
+            <div className="bg-gray-50 border-2 border-dashed border-gray-200 rounded-4xl p-10 text-center space-y-6">
                 <div className="w-16 h-16 bg-gray-200 text-gray-500 rounded-2xl flex items-center justify-center mx-auto">
                     <ClipboardCheck size={32} />
                 </div>
@@ -301,8 +301,8 @@ export default function FinalHandover({ project, user, onRefresh }: FinalHandove
     // State 2: During walkthrough — Snag list active
     return (
         <div className="space-y-6">
-            <div className="bg-amber-50 border border-amber-200 rounded-[2rem] p-6 flex items-center gap-4">
-                <ShieldAlert size={24} className="text-amber-600 flex-shrink-0" />
+            <div className="bg-amber-50 border border-amber-200 rounded-4xl p-6 flex items-center gap-4">
+                <ShieldAlert size={24} className="text-amber-600 shrink-0" />
                 <div className="flex-1 min-w-0">
                     <p className="text-sm font-black text-amber-900">Inspeksi Aktif</p>
                     <p className="text-xs text-amber-700">Laporkan semua cacat/kekurangan sebelum menerima bangunan.</p>
@@ -318,7 +318,7 @@ export default function FinalHandover({ project, user, onRefresh }: FinalHandove
             {regulatoryGatesPanel}
 
             {isOwner && !hasUnresolvedSnags && (!needsRegulatoryGates || slfVerified) && (
-                <div className="bg-emerald-50 border-2 border-emerald-200 rounded-[2rem] p-8 space-y-4">
+                <div className="bg-emerald-50 border-2 border-emerald-200 rounded-4xl p-8 space-y-4">
                     <div className="flex items-center gap-3">
                         <Key size={20} className="text-emerald-600" />
                         <h4 className="text-sm font-black text-emerald-900 uppercase tracking-widest">Terima Bangunan</h4>
@@ -341,7 +341,7 @@ export default function FinalHandover({ project, user, onRefresh }: FinalHandove
                 </div>
             )}
             {isOwner && !hasUnresolvedSnags && needsRegulatoryGates && !slfVerified && (
-                <div className="bg-amber-50 border border-amber-200 rounded-[2rem] p-5 text-center">
+                <div className="bg-amber-50 border border-amber-200 rounded-4xl p-5 text-center">
                     <p className="text-xs font-bold text-amber-800">
                         Semua cacat telah diperbaiki — namun SLF (Certificate of Occupancy) belum diverifikasi.
                         Verifikasi SLF di atas untuk membuka penerimaan akhir.

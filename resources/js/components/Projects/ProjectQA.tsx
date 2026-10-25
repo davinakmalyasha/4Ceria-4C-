@@ -112,7 +112,7 @@ export default function ProjectQA({ project, onRefresh, user: propUser }: Projec
             </div>
 
             {/* Comment Input */}
-            <form onSubmit={handleSubmit} className="bg-white p-2 pl-5 rounded-[2rem] border border-gray-100 shadow-xl shadow-gray-100/50 flex items-center gap-4">
+            <form onSubmit={handleSubmit} className="bg-white p-2 pl-5 rounded-4xl border border-gray-100 shadow-xl shadow-gray-100/50 flex items-center gap-4">
                 <input 
                     type="text" 
                     value={newComment}
@@ -153,9 +153,9 @@ export default function ProjectQA({ project, onRefresh, user: propUser }: Projec
                                 initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ delay: idx * 0.05 }}
-                                className="bg-white p-6 rounded-[2rem] border border-gray-50 shadow-sm flex gap-5"
+                                className="bg-white p-6 rounded-4xl border border-gray-50 shadow-sm flex gap-5"
                             >
-                                <div className="w-12 h-12 rounded-2xl bg-gray-100 flex-shrink-0 flex items-center justify-center text-gray-400 shadow-inner">
+                                <div className="w-12 h-12 rounded-2xl bg-gray-100 shrink-0 flex items-center justify-center text-gray-400 shadow-inner">
                                     <User size={24} />
                                 </div>
                                 <div className="flex-1 space-y-1">
@@ -237,7 +237,7 @@ export default function ProjectQA({ project, onRefresh, user: propUser }: Projec
             {/* Custom Premium Deletion Confirmation Modal */}
             <AnimatePresence>
                 {deletingCommentId !== null && (
-                    <div className="fixed inset-0 z-[110] flex items-center justify-center overflow-hidden">
+                    <div className="fixed inset-0 z-110 flex items-center justify-center overflow-hidden">
                         {/* Backdrop */}
                         <motion.div
                             initial={{ opacity: 0 }}
@@ -253,7 +253,7 @@ export default function ProjectQA({ project, onRefresh, user: propUser }: Projec
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.95, y: 15 }}
                             transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-                            className="relative z-10 w-full max-w-sm bg-white p-6 rounded-[2rem] border border-gray-100 shadow-2xl space-y-5 text-center mx-4"
+                            className="relative z-10 w-full max-w-sm bg-white p-6 rounded-4xl border border-gray-100 shadow-2xl space-y-5 text-center mx-4"
                         >
                             {/* Glowing Red Icon */}
                             <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-500 flex items-center justify-center mx-auto shadow-inner">

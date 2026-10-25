@@ -195,7 +195,7 @@ export default function EngineeringCoordination({ project, user, roleType, isArc
     const canUploadDeliverables = isSpecialist || (isArchitect && profile?.type === 'internal_team');
     
     const isOwner = Number(user?.id) === Number(project.user_id);
-    const isPM = (user?.role_type === 'project_manager' || user?.role_type === 'pm') && Number(project.pm_id) === Number(user?.id);
+    const isPM = (user?.role_type === 'project_manager' || user?.role_type === 'pm') && Number(project.pm_id) === Number(user?.project_manager?.id);
     const canReview = isPM || isOwner || isArchitect;
 
     const hasPendingSubmission = deliverableDocs.some((doc: any) => doc.status === 'under_review');
@@ -548,7 +548,7 @@ export default function EngineeringCoordination({ project, user, roleType, isArc
 
                     </div>
                 ) : (
-                    <div className="p-6 bg-slate-50 border-2 border-dashed border-slate-100 rounded-[2rem] text-center flex flex-col items-center gap-3">
+                    <div className="p-6 bg-slate-50 border-2 border-dashed border-slate-100 rounded-4xl text-center flex flex-col items-center gap-3">
                         <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center text-slate-200 shadow-sm">
                             <Clock size={24} />
                         </div>

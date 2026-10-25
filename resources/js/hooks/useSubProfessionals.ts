@@ -86,7 +86,12 @@ export function useSubProfessionals(projectId: number | null): UseSubProfessiona
         if (!projectId) return false;
         try {
             await axios.post(`/projects/${projectId}/sub-professionals/${subId}/decline`);
-            setSubs(prev => prev.map(s => s.id === subId ? { ...s, status: 'declined' } : s));
+            // B31: the API stores `removed` for a declined assignment — the ENUM has no
+            // `declined` value, and the server maps the decline onto `removed`.
+            // The client used to paint `declined`, a status no response contains,
+            // so the row changed appearance after a refresh. The TYPE UNION was
+            // right and the code was wrong.
+            setSubs(prev => prev.map(s => s.id === subId ? { ...s, status: 'removed' as const } : s));
             return true;
         } catch (err: unknown) {
             const axErr = err as { response?: { data?: { message?: string } } };

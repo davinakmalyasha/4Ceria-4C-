@@ -70,12 +70,12 @@ Terima kasih.`;
     return (
         <AnimatePresence>
             {isOpen && (
-                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+                <div className="fixed inset-0 z-110 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
                     <motion.div 
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.95 }}
-                        className="bg-white rounded-[2rem] p-8 max-w-lg w-full shadow-2xl border border-slate-100 overflow-hidden relative"
+                        className="bg-white rounded-4xl p-8 max-w-lg w-full shadow-2xl border border-slate-100 overflow-hidden relative"
                     >
                         {/* Header */}
                         <div className="flex justify-between items-start mb-6">

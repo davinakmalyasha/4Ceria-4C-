@@ -3,6 +3,7 @@ import Map, { Marker, NavigationControl, FullscreenControl } from 'react-map-gl/
 import type { MapRef } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { Locate, MapPin, Loader2, Search, X } from 'lucide-react';
+import { API_BASE_URL } from '../api';
 
 export interface ReverseGeoData {
     province: string;
@@ -21,9 +22,24 @@ interface LocationPickerMapProps {
     heightClass?: string;
 }
 
+/**
+ * The API base URL.
+ *
+ * NOT a hardcoded `/api`.
+ *
+ * The standalone build that Vercel serves puts the SPA on a DIFFERENT ORIGIN
+ * from the API, and the Laravel build serves them from the same one. A
+ * hardcoded `/api/...` therefore resolves against the SPA's own origin in
+ * production: the request returns the SPA's HTML, `res.json()` throws, and
+ * the catch swallows it into an empty address. The user sees a map with no
+ * address and no error.
+ *
+ * `API_BASE_URL` is `VITE_API_URL` when it is set, and `/api` otherwise — so
+ * the same code is right in both deployments.
+ */
 async function reverseGeocode(lat: number, lng: number): Promise<ReverseGeoData> {
     try {
-        const res = await fetch(`/api/geocode/reverse?lat=${lat}&lng=${lng}`);
+        const res = await fetch(`${API_BASE_URL}/geocode/reverse?lat=${lat}&lng=${lng}`);
         const data = await res.json();
         const addr = data.address || {};
 
@@ -96,7 +112,7 @@ const LocationPickerMap = memo(function LocationPickerMap({ latitude, longitude,
 
         setIsSearching(true);
         try {
-            const res = await fetch(`/api/geocode/search?q=${encodeURIComponent(searchQuery)}`);
+            const res = await fetch(`${API_BASE_URL}/geocode/search?q=${encodeURIComponent(searchQuery)}`);
             const data = await res.json();
             setSearchResults(Array.isArray(data) ? data : []);
         } catch (err) {
@@ -148,7 +164,7 @@ const LocationPickerMap = memo(function LocationPickerMap({ latitude, longitude,
                                 onClick={() => selectResult(result)}
                                 className="w-full text-left px-4 py-2.5 text-xs hover:bg-gray-50 border-b border-gray-50 last:border-0 transition-colors block truncate"
                             >
-                                <span className="font-bold text-gray-800 break-words line-clamp-1">{result.display_name}</span>
+                                <span className="font-bold text-gray-800 wrap-break-word line-clamp-1">{result.display_name}</span>
                             </button>
                         ))}
                     </div>

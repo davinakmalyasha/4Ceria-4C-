@@ -93,7 +93,7 @@ const CameraModal = ({ isOpen, onClose, onCapture }: { isOpen: boolean, onClose:
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
+        <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
             <motion.div 
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -106,7 +106,7 @@ const CameraModal = ({ isOpen, onClose, onCapture }: { isOpen: boolean, onClose:
                     </button>
                 </div>
 
-                <div className="relative aspect-[4/3] bg-black">
+                <div className="relative aspect-4/3 bg-black">
                     {isStarting && (
                         <div className="absolute inset-0 flex flex-col items-center justify-center text-white gap-4">
                             <Clock className="animate-spin text-indigo-400" size={32} />
@@ -276,7 +276,7 @@ const DeliveryJobCard = ({ job, onStatusUpdate }: { job: DeliveryJob, onStatusUp
 
                 {/* Route visualization */}
                 <div className="space-y-6 mb-10 relative">
-                    <div className="absolute left-[7px] top-[10px] bottom-[10px] w-0.5 bg-gradient-to-b from-blue-500/20 via-gray-100 to-red-500/20" />
+                    <div className="absolute left-[7px] top-[10px] bottom-[10px] w-0.5 bg-linear-to-b from-blue-500/20 via-gray-100 to-red-500/20" />
                     
                     <div className="flex gap-4 group">
                         <div className={`w-4 h-4 rounded-full ${job.status === 'accepted' ? 'bg-blue-500 ring-blue-500/10' : 'bg-gray-300 ring-gray-300/10'} ring-4 z-10 group-hover:scale-125 transition-transform`} />
@@ -362,7 +362,7 @@ const DeliveryJobCard = ({ job, onStatusUpdate }: { job: DeliveryJob, onStatusUp
                         <button 
                             onClick={handleMainAction}
                             disabled={config.disabled || isSubmitting}
-                            className={`${job.status !== 'delivered' ? 'flex-[2]' : 'w-full'} ${config.color} text-white font-black py-4 px-6 rounded-2xl shadow-xl transition-all flex items-center justify-center gap-3 active:scale-[0.98] disabled:opacity-50`}
+                            className={`${job.status !== 'delivered' ? 'flex-2' : 'w-full'} ${config.color} text-white font-black py-4 px-6 rounded-2xl shadow-xl transition-all flex items-center justify-center gap-3 active:scale-[0.98] disabled:opacity-50`}
                         >
                             {config.icon}
                             {config.text}

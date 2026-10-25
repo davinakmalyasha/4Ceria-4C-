@@ -51,7 +51,7 @@ class ProjectHandoverController extends Controller
     public function storeSnagItem(Request $request, Project $project)
     {
         $user = Auth::user();
-        if ($user->id !== $project->user_id && $user->id !== $project->pm_id) {
+        if ($user->id !== $project->user_id && ! Hire::isAssignedPm($project, $user)) {
             return response()->json(['message' => 'Only the Owner or PM can report defects.'], 403);
         }
 
@@ -156,7 +156,7 @@ class ProjectHandoverController extends Controller
             return response()->json(['message' => 'Not found.'], 404);
         }
 
-        if ($user->id !== $project->user_id && $user->id !== $project->pm_id) {
+        if ($user->id !== $project->user_id && ! Hire::isAssignedPm($project, $user)) {
             return response()->json(['message' => 'Only the Owner or PM can accept resolutions.'], 403);
         }
 
@@ -175,12 +175,24 @@ class ProjectHandoverController extends Controller
     public function approveHandover(Request $request, Project $project)
     {
         $user = Auth::user();
-        if ($user->role_type !== 'project_manager' || $project->pm_id !== $user->id) {
+        if ($user->role_type !== 'project_manager' || ! Hire::isAssignedPm($project, $user)) {
             return response()->json(['message' => 'Unauthorized. Only the assigned PM can approve handovers.'], 403);
         }
 
-        $phase = $request->input('phase'); // design, build, interior
-        
+        // B26. The phase was read with no validation and passed straight
+        // into `verifyPhase(Project $project, string $phase)`, whose
+        // parameter is NOT nullable. A request without a `phase` in the
+        // body therefore raised a TypeError — a 500 with a stack trace in
+        // the message — instead of the 422 the validator raises
+        // everywhere else in the application.
+        //
+        // The four phases are the ones `verifyPhase` knows.
+        $request->validate([
+            'phase' => 'required|string|in:design,construction,interior,legal',
+        ]);
+
+        $phase = $request->input('phase');
+
         $success = $this->lifecycleService->verifyPhase($project, $phase);
 
         if (!$success) {
@@ -193,7 +205,7 @@ class ProjectHandoverController extends Controller
     public function requestHandoverRevision(Request $request, Project $project)
     {
         $user = Auth::user();
-        if ($user->role_type !== 'project_manager' || $project->pm_id !== $user->id) {
+        if ($user->role_type !== 'project_manager' || ! Hire::isAssignedPm($project, $user)) {
              return response()->json(['message' => 'Unauthorized.'], 403);
         }
 

@@ -18,6 +18,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use App\Support\SafeError;
 
 class ProjectController extends Controller
 {
@@ -167,7 +168,7 @@ class ProjectController extends Controller
                 $arsitekId = optional($user->arsitek)->id;
                 $query->whereIn('target_role', ['both', 'arsitek'])
                     ->whereJsonContains('published_bidding_roles', 'arsitek')
-                    ->whereIn('status', ['open', 'accepted_kontraktor', 'in_progress', 'awaiting_payment', 'contract_pending', 'planning'])
+                    ->whereIn('status', ['open', 'accepted_kontraktor', 'in_progress', 'awaiting_payment'])
                     ->whereNull('selected_arsitek_id')
                     ->whereDoesntHave('bidsArsitek', function ($q) use ($arsitekId) {
                         $q->where('arsitek_id', $arsitekId);
@@ -185,7 +186,7 @@ class ProjectController extends Controller
                         });
                 })
                     ->whereJsonContains('published_bidding_roles', 'kontraktor')
-                    ->whereIn('status', ['open', 'accepted_arsitek', 'procurement', 'in_progress', 'awaiting_payment', 'contract_pending', 'planning'])
+                    ->whereIn('status', ['open', 'accepted_arsitek', 'procurement', 'in_progress', 'awaiting_payment'])
                     ->whereNull('selected_kontraktor_id')
                     ->whereDoesntHave('bidsKontraktor', function ($q) use ($kontraktorId) {
                         $q->where('kontraktor_id', $kontraktorId);
@@ -199,7 +200,7 @@ class ProjectController extends Controller
                 })
                     ->whereJsonContains('published_bidding_roles', 'notaris')
                     ->whereNull('selected_notaris_id')
-                    ->whereIn('status', ['open', 'accepted_arsitek', 'accepted_kontraktor', 'in_progress', 'awaiting_payment', 'contract_pending', 'planning'])
+                    ->whereIn('status', ['open', 'accepted_arsitek', 'accepted_kontraktor', 'in_progress', 'awaiting_payment'])
                     ->whereDoesntHave('bidsNotaris', function ($q) use ($notarisId) {
                         $q->where('notaris_id', $notarisId);
                     });
@@ -208,7 +209,7 @@ class ProjectController extends Controller
                 $query->where('requires_structural', true)
                     ->whereJsonContains('published_bidding_roles', 'structural')
                     ->whereNull('structural_id')
-                    ->whereIn('status', ['open', 'accepted_arsitek', 'accepted_kontraktor', 'in_progress', 'awaiting_payment', 'contract_pending', 'planning'])
+                    ->whereIn('status', ['open', 'accepted_arsitek', 'accepted_kontraktor', 'in_progress', 'awaiting_payment'])
                     ->whereDoesntHave('bidsStructural', function ($q) use ($structuralId) {
                         $q->where('structural_id', $structuralId);
                     });
@@ -217,7 +218,7 @@ class ProjectController extends Controller
                 $query->where('requires_mep', true)
                     ->whereJsonContains('published_bidding_roles', 'mep')
                     ->whereNull('mep_id')
-                    ->whereIn('status', ['open', 'accepted_arsitek', 'accepted_kontraktor', 'in_progress', 'awaiting_payment', 'contract_pending', 'planning'])
+                    ->whereIn('status', ['open', 'accepted_arsitek', 'accepted_kontraktor', 'in_progress', 'awaiting_payment'])
                     ->whereDoesntHave('bidsMep', function ($q) use ($mepId) {
                         $q->where('mep_id', $mepId);
                     });
@@ -230,7 +231,7 @@ class ProjectController extends Controller
                 })
                     ->whereJsonContains('published_bidding_roles', 'interior')
                     ->whereNull('selected_interior_id')
-                    ->whereIn('status', ['open', 'accepted_arsitek', 'accepted_kontraktor', 'in_progress', 'awaiting_payment', 'contract_pending', 'planning', 'completed_build'])
+                    ->whereIn('status', ['open', 'accepted_arsitek', 'accepted_kontraktor', 'in_progress', 'awaiting_payment', 'completed_build'])
                     ->whereDoesntHave('bidsInterior', function ($q) use ($interiorId) {
                         $q->where('interior_id', $interiorId);
                     });
@@ -239,13 +240,13 @@ class ProjectController extends Controller
                 $query->where('wants_project_manager', true)
                     ->whereJsonContains('published_bidding_roles', 'project_manager')
                     ->whereNull('pm_id')
-                    ->whereIn('status', ['open', 'accepted_arsitek', 'accepted_kontraktor', 'in_progress', 'awaiting_payment', 'contract_pending', 'planning'])
+                    ->whereIn('status', ['open', 'accepted_arsitek', 'accepted_kontraktor', 'in_progress', 'awaiting_payment'])
                     ->whereDoesntHave('bidsProjectManager', function ($q) use ($pmId) {
                         $q->where('pm_id', $pmId);
                     });
             } else {
                 // For normal users viewing the Bidding Board, show all open projects accepting bids
-                $query->whereIn('status', ['open', 'accepted_arsitek', 'accepted_kontraktor', 'procurement', 'in_progress', 'awaiting_payment', 'contract_pending', 'planning']);
+                $query->whereIn('status', ['open', 'accepted_arsitek', 'accepted_kontraktor', 'procurement', 'in_progress', 'awaiting_payment']);
             }
 
             $projects = $query->latest()->limit(50)->get();
@@ -297,7 +298,10 @@ class ProjectController extends Controller
             });
             $query->latest();
         } elseif ($user->role_type === 'project_manager') {
-            $query->where('pm_id', $user->id);
+            // `projects.pm_id` holds the PM's PROFILE id. A PM with no profile
+            // has no projects, and `where(col, null)` matches nothing — which
+            // is the right answer.
+            $query->where('pm_id', Hire::pmProfileId($user));
             $query->latest();
         } elseif ($user->role_type === 'structural') {
             $structural = \App\Models\StructuralEngineer::where('user_id', $user->id)->first();
@@ -493,7 +497,7 @@ class ProjectController extends Controller
         if (!$user) {
             return false;
         }
-        if ($project->user_id === $user->id || (int) $project->pm_id === (int) $user->id) {
+        if ($project->user_id === $user->id || Hire::isAssignedPm($project, $user)) {
             return true;
         }
         if ($user->role_type === 'admin') {
@@ -686,7 +690,7 @@ class ProjectController extends Controller
 
         // Strict Authorization check (Global Rule 1)
         $isOwner = $project->user_id === $user->id;
-        $isPM = $project->pm_id === $user->id;
+        $isPM = Hire::isAssignedPm($project, $user);
         
         $isHired = false;
         $hasBid = false;
@@ -711,7 +715,7 @@ class ProjectController extends Controller
                     // BUGFIX: pm_id stores the PM's USER id, not the profile id —
                     // the old comparison (pm_id === profile->id) never matched,
                     // so hired PMs failed this isHired check.
-                    $isHired = (int) $project->pm_id === (int) $user->id;
+                    $isHired = Hire::isAssignedPm($project, $user);
                     $hasBid = $project->bidsProjectManager()->where('pm_id', $pm->id)->exists();
                 }
             } elseif ($role === 'structural') {
@@ -812,7 +816,7 @@ class ProjectController extends Controller
 
         $allowedStatuses = [
             'open', 'accepted_arsitek', 'accepted_kontraktor', 'procurement', 
-            'in_progress', 'completed_build', 'awaiting_payment', 'contract_pending', 'planning'
+            'in_progress', 'completed_build', 'awaiting_payment'
         ];
         if (!in_array($project->status, $allowedStatuses)) {
             return response()->json(['message' => 'This project is no longer accepting bids.'], 422);
@@ -1202,8 +1206,8 @@ class ProjectController extends Controller
             if (isset($validated['project_length']) && isset($validated['project_width'])) {
                 $dims = is_array($project->project_dimensions) ? $project->project_dimensions : (json_decode($project->project_dimensions, true) ?? []);
                 
-                $length = (float) $validated['project_length'];
-                $width = (float) $validated['project_width'];
+                $length = (float) $validated['project_length'] ?? null;
+                $width = (float) $validated['project_width'] ?? null;
                 $area = $length * $width;
 
                 if ($length > 0 && $width > 0) {
@@ -1267,7 +1271,7 @@ class ProjectController extends Controller
             }
 
             // 1. Log the current state as a snapshot before updating
-            $this->negotiationService->logRound($bid, $validated, $validated['note']);
+            $this->negotiationService->logRound($bid, $validated, $validated['note'] ?? null);
 
             $bid->update([
                 'price' => $validated['price'],
@@ -1303,7 +1307,7 @@ class ProjectController extends Controller
     {
         $user = Auth::user();
         $isOwner = $project->user_id === $user->id;
-        $isPM = $project->pm_id && $user->role_type === 'project_manager' && $user->id === $project->pm_id;
+        $isPM = $project->pm_id && $user->role_type === 'project_manager' && Hire::isAssignedPm($project, $user);
 
         if (!$isOwner && !$isPM) {
             return response()->json(['message' => 'Only the Project Owner or assigned Project Manager can verify PBG compliance.'], 403);
@@ -1337,7 +1341,7 @@ class ProjectController extends Controller
     {
         $user = Auth::user();
         $isOwner = $project->user_id === $user->id;
-        $isPM = $project->pm_id && $user->role_type === 'project_manager' && $user->id === $project->pm_id;
+        $isPM = $project->pm_id && $user->role_type === 'project_manager' && Hire::isAssignedPm($project, $user);
 
         if (!$isOwner && !$isPM) {
             return response()->json(['message' => 'Only the Project Owner or assigned Project Manager can verify SLF compliance.'], 403);
@@ -1366,7 +1370,7 @@ class ProjectController extends Controller
     {
         $user = Auth::user();
         $isOwner = $project->user_id === $user->id;
-        $isPM = $project->pm_id && $user->role_type === 'project_manager' && $user->id === $project->pm_id;
+        $isPM = $project->pm_id && $user->role_type === 'project_manager' && Hire::isAssignedPm($project, $user);
 
         if (!$isOwner && !$isPM) {
             return response()->json(['message' => 'Only the Project Owner or PM can approve the construction brief.'], 403);
@@ -1401,7 +1405,7 @@ class ProjectController extends Controller
     {
         $user = Auth::user();
         $isOwner = $project->user_id === $user->id;
-        $isPM = $project->pm_id && $user->role_type === 'project_manager' && $user->id === $project->pm_id;
+        $isPM = $project->pm_id && $user->role_type === 'project_manager' && Hire::isAssignedPm($project, $user);
 
         if (!$isOwner && !$isPM) {
             return response()->json(['message' => 'Only the Project Owner or PM can request revision.'], 403);
@@ -1479,7 +1483,7 @@ class ProjectController extends Controller
         return DB::transaction(function () use ($request, $project) {
             $user = Auth::user();
             $isOwner = $project->user_id === $user->id;
-            $isPM = $project->pm_id && $user->role_type === 'project_manager' && $user->id === $project->pm_id;
+            $isPM = $project->pm_id && $user->role_type === 'project_manager' && Hire::isAssignedPm($project, $user);
             $isLeadArchitect = $project->selected_arsitek_id && $user->role_type === 'arsitek' && optional($user->arsitek)->id === $project->selected_arsitek_id;
             $isLeadContractor = $project->selected_kontraktor_id && $user->role_type === 'kontraktor' && optional($user->kontraktor)->id === $project->selected_kontraktor_id;
 
@@ -1570,7 +1574,7 @@ class ProjectController extends Controller
             $project = Project::whereKey($project->id)->lockForUpdate()->firstOrFail();
             $user = Auth::user();
             $isOwner = $project->user_id === $user->id;
-            $isPM = $project->pm_id && $user->role_type === 'project_manager' && $user->id === $project->pm_id;
+            $isPM = $project->pm_id && $user->role_type === 'project_manager' && Hire::isAssignedPm($project, $user);
 
             if (!$isOwner && !$isPM) {
                 return response()->json(['message' => 'Unauthorized. Only the Project Owner or Hired Project Manager can finalize hiring.'], 403);
@@ -1593,7 +1597,7 @@ class ProjectController extends Controller
             };
 
             $bidToCheck = $bidModel::where('id', $request->bid_id)->where('project_id', $project->id)->lockForUpdate()->firstOrFail();
-            $projectColumn = config("bids.{$request->bid_type}.project_profile_column");
+            $projectColumn = config("bids.{$request->bid_type}.project_id_column");
             $committedBid = $bidModel::where('project_id', $project->id)
                 ->whereIn('status', ['contract_pending', 'awaiting_payment', 'accepted', 'active'])
                 ->lockForUpdate()
@@ -1940,7 +1944,7 @@ class ProjectController extends Controller
      */
     public function updatePlanningAudit(Project $project, Request $request)
     {
-        if ($project->pm_id !== Auth::id()) {
+        if (! Hire::isAssignedPm($project, Auth::user())) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
@@ -1975,7 +1979,7 @@ class ProjectController extends Controller
     public function verifyPlanningPM(Project $project, Request $request)
     {
         // Only the assigned PM can verify
-        if ($project->pm_id !== Auth::id()) {
+        if (! Hire::isAssignedPm($project, Auth::user())) {
             return response()->json(['message' => 'Only the assigned project manager can verify this plan.'], 403);
         }
 
@@ -2011,7 +2015,7 @@ class ProjectController extends Controller
     public function rejectPlanning(Project $project, Request $request)
     {
         $user = Auth::user();
-        $isPM = $project->pm_id === $user->id;
+        $isPM = Hire::isAssignedPm($project, $user);
         $isOwner = $project->user_id === $user->id;
 
         if (!$isPM && !$isOwner) {
@@ -2031,7 +2035,7 @@ class ProjectController extends Controller
 
         return DB::transaction(function () use ($project, $user, $request) {
             // If PM is rejecting, they can leave a final note/attachment
-            if ($project->pm_id === $user->id) {
+            if (Hire::isAssignedPm($project, $user)) {
                 $attachments = $project->pm_audit_attachments ?? [];
                 if ($request->hasFile('attachments')) {
                     foreach ($request->file('attachments') as $file) {
@@ -2085,7 +2089,7 @@ class ProjectController extends Controller
         try {
             app(\App\Services\DisputeService::class)->assertNoOpenDispute($project);
         } catch (\Exception $e) {
-            return response()->json(['message' => $e->getMessage()], $e->getCode() ?: 422);
+            return response()->json(['message' => SafeError::message($e)], SafeError::status($e, 422));
         }
 
         \DB::beginTransaction();
@@ -2216,7 +2220,7 @@ class ProjectController extends Controller
             // professional verbatim; anything else stays generic.
             $code = (int) $e->getCode();
             if ($code >= 400 && $code < 600) {
-                return response()->json(['message' => $e->getMessage()], $code);
+                return response()->json(['message' => SafeError::message($e)], $code);
             }
 
             return response()->json([
@@ -2266,7 +2270,7 @@ class ProjectController extends Controller
     {
         $user = Auth::user();
         $isOwner = $project->user_id === $user->id;
-        $isPM = $project->pm_id && $user->role_type === 'project_manager' && $user->id === $project->pm_id;
+        $isPM = $project->pm_id && $user->role_type === 'project_manager' && Hire::isAssignedPm($project, $user);
 
         if (!$isOwner && !$isPM) {
             return response()->json(['message' => 'Unauthorized. Must be project owner or the assigned Project Manager.'], 403);
@@ -2368,7 +2372,7 @@ class ProjectController extends Controller
             }
         }
 
-        $isPM = $project->pm_id === $user->id;
+        $isPM = Hire::isAssignedPm($project, $user);
 
         if (!$isOwner && !$isWorker && !$isPM) {
             return response()->json(['message' => 'Unauthorized. Must be project owner, hired professional, or PM.'], 403);
@@ -2595,7 +2599,7 @@ class ProjectController extends Controller
             // a professional may only rewrite termins for their OWN role;
             // rewriting another role's plan requires owner or assigned PM.
             $targetRole = $request->input('target_role', $user->role_type);
-            $canActForOthers = $isOwner || ($isPM && (int) $project->pm_id === (int) $user->id);
+            $canActForOthers = $isOwner || ($isPM && Hire::isAssignedPm($project, $user));
             if (!$canActForOthers && $targetRole !== $user->role_type) {
                 return response()->json(['message' => 'Unauthorized. You can only modify payment termins for your own role.'], 403);
             }
@@ -2607,7 +2611,7 @@ class ProjectController extends Controller
             try {
                 $terminPlan->assertKnownRole($targetRole);
             } catch (\Exception $e) {
-                return response()->json(['message' => $e->getMessage()], 422);
+                return response()->json(['message' => SafeError::message($e)], 422);
             }
 
             // never destroy money-in-flight records — if any termin
@@ -2649,7 +2653,7 @@ class ProjectController extends Controller
                 // TerminPlanService raises a domain violation with a 4xx code,
                 // which Laravel does not translate on its own — without this the
                 // guard surfaces as a 500. Same shape as the sibling controller.
-                return response()->json(['message' => $e->getMessage()], 422);
+                return response()->json(['message' => SafeError::message($e)], 422);
             }
         }
 
@@ -2920,18 +2924,44 @@ class ProjectController extends Controller
             return response()->json(['data' => []]);
         }
 
-        // projects.pm_id stores the PM's *user* id (set at hire time from $bid->pm->user_id)
-        $projects = Project::where(function ($query) use ($user) {
-            $query->where('user_id', $user->id)
-                ->orWhere('selected_arsitek_id', $user->arsitek?->id)
-                ->orWhere('selected_kontraktor_id', $user->kontraktor?->id)
-                ->orWhere('selected_notaris_id', $user->notaris_profile?->id)
-                ->orWhere('selected_interior_id', $user->interior_profile?->id)
-                ->orWhere('pm_id', $user->id)
-                ->orWhere('structural_id', $user->structural_engineer?->id)
-                ->orWhere('mep_id', $user->mep_engineer?->id);
+        // `projects.pm_id` holds the PM's PROFILE id, like every other
+        // `selected_*` column.
+        //
+        // B32 — `orWhere($column, null)` IS `orWhereNull($column)`.
+        //
+        // The original chained a `orWhere('selected_arsitek_id', $user->arsitek?->id)`
+        // for every role, with `?->id` — so a user with NO profile for that role
+        // contributed `selected_arsitek_id IS NULL`, and the filter matched EVERY
+        // project whose column happened to be empty. An administrator with no
+        // professional profiles saw the id and title of every project on the
+        // platform: verified live, two demo projects returned to an account that
+        // neither owned nor worked on them.
+        //
+        // The clause is now added only when the profile EXISTS. `Hire::pmProfileId()`
+        // already answers null in that case, so it is filtered the same way.
+        $columns = [
+            'selected_arsitek_id' => $user->arsitek?->id,
+            'selected_kontraktor_id' => $user->kontraktor?->id,
+            'selected_notaris_id' => $user->notaris_profile?->id,
+            'selected_interior_id' => $user->interior_profile?->id,
+            'pm_id' => Hire::pmProfileId($user),
+            'structural_id' => $user->structural_engineer?->id,
+            'mep_id' => $user->mep_engineer?->id,
+        ];
+
+        $projects = Project::where(function ($query) use ($user, $columns) {
+            $query->where('user_id', $user->id);
+
+            foreach ($columns as $column => $profileId) {
+                if ($profileId !== null) {
+                    $query->orWhere($column, $profileId);
+                }
+            }
         })
-        ->whereIn('status', ['open', 'accepted_arsitek', 'accepted_kontraktor', 'procurement', 'in_progress', 'planning'])
+        // `planning` is NOT a member of the `projects.status` ENUM: MySQL
+        // ignores the unknown literal, PostgreSQL rejects it outright. The list
+        // names only the values the column has.
+        ->whereIn('status', ['open', 'accepted_arsitek', 'accepted_kontraktor', 'procurement', 'in_progress'])
         ->select('id', 'title')
         ->latest()
         ->get();
@@ -3042,7 +3072,7 @@ class ProjectController extends Controller
         $request->validate(['role' => 'required|string|in:arsitek,kontraktor,notaris,interior,structural,mep']);
 
         $user = Auth::user();
-        if ($project->user_id !== $user->id && $project->pm_id !== $user->id) {
+        if ($project->user_id !== $user->id && ! Hire::isAssignedPm($project, $user)) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
@@ -3064,7 +3094,7 @@ class ProjectController extends Controller
         ]);
 
         $user = Auth::user();
-        if ($project->user_id !== $user->id && $project->pm_id !== $user->id) {
+        if ($project->user_id !== $user->id && ! Hire::isAssignedPm($project, $user)) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
@@ -3081,7 +3111,7 @@ class ProjectController extends Controller
         
         $isOwner = $project->user_id === $user->id;
         $isArchitect = $project->selected_arsitek_id && $user->role_type === 'arsitek' && optional($user->arsitek)->id === $project->selected_arsitek_id;
-        $isPM = $project->pm_id && $user->role_type === 'project_manager' && $user->id === $project->pm_id;
+        $isPM = $project->pm_id && $user->role_type === 'project_manager' && Hire::isAssignedPm($project, $user);
 
         if (!$isOwner && !$isArchitect && !$isPM) {
             return response()->json(['message' => 'Unauthorized. Only the owner, assigned architect, or project manager can invite professionals.'], 403);
@@ -3235,7 +3265,7 @@ class ProjectController extends Controller
         $arsitekUserId = $project->arsitek->user_id ?? null;
         $kontraktorUserId = $project->kontraktor->user_id ?? null;
 
-        if ($user->id !== $project->user_id && $user->id !== $project->pm_id &&
+        if ($user->id !== $project->user_id && ! Hire::isAssignedPm($project, $user) &&
             $user->id !== $proUserId && $user->id !== $arsitekUserId && $user->id !== $kontraktorUserId) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
@@ -3331,7 +3361,7 @@ class ProjectController extends Controller
         $arsitekUserId = $project->arsitek->user_id ?? null;
         $kontraktorUserId = $project->kontraktor->user_id ?? null;
 
-        if ($user->id !== $project->user_id && $user->id !== $project->pm_id &&
+        if ($user->id !== $project->user_id && ! Hire::isAssignedPm($project, $user) &&
             $user->id !== $proUserId && $user->id !== $arsitekUserId && $user->id !== $kontraktorUserId) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
@@ -3345,7 +3375,7 @@ class ProjectController extends Controller
             // Prevent demoting active professionals if button was clicked via legacy data.
             if ($bid->status === 'negotiating' || $bid->status === 'invited') {
                 // If the PM or Owner confirms, we push it to 'shortlisted' so the Owner can proceed to hire.
-                if ($bid->project->user_id === $user->id || $bid->project->pm_id === $user->id) {
+                if ($bid->project->user_id === $user->id || Hire::isAssignedPm($bid->project, $user)) {
                     $updateData['status'] = 'shortlisted';
                 }
             }
@@ -3806,7 +3836,31 @@ class ProjectController extends Controller
         $user = Auth::user();
         $request->validate([
             'bid_type' => $this->bidTypeRule(),
-            'signature' => 'required|string',
+            // The OWNER's counter-signature gets the SAME validation as the
+            // professional's.
+            //
+            // It used to be `required|string` — no length bound and no format
+            // check — while the professional's path had a 1.5 MB cap and an
+            // image regex. The handler's only test was
+            // `preg_match('/^data:image\/(\w+);base64,/')` before
+            // `base64_decode()` and `put()` at `.../signature_{role}_{bid}_{ts}_client.png`.
+            //
+            // So the owner could put ARBITRARY BYTES at a `.png` path in the
+            // private vault, unbounded in size — filling the bucket, or leaving
+            // a file that is not an image but is served as one.
+            //
+            // The owner's signature is the half of the contract that BINDS the
+            // payment plan. It is at least as sensitive as the professional's,
+            // and it is the half that was unguarded.
+            //
+            // 1.5 MB of base64 is roughly a 1 MB image, comfortably above a
+            // signature and far below anything a caller legitimately sends.
+            'signature' => [
+                'required',
+                'string',
+                'max:1572864',
+                'regex:/^data:image\/(png|jpe?g|webp);base64,[A-Za-z0-9+\/=]+$/',
+            ],
         ]);
 
         $bidModel = $this->getBidModel($request->bid_type);
@@ -4028,7 +4082,7 @@ private function getBidModel($type)
             ->pluck('count', 'user_id');
 
         $activeCounts = Project::whereIn('user_id', $userIds)
-            ->whereIn('status', ['in_progress', 'planning', 'awaiting_payment', 'contract_pending', 'accepted_arsitek', 'accepted_kontraktor', 'procurement'])
+            ->whereIn('status', ['in_progress', 'awaiting_payment', 'accepted_arsitek', 'accepted_kontraktor', 'procurement'])
             ->groupBy('user_id')
             ->select('user_id', DB::raw('count(*) as count'))
             ->pluck('count', 'user_id');

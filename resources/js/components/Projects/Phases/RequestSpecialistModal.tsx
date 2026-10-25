@@ -191,7 +191,7 @@ export default function RequestSpecialistModal({
     };
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
+        <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
             <div className="bg-white rounded-[2.5rem] w-full max-w-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
                 {/* Header */}
                 <div className="relative p-8 pb-4">
@@ -389,14 +389,14 @@ export default function RequestSpecialistModal({
                         <button 
                             type="button"
                             onClick={onClose}
-                            className="flex-1 py-4 bg-slate-50 text-slate-500 rounded-[1.5rem] text-xs font-black uppercase tracking-widest hover:bg-slate-100 transition-all"
+                            className="flex-1 py-4 bg-slate-50 text-slate-500 rounded-3xl text-xs font-black uppercase tracking-widest hover:bg-slate-100 transition-all"
                         >
                             Cancel
                         </button>
                         <button 
                             type="submit" 
                             disabled={loading}
-                            className={`flex-1 flex items-center justify-center gap-3 py-4 text-white rounded-[1.5rem] text-xs font-black uppercase tracking-widest transition-all shadow-lg active:scale-95 disabled:opacity-50 ${roleConfig.btnColor}`}
+                            className={`flex-1 flex items-center justify-center gap-3 py-4 text-white rounded-3xl text-xs font-black uppercase tracking-widest transition-all shadow-lg active:scale-95 disabled:opacity-50 ${roleConfig.btnColor}`}
                         >
                             {loading ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
                             Submit Request

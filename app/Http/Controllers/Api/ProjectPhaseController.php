@@ -315,7 +315,7 @@ class ProjectPhaseController extends Controller
 
     private function isProjectManager(Project $project, $user): bool
     {
-        return $user->role_type === 'project_manager' && $project->pm_id === $user->id;
+        return $user->role_type === 'project_manager' && Hire::isAssignedPm($project, $user);
     }
 
     private function loadFullProject(Project $project)
@@ -357,7 +357,9 @@ class ProjectPhaseController extends Controller
 
     private function notifyReviewers(Project $project, string $title, string $body): void
     {
-        $reviewers = array_filter([$project->user_id, $project->pm_id]);
+        // The PM's USER id — a reviewer is a user, and `projects.pm_id` holds the
+        // PM's PROFILE id.
+        $reviewers = array_filter([$project->user_id, $project->projectManager?->user_id]);
         foreach ($reviewers as $userId) {
             \App\Models\Notification::create([
                 'user_id' => $userId,

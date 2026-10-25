@@ -25,7 +25,7 @@ class ProjectMutualTerminationController extends Controller
     {
         $user = Auth::user();
         $isParticipant = $this->isProjectOwner($project, $user)
-            || (int) $project->pm_id === (int) $user->id
+            || Hire::isAssignedPm($project, $user)
             || $this->isHiredProfessional($project, $user);
 
         if (!$isParticipant) abort(403, 'Unauthorized.');
@@ -51,7 +51,7 @@ class ProjectMutualTerminationController extends Controller
         // Owner (user_id), assigned PM (pm_id stores the PM's USER id) or a hired
         // professional (selected_* columns store PROFILE ids, resolved via trait).
         $isParticipant = $this->isProjectOwner($project, $user)
-            || (int) $project->pm_id === (int) $user->id
+            || Hire::isAssignedPm($project, $user)
             || $this->isHiredProfessional($project, $user);
 
         if (!$isParticipant) abort(403, 'Unauthorized.');
@@ -111,7 +111,7 @@ class ProjectMutualTerminationController extends Controller
         // whole engagement. The previous gate was
         //
         //     $isParticipant = $this->isProjectOwner($project, $user)
-        //         || (int) $project->pm_id === (int) $user->id
+        //         || Hire::isAssignedPm($project, $user)
         //         || $this->isHiredProfessional($project, $user);
         //
         // so ANY hired professional or active sub-professional on the project
@@ -170,7 +170,7 @@ class ProjectMutualTerminationController extends Controller
 
         // Only participants of this project may escalate the dispute.
         $isParticipant = $this->isProjectOwner($project, $user)
-            || (int) $project->pm_id === (int) $user->id
+            || Hire::isAssignedPm($project, $user)
             || $this->isHiredProfessional($project, $user);
         if (!$isParticipant) {
             abort(403, 'Unauthorized.');

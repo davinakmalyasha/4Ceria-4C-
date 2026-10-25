@@ -11,6 +11,7 @@ use App\Traits\HandlesProjectAuthorization;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use App\Support\SafeError;
 
 class ProjectDisputeController extends Controller
 {
@@ -64,7 +65,7 @@ class ProjectDisputeController extends Controller
         try {
             $dispute = $this->disputes->open($project, $user, $data);
         } catch (Exception $e) {
-            return response()->json(['message' => $e->getMessage()], $e->getCode() >= 100 && $e->getCode() < 600 ? $e->getCode() : 422);
+            return response()->json(['message' => SafeError::message($e)], SafeError::status($e, 422));
         }
 
         return response()->json([
@@ -122,7 +123,7 @@ class ProjectDisputeController extends Controller
                 $request->file('evidence')
             );
         } catch (Exception $e) {
-            return response()->json(['message' => $e->getMessage()], $e->getCode() >= 100 && $e->getCode() < 600 ? $e->getCode() : 422);
+            return response()->json(['message' => SafeError::message($e)], SafeError::status($e, 422));
         }
 
         return response()->json([
@@ -145,7 +146,7 @@ class ProjectDisputeController extends Controller
         try {
             $dispute = $this->disputes->withdraw($dispute, $user);
         } catch (Exception $e) {
-            return response()->json(['message' => $e->getMessage()], $e->getCode() >= 100 && $e->getCode() < 600 ? $e->getCode() : 422);
+            return response()->json(['message' => SafeError::message($e)], SafeError::status($e, 422));
         }
 
         return response()->json([
@@ -168,7 +169,7 @@ class ProjectDisputeController extends Controller
         try {
             return response()->json(['url' => $this->disputes->evidenceUrl($message)]);
         } catch (Exception $e) {
-            return response()->json(['message' => $e->getMessage()], 404);
+            return response()->json(['message' => SafeError::message($e)], 404);
         }
     }
 

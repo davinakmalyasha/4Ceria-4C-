@@ -73,7 +73,7 @@ export default function WarrantyDashboard({ project, currentUser, isOwner, isCon
         <div className="space-y-6">
             {/* Header / Stats */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-emerald-50 border border-emerald-100 p-6 rounded-[2rem] flex items-center gap-4">
+                <div className="bg-emerald-50 border border-emerald-100 p-6 rounded-4xl flex items-center gap-4">
                     <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-emerald-600 shadow-sm">
                         <Shield size={24} />
                     </div>
@@ -82,7 +82,7 @@ export default function WarrantyDashboard({ project, currentUser, isOwner, isCon
                         <p className="text-sm font-black text-emerald-600">Active (180 Days)</p>
                     </div>
                 </div>
-                <div className="bg-slate-900 p-6 rounded-[2rem] flex items-center gap-4 text-white">
+                <div className="bg-slate-900 p-6 rounded-4xl flex items-center gap-4 text-white">
                     <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center">
                         <Clock size={24} />
                     </div>
@@ -91,7 +91,7 @@ export default function WarrantyDashboard({ project, currentUser, isOwner, isCon
                         <p className="text-sm font-black">Rp {project.retention_balance?.toLocaleString() || '0'}</p>
                     </div>
                 </div>
-                <div className="bg-amber-50 border border-amber-100 p-6 rounded-[2rem] flex items-center gap-4">
+                <div className="bg-amber-50 border border-amber-100 p-6 rounded-4xl flex items-center gap-4">
                     <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-amber-600 shadow-sm">
                         <AlertCircle size={24} />
                     </div>

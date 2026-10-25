@@ -88,7 +88,7 @@ function PMStickyNoteWrapper({
                                     className="p-1 hover:bg-yellow-100 rounded text-red-600 transition-colors"
                                     title="Delete note"
                                 >
-                                    <X size={12} className="stroke-[3]" />
+                                    <X size={12} className="stroke-3" />
                                 </button>
                             )}
                             {isPM && !isReadOnly && (

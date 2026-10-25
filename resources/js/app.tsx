@@ -1,8 +1,19 @@
-// PERF: resources/css/app.css is NOT imported here. It is a dedicated Vite
-// input (vite.config.js) and is already loaded by the @vite() call in
-// resources/views/app.blade.php, which stays the single authoritative link.
-// Importing it here too made Rollup emit a second, near-identical CSS bundle
-// (~205 kB duplicated on every page load).
+// CSS ORDER IS LOAD-BEARING.
+//
+//   1. `app.css` carries the Tailwind directives and MUST be imported first.
+//   2. `index.css` carries the project theme and MUST come after Tailwind,
+//      because `.custom-navbar-container { z-index: 1000 }` in it has to beat
+//      the `z-100` utility on `Navbar.tsx:53`. Equal specificity → the later
+//      stylesheet wins. Reversing the two silently drops the navbar one layer
+//      behind the page content.
+//
+// `app.css` used to be a *separate Vite input* instead of an import. That is
+// what broke the standalone build: Vite emits no `<link>` for a CSS-only
+// entry, so `dist/index.html` shipped without Tailwind at all — 15 kB of
+// custom CSS and zero utility classes. Importing it here puts it in the JS
+// entry's module graph, which is the only shape both build modes agree on.
+// It is imported exactly once, so there is still exactly one CSS bundle.
+import '../css/app.css';
 import '../css/index.css';
 import './bootstrap';
 import React from 'react';

@@ -83,7 +83,7 @@ export default function ImportExternalVendorModal({
     };
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
+        <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
             <div className="bg-white rounded-[2.5rem] w-full max-w-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
                 {/* Header */}
                 <div className="p-8 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
@@ -153,7 +153,7 @@ export default function ImportExternalVendorModal({
                                     ))}
                                 </div>
                             ) : (
-                                <div className="p-8 text-center bg-slate-50 rounded-[2rem] border-2 border-dashed border-slate-200">
+                                <div className="p-8 text-center bg-slate-50 rounded-4xl border-2 border-dashed border-slate-200">
                                     <Users className="mx-auto text-slate-300 mb-3" size={32} />
                                     <p className="text-xs font-bold text-slate-500 mb-4">No team members found in your roster.</p>
                                     <div className="flex flex-col gap-2">

@@ -108,7 +108,7 @@ export default function ProfileCompletenessCard({ user, setActiveTab }: Props) {
     const IconComponent = config.icon;
 
     return (
-        <div className={`bg-white border ${config.bg} rounded-[2rem] p-7 text-gray-900 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative overflow-hidden`}>
+        <div className={`bg-white border ${config.bg} rounded-4xl p-7 text-gray-900 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative overflow-hidden`}>
             <div className="flex-1 space-y-4 relative z-10 w-full">
                 <div className="flex items-center gap-3">
                     <div className={`px-3 py-1.5 rounded-xl ${config.badgeBg} flex items-center gap-2 font-bold text-[10px] uppercase tracking-wider`}>

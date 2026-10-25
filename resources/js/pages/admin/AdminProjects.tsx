@@ -23,8 +23,13 @@ interface Project {
     status: string;
     budget: number;
     user: { name: string };
-    selected_arsitek?: { nama: string };
-    selected_kontraktor?: { nama_perusahaan: string };
+    // The relations `ProjectResource` emits for the same data. The admin
+    // endpoint used to send `selected_arsitek` / `selected_kontraktor`, which
+    // came from a relation that did not exist (the endpoint returned 500) and
+    // one that joined `users.id` to an `arsiteks.id` (it could never resolve).
+    // One name per concept: the same keys as `GET /api/projects/{id}`.
+    arsitek?: { nama: string };
+    kontraktor?: { nama_perusahaan: string };
     created_at: string;
 }
 
@@ -197,7 +202,7 @@ const AdminProjects: React.FC = () => {
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 font-semibold text-neutral-500 italic">
-                                            {project.selected_arsitek?.nama || project.selected_kontraktor?.nama_perusahaan || 'No Specialist Hired'}
+                                            {project.arsitek?.nama || project.kontraktor?.nama_perusahaan || 'No Specialist Hired'}
                                         </td>
                                         <td className="px-6 py-4">
                                             <p className="font-extrabold text-neutral-900 flex items-center">

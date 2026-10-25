@@ -569,7 +569,7 @@ const AdminVerification: React.FC = () => {
 
                 {/* Rejection Modal */}
                 {rejectionModal && (
-                    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+                    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-100 flex items-center justify-center p-4">
                         <div className="bg-white rounded-3xl w-full max-w-md p-8 shadow-2xl animate-in fade-in zoom-in duration-200">
                             <h3 className="text-lg font-black text-gray-900 mb-2 flex items-center gap-2">
                                 <AlertCircle className="text-red-500" />
@@ -605,7 +605,7 @@ const AdminVerification: React.FC = () => {
 
                 {/* Approval Confirmation Modal */}
                 {approvalConfirmation && (
-                    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+                    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-100 flex items-center justify-center p-4">
                         <div className="bg-white rounded-3xl w-full max-w-md p-8 shadow-2xl animate-in fade-in zoom-in duration-200">
                             <h3 className="text-lg font-black text-gray-900 mb-2 flex items-center gap-2">
                                 <Check className="text-emerald-500" />
@@ -686,7 +686,7 @@ const AdminVerification: React.FC = () => {
 
                 {/* Document Details Modal */}
                 {selectedProForDocs && (
-                    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[90] flex items-center justify-center p-4">
+                    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-90 flex items-center justify-center p-4">
                         <div className="bg-white rounded-3xl w-full max-w-3xl p-8 shadow-2xl animate-in fade-in zoom-in duration-200 max-h-[90vh] overflow-y-auto">
                             <div className="flex justify-between items-start border-b border-gray-100 pb-4 mb-6">
                                 <div>

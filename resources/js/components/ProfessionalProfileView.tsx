@@ -148,7 +148,7 @@ export default function ProfessionalProfileView({ type, data, projects = [], onC
     return (
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} className="bg-white rounded-3xl overflow-hidden relative border border-gray-100">
             {/* Back Button */}
-            <div className="absolute top-6 left-8 z-[70] flex items-center gap-3">
+            <div className="absolute top-6 left-8 z-70 flex items-center gap-3">
                 <button 
                     onClick={onClose}
                     className="group flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-md border border-white/20 rounded-xl text-white transition-all shadow-xl hover:shadow-white/10 active:scale-95"
@@ -160,7 +160,7 @@ export default function ProfessionalProfileView({ type, data, projects = [], onC
             
             {/* Header / Cover Area */}
             <div className="h-44 bg-blue-900 relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-900 via-black to-blue-900 opacity-90" />
+                <div className="absolute inset-0 bg-linear-to-br from-blue-900 via-black to-blue-900 opacity-90" />
                 <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]" />
                 <div className="absolute -bottom-16 -right-16 w-48 h-48 bg-blue-600/10 blur-[80px] rounded-full" />
             </div>
@@ -290,7 +290,7 @@ export default function ProfessionalProfileView({ type, data, projects = [], onC
                                         const initials = tm.name?.split(' ').filter(Boolean).map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) || '??';
                                         return (
                                             <div key={tm.id} className="flex items-start gap-4 p-4 bg-gray-50 rounded-2xl border border-gray-100 hover:border-blue-200 transition-all">
-                                                <div className="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 bg-blue-50 flex items-center justify-center shadow-sm">
+                                                <div className="w-14 h-14 rounded-xl overflow-hidden shrink-0 bg-blue-50 flex items-center justify-center shadow-sm">
                                                     {tm.photo_url ? (
                                                         <img src={tm.photo_url} alt={tm.name} className="w-full h-full object-cover" />
                                                     ) : (
@@ -319,7 +319,7 @@ export default function ProfessionalProfileView({ type, data, projects = [], onC
 
                     <div className="space-y-6 md:sticky md:top-8 md:h-fit pb-10">
                         {/* Contact Card */}
-                        <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-3xl p-8 text-white shadow-2xl relative overflow-hidden border border-gray-700">
+                        <div className="bg-linear-to-br from-gray-900 to-gray-800 rounded-3xl p-8 text-white shadow-2xl relative overflow-hidden border border-gray-700">
                             <div className="absolute -right-12 -top-12 w-40 h-40 bg-blue-600 rounded-full blur-[60px] opacity-40"></div>
                             <div className="relative z-10">
                                 <h3 className="text-2xl font-black mb-3">Interested?</h3>
@@ -366,7 +366,7 @@ export default function ProfessionalProfileView({ type, data, projects = [], onC
                                         <div className="flex flex-col sm:flex-row gap-4 mt-8">
                             <button 
                                 onClick={() => onOpenChat?.(data.user)}
-                                className="flex-1 flex items-center justify-center gap-3 px-8 py-4 bg-zinc-900 text-white rounded-[1.5rem] text-[10px] font-black uppercase tracking-[0.2em] hover:bg-zinc-800 transition-all shadow-xl shadow-zinc-900/10"
+                                className="flex-1 flex items-center justify-center gap-3 px-8 py-4 bg-zinc-900 text-white rounded-3xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-zinc-800 transition-all shadow-xl shadow-zinc-900/10"
                             >
                                 <MessageSquare size={18} />
                                 Start Conversation
@@ -375,7 +375,7 @@ export default function ProfessionalProfileView({ type, data, projects = [], onC
                                 href={`https://wa.me/${String(phoneNumber || '08123456789').replace(/[^0-9]/g, '')}?text=Hi%20${data.nama || data.user?.name},%20I'm%20interested%20in%20discussing%20a%20project.`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="flex-1 flex items-center justify-center gap-3 px-8 py-4 bg-[#25D366] text-white rounded-[1.5rem] text-[10px] font-black uppercase tracking-[0.2em] hover:bg-[#128C7E] transition-all shadow-xl shadow-green-600/10"
+                                className="flex-1 flex items-center justify-center gap-3 px-8 py-4 bg-[#25D366] text-white rounded-3xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-[#128C7E] transition-all shadow-xl shadow-green-600/10"
                             >
                                 <Smartphone size={18} />
                                 WhatsApp
@@ -434,7 +434,7 @@ export default function ProfessionalProfileView({ type, data, projects = [], onC
             {/* Project Picker Modal */}
             <AnimatePresence>
                 {showProjectPicker && (
-                    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                    <div className="fixed inset-0 z-120 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
                         <motion.div 
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
@@ -491,7 +491,7 @@ export default function ProfessionalProfileView({ type, data, projects = [], onC
             </AnimatePresence>
 
             {showSquadProfile && (
-                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md overflow-y-auto">
+                <div className="fixed inset-0 z-110 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md overflow-y-auto">
                     <div className="w-full max-w-5xl my-8">
                         <FirmSquadProfile 
                             ownerId={data.user_id || data.user?.id} 

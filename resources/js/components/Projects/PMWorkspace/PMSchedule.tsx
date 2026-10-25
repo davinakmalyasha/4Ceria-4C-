@@ -61,7 +61,7 @@ export default function PMSchedule({ project, user, onRefresh, onNavigateToRepor
         logged_at: new Date().toISOString().split('T')[0]
     });
 
-    const isPM = Number(project.pm_id) === Number(user?.id);
+    const isPM = Number(project.pm_id) === Number(user?.project_manager?.id);
 
     const fetchTimeline = async () => {
         try {
@@ -377,7 +377,7 @@ export default function PMSchedule({ project, user, onRefresh, onNavigateToRepor
                                     <div key={phase.id} className="relative pl-12 pb-12 last:pb-0">
                                         {/* Connector */}
                                         {i !== schedules.length - 1 && (
-                                            <div className={`absolute left-[1.125rem] top-9 bottom-0 w-0.5 ${isCompleted ? 'bg-emerald-500' : 'bg-gray-100'}`} />
+                                            <div className={`absolute left-4.5 top-9 bottom-0 w-0.5 ${isCompleted ? 'bg-emerald-500' : 'bg-gray-100'}`} />
                                         )}
 
                                         {/* Indicator */}
@@ -391,7 +391,7 @@ export default function PMSchedule({ project, user, onRefresh, onNavigateToRepor
                                             {isCompleted ? <CheckCircle2 size={20} /> : <span className="text-sm font-black">{i + 1}</span>}
                                         </div>
 
-                                        <div className="group bg-gray-50/50 hover:bg-white hover:shadow-xl hover:shadow-gray-100 border border-transparent hover:border-gray-100 p-6 rounded-[2rem] transition-all flex flex-col md:flex-row md:items-center justify-between gap-6">
+                                        <div className="group bg-gray-50/50 hover:bg-white hover:shadow-xl hover:shadow-gray-100 border border-transparent hover:border-gray-100 p-6 rounded-4xl transition-all flex flex-col md:flex-row md:items-center justify-between gap-6">
                                             <div className="space-y-2">
                                                 <div className="flex items-center gap-3">
                                                     <h4 className={`text-base font-black uppercase tracking-tight ${isCompleted ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
@@ -594,7 +594,7 @@ export default function PMSchedule({ project, user, onRefresh, onNavigateToRepor
             {/* Phase Manager Modal */}
             <AnimatePresence>
                 {isManaging && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+                    <div className="fixed inset-0 z-100 flex items-center justify-center p-6">
                         <motion.div
                             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                             onClick={resetForm}
@@ -699,7 +699,7 @@ export default function PMSchedule({ project, user, onRefresh, onNavigateToRepor
             {/* Delay Logger Modal */}
             <AnimatePresence>
                 {isLoggingDelay && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+                    <div className="fixed inset-0 z-100 flex items-center justify-center p-6">
                         <motion.div
                             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                             onClick={() => setIsLoggingDelay(false)}

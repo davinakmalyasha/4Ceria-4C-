@@ -56,8 +56,12 @@ export default function RequirementCard({
             className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl hover:scale-[1.01] transition-all group relative overflow-hidden flex flex-col h-full cursor-grab active:cursor-grabbing"
             draggable={true}
             onDragStart={(e) => {
-                e.dataTransfer.setData('requirementId', req.id.toString());
-                e.dataTransfer.effectAllowed = 'move';
+                // framer-motion types this as its own union (mouse/pointer/
+                // touch), which has no `dataTransfer`; the underlying event IS a
+                // native drag event because `draggable` is set.
+                const drag = e as unknown as React.DragEvent<HTMLDivElement>;
+                drag.dataTransfer.setData('requirementId', req.id.toString());
+                drag.dataTransfer.effectAllowed = 'move';
             }}
         >
             <div className={`absolute top-0 right-0 w-32 h-32 blur-[80px] opacity-10 rounded-full translate-x-12 -translate-y-12 ${isShortage ? 'bg-red-500' : 'bg-slate-500'}`} />
@@ -159,7 +163,7 @@ export default function RequirementCard({
                             </span>
                         </div>
                         <div className="h-2.5 bg-slate-50 rounded-full overflow-hidden border border-slate-100 p-0.5">
-                            <div style={{ width: `${progOnSite}%` }} className="h-full bg-gradient-to-r from-slate-500 to-slate-500 rounded-full shadow-sm transition-all duration-500" />
+                            <div style={{ width: `${progOnSite}%` }} className="h-full bg-linear-to-r from-slate-500 to-slate-500 rounded-full shadow-sm transition-all duration-500" />
                         </div>
                     </div>
 
@@ -171,7 +175,7 @@ export default function RequirementCard({
                             </span>
                         </div>
                         <div className="h-2.5 bg-slate-50 rounded-full overflow-hidden border border-slate-100 p-0.5">
-                            <div style={{ width: `${progUsed}%` }} className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full shadow-sm transition-all duration-500" />
+                            <div style={{ width: `${progUsed}%` }} className="h-full bg-linear-to-r from-emerald-500 to-teal-500 rounded-full shadow-sm transition-all duration-500" />
                         </div>
                     </div>
                 </div>
@@ -238,7 +242,7 @@ export default function RequirementCard({
                                         return (
                                             <div key={log.id} className="relative group/log">
                                                 {/* Dot indicator */}
-                                                <div className={`absolute -left-[13px] top-1 w-2.5 h-2.5 rounded-full border-2 border-white ${isRestock ? 'bg-slate-500 shadow-slate-100 shadow' : 'bg-emerald-500 shadow-emerald-100 shadow'}`} />
+                                                <div className={`absolute left-[-13px] top-1 w-2.5 h-2.5 rounded-full border-2 border-white ${isRestock ? 'bg-slate-500 shadow-slate-100 shadow' : 'bg-emerald-500 shadow-emerald-100 shadow'}`} />
                                                 
                                                 <div className="flex items-start justify-between gap-4">
                                                     <div className="flex-1">
@@ -274,15 +278,15 @@ export default function RequirementCard({
             {/* Image Viewer Modal */}
             <AnimatePresence>
                 {isImageModalOpen && (req.image_url || req.image_path) && (
-                    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-4" onClick={() => setIsImageModalOpen(false)}>
+                    <div className="fixed inset-0 z-99999 flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-4" onClick={() => setIsImageModalOpen(false)}>
                         <motion.div 
                             initial={{ opacity: 0, scale: 0.95 }} 
                             animate={{ opacity: 1, scale: 1 }} 
                             exit={{ opacity: 0, scale: 0.95 }}
-                            className="bg-white rounded-[2rem] p-2 max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl relative"
+                            className="bg-white rounded-4xl p-2 max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl relative"
                             onClick={(e) => e.stopPropagation()}
                         >
-                            <img src={req.image_url || `/storage/${req.image_path}`} alt={req.name} className="w-full h-auto max-h-[80vh] object-contain rounded-[1.5rem]" />
+                            <img src={req.image_url || `/storage/${req.image_path}`} alt={req.name} className="w-full h-auto max-h-[80vh] object-contain rounded-3xl" />
                             <button onClick={() => setIsImageModalOpen(false)} className="absolute top-4 right-4 bg-black/50 hover:bg-black text-white p-3 rounded-full backdrop-blur-md transition-all">
                                 <Minus size={20} className="rotate-45" /> {/* Use minus rotated 45 as close icon if X not available */}
                             </button>

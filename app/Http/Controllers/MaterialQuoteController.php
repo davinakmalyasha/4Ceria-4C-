@@ -10,6 +10,8 @@ use App\Support\Money;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use App\Support\SafeError;
+use App\Support\Hire;
 
 class MaterialQuoteController extends Controller
 {
@@ -251,7 +253,7 @@ public function requestPayment(Request $request, MaterialQuote $quote)
         // Only the buyer, or the PM acting for the project, may attach a receipt.
         $isPm = $user->role_type === 'project_manager'
             && $quote->project
-            && (int) $quote->project->pm_id === (int) $user->id;
+            && (int) Hire::isAssignedPm($quote->project, $user);
 
         if ($quote->user_id !== $user->id && !$isPm) {
             return response()->json(['message' => 'Only the buyer can upload a payment proof.'], 403);
@@ -279,7 +281,7 @@ public function requestPayment(Request $request, MaterialQuote $quote)
         // the same change applied to orders.
         $path = $validated['payment_proof']->store(
             'payment_proofs',
-            config('filesystems.vault_disk', 'railway')
+            \App\Support\Vault::disk()
         );
 
         $quote->update(['payment_proof_path' => $path]);
@@ -401,10 +403,10 @@ public function requestPayment(Request $request, MaterialQuote $quote)
         } catch (\Exception $e) {
             Log::error('Material quote payment confirmation failed', [
                 'quote_id' => $quote->id,
-                'error' => $e->getMessage(),
+                'error' => SafeError::message($e),
             ]);
 
-            return response()->json(['message' => $e->getMessage()], 422);
+            return response()->json(['message' => SafeError::message($e)], 422);
         }
 
         return response()->json([
@@ -426,6 +428,45 @@ public function requestPayment(Request $request, MaterialQuote $quote)
             'total_weight' => 'nullable|string|max:100',
             'internal_notes' => 'nullable|string',
         ]);
+
+        // THE COURIER'S FEE IS NOT THE SUPPLIER'S TO NAME.
+        //
+        // This path forces `delivery_method = 'Hire Platform Courier'` — the
+        // platform's own courier — and then took the supplier's figure for the
+        // courier's fee straight into `delivery_jobs.agreed_fee`. The courier
+        // is paid that figure, so a supplier could name any number at all.
+        //
+        // The sibling path (`requestPayment()`) already had the rule: the
+        // platform owns a tariff, a supplier may DISCOUNT below it but never
+        // exceed it, and where the platform cannot price the delivery the
+        // freight line may not exceed the goods value. That rule is applied
+        // here too, against the SAME `platformShippingTariff()` — one
+        // calculation, two callers, so the two paths cannot diverge again.
+        $requested = Money::fromColumn($validated['shipping_cost']);
+        $tariff = $this->platformShippingTariff($quote, $user, 'Hire Platform Courier');
+
+        if ($tariff !== null && $requested->isGreaterThan($tariff)) {
+            return response()->json([
+                'message' => 'Shipping cost exceeds the platform courier tariff. '
+                    .'The maximum chargeable is Rp '.number_format($tariff->toFloat(), 0, ',', '.')
+                    .'. Lower your figure or arrange delivery outside the platform.',
+            ], 422);
+        }
+
+        if ($tariff === null) {
+            // The platform cannot price this delivery — the coordinates are
+            // missing. The backstop is the goods value: a freight line above
+            // the goods total needs a separate agreement with the buyer.
+            $goodsValue = Money::fromColumn($quote->total_amount);
+
+            if ($goodsValue->isPositive() && $requested->isGreaterThan($goodsValue)) {
+                return response()->json([
+                    'message' => 'Shipping cost exceeds the value of the goods. '
+                        .'A freight charge above the goods total requires a separate '
+                        .'agreement with the buyer.',
+                ], 422);
+            }
+        }
 
         \DB::beginTransaction();
         try {

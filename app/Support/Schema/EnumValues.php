@@ -69,6 +69,32 @@ final class EnumValues
      * A no-op when every value is already present, so it is safe on a database
      * that has been ALTERed many times and safe to re-run.
      *
+     * THE COLUMN'S OTHER PROPERTIES ARE PRESERVED
+     * -------------------------------------------
+     * `MODIFY COLUMN` restates the ENTIRE column definition, so anything the
+     * new statement does not mention is dropped. The first version of this
+     * method restated only the value list:
+     *
+     *     ALTER TABLE `t` MODIFY COLUMN `c` ENUM('a','b')
+     *
+     * which silently changed THREE things the caller never asked for:
+     *
+     *   - the DEFAULT became NULL. The base migration declared
+     *     `->default('pending_approval')`, and after the first call to this
+     *     method the column had no default at all — so an INSERT that omitted
+     *     the column stored NULL. Every application insert happened to set the
+     *     column explicitly, so nothing broke loudly, and the loss was
+     *     invisible: the reproducible schema and the live schema agreed with
+     *     each other and disagreed with the BASE MIGRATION. The PostgreSQL
+     *     target declares `DEFAULT 'pending_approval'`, so the two engines
+     *     ended up with different schemas for the same column.
+     *   - the column became NULLABLE, because `MODIFY COLUMN` without
+     *     `NOT NULL` drops the attribute.
+     *   - the column's COMMENT was dropped.
+     *
+     * So the definition is now rebuilt from the column's CURRENT properties.
+     * The value list is the only thing this method is allowed to change.
+     *
      * @param  list<string>  $values
      * @return list<string>  The value list that is now in force.
      */
@@ -90,14 +116,122 @@ final class EnumValues
         // removes — so no row can be invalidated by this statement.
         $next = array_values(array_unique(array_merge($current, $missing)));
 
-        $definition = implode(',', array_map(
-            static fn (string $value) => "'" . str_replace("'", "''", $value) . "'",
-            $next
-        ));
-
-        DB::statement("ALTER TABLE `{$table}` MODIFY COLUMN `{$column}` ENUM({$definition})");
+        DB::statement(self::modifyStatement($table, $column, self::definition($table, $column, $next)));
 
         return $next;
+    }
+
+    /**
+     * The column definition an `addValues()` call would install.
+     *
+     * PUBLIC so that it can be tested WITHOUT running DDL. A test that
+     * ALTERs a table cannot be rolled back — MySQL commits implicitly on
+     * `ALTER TABLE` — so the behaviour of this method is asserted against the
+     * generated definition instead, which is the thing that actually decides
+     * whether a default survives.
+     *
+     * @param  list<string>  $values  The full value list, in order.
+     * @return string  The definition, or '' when the column is not an ENUM.
+     */
+    public static function definition(string $table, string $column, array $values): string
+    {
+        if ($values === []) {
+            return '';
+        }
+
+        $properties = self::columnProperties($table, $column);
+
+        $definition = implode(',', array_map(
+            static fn (string $value): string => "'" . str_replace("'", "''", $value) . "'",
+            $values
+        ));
+
+        $definition = 'ENUM('.$definition.')';
+
+        // The nullability. `MODIFY COLUMN` without it drops `NOT NULL`.
+        $definition .= $properties['nullable'] ? ' NULL' : ' NOT NULL';
+
+        // The default, if the column had one. Omitting the clause removes it.
+        if ($properties['default'] !== null) {
+            $definition .= ' DEFAULT '.self::defaultLiteral($properties['default']);
+        }
+
+        // The comment, if the column had one. Omitting the clause removes it.
+        if ($properties['comment'] !== null && $properties['comment'] !== '') {
+            $definition .= ' COMMENT '.self::quoteLiteral($properties['comment']);
+        }
+
+        return $definition;
+    }
+
+    /**
+     * Build the `MODIFY COLUMN` statement, restating every property of the
+     * column except its value list.
+     *
+     * @param  string  $definition  The full new column definition.
+     */
+    private static function modifyStatement(string $table, string $column, string $definition): string
+    {
+        return "ALTER TABLE `{$table}` MODIFY COLUMN `{$column}` {$definition}";
+    }
+
+    /**
+     * The column's current nullability, default and comment.
+     *
+     * @return array{nullable: bool, default: string|null, comment: string|null}
+     */
+    private static function columnProperties(string $table, string $column): array
+    {
+        $row = DB::selectOne(
+            'SELECT IS_NULLABLE AS nullable,
+                    COLUMN_DEFAULT AS `default`,
+                    COLUMN_COMMENT AS `comment`
+             FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = ?',
+            [DB::getDatabaseName(), $table, $column]
+        );
+
+        if (! $row) {
+            return ['nullable' => true, 'default' => null, 'comment' => null];
+        }
+
+        return [
+            'nullable' => strtoupper((string) $row->nullable) === 'YES',
+            // MySQL reports a NULL default as a NULL COLUMN_DEFAULT. A literal
+            // default is reported WITHOUT its quotes, so it is stored here
+            // unquoted and quoted at the point of use.
+            'default' => $row->default === null ? null : (string) $row->default,
+            'comment' => $row->comment === null ? null : (string) $row->comment,
+        ];
+    }
+
+    /**
+     * Render a reported default as a SQL literal.
+     *
+     * `information_schema` reports a string default WITHOUT its quotes, so a
+     * bare word has to be quoted again on the way out. A number and a function
+     * call are already valid expressions and must be passed through.
+     */
+    private static function defaultLiteral(string $default): string
+    {
+        if (preg_match('/^-?\d+(\.\d+)?$/', $default) === 1) {
+            return $default;
+        }
+
+        // CURRENT_TIMESTAMP, NOW(), (expr) — pass through untouched.
+        if (preg_match('/^[A-Za-z_][A-Za-z0-9_]*\s*\(.*\)$/', $default) === 1) {
+            return $default;
+        }
+
+        return self::quoteLiteral($default);
+    }
+
+    /**
+     * Quote a string as a MySQL literal.
+     */
+    private static function quoteLiteral(string $value): string
+    {
+        return "'" . str_replace("'", "''", $value) . "'";
     }
 
     /**

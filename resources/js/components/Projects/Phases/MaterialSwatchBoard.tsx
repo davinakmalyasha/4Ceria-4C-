@@ -128,7 +128,7 @@ export default function MaterialSwatchBoard({ project, isPro, isOwner }: Materia
                 <motion.form 
                     initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
                     onSubmit={handleAdd} 
-                    className="bg-white border-2 border-purple-100 rounded-[2rem] p-6 space-y-4"
+                    className="bg-white border-2 border-purple-100 rounded-4xl p-6 space-y-4"
                 >
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="md:col-span-2 space-y-4">
@@ -181,14 +181,14 @@ export default function MaterialSwatchBoard({ project, isPro, isOwner }: Materia
 
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {filtered.length === 0 ? (
-                    <div className="col-span-full py-20 text-center bg-slate-50 border-2 border-dashed border-slate-100 rounded-[2rem]">
+                    <div className="col-span-full py-20 text-center bg-slate-50 border-2 border-dashed border-slate-100 rounded-4xl">
                         <Palette className="mx-auto text-slate-200 mb-2" size={40} />
                         <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">No swatches in this category</p>
                     </div>
                 ) : (
                     filtered.map(swatch => (
-                        <div key={swatch.id} className="group relative bg-white border border-slate-100 rounded-[1.5rem] overflow-hidden hover:shadow-xl transition-all hover:-translate-y-1">
-                            <div className="aspect-[4/3] bg-slate-100">
+                        <div key={swatch.id} className="group relative bg-white border border-slate-100 rounded-3xl overflow-hidden hover:shadow-xl transition-all hover:-translate-y-1">
+                            <div className="aspect-4/3 bg-slate-100">
                                 {(swatch.image_url || swatch.image_path) ? (
                                     <img src={swatch.image_url || `/storage/${swatch.image_path}`} className="w-full h-full object-cover" alt={swatch.name} />
                                 ) : (

@@ -10,6 +10,7 @@ use App\Models\Notification;
 use App\Models\ProjectBudgetTransaction;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use App\Support\SafeError;
 
 class BidProjectManagerController extends Controller
 {
@@ -141,7 +142,7 @@ class BidProjectManagerController extends Controller
             return new \App\Http\Resources\ProjectResource($project);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['message' => 'Failed to shortlist PM.', 'error' => $e->getMessage()], 500);
+            return response()->json(['message' => 'Failed to shortlist PM.', 'error' => SafeError::message($e)], 500);
         }
     }
 
@@ -247,11 +248,11 @@ class BidProjectManagerController extends Controller
             \Illuminate\Support\Facades\Log::error("PM Hire Failed: " . $e->getMessage(), [
                 'project_id' => $project->id,
                 'bid_id' => $bid->id,
-                'error' => $e->getMessage()
+                'error' => SafeError::message($e)
             ]);
             return response()->json([
                 'message' => 'Failed to hire PM.',
-                'error' => $e->getMessage(),
+                'error' => SafeError::message($e),
             ], 500);
         }
     }

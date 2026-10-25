@@ -53,7 +53,7 @@ export default function SnagListManager({ project, user, onRefresh }: SnagListMa
     const [form, setForm] = useState({ title: '', description: '', location: '', severity: 'minor' as const, assigned_role: 'kontraktor' });
 
     const isOwner = user?.id === project.user_id;
-    const isPM = user?.role_type === 'project_manager' && project.pm_id === user?.id;
+    const isPM = user?.role_type === 'project_manager' && project.pm_id === user?.project_manager?.id;
     const isContractor = user?.role_type === 'kontraktor' && project.selected_kontraktor_id === user?.kontraktor?.id;
 
     const fetchItems = useCallback(async () => {
@@ -181,7 +181,7 @@ export default function SnagListManager({ project, user, onRefresh }: SnagListMa
                                             </span>
                                         )}
                                     </div>
-                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex-shrink-0">{item.status.replace('_', ' ')}</span>
+                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider shrink-0">{item.status.replace('_', ' ')}</span>
                                 </div>
                                 {item.location && <p className="text-[10px] text-gray-500 font-medium mt-1 ml-6">📍 {item.location}</p>}
                                 {item.description && <p className="text-xs text-gray-600 mt-2 ml-6">{item.description}</p>}

@@ -15,7 +15,7 @@ const ImageUploadSection = ({ title, images, onUpload, onRemove, themeColor = 'a
         </div>
         <div className="flex flex-wrap gap-4">
             {images.map((img: any, idx: number) => (
-                <div key={idx} className="relative w-24 h-24 rounded-[1.5rem] overflow-hidden border border-gray-100 group shadow-md animate-in fade-in zoom-in duration-300">
+                <div key={idx} className="relative w-24 h-24 rounded-3xl overflow-hidden border border-gray-100 group shadow-md animate-in fade-in zoom-in duration-300">
                     <img src={URL.createObjectURL(img)} className="w-full h-full object-cover" />
                     <button 
                         onClick={() => onRemove(idx)}
@@ -27,7 +27,7 @@ const ImageUploadSection = ({ title, images, onUpload, onRemove, themeColor = 'a
                 </div>
             ))}
             {images.length < 3 && (
-                <label className={`w-24 h-24 rounded-[1.5rem] border-2 border-dashed border-gray-200 flex flex-col items-center justify-center text-gray-400 hover:border-${themeColor}-300 hover:bg-${themeColor}-50/30 transition-all cursor-pointer group`}>
+                <label className={`w-24 h-24 rounded-3xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center text-gray-400 hover:border-${themeColor}-300 hover:bg-${themeColor}-50/30 transition-all cursor-pointer group`}>
                     <UploadIcon size={20} className="mb-1 group-hover:-translate-y-1 transition-transform" />
                     <span className="text-[8px] font-black uppercase tracking-widest">Tambah</span>
                     <input type="file" className="hidden" accept="image/*" multiple onChange={(e) => onUpload(e.target.files)} />
@@ -177,12 +177,12 @@ export const OrderReviewForm: React.FC<Props> = ({ order, onSuccess }) => {
                     </div>
 
                     <div className="space-y-4">
-                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.1em] ml-4 flex items-center gap-2">
+                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-4 flex items-center gap-2">
                             <MessageSquare size={12} /> Detail Ulasan Toko
                         </label>
                         <textarea 
                             placeholder="Ceritakan detail produk, kecepatan respon toko, atau packing barang..."
-                            className="w-full p-6 bg-gray-50 border-0 rounded-[2rem] text-sm font-bold text-gray-900 placeholder:text-gray-300 outline-none focus:ring-4 focus:ring-amber-50 transition-all min-h-[140px] shadow-inner"
+                            className="w-full p-6 bg-gray-50 border-0 rounded-4xl text-sm font-bold text-gray-900 placeholder:text-gray-300 outline-none focus:ring-4 focus:ring-amber-50 transition-all min-h-[140px] shadow-inner"
                             value={comment}
                             onChange={(e) => setComment(e.target.value)}
                         />
@@ -227,12 +227,12 @@ export const OrderReviewForm: React.FC<Props> = ({ order, onSuccess }) => {
                         </div>
 
                         <div className="space-y-4">
-                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.1em] ml-4 flex items-center gap-2">
+                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-4 flex items-center gap-2">
                                 <MessageSquare size={12} /> Detail Ulasan Pengiriman
                             </label>
                             <textarea 
                                 placeholder="Bagaimana kondisi paket saat diterima? Apakah kurir ramah?"
-                                className="w-full p-6 bg-gray-50 border-0 rounded-[2rem] text-sm font-bold text-gray-900 placeholder:text-gray-300 outline-none focus:ring-4 focus:ring-indigo-50 transition-all min-h-[140px] shadow-inner"
+                                className="w-full p-6 bg-gray-50 border-0 rounded-4xl text-sm font-bold text-gray-900 placeholder:text-gray-300 outline-none focus:ring-4 focus:ring-indigo-50 transition-all min-h-[140px] shadow-inner"
                                 value={deliveryComment}
                                 onChange={(e) => setDeliveryComment(e.target.value)}
                             />
@@ -252,7 +252,7 @@ export const OrderReviewForm: React.FC<Props> = ({ order, onSuccess }) => {
             <button 
                 onClick={handleSubmit}
                 disabled={isSubmitting}
-                className="w-full py-6 bg-gray-900 text-white rounded-[2rem] text-xs font-black uppercase tracking-[0.3em] shadow-2xl shadow-gray-300 hover:bg-black hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-4 mt-8 group"
+                className="w-full py-6 bg-gray-900 text-white rounded-4xl text-xs font-black uppercase tracking-[0.3em] shadow-2xl shadow-gray-300 hover:bg-black hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-4 mt-8 group"
             >
                 {isSubmitting ? <Loader2 className="w-6 h-6 animate-spin" /> : <Package size={20} className="group-hover:rotate-12 transition-transform" />}
                 KIRIM FEEDBACK SEKARANG

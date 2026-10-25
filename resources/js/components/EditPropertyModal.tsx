@@ -159,7 +159,7 @@ export default function EditPropertyModal({ house, onClose, onSuccess, onDelete 
     };
 
     return (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-70 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
             <style>{`
                 input[type=number]::-webkit-inner-spin-button,
                 input[type=number]::-webkit-outer-spin-button {
@@ -175,7 +175,7 @@ export default function EditPropertyModal({ house, onClose, onSuccess, onDelete 
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 className="bg-white w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
             >
-                <div className="px-8 py-6 bg-gray-50 border-b border-gray-100 flex justify-between items-center bg-gradient-to-r from-gray-900 to-gray-800 text-white">
+                <div className="px-8 py-6 bg-gray-50 border-b border-gray-100 flex justify-between items-center bg-linear-to-r from-gray-900 to-gray-800 text-white">
                     <h2 className="text-xl font-bold flex items-center gap-2">
                         <Home className="text-red-500" size={20} /> Edit Property Details
                     </h2>
@@ -438,7 +438,7 @@ export default function EditPropertyModal({ house, onClose, onSuccess, onDelete 
                                     </div>
                                 ))}
                                 {formData.rooms.length === 0 && (
-                                    <div className="py-10 text-center bg-gray-50/50 rounded-[2rem] border-2 border-dashed border-gray-100">
+                                    <div className="py-10 text-center bg-gray-50/50 rounded-4xl border-2 border-dashed border-gray-100">
                                         <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest italic">No spaces defined. Add rooms to boost listing quality.</p>
                                     </div>
                                 )}

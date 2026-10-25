@@ -31,7 +31,7 @@ export default function MaterialCard({ material, onOpenDetails }: MaterialCardPr
         >
             {/* Image Section */}
             <div 
-                className="aspect-[4/3] relative overflow-hidden bg-gray-50 cursor-pointer"
+                className="aspect-4/3 relative overflow-hidden bg-gray-50 cursor-pointer"
                 onClick={() => onOpenDetails?.()}
             >
                 {material.images && material.images.length > 0 ? (
@@ -128,7 +128,7 @@ export default function MaterialCard({ material, onOpenDetails }: MaterialCardPr
                             {material.supplier?.store_name?.charAt(0) || "S"}
                         </div>
                         <div className="flex flex-col">
-                            <span className="text-[10px] font-black text-gray-900 uppercase tracking-[0.05em]">{material.supplier?.store_name || "Official Store"}</span>
+                            <span className="text-[10px] font-black text-gray-900 uppercase tracking-wider">{material.supplier?.store_name || "Official Store"}</span>
                             <span className="text-[9px] font-bold text-gray-400 -mt-0.5">{material.supplier?.category || "Building Materials"}</span>
                         </div>
                     </div>

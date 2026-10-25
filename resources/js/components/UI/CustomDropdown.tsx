@@ -56,7 +56,7 @@ export default function CustomDropdown({ options, value, onChange, placeholder, 
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 10, scale: 0.95 }}
                         transition={{ duration: 0.2, ease: "easeOut" }}
-                        className="absolute z-[100] top-full left-0 mt-2 w-full bg-white border border-zinc-100 rounded-2xl shadow-2xl shadow-zinc-200/50 overflow-hidden py-2 min-w-[200px]"
+                        className="absolute z-100 top-full left-0 mt-2 w-full bg-white border border-zinc-100 rounded-2xl shadow-2xl shadow-zinc-200/50 overflow-hidden py-2 min-w-[200px]"
                     >
                         <div className="max-h-64 overflow-y-auto custom-scrollbar">
                             {options.map((option) => (

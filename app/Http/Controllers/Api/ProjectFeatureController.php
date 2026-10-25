@@ -10,6 +10,8 @@ use App\Models\ProjectProcurementRequest;
 use App\Traits\HandlesProjectAuthorization;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use App\Support\SafeError;
+use App\Support\Hire;
 
 class ProjectFeatureController extends Controller
 {
@@ -22,7 +24,7 @@ class ProjectFeatureController extends Controller
     {
         $user = Auth::user();
 
-        if ($user->role_type !== 'project_manager' || $project->pm_id !== $user->id) {
+        if ($user->role_type !== 'project_manager' || ! Hire::isAssignedPm($project, $user)) {
             return response()->json(['message' => 'Unauthorized. Only the assigned PM can verify procurement requests.'], 403);
         }
 
@@ -57,7 +59,7 @@ class ProjectFeatureController extends Controller
         try {
             app(\App\Services\DisputeService::class)->assertNoOpenDispute($project);
         } catch (\Exception $e) {
-            return response()->json(['message' => $e->getMessage()], $e->getCode() ?: 422);
+            return response()->json(['message' => SafeError::message($e)], SafeError::status($e, 422));
         }
 
         \DB::beginTransaction();
@@ -102,7 +104,7 @@ class ProjectFeatureController extends Controller
             return response()->json(['message' => 'Request forwarded to Owner for budget approval.', 'data' => $procurementRequest]);
         } catch (\Exception $e) {
             \DB::rollBack();
-            return response()->json(['message' => 'Verification failed: ' . $e->getMessage()], 500);
+            return response()->json(['message' => 'Verification failed: ' . SafeError::message($e)], 500);
         }
     }
 
@@ -113,7 +115,7 @@ class ProjectFeatureController extends Controller
     {
         $user = Auth::user();
 
-        if ($user->role_type !== 'project_manager' || $project->pm_id !== $user->id) {
+        if ($user->role_type !== 'project_manager' || ! Hire::isAssignedPm($project, $user)) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 

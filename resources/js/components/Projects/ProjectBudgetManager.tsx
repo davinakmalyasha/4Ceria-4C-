@@ -21,7 +21,7 @@ interface ProjectBudgetManagerProps {
 export default function ProjectBudgetManager({ project, user, budgetData, onRefresh }: ProjectBudgetManagerProps) {
     const { showToast } = useToast();
     const isOwner = useMemo(() => user?.id === project?.user_id, [user, project]);
-    const isPM = useMemo(() => user?.role_type === 'project_manager' && project?.pm_id === user?.id, [user, project]);
+    const isPM = useMemo(() => user?.role_type === 'project_manager' && project?.pm_id === user?.project_manager?.id, [user, project]);
     
     const dashboardData = budgetData;
     const fetchDashboard = onRefresh;
@@ -251,7 +251,7 @@ export default function ProjectBudgetManager({ project, user, budgetData, onRefr
                             initial={{ width: 0 }}
                             animate={{ width: `${Math.min(spentPercentage, 100)}%` }}
                             transition={{ duration: 1, ease: 'easeOut' }}
-                            className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full relative z-20"
+                            className="h-full bg-linear-to-r from-emerald-500 to-teal-400 rounded-full relative z-20"
                         />
                         {/* The Simulated (Sandbox) Bar */}
                         <motion.div 
@@ -266,7 +266,7 @@ export default function ProjectBudgetManager({ project, user, budgetData, onRefr
 
             {/* FUND ADJUSTMENT MODAL */}
             {isAdjusting && (
-                <div className="p-6 bg-slate-50 border border-slate-200 rounded-[2rem] shadow-sm">
+                <div className="p-6 bg-slate-50 border border-slate-200 rounded-4xl shadow-sm">
                     <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-4 flex items-center gap-2">
                         {adjustType === 'deposit' ? <TrendingUp size={18} className="text-emerald-500"/> : <TrendingDown size={18} className="text-red-500"/>} 
                         {adjustType === 'deposit' ? 'Inject Capital' : 'Withdraw / Limit Funds'}
@@ -593,7 +593,7 @@ export default function ProjectBudgetManager({ project, user, budgetData, onRefr
                                         </div>
 
                                         {negotiatingId === addendum.id && (
-                                            <div className="mt-4 p-5 bg-amber-50/50 border border-amber-100 rounded-[2rem] space-y-4 animate-in slide-in-from-top-2 duration-300">
+                                            <div className="mt-4 p-5 bg-amber-50/50 border border-amber-100 rounded-4xl space-y-4 animate-in slide-in-from-top-2 duration-300">
                                                 <div className="flex items-center gap-2 mb-2">
                                                     <div className="w-8 h-8 bg-amber-500 rounded-lg flex items-center justify-center text-white shadow-lg shadow-amber-500/20">
                                                         <Banknote size={16} />
@@ -662,7 +662,7 @@ export default function ProjectBudgetManager({ project, user, budgetData, onRefr
                                         )}
 
                                         {addendum.status === 'negotiating' && (
-                                            <div className="mt-4 p-5 bg-amber-50/30 rounded-[2rem] border-2 border-dashed border-amber-200 animate-in fade-in duration-500">
+                                            <div className="mt-4 p-5 bg-amber-50/30 rounded-4xl border-2 border-dashed border-amber-200 animate-in fade-in duration-500">
                                                 <div className="flex items-center justify-between">
                                                     <div className="flex items-center gap-3">
                                                         <div className="w-10 h-10 bg-white text-amber-500 rounded-xl flex items-center justify-center shadow-sm border border-amber-100">
@@ -689,7 +689,7 @@ export default function ProjectBudgetManager({ project, user, budgetData, onRefr
                                         )}
 
                                         {addendum.status === 'accepted_by_pro' && (
-                                            <div className="mt-4 p-5 bg-emerald-50/50 rounded-[2rem] border-2 border-emerald-200 animate-in zoom-in duration-500">
+                                            <div className="mt-4 p-5 bg-emerald-50/50 rounded-4xl border-2 border-emerald-200 animate-in zoom-in duration-500">
                                                 <div className="flex items-center justify-between gap-4">
                                                     <div className="flex items-center gap-3">
                                                         <div className="w-12 h-12 bg-emerald-500 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/20">
@@ -860,7 +860,7 @@ export default function ProjectBudgetManager({ project, user, budgetData, onRefr
             {/* SPECIALIST PROFILE MODAL */}
             <AnimatePresence>
                 {selectedSpecialist && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                    <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
                         <motion.div 
                             initial={{ opacity: 0 }} 
                             animate={{ opacity: 1 }} 
@@ -874,7 +874,7 @@ export default function ProjectBudgetManager({ project, user, budgetData, onRefr
                             exit={{ scale: 0.9, opacity: 0, y: 20 }}
                             className="relative w-full max-w-lg bg-white rounded-[3rem] shadow-2xl overflow-hidden"
                         >
-                            <div className="h-32 bg-gradient-to-r from-slate-500 to-purple-600 relative">
+                            <div className="h-32 bg-linear-to-r from-slate-500 to-purple-600 relative">
                                 <button 
                                     onClick={() => setSelectedSpecialist(null)}
                                     className="absolute top-6 right-6 w-10 h-10 bg-white/20 hover:bg-white/40 text-white rounded-full flex items-center justify-center backdrop-blur-md transition-all"
@@ -888,9 +888,9 @@ export default function ProjectBudgetManager({ project, user, budgetData, onRefr
                                     <div className="relative">
                                         <div className="w-32 h-32 bg-white rounded-[2.5rem] p-2 shadow-xl">
                                             {selectedSpecialist.photo_url ? (
-                                                <img src={selectedSpecialist.photo_url} alt={selectedSpecialist.name} className="w-full h-full object-cover rounded-[2rem]" />
+                                                <img src={selectedSpecialist.photo_url} alt={selectedSpecialist.name} className="w-full h-full object-cover rounded-4xl" />
                                             ) : (
-                                                <div className="w-full h-full bg-slate-100 rounded-[2rem] flex items-center justify-center text-slate-300">
+                                                <div className="w-full h-full bg-slate-100 rounded-4xl flex items-center justify-center text-slate-300">
                                                     <Users size={48} />
                                                 </div>
                                             )}
@@ -912,7 +912,7 @@ export default function ProjectBudgetManager({ project, user, budgetData, onRefr
                                         <p className="text-sm font-bold text-slate-600 uppercase tracking-widest mt-1">{selectedSpecialist.role_title || 'Expert Engineer'}</p>
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-4 p-4 bg-slate-50 rounded-[2rem] border border-slate-100">
+                                    <div className="grid grid-cols-2 gap-4 p-4 bg-slate-50 rounded-4xl border border-slate-100">
                                         <div className="space-y-1">
                                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">
                                                 <Mail size={12} /> Email

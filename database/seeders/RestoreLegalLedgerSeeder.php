@@ -56,6 +56,18 @@ class RestoreLegalLedgerSeeder extends Seeder
         );
 
         // 3. Create active project for Legal Ledger testing
+        //
+        // `projects.pm_id` holds the PM's PROFILE id, not their user id. It
+        // held a USER id until migration 2026_10_21_000001 resolved the id
+        // space (ADR-0015); this seeder still wrote the old value, so the
+        // seeded project claimed a PM who was not the one the row pointed at,
+        // and `Hire::isAssignedPm()` — the single authority on the question —
+        // answered "no" for the very PM the fixture intended to install.
+        //
+        // `Hire::pmProfileId()` is used rather than `$pmProfile->id` directly
+        // so the two can never drift apart again.
+        $pmProfileId = \App\Support\Hire::pmProfileId($pmUser);
+
         $project = Project::updateOrCreate(
             ['title' => 'Stabilization Test Project (Legal Phase)'],
             [
@@ -66,7 +78,7 @@ class RestoreLegalLedgerSeeder extends Seeder
                 'jenis_proyek' => 'umum',
                 'status' => 'legal',
                 'selected_notaris_id' => $notaryProfile->id,
-                'pm_id' => $pmUser->id,
+                'pm_id' => $pmProfileId,
                 'target_role' => 'both',
             ]
         );

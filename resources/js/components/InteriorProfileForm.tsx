@@ -95,7 +95,7 @@ export default function InteriorProfileForm({ onCancel }: EditProfileFormProps) 
                 </div>
             </div>
 
-            <div className="bg-zinc-50 p-6 rounded-[2rem] border border-zinc-100 space-y-6">
+            <div className="bg-zinc-50 p-6 rounded-4xl border border-zinc-100 space-y-6">
                 <h3 className="font-black text-zinc-900 flex items-center gap-3 text-xs uppercase tracking-[0.2em]">
                     <Palette size={16} className="text-red-600" /> Studio Identity
                 </h3>
@@ -132,7 +132,7 @@ export default function InteriorProfileForm({ onCancel }: EditProfileFormProps) 
                 </div>
             </div>
 
-            <div className="bg-white p-6 rounded-[2rem] border border-zinc-100 space-y-6">
+            <div className="bg-white p-6 rounded-4xl border border-zinc-100 space-y-6">
                 <h3 className="font-black text-zinc-900 flex items-center gap-3 text-xs uppercase tracking-[0.2em]">
                     <UploadCloud size={16} className="text-red-600" /> Studio Portfolio & Assets
                 </h3>

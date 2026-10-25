@@ -14,7 +14,14 @@
         onload="this.media='all'" 
     />
     @viteReactRefresh
-    @vite(['resources/css/app.css', 'resources/js/app.tsx'])
+    {{-- `resources/css/app.css` is imported by `resources/js/app.tsx`, so the
+         manifest has no separate entry for it. Listing it here would throw
+         "Unable to locate file in Vite manifest" once it was removed from
+         `rollupOptions.input`. The Tailwind CSS and the project theme are
+         emitted as one stylesheet, in the order app.tsx imports them:
+         Tailwind first, `index.css` second (its `z-index: 1000` on
+         `.custom-navbar-container` has to beat the `z-100` utility). --}}
+    @vite(['resources/js/app.tsx'])
 </head>
 <body class="antialiased">
     <div id="root"></div>

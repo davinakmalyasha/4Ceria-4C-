@@ -663,7 +663,7 @@ export const ContractSignModal: React.FC<ContractSignModalProps> = ({ isOpen, on
 
     return createPortal(
         <>
-            <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/90">
+            <div className="fixed inset-0 z-150 flex items-center justify-center p-4 bg-black/90">
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl w-full max-w-2xl h-[95vh] max-h-[95vh] overflow-hidden flex flex-col shadow-2xl">
                 {/* Header */}
                 <div className="py-3 px-6 border-b border-zinc-800 flex items-center justify-between bg-zinc-900/50">
@@ -1113,12 +1113,12 @@ export const ContractSignModal: React.FC<ContractSignModalProps> = ({ isOpen, on
 
         {/* Fullscreen Document Viewer Overlay */}
         {isFullscreen && (
-            <div className="fixed inset-0 z-[99999] bg-zinc-950/95 backdrop-blur-xl flex flex-col overflow-hidden animate-in fade-in duration-200">
+            <div className="fixed inset-0 z-99999 bg-zinc-950/95 backdrop-blur-xl flex flex-col overflow-hidden animate-in fade-in duration-200">
                 {/* Floating prominent close button in the top-left background area */}
                 <button 
                     type="button"
                     onClick={() => setIsFullscreen(false)}
-                    className="fixed top-5 left-5 p-3.5 bg-zinc-900/90 hover:bg-zinc-800 text-zinc-300 hover:text-white rounded-full transition-all border border-zinc-700/60 shadow-2xl flex items-center justify-center hover:scale-110 z-[100000] backdrop-blur-md"
+                    className="fixed top-5 left-5 p-3.5 bg-zinc-900/90 hover:bg-zinc-800 text-zinc-300 hover:text-white rounded-full transition-all border border-zinc-700/60 shadow-2xl flex items-center justify-center hover:scale-110 z-100000 backdrop-blur-md"
                     title="Close Fullscreen"
                 >
                     <X size={20} className="stroke-[2.5]" />

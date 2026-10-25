@@ -74,7 +74,7 @@ export default function OwnerSpecialistAlert({ projectId, projectBudget, bids, o
     };
 
     return (
-        <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 rounded-[2.5rem] p-8 text-white shadow-2xl border border-slate-500/30 ring-4 ring-slate-500/10 relative overflow-hidden animate-in slide-in-from-top-4 duration-500">
+        <div className="bg-linear-to-br from-slate-950 via-slate-900 to-slate-950 rounded-[2.5rem] p-8 text-white shadow-2xl border border-slate-500/30 ring-4 ring-slate-500/10 relative overflow-hidden animate-in slide-in-from-top-4 duration-500">
             <div className="absolute top-0 right-0 p-6 opacity-5">
                 <ShieldCheck size={140} />
             </div>
@@ -94,7 +94,7 @@ export default function OwnerSpecialistAlert({ projectId, projectBudget, bids, o
 
                 <div className="grid grid-cols-1 gap-4">
                     {bids.map(bid => (
-                        <div key={bid.id} className="p-5 bg-white/5 border border-white/10 rounded-[1.5rem] flex flex-col md:flex-row md:items-center justify-between gap-4 group hover:bg-white/10 transition-all">
+                        <div key={bid.id} className="p-5 bg-white/5 border border-white/10 rounded-3xl flex flex-col md:flex-row md:items-center justify-between gap-4 group hover:bg-white/10 transition-all">
                             <div className="flex items-center gap-4 flex-1 min-w-0">
                                 <div className="w-12 h-12 bg-emerald-500/20 text-emerald-400 rounded-xl flex items-center justify-center shrink-0">
                                     <UserCheck size={22} />

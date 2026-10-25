@@ -167,7 +167,7 @@ class DisputeService
         $originalName = null;
 
         if ($file) {
-            $evidencePath = $file->store('disputes/'.$dispute->id, 'railway');
+            $evidencePath = $file->store('disputes/'.$dispute->id, \App\Support\Vault::disk());
             $originalName = mb_substr($file->getClientOriginalName(), 0, 255);
         }
 

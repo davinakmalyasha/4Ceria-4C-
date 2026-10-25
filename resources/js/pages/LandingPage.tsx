@@ -72,7 +72,7 @@ export default function LandingPage(): React.ReactElement {
                     {/* Logo Outer Ring */}
                     <div className="relative p-6 bg-white/5 backdrop-blur-xl border border-white/10 rounded-[2.5rem] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.5)]">
                         {/* Pulse Ring */}
-                        <div className="absolute inset-0 bg-gradient-to-tr from-red-500 to-amber-500 rounded-[2.5rem] opacity-20 blur-md animate-pulse" />
+                        <div className="absolute inset-0 bg-linear-to-tr from-red-500 to-amber-500 rounded-[2.5rem] opacity-20 blur-md animate-pulse" />
                         
                         <div className="relative w-16 h-16 flex items-center justify-center">
                             <img className="w-16 h-16 object-contain" src="/assets/Logo4C.png" alt="4C Logo" />
@@ -91,7 +91,7 @@ export default function LandingPage(): React.ReactElement {
 
                     {/* Progress Indicator */}
                     <div className="w-24 h-1 bg-white/10 rounded-full overflow-hidden mt-2 relative">
-                        <div className="absolute inset-y-0 left-0 bg-gradient-to-r from-[#FF2D20] to-red-500 rounded-full w-1/2 animate-[loading-slide_1.5s_infinite_ease-in-out]" style={{
+                        <div className="absolute inset-y-0 left-0 bg-linear-to-r from-[#FF2D20] to-red-500 rounded-full w-1/2 animate-[loading-slide_1.5s_infinite_ease-in-out]" style={{
                             animationName: 'loading-slide',
                             animationDuration: '1.5s',
                             animationIterationCount: 'infinite',
@@ -192,7 +192,7 @@ export default function LandingPage(): React.ReactElement {
 
             {/* Hero Section */}
             <section className="relative px-6 text-center overflow-hidden flex items-center justify-center min-h-[calc(100vh-3.5rem)] mt-14 py-20 bg-white">
-                <div className="absolute inset-0 bg-[radial-gradient(#fd1d1d08_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
+                <div className="absolute inset-0 bg-[radial-gradient(#fd1d1d08_1px,transparent_1px)] bg-size-[16px_16px] pointer-events-none" />
                 
                 <motion.div 
                     variants={stagger}
@@ -300,7 +300,7 @@ export default function LandingPage(): React.ReactElement {
                                 whileInView={{ opacity: 1, y: 0 }}
                                 viewport={{ once: true }}
                                 transition={{ duration: 0.5, delay: index * 0.1 }}
-                                className="group p-8 bg-white border border-neutral-100 rounded-3xl hover:border-red-200 hover:shadow-xl hover:shadow-red-500/[0.02] transition-all duration-300"
+                                className="group p-8 bg-white border border-neutral-100 rounded-3xl hover:border-red-200 hover:shadow-xl hover:shadow-red-500/2 transition-all duration-300"
                             >
                                 <div className={`w-12 h-12 ${item.bg} rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300 border border-red-100/30`}>
                                     {item.icon}
@@ -329,7 +329,7 @@ export default function LandingPage(): React.ReactElement {
                                 <source srcSet="/storage/Assets/rumah1.avif" type="image/avif" />
                                 <img 
                                     src="/storage/Assets/rumah1.png" 
-                                    className="w-full h-auto rounded-3xl shadow-lg border border-neutral-100 object-cover aspect-[4/3]" 
+                                    className="w-full h-auto rounded-3xl shadow-lg border border-neutral-100 object-cover aspect-4/3" 
                                     alt="Roster & Ahli" 
                                 />
                             </picture>
@@ -366,7 +366,7 @@ export default function LandingPage(): React.ReactElement {
                                 <source srcSet="/storage/Assets/2 (City).avif" type="image/avif" />
                                 <img 
                                     src="/storage/Assets/2 (City).jpg" 
-                                    className="w-full h-auto rounded-3xl shadow-lg border border-neutral-100 object-cover aspect-[4/3]" 
+                                    className="w-full h-auto rounded-3xl shadow-lg border border-neutral-100 object-cover aspect-4/3" 
                                     alt="Project Hub" 
                                 />
                             </picture>
@@ -402,7 +402,7 @@ export default function LandingPage(): React.ReactElement {
                                 <source srcSet="/storage/Assets/konsultan2.avif" type="image/avif" />
                                 <img 
                                     src="/storage/Assets/konsultan2.png" 
-                                    className="w-full h-auto rounded-3xl shadow-lg border border-neutral-100 object-cover aspect-[4/3]" 
+                                    className="w-full h-auto rounded-3xl shadow-lg border border-neutral-100 object-cover aspect-4/3" 
                                     alt="Marketplace Store" 
                                 />
                             </picture>
@@ -438,7 +438,7 @@ export default function LandingPage(): React.ReactElement {
                                 <source srcSet="/storage/Assets/rumah3.avif" type="image/avif" />
                                 <img 
                                     src="/storage/Assets/rumah3.png" 
-                                    className="w-full h-auto rounded-3xl shadow-lg border border-neutral-100 object-cover aspect-[4/3]" 
+                                    className="w-full h-auto rounded-3xl shadow-lg border border-neutral-100 object-cover aspect-4/3" 
                                     alt="Logistics Courier" 
                                 />
                             </picture>
@@ -555,7 +555,7 @@ export default function LandingPage(): React.ReactElement {
                 </div>
 
                 {/* Team photo section */}
-                <div className="mt-20 rounded-3xl overflow-hidden shadow-xl border border-neutral-200/50 aspect-[21/9] max-h-[500px]">
+                <div className="mt-20 rounded-3xl overflow-hidden shadow-xl border border-neutral-200/50 aspect-21/9 max-h-[500px]">
                     <picture>
                         <source srcSet="/storage/Assets/4CTeam.avif" type="image/avif" />
                         <img 

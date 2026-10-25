@@ -300,7 +300,7 @@ export default function ProjectDeliverables({ project, currentUser, isPro }: Pro
                             exit={{ opacity: 0, x: -10 }}
                             className="space-y-6"
                         >
-                            <div className="flex flex-col sm:flex-row justify-between items-center bg-white p-6 rounded-[2rem] border border-zinc-200/60 shadow-sm gap-4">
+                            <div className="flex flex-col sm:flex-row justify-between items-center bg-white p-6 rounded-4xl border border-zinc-200/60 shadow-sm gap-4">
                                 <div className="flex items-center gap-4">
                                     <div className={`w-12 h-12 rounded-[1.2rem] flex items-center justify-center ${activeCategoryData?.bg} ${activeCategoryData?.color}`}>
                                         {React.createElement(activeCategoryData?.icon || FileIcon, { size: 24 })}

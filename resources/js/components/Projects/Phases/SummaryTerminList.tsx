@@ -9,7 +9,7 @@ export default function SummaryTerminList({ termins }: SummaryTerminListProps) {
     if (!termins || termins.length === 0) return null;
 
     return (
-        <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-4xl border border-slate-100 shadow-sm overflow-hidden">
             <div className="px-6 py-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Milestones & Payments</span>
                 <span className="text-[9px] font-bold text-slate-400 uppercase">{termins.length} Total</span>

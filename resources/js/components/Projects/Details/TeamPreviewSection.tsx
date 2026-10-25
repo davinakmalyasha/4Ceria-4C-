@@ -30,7 +30,7 @@ export const TeamPreviewSection: React.FC<{ user: { id: number; role_type: strin
                 </span>
             </div>
 
-            <div className="border-2 border-dashed border-gray-200 rounded-[2rem] p-6 bg-gray-50/50">
+            <div className="border-2 border-dashed border-gray-200 rounded-4xl p-6 bg-gray-50/50">
                 {isLoading ? (
                     <div className="flex items-center justify-center py-6 gap-2 text-xs font-bold text-gray-400">
                         <div className="w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
@@ -49,14 +49,14 @@ export const TeamPreviewSection: React.FC<{ user: { id: number; role_type: strin
                             const initials = fm.member?.name?.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) || '?';
                             return (
                                 <div key={fm.id} className={`relative p-4 bg-white rounded-2xl border transition-all duration-300 flex items-center gap-3.5 shadow-sm group hover:scale-[1.02] ${isFree ? 'border-emerald-100 hover:border-emerald-300' : 'border-amber-100 hover:border-amber-300'}`}>
-                                    <div className="w-11 h-11 rounded-xl overflow-hidden flex-shrink-0 bg-slate-50 flex items-center justify-center border border-gray-100">
+                                    <div className="w-11 h-11 rounded-xl overflow-hidden shrink-0 bg-slate-50 flex items-center justify-center border border-gray-100">
                                         {fm.member?.pic ? <img src={fm.member.pic} alt={fm.member.name} className="w-full h-full object-cover" /> : <span className="text-xs font-black text-slate-500">{initials}</span>}
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <h5 className="font-black text-gray-900 text-[13px] leading-snug truncate">{fm.member?.name}</h5>
                                         <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider mt-0.5">{fm.role_in_firm.replace('_', ' ')}</p>
                                     </div>
-                                    <div className="flex-shrink-0">
+                                    <div className="shrink-0">
                                         {isFree ? (
                                             <span className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-100/50 rounded-xl text-[10px] font-black uppercase tracking-wider">
                                                 <CheckCircle2 size={12} className="text-emerald-500 shrink-0" /> Free

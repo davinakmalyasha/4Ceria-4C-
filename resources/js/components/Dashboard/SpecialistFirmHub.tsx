@@ -419,11 +419,11 @@ function SpecialistBrowseFirmsBoard({ onViewSquad }: SpecialistBrowseFirmsBoardP
                                     {firm.firm_banner_url ? (
                                         <img src={firm.firm_banner_url} alt="" className="w-full h-full object-cover" />
                                     ) : (
-                                        <div className="w-full h-full bg-gradient-to-tr from-slate-800 to-indigo-950 flex items-center justify-center">
+                                        <div className="w-full h-full bg-linear-to-tr from-slate-800 to-indigo-950 flex items-center justify-center">
                                             <Building2 className="text-white/10" size={64} />
                                         </div>
                                     )}
-                                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                                    <div className="absolute inset-0 bg-linear-to-t from-black/60 to-transparent" />
                                     <div className="absolute bottom-3 left-4 flex items-center gap-3">
                                         <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-indigo-600 font-black text-sm shadow-md overflow-hidden shrink-0">
                                             {firm.pic ? (

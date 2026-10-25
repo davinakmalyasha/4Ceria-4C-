@@ -504,7 +504,7 @@ export default function ProjectRequirements({ project, onUpdate, canMutate = fal
                             initial={{ opacity: 0, scale: 0.95 }} 
                             animate={{ opacity: 1, scale: 1 }} 
                             exit={{ opacity: 0, scale: 0.95 }}
-                            className="bg-white rounded-[2rem] shadow-2xl p-6 w-full max-w-md my-auto"
+                            className="bg-white rounded-4xl shadow-2xl p-6 w-full max-w-md my-auto"
                         >
                             <div className="mb-4">
                                 <h3 className="text-lg font-black text-slate-900 tracking-tight">Create New Folder</h3>

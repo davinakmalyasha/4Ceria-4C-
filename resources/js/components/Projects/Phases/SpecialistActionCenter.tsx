@@ -73,7 +73,7 @@ const SpecialistActionCenter: React.FC<SpecialistActionCenterProps> = ({
             <div className="p-10">
                 {status === 'pending_payment' && (
                     <div className="flex flex-col justify-center items-center gap-10 animate-in zoom-in-95 py-6">
-                        <div className="w-24 h-24 bg-zinc-800 text-amber-500 rounded-[2rem] flex items-center justify-center shadow-inner relative overflow-hidden">
+                        <div className="w-24 h-24 bg-zinc-800 text-amber-500 rounded-4xl flex items-center justify-center shadow-inner relative overflow-hidden">
                             <div className="absolute inset-0 bg-amber-500/10 animate-pulse" />
                             <CreditCard className="w-10 h-10 relative z-10" />
                         </div>
@@ -90,7 +90,7 @@ const SpecialistActionCenter: React.FC<SpecialistActionCenterProps> = ({
                                     href={generateWhatsAppLink()}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="flex items-center justify-center gap-3 bg-[#25D366] text-white rounded-[1.5rem] py-5 px-10 font-black text-xs uppercase tracking-widest hover:brightness-110 transition-all shadow-xl shadow-green-950/20"
+                                    className="flex items-center justify-center gap-3 bg-[#25D366] text-white rounded-3xl py-5 px-10 font-black text-xs uppercase tracking-widest hover:brightness-110 transition-all shadow-xl shadow-green-950/20"
                                 >
                                     <MessageCircle className="w-5 h-5" />
                                     Pay & Confirm Specialist DP
@@ -101,7 +101,7 @@ const SpecialistActionCenter: React.FC<SpecialistActionCenterProps> = ({
                                 <button
                                     onClick={() => handleAction('verify-payment', 'Payment verified! Standby for NTP.')}
                                     disabled={isLoading}
-                                    className="w-full flex items-center justify-center gap-3 bg-white text-zinc-900 rounded-[1.5rem] py-5 font-black text-xs uppercase tracking-widest hover:bg-zinc-200 transition-all shadow-xl"
+                                    className="w-full flex items-center justify-center gap-3 bg-white text-zinc-900 rounded-3xl py-5 font-black text-xs uppercase tracking-widest hover:bg-zinc-200 transition-all shadow-xl"
                                 >
                                     <Unlock className="w-5 h-5" />
                                     Confirm DP Received
@@ -113,7 +113,7 @@ const SpecialistActionCenter: React.FC<SpecialistActionCenterProps> = ({
 
                 {status === 'paid' && (
                     <div className="flex flex-col justify-center items-center gap-10 animate-in zoom-in-95 py-6">
-                        <div className="w-24 h-24 bg-zinc-800 text-amber-500 rounded-[2rem] flex items-center justify-center shadow-inner relative overflow-hidden">
+                        <div className="w-24 h-24 bg-zinc-800 text-amber-500 rounded-4xl flex items-center justify-center shadow-inner relative overflow-hidden">
                             <div className="absolute inset-0 bg-amber-500/10 animate-pulse" />
                             <Clock className="w-10 h-10 relative z-10" />
                         </div>
@@ -131,7 +131,7 @@ const SpecialistActionCenter: React.FC<SpecialistActionCenterProps> = ({
                                 <button
                                     onClick={() => handleAction('kickoff', 'Notice to Proceed issued!')}
                                     disabled={isLoading}
-                                    className="w-full flex items-center justify-center gap-3 bg-white text-zinc-900 rounded-[1.5rem] py-5 font-black text-xs uppercase tracking-widest hover:bg-zinc-200 transition-all shadow-xl"
+                                    className="w-full flex items-center justify-center gap-3 bg-white text-zinc-900 rounded-3xl py-5 font-black text-xs uppercase tracking-widest hover:bg-zinc-200 transition-all shadow-xl"
                                 >
                                     <Zap className="w-5 h-5 fill-current" />
                                     Issue Notice to Proceed
@@ -139,7 +139,7 @@ const SpecialistActionCenter: React.FC<SpecialistActionCenterProps> = ({
                             )}
 
                             {isPro && (
-                                <div className="px-8 py-5 bg-zinc-800/50 rounded-[1.5rem] border border-zinc-700/50">
+                                <div className="px-8 py-5 bg-zinc-800/50 rounded-3xl border border-zinc-700/50">
                                     <p className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Waiting for Lead Authorization</p>
                                 </div>
                             )}

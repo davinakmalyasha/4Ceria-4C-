@@ -145,7 +145,7 @@ export default function RequirementAddForm({ isLoading, onSubmit, onCancel, init
                         placeholder="e.g., Required for master bedroom walls"
                         value={formData.purpose}
                         onChange={e => setFormData({...formData, purpose: e.target.value})}
-                        className="w-full px-6 py-4 bg-white border border-slate-100 rounded-[2rem] text-sm font-bold focus:ring-4 focus:ring-red-500/5 focus:border-red-500 outline-none transition-all resize-none"
+                        className="w-full px-6 py-4 bg-white border border-slate-100 rounded-4xl text-sm font-bold focus:ring-4 focus:ring-red-500/5 focus:border-red-500 outline-none transition-all resize-none"
                     />
                 </div>
                 <div className="space-y-2">
@@ -155,7 +155,7 @@ export default function RequirementAddForm({ isLoading, onSubmit, onCancel, init
                         placeholder="Provide instructions regarding specific brands, specs, or supplier preference..."
                         value={formData.notes}
                         onChange={e => setFormData({...formData, notes: e.target.value})}
-                        className="w-full px-6 py-4 bg-white border border-slate-100 rounded-[2rem] text-sm font-bold focus:ring-4 focus:ring-red-500/5 focus:border-red-500 outline-none transition-all resize-none"
+                        className="w-full px-6 py-4 bg-white border border-slate-100 rounded-4xl text-sm font-bold focus:ring-4 focus:ring-red-500/5 focus:border-red-500 outline-none transition-all resize-none"
                     />
                 </div>
             </div>
@@ -169,7 +169,7 @@ export default function RequirementAddForm({ isLoading, onSubmit, onCancel, init
                         onChange={e => setImage(e.target.files ? e.target.files[0] : null)}
                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                     />
-                    <div className={`w-full px-6 py-4 bg-white border ${image ? 'border-green-400 bg-green-50' : 'border-slate-100'} rounded-[2rem] text-sm font-bold flex items-center gap-3 transition-all`}>
+                    <div className={`w-full px-6 py-4 bg-white border ${image ? 'border-green-400 bg-green-50' : 'border-slate-100'} rounded-4xl text-sm font-bold flex items-center gap-3 transition-all`}>
                         {image ? <Check size={18} className="text-green-500" /> : <ImageIcon size={18} className="text-slate-400" />}
                         <span className={image ? 'text-green-700' : 'text-slate-400'}>
                             {image ? image.name : 'Click to attach image...'}

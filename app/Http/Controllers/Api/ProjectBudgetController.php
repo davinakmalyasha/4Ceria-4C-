@@ -13,6 +13,7 @@ use App\Models\ProjectProcurementRequest;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use App\Support\SafeError;
 
 class ProjectBudgetController extends Controller
 {
@@ -21,7 +22,7 @@ class ProjectBudgetController extends Controller
         try {
             $userId = Auth::id();
             $isOwner = $project->user_id == $userId;
-            $isPM = $project->pm_id && Auth::user()->role_type === 'project_manager' && Auth::user()->id == $project->pm_id;
+            $isPM = $project->pm_id && Auth::user()->role_type === 'project_manager' && Hire::isAssignedPm($project, Auth::user());
 
             if (!$isOwner && !$isPM) {
                 return response()->json(['message' => 'Unauthorized'], 403);
@@ -94,7 +95,7 @@ class ProjectBudgetController extends Controller
         try {
             $userId = Auth::id();
             $isOwner = $project->user_id === $userId;
-            $isPM = $project->pm_id && Auth::user()->role_type === 'project_manager' && Auth::user()->id === $project->pm_id;
+            $isPM = $project->pm_id && Auth::user()->role_type === 'project_manager' && Hire::isAssignedPm($project, Auth::user());
 
             if (!$isOwner) {
                 return response()->json(['message' => 'Unauthorized. Only the project owner can adjust the total balance.'], 403);
@@ -145,7 +146,7 @@ class ProjectBudgetController extends Controller
         } catch (\Exception $e) {
             Log::error('Budget Transaction Error: ' . $e->getMessage(), [
                 'project_id' => $project->id,
-                'error' => $e->getMessage(),
+                'error' => SafeError::message($e),
             ]);
             // Never echo raw exception text to the client (it leaks internal
             // detail); the message is logged with the project id instead.
@@ -157,7 +158,7 @@ class ProjectBudgetController extends Controller
     {
         $userId = Auth::id();
         $isOwner = $project->user_id === $userId;
-        $isPM = $project->pm_id && Auth::user()->role_type === 'project_manager' && Auth::user()->id === $project->pm_id;
+        $isPM = $project->pm_id && Auth::user()->role_type === 'project_manager' && Hire::isAssignedPm($project, Auth::user());
 
         if (!$isOwner && !$isPM) {
             return response()->json(['message' => 'Unauthorized'], 403);
@@ -182,7 +183,7 @@ class ProjectBudgetController extends Controller
     {
         $userId = Auth::id();
         $isOwner = $project->user_id === $userId;
-        $isPM = $project->pm_id && Auth::user()->role_type === 'project_manager' && Auth::user()->id === $project->pm_id;
+        $isPM = $project->pm_id && Auth::user()->role_type === 'project_manager' && Hire::isAssignedPm($project, Auth::user());
 
         if (!$isOwner && !$isPM) {
             return response()->json(['message' => 'Unauthorized'], 403);
@@ -198,7 +199,7 @@ class ProjectBudgetController extends Controller
     {
         $userId = Auth::id();
         $isOwner = $project->user_id === $userId;
-        $isPM = $project->pm_id && Auth::user()->role_type === 'project_manager' && Auth::user()->id === $project->pm_id;
+        $isPM = $project->pm_id && Auth::user()->role_type === 'project_manager' && Hire::isAssignedPm($project, Auth::user());
 
         if (!$isOwner && !$isPM) {
             return response()->json(['message' => 'Unauthorized'], 403);
@@ -222,7 +223,7 @@ class ProjectBudgetController extends Controller
     {
         $userId = Auth::id();
         $isOwner = $project->user_id === $userId;
-        $isPM = $project->pm_id && Auth::user()->role_type === 'project_manager' && Auth::user()->id === $project->pm_id;
+        $isPM = $project->pm_id && Auth::user()->role_type === 'project_manager' && Hire::isAssignedPm($project, Auth::user());
 
         if (!$isOwner && !$isPM) {
             return response()->json(['message' => 'Unauthorized'], 403);
@@ -351,7 +352,7 @@ class ProjectBudgetController extends Controller
     public function markPaid(Request $request, Project $project, \App\Services\ProjectFinancialService $financialService)    {
         $userId = Auth::id();
         $isOwner = $project->user_id === $userId;
-        $isPM = $project->pm_id && Auth::user()->role_type === 'project_manager' && Auth::user()->id === $project->pm_id;
+        $isPM = $project->pm_id && Auth::user()->role_type === 'project_manager' && Hire::isAssignedPm($project, Auth::user());
 
         if (!$isOwner) {
             return response()->json(['message' => 'Unauthorized. Only the project owner can confirm payments.'], 403);
@@ -414,7 +415,7 @@ class ProjectBudgetController extends Controller
                 // projects.pm_id stores the PM's USER id.
                 $pmProfile = \App\Models\ProjectManager::find($bid->pm_id);
                 if ($pmProfile && !$project->pm_id) {
-                    $project->update(['pm_id' => $pmProfile->user_id]);
+                    $project->update(['pm_id' => $pmProfile->id]);
                 }
             } elseif ($request->type === 'bid_notaris') {
                 $bid = \App\Models\BidNotaris::where('project_id', $project->id)->findOrFail($request->id);
@@ -695,7 +696,7 @@ class ProjectBudgetController extends Controller
                 ]);
             }
             return response()->json([
-                'message' => $status === 422 ? $e->getMessage() : 'Failed to process payment tracking.',
+                'message' => $status === 422 ? SafeError::message($e) : 'Failed to process payment tracking.',
             ], $status);
         }
     }
@@ -862,7 +863,7 @@ class ProjectBudgetController extends Controller
                     $notificationBody = "The {$actorLabel} has approved the budget of Rp " . number_format($addendum->amount, 0, ',', '.') . " for \"{$addendum->title}\". Please proceed with the payment.";
 
                     // If PM authorized, notify Owner. If Owner authorized, notify PM.
-                    $notifyId = ($user->role_type === 'project_manager') ? $project->user_id : $project->pm_id;
+                    $notifyId = ($user->role_type === 'project_manager') ? $project->user_id : $project->projectManager?->user_id;
 
                     if ($notifyId) {
                         \App\Models\Notification::create([
@@ -919,7 +920,7 @@ class ProjectBudgetController extends Controller
                     // they are answering.
                     $addendum->update(['status' => 'negotiating']);
 
-                    $notifyId = ($project->pm_id) ? $project->pm_id : $project->user_id;
+                    $notifyId = ($project->projectManager?->user_id) ? $project->projectManager->user_id : $project->user_id;
 
                     \App\Models\Notification::create([
                         'user_id' => $notifyId,
@@ -946,7 +947,7 @@ class ProjectBudgetController extends Controller
                 $addendum->update(['status' => 'accepted_by_pro']);
 
                 \App\Models\Notification::create([
-                    'user_id' => ($project->pm_id) ? $project->pm_id : $project->user_id,
+                    'user_id' => ($project->projectManager?->user_id) ? $project->projectManager->user_id : $project->user_id,
                     'type' => 'budget_counter_accepted',
                     'title' => 'Counter-offer Accepted',
                     'body' => "The {$addendum->role_type} accepted the fee of Rp " . number_format($addendum->amount, 0, ',', '.') . " for \"{$addendum->title}\". It is ready to be authorised.",
@@ -964,7 +965,7 @@ class ProjectBudgetController extends Controller
             }
 
             // Rejected — authoriser-only, same reason as approved_unpaid.
-            $notifyId = ($user->role_type === 'project_manager') ? $project->user_id : $project->pm_id;
+            $notifyId = ($user->role_type === 'project_manager') ? $project->user_id : $project->projectManager?->user_id;
 
             if ($notifyId) {
                 \App\Models\Notification::create([

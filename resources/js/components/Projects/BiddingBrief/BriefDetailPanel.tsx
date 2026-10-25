@@ -95,7 +95,7 @@ export const BriefDetailPanel: React.FC<BriefDetailPanelProps> = ({ project, use
     return (
         <div className="space-y-6">
             {/* Project Overview Card */}
-            <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm space-y-5">
+            <div className="bg-white p-6 rounded-4xl border border-gray-100 shadow-sm space-y-5">
                 {/* Header inside Card */}
                 <div className="pb-4 border-b border-gray-100/60 space-y-3">
                     {/* Back Button Row */}
@@ -331,7 +331,7 @@ export const BriefDetailPanel: React.FC<BriefDetailPanelProps> = ({ project, use
                                 animate={{ opacity: 1, scale: 1 }}
                                 transition={{ delay: idx * 0.05 }}
                                 onClick={() => setSelectedImgUrl(img.url)}
-                                className="aspect-[4/3] rounded-2xl overflow-hidden border border-gray-100 group relative shadow-sm cursor-zoom-in"
+                                className="aspect-4/3 rounded-2xl overflow-hidden border border-gray-100 group relative shadow-sm cursor-zoom-in"
                             >
                                 <img 
                                     src={img.url} 
@@ -374,7 +374,7 @@ export const BriefDetailPanel: React.FC<BriefDetailPanelProps> = ({ project, use
             {/* Image Zoom Modal */}
             <AnimatePresence>
                 {selectedImgUrl && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden">
+                    <div className="fixed inset-0 z-100 flex items-center justify-center overflow-hidden">
                         {/* Backdrop */}
                         <motion.div
                             initial={{ opacity: 0 }}

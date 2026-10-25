@@ -157,8 +157,8 @@ export const BidReviewCard: React.FC<BidReviewCardProps> = ({
     const isLeadContractor = user?.role_type === 'kontraktor' && (activeProject?.kontraktor?.user?.id === user?.id || activeProject?.kontraktor?.user_id === user?.id);
     const isSpecialist = phaseKey === 'engineering';
     const canRecommend = isSpecialist && (isLeadArchitect || isLeadContractor);
-    const isOwnerOrPM = user?.id === activeProject?.user_id || user?.id === activeProject?.pm_id;
-    const isProjectManager = activeProject?.pm_id && user?.id === activeProject?.pm_id;
+    const isOwnerOrPM = user?.id === activeProject?.user_id || user?.project_manager?.id === activeProject?.pm_id;
+    const isProjectManager = activeProject?.pm_id && user?.project_manager?.id === activeProject?.pm_id;
     const isReadOnly = readOnly || (isOwner && !!activeProject?.pm_id && !bid.is_recommended) || (user?.role_type === 'project_manager' && bid.is_recommended);
     const showFinancials = isThePro || (bid.status !== 'pending' && bid.status !== 'invited');
 
@@ -425,7 +425,7 @@ export const BidReviewCard: React.FC<BidReviewCardProps> = ({
 
 
     return (
-        <div className="bg-white border border-gray-100 rounded-[1.5rem] p-5 hover:border-zinc-900 group transition-all shadow-sm">
+        <div className="bg-white border border-gray-100 rounded-3xl p-5 hover:border-zinc-900 group transition-all shadow-sm">
             <div className="flex items-start justify-between gap-4">
                 <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-2xl bg-zinc-900 flex items-center justify-center text-sm font-black text-white shadow-xl">
@@ -1076,7 +1076,7 @@ export const BidReviewCard: React.FC<BidReviewCardProps> = ({
                                 }
 
                                 return (
-                                    <div className="px-5 py-5 bg-zinc-50 rounded-[1.5rem] border border-zinc-100 shadow-inner">
+                                    <div className="px-5 py-5 bg-zinc-50 rounded-3xl border border-zinc-100 shadow-inner">
                                         <p className="text-[13px] text-zinc-800 font-medium leading-relaxed italic border-l-4 border-red-500/20 pl-4 py-1 mb-6 whitespace-pre-wrap">
                                             "{cleanProposal}"
                                         </p>
@@ -1217,7 +1217,7 @@ export const BidReviewCard: React.FC<BidReviewCardProps> = ({
 
                                 {/* New Structured Scopes (JSON object with scopes/deliverables) */}
                                 {typeof bid.selected_services === 'object' && !Array.isArray(bid.selected_services) && (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 bg-zinc-50 rounded-[2rem] border border-zinc-100">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 bg-zinc-50 rounded-4xl border border-zinc-100">
                                         <div className="space-y-4">
                                             <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest flex items-center gap-2">
                                                 <ListChecks size={12} className="text-zinc-400" /> Included Services
@@ -1417,7 +1417,7 @@ export const BidReviewCard: React.FC<BidReviewCardProps> = ({
 
                         {/* Proposed Payment Phases & Milestones Display */}
                         {terminsList.length > 0 && (
-                            <div className="mt-4 p-4 bg-gradient-to-br from-slate-50 to-zinc-50 rounded-2xl border border-slate-100 space-y-4">
+                            <div className="mt-4 p-4 bg-linear-to-br from-slate-50 to-zinc-50 rounded-2xl border border-slate-100 space-y-4">
                                 <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Proposed Payment Phases</h5>
                                 <div className="space-y-2">
                                     {terminsList.map((t: { trigger_description: string; percentage: number; milestone_index?: number }, i: number) => (
@@ -1443,7 +1443,7 @@ export const BidReviewCard: React.FC<BidReviewCardProps> = ({
                                         <div className="space-y-2">
                                             {milestonesList.map((m: { title: string; description?: string }, i: number) => (
                                                 <div key={i} className="flex items-start gap-2 bg-white p-3 rounded-xl border border-slate-100">
-                                                    <div className="w-2 h-2 bg-emerald-400 rounded-full mt-1.5 flex-shrink-0" />
+                                                    <div className="w-2 h-2 bg-emerald-400 rounded-full mt-1.5 shrink-0" />
                                                     <div>
                                                         <p className="text-xs font-bold text-slate-700">{m.title}</p>
                                                         {m.description && <p className="text-[10px] text-slate-400 mt-0.5">{m.description}</p>}
@@ -1473,7 +1473,7 @@ export const BidReviewCard: React.FC<BidReviewCardProps> = ({
                                                     className="w-12 h-12 rounded-xl object-cover border border-gray-200 shadow-sm shrink-0" 
                                                 />
                                             ) : (
-                                                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-zinc-800 to-zinc-950 flex items-center justify-center text-white text-lg font-black shrink-0 shadow-md">
+                                                <div className="w-12 h-12 rounded-xl bg-linear-to-br from-zinc-800 to-zinc-950 flex items-center justify-center text-white text-lg font-black shrink-0 shadow-md">
                                                     {proInitial}
                                                 </div>
                                             )}
@@ -1758,7 +1758,7 @@ export const BidReviewCard: React.FC<BidReviewCardProps> = ({
             />
 
             {showSquadProfile && (
-                <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md overflow-y-auto">
+                <div className="fixed inset-0 z-120 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md overflow-y-auto">
                     <div className="w-full max-w-5xl my-8 relative pointer-events-auto">
                         <FirmSquadProfile 
                             ownerId={professionalUser?.id || bid.arsitek?.user_id || bid.kontraktor?.user_id} 

@@ -12,6 +12,7 @@ use App\Services\TerminPlanService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Traits\HandlesProjectAuthorization;
+use App\Support\SafeError;
 
 class ProjectPaymentTerminController extends Controller
 {
@@ -38,7 +39,7 @@ class ProjectPaymentTerminController extends Controller
         // paid and write a ledger row. This is a money-forgery chain, so a
         // payment schedule now requires actual project participation.
         $isOwner = (int) $project->user_id === (int) $user->id;
-        $isPM = $user->role_type === 'project_manager' && (int) $project->pm_id === (int) $user->id;
+        $isPM = $user->role_type === 'project_manager' && Hire::isAssignedPm($project, $user);
 
         if (!$isOwner && !$isPM && ! $this->isHiredProfessional($project, $user)) {
             return response()->json([
@@ -86,7 +87,7 @@ class ProjectPaymentTerminController extends Controller
             // A stage may never push the plan past the negotiated contract value.
             $planService->assertWithinContractValue($project, $effectiveRole, (float) $request->amount);
         } catch (\Exception $e) {
-            return response()->json(['message' => $e->getMessage()], 422);
+            return response()->json(['message' => SafeError::message($e)], 422);
         }
 
         $termin = $project->paymentTermins()->create([
@@ -120,7 +121,7 @@ class ProjectPaymentTerminController extends Controller
         $isOwner = $project->user_id === $user->id;
         // BUGFIX: projects.pm_id stores the PM's USER id — comparing it to the
         // PM's PROFILE id (as before) never matched for the real assigned PM.
-        $isPM = $user->role_type === 'project_manager' && $project->pm_id === $user->id;
+        $isPM = $user->role_type === 'project_manager' && Hire::isAssignedPm($project, $user);
 
         if (!$isAuthor && !$isOwner && !$isPM) {
             return response()->json(['message' => 'Unauthorized.'], 403);
@@ -157,7 +158,7 @@ class ProjectPaymentTerminController extends Controller
                 );
             }
         } catch (\Exception $e) {
-            return response()->json(['message' => $e->getMessage()], 422);
+            return response()->json(['message' => SafeError::message($e)], 422);
         }
 
         $termin->update($updateData);
@@ -179,7 +180,7 @@ class ProjectPaymentTerminController extends Controller
         }
 
         // Authorization: Recipient of the termin or PM
-        if ($termin->recipient_id !== $user->id && $project->pm_id !== $user->id) {
+        if ($termin->recipient_id !== $user->id && ! Hire::isAssignedPm($project, $user)) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
@@ -223,7 +224,7 @@ class ProjectPaymentTerminController extends Controller
             return response()->json(['message' => 'Not found.'], 404);
         }
 
-        if ($termin->recipient_id !== $user->id && $project->pm_id !== $user->id) {
+        if ($termin->recipient_id !== $user->id && ! Hire::isAssignedPm($project, $user)) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
@@ -245,7 +246,7 @@ class ProjectPaymentTerminController extends Controller
         }
 
         $isOwner = $project->user_id === $user->id;
-        $isPM = $user->role_type === 'project_manager' && $project->pm_id === $user->id;
+        $isPM = $user->role_type === 'project_manager' && Hire::isAssignedPm($project, $user);
 
         // SECURITY: a hired professional may only delete termins of their OWN
         // role (previously any hired contractor could delete other roles' termins).

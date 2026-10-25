@@ -6,6 +6,8 @@ use App\Models\MaterialOrder;
 use App\Services\OrderService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use App\Support\SafeError;
+use App\Support\Hire;
 
 class MaterialOrderController extends Controller
 {
@@ -61,7 +63,7 @@ class MaterialOrderController extends Controller
     public function uploadPaymentProof(Request $request, MaterialOrder $materialOrder)
     {
         $user = Auth::user();
-        if ($materialOrder->user_id !== $user->id && !(($user->role_type === 'project_manager') && ((int) $materialOrder->project?->pm_id === (int) $user->id))) {
+        if ($materialOrder->user_id !== $user->id && !($user->role_type === 'project_manager' && $materialOrder->project && Hire::isAssignedPm($materialOrder->project, $user))) {
             return response()->json(['message' => 'Only the buyer can upload a payment proof.'], 403);
         }
 
@@ -82,7 +84,7 @@ class MaterialOrderController extends Controller
         // already used `vault_disk` for exactly this class of file.
         $path = $request->file('payment_proof')->store(
             'payment_proofs',
-            config('filesystems.vault_disk', 'railway')
+            \App\Support\Vault::disk()
         );
         $materialOrder->update([
             'payment_proof_path' => $path,
@@ -118,8 +120,25 @@ class MaterialOrderController extends Controller
         if (!$materialOrder->payment_proof_path) {
             return response()->json(['message' => 'No payment proof has been uploaded yet.'], 422);
         }
-        if (in_array($materialOrder->status, ['paid', 'shipping', 'delivered', 'completed'])) {
-            return response()->json(['message' => 'This order is already marked as paid.'], 422);
+
+        // A REFUNDED ORDER IS TERMINAL.
+        //
+        // The guard used to list only the states that mean "the money has
+        // moved on" — paid, shipping, delivered, completed — and left
+        // 'refunded' out. So a supplier whose order had been REFUNDED could
+        // walk it back to 'paid': the money had gone back to the buyer, the
+        // ledger carried the reversal, and the order claimed the payment
+        // stood. Two records of the same money moving in opposite directions,
+        // and the order was the one that got to say so.
+        //
+        // 'cancelled' is terminal for the same reason: a cancelled order has
+        // no payment to verify.
+        if (in_array($materialOrder->status, ['paid', 'shipping', 'delivered', 'completed', 'refunded', 'cancelled'], true)) {
+            return response()->json([
+                'message' => $materialOrder->status === 'refunded'
+                    ? 'This order was refunded, so its payment cannot be verified again.'
+                    : 'This order is already marked as paid.',
+            ], 422);
         }
 
         try {
@@ -155,12 +174,12 @@ class MaterialOrderController extends Controller
         } catch (\Exception $e) {
             \Log::error('Material order payment verification failed', [
                 'order_id' => $materialOrder->id,
-                'error' => $e->getMessage(),
+                'error' => SafeError::message($e),
             ]);
 
             $code = (int) $e->getCode();
             if ($code >= 400 && $code < 600) {
-                return response()->json(['message' => $e->getMessage()], $code);
+                return response()->json(['message' => SafeError::message($e)], $code);
             }
 
             return response()->json(['success' => false, 'message' => 'Payment verification failed.'], 500);
@@ -243,7 +262,7 @@ class MaterialOrderController extends Controller
         }
 
         if ($request->has('notes')) {
-            $updateData['notes'] = $validated['notes'];
+            $updateData['notes'] = $validated['notes'] ?? null;
         }
 
         if ($request->hasFile('delivery_documentation')) {

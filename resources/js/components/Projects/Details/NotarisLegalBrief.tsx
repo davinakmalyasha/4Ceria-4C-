@@ -39,7 +39,7 @@ export const NotarisLegalBrief: React.FC<Props> = ({ project }) => (
                     <label className="text-[9px] font-black uppercase tracking-widest text-white/30">Catatan Khusus Pemilik</label>
                     {project.wants_to_discuss_later ? (
                         <div className="flex items-start gap-2 text-red-300">
-                            <CheckCircle2 size={14} className="mt-0.5 flex-shrink-0" />
+                            <CheckCircle2 size={14} className="mt-0.5 shrink-0" />
                             <p className="text-[12px] font-bold leading-relaxed italic">
                                 "Pemilih memilih untuk mendiskusikan detail dokumen secara langsung nanti."
                             </p>

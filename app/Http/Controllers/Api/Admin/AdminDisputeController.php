@@ -8,6 +8,7 @@ use App\Models\ProjectDispute;
 use App\Services\DisputeService;
 use Exception;
 use Illuminate\Http\Request;
+use App\Support\SafeError;
 
 class AdminDisputeController extends Controller
 {
@@ -66,7 +67,7 @@ class AdminDisputeController extends Controller
                 $request->file('evidence')
             );
         } catch (Exception $e) {
-            return response()->json(['message' => $e->getMessage()], $e->getCode() >= 100 && $e->getCode() < 600 ? $e->getCode() : 422);
+            return response()->json(['message' => SafeError::message($e)], SafeError::status($e, 422));
         }
 
         return response()->json([
@@ -87,7 +88,7 @@ class AdminDisputeController extends Controller
         try {
             return response()->json(['url' => $this->disputes->evidenceUrl($message)]);
         } catch (Exception $e) {
-            return response()->json(['message' => $e->getMessage()], 404);
+            return response()->json(['message' => SafeError::message($e)], 404);
         }
     }
 
@@ -115,7 +116,7 @@ class AdminDisputeController extends Controller
                 $data['amount'] ?? null
             );
         } catch (Exception $e) {
-            return response()->json(['message' => $e->getMessage()], $e->getCode() >= 100 && $e->getCode() < 600 ? $e->getCode() : 422);
+            return response()->json(['message' => SafeError::message($e)], SafeError::status($e, 422));
         }
 
         $messages = [

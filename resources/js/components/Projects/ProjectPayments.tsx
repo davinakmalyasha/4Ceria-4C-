@@ -291,7 +291,7 @@ export default function ProjectPayments({ project, user, onRefresh, onOpenChat }
     }, [project]);
 
     const isOwner = user?.id && project?.user_id && String(user.id) === String(project.user_id);
-    const isProjectPM = user?.id && project?.pm_id && String(user.id) === String(project.pm_id);
+    const isProjectPM = user?.id && project?.pm_id && String(user.project_manager?.id) === String(project.pm_id);
     const isGlobalPM = user?.role_type === 'project_manager';
 
     const handleActionClick = (payment: any) => {
@@ -491,7 +491,7 @@ export default function ProjectPayments({ project, user, onRefresh, onOpenChat }
 
                                     {/* Bank Note / Payment Instructions */}
                                     {(isOwner || isProjectPM || isGlobalPM) && (
-                                        <div className="mb-8 p-6 bg-zinc-50 border border-zinc-100 rounded-[1.5rem] shadow-inner">
+                                        <div className="mb-8 p-6 bg-zinc-50 border border-zinc-100 rounded-3xl shadow-inner">
                                             <div className="flex items-center gap-3 mb-4">
                                                 <div className="p-2.5 bg-zinc-900 text-white rounded-xl shadow-lg">
                                                     <Landmark size={20} />
@@ -903,7 +903,7 @@ export default function ProjectPayments({ project, user, onRefresh, onOpenChat }
             )}
             <AnimatePresence>
                 {linkModal.isOpen && (
-                    <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
+                    <div className="fixed inset-0 z-99999 flex items-center justify-center p-4">
                         <motion.div 
                             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                             className="absolute inset-0 bg-zinc-900/40 backdrop-blur-sm"

@@ -56,4 +56,26 @@ class StructuralEngineer extends Model
     {
         return $this->belongsTo(User::class, 'user_id');
     }
+
+    /**
+     * The projects this engineer was hired on.
+     *
+     * B23. `PublicProfessionalController::directory()` does
+     * `withCount('projects')` on every professional listing, so a model
+     * without this relation makes the listing throw — and
+     * `GET /api/structural-engineers` answered 500 for EVERY caller, on
+     * every request, since the endpoint was written.
+     *
+     * The other five directories — arsitek, kontraktor, interior, notaris
+     * and project_manager — all had the relation. The two specialist
+     * directories did not, because the specialists were added later and the
+     * listing helper was never taught about them.
+     *
+     * The column is `structural_id`, and it holds a PROFILE id — the same
+     * id space as `projects.selected_arsitek_id` and the rest.
+     */
+    public function projects()
+    {
+        return $this->hasMany(Project::class, 'structural_id');
+    }
 }

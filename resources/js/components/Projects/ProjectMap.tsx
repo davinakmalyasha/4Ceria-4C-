@@ -217,13 +217,13 @@ export default function ProjectMap({
                             <span className="text-[9px] text-gray-400 uppercase font-semibold">Budget:</span>
                             <span className="text-gray-900 font-extrabold">{formatCurrency(totalBudget)}</span>
                         </div>
-                        <div className="w-[1px] h-3 bg-gray-200" />
+                        <div className="w-px h-3 bg-gray-200" />
                         <div onClick={isClickable ? (isUser ? onViewActiveBids : onViewMyBids) : undefined} className={`flex items-center gap-1.5 ${isClickable ? 'cursor-pointer hover:text-[#FF2D20] transition-colors' : ''}`}>
                             <MessageSquare size={11} className="text-zinc-500" />
                             <span className="text-[9px] text-gray-400 uppercase font-semibold">Proposals:</span>
                             <span className="text-gray-900 font-extrabold">{activeBidsCount || 0}</span>
                         </div>
-                        <div className="w-[1px] h-3 bg-gray-200" />
+                        <div className="w-px h-3 bg-gray-200" />
                         <div className="flex items-center gap-1.5">
                             <CheckCircle size={11} className="text-zinc-500" />
                             <span className="text-[9px] text-gray-400 uppercase font-semibold">Done:</span>

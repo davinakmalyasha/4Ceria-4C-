@@ -103,7 +103,7 @@ export const VerificationAlert: React.FC<VerificationAlertProps> = ({ user, acti
         >
             <div className="flex items-center gap-2.5 min-w-0 flex-1">
                 <IconComponent size={16} className={`${alertConfig.iconColor} shrink-0`} />
-                <p className="text-xs font-bold truncate leading-none mt-[1px]">
+                <p className="text-xs font-bold truncate leading-none mt-px">
                     {alertConfig.text}
                 </p>
             </div>

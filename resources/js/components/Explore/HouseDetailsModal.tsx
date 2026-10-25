@@ -17,7 +17,7 @@ const ManualSlider = ({ images, altText }: { images?: { dir: string }[]; altText
     const next = (e: React.MouseEvent) => { e.stopPropagation(); if (images) setCurrentIndex((p) => (p + 1) % images.length); };
     const prev = (e: React.MouseEvent) => { e.stopPropagation(); if (images) setCurrentIndex((p) => (p - 1 + images.length) % images.length); };
     if (!images || images.length === 0) {
-        return (<div className="w-full h-full flex flex-col items-center justify-center text-gray-400 bg-gradient-to-br from-gray-50 to-gray-200"><Home size={64} className="mb-4 opacity-20" /><span className="font-semibold tracking-wide">Image Not Provided</span></div>);
+        return (<div className="w-full h-full flex flex-col items-center justify-center text-gray-400 bg-linear-to-br from-gray-50 to-gray-200"><Home size={64} className="mb-4 opacity-20" /><span className="font-semibold tracking-wide">Image Not Provided</span></div>);
     }
     return (
         <div className="w-full h-full relative group">
@@ -66,7 +66,7 @@ export default function HouseDetailsModal({ house, allHouses, wishlist, currentU
     ];
 
     return (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[200] flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-200 flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-sm" onClick={onClose}>
             <motion.div initial={{ y: 50, opacity: 0, scale: 0.95 }} animate={{ y: 0, opacity: 1, scale: 1 }} exit={{ y: 20, opacity: 0, scale: 0.95 }} transition={{ type: 'spring', duration: 0.5, bounce: 0.3 }}
                 className="bg-white rounded-[2.5rem] overflow-hidden shadow-2xl w-full max-w-6xl max-h-[92vh] flex flex-col relative" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
                 <button onClick={onClose} className="absolute top-5 right-5 bg-black/20 hover:bg-black/40 backdrop-blur-md text-white p-2.5 rounded-full transition-all z-20"><X size={20} strokeWidth={2.5} /></button>
@@ -75,7 +75,7 @@ export default function HouseDetailsModal({ house, allHouses, wishlist, currentU
                     <div className="p-4 sm:p-6 lg:p-8">
                         <div className="w-full h-80 sm:h-[450px] lg:h-[500px] relative bg-gray-100 rounded-[2.5rem] overflow-hidden shadow-xl">
                             <ManualSlider images={house.housePic} altText={house.name} />
-                            <div className="absolute inset-x-0 bottom-0 h-3/4 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none z-10" />
+                            <div className="absolute inset-x-0 bottom-0 h-3/4 bg-linear-to-t from-black/90 via-black/40 to-transparent pointer-events-none z-10" />
                             <div className="absolute bottom-20 left-12 right-12 sm:bottom-32 sm:left-20 sm:right-20 z-20 pointer-events-none">
                                 <div className="flex items-center gap-2 mb-4">
                                     <span className="px-3 py-1 bg-[#FF2D20] text-white text-[10px] font-black rounded-full uppercase tracking-widest shadow-lg">For Sale</span>
@@ -95,7 +95,7 @@ export default function HouseDetailsModal({ house, allHouses, wishlist, currentU
                             {/* Main Content Column */}
                             <div className="lg:col-span-2 space-y-16">
                                 <div className="grid grid-cols-3 sm:grid-cols-6 gap-6">
-                                    {stats.map((s, i) => (<div key={i} className="flex flex-col items-center text-center p-4 bg-gray-50 rounded-[1.5rem] border border-gray-100 hover:border-[#FF2D20]/20 hover:bg-white hover:shadow-md transition-all"><s.icon size={24} className="text-[#FF2D20] mb-2" /><span className="font-extrabold text-gray-900 text-xl leading-tight">{s.value}</span><span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">{s.label}</span></div>))}
+                                    {stats.map((s, i) => (<div key={i} className="flex flex-col items-center text-center p-4 bg-gray-50 rounded-3xl border border-gray-100 hover:border-[#FF2D20]/20 hover:bg-white hover:shadow-md transition-all"><s.icon size={24} className="text-[#FF2D20] mb-2" /><span className="font-extrabold text-gray-900 text-xl leading-tight">{s.value}</span><span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">{s.label}</span></div>))}
                                 </div>
 
                                 <div className="space-y-6">
@@ -124,7 +124,7 @@ export default function HouseDetailsModal({ house, allHouses, wishlist, currentU
 
                             {/* Sidebar Column */}
                             <div className="lg:col-span-1 space-y-10">
-                                <div className="bg-gray-50 rounded-[2rem] p-8 border border-gray-100 space-y-6">
+                                <div className="bg-gray-50 rounded-4xl p-8 border border-gray-100 space-y-6">
                                     <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Location</p>
                                     <div className="flex items-start gap-4">
                                         <div className="bg-[#FF2D20] p-3.5 rounded-2xl text-white shadow-lg shadow-red-500/20 shrink-0"><MapPin size={24} /></div>
@@ -136,11 +136,11 @@ export default function HouseDetailsModal({ house, allHouses, wishlist, currentU
                                 </div>
 
                                 {house.owner && !isOwner && (
-                                    <div className="bg-gray-900 rounded-[2rem] p-8 text-white space-y-6 shadow-2xl relative overflow-hidden">
+                                    <div className="bg-gray-900 rounded-4xl p-8 text-white space-y-6 shadow-2xl relative overflow-hidden">
                                         <div className="absolute top-0 right-0 w-32 h-32 bg-[#FF2D20] rounded-full blur-[60px] opacity-20 -mr-16 -mt-16" />
                                         <p className="text-xs font-black text-gray-400 uppercase tracking-widest relative z-10">Listing Agent</p>
                                         <div className="flex items-center gap-4 relative z-10">
-                                            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#FF2D20] to-red-700 flex items-center justify-center text-white text-2xl font-black shrink-0 shadow-xl">{house.owner.name.charAt(0).toUpperCase()}</div>
+                                            <div className="w-16 h-16 rounded-2xl bg-linear-to-br from-[#FF2D20] to-red-700 flex items-center justify-center text-white text-2xl font-black shrink-0 shadow-xl">{house.owner.name.charAt(0).toUpperCase()}</div>
                                             <div>
                                                 <h5 className="font-extrabold text-lg">{house.owner.name}</h5>
                                                 <p className="text-gray-400 text-xs font-bold uppercase tracking-wider mt-0.5">Verified Partner</p>
@@ -236,7 +236,7 @@ export default function HouseDetailsModal({ house, allHouses, wishlist, currentU
                 </AnimatePresence>
 
                 {showSquadProfile && (
-                    <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md overflow-y-auto" onClick={() => setShowSquadProfile(false)}>
+                    <div className="fixed inset-0 z-300 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md overflow-y-auto" onClick={() => setShowSquadProfile(false)}>
                         <div className="w-full max-w-5xl my-8 relative pointer-events-auto" onClick={(e) => e.stopPropagation()}>
                             <FirmSquadProfile 
                                 ownerId={house.owner.id || house.user_id || 0} 

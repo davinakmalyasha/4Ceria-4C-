@@ -92,7 +92,7 @@ export default function PublicBrief() {
 
     if (error || !data || (Object.keys(data).length < 2)) return (
         <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center px-6 text-center">
-            <div className="w-24 h-24 bg-red-500/10 rounded-[2rem] flex items-center justify-center text-red-500 mb-8 border border-red-500/20 shadow-2xl shadow-red-500/10">
+            <div className="w-24 h-24 bg-red-500/10 rounded-4xl flex items-center justify-center text-red-500 mb-8 border border-red-500/20 shadow-2xl shadow-red-500/10">
                 <AlertTriangle size={48} />
             </div>
             <h1 className="text-2xl font-black text-white mb-3">Brief Tidak Aktif</h1>
@@ -118,7 +118,7 @@ export default function PublicBrief() {
                         </div>
                         <div>
                             <span className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-500 block">Project Brief</span>
-                            <span className="text-[10px] font-black uppercase tracking-[0.1em] text-amber-500/70">Certified Master Plan</span>
+                            <span className="text-[10px] font-black uppercase tracking-widest text-amber-500/70">Certified Master Plan</span>
                         </div>
                     </div>
                     <h1 className="text-4xl font-black tracking-tighter leading-none text-white mb-6 uppercase italic">{data.title}</h1>
@@ -171,14 +171,14 @@ export default function PublicBrief() {
                 {/* 3. BILL OF MATERIALS (BOM) */}
                 {requirements.length > 0 && (
                     <Section title="Daftar Material" subtitle="Bill of Materials (BOM)">
-                        <div className="bg-white/[0.02] rounded-3xl border border-white/5 overflow-hidden">
+                        <div className="bg-white/2 rounded-3xl border border-white/5 overflow-hidden">
                             <div className="px-6 py-4 bg-white/5 border-b border-white/5 flex items-center gap-3">
                                 <Package size={16} className="text-slate-500" />
                                 <span className="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em]">Material Requirement</span>
                             </div>
                             <div className="divide-y divide-white/5">
                                 {requirements.map((req: any) => (
-                                    <div key={req.id} className="px-6 py-5 flex items-center justify-between hover:bg-white/[0.04] transition-colors">
+                                    <div key={req.id} className="px-6 py-5 flex items-center justify-between hover:bg-white/4 transition-colors">
                                         <div className="flex-1">
                                             <p className="text-sm font-black text-white/90 mb-1">{req.name}</p>
                                             <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded ${req.quality_level === 'premium' ? 'bg-amber-500/10 text-amber-500' : 'bg-slate-500/10 text-slate-500'}`}>
@@ -254,7 +254,7 @@ export default function PublicBrief() {
                             {comments.map((q: any) => (
                                 <div key={q.id} className="space-y-5 bg-white/5 p-6 rounded-[2.5rem] border border-white/5 relative">
                                     <div className="flex gap-4">
-                                        <div className="w-12 h-12 rounded-2xl bg-zinc-800 flex-shrink-0 flex items-center justify-center text-xs font-black uppercase text-slate-500 border border-white/5 shadow-inner">
+                                        <div className="w-12 h-12 rounded-2xl bg-zinc-800 shrink-0 flex items-center justify-center text-xs font-black uppercase text-slate-500 border border-white/5 shadow-inner">
                                             {q.user?.name?.substring(0, 2)}
                                         </div>
                                         <div className="flex-1 min-w-0 pt-1">
@@ -304,7 +304,7 @@ function Section({ title, subtitle, children }: { title: string; subtitle: strin
                 <span className="text-[9px] font-black text-slate-500 uppercase tracking-[0.5em]">{subtitle}</span>
             </div>
             <div className="bg-zinc-900/40 border border-white/5 rounded-[3rem] p-8 backdrop-blur-3xl shadow-2xl relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-white/[0.02] rounded-full -mr-16 -mt-16 blur-3xl" />
+                <div className="absolute top-0 right-0 w-32 h-32 bg-white/2 rounded-full -mr-16 -mt-16 blur-3xl" />
                 {children}
             </div>
         </div>
@@ -313,8 +313,8 @@ function Section({ title, subtitle, children }: { title: string; subtitle: strin
 
 function InfoBox({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
     return (
-        <div className="p-6 bg-white/5 rounded-3xl border border-white/5 transition-all hover:bg-white/[0.08] group relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-16 h-16 bg-white/[0.02] rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-150" />
+        <div className="p-6 bg-white/5 rounded-3xl border border-white/5 transition-all hover:bg-white/8 group relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-16 h-16 bg-white/2 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-150" />
             <div className="flex items-center gap-3 text-slate-500 mb-2 relative">
                 <span className="text-amber-500/50">{icon}</span>
                 <span className="text-[9px] font-black uppercase tracking-[0.2em]">{label}</span>
@@ -327,7 +327,7 @@ function InfoBox({ icon, label, value }: { icon: React.ReactNode; label: string;
 function CountBox({ label, count }: { label: string; count: number }) {
     return (
         <div className="bg-white/5 rounded-3xl p-6 text-center border border-white/5 shadow-xl relative overflow-hidden group">
-            <div className="absolute inset-0 bg-white/[0.02] opacity-0 group-hover:opacity-100 transition-opacity" />
+            <div className="absolute inset-0 bg-white/2 opacity-0 group-hover:opacity-100 transition-opacity" />
             <p className="text-3xl font-black text-white tracking-tighter mb-1 relative">{count}</p>
             <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em] relative">{label}</p>
         </div>

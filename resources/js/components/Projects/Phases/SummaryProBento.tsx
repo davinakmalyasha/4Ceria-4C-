@@ -29,7 +29,7 @@ export default function SummaryProBento({ termins, roleLabel, pro }: SummaryProB
     return (
         <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
             {/* Bento Block 1: Technical Focus & Progress (3 cols) */}
-            <div className="md:col-span-3 bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col justify-between space-y-6">
+            <div className="md:col-span-3 bg-white p-6 rounded-4xl border border-slate-100 shadow-sm flex flex-col justify-between space-y-6">
                 <div className="space-y-3">
                     <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-50 border border-slate-100 rounded-xl">
                         <Briefcase size={12} className="text-slate-400" />
@@ -63,7 +63,7 @@ export default function SummaryProBento({ termins, roleLabel, pro }: SummaryProB
             </div>
 
             {/* Bento Block 2: Work Scope Checklist (2 cols) */}
-            <div className="md:col-span-2 bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col justify-between space-y-4">
+            <div className="md:col-span-2 bg-white p-6 rounded-4xl border border-slate-100 shadow-sm flex flex-col justify-between space-y-4">
                 <div>
                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-3">Milestone Progress</span>
                     {termins.length === 0 ? (

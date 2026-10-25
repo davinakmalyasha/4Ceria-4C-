@@ -28,7 +28,7 @@ export const HireHistoryCard: React.FC<HireHistoryCardProps> = ({ hire, onOpenCh
         <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="group bg-white rounded-[2rem] p-6 shadow-sm hover:shadow-xl hover:shadow-black/5 border border-gray-100 transition-all duration-500"
+            className="group bg-white rounded-4xl p-6 shadow-sm hover:shadow-xl hover:shadow-black/5 border border-gray-100 transition-all duration-500"
         >
             <div className="flex items-start gap-5">
                 {/* Avatar / Icon */}
@@ -40,7 +40,7 @@ export const HireHistoryCard: React.FC<HireHistoryCardProps> = ({ hire, onOpenCh
                             className="w-20 h-20 rounded-3xl object-cover ring-4 ring-gray-50 group-hover:ring-red-50 transition-all"
                         />
                     ) : (
-                        <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center text-white text-2xl font-black shadow-lg shadow-red-200">
+                        <div className="w-20 h-20 rounded-3xl bg-linear-to-br from-red-500 to-red-600 flex items-center justify-center text-white text-2xl font-black shadow-lg shadow-red-200">
                             {hire.name.charAt(0).toUpperCase()}
                         </div>
                     )}

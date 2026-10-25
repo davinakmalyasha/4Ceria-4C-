@@ -199,12 +199,12 @@ export default function ProjectContractViewerModal({
     if (!isOpen) return null;
 
     return createPortal(
-        <div className="fixed inset-0 z-[99999] bg-zinc-950/90 backdrop-blur-xl flex flex-col overflow-hidden animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-99999 bg-zinc-950/90 backdrop-blur-xl flex flex-col overflow-hidden animate-in fade-in duration-200">
             {/* Close Button */}
             <button 
                 type="button"
                 onClick={onClose}
-                className="fixed top-5 left-5 p-3.5 bg-zinc-900/90 hover:bg-zinc-800 text-zinc-300 hover:text-white rounded-full transition-all border border-zinc-700/60 shadow-2xl flex items-center justify-center hover:scale-110 z-[100000] backdrop-blur-md animate-in slide-in-from-left duration-300"
+                className="fixed top-5 left-5 p-3.5 bg-zinc-900/90 hover:bg-zinc-800 text-zinc-300 hover:text-white rounded-full transition-all border border-zinc-700/60 shadow-2xl flex items-center justify-center hover:scale-110 z-100000 backdrop-blur-md animate-in slide-in-from-left duration-300"
                 title="Close Contract"
             >
                 <X size={20} className="stroke-[2.5]" />

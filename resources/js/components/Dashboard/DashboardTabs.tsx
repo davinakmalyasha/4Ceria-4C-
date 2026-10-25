@@ -246,7 +246,7 @@ export const DashboardTabs: React.FC<TabsProps> = (props) => {
             project;
 
         const isOwner = user?.id === baseProject.user_id;
-        const isHiredPM = baseProject.pm_id && user?.id === baseProject.pm_id;
+        const isHiredPM = baseProject.pm_id && user?.project_manager?.id === baseProject.pm_id;
         const isHiredPro = 
             (baseProject.selected_arsitek_id && (user?.arsitek?.id === baseProject.selected_arsitek_id || baseProject.arsitek?.user_id === user?.id || baseProject.arsitek?.user?.id === user?.id)) ||
             (baseProject.selected_kontraktor_id && (user?.kontraktor?.id === baseProject.selected_kontraktor_id || baseProject.kontraktor?.user_id === user?.id || baseProject.kontraktor?.user?.id === user?.id)) ||
@@ -353,7 +353,7 @@ export const DashboardTabs: React.FC<TabsProps> = (props) => {
                     }
 
                     const isOwner = user?.id === proj.user_id;
-                    const isHiredPM = proj.pm_id && user?.id === proj.pm_id;
+                    const isHiredPM = proj.pm_id && user?.project_manager?.id === proj.pm_id;
                     
                     const isHiredPro = 
                         (proj.selected_arsitek_id && (user?.arsitek?.id === proj.selected_arsitek_id || proj.arsitek?.user_id === user?.id || proj.arsitek?.user?.id === user?.id)) ||

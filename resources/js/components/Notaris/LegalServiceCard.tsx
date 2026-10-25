@@ -28,7 +28,7 @@ export default function LegalServiceCard({ service, onBook }: LegalServiceCardPr
             <h4 className="text-xl font-black text-gray-900 mb-3 group-hover:text-blue-900 transition-colors">{service.title}</h4>
             
             {service.description && (
-                <p className="text-sm font-medium text-gray-500 leading-relaxed mb-6 flex-grow">
+                <p className="text-sm font-medium text-gray-500 leading-relaxed mb-6 grow">
                     {service.description}
                 </p>
             )}

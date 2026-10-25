@@ -34,7 +34,7 @@ export default function EngineeringWorkspace({ project, user, onRefresh, onShort
 
     const isStructural = user.role_type === 'structural' && project.structural_id === user.structural_engineer?.id;
     const isMEP = user.role_type === 'mep' && project.mep_id === user.mep_engineer?.id;
-    const isPM = user.role_type === 'project_manager' && project.pm_id === user.id;
+    const isPM = user.role_type === 'project_manager' && project.pm_id === user.project_manager?.id;
     const isOwner = user.id === project.owner_id || user.id === project.user_id;
     const isLeadArchitect = user.role_type === 'arsitek' && (project.arsitek?.user_id === user.id || project.selected_arsitek_id === user.arsitek?.id);
 
@@ -122,7 +122,7 @@ export default function EngineeringWorkspace({ project, user, onRefresh, onShort
 
             {/* Specialist Bid Status (If already bid) */}
             {((isStructuralPro && hasSubmittedStructural) || (isMEPPro && hasSubmittedMEP)) && !isStructural && !isMEP && (
-                <div className="bg-emerald-50 border-2 border-emerald-100 rounded-[2rem] p-8 text-center space-y-3">
+                <div className="bg-emerald-50 border-2 border-emerald-100 rounded-4xl p-8 text-center space-y-3">
                     <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto">
                         <CheckCircle2 size={24} />
                     </div>
@@ -184,7 +184,7 @@ export default function EngineeringWorkspace({ project, user, onRefresh, onShort
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Structural Section */}
                 <div className="lg:col-span-1 space-y-6">
-                    <div className="bg-white border-2 border-slate-100 rounded-[2rem] p-6 shadow-sm relative overflow-hidden">
+                    <div className="bg-white border-2 border-slate-100 rounded-4xl p-6 shadow-sm relative overflow-hidden">
                         <div className="absolute top-0 right-0 p-4 opacity-5">
                             <HardHat size={80} />
                         </div>
@@ -231,7 +231,7 @@ export default function EngineeringWorkspace({ project, user, onRefresh, onShort
                         )}
                     </div>
 
-                    <div className="bg-white border-2 border-amber-100 rounded-[2rem] p-6 shadow-sm relative overflow-hidden">
+                    <div className="bg-white border-2 border-amber-100 rounded-4xl p-6 shadow-sm relative overflow-hidden">
                         <div className="absolute top-0 right-0 p-4 opacity-5">
                             <Zap size={80} />
                         </div>

@@ -21,7 +21,7 @@ export default function ProjectStatsDashboard({ totalBudget, activeBids, complet
             {/* 1. Active Budget */}
             <motion.div 
                 initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}
-                className="bg-gradient-to-r from-zinc-900 to-black rounded-xl py-3 px-4 text-white shadow-md relative overflow-hidden flex items-center justify-between ring-1 ring-white/5"
+                className="bg-linear-to-r from-zinc-900 to-black rounded-xl py-3 px-4 text-white shadow-md relative overflow-hidden flex items-center justify-between ring-1 ring-white/5"
             >
                 <div className="flex items-center gap-3">
                     <div className="p-2 rounded-lg bg-white/10 text-white shrink-0">

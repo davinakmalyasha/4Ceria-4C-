@@ -25,7 +25,7 @@ export const NegotiationHistory: React.FC<Props> = ({ logs }) => {
                 <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest">Negotiation History</h4>
             </div>
 
-            <div className="space-y-4 relative before:absolute before:left-[19px] before:top-2 before:bottom-2 before:w-[1px] before:bg-gray-100">
+            <div className="space-y-4 relative before:absolute before:left-[19px] before:top-2 before:bottom-2 before:w-px before:bg-gray-100">
                 {logs.map((log, idx) => (idx === 0 || log.round_number !== logs[idx-1]?.round_number) && (
                     <div key={`${log.round_number}-${idx}`} className="relative pl-12 group">
                         {/* Timeline Dot */}

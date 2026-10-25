@@ -18,7 +18,7 @@ export default function ProjectDetailModal({ project, onClose }: ProjectDetailMo
     const date = project.created_at ? new Date(project.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Unknown';
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8">
+        <div className="fixed inset-0 z-100 flex items-center justify-center p-4 md:p-8">
             <motion.div 
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}

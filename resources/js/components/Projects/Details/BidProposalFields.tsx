@@ -214,7 +214,7 @@ export const BidProposalFields: React.FC<Props> = ({
                         }} 
                         rows={6}
                         placeholder="Detail your professional approach, unique methodology, and why you are the best fit for this project..."
-                        className={`w-full px-8 py-6 bg-zinc-50 border-2 focus:bg-white rounded-[2rem] font-medium text-[13.5px] text-gray-600 outline-none transition-all resize-none shadow-inner ${
+                        className={`w-full px-8 py-6 bg-zinc-50 border-2 focus:bg-white rounded-4xl font-medium text-[13.5px] text-gray-600 outline-none transition-all resize-none shadow-inner ${
                             errors?.proposal 
                                 ? 'border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-500/10' 
                                 : 'border-zinc-100 focus:border-slate-900'
@@ -243,7 +243,7 @@ export const BidProposalFields: React.FC<Props> = ({
                             </div>
                         ))}
                         {attachments.length < 3 && (
-                            <label className="flex flex-col items-center justify-center w-32 h-32 bg-white border-2 border-dashed border-zinc-200 rounded-[2rem] cursor-pointer hover:border-slate-900 hover:bg-zinc-50 transition-all text-zinc-400 hover:text-slate-900 group">
+                            <label className="flex flex-col items-center justify-center w-32 h-32 bg-white border-2 border-dashed border-zinc-200 rounded-4xl cursor-pointer hover:border-slate-900 hover:bg-zinc-50 transition-all text-zinc-400 hover:text-slate-900 group">
                                 <Upload size={24} className="mb-2 group-hover:-translate-y-1 transition-transform" />
                                 <span className="text-[8px] font-black uppercase tracking-widest">Add File</span>
                                 <input type="file" className="hidden" onChange={onFileChange} accept=".pdf,.jpg,.jpeg,.png,.xlsx,.xls,.doc,.docx" />
@@ -256,7 +256,7 @@ export const BidProposalFields: React.FC<Props> = ({
             <div className="pt-10 border-t border-zinc-100">
                 <button 
                     type="submit" disabled={isLoading}
-                    className="w-full py-6 bg-slate-900 text-white rounded-[2rem] font-black text-[13px] uppercase tracking-[0.4em] shadow-[0_20px_50px_rgba(15,23,42,0.3)] hover:-translate-y-1.5 active:scale-95 transition-all disabled:opacity-50 disabled:translate-y-0 flex items-center justify-center gap-4"
+                    className="w-full py-6 bg-slate-900 text-white rounded-4xl font-black text-[13px] uppercase tracking-[0.4em] shadow-[0_20px_50px_rgba(15,23,42,0.3)] hover:-translate-y-1.5 active:scale-95 transition-all disabled:opacity-50 disabled:translate-y-0 flex items-center justify-center gap-4"
                 >
                     {isLoading ? (
                         <div className="flex items-center gap-3">

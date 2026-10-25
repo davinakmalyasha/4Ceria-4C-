@@ -61,6 +61,25 @@ const cacheableUrls = [
 ];
 const apiCache = new Map();
 
+/**
+ * Drops every cached API response.
+ *
+ * The cache holds GET responses for the cacheable URLs, keyed by URL and
+ * parameters, with a five-minute TTL. It lives at module scope, so it
+ * outlives every component that reads it — and it is not keyed by user.
+ *
+ * Today the only cacheable URL is a static lookup reference, so the exposure
+ * is small. It is not zero: `cacheableUrls` is a list that grows, and the
+ * moment a user-scoped URL joins it, the next user of the same device reads
+ * the previous user's response for up to five minutes.
+ *
+ * The credential is dropped on logout; the DATA it unlocked should not be.
+ * Called from `AuthContext.logout()` and from the multi-tab storage handler.
+ */
+export const clearApiCache = () => {
+    apiCache.clear();
+};
+
 const hasWindow = typeof window !== 'undefined';
 
 const baseHref = hasWindow ? window.location.href : undefined;
@@ -268,7 +287,34 @@ export const configureApiInstance = (instance) => {
             }
         }
 
-        if (error.response?.status === 401 && !config?.__isAuthCall) {
+        // A 401 means "this session expired" ONLY when there was a session.
+        //
+        // It used to redirect on EVERY 401, and that made the dashboard's
+        // PUBLIC tabs unreachable: Dashboard.tsx:181-190 lists eight tabs a
+        // guest may browse, but those tabs also render panels that call
+        // authenticated endpoints (conversations, favourites, orders). The
+        // first one returned 401, this handler fired, and the visitor was
+        // thrown to /login — so the tabs the product advertises to a signed-out
+        // visitor could not be opened by one.
+        //
+        // The two cases are genuinely different:
+        //
+        //   no token   -> a guest asked for something that needs an account.
+        //                 The caller renders its own empty state; bouncing to
+        //                 /login loses the page they WERE allowed to see.
+        //   a token    -> the token was revoked or expired. That is the case
+        //                 this handler exists for.
+        let hasToken;
+
+        try {
+            hasToken = Boolean(window.localStorage.getItem(TOKEN_STORAGE_KEY));
+        } catch {
+            // Storage unavailable: keep the old behaviour, because a redirect is
+            // safer than leaving a stale token in memory.
+            hasToken = true;
+        }
+
+        if (error.response?.status === 401 && !config?.__isAuthCall && hasToken) {
             handleExpiredSession();
         }
 

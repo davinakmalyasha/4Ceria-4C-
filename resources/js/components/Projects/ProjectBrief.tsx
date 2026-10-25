@@ -232,7 +232,7 @@ const hasBudgetSummary = typeof project?.budget_summary?.remaining === 'number';
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
                 {/* Left Top: Project Gallery */}
                 <div className="lg:col-span-2">
-                    <section className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm h-full flex flex-col justify-between">
+                    <section className="bg-white p-6 rounded-4xl border border-gray-100 shadow-sm h-full flex flex-col justify-between">
                         <div className="flex items-center justify-between mb-4">
                             <h3 className="text-xs font-black text-gray-400 uppercase tracking-[0.2em] flex items-center gap-2">
                                 Project Gallery <span className="text-gray-300">({(project.images || []).length})</span>
@@ -246,7 +246,7 @@ const hasBudgetSummary = typeof project?.budget_summary?.remaining === 'number';
                                         initial={{ opacity: 0, scale: 0.9 }}
                                         animate={{ opacity: 1, scale: 1 }}
                                         transition={{ delay: idx * 0.05 }}
-                                        className="aspect-[4/3] rounded-xl overflow-hidden border border-gray-50 group relative cursor-pointer"
+                                        className="aspect-4/3 rounded-xl overflow-hidden border border-gray-50 group relative cursor-pointer"
                                     >
                                         <img src={img.url} alt="Project" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
                                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors" />
@@ -273,7 +273,7 @@ const hasBudgetSummary = typeof project?.budget_summary?.remaining === 'number';
                             />
                         </div>
                     ) : (
-                        <div className="flex flex-col items-center justify-center bg-white border border-gray-100 rounded-[2rem] shadow-sm p-6 h-full min-h-[220px]">
+                        <div className="flex flex-col items-center justify-center bg-white border border-gray-100 rounded-4xl shadow-sm p-6 h-full min-h-[220px]">
                             <span className="text-xs text-gray-400 font-bold">No map location available</span>
                         </div>
                     )}
@@ -284,7 +284,7 @@ const hasBudgetSummary = typeof project?.budget_summary?.remaining === 'number';
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
                 {/* Bottom Left: Project Information */}
                 <div className="lg:col-span-2 space-y-6">
-                    <section className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm">
+                    <section className="bg-white p-6 rounded-4xl border border-gray-100 shadow-sm">
                         <div className="flex items-center gap-3 mb-4">
                             <div className="w-1 h-5 bg-red-500 rounded-full" />
                             <h3 className="text-sm font-black text-gray-900 tracking-tight">Project Information</h3>
@@ -296,7 +296,7 @@ const hasBudgetSummary = typeof project?.budget_summary?.remaining === 'number';
 
                     {/* Project Specifications */}
                     {dims && (
-                        <section className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm space-y-4">
+                        <section className="bg-white p-6 rounded-4xl border border-gray-100 shadow-sm space-y-4">
                             <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
                                 <Ruler size={14} className="text-gray-400" /> Spesifikasi Proyek
                             </h3>
@@ -449,7 +449,7 @@ const hasBudgetSummary = typeof project?.budget_summary?.remaining === 'number';
                             onRefresh={onRefresh}
                         />
                     )}
-                    <section className="bg-gray-900 rounded-[2rem] p-6 shadow-xl relative overflow-hidden">
+                    <section className="bg-gray-900 rounded-4xl p-6 shadow-xl relative overflow-hidden">
                         {/* Decorative background element */}
                         <div className="absolute top-0 right-0 w-24 h-24 bg-red-500/5 blur-[50px] rounded-full translate-x-8 -translate-y-8 pointer-events-none" />
                         

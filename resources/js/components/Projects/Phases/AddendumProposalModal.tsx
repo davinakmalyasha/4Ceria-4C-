@@ -112,7 +112,7 @@ export default function AddendumProposalModal({
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
+        <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
             <div className="bg-white rounded-[2.5rem] w-full max-w-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
                 {/* Header */}
                 <div className="relative p-8 pb-4">
@@ -280,7 +280,7 @@ export default function AddendumProposalModal({
                         <button 
                             type="submit" 
                             disabled={loading}
-                            className="flex-1 flex items-center justify-center gap-3 py-4 bg-slate-900 text-white rounded-[1.5rem] text-xs font-black uppercase tracking-widest hover:bg-black active:scale-95 transition-all shadow-xl shadow-slate-900/10 disabled:opacity-50"
+                            className="flex-1 flex items-center justify-center gap-3 py-4 bg-slate-900 text-white rounded-3xl text-xs font-black uppercase tracking-widest hover:bg-black active:scale-95 transition-all shadow-xl shadow-slate-900/10 disabled:opacity-50"
                         >
                             {loading ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
                             Submit Proposal

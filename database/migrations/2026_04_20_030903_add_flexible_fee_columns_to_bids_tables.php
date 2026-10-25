@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\Schema\ColumnGuard;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -52,9 +53,20 @@ return new class extends Migration
         ];
 
         foreach ($tables as $table) {
-            Schema::table($table, function (Blueprint $table) {
-                $table->dropColumn(['fee_type', 'unit_price', 'quantity', 'calculated_total']);
-            });
+            // SYMMETRY. The `up()` above adds `fee_type` ONLY when it is
+            // absent, and on `bids_project_manager` it was already present —
+            // `2026_04_19_232807` had added it. Dropping it here would remove
+            // a column this migration never created, and the earlier
+            // migration's own `down()` would then fail with
+            // 1091 Can't DROP 'fee_type'.
+            //
+            // So: `fee_type` is dropped only on the four tables where this
+            // migration is the one that created it.
+            $columns = $table === 'bids_project_manager'
+                ? ['unit_price', 'quantity', 'calculated_total']
+                : ['fee_type', 'unit_price', 'quantity', 'calculated_total'];
+
+            ColumnGuard::drop($table, $columns);
         }
     }
 };

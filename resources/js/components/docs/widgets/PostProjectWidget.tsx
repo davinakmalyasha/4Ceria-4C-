@@ -73,7 +73,7 @@ export default function PostProjectWidget() {
                     <div className="space-y-3">
                         <label className="text-[9px] font-bold text-neutral-400 uppercase block">Required Certificates</label>
                         <div className="flex gap-2">
-                            <input type="text" placeholder="e.g. IMB, PBB" value={docInput} onChange={e => setDocInput(e.target.value)} className="flex-grow px-3 py-1.5 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-bold focus:outline-none" />
+                            <input type="text" placeholder="e.g. IMB, PBB" value={docInput} onChange={e => setDocInput(e.target.value)} className="grow px-3 py-1.5 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-bold focus:outline-none" />
                             <button onClick={handleAddDoc} className="p-2 bg-red-50 hover:bg-red-100 text-red-500 rounded-xl transition-all"><Plus className="w-4 h-4" /></button>
                         </div>
                         <div className="flex flex-wrap gap-1.5 mt-2">

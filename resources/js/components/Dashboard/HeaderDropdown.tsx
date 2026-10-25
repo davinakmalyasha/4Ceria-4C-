@@ -64,7 +64,7 @@ export const HeaderDropdown: React.FC<DropdownProps> = ({
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: 10 }}
                         transition={{ duration: 0.15, ease: 'easeOut' }}
-                        className="absolute left-0 mt-2 w-56 bg-white rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.12)] border border-neutral-100 py-1.5 z-[130]"
+                        className="absolute left-0 mt-2 w-56 bg-white rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.12)] border border-neutral-100 py-1.5 z-130"
                     >
                         {item.children?.map((child) => {
                             const ChildIcon = child.icon;

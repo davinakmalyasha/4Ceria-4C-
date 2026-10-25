@@ -227,7 +227,7 @@ export default function StoreDetailView({ storeId, onBack, onOpenChat, onOpenDet
                             placeholder="Search within this store..." 
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full pl-12 pr-4 py-3 bg-white border border-gray-100 rounded-[1.5rem] focus:ring-4 focus:ring-red-500/5 focus:border-red-500/50 outline-none transition-all shadow-sm"
+                            className="w-full pl-12 pr-4 py-3 bg-white border border-gray-100 rounded-3xl focus:ring-4 focus:ring-red-500/5 focus:border-red-500/50 outline-none transition-all shadow-sm"
                         />
                     </div>
                 </div>
@@ -382,7 +382,7 @@ function ReviewCard({ review, index }: { review: any; index: number }) {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: Math.min(index * 0.05, 0.3) }}
-            className="bg-white rounded-[2rem] border border-gray-100 p-6 shadow-sm hover:shadow-md transition-shadow"
+            className="bg-white rounded-4xl border border-gray-100 p-6 shadow-sm hover:shadow-md transition-shadow"
         >
             <div className="flex items-start gap-4">
                 {/* Avatar */}

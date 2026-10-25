@@ -48,7 +48,7 @@ export default function ProjectInterviews({ project, onRefresh, onOpenChat, onRe
         const activeStatuses = ['shortlisted', 'invited', 'negotiating', 'contract_pending'];
         
         const isOwner = user?.id === project.user_id;
-        const isHiredPM = project.pm_id && (user?.project_manager?.id === project.pm_id || user?.id === project.pm_id);
+        const isHiredPM = project.pm_id && (user?.project_manager?.id === project.pm_id);
         
         // Robust Architect Identification
         const isHiredArsitek = (user?.role_type === 'arsitek') && (

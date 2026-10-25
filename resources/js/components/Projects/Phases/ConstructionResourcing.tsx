@@ -29,7 +29,7 @@ export default function ConstructionResourcing({
 
     const isOwner = Number(user?.id) === Number(project.user_id);
     const isPM = (user?.role_type === 'project_manager' || user?.role_type === 'pm')
-        && Number(project.pm_id) === Number(user?.id);
+        && Number(project.pm_id) === Number(user?.project_manager?.id);
 
     const roleConfig = useMemo(() =>
         CONSTRUCTION_SUB_ROLES.find(r => r.key === activeSubRole),
@@ -303,7 +303,7 @@ export default function ConstructionResourcing({
                     {isContractor && (
                         <div className="border-t border-slate-100 pt-6 space-y-6">
                             {assignableCandidates.length > 0 ? (
-                                <form onSubmit={handleAssignSubContractor} className="p-6 bg-slate-50 border border-slate-200 rounded-[2rem] space-y-4">
+                                <form onSubmit={handleAssignSubContractor} className="p-6 bg-slate-50 border border-slate-200 rounded-4xl space-y-4">
                                     <div className="flex items-center gap-2">
                                         <Users size={16} className="text-slate-950" />
                                         <span className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Assign from Negotiated Team / Firm Roster</span>

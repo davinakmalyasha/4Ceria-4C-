@@ -20,7 +20,7 @@ export default function SummaryProCard({ pro, roleLabel, onOpenChat }: SummaryPr
         : '#';
 
     return (
-        <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="bg-white p-6 rounded-4xl border border-slate-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
                 <div className="w-14 h-14 rounded-2xl bg-slate-50 flex items-center justify-center overflow-hidden border border-slate-100 shadow-inner shrink-0">
                     {pro?.foto ? (

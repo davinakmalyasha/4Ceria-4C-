@@ -86,7 +86,7 @@ export default function ProjectWizard({ onCancel, onSuccess }: ProjectWizardProp
     };
 
     return (
-        <div className="max-w-3xl sm:max-w-4xl mx-auto bg-white rounded-[2rem] shadow-xl border border-gray-100/60 overflow-hidden transition-all duration-300">
+        <div className="max-w-3xl sm:max-w-4xl mx-auto bg-white rounded-4xl shadow-xl border border-gray-100/60 overflow-hidden transition-all duration-300">
             <WizardHeader w={w} mode={w.mode} onToggle={() => { w.setMode(w.mode === 'easy' ? 'advanced' : 'easy'); w.setStep(0); }} step={w.step} totalSteps={w.totalSteps} activeLabel={activeLabel} />
             <form onSubmit={handleSubmit} className="p-5 sm:p-6">
                 {error && <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-xl text-sm font-semibold border border-red-200">{error}</div>}

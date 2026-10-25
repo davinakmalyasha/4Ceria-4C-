@@ -46,7 +46,7 @@ export const NotaryFeeSelector: React.FC<Props> = ({
     const totalFee = consultationFee + servicesTotal;
 
     return (
-        <div className="bg-zinc-50 rounded-[2rem] p-6 border border-zinc-150 space-y-4">
+        <div className="bg-zinc-50 rounded-4xl p-6 border border-zinc-150 space-y-4">
             <div>
                 <h4 className="text-xs font-black text-gray-900 uppercase tracking-widest flex items-center gap-1.5">
                     <DollarSign size={14} className="text-emerald-500" />

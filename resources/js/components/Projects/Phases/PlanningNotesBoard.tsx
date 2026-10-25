@@ -40,7 +40,7 @@ const PlanningNotesBoard: React.FC<PlanningNotesBoardProps> = ({ project, isArch
     const [feedbackContent, setFeedbackContent] = useState('');
     const [openNotes, setOpenNotes] = useState<string[]>([]);
 
-    const isPM = user?.id === project.pm_id;
+    const isPM = user?.project_manager?.id === project.pm_id;
     const isOwner = user?.id === project.user_id;
     
     // Check for hired specialists matching the project roles to allow collaborative feedback

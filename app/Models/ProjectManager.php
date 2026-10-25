@@ -98,6 +98,6 @@ class ProjectManager extends Model
 
     public function projects()
     {
-        return $this->hasMany(Project::class, 'pm_id', 'user_id');
+        return $this->hasMany(Project::class, 'pm_id');
     }
 }

@@ -14,7 +14,31 @@
         "isolatedModules": true,
         "noEmit": true,
         "forceConsistentCasingInFileNames": true,
-        "types": ["vite/client"],
+        /*
+         * `node` is here because the codebase USES node types in browser code
+         * — `NodeJS.Timeout` in `LocationPickerMap.tsx` — and because the
+         * vitest suite reads source files from disk. Without it, those were
+         * three live `tsc` errors that nobody could fix without a type
+         * definition package.
+         *
+         * The list is explicit rather than "all of @types", so a stray
+         * `@types/*` package cannot silently change what the browser code is
+         * allowed to see.
+         */
+        "types": ["vite/client", "node"],
+
+        /*
+         * TypeScript 7 is the native (Go) port. Microsoft states that it
+         * reports "the same errors, locations, and messages as TypeScript
+         * 6.0 (with the `stableTypeOrdering` flag on, and without any
+         * `noCheck` or `noEmit` flags)".
+         *
+         * `stableTypeOrdering` is therefore REQUIRED, not optional: it is
+         * what makes the union-ordering — and therefore the error text —
+         * identical. Without it the error COUNT changes and the ratchet
+         * baseline would be measuring a different thing.
+         */
+        "stableTypeOrdering": true,
 
         /* Incremental strictness rollout:
            the codebase predates type-checking (vite/esbuild strips types

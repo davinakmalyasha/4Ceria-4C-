@@ -30,7 +30,7 @@ class ProjectDocumentController extends Controller
     private function canAccess(Project $project, $user): bool
     {
         $isOwner = $project->user_id === $user->id;
-        $isPM = $user->role_type === 'project_manager' && $project->pm_id === $user->id;
+        $isPM = $user->role_type === 'project_manager' && Hire::isAssignedPm($project, $user);
         $isHiredPro = false;
         if ($user->role_type === 'arsitek' && Hire::matches($project, $user, 'arsitek')) $isHiredPro = true;
         if ($user->role_type === 'kontraktor' && Hire::matches($project, $user, 'kontraktor')) $isHiredPro = true;
@@ -89,7 +89,7 @@ class ProjectDocumentController extends Controller
         // Vault documents (incl. awaiting_signature / legally_binding) go to
         // the PRIVATE railway bucket by default; local dev may override with
         // VAULT_DISK=public. The file_url accessor resolves both layouts.
-        $path = $file->store('project_documents', config('filesystems.vault_disk', 'railway'));
+        $path = $file->store('project_documents', \App\Support\Vault::disk());
 
         $document = DB::transaction(function () use ($project, $validated, $category, $targetRole, $parentId, $version, $file, $path) {
             $fileName = $validated['title'] ?? $file->getClientOriginalName();
@@ -176,7 +176,7 @@ class ProjectDocumentController extends Controller
 
         $user = Auth::user();
         $isOwner = $project->user_id === $user->id;
-        $isPM = $project->pm_id === $user->id;
+        $isPM = Hire::isAssignedPm($project, $user);
 
         if (!$isOwner && !$isPM) {
             return response()->json(['message' => 'Unauthorized. Only owner or PM can verify documents.'], 403);

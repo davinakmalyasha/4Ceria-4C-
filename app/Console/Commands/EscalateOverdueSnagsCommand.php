@@ -29,7 +29,9 @@ class EscalateOverdueSnagsCommand extends Command
                 continue;
             }
 
-            $recipients = array_filter([$project->user_id, $project->pm_id]);
+            // `projects.pm_id` holds the PM's PROFILE id; a notification recipient is a
+            // USER id, so the profile is resolved first.
+            $recipients = array_filter([$project->user_id, $project->projectManager?->user_id]);
 
             $assignedUserId = $item->assigned_role === 'interior'
                 ? optional($project->interior)->user_id

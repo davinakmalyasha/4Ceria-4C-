@@ -132,7 +132,7 @@ function getNavItems(role?: string): NavItem[] {
 
 export const DashboardSidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen, activeTab, setActiveTab, counts }) => {
     const { user, logout } = useAuth();
-    const navItems = getNavItems(user?.role_type, !!user);
+    const navItems = getNavItems(user?.role_type);
     const [openMenus, setOpenMenus] = React.useState<Record<string, boolean>>({});
 
     const toggleMenu = (menuId: string) => {
@@ -155,7 +155,7 @@ export const DashboardSidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSideb
         <>
             {sidebarOpen && (
                 <div 
-                    className="fixed inset-0 bg-black/35 backdrop-blur-sm z-[115] transition-opacity duration-300" 
+                    className="fixed inset-0 bg-black/35 backdrop-blur-sm z-115 transition-opacity duration-300" 
                     onClick={() => setSidebarOpen(false)} 
                 />
             )}
@@ -163,11 +163,11 @@ export const DashboardSidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSideb
                 initial={{ x: -300 }}
                 animate={{ x: sidebarOpen ? 0 : -300 }}
                 transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-                className="fixed inset-y-0 left-0 w-64 bg-white shadow-2xl shadow-black/10 z-[120] flex flex-col h-full"
+                className="fixed inset-y-0 left-0 w-64 bg-white shadow-2xl shadow-black/10 z-120 flex flex-col h-full"
             >
                 <div className="p-5 flex items-center justify-between border-b border-gray-100 shrink-0">
                     <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center text-white font-black text-sm shadow-lg shadow-red-200 shrink-0">
+                        <div className="w-10 h-10 rounded-xl bg-linear-to-br from-red-500 to-red-600 flex items-center justify-center text-white font-black text-sm shadow-lg shadow-red-200 shrink-0">
                             {user ? user.name?.charAt(0).toUpperCase() : 'G'}
                         </div>
                         <div className="min-w-0">

@@ -73,14 +73,14 @@ export default function ScheduleVisitModal({ house, onClose, onOpenChat }: Props
     };
 
     return (
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+        <div className="fixed inset-0 z-99999 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
             <motion.div
                 initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}
-                className="bg-white rounded-[2rem] shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]"
+                className="bg-white rounded-4xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]"
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Header */}
-                <div className="relative bg-gradient-to-br from-gray-900 to-gray-800 p-6">
+                <div className="relative bg-linear-to-br from-gray-900 to-gray-800 p-6">
                     <div className="absolute right-0 top-0 w-40 h-40 bg-[#FF2D20] rounded-full blur-[80px] opacity-30 mix-blend-screen" />
                     <button onClick={onClose} className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors">
                         <X size={16} />

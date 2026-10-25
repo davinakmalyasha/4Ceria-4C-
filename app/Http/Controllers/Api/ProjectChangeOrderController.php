@@ -9,6 +9,8 @@ use App\Traits\HandlesProjectAuthorization;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use App\Support\SafeError;
+use App\Support\Hire;
 
 class ProjectChangeOrderController extends Controller
 {
@@ -121,7 +123,7 @@ class ProjectChangeOrderController extends Controller
             return response()->json(['message' => 'Not found.'], 404);
         }
 
-        if ($user->role_type !== 'project_manager' || $project->pm_id !== $user->id) {
+        if ($user->role_type !== 'project_manager' || ! Hire::isAssignedPm($project, $user)) {
             return response()->json(['message' => 'Only the assigned PM can review change orders.'], 403);
         }
 
@@ -260,7 +262,7 @@ class ProjectChangeOrderController extends Controller
             // client verbatim; anything else is logged and generic.
             $code = (int) $e->getCode();
             if ($code >= 400 && $code < 600) {
-                return response()->json(['message' => $e->getMessage()], $code);
+                return response()->json(['message' => SafeError::message($e)], $code);
             }
 
             return response()->json(['message' => 'Decision failed. Please try again.'], 500);

@@ -198,7 +198,7 @@ export default function EngineeringManualLogs({ project, currentUser, onRefresh 
                         )}
                     </div>
                     
-                    <div className="min-h-[160px] bg-slate-50/50 rounded-[2rem] p-6 border border-dashed border-slate-200 flex flex-col gap-4">
+                    <div className="min-h-[160px] bg-slate-50/50 rounded-4xl p-6 border border-dashed border-slate-200 flex flex-col gap-4">
                         {logs.length === 0 ? (
                             <div className="flex flex-col items-center justify-center flex-1 text-slate-300 gap-3">
                                 <Icon size={32} strokeWidth={1} />
@@ -250,7 +250,7 @@ export default function EngineeringManualLogs({ project, currentUser, onRefresh 
 
                 {/* Log Modal */}
                 {showLogForm && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
                         <div className="bg-white rounded-[2.5rem] p-8 max-w-md w-full shadow-2xl border border-slate-100">
                             <div className="flex justify-between items-center mb-8">
                                 <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Record Technical Log</h3>

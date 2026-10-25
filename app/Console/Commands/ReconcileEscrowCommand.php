@@ -233,18 +233,28 @@ class ReconcileEscrowCommand extends Command
             ? $q->where('project_id', $projectId)
             : $q;
 
+        // VOIDED rows are excluded. A voided row is a movement that was
+        // recorded and then found to duplicate another — its amount has been
+        // zeroed and it is no longer a movement at all. Reporting it as an
+        // unattributable disbursement would report the FIX as the fault, and
+        // the count would grow every time a duplicate was cleaned up.
         $anonymousPayments = $scope(
-            ProjectBudgetTransaction::where('transaction_type', 'payment')->whereNull('actor_user_id')
+            ProjectBudgetTransaction::where('transaction_type', 'payment')
+                ->whereNull('actor_user_id')
+                ->whereNull('voided_at')
         )->count();
 
         $anonymousRefunds = $scope(
-            ProjectBudgetTransaction::where('transaction_type', 'refund')->whereNull('actor_user_id')
+            ProjectBudgetTransaction::where('transaction_type', 'refund')
+                ->whereNull('actor_user_id')
+                ->whereNull('voided_at')
         )->count();
 
         if ($details && ($anonymousPayments || $anonymousRefunds)) {
             foreach (
                 $scope(
                     ProjectBudgetTransaction::whereNull('actor_user_id')
+                        ->whereNull('voided_at')
                         ->whereIn('transaction_type', ['payment', 'refund'])
                 )
                     ->orderBy('id')

@@ -27,7 +27,7 @@ export default function BuyMaterialWidget() {
                 <div className="w-12 h-12 rounded-xl bg-neutral-100 border border-neutral-200 flex items-center justify-center font-bold text-[10px] text-neutral-400 shrink-0">
                     50kg
                 </div>
-                <div className="flex-grow">
+                <div className="grow">
                     <h4 className="font-extrabold text-neutral-800 text-xs">Semen Tiga Roda Portland</h4>
                     <p className="text-[9px] text-emerald-600 font-bold">In Stock • Ready for Shipping</p>
                 </div>
@@ -49,7 +49,7 @@ export default function BuyMaterialWidget() {
                 <div className="flex gap-1.5">
                     <button 
                         onClick={() => setShipping('radar')} 
-                        className={`flex-grow py-1.5 px-2 rounded-lg text-[9px] font-extrabold border transition-all ${
+                        className={`grow py-1.5 px-2 rounded-lg text-[9px] font-extrabold border transition-all ${
                             shipping === 'radar' ? 'bg-red-500 text-white border-red-500' : 'bg-white text-neutral-500 border-neutral-200 hover:bg-neutral-100'
                         }`}
                     >
@@ -57,7 +57,7 @@ export default function BuyMaterialWidget() {
                     </button>
                     <button 
                         onClick={() => setShipping('regular')} 
-                        className={`flex-grow py-1.5 px-2 rounded-lg text-[9px] font-extrabold border transition-all ${
+                        className={`grow py-1.5 px-2 rounded-lg text-[9px] font-extrabold border transition-all ${
                             shipping === 'regular' ? 'bg-red-500 text-white border-red-500' : 'bg-white text-neutral-500 border-neutral-200 hover:bg-neutral-100'
                         }`}
                     >

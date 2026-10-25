@@ -93,25 +93,22 @@ final class PayoutDestinationService
         $memo = self::memoFor($request);
         // Pass 1 — what does the project say is hired?
         //
-        // `projects.pm_id` holds the PM's USER id; every other `selected_*`
-        // column holds a PROFILE id (see config/bids.php). Conflating them
-        // resolves a profile id against `users.id`, which either misses or —
-        // far worse — returns the wrong person's bank details.
-        $pmUserId = null;
+        // EVERY column here holds a PROFILE row id. `projects.pm_id` used to
+        // be the exception — it held the PM's USER id — and resolving a
+        // profile id against `users.id` either misses or, far worse, returns
+        // the wrong person's bank details. The pm_id resolution migration
+        // removed the exception, so the PM now flows through the same path as
+        // the other six.
         $profileIdsByRole = [];
 
         foreach (config('bids') as $role => $config) {
-            $id = $project->{$config['project_profile_column']} ?? null;
+            $id = $project->{$config['project_id_column']} ?? null;
 
             if ($id === null) {
                 continue;
             }
 
-            if ($role === 'project_manager') {
-                $pmUserId = (int) $id;
-            } else {
-                $profileIdsByRole[$role] = (int) $id;
-            }
+            $profileIdsByRole[$role] = (int) $id;
         }
 
         // Pass 2 — resolve to users, reading the per-request memo first.
@@ -127,25 +124,19 @@ final class PayoutDestinationService
         foreach (config('bids') as $role => $config) {
             $profileModel = $config['profile_model'] ?? null;
 
-            $user = match (true) {
-                $role === 'project_manager' && $pmUserId !== null => $this->userFor($memo, User::class, $pmUserId, $request),
-                isset($profileIdsByRole[$role]) => $usersByProfileIds[$profileModel . ':' . $profileIdsByRole[$role]] ?? null,
-                default => null,
-            };
-
-            // Only roles that were actually hired get an entry. `$user` may still
-            // be null when the profile row was deleted out from under the
-            // project; that is reported as an incomplete destination rather than
-            // silently omitted, because a dangling column is a data fault the
-            // owner needs to see.
-            if ($role === 'project_manager' && $pmUserId === null) {
+            // Only roles that were actually hired get an entry. A role with no
+            // id on the project is not "hired, bank details unknown" — it is
+            // nobody hired, and the owner acts on those differently.
+            if (! isset($profileIdsByRole[$role])) {
                 continue;
             }
 
-            if ($role !== 'project_manager' && ! isset($profileIdsByRole[$role])) {
-                continue;
-            }
+            $user = $usersByProfileIds[$profileModel . ':' . $profileIdsByRole[$role]] ?? null;
 
+            // `$user` may still be null when the profile row was deleted out
+            // from under the project; that is reported as an incomplete
+            // destination rather than silently omitted, because a dangling
+            // column is a data fault the owner needs to see.
             $destinations[$role] = $this->describe($role, $config, $user);
         }
 
@@ -224,26 +215,6 @@ final class PayoutDestinationService
         $request->attributes->set(self::MEMO_KEY, $memo);
 
         return $found;
-    }
-
-    /**
-     * `User::find()` through the same memo, keyed on the users table.
-     *
-     * The PM's id is a USER id, so it is memoised under `User::` and cannot
-     * collide with a profile id even though the numeric values may match.
-     *
-     * @param  array<string, User|null>  $memo
-     */
-    private function userFor(array &$memo, string $model, int $id, Request $request): ?User
-    {
-        $key = $model . ':' . $id;
-
-        if (! array_key_exists($key, $memo)) {
-            $memo[$key] = $model::find($id);
-            $request->attributes->set(self::MEMO_KEY, $memo);
-        }
-
-        return $memo[$key];
     }
 
     /**

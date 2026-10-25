@@ -60,7 +60,7 @@ export default function RatingModal({ projectId, projectTitle, roleType, profess
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 z-70 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
             onClick={onClose}
         >
             <motion.div
@@ -80,7 +80,7 @@ export default function RatingModal({ projectId, projectTitle, roleType, profess
                         animate={{ scale: 1 }}
                         className="text-center py-8"
                     >
-                        <div className="w-24 h-24 bg-emerald-50 text-emerald-500 rounded-[2rem] flex items-center justify-center mx-auto mb-6 border border-emerald-100 rotate-6 shadow-xl shadow-emerald-500/10">
+                        <div className="w-24 h-24 bg-emerald-50 text-emerald-500 rounded-4xl flex items-center justify-center mx-auto mb-6 border border-emerald-100 rotate-6 shadow-xl shadow-emerald-500/10">
                             <Trophy className="w-12 h-12" />
                         </div>
                         <h3 className="text-2xl font-black text-gray-900 uppercase tracking-tighter">Terima Kasih!</h3>
@@ -89,7 +89,7 @@ export default function RatingModal({ projectId, projectTitle, roleType, profess
                 ) : (
                     <>
                         <div className="text-center mb-8">
-                            <div className="w-20 h-20 bg-gradient-to-br from-amber-400 to-amber-500 rounded-[1.5rem] flex items-center justify-center mx-auto mb-6 shadow-xl shadow-amber-200 rotate-3">
+                            <div className="w-20 h-20 bg-linear-to-br from-amber-400 to-amber-500 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl shadow-amber-200 rotate-3">
                                 <Star className="w-10 h-10 text-white fill-white" />
                             </div>
                             <h3 className="text-2xl font-black text-gray-900 uppercase tracking-tighter leading-none mb-2">Beri Penilaian</h3>

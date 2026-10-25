@@ -45,7 +45,7 @@ export default function ConsultationModal({ notaris, isOpen, onClose }: Consulta
     return (
         <AnimatePresence>
             {isOpen && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
                     <motion.div 
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
@@ -61,7 +61,7 @@ export default function ConsultationModal({ notaris, isOpen, onClose }: Consulta
                         className="relative w-full max-w-lg bg-white rounded-[40px] shadow-2xl overflow-hidden border border-gray-100"
                     >
                         {/* Header */}
-                        <div className="bg-gradient-to-br from-blue-900 to-black p-8 text-white">
+                        <div className="bg-linear-to-br from-blue-900 to-black p-8 text-white">
                             <button 
                                 onClick={onClose}
                                 className="absolute top-6 right-6 p-2 hover:bg-white/10 rounded-full transition-colors"

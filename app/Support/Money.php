@@ -264,17 +264,79 @@ final class Money implements JsonSerializable, Stringable
     {
         $basisPoints = self::toBasisPoints($percentage);
 
-        $product = $this->minor * $basisPoints;
+        // THE OVERFLOW, AND HOW IT IS AVOIDED.
+        //
+        // The obvious implementation — `$this->minor * $basisPoints` — overflows
+        // a 64-bit integer once the amount passes about Rp 9.2 trillion, and
+        // PHP's integer overflow BECOMES A FLOAT. `intdiv(float, int)` then
+        // threw a TypeError from deep inside an escrow path:
+        //
+        //     intdiv(): Argument #1 ($num1) must be of type int, float given
+        //
+        // So the legacy application CRASHED on a percentage of an amount that
+        // large, and the Go port — which computes the product in 128 bits —
+        // returns the right answer. A crash is bad; two engines disagreeing is
+        // worse, because the Go port is the one that will replace this.
+        //
+        // The multiplication is therefore DECOMPOSED, so the intermediate never
+        // overflows:
+        //
+        //     magnitude = q * 10000 + r
+        //     magnitude * bp / 10000
+        //         = q * bp  +  r * bp / 10000
+        //
+        // `q * bp` fits whenever the RESULT fits and the percentage is at most
+        // 100 %, and `r * bp` is bounded by 10 000 * 10^8. The rounding is
+        // applied to the fractional remainder, which is the same half-away-from-
+        // zero rule as before.
+        $magnitude = abs($this->minor);
+        $basisPointsMagnitude = abs($basisPoints);
+
+        // BOTH signs are applied at the END, and the decomposition works on
+        // MAGNITUDES only.
+        //
+        // With a negative basis point count the intermediate remainder goes
+        // negative, and PHP's `%` keeps the dividend's sign — so
+        // `intdiv(-58 568 108, 10 000)` is -5856 and the remainder is -8108,
+        // which is a DIFFERENT decomposition than the positive one and lands
+        // a sen away. The rounding rule is "half away from zero on the
+        // magnitude", so the magnitude is what gets decomposed.
+        $sign = ($this->minor < 0 ? -1 : 1) * ($basisPoints < 0 ? -1 : 1);
+
+        $quotient = intdiv($magnitude, 10000);
+        $remainderAmount = $magnitude % 10000;
+
+        $whole = $quotient * $basisPointsMagnitude;
+
+        if (! is_int($whole)) {
+            throw new InvalidArgumentException(
+                "A percentage of {$this->toDecimal()} overflows the 64-bit minor-unit range. "
+                .'The amount is larger than the escrow can represent exactly, so the result '
+                .'cannot be computed without losing money. Split the amount instead.'
+            );
+        }
+
+        // `r * bp` is bounded by 10 000 * 10^8 = 10^12, so it never overflows.
+        $scaledRemainder = $remainderAmount * $basisPointsMagnitude;
+        $carry = intdiv($scaledRemainder, 10000);
+        $fraction = $scaledRemainder % 10000;
+
+        $result = $whole + $carry;
+
+        if (! is_int($result)) {
+            throw new InvalidArgumentException(
+                "A percentage of {$this->toDecimal()} overflows the 64-bit minor-unit range. "
+                .'The amount is larger than the escrow can represent exactly, so the result '
+                .'cannot be computed without losing money. Split the amount instead.'
+            );
+        }
 
         // Round the magnitude half away from zero, then restore the sign.
-        // `$product` is already signed, so this is the magnitude of the product.
-        $sign = $product < 0 ? -1 : 1;
-        $magnitude = abs($product);
+        if ($fraction >= 5000) {
+            $result += 1;
+        }
 
-        return new self(
-            $sign * intdiv($magnitude + 5000, 10000),
-            $this->currency
-        );
+        return new self($sign * $result, $this->currency);
     }
 
     // -----------------------------------------------------------------
@@ -315,6 +377,46 @@ final class Money implements JsonSerializable, Stringable
      */
     public function multiplyBy(int|float $factor): self
     {
+        // THE PRECISION LIMIT.
+        //
+        // `$this->minor * $factor` is evaluated as a float, and a float64
+        // carries only 15-16 significant digits. Above 2^53 — about Rp 90
+        // trillion — the product silently loses its low bits, so the RESULT IS
+        // A DIFFERENT NUMBER. `round()` then rounds the wrong quantity,
+        // faithfully.
+        //
+        // The Go port computes the product in 128 bits and refuses when the
+        // result is out of range, so the two engines would disagree. Below the
+        // threshold nothing changes, and the differential corpus proves it.
+        //
+        // A WHOLE factor is multiplied EXACTLY, in integers, so the only limit
+        // is the int64 range of the PRODUCT — which PHP detects for us, because
+        // an overflowing integer multiplication becomes a float.
+        if (is_int($factor) || (is_float($factor) && floor($factor) === $factor)) {
+            $exact = $this->minor * (int) $factor;
+
+            if (is_int($exact)) {
+                return new self($exact, $this->currency);
+            }
+
+            throw new InvalidArgumentException(
+                "Multiplying {$this->toDecimal()} by {$factor} overflows the 64-bit minor-unit "
+                .'range, so the result cannot be represented exactly. The amount is larger than '
+                .'the escrow can represent; split it instead.'
+            );
+        }
+
+        // A FRACTIONAL factor has to go through a float, and a float is only
+        // exact while the PRODUCT fits in 53 bits — the input alone is not
+        // enough, because multiplying by 1.05 already pushes it past.
+        if (abs($this->minor) * abs($factor) > 9007199254740992) {
+            throw new InvalidArgumentException(
+                "Multiplying {$this->toDecimal()} by {$factor} exceeds the precision of a "
+                .'64-bit minor-unit amount, so the result would not be exact. The amount is '
+                .'larger than the escrow can represent; split it instead.'
+            );
+        }
+
         return new self((int) round($this->minor * $factor), $this->currency);
     }
 

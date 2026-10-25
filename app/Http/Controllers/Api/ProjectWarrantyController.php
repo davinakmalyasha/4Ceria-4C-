@@ -108,10 +108,10 @@ class ProjectWarrantyController extends Controller
         $updateData = ['status' => $validated['status']];
 
         if (isset($validated['cost_impact'])) {
-            if ($validated['cost_impact'] > 0 && !$isOwner) {
+            if ($validated['cost_impact'] ?? null > 0 && !$isOwner) {
                 return response()->json(['message' => 'Only the project owner can set a cost impact.'], 403);
             }
-            $updateData['cost_impact'] = $validated['cost_impact'];
+            $updateData['cost_impact'] = $validated['cost_impact'] ?? null;
         }
 
         if ($validated['status'] === 'resolved') {

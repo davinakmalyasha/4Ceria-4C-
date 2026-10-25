@@ -29,6 +29,15 @@ class House extends Model
         'views',
         'id_user',
 
+        // B24. The column has existed since the house table was created and
+        // the administrator's suspend endpoint has always written it — but
+        // it was not mass-assignable, so the endpoint answered 500 with
+        // "Add fillable property [is_suspended] to allow mass assignment on
+        // [App\Models\House]" for every house and every administrator.
+        //
+        // The administrator could not suspend a single listing.
+        'is_suspended',
+
     ];
 
     public $timestamps = true;

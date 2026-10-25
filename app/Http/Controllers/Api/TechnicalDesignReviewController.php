@@ -93,7 +93,9 @@ class TechnicalDesignReviewController extends Controller
             $this->logActivity($project, 'design_submitted', "Submitted " . ucfirst($v['role_type']) . " Design");
             
             $body = Auth::user()->name . " has submitted the " . strtoupper($v['role_type']) . " design for review.";
-            $this->notify($project->pm_id, 'design_submitted', 'Technical Design Submitted', $body, $project->id);
+            // The PM's USER id — a notification recipient is a user, and
+            // `projects.pm_id` holds the PM's PROFILE id.
+            $this->notify($project->projectManager?->user_id, 'design_submitted', 'Technical Design Submitted', $body, $project->id);
             if ($project->user_id !== Auth::id()) {
                 $this->notify($project->user_id, 'design_submitted', 'Technical Design Submitted', $body, $project->id);
             }

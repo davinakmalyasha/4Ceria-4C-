@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 import laravel from 'laravel-vite-plugin';
 import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig(({ mode }) => {
@@ -74,20 +75,29 @@ export default defineConfig(({ mode }) => {
         return {
             plugins: [
                 react(),
+                // Tailwind v4 runs as a Vite plugin, not a PostCSS plugin.
+                // Both build modes need it: a stylesheet that only exists in
+                // one of them is how the standalone build shipped without
+                // Tailwind at all.
+                tailwindcss(),
                 pwaPlugin
             ],
             build: {
                 outDir: 'dist',
                 rollupOptions: {
-                    // `resources/css/app.css` IS THE ONLY FILE WITH `@tailwind`
-                    // DIRECTIVES. Without it in this input list, the standalone
-                    // build emitted `index-*.css` from `resources/css/index.css`
-                    // alone -- confirmed to contain no `--tw-` variable and no
-                    // `.container{` rule -- so the frontend Vercel serves shipped
-                    // with NO Tailwind at all. The Laravel build listed the file,
-                    // which is why this was invisible locally: the two modes
-                    // silently disagreed.
-                    input: ['index.html', 'resources/css/app.css'],
+                    // `resources/css/app.css` is imported by `resources/js/app.tsx`,
+                    // so it is already in the module graph and needs no entry of
+                    // its own.
+                    //
+                    // It USED to be listed here as a separate input, and that is
+                    // what silently shipped a Tailwind-free build to Vercel:
+                    // Vite emits no `<link>` element for a CSS-only entry, so
+                    // `dist/index.html` referenced only `index-*.css` (the custom
+                    // theme) and never the 206 kB Tailwind bundle that sat
+                    // next to it in `dist/assets/`, referenced only by
+                    // `sw.js`/`manifest.json`. The committed build proved it:
+                    // `index-DnKoKolg.css` held 0 `--tw-` variables.
+                    input: ['index.html'],
                     output: {
                         manualChunks,
                     },
@@ -100,13 +110,19 @@ export default defineConfig(({ mode }) => {
     return {
         plugins: [
             laravel({
+                // `resources/css/app.css` is imported by `resources/js/app.tsx`.
+                // Listing it here as well made it a SECOND entry, and a CSS
+                // entry produces a second stylesheet with no `<link>` for it in
+                // the emitted HTML — the same defect as the standalone build,
+                // just less visible because the Laravel blade template linked
+                // the file by hand.
                 input: [
-                    'resources/css/app.css',
                     'resources/js/app.tsx',
                 ],
                 refresh: true,
             }),
             react(),
+            tailwindcss(),
             pwaPlugin
         ],
         build: {

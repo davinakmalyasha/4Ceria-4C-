@@ -59,11 +59,11 @@ export default function LogisticsOverview({ user, setActiveTab }: Props) {
             {/* Hero Section */}
             <div className="flex flex-col lg:flex-row gap-6 items-stretch">
                 <motion.div variants={itemVariants} className="w-full lg:w-1/2">
-                    <div className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-slate-900 to-indigo-950 shadow-xl shadow-indigo-500/10 p-8 flex flex-col justify-between h-full min-h-[340px]">
+                    <div className="relative overflow-hidden rounded-4xl bg-linear-to-br from-slate-900 to-indigo-950 shadow-xl shadow-indigo-500/10 p-8 flex flex-col justify-between h-full min-h-[340px]">
                         <div className="absolute inset-0 z-0">
                             <div className="absolute -top-24 -right-24 w-64 h-64 bg-indigo-500/15 rounded-full blur-3xl" />
                             <div className="absolute bottom-0 left-1/4 w-48 h-48 bg-cyan-400/10 rounded-full blur-3xl" />
-                            <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:24px_24px]" />
+                            <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-size-[24px_24px]" />
                         </div>
 
                         <div className="relative z-10 flex flex-col justify-between h-full">
@@ -105,7 +105,7 @@ export default function LogisticsOverview({ user, setActiveTab }: Props) {
                     {/* Available Jobs */}
                     <div 
                         onClick={() => setActiveTab('job-radar')}
-                        className="bg-white/90 backdrop-blur-xl p-6 rounded-[2rem] border border-gray-100 shadow-sm hover:shadow-xl hover:border-indigo-100 transition-all group flex flex-col justify-between relative overflow-hidden cursor-pointer"
+                        className="bg-white/90 backdrop-blur-xl p-6 rounded-4xl border border-gray-100 shadow-sm hover:shadow-xl hover:border-indigo-100 transition-all group flex flex-col justify-between relative overflow-hidden cursor-pointer"
                     >
                         <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity"><Navigation size={80} /></div>
                         <div>
@@ -123,7 +123,7 @@ export default function LogisticsOverview({ user, setActiveTab }: Props) {
                     {/* Active Deliveries */}
                     <div 
                         onClick={() => setActiveTab('my-deliveries')}
-                        className="bg-white/90 backdrop-blur-xl p-6 rounded-[2rem] border border-gray-100 shadow-sm hover:shadow-xl hover:border-amber-100 transition-all group flex flex-col justify-between relative overflow-hidden cursor-pointer"
+                        className="bg-white/90 backdrop-blur-xl p-6 rounded-4xl border border-gray-100 shadow-sm hover:shadow-xl hover:border-amber-100 transition-all group flex flex-col justify-between relative overflow-hidden cursor-pointer"
                     >
                         <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity"><Truck size={80} /></div>
                         <div>
@@ -139,7 +139,7 @@ export default function LogisticsOverview({ user, setActiveTab }: Props) {
                     </div>
 
                     {/* Completed */}
-                    <div className="bg-white/90 backdrop-blur-xl p-6 rounded-[2rem] border border-gray-100 shadow-sm hover:shadow-xl hover:border-emerald-100 transition-all group flex flex-col justify-between relative overflow-hidden">
+                    <div className="bg-white/90 backdrop-blur-xl p-6 rounded-4xl border border-gray-100 shadow-sm hover:shadow-xl hover:border-emerald-100 transition-all group flex flex-col justify-between relative overflow-hidden">
                         <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity"><CheckCircle size={80} /></div>
                         <div>
                             <div className="w-12 h-12 bg-emerald-50 text-emerald-500 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform"><CheckCircle size={24} /></div>
@@ -153,7 +153,7 @@ export default function LogisticsOverview({ user, setActiveTab }: Props) {
                     </div>
 
                     {/* Total Earnings */}
-                    <div className="bg-white/90 backdrop-blur-xl p-6 rounded-[2rem] border border-gray-100 shadow-sm hover:shadow-xl hover:border-emerald-100 transition-all group flex flex-col justify-between relative overflow-hidden">
+                    <div className="bg-white/90 backdrop-blur-xl p-6 rounded-4xl border border-gray-100 shadow-sm hover:shadow-xl hover:border-emerald-100 transition-all group flex flex-col justify-between relative overflow-hidden">
                         <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity"><TrendingUp size={80} /></div>
                         <div>
                             <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform"><DollarSign size={24} /></div>

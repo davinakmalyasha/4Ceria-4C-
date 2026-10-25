@@ -195,7 +195,7 @@ export default function DailySiteLog({ project, isContractor }: DailyLogProps) {
                     <button 
                         type="submit" 
                         disabled={submitting} 
-                        className="w-full py-5 bg-slate-900 text-white rounded-[1.5rem] font-black text-xs uppercase tracking-[0.4em] flex items-center justify-center gap-2 hover:-translate-y-1 active:scale-95 transition-all shadow-xl disabled:opacity-50"
+                        className="w-full py-5 bg-slate-900 text-white rounded-3xl font-black text-xs uppercase tracking-[0.4em] flex items-center justify-center gap-2 hover:-translate-y-1 active:scale-95 transition-all shadow-xl disabled:opacity-50"
                     >
                         {submitting ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><Save size={18} /> Submit Daily Log Entry</>}
                     </button>
@@ -210,7 +210,7 @@ export default function DailySiteLog({ project, isContractor }: DailyLogProps) {
                     </div>
                 ) : (
                     logs.map(log => (
-                        <div key={log.id} className="bg-white border-2 border-slate-100 rounded-[2rem] p-8 shadow-sm hover:shadow-md transition-shadow relative group">
+                        <div key={log.id} className="bg-white border-2 border-slate-100 rounded-4xl p-8 shadow-sm hover:shadow-md transition-shadow relative group">
                             <div className="flex flex-col md:flex-row gap-8">
                                 <div className="md:w-48 shrink-0 flex flex-col gap-2">
                                     <div className="px-4 py-3 bg-slate-900 rounded-2xl text-white">

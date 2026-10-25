@@ -55,7 +55,7 @@ export const UserProfileView: React.FC<Props> = ({ user, setIsEditingProfile }) 
 const BasicUserCard: React.FC<{ user: any }> = ({ user }) => (
     <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-200">
         <div className="flex items-center gap-6">
-            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center text-white text-3xl font-black shadow-xl">
+            <div className="w-20 h-20 rounded-2xl bg-linear-to-br from-red-500 to-rose-600 flex items-center justify-center text-white text-3xl font-black shadow-xl">
                 {user?.name?.charAt(0).toUpperCase()}
             </div>
             <div>

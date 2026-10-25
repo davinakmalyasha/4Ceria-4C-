@@ -162,7 +162,7 @@ export default function WizardQuestion({ questionKey, answers, onAnswer, categor
                             key={idx}
                             type="button"
                             onClick={() => onAnswer(q.key, opt.value)}
-                            className={`p-5 rounded-[2rem] border-2 text-left transition-all relative group flex flex-col justify-between min-h-[130px] ${
+                            className={`p-5 rounded-4xl border-2 text-left transition-all relative group flex flex-col justify-between min-h-[130px] ${
                                 current === opt.value ? 'border-zinc-900 bg-white shadow-xl ring-4 ring-zinc-900/5' : 'border-gray-100 hover:border-gray-200 bg-white'
                             }`}
                         >
@@ -246,7 +246,7 @@ function LegalDetailForm({ answers, onAnswer }: any) {
     };
 
     return (
-        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="p-6 bg-zinc-900 rounded-[2rem] space-y-5 shadow-2xl">
+        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="p-6 bg-zinc-900 rounded-4xl space-y-5 shadow-2xl">
             <div className="space-y-4">
                 <div className="space-y-2">
                     <label className={`text-[10px] font-black uppercase tracking-widest transition-colors ${answers.discussLater ? 'text-zinc-600' : 'text-zinc-400'}`}>
@@ -316,7 +316,7 @@ function LegalDetailForm({ answers, onAnswer }: any) {
 function ExternalVendorForm({ role, data, onChange }: any) {
     const roleLabel = role === 'needsPM' ? 'Project Manager' : role === 'hasDesign' ? 'Arsitek' : role === 'hasConstructor' ? 'Kontraktor' : 'Interior';
     return (
-        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="p-6 bg-zinc-50 rounded-[2rem] space-y-4 border border-zinc-200">
+        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="p-6 bg-zinc-50 rounded-4xl space-y-4 border border-zinc-200">
             <div className="flex items-center gap-2 mb-1">
                 <div className="w-1 h-4 bg-zinc-900 rounded-full" />
                 <h4 className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Data Profesional Eksternal</h4>

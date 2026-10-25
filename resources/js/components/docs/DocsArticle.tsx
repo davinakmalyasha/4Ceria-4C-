@@ -36,7 +36,7 @@ export default function DocsArticle({ article }: DocsArticleProps) {
     };
 
     return (
-        <article className="bg-white rounded-3xl border border-neutral-100 p-6 sm:p-8 shadow-[0_4px_25px_rgba(0,0,0,0.01)] space-y-6 animate-fade-in flex-grow">
+        <article className="bg-white rounded-3xl border border-neutral-100 p-6 sm:p-8 shadow-[0_4px_25px_rgba(0,0,0,0.01)] space-y-6 animate-fade-in grow">
             <div>
                 <span className="text-[9px] font-black uppercase text-red-500 tracking-wider">
                     Help Center &gt; {roleLabelMap[article.role] || article.role}
@@ -88,10 +88,10 @@ export default function DocsArticle({ article }: DocsArticleProps) {
                                             key={step.stepNumber}
                                             className="flex gap-3.5 p-3.5 rounded-2xl border border-neutral-100 bg-neutral-50/50 hover:bg-neutral-50 transition-all group"
                                         >
-                                            <div className="flex items-center justify-center w-8 h-8 rounded-xl bg-gradient-to-br from-red-500 to-red-600 text-white text-xs font-black shrink-0 shadow-sm group-hover:scale-105 transition-transform">
+                                            <div className="flex items-center justify-center w-8 h-8 rounded-xl bg-linear-to-br from-red-500 to-red-600 text-white text-xs font-black shrink-0 shadow-sm group-hover:scale-105 transition-transform">
                                                 {step.stepNumber}
                                             </div>
-                                            <div className="flex-grow min-w-0">
+                                            <div className="grow min-w-0">
                                                 <h5 className="text-xs font-extrabold text-neutral-800 leading-snug">
                                                     {step.title}
                                                 </h5>

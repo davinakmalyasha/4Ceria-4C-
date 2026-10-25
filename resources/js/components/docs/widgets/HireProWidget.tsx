@@ -12,13 +12,13 @@ export default function HireProWidget() {
 
     const handleSendMessage = () => {
         if (inputText.trim()) {
-            const newMsgs = [...messages, { sender: 'client', text: inputText.trim() }];
+            const newMsgs: { sender: 'client' | 'pro'; text: string }[] = [...messages, { sender: 'client', text: inputText.trim() }];
             setMessages(newMsgs);
             setInputText('');
             
             // Auto response simulation
             setTimeout(() => {
-                setMessages(m => [...m, { sender: 'pro', text: 'Tentu! Ada waktu untuk discuss brief project Anda?' }]);
+                setMessages(m => [...m, { sender: 'pro' as const, text: 'Tentu! Ada waktu untuk discuss brief project Anda?' }]);
             }, 1200);
         }
     };
@@ -30,7 +30,7 @@ export default function HireProWidget() {
                 <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center font-black text-red-500 text-xs shrink-0">
                     BS
                 </div>
-                <div className="flex-grow">
+                <div className="grow">
                     <h4 className="font-extrabold text-neutral-800 text-xs">Budi Santoso, S.Ars</h4>
                     <p className="text-[9px] text-neutral-400 font-bold">Principal Architect • Jakarta</p>
                 </div>
@@ -71,7 +71,7 @@ export default function HireProWidget() {
                                 value={inputText}
                                 onChange={e => setInputText(e.target.value)}
                                 onKeyDown={e => e.key === 'Enter' && handleSendMessage()}
-                                className="flex-grow px-2 py-1 bg-white border border-neutral-200 rounded-lg text-[10px] font-bold focus:outline-none"
+                                className="grow px-2 py-1 bg-white border border-neutral-200 rounded-lg text-[10px] font-bold focus:outline-none"
                             />
                             <button onClick={handleSendMessage} className="p-1.5 bg-red-500 text-white rounded-lg hover:bg-red-600"><Send className="w-3 h-3" /></button>
                         </div>
@@ -84,7 +84,7 @@ export default function HireProWidget() {
                 <div className="flex gap-2 mt-4 pt-3 border-t border-neutral-100">
                     <button 
                         onClick={() => setChatOpen(!chatOpen)}
-                        className={`flex-grow py-2 border rounded-xl text-[10px] font-extrabold flex items-center justify-center gap-1 transition-all ${
+                        className={`grow py-2 border rounded-xl text-[10px] font-extrabold flex items-center justify-center gap-1 transition-all ${
                             chatOpen ? 'bg-neutral-100 border-neutral-300 text-neutral-700' : 'bg-white hover:bg-neutral-50 border-neutral-200 text-neutral-500'
                         }`}
                     >
@@ -92,7 +92,7 @@ export default function HireProWidget() {
                     </button>
                     <button 
                         onClick={() => setHired(true)}
-                        className="flex-grow py-2 bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl text-[10px] font-extrabold flex items-center justify-center gap-1 transition-all"
+                        className="grow py-2 bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl text-[10px] font-extrabold flex items-center justify-center gap-1 transition-all"
                     >
                         <Briefcase className="w-3 h-3" /> Hire Professional
                     </button>

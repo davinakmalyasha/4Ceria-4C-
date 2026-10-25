@@ -379,14 +379,38 @@ class ProjectResource extends JsonResource
                         'is_verified' => (bool)$a->teamMember->is_verified,
                         'phone_number' => $a->teamMember->phone_number,
                         'email' => $a->teamMember->email,
+                        // B27. The column is `skills`, not
+                        // `technical_skills` — and the SPA renders this
+                        // value as the specialist's skills, so it was
+                        // always empty.
+                        'technical_skills' => $a->teamMember->skills,
                     ] : null,
                     'assignedUser' => $a->assignedUser ? [
                         'id' => $a->assignedUser->id,
                         'name' => $a->assignedUser->name,
                         'email' => $a->assignedUser->email,
                         'phone_number' => $a->assignedUser->phoneNumber->first()?->contact ?? '',
-                        'profile_picture' => $this->resolveStorageUrl($a->assignedUser->profile_picture),
-                        'technical_skills' => $a->assignedUser->technical_skills,
+                        // B27. The column is `pic` — there is no
+                        // `profile_picture` on the users table, and never
+                        // was. The resource read a column that does not
+                        // exist, so in production the key was always null
+                        // (a missing attribute is null outside strict mode)
+                        // and in development it was a 500, because
+                        // `Model::shouldBeStrict()` makes a missing
+                        // attribute throw.
+                        //
+                        // The rest of this same resource already reads
+                        // `pic` — the bid blocks below do it five times —
+                        // so this was an outlier rather than a convention.
+                        'profile_picture' => $this->resolveStorageUrl($a->assignedUser->pic),
+                        // The users table has no skills column. The TEAMS
+                        // carry theirs, in `team_members.skills`, and a
+                        // professional's specialisation is a single string
+                        // rather than a list — so there is nothing here to
+                        // send that the SPA would render as a list of
+                        // skills, and the key stays null as it has always
+                        // been.
+                        'technical_skills' => null,
                     ] : null,
                     'status' => $a->status,
                     'paid_at' => $a->paid_at,
@@ -406,7 +430,9 @@ class ProjectResource extends JsonResource
                     'user' => $c->user ? [
                         'id' => $c->user->id,
                         'name' => $c->user->name,
-                        'profile_picture' => $this->resolveStorageUrl($c->user->profile_picture),
+                        // B27. The column is `pic` — see the note on the
+                        // assigned user above.
+                        'profile_picture' => $this->resolveStorageUrl($c->user->pic),
                     ] : null,
                     'created_at' => $c->created_at,
                     'updated_at' => $c->updated_at,
@@ -1049,7 +1075,7 @@ class ProjectResource extends JsonResource
                 ];
             }),
             'accepted_pm_bid' => $this->whenLoaded('bidsProjectManager', function () {
-                $bid = $this->bidsProjectManager->first(fn($b) => in_array($b->status, ['accepted', 'awaiting_payment', 'active', 'contract_pending']));
+                $bid = $this->acceptedBid('bidsProjectManager');
                 if (!$bid) return null;
                 return [
                     'id' => $bid->id,
@@ -1063,7 +1089,7 @@ class ProjectResource extends JsonResource
                 ];
             }),
             'accepted_notaris_bid' => $this->whenLoaded('bidsNotaris', function () {
-                $bid = $this->bidsNotaris->first(fn($b) => in_array($b->status, ['accepted', 'awaiting_payment', 'active', 'contract_pending']));
+                $bid = $this->acceptedBid('bidsNotaris');
                 if (!$bid) return null;
                 return [
                     'id' => $bid->id,
@@ -1088,7 +1114,7 @@ class ProjectResource extends JsonResource
                 ];
             }),
             'accepted_arsitek_bid' => $this->whenLoaded('bidsArsitek', function () {
-                $bid = $this->bidsArsitek->first(fn($b) => in_array($b->status, ['accepted', 'awaiting_payment', 'active', 'contract_pending']));
+                $bid = $this->acceptedBid('bidsArsitek');
                 if (!$bid) return null;
                 return [
                     'id' => $bid->id,
@@ -1101,7 +1127,7 @@ class ProjectResource extends JsonResource
                 ];
             }),
             'accepted_kontraktor_bid' => $this->whenLoaded('bidsKontraktor', function () {
-                $bid = $this->bidsKontraktor->first(fn($b) => in_array($b->status, ['accepted', 'awaiting_payment', 'active', 'contract_pending']));
+                $bid = $this->acceptedBid('bidsKontraktor');
                 if (!$bid) return null;
                 return [
                     'id' => $bid->id,
@@ -1115,7 +1141,7 @@ class ProjectResource extends JsonResource
                 ];
             }),
             'accepted_interior_bid' => $this->whenLoaded('bidsInterior', function () {
-                $bid = $this->bidsInterior->first(fn($b) => in_array($b->status, ['accepted', 'awaiting_payment', 'active', 'contract_pending']));
+                $bid = $this->acceptedBid('bidsInterior');
                 if (!$bid) return null;
                 return [
                     'id' => $bid->id,
@@ -1128,7 +1154,7 @@ class ProjectResource extends JsonResource
                 ];
             }),
             'accepted_structural_bid' => $this->whenLoaded('bidsStructural', function () {
-                $bid = $this->bidsStructural->first(fn($b) => in_array($b->status, ['accepted', 'awaiting_payment', 'active', 'contract_pending']));
+                $bid = $this->acceptedBid('bidsStructural');
                 if (!$bid) return null;
                 return [
                     'id' => $bid->id,
@@ -1139,7 +1165,7 @@ class ProjectResource extends JsonResource
                 ];
             }),
             'accepted_mep_bid' => $this->whenLoaded('bidsMep', function () {
-                $bid = $this->bidsMep->first(fn($b) => in_array($b->status, ['accepted', 'awaiting_payment', 'active', 'contract_pending']));
+                $bid = $this->acceptedBid('bidsMep');
                 if (!$bid) return null;
                 return [
                     'id' => $bid->id,
@@ -1421,6 +1447,42 @@ class ProjectResource extends JsonResource
      * reopen it. `$bid->{profileColumn}` maps a bid row to the profile that made
      * it, via `config('bids')`.
      */
+    /**
+     * The ACCEPTED (or contracted) bid for a role, subject to the SAME
+     * visibility rule as every other bid.
+     *
+     * WHY THIS EXISTS
+     * ---------------
+     * The seven `accepted_*_bid` blocks read the relation DIRECTLY:
+     *
+     *     $this->bidsArsitek->first(fn ($b) => in_array($b->status, [...]))
+     *
+     * while the `bidsArsitek` / `bids_kontraktor` / … blocks went through
+     * `visibleBids()`. The two rules disagreed, and the direct read won:
+     * `GET /api/projects?feed=true&with_bids=true` eager-loads all seven bid
+     * relations, so ANY authenticated user could read the hired
+     * professional's negotiated fee, their proposal, their scopes, their
+     * deliverables and — for a contractor — `proposed_team`, which is the names
+     * of the contractor's own staff. For a notary it also returned the hired
+     * notary's service catalogue.
+     *
+     * That is a competitor's commercial terms and a third party's personal
+     * data, served to anyone who asked for it. It is a direct regression of
+     * the CRITICAL that `visibleBids()` was written to close, in the same
+     * resource, three hundred lines away.
+     *
+     * The rule is now stated ONCE. `visibleBids()` decides who may see which
+     * bids; this method asks it for the accepted one and nothing more.
+     *
+     * @return \Illuminate\Database\Eloquent\Model|null
+     */
+    private function acceptedBid(string $relation)
+    {
+        return $this->visibleBids($relation)->first(
+            fn ($b) => in_array($b->status, ['accepted', 'awaiting_payment', 'active', 'contract_pending'])
+        );
+    }
+
     private function visibleBids(string $relation)
     {
         $collection = $this->resource->{$relation};
@@ -1534,11 +1596,26 @@ class ProjectResource extends JsonResource
     }
 
     /**
-     * Paths stored on the private `railway` disk.
+     * Paths stored on the private vault disk.
+     *
+     * The rule lives in `App\Support\StoragePath`, and it is an ALLOWLIST of
+     * the public prefixes rather than a denylist of the private ones. The
+     * previous implementation was:
+     *
+     *     return str_starts_with($path, 'receipts/');
+     *
+     * One prefix. Every other private file — the KYC scan, the business
+     * certificate, the requirement image, the dispute evidence, the signed SPK
+     * contract, the project document, the material payment proof — was
+     * classified as PUBLIC and handed a world-readable URL.
+     *
+     * The allowlist fails CLOSED: a path that is not on the public list is
+     * private. A denylist fails OPEN, and it fails silently — nothing errors,
+     * the URL just works, and the file is disclosed.
      */
     private function isPrivatePath(string $path): bool
     {
-        return str_starts_with($path, 'receipts/');
+        return \App\Support\StoragePath::isPrivate($path);
     }
 
     /**

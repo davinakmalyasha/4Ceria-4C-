@@ -16,7 +16,7 @@ import ProjectKanban from './ProjectKanban';
 const ProjectMap = React.lazy(() => import('./ProjectMap'));
 
 const ProjectMapSkeleton = () => (
-    <div className="w-full h-[480px] rounded-[1.5rem] bg-gray-100 border border-gray-200 animate-pulse flex items-center justify-center">
+    <div className="w-full h-[480px] rounded-3xl bg-gray-100 border border-gray-200 animate-pulse flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
             <div className="w-8 h-8 rounded-full border-[3px] border-gray-300 border-t-[#FF2D20] animate-spin" />
             <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Loading map...</p>

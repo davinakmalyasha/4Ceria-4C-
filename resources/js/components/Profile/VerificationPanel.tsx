@@ -34,7 +34,7 @@ export const VerificationPanel: React.FC<VerificationPanelProps> = ({
             case 'verified':
             case 'approved':
                 return (
-                    <div className="bg-gradient-to-br from-emerald-950 to-zinc-900 border border-emerald-500/20 rounded-3xl p-6 text-white space-y-3 relative overflow-hidden">
+                    <div className="bg-linear-to-br from-emerald-950 to-zinc-900 border border-emerald-500/20 rounded-3xl p-6 text-white space-y-3 relative overflow-hidden">
                         <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/10 blur-[30px] rounded-full translate-x-4 -translate-y-4 pointer-events-none" />
                         <div className="flex items-center gap-2 text-emerald-400">
                             <ShieldCheck size={20} className="animate-pulse" />
@@ -47,7 +47,7 @@ export const VerificationPanel: React.FC<VerificationPanelProps> = ({
                 );
             case 'pending':
                 return (
-                    <div className="bg-gradient-to-br from-amber-950/70 to-zinc-900 border border-amber-500/20 rounded-3xl p-6 text-white space-y-3 relative overflow-hidden">
+                    <div className="bg-linear-to-br from-amber-950/70 to-zinc-900 border border-amber-500/20 rounded-3xl p-6 text-white space-y-3 relative overflow-hidden">
                         <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/10 blur-[30px] rounded-full translate-x-4 -translate-y-4 pointer-events-none" />
                         <div className="flex items-center gap-2 text-amber-400">
                             <Clock size={20} className="animate-pulse" />
@@ -60,7 +60,7 @@ export const VerificationPanel: React.FC<VerificationPanelProps> = ({
                 );
             case 'rejected':
                 return (
-                    <div className="bg-gradient-to-br from-red-950/70 to-zinc-900 border border-red-500/20 rounded-3xl p-6 text-white space-y-3 relative overflow-hidden">
+                    <div className="bg-linear-to-br from-red-950/70 to-zinc-900 border border-red-500/20 rounded-3xl p-6 text-white space-y-3 relative overflow-hidden">
                         <div className="absolute top-0 right-0 w-24 h-24 bg-red-500/10 blur-[30px] rounded-full translate-x-4 -translate-y-4 pointer-events-none" />
                         <div className="flex items-center gap-2 text-red-400">
                             <AlertCircle size={20} />
@@ -73,7 +73,7 @@ export const VerificationPanel: React.FC<VerificationPanelProps> = ({
                 );
             default:
                 return (
-                    <div className="bg-gradient-to-br from-zinc-900 to-zinc-950 border border-zinc-800 rounded-3xl p-6 text-white space-y-3 relative overflow-hidden">
+                    <div className="bg-linear-to-br from-zinc-900 to-zinc-950 border border-zinc-800 rounded-3xl p-6 text-white space-y-3 relative overflow-hidden">
                         <div className="absolute top-0 right-0 w-24 h-24 bg-white/5 blur-[30px] rounded-full translate-x-4 -translate-y-4 pointer-events-none" />
                         <div className="flex items-center gap-2 text-zinc-400">
                             <Shield size={20} />

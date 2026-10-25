@@ -75,14 +75,14 @@ export default function AddRoomModal({ houseId, onClose, onSuccess }: Props) {
     };
 
     return (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-80 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
             <motion.div 
                 initial={{ opacity: 0, scale: 0.95, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 className="bg-white w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
             >
                 {/* Header */}
-                <div className="px-8 py-6 bg-gradient-to-r from-gray-900 to-gray-800 text-white flex justify-between items-center">
+                <div className="px-8 py-6 bg-linear-to-r from-gray-900 to-gray-800 text-white flex justify-between items-center">
                     <div>
                         <h2 className="text-xl font-bold flex items-center gap-2">
                             <Plus className="text-red-500" size={20} /> Add Property Room

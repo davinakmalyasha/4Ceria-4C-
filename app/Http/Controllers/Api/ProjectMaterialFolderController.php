@@ -94,7 +94,7 @@ class ProjectMaterialFolderController extends Controller
         $isOwner = $project->user_id === $user->id && in_array('user', $allowedRoles);
         $isHiredArsitek = $user->role_type === 'arsitek' && Hire::matches($project, $user, 'arsitek') && in_array('arsitek', $allowedRoles);
         $isHiredKontraktor = $user->role_type === 'kontraktor' && Hire::matches($project, $user, 'kontraktor') && in_array('kontraktor', $allowedRoles);
-        $isHiredPM = $user->role_type === 'project_manager' && $project->pm_id === $user->id && in_array('project_manager', $allowedRoles);
+        $isHiredPM = $user->role_type === 'project_manager' && Hire::isAssignedPm($project, $user) && in_array('project_manager', $allowedRoles);
         // SECURITY: interior designers must be HIRED on this project — an
         // unscoped role check previously let ANY interior user edit folders.
         $isInterior = $user->role_type === 'interior' && Hire::matches($project, $user, 'interior') && in_array('interior', $allowedRoles);

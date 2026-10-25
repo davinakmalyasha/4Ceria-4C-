@@ -71,7 +71,7 @@ export default function ProjectToolbar({
                                 <span className="text-gray-900 font-extrabold">{formatCurrency(totalBudget)}</span>
                             </div>
                             
-                            <div className="w-[1px] h-3.5 bg-gray-200 shrink-0" />
+                            <div className="w-px h-3.5 bg-gray-200 shrink-0" />
                             
                             {/* Active Bids / Proposals */}
                             <div 
@@ -98,7 +98,7 @@ export default function ProjectToolbar({
                                 )}
                             </div>
                             
-                            <div className="w-[1px] h-3.5 bg-gray-200 shrink-0" />
+                            <div className="w-px h-3.5 bg-gray-200 shrink-0" />
                             
                             {/* Completed */}
                             <div className="flex items-center gap-1.5 shrink-0">

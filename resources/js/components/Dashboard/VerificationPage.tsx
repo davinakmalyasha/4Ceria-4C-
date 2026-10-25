@@ -197,8 +197,8 @@ export default function VerificationPage({ onBack }: VerificationPageProps) {
             case 'verified':
             case 'approved':
                 return (
-                    <div className="bg-gradient-to-br from-emerald-950 to-zinc-900 border border-emerald-500/20 rounded-3xl p-6 text-white space-y-3 relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 blur-[40px] rounded-full translate-x-6 -translate-y-6 pointer-events-none" />
+                    <div className="bg-linear-to-br from-emerald-950 to-zinc-900 border border-emerald-500/20 rounded-3xl p-6 text-white space-y-3 relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 blur-2xl rounded-full translate-x-6 -translate-y-6 pointer-events-none" />
                         <div className="flex items-center gap-2 text-emerald-400">
                             <ShieldCheck size={24} className="animate-pulse" />
                             <h4 className="text-sm font-black uppercase tracking-widest">Officially Verified Account</h4>
@@ -211,8 +211,8 @@ export default function VerificationPage({ onBack }: VerificationPageProps) {
                 );
             case 'pending':
                 return (
-                    <div className="bg-gradient-to-br from-amber-950/70 to-zinc-900 border border-amber-500/20 rounded-3xl p-6 text-white space-y-3 relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 blur-[40px] rounded-full translate-x-6 -translate-y-6 pointer-events-none" />
+                    <div className="bg-linear-to-br from-amber-950/70 to-zinc-900 border border-amber-500/20 rounded-3xl p-6 text-white space-y-3 relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 blur-2xl rounded-full translate-x-6 -translate-y-6 pointer-events-none" />
                         <div className="flex items-center gap-2 text-amber-400">
                             <Clock size={24} className="animate-pulse" />
                             <h4 className="text-sm font-black uppercase tracking-widest">Verification Pending Review</h4>
@@ -226,8 +226,8 @@ export default function VerificationPage({ onBack }: VerificationPageProps) {
                 );
             case 'rejected':
                 return (
-                    <div className="bg-gradient-to-br from-red-950/70 to-zinc-900 border border-red-500/20 rounded-3xl p-6 text-white space-y-3 relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/10 blur-[40px] rounded-full translate-x-6 -translate-y-6 pointer-events-none" />
+                    <div className="bg-linear-to-br from-red-950/70 to-zinc-900 border border-red-500/20 rounded-3xl p-6 text-white space-y-3 relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/10 blur-2xl rounded-full translate-x-6 -translate-y-6 pointer-events-none" />
                         <div className="flex items-center gap-2 text-red-400">
                             <AlertTriangle size={24} />
                             <h4 className="text-sm font-black uppercase tracking-widest">Verification Declined</h4>

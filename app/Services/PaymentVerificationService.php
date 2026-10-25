@@ -13,6 +13,7 @@ use App\Models\Notification;
 use App\Services\DisputeService;
 use Exception;
 use Illuminate\Database\Eloquent\Model;
+use App\Support\Hire;
 
 class PaymentVerificationService
 {
@@ -22,7 +23,7 @@ class PaymentVerificationService
     public function uploadProof(Project $project, string $type, int $id, UploadedFile $file, $user)
     {
         $isOwner = $project->user_id === $user->id;
-        $isAssignedPM = $project->pm_id === $user->id;
+        $isAssignedPM = Hire::isAssignedPm($project, $user);
 
         // R1: Security - Only the project owner or assigned PM can upload proofs.
         if (!$isOwner && !$isAssignedPM) {
@@ -118,7 +119,7 @@ class PaymentVerificationService
             // counterparty's bank details. Bank details and every other
             // private artefact belong on `railway` (AGENTS.md trap #5);
             // they are surfaced back through presigned URLs.
-            $path = $file->store('receipts', 'railway');
+            $path = $file->store('receipts', \App\Support\Vault::disk());
 
             if ($model->payment_proof_path && Storage::disk(\App\Support\Vault::disk())->exists($model->payment_proof_path)) {
                 Storage::disk(\App\Support\Vault::disk())->delete($model->payment_proof_path);
@@ -191,14 +192,14 @@ class PaymentVerificationService
                 if ($user->id === $proUserId) {
                     $isAuthorized = true;
                 }
-            } elseif ($user->role_type === 'project_manager' && $project->pm_id === $user->id) {
+            } elseif ($user->role_type === 'project_manager' && Hire::isAssignedPm($project, $user)) {
                 $isAuthorized = true;
             } elseif ($type === 'addendum') {
                 // If it is a specialist request / assignment addendum, only the assigned specialist or the PM can verify it!
                 if (in_array($model->type, ['specialist_assignment', 'specialist_request']) && ($model->team_member_id || $model->assigned_user_id)) {
                     if ($model->assigned_user_id && (int) $user->id === (int) $model->assigned_user_id) {
                         $isAuthorized = true;
-                    } elseif ($user->role_type === 'project_manager' && $project->pm_id === $user->id) {
+                    } elseif ($user->role_type === 'project_manager' && Hire::isAssignedPm($project, $user)) {
                         $isAuthorized = true;
                     }
                 } else {
@@ -669,7 +670,7 @@ class PaymentVerificationService
             
             if ($termin->role_type === 'arsitek') $project->update(['selected_arsitek_id' => $bid->arsitek_id]);
             if ($termin->role_type === 'kontraktor') $project->update(['selected_kontraktor_id' => $bid->kontraktor_id]);
-            if ($termin->role_type === 'project_manager') $project->update(['pm_id' => $bid->pm->user_id]);
+            if ($termin->role_type === 'project_manager') $project->update(['pm_id' => $bid->pm->id]);
             if ($termin->role_type === 'notaris') $project->update(['selected_notaris_id' => $bid->notaris_id]);
             if ($termin->role_type === 'interior') $project->update(['selected_interior_id' => $bid->interior_id]);
 

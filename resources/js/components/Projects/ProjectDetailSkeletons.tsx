@@ -104,7 +104,7 @@ export const QATabSkeleton = () => (
             <SkeletonBase className="w-32 h-5 mb-4" />
             {/* Thread of comment bubbles */}
             <div className="flex gap-3">
-                <SkeletonBase className="w-10 h-10 rounded-full flex-shrink-0" />
+                <SkeletonBase className="w-10 h-10 rounded-full shrink-0" />
                 <div className="bg-gray-50 rounded-2xl rounded-tl-none p-4 max-w-[70%] space-y-2">
                     <SkeletonBase className="w-20 h-3.5" />
                     <SkeletonBase className="w-48 h-4" />
@@ -117,7 +117,7 @@ export const QATabSkeleton = () => (
                     <SkeletonBase className="w-56 h-4" />
                     <SkeletonBase className="w-16 h-3" />
                 </div>
-                <SkeletonBase className="w-10 h-10 rounded-full flex-shrink-0" />
+                <SkeletonBase className="w-10 h-10 rounded-full shrink-0" />
             </div>
         </div>
         {/* Input Bar */}

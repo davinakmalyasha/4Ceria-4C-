@@ -225,7 +225,7 @@ export default function TechnicalMilestones({
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -20 }}
                         onSubmit={handleSubmit} 
-                        className="bg-slate-900 rounded-[2rem] p-8 space-y-6 border border-white/5"
+                        className="bg-slate-900 rounded-4xl p-8 space-y-6 border border-white/5"
                     >
                         <div className="flex justify-between items-center text-white">
                             <h5 className="text-xs font-black uppercase tracking-[0.2em]">{editingId ? 'Edit Technical Log' : 'New Technical Log'}</h5>
@@ -299,7 +299,7 @@ export default function TechnicalMilestones({
 
             <div className="space-y-4">
                 {milestones.length === 0 && !showForm && (
-                    <div className="py-12 text-center border-2 border-dashed border-slate-100 rounded-[2rem] bg-slate-50/50">
+                    <div className="py-12 text-center border-2 border-dashed border-slate-100 rounded-4xl bg-slate-50/50">
                         <Icon className="mx-auto text-slate-200 mb-3 opacity-50" size={32} />
                         <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">No technical logs recorded yet.</p>
                     </div>

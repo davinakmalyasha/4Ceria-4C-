@@ -31,7 +31,7 @@ export default function ProjectCard({ project, onClick }: ProjectCardProps) {
             />
             
             {/* Glassmorphism Overlay */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-60 group-hover:opacity-80 transition-opacity duration-500" />
+            <div className="absolute inset-0 bg-linear-to-t from-black/90 via-black/20 to-transparent opacity-60 group-hover:opacity-80 transition-opacity duration-500" />
             
             <div className="absolute inset-x-0 bottom-0 p-8 transform translate-y-4 group-hover:translate-y-0 transition-transform duration-500">
                 <div className="flex items-center gap-2 mb-3">

@@ -387,7 +387,7 @@ export const NegotiationOfferForm: React.FC<Props> = ({ bid, project, proType, o
                             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block">Negotiation History</label>
                             <div className="space-y-3 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
                                 {bid.negotiation_logs.map((log: any, i: number) => (
-                                    <div key={i} className="p-4 bg-slate-50 border-2 border-slate-100 rounded-[1.5rem] space-y-1 hover:border-slate-200 transition-all">
+                                    <div key={i} className="p-4 bg-slate-50 border-2 border-slate-100 rounded-3xl space-y-1 hover:border-slate-200 transition-all">
                                         <div className="flex justify-between items-center">
                                             <span className="text-[10px] font-black text-slate-800 uppercase tracking-wide">{log.user_name}</span>
                                             <span className="text-[8px] font-black text-slate-400">

@@ -371,7 +371,7 @@ export default function MaterialOrderTracker({ project, currentUser }: MaterialO
             {/* PM VERIFICATION MODAL */}
             <AnimatePresence>
                 {verifyingRequest && (
-                    <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
+                    <div className="fixed inset-0 z-99999 flex items-center justify-center p-4">
                         <motion.div 
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
@@ -437,7 +437,7 @@ export default function MaterialOrderTracker({ project, currentUser }: MaterialO
                                     <button 
                                         onClick={handleVerifySubmit}
                                         disabled={!estimatedCost || submitting}
-                                        className="flex-[2] px-4 py-4 bg-slate-900 text-white rounded-2xl text-xs font-black shadow-xl shadow-slate-200 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 flex items-center justify-center gap-2"
+                                        className="flex-2 px-4 py-4 bg-slate-900 text-white rounded-2xl text-xs font-black shadow-xl shadow-slate-200 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 flex items-center justify-center gap-2"
                                     >
                                         {submitting ? (
                                             <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />

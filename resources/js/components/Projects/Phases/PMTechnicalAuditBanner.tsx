@@ -21,7 +21,7 @@ export default function PMTechnicalAuditBanner({
     return (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-4 border-t border-b border-zinc-100">
             <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-zinc-50 border border-zinc-100 text-zinc-400 rounded-xl flex items-center justify-center flex-shrink-0">
+                <div className="w-10 h-10 bg-zinc-50 border border-zinc-100 text-zinc-400 rounded-xl flex items-center justify-center shrink-0">
                     <ShieldCheck size={20} />
                 </div>
                 <div>
@@ -48,7 +48,7 @@ export default function PMTechnicalAuditBanner({
             </div>
 
             {/* Exactly 2 Clean Buttons, No Bold, Simple Casing, Perfect Alignment */}
-            <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="flex items-center gap-2 shrink-0">
                 <button
                     onClick={onVerify}
                     disabled={isLoading || isAutoSaving}

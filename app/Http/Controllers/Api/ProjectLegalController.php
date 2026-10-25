@@ -10,6 +10,7 @@ use App\Models\ProjectMilestone;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use App\Support\Hire;
 
 class ProjectLegalController extends Controller
 {
@@ -22,7 +23,7 @@ class ProjectLegalController extends Controller
             && $project->selected_notaris_id
             && optional($user->notaris_profile)->id === $project->selected_notaris_id;
         $isOwner = $project->user_id === $user->id;
-        $isPM = $user->role_type === 'project_manager' && (int) $project->pm_id === (int) $user->id;
+        $isPM = $user->role_type === 'project_manager' && Hire::isAssignedPm($project, $user);
 
         if (!$isNotary && !$isOwner && !$isPM) {
             return response()->json(['message' => 'Unauthorized.'], 403);

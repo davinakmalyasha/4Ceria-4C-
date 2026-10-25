@@ -31,7 +31,7 @@ export const PMLegalHub: React.FC<PMLegalHubProps> = ({ project, user, onRefresh
     }
 
     const isOwner = user?.id === project.user_id;
-    const isPM = user?.id === project.pm_id;
+    const isPM = user?.project_manager?.id === project.pm_id;
     const isNotaris = user?.notaris_profile && project.selected_notaris_id === user.notaris_profile.id;
 
     const requirements = [
@@ -120,7 +120,7 @@ export const PMLegalHub: React.FC<PMLegalHubProps> = ({ project, user, onRefresh
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Requirements Checklist */}
                 <div className="lg:col-span-2 space-y-6">
-                    <div className="bg-white border border-zinc-100 rounded-[2rem] p-8 shadow-sm">
+                    <div className="bg-white border border-zinc-100 rounded-4xl p-8 shadow-sm">
                         <div className="flex items-center justify-between mb-8">
                             <div>
                                 <h3 className="text-lg font-black text-gray-900">Legal Pillar Progress</h3>
@@ -196,7 +196,7 @@ export const PMLegalHub: React.FC<PMLegalHubProps> = ({ project, user, onRefresh
                     </div>
 
                     {/* Document Vault */}
-                    <div className="bg-white border border-zinc-100 rounded-[2rem] p-8 shadow-sm">
+                    <div className="bg-white border border-zinc-100 rounded-4xl p-8 shadow-sm">
                         <div className="flex items-center justify-between mb-8">
                             <h3 className="text-lg font-black text-gray-900">Official Document Vault</h3>
                             <button className="p-3 bg-zinc-50 text-zinc-400 rounded-xl hover:bg-zinc-900 hover:text-white transition-all">
@@ -205,7 +205,7 @@ export const PMLegalHub: React.FC<PMLegalHubProps> = ({ project, user, onRefresh
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="p-6 border-2 border-dashed border-zinc-100 rounded-[1.5rem] flex flex-col items-center justify-center text-center space-y-3 hover:border-zinc-200 transition-all group cursor-pointer">
+                            <div className="p-6 border-2 border-dashed border-zinc-100 rounded-3xl flex flex-col items-center justify-center text-center space-y-3 hover:border-zinc-200 transition-all group cursor-pointer">
                                 <div className="w-12 h-12 bg-zinc-50 rounded-2xl flex items-center justify-center text-zinc-400 group-hover:bg-zinc-900 group-hover:text-amber-400 transition-all">
                                     <Upload size={20} />
                                 </div>
@@ -214,7 +214,7 @@ export const PMLegalHub: React.FC<PMLegalHubProps> = ({ project, user, onRefresh
                                     <p className="text-[9px] text-zinc-400 font-medium mt-1">PDF max 10MB. Restricted to Notaris.</p>
                                 </div>
                             </div>
-                            <div className="p-6 border-2 border-dashed border-zinc-100 rounded-[1.5rem] flex flex-col items-center justify-center text-center space-y-3 hover:border-zinc-200 transition-all group cursor-pointer">
+                            <div className="p-6 border-2 border-dashed border-zinc-100 rounded-3xl flex flex-col items-center justify-center text-center space-y-3 hover:border-zinc-200 transition-all group cursor-pointer">
                                 <div className="w-12 h-12 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-600 group-hover:bg-zinc-900 group-hover:text-emerald-400 transition-all">
                                     <Shield size={20} />
                                 </div>
@@ -229,7 +229,7 @@ export const PMLegalHub: React.FC<PMLegalHubProps> = ({ project, user, onRefresh
 
                 {/* Sidebar Section */}
                 <div className="space-y-6">
-                    <div className="bg-amber-50 border border-amber-100 rounded-[2rem] p-8">
+                    <div className="bg-amber-50 border border-amber-100 rounded-4xl p-8">
                         <div className="flex items-center gap-3 mb-6">
                             <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-amber-600 shadow-sm border border-amber-100">
                                 <Lock size={18} />
@@ -258,7 +258,7 @@ export const PMLegalHub: React.FC<PMLegalHubProps> = ({ project, user, onRefresh
 
                     {/* Seal Legal Phase Action - Only for PM if design is locked */}
                     {isPM && !project.legal_completed_at && (
-                        <div className={`rounded-[2rem] p-8 space-y-4 border-2 transition-all ${allVerified ? 'bg-zinc-900 border-amber-500 text-white' : 'bg-zinc-50 border-zinc-200 text-zinc-400 opacity-60'}`}>
+                        <div className={`rounded-4xl p-8 space-y-4 border-2 transition-all ${allVerified ? 'bg-zinc-900 border-amber-500 text-white' : 'bg-zinc-50 border-zinc-200 text-zinc-400 opacity-60'}`}>
                             <div className="flex items-center gap-3">
                                 {allVerified ? <Unlock className="text-emerald-400" size={20} /> : <Lock className="text-zinc-400" size={20} />}
                                 <h4 className="text-sm font-black uppercase tracking-tight">Legal Phase Transition</h4>

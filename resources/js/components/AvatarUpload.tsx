@@ -61,7 +61,7 @@ export default function AvatarUpload() {
                 {user.pic ? (
                     <img src={user.pic} className="w-full h-full object-cover" alt="Profile" />
                 ) : (
-                    <div className="w-full h-full bg-gradient-to-tr from-[#FF2D20] to-[#FF2D20]/90 flex items-center justify-center text-white font-black text-3xl">
+                    <div className="w-full h-full bg-linear-to-tr from-[#FF2D20] to-[#FF2D20]/90 flex items-center justify-center text-white font-black text-3xl">
                         {user.name?.charAt(0).toUpperCase()}
                     </div>
                 )}

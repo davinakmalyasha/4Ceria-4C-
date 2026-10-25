@@ -37,7 +37,7 @@ export default function ExtensionRequestModal({ project, onClose, onSuccess }: E
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-            <div className="bg-white rounded-[2rem] p-8 max-w-lg w-full shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            <div className="bg-white rounded-4xl p-8 max-w-lg w-full shadow-2xl animate-in fade-in zoom-in-95 duration-200">
                 <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-amber-100 text-amber-600 rounded-xl flex items-center justify-center">

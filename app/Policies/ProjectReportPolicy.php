@@ -6,6 +6,7 @@ use App\Models\Project;
 use App\Models\ProjectReport;
 use App\Models\User;
 use Illuminate\Auth\Access\Response;
+use App\Support\Hire;
 
 class ProjectReportPolicy
 {
@@ -32,7 +33,7 @@ class ProjectReportPolicy
      */
     public function create(User $user, $project): bool
     {
-        return (int)$user->id === (int)$project->pm_id || (int)$user->id === (int)$project->user_id;
+        return Hire::isAssignedPm($project, $user) || (int)$user->id === (int)$project->user_id;
     }
 
     /**

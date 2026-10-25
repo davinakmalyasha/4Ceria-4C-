@@ -13,6 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use App\Traits\HandlesProjectAuthorization;
+use App\Support\Hire;
 
 class ProjectAddendumController extends Controller
 {
@@ -29,7 +30,7 @@ class ProjectAddendumController extends Controller
             return response()->json(['message' => 'Not found.'], 404);
         }
 
-        if (!$this->isProjectOwner($project, $user) && !($user->role_type === 'project_manager' && $project->pm_id === $user->id)) {
+        if (!$this->isProjectOwner($project, $user) && !($user->role_type === 'project_manager' && Hire::isAssignedPm($project, $user))) {
             return response()->json(['message' => 'Unauthorized. Only the Owner or PM can approve addendums.'], 403);
         }
 
@@ -131,7 +132,7 @@ class ProjectAddendumController extends Controller
             return response()->json(['message' => 'Not found.'], 404);
         }
 
-        if (!$this->isProjectOwner($project, $user) && !($user->role_type === 'project_manager' && $project->pm_id === $user->id)) {
+        if (!$this->isProjectOwner($project, $user) && !($user->role_type === 'project_manager' && Hire::isAssignedPm($project, $user))) {
             return response()->json(['message' => 'Unauthorized. Only the Owner or PM can reject addendums.'], 403);
         }
 

@@ -50,7 +50,7 @@ export default function Navbar() {
     };
 
     return (
-        <div className={`custom-navbar-container ${hidden ? 'hidden-nav' : ''} h-14 flex items-center justify-between px-6 bg-white/80 backdrop-blur-md border-b border-neutral-100 fixed top-0 left-0 right-0 z-[100] transition-transform duration-300`}>
+        <div className={`custom-navbar-container ${hidden ? 'hidden-nav' : ''} h-14 flex items-center justify-between px-6 bg-white/80 backdrop-blur-md border-b border-neutral-100 fixed top-0 left-0 right-0 z-100 transition-transform duration-300`}>
             <div className="flex items-center gap-6 min-w-0">
                 {/* Left side: Logo & Brand */}
                 <div className="flex items-center gap-3 shrink-0">
@@ -75,7 +75,7 @@ export default function Navbar() {
                             <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${openDropdown === 'properties' ? 'rotate-180 text-red-500' : 'text-neutral-400'}`} />
                         </button>
                         {openDropdown === 'properties' && (
-                            <div className="absolute left-0 mt-2 w-48 bg-white rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.12)] border border-neutral-100 py-1.5 z-[130]">
+                            <div className="absolute left-0 mt-2 w-48 bg-white rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.12)] border border-neutral-100 py-1.5 z-130">
                                 <button onClick={() => handleAction('/dashboard?tab=houses')} className="w-full px-4 py-2 text-left text-xs font-bold text-neutral-600 hover:bg-red-50 hover:text-red-500 transition-colors">Browse Houses</button>
                                 <button onClick={() => handleAction('/dashboard?tab=post-house')} className="w-full px-4 py-2 text-left text-xs font-bold text-neutral-600 hover:bg-red-50 hover:text-red-500 transition-colors">List Properties</button>
                                 <button onClick={() => scrollToSection('showcase-properties')} className="w-full px-4 py-2 text-left text-xs font-semibold text-neutral-400 border-t border-neutral-100 hover:bg-neutral-50 transition-colors">Learn More</button>
@@ -96,7 +96,7 @@ export default function Navbar() {
                             <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${openDropdown === 'professionals' ? 'rotate-180 text-red-500' : 'text-neutral-400'}`} />
                         </button>
                         {openDropdown === 'professionals' && (
-                            <div className="absolute left-0 mt-2 w-48 bg-white rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.12)] border border-neutral-100 py-1.5 z-[130]">
+                            <div className="absolute left-0 mt-2 w-48 bg-white rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.12)] border border-neutral-100 py-1.5 z-130">
                                 <button onClick={() => handleAction('/dashboard?tab=architects')} className="w-full px-4 py-2 text-left text-xs font-bold text-neutral-600 hover:bg-red-50 hover:text-red-500 transition-colors">Hire Architect</button>
                                 <button onClick={() => handleAction('/dashboard?tab=constructors')} className="w-full px-4 py-2 text-left text-xs font-bold text-neutral-600 hover:bg-red-50 hover:text-red-500 transition-colors">Hire Constructor</button>
                                 <button onClick={() => handleAction('/dashboard?tab=notaris')} className="w-full px-4 py-2 text-left text-xs font-bold text-neutral-600 hover:bg-red-50 hover:text-red-500 transition-colors">Legal Notary & PPAT</button>
@@ -118,7 +118,7 @@ export default function Navbar() {
                             <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${openDropdown === 'marketplace' ? 'rotate-180 text-red-500' : 'text-neutral-400'}`} />
                         </button>
                         {openDropdown === 'marketplace' && (
-                            <div className="absolute left-0 mt-2 w-48 bg-white rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.12)] border border-neutral-100 py-1.5 z-[130]">
+                            <div className="absolute left-0 mt-2 w-48 bg-white rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.12)] border border-neutral-100 py-1.5 z-130">
                                 <button onClick={() => handleAction('/dashboard?tab=marketplace-materials')} className="w-full px-4 py-2 text-left text-xs font-bold text-neutral-600 hover:bg-red-50 hover:text-red-500 transition-colors">Construction Materials</button>
                                 <button onClick={() => handleAction('/dashboard?tab=marketplace-furniture')} className="w-full px-4 py-2 text-left text-xs font-bold text-neutral-600 hover:bg-red-50 hover:text-red-500 transition-colors">Furniture & Decor</button>
                                 <button onClick={() => scrollToSection('showcase-marketplace')} className="w-full px-4 py-2 text-left text-xs font-semibold text-neutral-400 border-t border-neutral-100 hover:bg-neutral-50 transition-colors">Learn More</button>

@@ -23,7 +23,7 @@ const RecommendSubModal: React.FC<RecommendSubModalProps> = ({ sub, onClose, onR
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 animate-in fade-in duration-200">
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all scale-100">
                 <div className="p-6">
                     <h3 className="text-xl font-bold text-gray-900 mb-2">Recommend Specialist</h3>

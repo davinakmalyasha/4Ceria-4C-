@@ -207,7 +207,7 @@ export default function ProjectDetailPage({ project: projectProp, user, onBack, 
 
     const isOwner = user?.id === project?.user_id;
     const isHiredPM = useMemo(() => {
-        return !!project?.pm_id && user?.id === project?.pm_id && !pendingContractBid;
+        return !!project?.pm_id && user?.project_manager?.id === project?.pm_id && !pendingContractBid;
     }, [project?.pm_id, user?.id, pendingContractBid]);
     const isLeadArchitect = user?.role_type === 'arsitek' && project?.arsitek?.user_id === user?.id;
     const isLeadContractor = user?.role_type === 'kontraktor' && project?.kontraktor?.user_id === user?.id;
@@ -653,7 +653,7 @@ export default function ProjectDetailPage({ project: projectProp, user, onBack, 
                                             currentUser={user} 
                                             isPro={
                                                 user?.id === project.user_id || 
-                                                user?.id === project.pm_id || 
+                                                user?.project_manager?.id === project.pm_id || 
                                                 (project.selected_arsitek_id && (user?.arsitek?.id === project.selected_arsitek_id || project.arsitek?.user_id === user?.id)) ||
                                                 (project.selected_kontraktor_id && (user?.kontraktor?.id === project.selected_kontraktor_id || project.kontraktor?.user_id === user?.id)) ||
                                                 (project.selected_notaris_id && (user?.notaris_profile?.id === project.selected_notaris_id || project.notaris?.user_id === user?.id)) ||

@@ -61,7 +61,7 @@ export default function WizardDetailsStep({ form, updateForm, images, setImages 
                                             onClick={() => setImages(images.filter((_, idx) => idx !== i))} 
                                             className="absolute inset-0 bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                                         >
-                                            <X size={14} className="stroke-[3]" />
+                                            <X size={14} className="stroke-3" />
                                         </button>
                                     </div>
                                 ))}

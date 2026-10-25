@@ -147,7 +147,7 @@ export default function MessageThread({ messages, currentUser, otherUser, isLoad
                                                             <div className="absolute top-3 right-3 bg-white/20 backdrop-blur-md text-white border border-white/20 shadow-sm text-[10px] px-2.5 py-1 rounded-md font-bold uppercase tracking-wider flex items-center gap-1.5">
                                                                 <Home size={12} fill="currentColor" /> {parsedJSON.inquiry.mode === 'visit' ? 'Visit Inquiry' : 'Price Offer'}
                                                             </div>
-                                                            <div className="absolute bottom-0 inset-x-0 h-16 bg-gradient-to-t from-black/60 to-transparent" />
+                                                            <div className="absolute bottom-0 inset-x-0 h-16 bg-linear-to-t from-black/60 to-transparent" />
                                                             <div className="absolute bottom-3 left-3 right-3 text-white">
                                                                 <h5 className="font-extrabold text-sm line-clamp-1 drop-shadow-sm">{parsedJSON.house.name}</h5>
                                                                 <div className="flex items-center gap-2 mt-0.5 text-white/90">

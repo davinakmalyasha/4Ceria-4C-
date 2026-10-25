@@ -27,7 +27,7 @@ export default function SummaryFinancials({ termins }: SummaryFinancialsProps) {
     if (stats.total === 0) return null;
 
     return (
-        <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-white p-6 rounded-4xl border border-slate-100 shadow-sm grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Contract Value</span>
                 <span className="text-lg font-black text-slate-900 flex items-center gap-1">

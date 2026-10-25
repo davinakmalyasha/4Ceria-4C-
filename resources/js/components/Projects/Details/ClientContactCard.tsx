@@ -61,7 +61,7 @@ export default function ClientContactCard({ owner, user, onOpenChat, isOwner, on
 
     if (isEditing) {
         return (
-            <section className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm space-y-4">
+            <section className="bg-white p-6 rounded-4xl border border-gray-100 shadow-sm space-y-4">
                 <div className="flex items-center justify-between pb-2 border-b border-gray-100">
                     <h3 className="text-xs font-black text-gray-900 uppercase tracking-widest">
                         Edit Contact Info
@@ -122,7 +122,7 @@ export default function ClientContactCard({ owner, user, onOpenChat, isOwner, on
     }
 
     return (
-        <section className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm space-y-4">
+        <section className="bg-white p-6 rounded-4xl border border-gray-100 shadow-sm space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-gray-100">
                 <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest">
                     {isOwner ? 'My Contact Info' : 'Client Contact'}

@@ -214,7 +214,7 @@ export default function InteriorWorkspace({ project, user, onRefresh }: Interior
                             </div>
                         </div>
                         {canReview && (
-                            <a href={getDeepLink('approve')} target="_blank" rel="noopener noreferrer" className="flex-shrink-0 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors shadow-sm flex items-center gap-2">
+                            <a href={getDeepLink('approve')} target="_blank" rel="noopener noreferrer" className="shrink-0 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors shadow-sm flex items-center gap-2">
                                 <Send size={14} /> Notify via WhatsApp
                             </a>
                         )}
@@ -282,7 +282,7 @@ export default function InteriorWorkspace({ project, user, onRefresh }: Interior
                             </div>
                         </div>
                         {hasPendingSubmission && isInterior && (
-                            <a href={getDeepLink('submit')} target="_blank" rel="noopener noreferrer" className="flex-shrink-0 px-4 py-2 bg-[#25D366] hover:bg-[#1DA851] text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors shadow-sm flex items-center gap-2">
+                            <a href={getDeepLink('submit')} target="_blank" rel="noopener noreferrer" className="shrink-0 px-4 py-2 bg-[#25D366] hover:bg-[#1DA851] text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors shadow-sm flex items-center gap-2">
                                 <Send size={14} /> Notify PM
                             </a>
                         )}

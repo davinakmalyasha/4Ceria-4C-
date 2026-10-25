@@ -36,7 +36,7 @@ export default function ForgotPassword() {
         <div className="min-h-screen bg-white flex relative overflow-hidden font-sans">
             {/* Left Side - Brand */}
             <div className="hidden lg:flex lg:w-1/2 bg-neutral-50 relative flex-col justify-between p-12 border-r border-neutral-200">
-                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#FF2D20] to-red-400" />
+                <div className="absolute top-0 left-0 w-full h-1 bg-linear-to-r from-[#FF2D20] to-red-400" />
 
                 <div className="relative z-10 text-neutral-900">
                     <Link to="/" className="text-2xl font-black tracking-tighter inline-flex items-center gap-2">
@@ -152,7 +152,7 @@ export default function ForgotPassword() {
                             <form className="space-y-6" onSubmit={handleSubmit}>
                                 {error && (
                                     <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="p-4 rounded-xl bg-red-50 text-red-600 text-sm border border-red-100 flex items-start gap-3">
-                                        <div className="w-1.5 h-1.5 mt-1.5 rounded-full bg-red-600 flex-shrink-0" />
+                                        <div className="w-1.5 h-1.5 mt-1.5 rounded-full bg-red-600 shrink-0" />
                                         {error}
                                     </motion.div>
                                 )}

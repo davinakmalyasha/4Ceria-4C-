@@ -72,9 +72,9 @@ export default function HireProfessionalModal({ professional, type, userProjects
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm">
             <motion.div 
                 initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                className="bg-white rounded-[2rem] shadow-2xl w-full max-w-lg overflow-hidden border border-gray-100 flex flex-col max-h-[90vh]"
+                className="bg-white rounded-4xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-100 flex flex-col max-h-[90vh]"
             >
-                <div className="relative h-32 bg-gradient-to-br from-gray-900 to-gray-800 p-6 flex items-end">
+                <div className="relative h-32 bg-linear-to-br from-gray-900 to-gray-800 p-6 flex items-end">
                     <div className="absolute right-0 top-0 w-32 h-32 bg-[#FF2D20] rounded-full blur-[60px] opacity-40 mix-blend-screen" />
                     <button onClick={onClose} className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors backdrop-blur-md">
                         <X size={16} />

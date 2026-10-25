@@ -103,7 +103,7 @@ export default function MutualTerminationPanel({ project, user, onRefresh }: Pro
     const isInitiatorOfPending = pendingRequest && pendingRequest.initiator_id === user?.id;
 
     return (
-        <div className="bg-white border border-gray-200 rounded-[2rem] p-6 space-y-4">
+        <div className="bg-white border border-gray-200 rounded-4xl p-6 space-y-4">
             <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                     <Handshake size={18} className="text-slate-600" />

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\LedgerReference;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -27,6 +28,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  *                     this separate from `reference_*` is what allows a payment
  *                     to be refunded across several disputes instead of only
  *                     ever once.
+ *   voided_*          a row that was VOIDED because it duplicated another
+ *                     movement (see `voided_at`).
  */
 class ProjectBudgetTransaction extends Model
 {
@@ -49,6 +52,11 @@ class ProjectBudgetTransaction extends Model
         // fact that they moved the money.
         'actor_user_id',
         'actor_role',
+        // Set by the migration that voided a duplicate movement. Not written
+        // by ordinary application code — a row is voided, never un-voided.
+        'voided_at',
+        'voided_duplicate_of_id',
+        'voided_original_amount',
     ];
 
     protected $casts = [
@@ -56,7 +64,41 @@ class ProjectBudgetTransaction extends Model
         'transaction_date' => 'datetime',
         'reverses_id' => 'integer',
         'actor_user_id' => 'integer',
+        'voided_at' => 'datetime',
+        'voided_duplicate_of_id' => 'integer',
+        'voided_original_amount' => 'decimal:2',
     ];
+
+    /**
+     * ONE canonical spelling of `reference_model`, enforced on every write.
+     *
+     * WHY THIS IS HERE AND NOT IN THE SERVICE
+     * ---------------------------------------
+     * The normalisation used to live inside
+     * `ProjectFinancialService::recordTransaction()`. That protected the
+     * writers that went through that method and nothing else — and the
+     * dedupe index is only effective when EVERY writer agrees on the
+     * spelling.
+     *
+     * The live database proved it:
+     *
+     *     id 5619  'ProjectAddendum'            payment 5 500 000
+     *     id 5918  'App\Models\ProjectAddendum'  payment 5 500 000
+     *
+     * One payment, two spellings, so the unique index could not see them as
+     * the same movement and the escrow was understated by Rp 5 500 000.
+     *
+     * A model-level guard closes the whole class: whatever a caller writes,
+     * whatever path it takes, the column ends up canonical. See
+     * `App\Support\LedgerReference`.
+     */
+    protected static function booted(): void
+    {
+        static::saving(function (self $transaction): void {
+            $transaction->reference_model = LedgerReference::canonical($transaction->reference_model);
+            $transaction->reverses_model = LedgerReference::canonical($transaction->reverses_model);
+        });
+    }
 
     public function project()
     {

@@ -98,7 +98,7 @@ export default function SellHouseForm({ onCancel, onSuccess }: Props) {
                 input[type=number] { -moz-appearance: textfield; }
             `}</style>
             
-            <div className="px-8 py-6 bg-gradient-to-r from-gray-900 to-gray-800 text-white flex justify-between items-center">
+            <div className="px-8 py-6 bg-linear-to-r from-gray-900 to-gray-800 text-white flex justify-between items-center">
                 <div className="flex items-center gap-4">
                     <button 
                         type="button"
@@ -306,7 +306,7 @@ export default function SellHouseForm({ onCancel, onSuccess }: Props) {
                             </div>
                         ))}
                         {formData.rooms.length === 0 && (
-                            <div className="md:col-span-2 py-10 text-center bg-gray-50/50 rounded-[2rem] border-2 border-dashed border-gray-100">
+                            <div className="md:col-span-2 py-10 text-center bg-gray-50/50 rounded-4xl border-2 border-dashed border-gray-100">
                                 <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest italic">No spaces defined yet. Add rooms to boost listing quality.</p>
                             </div>
                         )}

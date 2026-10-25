@@ -8,6 +8,7 @@ use App\Models\ProjectTimelineExtension;
 use App\Traits\HandlesProjectAuthorization;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Support\Hire;
 
 class ProjectExtensionController extends Controller
 {
@@ -41,7 +42,7 @@ class ProjectExtensionController extends Controller
         $extension = $project->timelineExtensions()->create([
             'requester_id' => $user->id,
             'reason' => $validated['reason'],
-            'description' => $validated['description'],
+            'description' => $validated['description'] ?? null,
             'days_requested' => $validated['days_requested'],
             'original_deadline' => $project->deadline,
             'status' => 'proposed',
@@ -60,7 +61,7 @@ class ProjectExtensionController extends Controller
         }
 
         // Only the assigned PM may review (projects.pm_id stores the PM's USER id).
-        if (!$user || (int) $project->pm_id !== (int) $user->id) {
+        if (!$user || ! Hire::isAssignedPm($project, $user)) {
             return response()->json(['message' => 'Unauthorized. Only the assigned Project Manager can review extensions.'], 403);
         }
 
@@ -71,7 +72,7 @@ class ProjectExtensionController extends Controller
 
         $extension->update([
             'status' => $validated['status'],
-            'pm_notes' => $validated['pm_notes'],
+            'pm_notes' => $validated['pm_notes'] ?? null,
         ]);
 
         return response()->json(['message' => 'Review submitted', 'data' => $extension]);
@@ -100,7 +101,7 @@ class ProjectExtensionController extends Controller
         try {
             $extension->update([
                 'status' => $validated['status'],
-                'owner_notes' => $validated['owner_notes'],
+                'owner_notes' => $validated['owner_notes'] ?? null,
                 'new_deadline_date' => $validated['status'] === 'approved'
                     ? \Carbon\Carbon::parse($project->deadline ?? now())->addDays($extension->days_requested)
                     : null

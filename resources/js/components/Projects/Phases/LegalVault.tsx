@@ -593,7 +593,7 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
     if (isScopeEmpty) {
         return (
             <div className="py-16 text-center space-y-6 animate-in fade-in duration-500">
-                <div className="w-20 h-20 mx-auto rounded-[2rem] bg-amber-50 flex items-center justify-center">
+                <div className="w-20 h-20 mx-auto rounded-4xl bg-amber-50 flex items-center justify-center">
                     <AlertCircle size={36} className="text-amber-400" />
                 </div>
                 <div>
@@ -624,7 +624,7 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
             {/* Modal: Request Disbursement */}
             <AnimatePresence>
                 {isRequestingDisbursement && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-zinc-900/40 backdrop-blur-md">
+                    <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-zinc-900/40 backdrop-blur-md">
                         <motion.div 
                             initial={{ opacity: 0, scale: 0.9, y: 20 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -686,7 +686,7 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
                                     </button>
                                     <button 
                                         type="submit"
-                                        className="flex-[2] py-4 bg-zinc-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all shadow-xl shadow-zinc-100"
+                                        className="flex-2 py-4 bg-zinc-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all shadow-xl shadow-zinc-100"
                                     >
                                         Submit Request
                                     </button>
@@ -700,7 +700,7 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
             {/* Modal: Add Custom Step */}
             <AnimatePresence>
                 {isAddingCustom && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-zinc-900/40 backdrop-blur-md animate-in fade-in duration-300">
+                    <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-zinc-900/40 backdrop-blur-md animate-in fade-in duration-300">
                         <motion.div 
                             initial={{ opacity: 0, scale: 0.9, y: 20 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -752,7 +752,7 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
                                     <button 
                                         type="submit"
                                         disabled={isCreatingCustom}
-                                        className="flex-[2] py-4 bg-zinc-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all shadow-xl shadow-zinc-100 flex items-center justify-center gap-2"
+                                        className="flex-2 py-4 bg-zinc-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all shadow-xl shadow-zinc-100 flex items-center justify-center gap-2"
                                     >
                                         {isCreatingCustom ? <Loader2 size={14} className="animate-spin" /> : null}
                                         Create Step
@@ -1066,7 +1066,7 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
                                         </div>
 
                                         {(checkDependency(selectedReqId) as any).warning && (
-                                            <div className="p-6 bg-amber-50 border border-amber-100 rounded-[2rem] flex items-center gap-5">
+                                            <div className="p-6 bg-amber-50 border border-amber-100 rounded-4xl flex items-center gap-5">
                                                 <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center shadow-inner">
                                                     <AlertCircle size={24} />
                                                 </div>
@@ -1093,7 +1093,7 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
                                                 />
                                                 <label 
                                                     htmlFor={`legal-upload-${selectedReqId}`}
-                                                    className={`flex items-center gap-3 px-8 py-4 ${activeMilestone?.approval_status === 'approved' ? 'bg-amber-600' : 'bg-zinc-900'} text-white rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest cursor-pointer hover:bg-black hover:scale-105 transition-all shadow-xl ${submittingId ? 'opacity-50' : ''}`}
+                                                    className={`flex items-center gap-3 px-8 py-4 ${activeMilestone?.approval_status === 'approved' ? 'bg-amber-600' : 'bg-zinc-900'} text-white rounded-3xl text-[10px] font-black uppercase tracking-widest cursor-pointer hover:bg-black hover:scale-105 transition-all shadow-xl ${submittingId ? 'opacity-50' : ''}`}
                                                 >
                                                     {submittingId === selectedReqId ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />} 
                                                     {activeMilestone?.approval_status === 'approved' ? 'Replace Approved File' : (activeMilestone?.content?.gallery?.length > 0 ? 'Replace File' : 'Upload File')}
@@ -1104,9 +1104,9 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
                                 </div>
 
                                 {activeMilestone?.approval_status === 'approved' && linkedTermin && linkedTermin.status !== 'paid' && (
-                                    <div className="p-6 bg-amber-50 border-2 border-amber-200 rounded-[2rem] flex flex-col sm:flex-row items-center justify-between gap-4">
+                                    <div className="p-6 bg-amber-50 border-2 border-amber-200 rounded-4xl flex flex-col sm:flex-row items-center justify-between gap-4">
                                         <div className="flex items-center gap-4 text-left">
-                                            <div className="w-12 h-12 bg-amber-500 text-white rounded-2xl flex items-center justify-center shadow-md flex-shrink-0">
+                                            <div className="w-12 h-12 bg-amber-500 text-white rounded-2xl flex items-center justify-center shadow-md shrink-0">
                                                 <Receipt size={24} />
                                             </div>
                                             <div>
@@ -1211,7 +1211,7 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
                                                         value={editNote}
                                                         onChange={e => setEditNote(e.target.value)}
                                                         placeholder="Describe the current progress or explain the result for the client..."
-                                                        className="w-full h-[200px] p-6 bg-zinc-50 border-2 border-transparent focus:border-zinc-900 focus:bg-white rounded-[2rem] text-sm font-bold outline-none transition-all resize-none shadow-inner"
+                                                        className="w-full h-[200px] p-6 bg-zinc-50 border-2 border-transparent focus:border-zinc-900 focus:bg-white rounded-4xl text-sm font-bold outline-none transition-all resize-none shadow-inner"
                                                     />
                                                     <button 
                                                         onClick={() => handleAction()}
@@ -1223,7 +1223,7 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
                                                     </button>
                                                 </>
                                             ) : (
-                                                <div className="min-h-[200px] p-6 bg-zinc-50 rounded-[2rem] border border-zinc-100 italic">
+                                                <div className="min-h-[200px] p-6 bg-zinc-50 rounded-4xl border border-zinc-100 italic">
                                                     <p className="text-sm font-bold text-zinc-600 leading-relaxed">
                                                         {activeMilestone?.description || 'The professional has not added any progress comments yet for this slot.'}
                                                     </p>
@@ -1231,7 +1231,7 @@ export default function LegalVault({ project, currentUser, isNotaris, isArchitec
                                             )}
 
                                             {activeMilestone?.revision_notes && (
-                                                <div className="p-5 bg-red-50 border border-red-100 rounded-[1.5rem] animate-pulse">
+                                                <div className="p-5 bg-red-50 border border-red-100 rounded-3xl animate-pulse">
                                                     <p className="text-[10px] font-black text-red-400 uppercase tracking-[0.2em] mb-2 flex items-center gap-2">
                                                         <AlertCircle size={14} /> Attention Required
                                                     </p>

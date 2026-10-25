@@ -123,7 +123,7 @@ export const PaymentSchedule: React.FC<Props> = ({
                     const milestoneServices = connectedMilestone?.services || [];
 
                     return (
-                        <div key={index} className="space-y-3 p-5 bg-white border-2 border-gray-100 rounded-[2rem] shadow-sm hover:shadow-md transition-shadow">
+                        <div key={index} className="space-y-3 p-5 bg-white border-2 border-gray-100 rounded-4xl shadow-sm hover:shadow-md transition-shadow">
                             <div className="flex gap-3 items-center">
                                 <input 
                                     type="text" 

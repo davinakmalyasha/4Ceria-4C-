@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use App\Support\Hire;
 
 class ProjectScheduleController extends Controller
 {
@@ -28,7 +29,7 @@ class ProjectScheduleController extends Controller
     public function index(Project $project)
     {
         // R1: Security & Authorization
-        if ((int)$project->pm_id !== (int)Auth::id() && (int)$project->user_id !== (int)Auth::id()) {
+        if (! Hire::isAssignedPm($project, Auth::user()) && (int)$project->user_id !== (int)Auth::id()) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
@@ -42,7 +43,7 @@ class ProjectScheduleController extends Controller
     public function update(Request $request, Project $project, ProjectSchedule $schedule)
     {
         // R1: Security & Authorization (PM or project owner, same as index)
-        if ((int)$project->pm_id !== (int)Auth::id() && (int)$project->user_id !== (int)Auth::id()) {
+        if (! Hire::isAssignedPm($project, Auth::user()) && (int)$project->user_id !== (int)Auth::id()) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
@@ -76,7 +77,7 @@ class ProjectScheduleController extends Controller
      */
     public function logDelay(Request $request, Project $project)
     {
-        if ((int)$project->pm_id !== (int)Auth::id()) {
+        if (! Hire::isAssignedPm($project, Auth::user())) {
             return response()->json(['message' => 'Only the PM can log delays.'], 403);
         }
 

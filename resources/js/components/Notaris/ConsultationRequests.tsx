@@ -93,7 +93,7 @@ export default function ConsultationRequests({ user }: Props) {
             </div>
 
             {items.length === 0 ? (
-                <div className="py-16 text-center bg-white rounded-[2rem] border border-dashed border-gray-200 space-y-3">
+                <div className="py-16 text-center bg-white rounded-4xl border border-dashed border-gray-200 space-y-3">
                     <CalendarClock size={32} className="mx-auto text-gray-200" />
                     <p className="text-sm font-bold text-gray-400">No consultation requests yet</p>
                     <p className="text-xs text-gray-300 max-w-sm mx-auto">Clients can book you from your public profile's consultation form.</p>

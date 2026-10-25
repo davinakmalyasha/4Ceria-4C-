@@ -162,15 +162,23 @@ export function useExploreHouses({ houses: initialHouses, onSelectHouse }: UseEx
 
     const toggleWishlist = (e: React.MouseEvent, id: number) => {
         e.stopPropagation();
-        setWishlist(prev => {
-            const next = new Set(prev);
-            if (next.has(id)) {
-                next.delete(id);
-            } else {
-                next.add(id);
-            }
-            return next;
-        });
+
+        // The wishlist is NOT local state.
+        //
+        // `wishlist` is a Set DERIVED from `favoriteHouseIds`, which comes
+        // from `useFavorites('house')` — the server-backed shortlist that
+        // merges across devices. The old local `house_wishlist` localStorage
+        // Set was a second source of truth that never reached the API, and it
+        // was removed.
+        //
+        // This handler still called `setWishlist(...)`, which does not exist:
+        // there is no setter for a derived value. So clicking the heart threw
+        // a ReferenceError and the shortlist could not be changed from the
+        // map at all. (It was also one of the 96 live `tsc` errors.)
+        //
+        // The toggle is the server-backed one, which is the single source of
+        // truth the rest of the app reads.
+        void toggleFavoriteHouse(id);
     };
 
     const flyToUser = useCallback(() => {

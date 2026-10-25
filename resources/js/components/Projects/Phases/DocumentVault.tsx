@@ -126,7 +126,7 @@ export default function DocumentVault({ project, isPro, targetRole, canDownload 
             </div>
 
             {showUpload && (
-                <form onSubmit={handleUpload} className="bg-slate-50 border-2 border-slate-100 rounded-[2rem] p-6 space-y-4">
+                <form onSubmit={handleUpload} className="bg-slate-50 border-2 border-slate-100 rounded-4xl p-6 space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-1">
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">File</label>
@@ -146,7 +146,7 @@ export default function DocumentVault({ project, isPro, targetRole, canDownload 
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredDocs.length === 0 ? (
-                    <div className="col-span-full py-12 text-center bg-slate-50 border-2 border-dashed border-slate-100 rounded-[2rem]">
+                    <div className="col-span-full py-12 text-center bg-slate-50 border-2 border-dashed border-slate-100 rounded-4xl">
                         <FileText className="mx-auto text-slate-200 mb-2" size={32} />
                         <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Vault is empty</p>
                     </div>

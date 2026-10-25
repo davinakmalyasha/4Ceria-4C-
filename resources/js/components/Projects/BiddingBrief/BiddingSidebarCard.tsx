@@ -35,7 +35,7 @@ export const BiddingSidebarCard: React.FC<BiddingSidebarCardProps> = ({
     return (
         <div className="space-y-6 sticky top-8">
             {/* Stats Card */}
-            <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm space-y-6">
+            <div className="bg-white p-6 rounded-4xl border border-gray-100 shadow-sm space-y-6">
                 <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest px-1">Tendering Status</h3>
                 
                 <div className="space-y-4">
@@ -58,8 +58,8 @@ export const BiddingSidebarCard: React.FC<BiddingSidebarCardProps> = ({
             {/* Dynamic CTA Card */}
             {userBid ? (
                 /* Proposal Submitted View */
-                <div className="bg-gradient-to-br from-emerald-900 to-zinc-950 text-white p-6 rounded-[2rem] border border-emerald-500/20 shadow-xl space-y-6 relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 blur-[40px] rounded-full translate-x-8 -translate-y-8" />
+                <div className="bg-linear-to-br from-emerald-900 to-zinc-950 text-white p-6 rounded-4xl border border-emerald-500/20 shadow-xl space-y-6 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 blur-2xl rounded-full translate-x-8 -translate-y-8" />
                     
                     <div className="relative z-10 space-y-4">
                         <div className="flex items-center gap-2 text-emerald-400">
@@ -106,10 +106,10 @@ export const BiddingSidebarCard: React.FC<BiddingSidebarCardProps> = ({
                 </div>
             ) : canBid ? (
                 /* Bidding Open CTA */
-                <div className="bg-zinc-950 text-white p-6 rounded-[2rem] border border-zinc-800 shadow-xl space-y-6 relative overflow-hidden">
+                <div className="bg-zinc-950 text-white p-6 rounded-4xl border border-zinc-800 shadow-xl space-y-6 relative overflow-hidden">
                     {isVerified ? (
                         <>
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/10 blur-[40px] rounded-full translate-x-8 -translate-y-8 pointer-events-none" />
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/10 blur-2xl rounded-full translate-x-8 -translate-y-8 pointer-events-none" />
                             
                             <div className="relative z-10 space-y-4">
                                 <div className="space-y-1">
@@ -130,7 +130,7 @@ export const BiddingSidebarCard: React.FC<BiddingSidebarCardProps> = ({
                         </>
                     ) : (
                         <>
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 blur-[40px] rounded-full translate-x-8 -translate-y-8 pointer-events-none" />
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 blur-2xl rounded-full translate-x-8 -translate-y-8 pointer-events-none" />
                             
                             <div className="relative z-10 space-y-4">
                                 <div className="space-y-1">
@@ -158,7 +158,7 @@ export const BiddingSidebarCard: React.FC<BiddingSidebarCardProps> = ({
                 </div>
             ) : (
                 /* Closed / Non-Eligible View */
-                <div className="bg-gray-50 border border-gray-200/50 p-6 rounded-[2rem] text-center text-gray-400 space-y-2">
+                <div className="bg-gray-50 border border-gray-200/50 p-6 rounded-4xl text-center text-gray-400 space-y-2">
                     <Lock size={20} className="mx-auto text-gray-300" />
                     <p className="text-xs font-bold uppercase tracking-wider">Proposal Portal Closed</p>
                     <p className="text-[10px] leading-relaxed font-medium">

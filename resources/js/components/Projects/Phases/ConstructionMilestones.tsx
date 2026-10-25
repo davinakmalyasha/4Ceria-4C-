@@ -300,7 +300,7 @@ export default function ConstructionMilestones({ project, currentUser, isContrac
             </div>
 
             {showForm && !editingId && (
-                <form onSubmit={handleSubmit} className="bg-slate-900 rounded-[2rem] p-6 space-y-4">
+                <form onSubmit={handleSubmit} className="bg-slate-900 rounded-4xl p-6 space-y-4">
                     <div className="flex justify-between items-center text-white mb-2">
                         <h5 className="text-[10px] font-black uppercase tracking-[0.2em]">New Milestone</h5>
                         <button type="button" onClick={resetForm} className="text-white/40 hover:text-white"><X size={16} /></button>
@@ -373,7 +373,7 @@ export default function ConstructionMilestones({ project, currentUser, isContrac
                                 {newGalleryFiles.length === 0 ? (
                                     <label 
                                         htmlFor="quick-start-upload"
-                                        className="w-full py-16 border-2 border-dashed border-slate-200 rounded-[2rem] flex flex-col items-center justify-center gap-4 cursor-pointer hover:border-slate-350 hover:bg-slate-50 transition-all group"
+                                        className="w-full py-16 border-2 border-dashed border-slate-200 rounded-4xl flex flex-col items-center justify-center gap-4 cursor-pointer hover:border-slate-350 hover:bg-slate-50 transition-all group"
                                     >
                                         <div className="w-16 h-16 rounded-full bg-slate-50 flex items-center justify-center text-slate-300 group-hover:text-slate-500 transition-colors shadow-sm">
                                             <Upload size={28} />
@@ -706,10 +706,10 @@ export default function ConstructionMilestones({ project, currentUser, isContrac
 
             {/* Confirmation Modal */}
             {confirmModal.isOpen && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+                <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
                     <div className="bg-white rounded-[2.5rem] p-8 max-w-md w-full shadow-2xl border border-slate-100">
                         <div className="flex flex-col items-center text-center gap-4 mb-8">
-                            <div className="w-20 h-20 bg-emerald-50 text-emerald-500 rounded-[2rem] flex items-center justify-center">
+                            <div className="w-20 h-20 bg-emerald-50 text-emerald-500 rounded-4xl flex items-center justify-center">
                                 <ShieldCheck size={40} />
                             </div>
                             <div>
@@ -751,7 +751,7 @@ export default function ConstructionMilestones({ project, currentUser, isContrac
                             <button 
                                 onClick={() => confirmModal.milestone && handleAuditSubmit(confirmModal.milestone, 'approved')}
                                 disabled={isSubmittingAudit}
-                                className="flex-[2] py-4 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all shadow-xl"
+                                className="flex-2 py-4 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all shadow-xl"
                             >
                                 {isSubmittingAudit ? 'Processing...' : 'Confirm & Approve'}
                             </button>

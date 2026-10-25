@@ -22,7 +22,7 @@ export default function SupplierCard({ supplier, onClick }: SupplierCardProps) {
         >
             <div className="flex items-start justify-between mb-6">
                 <div className="flex items-center gap-4">
-                    <div className="w-16 h-16 rounded-[1.5rem] bg-gray-900 text-white flex items-center justify-center text-xl font-black shadow-lg shadow-gray-900/20 group-hover:scale-110 transition-transform duration-500">
+                    <div className="w-16 h-16 rounded-3xl bg-gray-900 text-white flex items-center justify-center text-xl font-black shadow-lg shadow-gray-900/20 group-hover:scale-110 transition-transform duration-500">
                         {supplier.store_name?.charAt(0) || "S"}
                     </div>
                     <div>

@@ -347,7 +347,7 @@ const proofInputRef = useRef<HTMLInputElement>(null);
                         initial={{ opacity: 0, scale: 0.9, y: 20 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                        className={`fixed bottom-8 left-1/2 -translate-x-1/2 z-[9999] px-5 py-3 rounded-full shadow-2xl flex items-center justify-between gap-3 text-[10px] font-black uppercase tracking-widest min-w-[300px] border ${
+                        className={`fixed bottom-8 left-1/2 -translate-x-1/2 z-9999 px-5 py-3 rounded-full shadow-2xl flex items-center justify-between gap-3 text-[10px] font-black uppercase tracking-widest min-w-[300px] border ${
                             notification.type === 'success' 
                             ? 'bg-emerald-500 text-white border-emerald-400' 
                             : 'bg-red-500 text-white border-red-400'
@@ -458,7 +458,7 @@ const proofInputRef = useRef<HTMLInputElement>(null);
                                             <div className="flex items-start gap-3">
                                                 <MessageSquare size={14} className="text-red-500 mt-1" />
                                                 <div className="flex flex-col">
-                                                    <span className="text-[8px] font-black text-gray-400 uppercase tracking-[0.1em] mb-1">Order Notes / Instructions</span>
+                                                    <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Order Notes / Instructions</span>
                                                     <p className="text-xs font-medium text-gray-700 italic leading-relaxed">
                                                         "{quote.note}"
                                                     </p>

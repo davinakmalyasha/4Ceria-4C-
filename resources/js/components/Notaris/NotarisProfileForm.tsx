@@ -94,7 +94,7 @@ export default function NotarisProfileForm({ onCancel }: { onCancel: () => void 
     return (
         <form onSubmit={handleSubmit} className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
             {/* Header Section */}
-            <div className="bg-gradient-to-br from-blue-900 to-black p-10 rounded-[40px] text-white relative overflow-hidden shadow-2xl">
+            <div className="bg-linear-to-br from-blue-900 to-black p-10 rounded-[40px] text-white relative overflow-hidden shadow-2xl">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
                 <div className="relative z-10">
                     <div className="flex items-center gap-4 mb-4">

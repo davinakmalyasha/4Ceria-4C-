@@ -96,7 +96,7 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, isSupplier, isUpdating, up
                 </div>
 
                 {isSupplier && (order.delivery_method === 'Supplier Fleet' || order.delivery_method === 'Supplier Delivery') && (
-                    <div className="col-span-12 xl:col-span-5 flex flex-col md:flex-row items-center gap-5 bg-gray-50/80 rounded-[2rem] p-5 border border-gray-100 shadow-inner overflow-hidden min-w-0 mb-4 xl:mb-0">
+                    <div className="col-span-12 xl:col-span-5 flex flex-col md:flex-row items-center gap-5 bg-gray-50/80 rounded-4xl p-5 border border-gray-100 shadow-inner overflow-hidden min-w-0 mb-4 xl:mb-0">
                         {order.latitude && (
                             <div className="flex flex-col gap-3 w-full md:w-40 shrink-0">
                                 <div className="relative h-36 w-full rounded-2xl overflow-hidden border border-white shadow-sm ring-1 ring-black/5">
@@ -138,7 +138,7 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, isSupplier, isUpdating, up
                             )
                         ) : (
                             ['ready_for_pickup', 'shipping'].includes(order.status) && (
-                                <div className="bg-indigo-50/80 rounded-[2rem] p-5 border border-indigo-100 flex items-start gap-4">
+                                <div className="bg-indigo-50/80 rounded-4xl p-5 border border-indigo-100 flex items-start gap-4">
                                     <div className="p-3 bg-white rounded-2xl shadow-sm">
                                         <Truck size={20} className="text-indigo-500" />
                                     </div>
@@ -239,7 +239,7 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, isSupplier, isUpdating, up
                 </div>
             </div>
             {order.notes && (
-                <div className="mt-6 pt-6 border-t border-dashed border-gray-100 flex items-start gap-4 bg-amber-50/30 p-6 rounded-[2rem] border border-amber-100/50">
+                <div className="mt-6 pt-6 border-t border-dashed border-gray-100 flex items-start gap-4 bg-amber-50/30 p-6 rounded-4xl border border-amber-100/50">
                     <MessageCircle size={20} className="text-amber-500 mt-1" />
                     <div className="space-y-1">
                         <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest">Buyer's Note</p>
@@ -263,7 +263,7 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, isSupplier, isUpdating, up
                             <div className="space-y-3">
                                 <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest px-1">Supplier Packaging Proof</span>
                                 <div className="space-y-4 max-w-sm">
-                                    <div className="relative group cursor-pointer aspect-video rounded-[2rem] overflow-hidden bg-gray-50 border border-gray-100 shadow-sm" onClick={() => setShowFullDoc(true)}>
+                                    <div className="relative group cursor-pointer aspect-video rounded-4xl overflow-hidden bg-gray-50 border border-gray-100 shadow-sm" onClick={() => setShowFullDoc(true)}>
                                         <img 
                                             src={`/storage/${order.delivery_documentation_path}`} 
                                             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
@@ -367,7 +367,7 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, isSupplier, isUpdating, up
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-[1000] bg-black/90 backdrop-blur-md flex items-center justify-center p-4 md:p-12"
+                        className="fixed inset-0 z-1000 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 md:p-12"
                         onClick={() => setShowFullDoc(false)}
                     >
                         <button className="absolute top-8 right-8 text-white hover:rotate-90 transition-transform">

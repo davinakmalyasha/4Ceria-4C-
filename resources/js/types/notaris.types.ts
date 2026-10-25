@@ -1,4 +1,4 @@
-import { User } from './explore';
+import type { User } from '../context/AuthContext';
 
 export interface NotarisService {
     id: number;

@@ -37,7 +37,7 @@ export default function ChatOverlay({ onMaximize, activeTab }: ChatOverlayProps)
     const totalUnread = conversations.reduce((acc, c) => acc + (c.unread_count || 0), 0);
 
     return createPortal(
-        <div className="fixed bottom-6 right-6 z-[120] font-sans">
+        <div className="fixed bottom-6 right-6 z-120 font-sans">
             {/* Floating Action Button (FAB) */}
             <motion.button
                 onClick={() => setIsOpen(!isOpen)}
@@ -61,7 +61,7 @@ export default function ChatOverlay({ onMaximize, activeTab }: ChatOverlayProps)
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 30, scale: 0.95 }}
                         transition={{ duration: 0.2 }}
-                        className="absolute bottom-[72px] right-0 w-[360px] sm:w-[420px] h-[520px] bg-white rounded-3xl border border-gray-100 shadow-[0_20px_50px_rgba(0,0,0,0.15)] overflow-hidden flex flex-col z-[130]"
+                        className="absolute bottom-[72px] right-0 w-[360px] sm:w-[420px] h-[520px] bg-white rounded-3xl border border-gray-100 shadow-[0_20px_50px_rgba(0,0,0,0.15)] overflow-hidden flex flex-col z-130"
                     >
                         {/* Header */}
                         <div className="h-14 border-b border-gray-100 flex items-center justify-between px-4 bg-zinc-900 text-white shrink-0">

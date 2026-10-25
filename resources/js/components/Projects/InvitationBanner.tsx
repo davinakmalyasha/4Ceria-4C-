@@ -128,7 +128,7 @@ export const InvitationBanner: React.FC<InvitationBannerProps> = ({ project, use
         <motion.div 
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mb-8 bg-amber-50 rounded-[2rem] border border-amber-200 p-6 md:p-8 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6 overflow-hidden relative"
+            className="mb-8 bg-amber-50 rounded-4xl border border-amber-200 p-6 md:p-8 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6 overflow-hidden relative"
         >
             <div className="absolute top-0 right-0 w-64 h-64 bg-amber-400/10 blur-[80px] rounded-full translate-x-1/2 -translate-y-1/2" />
             
@@ -159,7 +159,7 @@ export const InvitationBanner: React.FC<InvitationBannerProps> = ({ project, use
                 <button
                     onClick={handleAccept}
                     disabled={isAccepting || isRejecting}
-                    className="flex-1 md:flex-none px-8 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black text-xs uppercase tracking-widest hover:shadow-lg hover:shadow-amber-500/20 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                    className="flex-1 md:flex-none px-8 py-3 rounded-xl bg-linear-to-r from-amber-500 to-orange-500 text-white font-black text-xs uppercase tracking-widest hover:shadow-lg hover:shadow-amber-500/20 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                     {isAccepting ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
                     Accept Invitation

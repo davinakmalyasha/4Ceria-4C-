@@ -25,7 +25,7 @@ const InteriorCard = ({ designer, viewMode, onSelect, isFav, onToggleFav }: { de
                 
                 <div className={`${isGrid ? 'w-20 h-20 -mb-12 shadow-xl z-10 scale-100 group-hover:scale-105 transition-transform duration-500' : 'w-full h-full'} rounded-full bg-zinc-900 flex items-center justify-center text-white font-bold text-2xl border-4 border-white overflow-hidden`}>
                     {designer?.user?.pic ? <img src={`/storage/${designer.user.pic}`} alt={designer?.nama || 'Designer'} className="w-full h-full object-cover" /> : (designer?.nama || 'D').charAt(0).toUpperCase()}
-                    {!designer?.user?.pic && <div className="absolute inset-0 bg-gradient-to-br from-red-600/20 to-transparent" />}
+                    {!designer?.user?.pic && <div className="absolute inset-0 bg-linear-to-br from-red-600/20 to-transparent" />}
                 </div>
                 <button onClick={(e) => onToggleFav(e, designer.id)} className={`absolute top-4 right-4 z-20 p-2 rounded-full backdrop-blur-md transition-all shadow-sm border ${isFav ? 'bg-red-50 border-red-200 text-red-600' : 'bg-white/80 border-zinc-100 text-zinc-400 hover:bg-red-50 hover:text-red-600 hover:border-red-100'}`}>
                     <Heart className={`w-4 h-4 ${isFav ? 'fill-current' : ''}`} />

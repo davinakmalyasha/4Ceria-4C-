@@ -259,7 +259,7 @@ class ProfileController extends Controller
             // SECURITY: file_portofolio is KYC-grade (KTP scans / NPWP land
             // here depending on flow) and must stay inside the private kyc/*
             // namespace of the railway bucket — never under portfolios/*.
-            $path = $portfolioFile->store("kyc/user_{$profile->user_id}", 'railway');
+            $path = $portfolioFile->store("kyc/user_{$profile->user_id}", \App\Support\Vault::disk());
             $updates['file_portofolio'] = $path;
             $updates['npwp'] = $path; // keep both in sync for backward compatibility
         }
@@ -274,7 +274,7 @@ class ProfileController extends Controller
                 }
             }
             // SECURITY: SIUP/business licenses are KYC-grade — private bucket.
-            $path = $sertifikatFile->store("certificates/user_{$profile->user_id}", 'railway');
+            $path = $sertifikatFile->store("certificates/user_{$profile->user_id}", \App\Support\Vault::disk());
             $updates['file_sertifikat'] = $path;
             $updates['siup'] = $path; // keep both in sync for backward compatibility
         }

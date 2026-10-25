@@ -137,7 +137,7 @@ class ProjectRequirementHistoryController extends Controller
         $isOwner = (int) $project->user_id === (int) $user->id && in_array('user', $allowedRoles);
         $isHiredArsitek = $user->role_type === 'arsitek' && Hire::matches($project, $user, 'arsitek') && in_array('arsitek', $allowedRoles);
         $isHiredKontraktor = $user->role_type === 'kontraktor' && Hire::matches($project, $user, 'kontraktor') && in_array('kontraktor', $allowedRoles);
-        $isHiredPM = $user->role_type === 'project_manager' && (int) $project->pm_id === (int) $user->id && in_array('project_manager', $allowedRoles);
+        $isHiredPM = $user->role_type === 'project_manager' && Hire::isAssignedPm($project, $user) && in_array('project_manager', $allowedRoles);
 
         // SECURITY BUGFIX: the interior branch checked only the role type, so
         // ANY interior-designer account on the platform passed — mirroring the

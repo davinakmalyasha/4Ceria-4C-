@@ -23,7 +23,25 @@ class MaterialController extends Controller
      */
     public function index(Request $request)
     {
-        $cacheKey = 'materials_list_' . md5(json_encode($request->all()));
+        // The cache key is built from the FOUR parameters the query actually
+        // reads, and from nothing else.
+        //
+        // It used to be `md5(json_encode($request->all()))` — every parameter
+        // the caller sent, in any order, with any value. This route is
+        // UNAUTHENTICATED, so that was an invitation: `?x=1`, `?x=2`, `?x=3` …
+        // each one a distinct cache key, each one a distinct entry in Redis,
+        // each one holding a full material listing, for ten minutes. The key
+        // space was unbounded and the route was public.
+        //
+        // The fix is to derive the key from the query's own inputs, bounded:
+        // the search term is truncated, and the prices are numeric.
+        $cacheKey = 'materials_list_'.md5(json_encode([
+            'category' => mb_substr((string) $request->query('category'), 0, 64),
+            'search' => mb_substr((string) $request->query('search'), 0, 100),
+            'min_price' => (string) $request->query('min_price'),
+            'max_price' => (string) $request->query('max_price'),
+        ]));
+
         $supportsTags = in_array(config('cache.default'), ['redis', 'memcached']);
 
         $data = $supportsTags

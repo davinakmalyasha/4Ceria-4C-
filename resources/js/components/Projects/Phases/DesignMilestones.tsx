@@ -283,7 +283,7 @@ export default function DesignMilestones({ project, currentUser, isArchitect, is
             </div>
 
             {showForm && (
-                <form onSubmit={handleSubmit} className="bg-slate-900 rounded-[2rem] p-10 space-y-8 animate-in zoom-in duration-300">
+                <form onSubmit={handleSubmit} className="bg-slate-900 rounded-4xl p-10 space-y-8 animate-in zoom-in duration-300">
                     <div className="flex justify-between items-center text-white">
                         <h5 className="text-xs font-black uppercase tracking-[0.2em]">{editingId ? 'Edit Milestone' : 'New Milestone'}</h5>
                         <button type="button" onClick={() => setShowForm(false)} className="text-white/40 hover:text-white"><X size={18} /></button>
@@ -356,7 +356,7 @@ export default function DesignMilestones({ project, currentUser, isArchitect, is
 
             <div className="space-y-4">
                 {milestones.length === 0 && !showForm && (
-                    <div className="py-20 text-center border-2 border-dashed border-slate-100 rounded-[2rem]">
+                    <div className="py-20 text-center border-2 border-dashed border-slate-100 rounded-4xl">
                         <Layers className="mx-auto text-slate-200 mb-4" size={40} />
                         <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">No design milestones yet.</p>
                     </div>
@@ -562,10 +562,10 @@ export default function DesignMilestones({ project, currentUser, isArchitect, is
 
             {/* Confirmation Modal */}
             {confirmModal.isOpen && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+                <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
                     <div className="bg-white rounded-[2.5rem] p-8 max-w-md w-full shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-200">
                         <div className="flex flex-col items-center text-center gap-4 mb-8">
-                            <div className="w-20 h-20 bg-emerald-50 text-emerald-500 rounded-[2rem] flex items-center justify-center shadow-inner">
+                            <div className="w-20 h-20 bg-emerald-50 text-emerald-500 rounded-4xl flex items-center justify-center shadow-inner">
                                 <ShieldCheck size={40} />
                             </div>
                             <div>
@@ -625,7 +625,7 @@ export default function DesignMilestones({ project, currentUser, isArchitect, is
                             <button 
                                 onClick={() => confirmModal.milestone && handleAuditSubmit(confirmModal.milestone, 'approved')}
                                 disabled={isSubmittingAudit}
-                                className="flex-[2] py-4 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all shadow-xl flex items-center justify-center gap-2"
+                                className="flex-2 py-4 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all shadow-xl flex items-center justify-center gap-2"
                             >
                                 {isSubmittingAudit ? <RefreshCw size={14} className="animate-spin" /> : 'Confirm & Approve'}
                             </button>

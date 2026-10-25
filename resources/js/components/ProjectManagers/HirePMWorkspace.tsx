@@ -123,7 +123,7 @@ export const HirePMWorkspace: React.FC<HirePMWorkspaceProps> = ({
                     <div className="bg-white rounded-[2.5rem] border border-zinc-100 p-8 shadow-sm">
                         <div className="flex flex-col items-center text-center">
                             <div className="relative mb-6">
-                                <div className="w-24 h-24 rounded-[2rem] bg-zinc-100 overflow-hidden ring-4 ring-zinc-50">
+                                <div className="w-24 h-24 rounded-4xl bg-zinc-100 overflow-hidden ring-4 ring-zinc-50">
                                     {bid.pm?.user?.pic ? (
                                         <img src={`/storage/${bid.pm.user.pic}`} alt={bid.pm.nama} className="w-full h-full object-cover" />
                                     ) : (
@@ -302,7 +302,7 @@ export const HirePMWorkspace: React.FC<HirePMWorkspaceProps> = ({
                                     <button 
                                         onClick={handleAcceptBid}
                                         disabled={isSubmitting}
-                                        className="w-full py-5 bg-zinc-900 hover:bg-zinc-800 text-white rounded-[2rem] font-black text-xs uppercase tracking-[0.2em] transition-all shadow-xl shadow-zinc-900/20 flex items-center justify-center gap-3"
+                                        className="w-full py-5 bg-zinc-900 hover:bg-zinc-800 text-white rounded-4xl font-black text-xs uppercase tracking-[0.2em] transition-all shadow-xl shadow-zinc-900/20 flex items-center justify-center gap-3"
                                     >
                                         {isSubmitting ? 'Finalizing...' : <>Proceed to Hire & Contract <ArrowRight size={18} /></>}
                                     </button>
@@ -317,7 +317,7 @@ export const HirePMWorkspace: React.FC<HirePMWorkspaceProps> = ({
                             {isAccepted && bid.payment_status === 'unpaid' && (
                                 <div className="p-10 bg-zinc-900 rounded-[3rem] text-white space-y-6">
                                     <div className="flex items-center gap-4">
-                                        <div className="w-14 h-14 bg-amber-500 rounded-[1.5rem] flex items-center justify-center text-zinc-900 shadow-lg shadow-amber-500/20">
+                                        <div className="w-14 h-14 bg-amber-500 rounded-3xl flex items-center justify-center text-zinc-900 shadow-lg shadow-amber-500/20">
                                             <AlertCircle size={28} />
                                         </div>
                                         <div>
@@ -345,7 +345,7 @@ export const HirePMWorkspace: React.FC<HirePMWorkspaceProps> = ({
 
                     {/* Timeline & Responsibilities */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="bg-white rounded-[2rem] border border-zinc-100 p-8">
+                        <div className="bg-white rounded-4xl border border-zinc-100 p-8">
                             <div className="flex items-center gap-3 mb-6">
                                 <Clock size={18} className="text-zinc-400" />
                                 <h4 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Timeline Estimate</h4>
@@ -353,7 +353,7 @@ export const HirePMWorkspace: React.FC<HirePMWorkspaceProps> = ({
                             <p className="text-2xl font-black text-gray-900">{bid.estimated_duration} {bid.duration_unit}</p>
                             <p className="text-[11px] text-zinc-400 font-medium mt-1">From legal start to handover.</p>
                         </div>
-                        <div className="bg-white rounded-[2rem] border border-zinc-100 p-8">
+                        <div className="bg-white rounded-4xl border border-zinc-100 p-8">
                             <div className="flex items-center gap-3 mb-6">
                                 <ShieldCheck size={18} className="text-zinc-400" />
                                 <h4 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Legal Responsibility</h4>

@@ -7,7 +7,9 @@ use App\Http\Requests\UploadPaymentProofRequest;
 use App\Http\Requests\VerifyPaymentProofRequest;
 use App\Models\Project;
 use App\Services\PaymentVerificationService;
+use App\Support\SafeError;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class PaymentVerificationController extends Controller
 {
@@ -30,14 +32,20 @@ class PaymentVerificationController extends Controller
                 'data' => $model
             ]);
         } catch (\Exception $e) {
-            $code = $e->getCode();
-            if ($code < 100 || $code >= 600) {
-                $code = 500;
-            }
+            // `SafeError::status()` NEVER returns the raw exception code: for
+            // a `QueryException` that is the SQLSTATE STRING 'HY000', and
+            // `intval('HY000')` is 0 — so the response status became 0 and
+            // the client could not interpret it at all.
+            //
+            // `SafeError::message()` only echoes a message that was WRITTEN
+            // FOR the client; a database failure gets a generic one, and the
+            // SQL never leaves the server.
+            Log::error('Payment verification failed', ['exception' => $e]);
+
             return response()->json([
                 'status' => 'error',
-                'message' => $e->getMessage()
-            ], $code);
+                'message' => SafeError::message($e),
+            ], SafeError::status($e));
         }
     }
 
@@ -63,14 +71,20 @@ class PaymentVerificationController extends Controller
                 'data' => $model
             ]);
         } catch (\Exception $e) {
-            $code = $e->getCode();
-            if ($code < 100 || $code >= 600) {
-                $code = 500;
-            }
+            // `SafeError::status()` NEVER returns the raw exception code: for
+            // a `QueryException` that is the SQLSTATE STRING 'HY000', and
+            // `intval('HY000')` is 0 — so the response status became 0 and
+            // the client could not interpret it at all.
+            //
+            // `SafeError::message()` only echoes a message that was WRITTEN
+            // FOR the client; a database failure gets a generic one, and the
+            // SQL never leaves the server.
+            Log::error('Payment verification failed', ['exception' => $e]);
+
             return response()->json([
                 'status' => 'error',
-                'message' => $e->getMessage()
-            ], $code);
+                'message' => SafeError::message($e),
+            ], SafeError::status($e));
         }
     }
 }

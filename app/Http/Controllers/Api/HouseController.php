@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
+use App\Support\SafeError;
 
 class HouseController extends Controller
 {
@@ -131,9 +132,9 @@ class HouseController extends Controller
                 ]);
             }
 
-            $validated['price'] = str_replace('.', '', $validated['price']);
+            $validated['price'] = str_replace('.', '', $validated['price'] ?? null);
             $validated['id_user'] = Auth::id();
-            $validated['coordinate'] = $validated['lat'].', '.$validated['lng'];
+            $validated['coordinate'] = ($validated['lat'] ?? null).', '.($validated['lng'] ?? null);
 
             $house = House::create($validated);
 
@@ -200,7 +201,7 @@ class HouseController extends Controller
             return new HouseResource($house->load(['housePic', 'room', 'room.roomPic']));
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::error('House creation failed', [
-                'message' => $e->getMessage(),
+                'message' => SafeError::message($e),
                 'file' => $e->getFile(),
                 'line' => $e->getLine(),
                 'trace' => $e->getTraceAsString(),
@@ -237,11 +238,11 @@ class HouseController extends Controller
         $validated = $request->validated();
 
         if (isset($validated['lat']) && isset($validated['lng'])) {
-            $validated['coordinate'] = $validated['lat'].', '.$validated['lng'];
+            $validated['coordinate'] = ($validated['lat'] ?? null).', '.($validated['lng'] ?? null);
         }
 
         if (isset($validated['price'])) {
-            $validated['price'] = str_replace('.', '', $validated['price']);
+            $validated['price'] = str_replace('.', '', $validated['price'] ?? null);
         }
 
         $house->update($validated);

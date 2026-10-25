@@ -72,7 +72,7 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                                 : 'text-neutral-500 hover:bg-neutral-50 hover:text-neutral-900'
                             }`}
                         >
-                            <item.icon size={18} className="flex-shrink-0" />
+                            <item.icon size={18} className="shrink-0" />
                             {isSidebarOpen && <span className="text-xs uppercase tracking-wider">{item.name}</span>}
                             {item.name === 'Verification Queue' && pendingCount > 0 && (
                                 <span className={`absolute right-3 ${isSidebarOpen ? '' : 'top-1 right-1'} bg-red-500 text-white text-[9px] font-black w-5 h-5 flex items-center justify-center rounded-full`}>
@@ -93,7 +93,7 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                         onClick={logout}
                         className="flex items-center space-x-3 p-3 w-full text-neutral-500 hover:bg-neutral-50 hover:text-neutral-900 rounded-xl transition-all duration-200"
                     >
-                        <LogOut size={18} className="flex-shrink-0" />
+                        <LogOut size={18} className="shrink-0" />
                         {isSidebarOpen && <span className="text-xs uppercase tracking-wider font-semibold">Logout</span>}
                     </button>
                 </div>

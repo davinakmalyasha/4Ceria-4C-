@@ -102,7 +102,7 @@ export default function MerchantInventory() {
                                 exit={{ opacity: 0, scale: 0.9 }}
                                 className="bg-white rounded-3xl border border-gray-100 overflow-hidden shadow-sm group hover:shadow-xl hover:shadow-gray-200/50 transition-all duration-300 flex flex-col"
                             >
-                                <div className="aspect-[4/3] bg-gray-50 relative overflow-hidden">
+                                <div className="aspect-4/3 bg-gray-50 relative overflow-hidden">
                                     {m.image_path ? (
                                         <img src={`/storage/${m.image_path}`} alt={m.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                                     ) : (

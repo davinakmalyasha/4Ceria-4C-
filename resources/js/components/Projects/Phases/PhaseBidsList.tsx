@@ -195,7 +195,7 @@ export default function PhaseBidsList({ bids, phaseKey, projectId, onRefresh, is
             </div>
 
             {bids.length === 0 && (
-                <div className="py-12 border-2 border-dashed border-gray-100 rounded-[2rem] flex flex-col items-center justify-center text-center">
+                <div className="py-12 border-2 border-dashed border-gray-100 rounded-4xl flex flex-col items-center justify-center text-center">
                     <p className="text-sm font-bold text-gray-400">No proposals yet</p>
                     <p className="text-[10px] text-gray-300 uppercase tracking-widest mt-1">Waiting for professional bids...</p>
                 </div>

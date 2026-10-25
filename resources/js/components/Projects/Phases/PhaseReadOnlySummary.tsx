@@ -65,7 +65,7 @@ export default function PhaseReadOnlySummary({
     const showFinancials = useMemo(() => {
         if (!user) return false;
         const isOwner = user.id === project?.user_id;
-        const isHiredPM = project?.pm_id && user.id === project?.pm_id;
+        const isHiredPM = project?.pm_id && user.project_manager?.id === project?.pm_id;
         const isSelf = user.role_type === currentRoleKey || (
             (currentRoleKey === 'structural' && user.role_type === 'structural') ||
             (currentRoleKey === 'mep' && user.role_type === 'mep')
@@ -101,7 +101,7 @@ export default function PhaseReadOnlySummary({
 
                     {/* Deliverables / Documents List */}
                     {['structural', 'mep', 'interior', 'arsitek'].includes(currentRoleKey) && (
-                        <div className="bg-white border border-slate-100 rounded-[2rem] p-8 shadow-sm">
+                        <div className="bg-white border border-slate-100 rounded-4xl p-8 shadow-sm">
                             <div className="flex items-center gap-3 mb-6">
                                 <div className="w-10 h-10 bg-slate-50 text-slate-600 rounded-2xl flex items-center justify-center border border-slate-100">
                                     <FolderOpen size={18} />
@@ -159,7 +159,7 @@ export default function PhaseReadOnlySummary({
                 </>
             ) : (
                 <div className="space-y-6">
-                    <div className="bg-slate-50 border border-slate-200 rounded-[2rem] p-8 text-center space-y-3">
+                    <div className="bg-slate-50 border border-slate-200 rounded-4xl p-8 text-center space-y-3">
                         <div className="w-12 h-12 bg-slate-100 text-slate-400 rounded-xl flex items-center justify-center mx-auto shadow-inner">
                             <Info size={24} />
                         </div>

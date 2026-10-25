@@ -61,7 +61,7 @@ class ConsultationController extends Controller
         }
 
         // Prevent duplicate pending bookings for the same slot.
-        $scheduleDate = \Carbon\Carbon::parse($validated['schedule_date'], 'Asia/Jakarta')
+        $scheduleDate = \Carbon\Carbon::parse($validated['schedule_date'] ?? null, 'Asia/Jakarta')
             ->timezone(config('app.timezone'));
         $existing = NotarisConsultation::where('notaris_id', $notary->id)
             ->where('user_id', $user->id)
@@ -175,7 +175,7 @@ class ConsultationController extends Controller
                 if (!in_array($consultation->status, ['pending', 'confirmed'])) {
                     return response()->json(['message' => 'Only active bookings can be rescheduled.'], 422);
                 }
-                $newDate = \Carbon\Carbon::parse($validated['schedule_date'], 'Asia/Jakarta')->timezone(config('app.timezone'));
+                $newDate = \Carbon\Carbon::parse($validated['schedule_date'] ?? null, 'Asia/Jakarta')->timezone(config('app.timezone'));
                 $old = $consultation->schedule_date->copy()->timezone('Asia/Jakarta')->format('d M Y H:i');
                 $consultation->update([
                     'schedule_date' => $newDate,

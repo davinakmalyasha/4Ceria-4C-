@@ -145,7 +145,7 @@ export const ProfilePreviewCard: React.FC<Props> = ({
                 <div className="md:col-span-4 space-y-8">
                     {/* Credentials */}
                     {(education || profile?.file_sertifikat) && !compact && (
-                        <div className="bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100">
+                        <div className="bg-slate-50/50 p-6 rounded-4xl border border-slate-100">
                             <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] block mb-4">Credentials</label>
                             <div className="space-y-4">
                                 {education && (

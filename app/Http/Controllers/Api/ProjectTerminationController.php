@@ -158,7 +158,7 @@ class ProjectTerminationController extends Controller
         // The local version this replaces was:
         //
         //     $isHired = $role === 'pm'
-        //         ? (int) $project->pm_id === (int) $user->id
+        //         ? Hire::isAssignedPm($project, $user)
         //         : ($column && (int) $project->$column
         //             === (int) $this->getProfileIdForUser($user, $role));
         //

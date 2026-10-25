@@ -46,8 +46,8 @@ export default function AssignSubModal({
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm">
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-                className="bg-white rounded-[2rem] shadow-2xl w-full max-w-lg overflow-hidden border border-gray-100 flex flex-col max-h-[85vh]">
-                <div className="relative h-24 bg-gradient-to-br from-gray-900 to-gray-800 p-5 flex items-end">
+                className="bg-white rounded-4xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-100 flex flex-col max-h-[85vh]">
+                <div className="relative h-24 bg-linear-to-br from-gray-900 to-gray-800 p-5 flex items-end">
                     <div className="absolute right-0 top-0 w-28 h-28 bg-[#FF2D20] rounded-full blur-[50px] opacity-30 mix-blend-screen" />
                     <button onClick={onClose} className="absolute top-3 right-3 p-2 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors backdrop-blur-md">
                         <X size={14} />

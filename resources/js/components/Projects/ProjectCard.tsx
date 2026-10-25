@@ -4,7 +4,7 @@ import { MapPin, Calendar, Clock, MessageSquare, Briefcase, Eye, Wallet, MoreHor
 import { Project, getStatusConfig, getProjectTypeConfig, formatCurrency } from '../../types/project.types';
 
 export const ProjectCardSkeleton = () => (
-    <div className="bg-white rounded-[1.5rem] overflow-hidden shadow-sm border border-gray-100 flex flex-col md:flex-row animate-pulse p-5 gap-5 h-48">
+    <div className="bg-white rounded-3xl overflow-hidden shadow-sm border border-gray-100 flex flex-col md:flex-row animate-pulse p-5 gap-5 h-48">
         <div className="w-full md:w-48 bg-gray-200 rounded-2xl h-full shrink-0" />
         <div className="flex-1 py-2 space-y-4 w-full">
             <div className="w-3/4 h-6 bg-gray-200 rounded-lg" />
@@ -92,16 +92,16 @@ export default function ProjectCard({ project, onClick, userRole, viewMode = 'gr
             whileHover={{ y: -4 }}
             onClick={() => onClick(project.id)}
             onMouseEnter={() => onPrefetch?.(project.id)}
-            className={`group relative bg-white rounded-[1.5rem] p-4 lg:p-5 flex gap-5 shadow-sm border border-gray-100 hover:border-red-200 transition-all duration-300 cursor-pointer overflow-visible ${
+            className={`group relative bg-white rounded-3xl p-4 lg:p-5 flex gap-5 shadow-sm border border-gray-100 hover:border-red-200 transition-all duration-300 cursor-pointer overflow-visible ${
                 isList ? 'flex-col lg:flex-row w-full items-center' : 'flex-col'
             }`}
         >
             {/* Status vertical accent line */}
-            <div className={`absolute left-0 top-0 ${isList ? 'bottom-0 w-1 rounded-l-[1.5rem]' : 'right-0 h-1 rounded-t-[1.5rem]'} ${statusCfg.bg} opacity-50 group-hover:opacity-100 transition-opacity`} />
+            <div className={`absolute left-0 top-0 ${isList ? 'bottom-0 w-1 rounded-l-3xl' : 'right-0 h-1 rounded-t-3xl'} ${statusCfg.bg} opacity-50 group-hover:opacity-100 transition-opacity`} />
 
             {/* Thumbnail Area */}
             <div className={`shrink-0 relative overflow-hidden bg-zinc-50 border border-zinc-100 group/thumb ${
-                isList ? 'w-full lg:w-48 h-48 lg:h-40 rounded-[1rem]' : 'w-full h-48 sm:h-56 rounded-xl'
+                isList ? 'w-full lg:w-48 h-48 lg:h-40 rounded-2xl' : 'w-full h-48 sm:h-56 rounded-xl'
             }`}>
                 {images.length > 0 ? (
                     <>
@@ -184,7 +184,7 @@ export default function ProjectCard({ project, onClick, userRole, viewMode = 'gr
                                         <StatusIcon size={10} /> {statusCfg.label}
                                     </span>
                                 )}
-                                <h3 className={`font-bold text-zinc-900 leading-tight group-hover:text-red-600 transition-colors break-words ${isList ? 'text-lg line-clamp-1' : 'text-xl line-clamp-2'}`}>{project.title}</h3>
+                                <h3 className={`font-bold text-zinc-900 leading-tight group-hover:text-red-600 transition-colors wrap-break-word ${isList ? 'text-lg line-clamp-1' : 'text-xl line-clamp-2'}`}>{project.title}</h3>
                             </div>
                             
                             <div className="flex items-center gap-2 mt-1 sm:mt-0">
@@ -195,7 +195,7 @@ export default function ProjectCard({ project, onClick, userRole, viewMode = 'gr
                                 )}
                             </div>
                         </div>
-                        <p className={`text-sm text-zinc-500 leading-relaxed md:pr-4 break-words mt-2 ${isList ? 'line-clamp-2 md:line-clamp-1' : 'line-clamp-2'}`}>{project.description}</p>
+                        <p className={`text-sm text-zinc-500 leading-relaxed md:pr-4 wrap-break-word mt-2 ${isList ? 'line-clamp-2 md:line-clamp-1' : 'line-clamp-2'}`}>{project.description}</p>
                         
                         {/* Project Specifications Summary Row */}
                         {dims && (
@@ -270,7 +270,7 @@ export default function ProjectCard({ project, onClick, userRole, viewMode = 'gr
                                         initial={{ width: 0 }}
                                         animate={{ width: `${progressPerc}%` }}
                                         transition={{ duration: 0.8, ease: "easeOut" }}
-                                        className={`h-full rounded-full ${progressPerc === 100 ? 'bg-emerald-500' : 'bg-gradient-to-r from-[#FF2D20] to-red-500'}`}
+                                        className={`h-full rounded-full ${progressPerc === 100 ? 'bg-emerald-500' : 'bg-linear-to-r from-[#FF2D20] to-red-500'}`}
                                     />
                                 </div>
                             </div>

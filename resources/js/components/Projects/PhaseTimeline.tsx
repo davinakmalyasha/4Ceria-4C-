@@ -295,7 +295,7 @@ export default function PhaseTimeline({ phases, activePhase, onPhaseClick, proje
                     return (
                         <React.Fragment key={phase.key}>
                             {i > 0 && (
-                                <div className={`h-[1.5px] w-6 sm:w-10 flex-shrink-0 transition-colors duration-300 ${
+                                <div className={`h-[1.5px] w-6 sm:w-10 shrink-0 transition-colors duration-300 ${
                                     isDone || preParallel[i - 1]?.status === 'completed' ? 'bg-emerald-400' : 'bg-gray-200'
                                 }`} />
                             )}
@@ -315,7 +315,7 @@ export default function PhaseTimeline({ phases, activePhase, onPhaseClick, proje
                 {/* Connector to parallel group */}
                 {parallel.length > 0 && (
                     <>
-                        <div className={`h-[1.5px] w-6 sm:w-10 flex-shrink-0 transition-colors duration-300 ${
+                        <div className={`h-[1.5px] w-6 sm:w-10 shrink-0 transition-colors duration-300 ${
                             lastPreDone ? 'bg-emerald-400' : 'bg-gray-200'
                         }`} />
 
@@ -329,7 +329,7 @@ export default function PhaseTimeline({ phases, activePhase, onPhaseClick, proje
                                     const { hiredCount, bidCount } = getPhaseCounts(phase.key, project);
                                     return (
                                         <React.Fragment key={phase.key}>
-                                            {i > 0 && <div className="w-[1px] h-6 bg-slate-200" />}
+                                            {i > 0 && <div className="w-px h-6 bg-slate-200" />}
                                             <PhaseButton 
                                                 phase={phase} 
                                                 isActive={phase.key === activePhase} 
@@ -352,7 +352,7 @@ export default function PhaseTimeline({ phases, activePhase, onPhaseClick, proje
                     const { hiredCount, bidCount } = getPhaseCounts(phase.key, project);
                     return (
                         <React.Fragment key={phase.key}>
-                            <div className={`h-[1.5px] w-6 sm:w-10 flex-shrink-0 transition-colors duration-300 ${
+                            <div className={`h-[1.5px] w-6 sm:w-10 shrink-0 transition-colors duration-300 ${
                                 allParallelDone ? 'bg-emerald-400' : 'bg-gray-200'
                             }`} />
                             <PhaseButton 

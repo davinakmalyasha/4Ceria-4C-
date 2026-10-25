@@ -112,7 +112,7 @@ export const ProjectBidForm: React.FC<Props> = ({ project, user, onSuccess }) =>
 
     if (!isVerified) {
         return (
-            <div className="bg-amber-50 border-2 border-amber-200 rounded-[2rem] p-10 text-center">
+            <div className="bg-amber-50 border-2 border-amber-200 rounded-4xl p-10 text-center">
                 <Shield className="w-12 h-12 text-amber-500 mx-auto mb-4" />
                 <h3 className="text-lg font-black text-amber-900 mb-2">Account Verification Pending</h3>
                 <p className="text-sm font-medium text-amber-700">
@@ -140,7 +140,7 @@ export const ProjectBidForm: React.FC<Props> = ({ project, user, onSuccess }) =>
                         <ExternalLink size={12} /> Edit Your Profile
                     </a>
                 </div>
-                <div className="border-2 border-dashed border-gray-200 rounded-[2rem] p-1 bg-gray-50/50">
+                <div className="border-2 border-dashed border-gray-200 rounded-4xl p-1 bg-gray-50/50">
                     <ProfilePreviewCard user={user} portfolios={portfolios} compact />
                 </div>
                 <p className="text-[10px] font-medium text-gray-400 text-center italic">

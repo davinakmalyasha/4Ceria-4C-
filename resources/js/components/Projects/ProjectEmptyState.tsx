@@ -14,7 +14,7 @@ export default function ProjectEmptyState({ hasQuery, onClearFilters, onPostProj
         <motion.div 
             initial={{ opacity: 0, scale: 0.98 }} 
             animate={{ opacity: 1, scale: 1 }} 
-            className="w-full flex flex-col items-center justify-center p-8 text-center bg-gradient-to-b from-white to-zinc-50/50 rounded-[2.5rem] border-2 border-dashed border-zinc-100 shadow-xl shadow-zinc-100/20 min-h-[350px] relative overflow-hidden"
+            className="w-full flex flex-col items-center justify-center p-8 text-center bg-linear-to-b from-white to-zinc-50/50 rounded-[2.5rem] border-2 border-dashed border-zinc-100 shadow-xl shadow-zinc-100/20 min-h-[350px] relative overflow-hidden"
         >
             {/* Background Accent */}
             <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 w-64 h-64 bg-red-50/30 rounded-full blur-3xl pointer-events-none" />

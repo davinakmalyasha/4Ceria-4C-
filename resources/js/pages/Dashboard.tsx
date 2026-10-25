@@ -131,7 +131,7 @@ function DashboardContent() {
                     if (foundProject) {
                         setSelectedProject(foundProject);
                         const isOwner = user?.id === foundProject.user_id;
-                        const isHiredPM = foundProject.pm_id && user?.id === foundProject.pm_id;
+                        const isHiredPM = foundProject.pm_id && user?.project_manager?.id === foundProject.pm_id;
                         const isHiredPro = 
                             (foundProject.selected_arsitek_id && (user?.arsitek?.id === foundProject.selected_arsitek_id || foundProject.arsitek?.user_id === user?.id || foundProject.arsitek?.user?.id === user?.id)) ||
                             (foundProject.selected_kontraktor_id && (user?.kontraktor?.id === foundProject.selected_kontraktor_id || foundProject.kontraktor?.user_id === user?.id || foundProject.kontraktor?.user?.id === user?.id)) ||

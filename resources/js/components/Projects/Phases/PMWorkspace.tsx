@@ -166,7 +166,7 @@ export default function PMWorkspace({ project, user, onRefresh, phaseKey, onNavi
         return () => { cancelled = true; };
     }, [project?.id]);
 
-    const isAssignedPM = user?.role_type === 'project_manager' && project?.pm_id === user?.id;
+    const isAssignedPM = user?.role_type === 'project_manager' && project?.pm_id === user?.project_manager?.id;
     const isProjectOwner = user?.id === project?.user_id;
 
     const handleExtensionReview = async (extension: any, status: 'pm_reviewed' | 'rejected') => {
@@ -433,7 +433,7 @@ export default function PMWorkspace({ project, user, onRefresh, phaseKey, onNavi
                     {/* Procurement / BoM Integration */}
                     {showBoM && (() => {
                         const isOwner = user?.id === project?.user_id;
-                        const isPM = user?.role_type === 'project_manager' && project?.pm_id === user?.id;
+                        const isPM = user?.role_type === 'project_manager' && project?.pm_id === user?.project_manager?.id;
                         const isHiredContractor = user?.role_type === 'kontraktor' && project?.selected_kontraktor_id === user?.id;
                         const canMutateBOM = isOwner || isPM || isHiredContractor;
                         

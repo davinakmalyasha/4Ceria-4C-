@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
-import { api } from '../api';
+import { api, clearApiCache } from '../api';
 import { clearLocalFavorites } from '../hooks/useFavorites';
+import { clearProjectTabsCache } from '../hooks/useProjectTabsData';
 
 /* -------------------------------------------------------------------------
  * Per-user client-side storage
@@ -298,6 +299,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         purgeUserScopedStorage();
         clearLocalFavorites();
 
+        // The MODULE-LEVEL caches are not storage, so `purgeUserScopedStorage()`
+        // cannot reach them — and they outlive every component that reads
+        // them.
+        //
+        // `useProjectTabsData`'s caches are keyed by PROJECT ID and hold
+        // user-scoped payloads: the stages, contract documents, comments and
+        // negotiated bids the API returned to THIS viewer. Without this, the
+        // next user of the same device opened the same project and was shown
+        // the previous user's data until the cache expired.
+        //
+        // `apiCache` holds cached GET responses for the same reason. Today it
+        // only holds a static lookup, but it is not keyed by user either.
+        clearProjectTabsCache();
+        clearApiCache();
+
         setToken(null);
         setUser(null);
         window.location.href = '/login';
@@ -312,6 +328,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 // user's drafts (signature, bank details, negotiated fees) has
                 // to be dropped here too - the other tab cannot reach it.
                 purgeUserScopedStorage();
+                // The module-level caches are shared ACROSS tabs (they are
+                // module state, not storage), so this tab has to drop them
+                // too: the tab that logged out cannot reach this tab's
+                // memory, and vice versa.
+                clearProjectTabsCache();
+                clearApiCache();
                 setUser(null);
                 setToken(null);
                 window.location.href = '/login';

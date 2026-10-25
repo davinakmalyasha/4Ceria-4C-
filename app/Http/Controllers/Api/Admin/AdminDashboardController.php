@@ -69,7 +69,20 @@ class AdminDashboardController extends Controller
 
     public function projects(Request $request)
     {
-        $query = Project::with(['user', 'selectedArsitek', 'selectedKontraktor']);
+        // `arsitek` and `kontraktor`, not `selectedArsitek`/`selectedKontraktor`.
+        //
+        // The latter names were loaded from relations that did not exist or
+        // pointed at the wrong id space:
+        //
+        //   - `selectedKontraktor` was not a relation at all, so Laravel threw
+        //     RelationNotFoundException and the endpoint returned 500.
+        //   - `selectedArsitek` was `belongsTo(User::class, 'selected_arsitek_id')`,
+        //     joining `users.id` to an `arsiteks.id`. It could never resolve.
+        //
+        // `arsitek` / `kontraktor` are the relations `ProjectResource` already
+        // emits, so the admin list and `GET /api/projects/{id}` now speak the
+        // same contract.
+        $query = Project::with(['user', 'arsitek', 'kontraktor']);
 
         if ($request->filled('search')) {
             $search = $request->search;
@@ -170,6 +183,16 @@ class AdminDashboardController extends Controller
     public function terminateProject(Request $request, $id)
     {
         $project = Project::findOrFail($id);
+
+        // Load BEFORE mutating.
+        //
+        // This used to update first and eager-load afterwards, so a failure in
+        // the load surfaced as a 500 with `status = 'cancelled'` already
+        // committed — a silent state change behind an error response, which is
+        // the worst possible combination: the client sees a failure and
+        // retries, and the project is cancelled twice over.
+        $project->load(['user', 'arsitek', 'kontraktor']);
+
         $project->update([
             'status' => 'cancelled'
         ]);
@@ -178,7 +201,7 @@ class AdminDashboardController extends Controller
 
         return response()->json([
             'message' => 'Project forced terminated by Administrator.',
-            'project' => $project->load(['user', 'selectedArsitek', 'selectedKontraktor'])
+            'project' => $project,
         ]);
     }
 }

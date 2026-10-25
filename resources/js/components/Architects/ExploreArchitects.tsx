@@ -25,7 +25,7 @@ const ArchitectCard = ({ arch, viewMode, onSelect, isFav, onToggleFav }: { arch:
                 
                 <div className={`${isGrid ? 'w-20 h-20 -mb-12 shadow-xl z-10 scale-100 group-hover:scale-105 transition-transform duration-500' : 'w-full h-full'} rounded-full bg-zinc-900 flex items-center justify-center text-white font-bold text-2xl border-4 border-white overflow-hidden`}>
                     {arch?.user?.pic ? <img src={`/storage/${arch.user.pic}`} alt={arch?.nama || 'Architect'} className="w-full h-full object-cover" /> : (arch?.nama || 'A').charAt(0).toUpperCase()}
-                    {!arch?.user?.pic && <div className="absolute inset-0 bg-gradient-to-br from-red-600/20 to-transparent" />}
+                    {!arch?.user?.pic && <div className="absolute inset-0 bg-linear-to-br from-red-600/20 to-transparent" />}
                 </div>
                 <button onClick={(e) => onToggleFav(e, arch.id)} className={`absolute top-4 right-4 z-20 p-2 rounded-full backdrop-blur-md transition-all shadow-sm border ${isFav ? 'bg-red-50 border-red-200 text-red-600' : 'bg-white/80 border-zinc-100 text-zinc-400 hover:bg-red-50 hover:text-red-600 hover:border-red-100'}`}>
                     <Heart className={`w-4 h-4 ${isFav ? 'fill-current' : ''}`} />

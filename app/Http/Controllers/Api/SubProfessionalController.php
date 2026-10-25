@@ -10,6 +10,7 @@ use App\Traits\HandlesProjectAuthorization;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use App\Support\Hire;
 
 class SubProfessionalController extends Controller
 {
@@ -284,7 +285,7 @@ class SubProfessionalController extends Controller
             ->firstOrFail();
 
         $isOwner = (int) $project->user_id === (int) $user->id;
-        $isPM = $project->pm_id && (int) $project->pm_id === (int) $user->id;
+        $isPM = $project->pm_id && Hire::isAssignedPm($project, $user);
         $isLeadContractor = $project->selected_kontraktor_id && $user->kontraktor && (int) $project->selected_kontraktor_id === (int) $user->kontraktor->id;
 
         if (!$isOwner && !$isPM && !$isLeadContractor) {

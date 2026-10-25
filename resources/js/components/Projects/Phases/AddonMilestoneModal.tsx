@@ -65,7 +65,7 @@ export default function AddonMilestoneModal({ project, phaseContext, onClose, on
     };
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-in fade-in duration-300">
             <div className="bg-slate-900 border border-white/10 rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col animate-in zoom-in-95 duration-300">
                 
                 {/* Header */}
@@ -193,7 +193,7 @@ export default function AddonMilestoneModal({ project, phaseContext, onClose, on
                 </form>
 
                 {/* Footer Actions */}
-                <div className="p-8 pt-4 border-t border-white/5 flex gap-3 bg-white/[0.02]">
+                <div className="p-8 pt-4 border-t border-white/5 flex gap-3 bg-white/2">
                     <button 
                         onClick={onClose}
                         className="flex-1 py-4 bg-white/5 text-white/40 hover:text-white hover:bg-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all"
@@ -203,7 +203,7 @@ export default function AddonMilestoneModal({ project, phaseContext, onClose, on
                     <button 
                         onClick={handleSubmit}
                         disabled={submitting || !title || !description}
-                        className="flex-[2] py-4 bg-purple-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-purple-500 transition-all shadow-xl shadow-purple-500/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex-2 py-4 bg-purple-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-purple-500 transition-all shadow-xl shadow-purple-500/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {submitting ? (
                             <RefreshCw size={14} className="animate-spin" />

@@ -78,7 +78,7 @@ export const PaymentProofModal: React.FC<PaymentProofModalProps> = ({ isOpen, on
     if (!isOpen) return null;
 
     return createPortal(
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+        <div className="fixed inset-0 z-99999 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col">
                 {/* Header */}
                 <div className="p-6 border-b border-zinc-800 flex items-center justify-between">
@@ -103,7 +103,7 @@ export const PaymentProofModal: React.FC<PaymentProofModalProps> = ({ isOpen, on
 
                 <div className="p-6 space-y-6">
                     {/* Verified Amount Card */}
-                    <div className="bg-gradient-to-br from-zinc-800 to-zinc-900 rounded-2xl p-5 border border-zinc-700 shadow-inner">
+                    <div className="bg-linear-to-br from-zinc-800 to-zinc-900 rounded-2xl p-5 border border-zinc-700 shadow-inner">
                         <div className="flex items-start justify-between mb-4">
                             <div>
                                 <div className="flex items-center gap-2 text-[8px] font-black text-zinc-500 uppercase tracking-widest mb-1">
@@ -173,7 +173,7 @@ export const PaymentProofModal: React.FC<PaymentProofModalProps> = ({ isOpen, on
                                                 className="absolute -top-3 -right-3 p-2 bg-rose-600 hover:bg-rose-500 text-white rounded-full shadow-xl hover:scale-110 transition-all z-30 flex items-center justify-center border-2 border-zinc-900"
                                                 title="Remove Photo"
                                             >
-                                                <X size={12} className="stroke-[3]" />
+                                                <X size={12} className="stroke-3" />
                                             </button>
                                         </div>
                                         <button
@@ -265,7 +265,7 @@ export const PaymentProofModal: React.FC<PaymentProofModalProps> = ({ isOpen, on
                                         <button 
                                             onClick={() => handleVerify('accept')}
                                             disabled={isSubmitting}
-                                            className="flex-[2] py-4 bg-emerald-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-500 shadow-lg shadow-emerald-900/20 flex items-center justify-center gap-2 transition-all"
+                                            className="flex-2 py-4 bg-emerald-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-500 shadow-lg shadow-emerald-900/20 flex items-center justify-center gap-2 transition-all"
                                         >
                                             {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
                                             Accept & Verify

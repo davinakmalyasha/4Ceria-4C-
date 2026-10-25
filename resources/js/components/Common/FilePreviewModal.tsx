@@ -28,7 +28,7 @@ export default function FilePreviewModal({ isOpen, onClose, filePath, fileName }
     return createPortal(
         <AnimatePresence>
             {isOpen && (
-                <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+                <div className="fixed inset-0 z-999999 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
                     {/* Backdrop */}
                     <div className="absolute inset-0 cursor-pointer" onClick={onClose} />
                     
@@ -89,7 +89,7 @@ export default function FilePreviewModal({ isOpen, onClose, filePath, fileName }
                                     className="w-full h-full border-none rounded-xl bg-white shadow-lg"
                                 />
                             ) : (
-                                <div className="text-center space-y-4 max-w-sm p-8 bg-white rounded-[2rem] border border-slate-200 shadow-xl animate-in zoom-in-95 duration-200">
+                                <div className="text-center space-y-4 max-w-sm p-8 bg-white rounded-4xl border border-slate-200 shadow-xl animate-in zoom-in-95 duration-200">
                                     <div className="w-16 h-16 bg-slate-50 text-slate-400 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
                                         <FileText size={32} />
                                     </div>

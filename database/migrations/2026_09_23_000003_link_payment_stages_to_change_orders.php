@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\Schema\ForeignKeyIndexGuard;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -49,8 +50,20 @@ return new class extends Migration
             return;
         }
 
+        // The unique index's LEADING column is the foreign-key column, so
+        // InnoDB adopted it as the constraint's only backing store. Dropping
+        // it first fails with:
+        //
+        //     1553 Cannot drop index 'payment_termin_change_order_unique':
+        //     needed in a foreign key constraint
+        //
+        // The guard creates a plain single-column index on `change_order_id`
+        // first, so the constraint keeps a backing store and the drop
+        // succeeds. MySQL removes the support index along with the column in
+        // the next statement, so nothing is left behind.
+        ForeignKeyIndexGuard::dropIndex('project_payment_termins', 'payment_termin_change_order_unique');
+
         Schema::table('project_payment_termins', function (Blueprint $table) {
-            $table->dropUnique('payment_termin_change_order_unique');
             $table->dropConstrainedForeignId('change_order_id');
         });
     }

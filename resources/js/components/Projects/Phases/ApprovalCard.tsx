@@ -66,7 +66,7 @@ export default function ApprovalCard({
 
                 {/* Description */}
                 {item.desc && (
-                    <p className="text-xs text-zinc-500 leading-relaxed font-medium break-words">
+                    <p className="text-xs text-zinc-500 leading-relaxed font-medium wrap-break-word">
                         {item.desc}
                     </p>
                 )}

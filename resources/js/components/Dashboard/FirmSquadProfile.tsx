@@ -489,7 +489,7 @@ export default function FirmSquadProfile({ ownerId, isGuestMode = false, onClose
         <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl overflow-hidden transition-all duration-300 relative">
             {/* Banner Section */}
             <div 
-                className={`h-48 md:h-64 relative bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 bg-cover bg-center flex items-end p-6 ${isOwner ? 'group/banner' : ''}`}
+                className={`h-48 md:h-64 relative bg-linear-to-r from-slate-900 via-indigo-950 to-slate-900 bg-cover bg-center flex items-end p-6 ${isOwner ? 'group/banner' : ''}`}
                 style={bannerStyle}
             >
                 {isOwner && (
@@ -514,7 +514,7 @@ export default function FirmSquadProfile({ ownerId, isGuestMode = false, onClose
             {/* Profile Info Card Area */}
             <div className="relative px-6 pb-6 pt-16 md:pt-4 border-b border-slate-100 flex flex-col md:flex-row md:items-end justify-between gap-6">
                 {/* Avatar / Logo */}
-                <div className="absolute left-6 md:left-8 top-0 -translate-y-1/2 w-28 h-28 md:w-36 md:h-36 rounded-[2rem] border-4 border-white bg-slate-900 overflow-hidden shadow-2xl flex items-center justify-center font-black text-white text-3xl group/logo">
+                <div className="absolute left-6 md:left-8 top-0 -translate-y-1/2 w-28 h-28 md:w-36 md:h-36 rounded-4xl border-4 border-white bg-slate-900 overflow-hidden shadow-2xl flex items-center justify-center font-black text-white text-3xl group/logo">
                     {logoLoading ? (
                         <div className="w-8 h-8 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
                     ) : profile.owner.pic ? (
@@ -813,7 +813,7 @@ export default function FirmSquadProfile({ ownerId, isGuestMode = false, onClose
                                                 const portfolios = req.member?.portfolios || [];
                                                 
                                                 return (
-                                                    <div key={req.id} className="p-6 bg-white border border-amber-200/50 rounded-[2rem] shadow-sm hover:shadow-md transition-all space-y-4 animate-slide-down">
+                                                    <div key={req.id} className="p-6 bg-white border border-amber-200/50 rounded-4xl shadow-sm hover:shadow-md transition-all space-y-4 animate-slide-down">
                                                         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
                                                             {/* Column 1: Profile & Identity */}
                                                             <div className="flex items-start gap-4 lg:col-span-1 min-w-0">
@@ -1190,7 +1190,7 @@ export default function FirmSquadProfile({ ownerId, isGuestMode = false, onClose
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                                     {/* Lead Professional Card */}
-                                    <div className="p-5 bg-gradient-to-br from-slate-50 to-indigo-50/20 border-2 border-indigo-200 rounded-3xl shadow-sm flex flex-col justify-between h-full relative">
+                                    <div className="p-5 bg-linear-to-br from-slate-50 to-indigo-50/20 border-2 border-indigo-200 rounded-3xl shadow-sm flex flex-col justify-between h-full relative">
                                         <span className="absolute top-4 right-4 px-2 py-0.5 bg-indigo-600 text-white text-[8px] font-black uppercase tracking-widest rounded-full">
                                             Owner
                                         </span>
@@ -1505,7 +1505,7 @@ export default function FirmSquadProfile({ ownerId, isGuestMode = false, onClose
                                 {profile.portfolios.map(p => {
                                     const isEditingCard = editingProjectId === p.id;
                                     return (
-                                        <div key={p.id} className="border border-slate-100 rounded-[2rem] overflow-hidden shadow-sm hover:shadow-md transition-all duration-200 bg-white flex flex-col justify-between">
+                                        <div key={p.id} className="border border-slate-100 rounded-4xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-200 bg-white flex flex-col justify-between">
                                             {isEditingCard ? (
                                                 /* Card Inline Edit Form */
                                                 <form onSubmit={e => handleUpdateProjectSubmit(e, p.id)} className="p-6 space-y-4 flex-1 animate-fade-in">

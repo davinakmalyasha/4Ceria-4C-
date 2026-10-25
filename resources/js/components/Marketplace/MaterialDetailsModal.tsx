@@ -16,7 +16,7 @@ const ManualSlider = ({ images, altText }: { images?: { image_path: string }[]; 
     
     if (!images || images.length === 0) {
         return (
-            <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 bg-gradient-to-br from-gray-50 to-gray-200">
+            <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 bg-linear-to-br from-gray-50 to-gray-200">
                 <Package size={64} className="mb-4 opacity-20" />
                 <span className="font-semibold tracking-wide text-xs uppercase">No Images Available</span>
             </div>
@@ -93,7 +93,7 @@ export default function MaterialDetailsModal({ material, onClose, onOpenChat }: 
             initial={{ opacity: 0 }} 
             animate={{ opacity: 1 }} 
             exit={{ opacity: 0 }} 
-            className="fixed inset-0 z-[200] flex items-center justify-center p-4 sm:p-6 bg-gray-900/40 backdrop-blur-sm" 
+            className="fixed inset-0 z-200 flex items-center justify-center p-4 sm:p-6 bg-gray-900/40 backdrop-blur-sm" 
             onClick={onClose}
         >
             <motion.div 
@@ -115,7 +115,7 @@ export default function MaterialDetailsModal({ material, onClose, onOpenChat }: 
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 lg:gap-8 p-4 sm:p-6 lg:p-8">
                         {/* Image Gallery Column */}
                         <div className="lg:col-span-7">
-                            <div className="w-full aspect-[4/3] relative bg-gray-100 rounded-[2rem] overflow-hidden shadow-xl border border-gray-100">
+                            <div className="w-full aspect-4/3 relative bg-gray-100 rounded-4xl overflow-hidden shadow-xl border border-gray-100">
                                 <ManualSlider images={material.images} altText={material.name} />
                                 <div className="absolute top-6 left-6">
                                     <span className="px-4 py-2 bg-white/90 backdrop-blur-md rounded-2xl text-[10px] font-black text-gray-900 uppercase tracking-widest shadow-sm border border-white/20">
@@ -127,7 +127,7 @@ export default function MaterialDetailsModal({ material, onClose, onOpenChat }: 
                             {/* Mobile/Quick Stats */}
                             <div className="grid grid-cols-3 gap-4 mt-8">
                                 {stats.map((s, i) => (
-                                    <div key={i} className="flex flex-col items-center text-center p-4 bg-gray-50 rounded-[1.5rem] border border-gray-100">
+                                    <div key={i} className="flex flex-col items-center text-center p-4 bg-gray-50 rounded-3xl border border-gray-100">
                                         <s.icon size={20} className="text-red-500 mb-2" />
                                         <span className="font-extrabold text-gray-900 text-sm leading-tight line-clamp-1">{s.value}</span>
                                         <span className="text-[9px] text-gray-400 font-bold uppercase tracking-widest mt-1">{s.label}</span>
@@ -160,11 +160,11 @@ export default function MaterialDetailsModal({ material, onClose, onOpenChat }: 
                             <div className="pt-8 border-t border-gray-50 space-y-6">
                                 <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Store Profile</p>
                                 
-                                <div className="bg-gray-900 rounded-[2rem] p-6 text-white space-y-6 shadow-2xl relative overflow-hidden">
+                                <div className="bg-gray-900 rounded-4xl p-6 text-white space-y-6 shadow-2xl relative overflow-hidden">
                                     <div className="absolute top-0 right-0 w-24 h-24 bg-red-500 rounded-full blur-[50px] opacity-20 -mr-12 -mt-12" />
                                     
                                     <div className="flex items-center gap-4 relative z-10">
-                                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white text-xl font-black shrink-0 shadow-xl border border-white/10">
+                                        <div className="w-14 h-14 rounded-2xl bg-linear-to-br from-red-500 to-red-700 flex items-center justify-center text-white text-xl font-black shrink-0 shadow-xl border border-white/10">
                                             {material.supplier?.store_name?.charAt(0).toUpperCase() || 'S'}
                                         </div>
                                         <div>

@@ -254,7 +254,7 @@ export default function ProjectProposals({
         ];
 
         const interviewStatuses = ['shortlisted', 'invited', 'negotiating', 'contract_pending'];
-        const isHiredPM = project.pm_id && (user?.project_manager?.id === project.pm_id || user?.id === project.pm_id);
+        const isHiredPM = project.pm_id && (user?.project_manager?.id === project.pm_id);
         
         const isHiredArsitek = (user?.role_type === 'arsitek') && (
             (project.selected_arsitek_id && user?.arsitek?.id === project.selected_arsitek_id) ||
@@ -312,7 +312,7 @@ export default function ProjectProposals({
             { key: 'engineering', bids: (project.bids_structural || []).concat(project.bids_mep || []), roleType: 'engineering' },
         ];
 
-        const isProjectPM = user?.id && project?.pm_id && String(user.id) === String(project.pm_id);
+        const isProjectPM = user?.id && project?.pm_id && String(user.project_manager?.id) === String(project.pm_id);
         const isGlobalPM = user?.role_type === 'project_manager';
 
         const finalPaymentsGroups = [];

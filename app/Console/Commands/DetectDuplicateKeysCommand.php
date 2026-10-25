@@ -105,10 +105,45 @@ class DetectDuplicateKeysCommand extends Command
 
     private function scanLedgerDuplicates(?int $projectId, bool $details): int
     {
-        $query = ProjectBudgetTransaction::query()
-            ->selectRaw('project_id, reference_model, reference_id, transaction_type, COUNT(*) AS row_count')
+        // Group by the CANONICAL spelling of the reference model.
+        //
+        // The first draft of this scan grouped by the raw `reference_model`
+        // string, so it compared 'ProjectAddendum' with
+        // 'App\Models\ProjectAddendum' and concluded they were different
+        // references. That is exactly how the duplicate it was written to
+        // detect went unnoticed: the live database held both spellings of one
+        // Rp 5 500 000 payment, and the scan reported "none".
+        //
+        // The canonical expression is the same rule the application applies in
+        // `App\Support\LedgerReference::canonical()`. The prefix is compared
+        // with SUBSTRING rather than LIKE, because MySQL's LIKE treats the
+        // backslash as an escape character and would never match a namespaced
+        // class name.
+        //
+        // VOIDED rows are excluded: a voided row has had its amount zeroed
+        // and its reference_id nulled, precisely so it stops being a
+        // duplicate. Counting it would report the fix as the fault.
+        $canonical = <<<'SQL'
+            CASE
+                WHEN reference_model IS NULL THEN NULL
+                WHEN SUBSTRING(reference_model, 1, 11) = 'App\\Models\\' THEN reference_model
+                ELSE CONCAT('App\\Models\\', reference_model)
+            END
+        SQL;
+
+        // The alias is NOT `reference_model`.
+        //
+        // MySQL resolves a GROUP BY column name to the TABLE COLUMN, not to
+        // the select alias, when both exist. Aliasing the expression
+        // `reference_model` therefore grouped by the RAW column — the very
+        // spelling this scan exists to ignore — and the scan reported "none"
+        // on a database that held the duplicate.
+        $query = DB::table('project_budget_transactions')
+            ->selectRaw("project_id, {$canonical} AS canonical_reference, reference_id, transaction_type, COUNT(*) AS row_count")
             ->whereNotNull('reference_model')
-            ->groupBy('project_id', 'reference_model', 'reference_id', 'transaction_type')
+            ->whereNotNull('reference_id')
+            ->whereNull('voided_at')
+            ->groupBy('project_id', 'canonical_reference', 'reference_id', 'transaction_type')
             ->havingRaw('row_count > 1');
 
         if ($projectId !== null) {
@@ -127,7 +162,7 @@ class DetectDuplicateKeysCommand extends Command
             $this->line(sprintf(
                 '  <fg=red>project %d</> %s#%d type=%s appears <options=bold>%d</> times',
                 $group->project_id,
-                class_basename((string) $group->reference_model),
+                class_basename((string) $group->canonical_reference),
                 (int) $group->reference_id,
                 (string) $group->transaction_type,
                 (int) $group->row_count
@@ -191,8 +226,17 @@ class DetectDuplicateKeysCommand extends Command
             $ledgerSub = DB::table('project_budget_transactions')
                 ->select(DB::raw('1'))
                 ->whereColumn('reference_id', "{$table}.id")
-                ->where('reference_model', $model)
-                ->where('transaction_type', 'payment');
+                // Both spellings, because the ledger's canonical form is the
+                // FQCN and a row written before the canonicalisation (or by a
+                // path that bypassed the model's guard) carries the short
+                // name. Matching only one of them would report a payment as
+                // unledgered when it is not.
+                ->where(function ($q) use ($model) {
+                    $q->where('reference_model', $model)
+                        ->orWhere('reference_model', class_basename($model));
+                })
+                ->where('transaction_type', 'payment')
+                ->whereNull('voided_at');
 
             $query = DB::table($table)->whereNotExists($ledgerSub);
 
@@ -221,17 +265,44 @@ class DetectDuplicateKeysCommand extends Command
 
     private function scanOverRefunds(): int
     {
+        // The two sides are joined on the CANONICAL spelling of the
+        // reference, for the same reason the duplicate scan groups by it: a
+        // payment written as 'ProjectAddendum' and a refund written as
+        // 'App\Models\ProjectAddendum' are the same reference, and joining on
+        // the raw string would find no pairing at all — so a refund that
+        // exceeded its payment would go unreported.
+        //
+        // The two sides are qualified separately: inside a JOIN, an
+        // unqualified column reference is ambiguous, and MySQL would reject
+        // the whole statement.
+        //
+        // The template is a NOWDOC, so the SQL text reaches MySQL exactly as
+        // written. In an interpolating heredoc `"App\\Models\\"` becomes
+        // `App\Models\`, and in an SQL string literal `'App\Models\'` the
+        // backslash ESCAPES THE QUOTE — the literal is unterminated.
+        $canonicalTemplate = <<<'SQL'
+            CASE
+                WHEN %1$s.reference_model IS NULL THEN NULL
+                WHEN SUBSTRING(%1$s.reference_model, 1, 11) = 'App\\Models\\' THEN %1$s.reference_model
+                ELSE CONCAT('App\\Models\\', %1$s.reference_model)
+            END
+        SQL;
+
+        $canonicalFor = static fn (string $alias): string => sprintf($canonicalTemplate, $alias);
+
         $rows = DB::table('project_budget_transactions as refund')
             ->join(
                 'project_budget_transactions as payment',
-                function ($join) {
+                function ($join) use ($canonicalFor) {
                     $join->on('payment.project_id', '=', 'refund.project_id')
-                        ->on('payment.reference_model', '=', 'refund.reference_model')
+                        ->on(DB::raw($canonicalFor('payment')), '=', DB::raw($canonicalFor('refund')))
                         ->on('payment.reference_id', '=', 'refund.reference_id');
                 }
             )
             ->where('refund.transaction_type', 'refund')
             ->where('payment.transaction_type', 'payment')
+            ->whereNull('refund.voided_at')
+            ->whereNull('payment.voided_at')
             ->groupBy('refund.project_id', 'refund.reference_model', 'refund.reference_id')
             ->selectRaw(
                 'refund.project_id, refund.reference_model, refund.reference_id,

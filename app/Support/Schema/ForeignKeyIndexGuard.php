@@ -3,6 +3,7 @@
 namespace App\Support\Schema;
 
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -64,13 +65,43 @@ final class ForeignKeyIndexGuard
 
         $leading = $leadingColumn ?? (self::definition($table, $indexName)['columns'][0] ?? null);
 
-        if ($leading !== null) {
+        // Only columns that actually carry a foreign-key constraint need a
+        // replacement backing store. Creating one for an ordinary index would
+        // leave residue behind in a table that is not otherwise being changed.
+        if ($leading !== null && self::isForeignKeyColumn($table, $leading)) {
             self::ensureBackingIndex($table, $leading, $indexName);
         }
 
         Schema::table($table, function (Blueprint $t) use ($indexName) {
             $t->dropIndex($indexName);
         });
+    }
+
+    /**
+     * Does this column carry an outbound foreign-key constraint?
+     *
+     * Answered from `information_schema`, not from the index list: an index
+     * whose leading column happens to be a foreign key is not automatically
+     * that constraint's backing store — InnoDB only *adopts* it when no
+     * better index exists.
+     */
+    public static function isForeignKeyColumn(string $table, string $column): bool
+    {
+        if (! Schema::hasTable($table)) {
+            return false;
+        }
+
+        $database = DB::getDatabaseName();
+
+        $row = DB::selectOne(
+            'SELECT COUNT(*) AS total
+               FROM information_schema.KEY_COLUMN_USAGE
+              WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?
+                AND COLUMN_NAME = ? AND REFERENCED_TABLE_NAME IS NOT NULL',
+            [$database, $table, $column]
+        );
+
+        return ((int) ($row->total ?? 0)) > 0;
     }
 
     /**

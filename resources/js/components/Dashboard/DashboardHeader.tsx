@@ -52,7 +52,7 @@ export const DashboardHeader: React.FC<HeaderProps> = ({ activeTab, setActiveTab
     }, []);
 
     return (
-        <header className="h-14 bg-white/80 backdrop-blur-md border-b border-neutral-100 flex items-center justify-between px-6 z-[100] shrink-0">
+        <header className="h-14 bg-white/80 backdrop-blur-md border-b border-neutral-100 flex items-center justify-between px-6 z-100 shrink-0">
             {/* Left side: Hamburger (mobile) + Brand Logo (desktop) + Top Navigation (desktop) */}
             <div className="flex items-center gap-6 min-w-0 h-full">
                 <button 
@@ -146,7 +146,7 @@ export const DashboardHeader: React.FC<HeaderProps> = ({ activeTab, setActiveTab
                                     {user.pic ? (
                                         <img src={user.pic} className="w-full h-full object-cover" alt="Profile" />
                                     ) : (
-                                        <div className="w-full h-full bg-gradient-to-tr from-[#FF2D20] to-[#FF2D20]/90 flex items-center justify-center text-white font-black text-xs shadow-red-200">
+                                        <div className="w-full h-full bg-linear-to-tr from-[#FF2D20] to-[#FF2D20]/90 flex items-center justify-center text-white font-black text-xs shadow-red-200">
                                             {user.name?.charAt(0).toUpperCase()}
                                         </div>
                                     )}
@@ -156,13 +156,13 @@ export const DashboardHeader: React.FC<HeaderProps> = ({ activeTab, setActiveTab
                             </button>
  
                             {profileOpen && (
-                                <div className="absolute right-0 top-full mt-2 w-52 bg-white rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.15)] border border-neutral-100 z-[130] py-1.5 overflow-hidden">
+                                <div className="absolute right-0 top-full mt-2 w-52 bg-white rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.15)] border border-neutral-100 z-130 py-1.5 overflow-hidden">
                                     <div className="px-4 py-3 border-b border-neutral-100 flex items-center gap-3">
                                         <div className="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center shadow-md shrink-0">
                                             {user.pic ? (
                                                 <img src={user.pic} className="w-full h-full object-cover" alt="Profile" />
                                             ) : (
-                                                <div className="w-full h-full bg-gradient-to-tr from-[#FF2D20] to-[#FF2D20]/90 flex items-center justify-center text-white font-black text-xs shadow-red-200">
+                                                <div className="w-full h-full bg-linear-to-tr from-[#FF2D20] to-[#FF2D20]/90 flex items-center justify-center text-white font-black text-xs shadow-red-200">
                                                     {user.name?.charAt(0).toUpperCase()}
                                                 </div>
                                             )}

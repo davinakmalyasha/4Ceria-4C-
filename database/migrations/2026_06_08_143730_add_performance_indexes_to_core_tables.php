@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\Schema\ForeignKeyIndexGuard;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -143,129 +144,41 @@ return new class extends Migration
      */
     public function down(): void
     {
-        // Helper to check if index exists in MySQL
-        $indexExists = function (string $table, string $indexName): bool {
-            $results = DB::select("SHOW INDEX FROM `{$table}` WHERE Key_name = ?", [$indexName]);
-            return count($results) > 0;
-        };
+        // Every index here has a FOREIGN-KEY column as its leading column —
+        // `projects.user_id`, `bids_*.project_id`, `bids_*.arsitek_id`, and so
+        // on. InnoDB adopts such a composite as the constraint's backing store
+        // when no better index exists, and dropping it then fails with:
+        //
+        //     1553 Cannot drop index 'projects_user_id_status_index':
+        //     needed in a foreign key constraint
+        //
+        // `ForeignKeyIndexGuard::dropIndex()` guarantees a replacement backing
+        // store first, so the drop succeeds on any schema. It is also a no-op
+        // when the index is not there, which makes this `down()` idempotent.
+        $indexes = [
+            ['projects', 'projects_user_id_status_index'],
+            ['bids_arsitek', 'bids_arsitek_project_id_status_index'],
+            ['bids_arsitek', 'bids_arsitek_arsitek_id_index'],
+            ['bids_kontraktor', 'bids_kontraktor_project_id_status_index'],
+            ['bids_kontraktor', 'bids_kontraktor_kontraktor_id_index'],
+            ['bids_notaris', 'bids_notaris_project_id_status_index'],
+            ['bids_notaris', 'bids_notaris_notaris_id_index'],
+            ['bids_interior', 'bids_interior_project_id_status_index'],
+            ['bids_interior', 'bids_interior_interior_id_index'],
+            ['bids_project_manager', 'bids_pm_project_id_status_index'],
+            ['bids_project_manager', 'bids_pm_pm_id_index'],
+            ['bids_structural', 'bids_structural_project_id_status_index'],
+            ['bids_structural', 'bids_structural_structural_id_index'],
+            ['bids_mep', 'bids_mep_project_id_status_index'],
+            ['bids_mep', 'bids_mep_mep_id_index'],
+            ['chat_messages', 'chat_msgs_conv_id_sender_id_is_read_index'],
+            ['rooms', 'rooms_id_house_index'],
+            ['house_pic', 'house_pic_id_house_index'],
+            ['rooms_pic', 'rooms_pic_id_room_index'],
+        ];
 
-        // 1. Projects table
-        if ($indexExists('projects', 'projects_user_id_status_index')) {
-            Schema::table('projects', function (Blueprint $table) {
-                $table->dropIndex('projects_user_id_status_index');
-            });
-        }
-
-        // 2. Bids Arsitek
-        if ($indexExists('bids_arsitek', 'bids_arsitek_project_id_status_index')) {
-            Schema::table('bids_arsitek', function (Blueprint $table) {
-                $table->dropIndex('bids_arsitek_project_id_status_index');
-            });
-        }
-        if ($indexExists('bids_arsitek', 'bids_arsitek_arsitek_id_index')) {
-            Schema::table('bids_arsitek', function (Blueprint $table) {
-                $table->dropIndex('bids_arsitek_arsitek_id_index');
-            });
-        }
-
-        // 3. Bids Kontraktor
-        if ($indexExists('bids_kontraktor', 'bids_kontraktor_project_id_status_index')) {
-            Schema::table('bids_kontraktor', function (Blueprint $table) {
-                $table->dropIndex('bids_kontraktor_project_id_status_index');
-            });
-        }
-        if ($indexExists('bids_kontraktor', 'bids_kontraktor_kontraktor_id_index')) {
-            Schema::table('bids_kontraktor', function (Blueprint $table) {
-                $table->dropIndex('bids_kontraktor_kontraktor_id_index');
-            });
-        }
-
-        // 4. Bids Notaris
-        if ($indexExists('bids_notaris', 'bids_notaris_project_id_status_index')) {
-            Schema::table('bids_notaris', function (Blueprint $table) {
-                $table->dropIndex('bids_notaris_project_id_status_index');
-            });
-        }
-        if ($indexExists('bids_notaris', 'bids_notaris_notaris_id_index')) {
-            Schema::table('bids_notaris', function (Blueprint $table) {
-                $table->dropIndex('bids_notaris_notaris_id_index');
-            });
-        }
-
-        // 5. Bids Interior
-        if ($indexExists('bids_interior', 'bids_interior_project_id_status_index')) {
-            Schema::table('bids_interior', function (Blueprint $table) {
-                $table->dropIndex('bids_interior_project_id_status_index');
-            });
-        }
-        if ($indexExists('bids_interior', 'bids_interior_interior_id_index')) {
-            Schema::table('bids_interior', function (Blueprint $table) {
-                $table->dropIndex('bids_interior_interior_id_index');
-            });
-        }
-
-        // 6. Bids PM
-        if ($indexExists('bids_project_manager', 'bids_pm_project_id_status_index')) {
-            Schema::table('bids_project_manager', function (Blueprint $table) {
-                $table->dropIndex('bids_pm_project_id_status_index');
-            });
-        }
-        if ($indexExists('bids_project_manager', 'bids_pm_pm_id_index')) {
-            Schema::table('bids_project_manager', function (Blueprint $table) {
-                $table->dropIndex('bids_pm_pm_id_index');
-            });
-        }
-
-        // 7. Bids Structural
-        if ($indexExists('bids_structural', 'bids_structural_project_id_status_index')) {
-            Schema::table('bids_structural', function (Blueprint $table) {
-                $table->dropIndex('bids_structural_project_id_status_index');
-            });
-        }
-        if ($indexExists('bids_structural', 'bids_structural_structural_id_index')) {
-            Schema::table('bids_structural', function (Blueprint $table) {
-                $table->dropIndex('bids_structural_structural_id_index');
-            });
-        }
-
-        // 8. Bids MEP
-        if ($indexExists('bids_mep', 'bids_mep_project_id_status_index')) {
-            Schema::table('bids_mep', function (Blueprint $table) {
-                $table->dropIndex('bids_mep_project_id_status_index');
-            });
-        }
-        if ($indexExists('bids_mep', 'bids_mep_mep_id_index')) {
-            Schema::table('bids_mep', function (Blueprint $table) {
-                $table->dropIndex('bids_mep_mep_id_index');
-            });
-        }
-
-        // 9. Chat Messages
-        if ($indexExists('chat_messages', 'chat_msgs_conv_id_sender_id_is_read_index')) {
-            Schema::table('chat_messages', function (Blueprint $table) {
-                $table->dropIndex('chat_msgs_conv_id_sender_id_is_read_index');
-            });
-        }
-
-        // 10. Rooms
-        if ($indexExists('rooms', 'rooms_id_house_index')) {
-            Schema::table('rooms', function (Blueprint $table) {
-                $table->dropIndex('rooms_id_house_index');
-            });
-        }
-
-        // 11. House Pic
-        if ($indexExists('house_pic', 'house_pic_id_house_index')) {
-            Schema::table('house_pic', function (Blueprint $table) {
-                $table->dropIndex('house_pic_id_house_index');
-            });
-        }
-
-        // 12. Rooms Pic
-        if ($indexExists('rooms_pic', 'rooms_pic_id_room_index')) {
-            Schema::table('rooms_pic', function (Blueprint $table) {
-                $table->dropIndex('rooms_pic_id_room_index');
-            });
+        foreach ($indexes as [$table, $indexName]) {
+            ForeignKeyIndexGuard::dropIndex($table, $indexName);
         }
     }
 };

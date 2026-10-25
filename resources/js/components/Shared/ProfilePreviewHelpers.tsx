@@ -101,7 +101,7 @@ export const resolveStorageUrl = (path?: string | null): string | undefined => {
 
 export const ProfileHeroBanner: React.FC<{ name: string; roleLabel: string; isVerified: boolean; photo?: string }> = ({ name, roleLabel, isVerified, photo }) => (
     <>
-        <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-zinc-900 p-6 pb-16 relative">
+        <div className="bg-linear-to-br from-slate-900 via-slate-800 to-zinc-900 p-6 pb-16 relative">
             <div className="absolute inset-0 opacity-10">
                 <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full blur-3xl -mr-48 -mt-48" />
                 <div className="absolute bottom-0 left-0 w-64 h-64 bg-red-500/10 rounded-full blur-3xl -ml-32 -mb-32" />
@@ -120,7 +120,7 @@ export const ProfileHeroBanner: React.FC<{ name: string; roleLabel: string; isVe
                 {photo ? (
                     <img src={resolveStorageUrl(photo)} alt={name} className="w-20 h-20 rounded-2xl object-cover border-4 border-white shadow-xl" />
                 ) : (
-                    <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center text-white text-3xl font-black border-4 border-white shadow-xl">
+                    <div className="w-20 h-20 rounded-2xl bg-linear-to-br from-red-500 to-rose-600 flex items-center justify-center text-white text-3xl font-black border-4 border-white shadow-xl">
                         {name.charAt(0).toUpperCase()}
                     </div>
                 )}

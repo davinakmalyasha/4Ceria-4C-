@@ -175,7 +175,7 @@ export default function PhaseAssignedPro({
         });
     };
 
-    const isPM = user?.role_type === 'project_manager' && project.pm_id === user.id;
+    const isPM = user?.role_type === 'project_manager' && project.pm_id === user.project_manager?.id;
 
     const submittedAt = 
         phaseKey === 'design' ? project.design_handover_submitted_at :
@@ -324,7 +324,7 @@ export default function PhaseAssignedPro({
                     <div className="absolute top-0 right-0 w-64 h-64 bg-zinc-800 rounded-full blur-[100px] opacity-20 -translate-y-1/2 translate-x-1/2" />
                     <div className="relative flex flex-col md:flex-row items-center justify-between gap-8">
                         <div className="flex items-center gap-6">
-                            <div className="w-20 h-20 bg-zinc-800 text-white rounded-[2rem] flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform duration-700">
+                            <div className="w-20 h-20 bg-zinc-800 text-white rounded-4xl flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform duration-700">
                                 <ShieldCheck size={40} className="text-zinc-400" />
                             </div>
                             <div>
@@ -350,7 +350,7 @@ export default function PhaseAssignedPro({
                 (phaseKey === 'build' && project.construction_locked_at) ||
                 !['design', 'build', 'management'].includes(phaseKey)
             ) && (
-                    <div className="mb-8 p-6 bg-emerald-50 border-2 border-emerald-100 rounded-[2rem] flex flex-col md:flex-row items-center justify-between gap-4">
+                    <div className="mb-8 p-6 bg-emerald-50 border-2 border-emerald-100 rounded-4xl flex flex-col md:flex-row items-center justify-between gap-4">
                         <div className="flex items-center gap-4">
                             <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-emerald-500 shadow-sm">
                                 <Check size={24} />
@@ -425,7 +425,7 @@ export default function PhaseAssignedPro({
                             );
                         }}
                         disabled={isUpdating || !!submittedAt}
-                        className="group relative px-12 py-5 bg-white text-purple-900 rounded-[2rem] font-black text-xs uppercase tracking-[0.25em] shadow-2xl hover:bg-purple-50 transition-all flex items-center gap-4 overflow-hidden disabled:opacity-50"
+                        className="group relative px-12 py-5 bg-white text-purple-900 rounded-4xl font-black text-xs uppercase tracking-[0.25em] shadow-2xl hover:bg-purple-50 transition-all flex items-center gap-4 overflow-hidden disabled:opacity-50"
                     >
                         <ShieldCheck size={20} className={!submittedAt ? "group-hover:rotate-12 transition-transform" : ""} />
                         {isUpdating ? 'SUBMITTING...' : submittedAt ? 'PENDING PM REVIEW' : revisionNotes ? 'RESUBMIT INTERIOR' : 'SUBMIT INTERIOR HANDOVER'}
@@ -448,7 +448,7 @@ export default function PhaseAssignedPro({
             {pro && phaseKey !== 'legal' && !(phaseKey === 'management' && isHiredPro) && !isHiredPro && (
                 <div className={`flex flex-col md:flex-row md:items-center justify-between gap-4 ${hasSubTabs ? 'mb-6 pb-6 border-b border-gray-50' : ''}`}>
                     <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center overflow-hidden shadow-inner flex-shrink-0">
+                        <div className="w-12 h-12 rounded-xl bg-linear-to-br from-gray-100 to-gray-200 flex items-center justify-center overflow-hidden shadow-inner shrink-0">
                             {pro?.foto ? (
                                 <img src={pro.foto.startsWith('http') ? pro.foto : `/storage/${pro.foto}`} alt={name} className="w-full h-full object-cover" />
                             ) : (
@@ -505,7 +505,7 @@ export default function PhaseAssignedPro({
             />
 
             {isWorkspaceLocked ? (
-                <div className="p-12 text-center bg-slate-50 border-2 border-slate-100 rounded-[2rem] space-y-6 relative overflow-hidden group">
+                <div className="p-12 text-center bg-slate-50 border-2 border-slate-100 rounded-4xl space-y-6 relative overflow-hidden group">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-slate-200/50 rounded-full blur-[80px] opacity-40 -translate-y-1/2 translate-x-1/2" />
                     
                     <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center mx-auto shadow-xl shadow-slate-100/50 border border-slate-100 transition-transform duration-500 group-hover:scale-110">
@@ -841,7 +841,7 @@ export default function PhaseAssignedPro({
                         )}
                         {activeSubTab === 'bom' && (() => {
                             const isOwner = user?.id === project?.user_id;
-                            const isPM = user?.role_type === 'project_manager' && project?.pm_id === user?.id;
+                            const isPM = user?.role_type === 'project_manager' && project?.pm_id === user?.project_manager?.id;
                             const canMutateBOM = isOwner || isPM || isHiredContractor || isHiredArchitect || isHiredInterior || isStructuralHired || isMEPHired;
                             
                             return (

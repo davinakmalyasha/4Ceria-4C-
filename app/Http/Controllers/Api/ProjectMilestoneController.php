@@ -21,7 +21,7 @@ class ProjectMilestoneController extends Controller
     {
         $user = Auth::user();
         $isOwner = $project->user_id === $user->id;
-        $isPM = $user->role_type === 'project_manager' && $project->pm_id === $user->id;
+        $isPM = $user->role_type === 'project_manager' && Hire::isAssignedPm($project, $user);
         
         $isHiredPro = false;
         if ($user->role_type === 'arsitek' && Hire::matches($project, $user, 'arsitek')) $isHiredPro = true;
@@ -96,7 +96,7 @@ class ProjectMilestoneController extends Controller
         if ($user->role_type === 'interior' && Hire::matches($project, $user, 'interior')) $isHiredPro = true;
         if ($user->role_type === 'structural' && Hire::matches($project, $user, 'structural')) $isHiredPro = true;
         if ($user->role_type === 'mep' && Hire::matches($project, $user, 'mep')) $isHiredPro = true;
-        $isPM = $user->role_type === 'project_manager' && $project->pm_id === $user->id;
+        $isPM = $user->role_type === 'project_manager' && Hire::isAssignedPm($project, $user);
 
         if (!$isOwner && !$isPM && !$isHiredPro && !$activeSub) {
             return response()->json(['message' => 'Only hired professionals, active sub-professionals, or the Project Owner can add milestones.'], 403);
@@ -284,7 +284,7 @@ class ProjectMilestoneController extends Controller
         }
 
         $isOwner = $project->user_id === $user->id;
-        $isPM = $user->role_type === 'project_manager' && $project->pm_id === $user->id;
+        $isPM = $user->role_type === 'project_manager' && Hire::isAssignedPm($project, $user);
         // Only owner/PM may drive approval transitions (the payment trigger).
         $canFinalApprove = $isOwner || $isPM;
 
@@ -430,7 +430,7 @@ class ProjectMilestoneController extends Controller
             return response()->json(['message' => 'Not found.'], 404);
         }
 
-        $isPM = ($user->role_type === 'project_manager' && $project->pm_id === $user->id);
+        $isPM = ($user->role_type === 'project_manager' && Hire::isAssignedPm($project, $user));
         $isOwner = ($project->user_id === $user->id);
 
         // Lead Professional Check (Architect for Structural/MEP)
@@ -486,7 +486,7 @@ class ProjectMilestoneController extends Controller
         }
 
         $isOwner = $project->user_id === $user->id;
-        $isPM = $user->role_type === 'project_manager' && $project->pm_id === $user->id;
+        $isPM = $user->role_type === 'project_manager' && Hire::isAssignedPm($project, $user);
 
         if (!$isPM && !$isOwner) {
             $phase = $milestone->phase_context;
@@ -528,7 +528,7 @@ class ProjectMilestoneController extends Controller
     public function submitTechnicalAudit(Request $request, Project $project)
     {
         $user = Auth::user();
-        $isPM = ($user->role_type === 'project_manager' && $project->pm_id === $user->id);
+        $isPM = ($user->role_type === 'project_manager' && Hire::isAssignedPm($project, $user));
         $isOwner = ($project->user_id === $user->id);
         $isLeadArsitek = ($user->role_type === 'arsitek' && Hire::matches($project, $user, 'arsitek'));
         $isLeadKontraktor = ($user->role_type === 'kontraktor' && Hire::matches($project, $user, 'kontraktor'));
@@ -667,7 +667,7 @@ class ProjectMilestoneController extends Controller
     private function canModifyMilestone(Project $project, ProjectMilestone $milestone, $user)
     {
         if ($project->user_id === $user->id) return true; 
-        if ($user->role_type === 'project_manager' && $project->pm_id === $user->id) return true;
+        if ($user->role_type === 'project_manager' && Hire::isAssignedPm($project, $user)) return true;
         
         if ($user->role_type === 'arsitek' && Hire::matches($project, $user, 'arsitek')) {
             if ($milestone->structural_id || $milestone->mep_id) return true;
@@ -782,8 +782,10 @@ class ProjectMilestoneController extends Controller
                         'body' => "\"{$title}\" on \"{$project->title}\" is awaiting your approval.",
                         'data' => ['project_id' => $project->id, 'milestone_id' => $milestone->id],
                     ]);
-                    if ($project->pm_id) {
-                        $send((int) $project->pm_id, [
+                    // The PM's USER id — a notification recipient is a user,
+                    // and `projects.pm_id` holds the PM's PROFILE id.
+                    if ($project->projectManager?->user_id) {
+                        $send((int) $project->projectManager->user_id, [
                             'type' => 'milestone_approval_needed',
                             'title' => 'Milestone Awaiting Verification',
                             'body' => "\"{$title}\" on \"{$project->title}\" needs PM verification.",

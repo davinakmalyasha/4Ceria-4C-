@@ -80,11 +80,11 @@ export default function CompactMessageThread({ messages, currentUser, otherUser,
                                             : 'bg-white text-gray-800 border border-gray-100 rounded-bl-none'
                                     }`}>
                                         {msg.image_url && (
-                                            <div onClick={() => window.open(msg.image_url, '_blank')} className="cursor-pointer mb-1 hover:opacity-90">
+                                            <div onClick={() => window.open(msg.image_url ?? '', '_blank')} className="cursor-pointer mb-1 hover:opacity-90">
                                                 <img src={msg.image_url} className="max-w-full max-h-40 rounded-lg object-contain bg-gray-50" />
                                             </div>
                                         )}
-                                        {msg.content && <p className="leading-relaxed break-words whitespace-pre-wrap">{
+                                        {msg.content && <p className="leading-relaxed wrap-break-word whitespace-pre-wrap">{
                                             msg.content.startsWith('{') ? '🏠 Property inquiry message' : msg.content
                                         }</p>}
                                     </div>

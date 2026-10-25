@@ -219,7 +219,7 @@ const BriefingActionCenter: React.FC<BriefingActionCenterProps> = ({
         <div className={
             status === 'draft'
                 ? "bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden shadow-2xl"
-                : "bg-white border border-zinc-150 rounded-[2rem] shadow-sm overflow-hidden"
+                : "bg-white border border-zinc-150 rounded-4xl shadow-sm overflow-hidden"
         }>
             <div className={status === 'draft' ? 'p-6' : 'p-6 md:p-8'}>
                 {status === 'draft' && (
@@ -264,7 +264,7 @@ const BriefingActionCenter: React.FC<BriefingActionCenterProps> = ({
 
                         {isArchitect && project.pm_audit_notes && (
                             <div className="w-full lg:w-auto p-3 bg-red-950/30 border border-red-900/50 rounded-xl flex items-center gap-3">
-                                <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse flex-shrink-0" />
+                                <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" />
                                 <p className="text-[10px] text-red-400 italic">Revision: "{project.pm_audit_notes}"</p>
                             </div>
                         )}
@@ -290,7 +290,7 @@ const BriefingActionCenter: React.FC<BriefingActionCenterProps> = ({
                             <>
                                 <div className="flex items-center justify-between border-b border-zinc-100 pb-4">
                                     <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 bg-zinc-50 border border-zinc-100 text-zinc-450 rounded-xl flex items-center justify-center flex-shrink-0">
+                                        <div className="w-10 h-10 bg-zinc-50 border border-zinc-100 text-zinc-450 rounded-xl flex items-center justify-center shrink-0">
                                             <ShieldCheck size={20} />
                                         </div>
                                         <div>
@@ -314,7 +314,7 @@ const BriefingActionCenter: React.FC<BriefingActionCenterProps> = ({
                                 <div className="max-w-2xl mx-auto space-y-4">
                                 {project.architect_notes && (
                                     <div className="bg-zinc-50 p-4 rounded-xl border border-zinc-100 flex gap-3 items-start shadow-inner">
-                                        <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center shadow-sm flex-shrink-0 border border-zinc-100">
+                                        <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center shadow-sm shrink-0 border border-zinc-100">
                                             <MessageCircle className="w-3.5 h-3.5 text-zinc-400" />
                                         </div>
                                         <div>
@@ -360,7 +360,7 @@ const BriefingActionCenter: React.FC<BriefingActionCenterProps> = ({
                                                                     <span className="text-[7px] font-medium text-zinc-400 uppercase tracking-wider">TECHNICAL DOC</span>
                                                                 </div>
                                                             )}
-                                                            <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent flex items-end p-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <div className="absolute inset-0 bg-linear-to-t from-black/10 to-transparent flex items-end p-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                                 <span className="text-[7px] font-medium text-white uppercase tracking-wider">Evidence {i+1}</span>
                                                             </div>
                                                         </a>
@@ -392,7 +392,7 @@ const BriefingActionCenter: React.FC<BriefingActionCenterProps> = ({
                                 {isArchitect && (
                                     status === 'proposed' ? (
                                         <div className="p-4 border border-dashed border-zinc-200 rounded-xl flex items-center gap-3 bg-zinc-50/50">
-                                            <Lock className="w-4 h-4 text-zinc-400 flex-shrink-0" />
+                                            <Lock className="w-4 h-4 text-zinc-400 shrink-0" />
                                             <div className="text-left">
                                                 <p className="text-xs font-semibold text-zinc-800">Brief Locked for Audit</p>
                                                 <p className="text-[11px] text-zinc-400 mt-0.5">Your specifications are currently under technical review by the Project Manager.</p>
@@ -400,7 +400,7 @@ const BriefingActionCenter: React.FC<BriefingActionCenterProps> = ({
                                         </div>
                                     ) : (
                                         <div className="p-4 border border-emerald-100 rounded-xl flex items-center gap-3 bg-emerald-50/20">
-                                            <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                                            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
                                             <div className="text-left">
                                                 <p className="text-xs font-semibold text-emerald-800">Technical Audit Complete</p>
                                                 <p className="text-[11px] text-emerald-600 mt-0.5">Awaiting Client/Owner confirmation to finalize the planning phase.</p>
@@ -418,7 +418,7 @@ const BriefingActionCenter: React.FC<BriefingActionCenterProps> = ({
                     <div className="max-w-xl mx-auto py-12">
                         {!project.design_payment_verified_at ? (
                             <div className="flex flex-col justify-center items-center gap-8 animate-in zoom-in-95">
-                                <div className="w-24 h-24 bg-green-100 text-green-600 rounded-[2rem] flex items-center justify-center shadow-inner relative overflow-hidden">
+                                <div className="w-24 h-24 bg-green-100 text-green-600 rounded-4xl flex items-center justify-center shadow-inner relative overflow-hidden">
                                     <div className="absolute inset-0 bg-green-200/20 animate-pulse" />
                                     <CreditCard className="w-10 h-10 relative z-10" />
                                 </div>
@@ -435,7 +435,7 @@ const BriefingActionCenter: React.FC<BriefingActionCenterProps> = ({
                                             href={generateWhatsAppLink()}
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            className="flex items-center justify-center gap-3 bg-[#25D366] text-white rounded-[1.5rem] py-5 px-10 font-black text-xs uppercase tracking-widest hover:brightness-110 transition-all shadow-xl shadow-green-100"
+                                            className="flex items-center justify-center gap-3 bg-[#25D366] text-white rounded-3xl py-5 px-10 font-black text-xs uppercase tracking-widest hover:brightness-110 transition-all shadow-xl shadow-green-100"
                                         >
                                             <MessageCircle className="w-5 h-5" />
                                             Pay & Confirm DP
@@ -446,7 +446,7 @@ const BriefingActionCenter: React.FC<BriefingActionCenterProps> = ({
                                         <button
                                             onClick={() => handleAction('verify-payment', 'Payment verified! Workspace active.')}
                                             disabled={isLoading}
-                                            className="w-full flex items-center justify-center gap-3 bg-zinc-900 text-white rounded-[1.5rem] py-5 font-black text-xs uppercase tracking-widest hover:bg-black transition-all"
+                                            className="w-full flex items-center justify-center gap-3 bg-zinc-900 text-white rounded-3xl py-5 font-black text-xs uppercase tracking-widest hover:bg-black transition-all"
                                         >
                                             <Unlock className="w-5 h-5" />
                                             Confirm DP Received
@@ -456,7 +456,7 @@ const BriefingActionCenter: React.FC<BriefingActionCenterProps> = ({
                             </div>
                         ) : !project.arsitek_kickoff_at ? (
                             <div className="flex flex-col justify-center items-center gap-8 animate-in zoom-in-95">
-                                <div className="w-24 h-24 bg-amber-100 text-amber-600 rounded-[2rem] flex items-center justify-center shadow-inner relative overflow-hidden">
+                                <div className="w-24 h-24 bg-amber-100 text-amber-600 rounded-4xl flex items-center justify-center shadow-inner relative overflow-hidden">
                                     <div className="absolute inset-0 bg-amber-200/20 animate-pulse" />
                                     <Clock className="w-10 h-10 relative z-10" />
                                 </div>
@@ -480,7 +480,7 @@ const BriefingActionCenter: React.FC<BriefingActionCenterProps> = ({
                                         <button
                                             onClick={() => handleAction('kickoff', 'Notice to Proceed issued!', { role: 'arsitek' })}
                                             disabled={isLoading}
-                                            className="w-full flex items-center justify-center gap-3 bg-zinc-900 text-white rounded-[1.5rem] py-5 font-black text-xs uppercase tracking-widest hover:bg-black transition-all shadow-xl"
+                                            className="w-full flex items-center justify-center gap-3 bg-zinc-900 text-white rounded-3xl py-5 font-black text-xs uppercase tracking-widest hover:bg-black transition-all shadow-xl"
                                         >
                                             <Zap className="w-5 h-5 fill-current" />
                                             Issue Notice to Proceed
@@ -507,7 +507,7 @@ const BriefingActionCenter: React.FC<BriefingActionCenterProps> = ({
                                     <div className="pt-8">
                                         <button 
                                             onClick={() => document.querySelector<HTMLButtonElement>('button[data-tab-id="legalities"]')?.click()}
-                                            className="inline-flex items-center gap-3 px-8 py-4 bg-zinc-100 text-zinc-900 rounded-[1.5rem] text-[10px] font-black uppercase tracking-[0.2em] hover:bg-zinc-200 transition-all border border-zinc-200"
+                                            className="inline-flex items-center gap-3 px-8 py-4 bg-zinc-100 text-zinc-900 rounded-3xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-zinc-200 transition-all border border-zinc-200"
                                         >
                                             <FileText size={18} />
                                             Finalize Legal Contract (SPK)

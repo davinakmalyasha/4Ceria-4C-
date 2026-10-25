@@ -38,7 +38,7 @@ export default function AutoHoverSlider({ images, altText, className = "absolute
 
     if (!images || images.length === 0) {
         return (
-            <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 bg-gradient-to-br from-gray-50 to-gray-200">
+            <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 bg-linear-to-br from-gray-50 to-gray-200">
                 <Home size={32} className="mb-2 opacity-50" />
                 <span className="text-[10px] font-bold tracking-widest uppercase">No Image</span>
             </div>

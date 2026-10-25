@@ -151,7 +151,7 @@ export default function DisputePanel({ project, user, onRefresh }: Props) {
     }));
 
     return (
-        <div className="bg-white border border-gray-200 rounded-[2rem] p-6 space-y-4">
+        <div className="bg-white border border-gray-200 rounded-4xl p-6 space-y-4">
             <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                     <Gavel size={18} className="text-slate-600" />

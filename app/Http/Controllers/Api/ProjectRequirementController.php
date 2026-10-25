@@ -11,6 +11,7 @@ use App\Models\ProjectActivityLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use App\Support\SafeError;
 
 class ProjectRequirementController extends Controller
 {
@@ -47,7 +48,7 @@ class ProjectRequirementController extends Controller
 
         $imagePath = null;
         if ($request->hasFile('image')) {
-            $imagePath = $request->file('image')->store('requirements', 'railway');
+            $imagePath = $request->file('image')->store('requirements', \App\Support\Vault::disk());
         }
 
         $requirement = $project->requirements()->create(array_merge($validated, [
@@ -98,7 +99,7 @@ class ProjectRequirementController extends Controller
         ]);
 
         if ($request->hasFile('image')) {
-            $validated['image_path'] = $request->file('image')->store('requirements', 'railway');
+            $validated['image_path'] = $request->file('image')->store('requirements', \App\Support\Vault::disk());
         }
 
         $oldFolderId = $requirement->folder_id;
@@ -107,7 +108,7 @@ class ProjectRequirementController extends Controller
         $requirement->update($validated);
         
         // Log folder move
-        if (array_key_exists('folder_id', $validated) && $validated['folder_id'] != $oldFolderId) {
+        if (array_key_exists('folder_id', $validated) && $validated['folder_id'] ?? null != $oldFolderId) {
             $oldFolderName = 'Unassigned';
             if ($oldFolderId) {
                 $folder = \App\Models\ProjectMaterialFolder::find($oldFolderId);
@@ -115,8 +116,8 @@ class ProjectRequirementController extends Controller
             }
             
             $newFolderName = 'Unassigned';
-            if ($validated['folder_id']) {
-                $folder = \App\Models\ProjectMaterialFolder::find($validated['folder_id']);
+            if ($validated['folder_id'] ?? null) {
+                $folder = \App\Models\ProjectMaterialFolder::find($validated['folder_id'] ?? null);
                 $newFolderName = $folder ? $folder->name : 'Deleted Folder';
             }
             
@@ -130,9 +131,9 @@ class ProjectRequirementController extends Controller
         }
 
         // Log tab move (bom_type)
-        if (array_key_exists('bom_type', $validated) && $validated['bom_type'] != $oldBomType) {
+        if (array_key_exists('bom_type', $validated) && $validated['bom_type'] ?? null != $oldBomType) {
             $oldTypeName = $oldBomType === 'raw' ? 'Bahan Baku' : 'Bahan Finishing';
-            $newTypeName = $validated['bom_type'] === 'raw' ? 'Bahan Baku' : 'Bahan Finishing';
+            $newTypeName = $validated['bom_type'] ?? null === 'raw' ? 'Bahan Baku' : 'Bahan Finishing';
             
             \App\Models\ProjectRequirementHistory::create([
                 'project_requirement_id' => $requirement->id,
@@ -267,7 +268,7 @@ class ProjectRequirementController extends Controller
             ->where('parent_role', 'kontraktor')
             ->where('status', 'active')
             ->exists();
-        $isPM = $user->role_type === 'project_manager' && $project->pm_id === $user->id;
+        $isPM = $user->role_type === 'project_manager' && Hire::isAssignedPm($project, $user);
         $isOwner = $project->user_id === $user->id;
 
 if (!$isHiredKontraktor && !$isSubContractor && !$isPM && !$isOwner) {
@@ -284,7 +285,7 @@ if (!$isHiredKontraktor && !$isSubContractor && !$isPM && !$isOwner) {
         try {
             app(\App\Services\DisputeService::class)->assertNoOpenDispute($project);
         } catch (\Exception $e) {
-            return response()->json(['message' => $e->getMessage()], $e->getCode() ?: 422);
+            return response()->json(['message' => SafeError::message($e)], SafeError::status($e, 422));
         }
 
         $validated = $request->validate([
@@ -318,7 +319,7 @@ if (!$isHiredKontraktor && !$isSubContractor && !$isPM && !$isOwner) {
             if ($hasPM) {
                 // Notify PM
                 \App\Models\Notification::create([
-                    'user_id' => $project->pm_id,
+                    'user_id' => $project->projectManager?->user_id,
                     'type' => 'verification_required',
                     'title' => 'Material Procurement Requested',
                     'body' => "A new request for {$requirement->name} ({$validated['quantity_needed']} {$requirement->unit}) is pending your review.",
@@ -358,7 +359,7 @@ if (!$isHiredKontraktor && !$isSubContractor && !$isPM && !$isOwner) {
             return response()->json(['data' => $procReq]);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['message' => 'Request failed: ' . $e->getMessage()], 500);
+            return response()->json(['message' => 'Request failed: ' . SafeError::message($e)], 500);
         }
     }
 
@@ -375,7 +376,7 @@ if (!$isHiredKontraktor && !$isSubContractor && !$isPM && !$isOwner) {
         $isOwner = $project->user_id === $user->id && in_array('user', $allowedRoles);
         $isHiredArsitek = $user->role_type === 'arsitek' && Hire::matches($project, $user, 'arsitek') && in_array('arsitek', $allowedRoles);
         $isHiredKontraktor = $user->role_type === 'kontraktor' && Hire::matches($project, $user, 'kontraktor') && in_array('kontraktor', $allowedRoles);
-        $isHiredPM = $user->role_type === 'project_manager' && $project->pm_id === $user->id && in_array('project_manager', $allowedRoles);
+        $isHiredPM = $user->role_type === 'project_manager' && Hire::isAssignedPm($project, $user) && in_array('project_manager', $allowedRoles);
         // SECURITY: interior designers must be HIRED on this project — an
         // unscoped role check previously let ANY interior user edit BOM data.
         $isInterior = $user->role_type === 'interior' && Hire::matches($project, $user, 'interior') && in_array('interior', $allowedRoles);
@@ -423,7 +424,9 @@ if (!$isHiredKontraktor && !$isSubContractor && !$isPM && !$isOwner) {
 
     private function notifyReviewers(Project $project, string $title, string $body): void
     {
-        $reviewers = array_filter([$project->user_id, $project->pm_id]);
+        // The PM's USER id — a reviewer is a user, and `projects.pm_id` holds the
+        // PM's PROFILE id.
+        $reviewers = array_filter([$project->user_id, $project->projectManager?->user_id]);
         foreach ($reviewers as $userId) {
             \App\Models\Notification::create([
                 'user_id' => $userId,

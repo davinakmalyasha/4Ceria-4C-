@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Support\SafeError;
 use App\Http\Requests\FirmMemberInviteRequest;
 use App\Http\Requests\FirmMemberSearchRequest;
 use App\Models\FirmMember;
@@ -11,6 +12,7 @@ use App\Services\FirmMemberService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use App\Support\Hire;
 
 class FirmMemberController extends Controller
 {
@@ -60,7 +62,12 @@ class FirmMemberController extends Controller
                 'data'    => $firmMembers,
             ], 201);
         } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
-            return response()->json(['message' => $e->getMessage()], $e->getStatusCode());
+            // An `HttpException` is written for the client by definition, so
+            // `SafeError::message()` returns it unchanged. The helper is used
+            // anyway so that the rule is stated in ONE place, and so a future
+            // edit that widens this catch to `\Exception` cannot silently
+            // start leaking SQL.
+            return response()->json(['message' => SafeError::message($e)], SafeError::status($e, $e->getStatusCode()));
         }
     }
 
@@ -131,7 +138,12 @@ class FirmMemberController extends Controller
                 'data'    => $firmMember,
             ], 201);
         } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
-            return response()->json(['message' => $e->getMessage()], $e->getStatusCode());
+            // An `HttpException` is written for the client by definition, so
+            // `SafeError::message()` returns it unchanged. The helper is used
+            // anyway so that the rule is stated in ONE place, and so a future
+            // edit that widens this catch to `\Exception` cannot silently
+            // start leaking SQL.
+            return response()->json(['message' => SafeError::message($e)], SafeError::status($e, $e->getStatusCode()));
         }
     }
 
@@ -272,7 +284,7 @@ class FirmMemberController extends Controller
         try {
             app(\App\Services\DisputeService::class)->assertNoOpenDispute($project);
         } catch (\Exception $e) {
-            return response()->json(['message' => $e->getMessage()], $e->getCode() ?: 422);
+            return response()->json(['message' => SafeError::message($e)], SafeError::status($e, 422));
         }
 
         // 3. Has this assignment proposal already been submitted or approved?
@@ -429,17 +441,17 @@ class FirmMemberController extends Controller
             if ($request->has('base_rate') || $request->has('experience_years')) {
                 $profUpdate = [];
                 if ($request->has('base_rate')) {
-                    $profUpdate['rate_harga'] = $validated['base_rate'];
+                    $profUpdate['rate_harga'] = $validated['base_rate'] ?? null;
                 }
                 
                 if ($user->role_type === 'arsitek' && $user->arsitek) {
                     if ($request->has('experience_years')) {
-                        $profUpdate['pengalaman_tahun'] = $validated['experience_years'];
+                        $profUpdate['pengalaman_tahun'] = $validated['experience_years'] ?? null;
                     }
                     $user->arsitek->update($profUpdate);
                 } elseif ($user->role_type === 'kontraktor' && $user->kontraktor) {
                     if ($request->has('experience_years')) {
-                        $profUpdate['pengalaman'] = $validated['experience_years'];
+                        $profUpdate['pengalaman'] = $validated['experience_years'] ?? null;
                     }
                     $user->kontraktor->update($profUpdate);
                 }

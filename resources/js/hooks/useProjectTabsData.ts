@@ -17,6 +17,33 @@ const globalTabsCache: Record<number, TabData> = {};
 const lastFetchedCache: Record<number, Record<string, number>> = {};
 const inFlightRequests: Record<number, Record<string, Promise<any>>> = {};
 
+/**
+ * Drops every cached project payload.
+ *
+ * WHY THIS EXISTS
+ * ---------------
+ * These three caches live at MODULE scope, so they outlive every component
+ * that reads them — and they are keyed by PROJECT ID, not by user. The data
+ * in them is user-scoped: the API returns a different payload to the owner, to
+ * a hired professional and to a rival, and the paid/awarded stages, the
+ * contract documents and the negotiated bids are all per-viewer.
+ *
+ * So on logout, user A's cached payload for project 14975 was still there
+ * when user B logged in on the same device and opened project 14975 — and B
+ * was shown A's stages, documents and bids until the cache expired.
+ *
+ * The credential is dropped on logout; the DATA it unlocked was not.
+ *
+ * Called from `AuthContext.logout()` and from the multi-tab storage handler,
+ * so the window that receives the logout and the window that initiates it
+ * both drop the cache.
+ */
+export const clearProjectTabsCache = (): void => {
+    for (const key of Object.keys(globalTabsCache)) delete globalTabsCache[Number(key)];
+    for (const key of Object.keys(lastFetchedCache)) delete lastFetchedCache[Number(key)];
+    for (const key of Object.keys(inFlightRequests)) delete inFlightRequests[Number(key)];
+};
+
 const getInitialData = (id: number | null): TabData => {
     if (id && globalTabsCache[id]) {
         return globalTabsCache[id];
@@ -106,7 +133,7 @@ export function useProjectTabsData(projectId: number | null) {
         }
 
         // If a request for this type is already in flight, await it instead of making a duplicate request
-        if (inFlightRequests[projectId]?.[type]) {
+        if (inFlightRequests[projectId]?.[type] != null) {
             if (import.meta.env.DEV) console.log(`[useProjectTabsData] Request for type=${type} already in flight. Awaiting existing request.`);
             try {
                 await inFlightRequests[projectId][type];

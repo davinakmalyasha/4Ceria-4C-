@@ -60,6 +60,31 @@ class AppServiceProvider extends ServiceProvider
             );
         }
 
+        // `TRUSTED_PROXIES=*` IS ALSO REFUSED IN PRODUCTION.
+        //
+        // The empty check above only caught "unset". A literal '*' parses to
+        // `['*']`, which is NOT empty, so production booted happily with it —
+        // and '*' means "believe whatever X-Forwarded-For the client sent".
+        //
+        // That is the exact attack the /login and /register throttles exist to
+        // stop: a client rotates the header and gets a fresh rate-limit bucket
+        // per request, so credential stuffing and mass account creation are
+        // effectively unthrottled. The check that was supposed to prevent this
+        // had a hole exactly the width of the documented development value.
+        //
+        // Non-production still falls back to '*' below, so `artisan serve` and
+        // Octane keep working behind whatever is in front of them.
+        if ($this->app->isProduction() && $trusted === ['*']) {
+            throw new \RuntimeException(
+                'TRUSTED_PROXIES is "*", which trusts the X-Forwarded-For header from '
+                .'ANY client. In production that lets a caller rotate the header and '
+                .'mint a fresh rate-limit bucket per request, which disables the /login '
+                .'and /register throttles entirely. Set it to the comma-separated CIDR '
+                .'list of the reverse proxy / platform edge that terminates TLS in front '
+                .'of the app. See .env.example and AppServiceProvider::register().'
+            );
+        }
+
         // Static, so it must be set before the middleware pipeline runs.
         \Illuminate\Http\Middleware\TrustProxies::at($trusted ?: '*');
     }

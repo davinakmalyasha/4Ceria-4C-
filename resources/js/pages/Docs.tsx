@@ -73,7 +73,7 @@ export default function Docs() {
                 {renderSearchInput()}
                 <DocsSidebar selectedArticle={selectedArticle} onSelectArticle={handleSelectArticle} />
             </div>
-            <div className="flex-grow max-w-3xl overflow-hidden space-y-6">
+            <div className="grow max-w-3xl overflow-hidden space-y-6">
                 <div className="lg:hidden">{renderSearchInput()}</div>
                 {searchQuery ? (
                     <div className="space-y-4">
@@ -97,7 +97,7 @@ export default function Docs() {
                     <h4 className="text-[9px] font-black uppercase tracking-widest text-neutral-400">On this Page</h4>
                     <nav className="flex flex-col gap-2.5 border-l-2 border-neutral-100 pl-4">
                         {toc.map(item => (
-                            <button key={item.id} onClick={() => document.getElementById(item.id)?.scrollIntoView({ behavior: 'smooth', block: 'center' })} className={`text-left text-[11px] font-bold leading-normal transition-all ${activeSection === item.id ? 'text-red-500 pl-1 border-l-2 border-red-500 -ml-[18px]' : 'text-neutral-400 hover:text-neutral-700'}`}>{item.label}</button>
+                            <button key={item.id} onClick={() => document.getElementById(item.id)?.scrollIntoView({ behavior: 'smooth', block: 'center' })} className={`text-left text-[11px] font-bold leading-normal transition-all ${activeSection === item.id ? 'text-red-500 pl-1 border-l-2 border-red-500 ml-[-18px]' : 'text-neutral-400 hover:text-neutral-700'}`}>{item.label}</button>
                         ))}
                     </nav>
                 </aside>
@@ -120,7 +120,7 @@ export default function Docs() {
                         onMenuClick={() => setSidebarOpen(true)} 
                     />
 
-                    <div className="flex-grow overflow-y-auto p-4 sm:p-8 relative">
+                    <div className="grow overflow-y-auto p-4 sm:p-8 relative">
                         <div className="max-w-7xl mx-auto">
                             <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-neutral-100 flex gap-8 relative min-h-[calc(100vh-120px)]">
                                 {mainContent}
@@ -135,7 +135,7 @@ export default function Docs() {
     return (
         <div className="min-h-screen bg-neutral-50 text-neutral-900 font-sans flex flex-col">
             <Navbar />
-            <main className="flex-grow max-w-7xl mx-auto w-full px-6 pt-24 pb-12 flex gap-8 relative">
+            <main className="grow max-w-7xl mx-auto w-full px-6 pt-24 pb-12 flex gap-8 relative">
                 {mainContent}
             </main>
         </div>

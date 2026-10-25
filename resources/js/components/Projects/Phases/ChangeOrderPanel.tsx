@@ -132,7 +132,7 @@ export default function ChangeOrderPanel({ project, isPM, isOwner, isPro }: Chan
                     initial={{ opacity: 0, y: -20 }} 
                     animate={{ opacity: 1, y: 0 }}
                     onSubmit={handleSubmit} 
-                    className="bg-slate-50 border-2 border-slate-100 rounded-[2rem] p-6 space-y-4"
+                    className="bg-slate-50 border-2 border-slate-100 rounded-4xl p-6 space-y-4"
                 >
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-1">
@@ -163,7 +163,7 @@ export default function ChangeOrderPanel({ project, isPM, isOwner, isPro }: Chan
 
             <div className="space-y-3">
                 {orders.length === 0 ? (
-                    <div className="py-12 text-center bg-slate-50 border-2 border-dashed border-slate-100 rounded-[2rem]">
+                    <div className="py-12 text-center bg-slate-50 border-2 border-dashed border-slate-100 rounded-4xl">
                         <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">No change orders recorded</p>
                     </div>
                 ) : (

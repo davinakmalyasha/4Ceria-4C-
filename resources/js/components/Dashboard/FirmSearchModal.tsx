@@ -102,7 +102,7 @@ export default function FirmSearchModal({ userRoleType, onClose, onInvited }: Fi
     const isLoading = showingSuggestions ? isLoadingSuggestions : isSearching;
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
+        <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
             <div className="bg-white rounded-[2.5rem] w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
                 <div className="p-6 pb-4 flex items-center justify-between border-b border-slate-100">
                     <div>

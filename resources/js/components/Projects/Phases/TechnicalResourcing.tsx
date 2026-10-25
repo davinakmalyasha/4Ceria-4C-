@@ -35,7 +35,7 @@ export default function TechnicalResourcing({
     const [importRole, setImportRole] = useState<'structural' | 'mep' | 'interior'>('structural');
     const [requestRole, setRequestRole] = useState<'structural' | 'mep' | 'interior' | null>(null);
 
-    const isPM = (user?.role_type === 'project_manager' || user?.role_type === 'pm') && Number(project.pm_id) === Number(user?.id);
+    const isPM = (user?.role_type === 'project_manager' || user?.role_type === 'pm') && Number(project.pm_id) === Number(user?.project_manager?.id);
     const isOwner = Number(user?.id) === Number(project.user_id);
 
 
@@ -394,7 +394,7 @@ export default function TechnicalResourcing({
 
             {/* Smart Advisory Alert for Architect */}
             {isArchitect && (structuralRecommended || mepRecommended) && !requiresStructural && !requiresMep && (
-                <div className="p-6 bg-slate-50 border-2 border-slate-100 rounded-[2rem] flex flex-col md:flex-row items-center justify-between gap-6 animate-in slide-in-from-top-2 duration-500">
+                <div className="p-6 bg-slate-50 border-2 border-slate-100 rounded-4xl flex flex-col md:flex-row items-center justify-between gap-6 animate-in slide-in-from-top-2 duration-500">
                     <div className="flex items-center gap-4 text-center md:text-left">
                         <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-slate-600 shadow-sm shrink-0">
                             <AlertTriangle size={24} />
@@ -1073,7 +1073,7 @@ export default function TechnicalResourcing({
 
             {/* Final Sign-off Status */}
             {project.legal_locked_at && (
-                <div className="mt-8 p-6 bg-emerald-50 border border-emerald-100 rounded-[2rem] flex items-center justify-between">
+                <div className="mt-8 p-6 bg-emerald-50 border border-emerald-100 rounded-4xl flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-emerald-600 shadow-sm">
                             <ShieldCheck size={24} />

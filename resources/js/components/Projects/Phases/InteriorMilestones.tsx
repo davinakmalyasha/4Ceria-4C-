@@ -196,7 +196,7 @@ export default function InteriorMilestones({ project, currentUser, isInteriorDes
             </div>
 
             {showForm && (
-                <form onSubmit={handleSubmit} className="bg-white border-2 border-purple-100 rounded-[2rem] p-6 space-y-4 shadow-xl">
+                <form onSubmit={handleSubmit} className="bg-white border-2 border-purple-100 rounded-4xl p-6 space-y-4 shadow-xl">
                     <input value={formTitle} onChange={e => setFormTitle(e.target.value)} placeholder="e.g. Master Bedroom v2" className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-xs font-black outline-none focus:border-purple-500" required />
                     <textarea value={formDesc} onChange={e => setFormDesc(e.target.value)} placeholder="Concept notes..." className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-xs font-medium outline-none focus:border-purple-500 min-h-[80px]" />
                     <button type="submit" disabled={submitting} className="w-full py-4 bg-purple-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest">{submitting ? 'Saving...' : 'Confirm Room Design'}</button>
@@ -317,10 +317,10 @@ export default function InteriorMilestones({ project, currentUser, isInteriorDes
 
             {/* Confirmation Modal */}
             {confirmModal.isOpen && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+                <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
                     <div className="bg-white rounded-[2.5rem] p-8 max-w-md w-full shadow-2xl border border-slate-100">
                         <div className="flex flex-col items-center text-center gap-4 mb-8">
-                            <div className="w-20 h-20 bg-emerald-50 text-emerald-500 rounded-[2rem] flex items-center justify-center">
+                            <div className="w-20 h-20 bg-emerald-50 text-emerald-500 rounded-4xl flex items-center justify-center">
                                 <ShieldCheck size={40} />
                             </div>
                             <div>
@@ -362,7 +362,7 @@ export default function InteriorMilestones({ project, currentUser, isInteriorDes
                             <button 
                                 onClick={() => confirmModal.milestone && handleAuditSubmit(confirmModal.milestone, 'approved')}
                                 disabled={isSubmittingAudit}
-                                className="flex-[2] py-4 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all shadow-xl"
+                                className="flex-2 py-4 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all shadow-xl"
                             >
                                 {isSubmittingAudit ? 'Processing...' : 'Confirm & Approve'}
                             </button>

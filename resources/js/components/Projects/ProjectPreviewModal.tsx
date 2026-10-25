@@ -24,14 +24,14 @@ export default function ProjectPreviewModal({ project, isOpen, onClose, onManage
                 <>
                     <motion.div
                         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                        className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[200]"
+                        className="fixed inset-0 bg-black/40 backdrop-blur-sm z-200"
                         onClick={onClose}
                     />
                     <motion.div
                         initial={{ opacity: 0, scale: 0.95, y: 20 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                        className="fixed inset-x-4 top-[15%] md:inset-x-auto md:left-1/2 md:-translate-x-1/2 md:w-full md:max-w-md bg-white rounded-3xl shadow-2xl z-[201] overflow-hidden"
+                        className="fixed inset-x-4 top-[15%] md:inset-x-auto md:left-1/2 md:-translate-x-1/2 md:w-full md:max-w-md bg-white rounded-3xl shadow-2xl z-201 overflow-hidden"
                     >
                         <div className="p-6">
                             <div className="flex items-start justify-between mb-4">

@@ -159,7 +159,7 @@ const ReviewModal: React.FC<ReviewModalProps> = ({ isOpen, onClose, order, onSuc
 
     return (
         <AnimatePresence>
-            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
+            <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
                 <motion.div 
                     initial={{ opacity: 0, scale: 0.9, y: 20 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -216,7 +216,7 @@ const ReviewModal: React.FC<ReviewModalProps> = ({ isOpen, onClose, order, onSuc
                                         </div>
                                     </div>
 
-                                    <div className="flex flex-col items-center py-6 bg-amber-50/30 rounded-[2rem] border border-amber-100/50">
+                                    <div className="flex flex-col items-center py-6 bg-amber-50/30 rounded-4xl border border-amber-100/50">
                                         <div className="flex gap-2">
                                             {[1, 2, 3, 4, 5].map((s) => (
                                                 <button key={s} disabled={effectiveReadOnly} onClick={() => setRating(s)} className="transition-transform active:scale-90">
@@ -235,7 +235,7 @@ const ReviewModal: React.FC<ReviewModalProps> = ({ isOpen, onClose, order, onSuc
                                             value={comment}
                                             readOnly={effectiveReadOnly}
                                             onChange={(e) => setComment(e.target.value)}
-                                            className="w-full h-28 p-5 bg-gray-50 border-0 rounded-[1.5rem] text-sm font-bold text-gray-900 placeholder:text-gray-300 focus:ring-2 focus:ring-amber-100 transition-all resize-none shadow-inner"
+                                            className="w-full h-28 p-5 bg-gray-50 border-0 rounded-3xl text-sm font-bold text-gray-900 placeholder:text-gray-300 focus:ring-2 focus:ring-amber-100 transition-all resize-none shadow-inner"
                                             placeholder="Ceritakan pengalaman produk Anda..."
                                         />
                                     </div>
@@ -263,7 +263,7 @@ const ReviewModal: React.FC<ReviewModalProps> = ({ isOpen, onClose, order, onSuc
                                             </div>
                                         </div>
 
-                                        <div className="flex flex-col items-center py-6 bg-indigo-50/30 rounded-[2rem] border border-indigo-100/50">
+                                        <div className="flex flex-col items-center py-6 bg-indigo-50/30 rounded-4xl border border-indigo-100/50">
                                             <div className="flex gap-2">
                                                 {[1, 2, 3, 4, 5].map((s) => (
                                                     <button key={s} disabled={effectiveReadOnly} onClick={() => setDeliveryRating(s)} className="transition-transform active:scale-90">
@@ -282,7 +282,7 @@ const ReviewModal: React.FC<ReviewModalProps> = ({ isOpen, onClose, order, onSuc
                                                 value={deliveryComment}
                                                 readOnly={effectiveReadOnly}
                                                 onChange={(e) => setDeliveryComment(e.target.value)}
-                                                className="w-full h-28 p-5 bg-gray-50 border-0 rounded-[1.5rem] text-sm font-bold text-gray-900 placeholder:text-gray-300 focus:ring-2 focus:ring-indigo-100 transition-all resize-none shadow-inner"
+                                                className="w-full h-28 p-5 bg-gray-50 border-0 rounded-3xl text-sm font-bold text-gray-900 placeholder:text-gray-300 focus:ring-2 focus:ring-indigo-100 transition-all resize-none shadow-inner"
                                                 placeholder="Ceritakan pengalaman pengiriman Anda..."
                                             />
                                         </div>
@@ -302,7 +302,7 @@ const ReviewModal: React.FC<ReviewModalProps> = ({ isOpen, onClose, order, onSuc
                                     <button 
                                         disabled={isSubmitting} 
                                         onClick={handleSubmit} 
-                                        className="w-full py-5 bg-gray-900 text-white rounded-[2rem] text-sm font-black uppercase tracking-[0.2em] shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3"
+                                        className="w-full py-5 bg-gray-900 text-white rounded-4xl text-sm font-black uppercase tracking-[0.2em] shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3"
                                     >
                                         {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : <MessageSquare size={18} />}
                                         {isEditing ? 'UPDATE ULASAN' : 'KIRIM ULASAN'}

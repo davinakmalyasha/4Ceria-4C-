@@ -38,7 +38,7 @@ export default function PMReportCard({ report, isPM, onEdit, onDelete }: PMRepor
     const docs = report.attachments || [];
 
     return (
-        <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden p-6 hover:border-slate-200 transition-all">
+        <div className="bg-white rounded-4xl border border-slate-100 shadow-sm overflow-hidden p-6 hover:border-slate-200 transition-all">
             <div className="flex items-start justify-between mb-4 gap-2">
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-700 shrink-0">

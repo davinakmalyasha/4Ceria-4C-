@@ -106,7 +106,7 @@ export default function ConstructionBriefGate({ project, isContractor, isOwner, 
     if (!relevant) return null;
 
     return (
-        <div className="bg-white border border-gray-200 rounded-[2rem] p-6 space-y-4">
+        <div className="bg-white border border-gray-200 rounded-4xl p-6 space-y-4">
             <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                     <FileCheck2 size={18} className="text-slate-600" />
