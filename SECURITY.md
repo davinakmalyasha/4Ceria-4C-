@@ -52,3 +52,7 @@ These are the controls that are real, and the limitations that are known.
 - **The public storage bucket is world-readable by design.** Anything private
   must be placed on the private store; getting that wrong is a data-exposure
   bug, not a hardening item.
+- **The git history predates this pipeline.** Pre-rewrite commits contain
+  credentials (a Railway API token and old map keys) that were committed before
+  secret scanning existed. The CI gate scans the shipped tree; the historical
+  values must be revoked, not merely ignored.

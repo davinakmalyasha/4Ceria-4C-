@@ -72,8 +72,20 @@ Record at 1440×900, browser at 100 %, no audio needed (captions in the edit).
   recording are the demo.
 - **No real credentials or data.** Every account is a seeded fixture; every
   project is demo data.
-- **Known security gaps are listed, not hidden** — see `SECURITY.md`. The honest
-  list is part of the work.
+
+## Known gaps, stated rather than hidden
+
+These are the things a reviewer should hear from the author before finding them:
+
+| Gap | Where it is documented |
+|---|---|
+| Identity still lives in MySQL (tokens, users, roles) | ADR-0018, `SECURITY.md` |
+| Uploads write to local disk; the S3/Tigris path is not implemented in the Go service | `.env.example`, `SECURITY.md` |
+| The retention **release** job was not ported — retained amounts are held, and the ledger type exists but nothing writes it | `docs/MONEY.md` §6, §14 |
+| The pre-rewrite git history contains credentials that should be revoked | `SECURITY.md` |
+
+The honest list is part of the work. A portfolio that claims a finished money
+system without naming its gaps is a portfolio nobody should trust with money.
 
 ## Running it
 

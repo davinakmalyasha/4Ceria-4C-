@@ -84,12 +84,21 @@ pinned.
 
 ## Deployment
 
-- **API** — the Go binary (`go build ./cmd/gateway`) on Railway, with
-  `DATABASE_URL`, `MYSQL_DSN`, `APP_KEY` and the storage/mail variables.
+**This repository is not deployed.** It is a portfolio project: it handles real
+money and file uploads, so a public demo would be attack surface rather than a
+demo. See [`docs/PORTFOLIO.md`](docs/PORTFOLIO.md).
+
+If it were deployed, the shape is:
+
+- **API** — the `Dockerfile` (Go binary, `--addr=:8080`) on any container host,
+  with `DATABASE_URL`, `MYSQL_DSN`, `APP_KEY`, `APP_URL` and the storage/mail
+  variables.
 - **Frontend** — `web/` on Vercel (`next build`, standalone output), with
-  `API_ORIGIN` pointing at the API.
-- **PostgreSQL** — the application datastore.
-- **MySQL** — identity only; the frozen schema is in `db/mysql/`.
+  `API_ORIGIN` pointing at the API at runtime.
+- **PostgreSQL** — the application datastore (migrations applied in order).
+- **MySQL** — identity only; restore `db/mysql/schema.sql`.
+- **Uploads** — a bucket; the local disk paths in `.env.example` are for
+  development only.
 
 ## Documentation
 

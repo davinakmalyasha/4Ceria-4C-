@@ -2,7 +2,7 @@ import { sessionToken } from '@/lib/session';
 import { HelpShell } from '@/components/docs/HelpShell';
 
 /**
- * The Help Centre — a port of `resources/js/pages/Docs.tsx`.
+ * The Help Centre — ported from the legacy SPA's help centre.
  *
  * THE ARTICLE IS IN THE URL. `/help?article=welcome-platform` is a real
  * location: it can be linked, shared and reloaded, and the sidebar navigates

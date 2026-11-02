@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Building, ChevronDown, HelpCircle, ShoppingBag, Users } from 'lucide-react';
 
 /**
- * The public navbar — a port of `resources/js/components/Navbar.tsx`.
+ * The public navbar — ported from the legacy SPA's navbar.
  *
  * IT IS A CLIENT COMPONENT, AND IT HAS TO BE. The bar hides on scroll and its
  * three menus open on click; both are browser state. What changed is WHERE the

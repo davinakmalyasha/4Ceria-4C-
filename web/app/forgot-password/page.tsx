@@ -5,7 +5,7 @@ import { sessionToken } from '@/lib/session';
 import { ForgotForm } from './ForgotForm';
 
 /**
- * The "forgot password" screen — a port of `resources/js/pages/ForgotPassword.tsx`.
+ * The "forgot password" screen — ported from the legacy SPA's forgot-password screen.
  *
  * The left column is the same brand panel as the login screen with different
  * copy; the right column is the same form shell with a different submit label.

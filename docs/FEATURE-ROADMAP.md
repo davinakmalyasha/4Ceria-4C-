@@ -41,10 +41,10 @@ Buyer-side `POST /material-orders/{id}/confirm-receipt` after courier `delivered
 Tables: `favorites(user_id, favoritable_type, favoritable_id)`, `saved_searches(user_id, params json, alert_enabled)`. CRUD pairs + wire hearts in Explore HouseCard; localStorage hook stays as optimistic cache.
 
 ### B9 - Review parity between parties (M)
-Pros-review-owners (new polymorphic or `owner_ratings` table); make structural/mep/couriers reviewable by extending the role map (config/bids.php makes this trivial); "both parties reviewed" nudge.
+Pros-review-owners (new polymorphic or `owner_ratings` table); make structural/mep/couriers reviewable by extending the role registry in `internal/domain/identity`; "both parties reviewed" nudge.
 
 ### B11 - PDF/CSV export & reporting (M-L)
-Budget statement CSV, milestone progress report PDF (dompdf or reuse jsPDF client-side pattern from QuoteHistoryTab/FinalHandover), weekly digest mail. Endpoint shape: `GET /projects/{project}/reports/export?format=csv|pdf`.
+Budget statement CSV, milestone progress report PDF (a Go PDF library, or the client-side jsPDF pattern already used by the quote history and final hand-over screens), weekly digest mail. Endpoint shape: `GET /projects/{project}/reports/export?format=csv|pdf`.
 
 ### Stretch
 Snag-list SLA aging badges; KPR calculator widget on house details; account deletion/export (ProfileController).

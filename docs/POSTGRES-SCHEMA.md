@@ -85,7 +85,7 @@ Nothing in the application reads that column — every other `deskripsi` in the
 codebase is on a **profile** table.
 
 **`created_at` / `updated_at` became `NOT NULL DEFAULT now()`.** The legacy
-columns are nullable with no default, because that is what Laravel 9 produced.
+columns are nullable with no default, because that is what the legacy schema produced.
 Every writer sets them and the live data contains no NULL in either, so the
 NOT NULL is a guarantee rather than a change.
 
@@ -423,10 +423,10 @@ PostgreSQL's `C` collation does neither. Three consequences, stated plainly:
 
 | Legacy table | Why |
 |---|---|
-| `migrations` | Laravel's migration ledger. The PostgreSQL baseline has its own (goose). |
-| `jobs`, `job_batches`, `failed_jobs` | Laravel's queue tables. The rewrite runs its own queue; MySQL keeps the Laravel one. |
-| `cache`, `cache_locks` | Laravel's cache store. The rewrite uses Redis. |
-| `sessions` | Laravel's session store. The rewrite uses Redis / cookie sessions. |
+| `migrations` | Legacy migration ledger. The PostgreSQL baseline has its own numbered files. |
+| `jobs`, `job_batches`, `failed_jobs` | Legacy queue tables. The Go service has no queue table; MySQL keeps the legacy one. |
+| `cache`, `cache_locks` | Legacy cache store — unused by the Go service. |
+| `sessions` | Legacy session store — unused; sessions are Sanctum tokens in MySQL. |
 
 **`users`, `password_reset_tokens` and `personal_access_tokens` ARE in the
 baseline** even though ADR-0018 keeps them in MySQL for the whole transition.
@@ -487,8 +487,8 @@ the Eloquent model reads `users` on every authenticated request; ADR-0018 is an
 | `bids_notaris` | 32 | `bids` | 55 | Folded into the unified `bids` table (ADR-0014). |
 | `bids_project_manager` | 30 | `bids` | 55 | Folded into the unified `bids` table (ADR-0014). |
 | `bids_structural` | 35 | `bids` | 55 | Folded into the unified `bids` table (ADR-0014). |
-| `cache` | 3 | — | — | Laravel framework: not migrated (MySQL keeps it). |
-| `cache_locks` | 3 | — | — | Laravel framework: not migrated (MySQL keeps it). |
+| `cache` | 3 | — | — | Legacy framework table: not migrated (MySQL keeps it). |
+| `cache_locks` | 3 | — | — | Legacy framework table: not migrated (MySQL keeps it). |
 | `chat_messages` | 8 | `chat_messages` | 8 | carried over verbatim. |
 | `contact` | 5 | `contact` | 5 | carried over verbatim. |
 | `contractor_subspecialties` | 8 | `contractor_subspecialties` | 8 | 1 enum column(s). |
@@ -496,7 +496,7 @@ the Eloquent model reads `users` on every authenticated request; ADR-0018 is an
 | `courier_profiles` | 9 | `courier_profiles` | 9 | carried over verbatim. |
 | `delivery_jobs` | 13 | `delivery_jobs` | 13 | 2 json; 1 money column(s). |
 | `dispute_messages` | 8 | `dispute_messages` | 8 | carried over verbatim. |
-| `failed_jobs` | 7 | — | — | Laravel framework: not migrated (MySQL keeps it). |
+| `failed_jobs` | 7 | — | — | Legacy framework table: not migrated (MySQL keeps it). |
 | `favorites` | 6 | `favorites` | 6 | carried over verbatim. |
 | `firm_members` | 10 | `firm_members` | 10 | 1 enum column(s). |
 | `house` | 21 | `house` | 21 | 1 money column(s). |
@@ -505,8 +505,8 @@ the Eloquent model reads `users` on every authenticated request; ADR-0018 is an
 | `house_questions` | 6 | `house_questions` | 6 | carried over verbatim. |
 | `interior_profiles` | 25 | `interior_profiles` | 25 | 2 enum column(s); 1 money column(s). |
 | `interior_ratings` | 8 | `interior_ratings` | 8 | carried over verbatim. |
-| `job_batches` | 10 | — | — | Laravel framework: not migrated (MySQL keeps it). |
-| `jobs` | 7 | — | — | Laravel framework: not migrated (MySQL keeps it). |
+| `job_batches` | 10 | — | — | Legacy framework table: not migrated (MySQL keeps it). |
+| `jobs` | 7 | — | — | Legacy framework table: not migrated (MySQL keeps it). |
 | `kontraktor_ratings` | 8 | `kontraktor_ratings` | 8 | carried over verbatim. |
 | `kontraktor_spesialisasi` | 3 | `kontraktor_spesialisasi` | 3 | carried over verbatim. |
 | `kontraktors` | 29 | `kontraktors` | 29 | 1 json; 2 enum column(s); 1 money column(s). |
@@ -517,7 +517,7 @@ the Eloquent model reads `users` on every authenticated request; ADR-0018 is an
 | `material_quotes` | 22 | `material_quotes` | 22 | 1 json; 2 money column(s). |
 | `materials` | 13 | `materials` | 13 | 1 json; 1 money column(s). |
 | `mep_engineers` | 27 | `mep_engineers` | 27 | 2 enum column(s); 1 money column(s). |
-| `migrations` | 3 | — | — | Laravel framework: not migrated (MySQL keeps it). |
+| `migrations` | 3 | — | — | Legacy framework table: not migrated (MySQL keeps it). |
 | `model_has_permissions` | 3 | `model_has_permissions` | 3 | carried over verbatim. |
 | `model_has_roles` | 3 | `model_has_roles` | 3 | carried over verbatim. |
 | `notaris_consultations` | 8 | `notaris_consultations` | 8 | 1 enum column(s). |
@@ -566,7 +566,7 @@ the Eloquent model reads `users` on every authenticated request; ADR-0018 is an
 | `roles` | 5 | `roles` | 5 | carried over verbatim. |
 | `rooms` | 9 | `rooms` | 9 | carried over verbatim. |
 | `rooms_pic` | 7 | `rooms_pic` | 7 | carried over verbatim. |
-| `sessions` | 6 | — | — | Laravel framework: not migrated (MySQL keeps it). |
+| `sessions` | 6 | — | — | Legacy framework table: not migrated (MySQL keeps it). |
 | `spesialisasi` | 5 | `spesialisasi` | 5 | carried over verbatim. |
 | `sticky_notes` | 9 | `sticky_notes` | 9 | carried over verbatim. |
 | `structural_engineers` | 27 | `structural_engineers` | 27 | 2 enum column(s); 1 money column(s). |
@@ -596,7 +596,7 @@ package and runs in CI with nothing but the database images.
 
 The diff knows about the deliberate transformations (the seven bid tables
 folding into one, the four renamed reference columns, the four dropped dead
-columns, the seven Laravel framework tables) so that it reports only what is
+columns, the seven legacy framework tables) so that it reports only what is
 genuinely missing. Anything not on that list is a failure.
 
 ---
@@ -664,7 +664,7 @@ genuinely missing. Anything not on that list is a failure.
    handling. There are ZERO.** `information_schema.columns.extra` contains no
    `on update CURRENT_TIMESTAMP` for any of the 1 348 columns, and the only
    `DEFAULT CURRENT_TIMESTAMP` in the whole schema is `failed_jobs.failed_at` —
-   a Laravel table that stays in MySQL. The legacy schema has no
+   a legacy table that stays in MySQL. The legacy schema has no
    auto-updating timestamp column at all: `updated_at` is written by Eloquent.
    The "250 columns need a trigger or an explicit write" consequence in
    ADR-0006 does not exist, and no trigger is created here.
@@ -672,7 +672,7 @@ genuinely missing. Anything not on that list is a failure.
 2. **ADR-0006 says "the 4 unsigned columns become `bigint` with a
    `CHECK (col >= 0)`".** The four `int unsigned` columns are `jobs.attempts`,
    `jobs.reserved_at`, `jobs.available_at` and `jobs.created_at` — all in
-   `jobs`, which is a Laravel framework table that stays in MySQL. There is
+   `jobs`, which is a legacy framework table that stays in MySQL. There is
    nothing to convert.
 
 3. **ADR-0006 says "24 `tinyint(1)` columns become `boolean`". There are 22,
@@ -753,10 +753,10 @@ genuinely missing. Anything not on that list is a failure.
     preserves MySQL's uniqueness semantics exactly — but the baseline does not
     claim it is load-bearing.
 
-15. **The `projects.owner_id` column is vestigial.** The API resource emits
-    `user_id` under the name `owner_id`, `ProjectFinancialService:170` aliases
-    `projects.user_id as owner_id`, and nothing reads the column itself. It is
-    carried over verbatim and left unconstrained.
+15. **The `projects.owner_id` column is vestigial.** The API emits `user_id`
+    under the name `owner_id` (the serialiser aliases `projects.user_id as
+    owner_id`), and nothing reads the column itself. It is carried over
+    verbatim and left unconstrained.
 
 16. **The ledger's "ceiling is `SUM(deposit) - SUM(adjustment_down)`" framing
     and the seeded data do not agree.** MONEY.md §3 is normative and says the

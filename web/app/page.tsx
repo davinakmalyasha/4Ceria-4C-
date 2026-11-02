@@ -9,7 +9,7 @@ import { LandingFaq } from '@/components/LandingFaq';
 import { sessionToken } from '@/lib/session';
 
 /**
- * The landing page — a port of `resources/js/pages/LandingPage.tsx`.
+ * The landing page — ported from the legacy SPA's landing page.
  *
  * WHAT IS IDENTICAL
  * -----------------

@@ -10,7 +10,7 @@ import { DocsArticle, slugify } from './DocsArticle';
 import { DocsSidebar } from './DocsSidebar';
 
 /**
- * The Help Centre — a port of `resources/js/pages/Docs.tsx`.
+ * The Help Centre — ported from the legacy SPA's help centre.
  *
  * THE SELECTION MOVED INTO THE URL. The legacy keeps the selected article in
  * `useState`, seeded from `?article=` once on mount and never written back, so

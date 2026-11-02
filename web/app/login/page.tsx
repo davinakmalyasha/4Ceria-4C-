@@ -5,7 +5,7 @@ import { sessionToken } from '@/lib/session';
 import { CopyrightYear, LoginForm } from './LoginForm';
 
 /**
- * The login screen — a BYTE-FOR-BYTE port of `resources/js/pages/Login.tsx`.
+ * The login screen — a byte-for-byte port of the legacy SPA's login screen.
  *
  * WHAT IS DELIBERATELY IDENTICAL
  * ------------------------------

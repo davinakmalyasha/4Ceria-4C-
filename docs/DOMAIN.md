@@ -4,11 +4,11 @@ Marketplace where **owners** post construction/renovation projects and hire veri
 
 ## Actors & roles
 
-`users.role_type`: `user` (owner/client) | professional roles: `arsitek`, `kontraktor`, `notaris`, `interior`, `structural`, `mep`, `project_manager`, `supplier`, `logistics`, plus sub-roles (`civil`, `mechanical`, `electrical`, `plumbing`, `roofing`, `finishing`). Admins exist via Spatie role + `role_type='admin'`.
+`users.role_type`: `user` (owner/client) | professional roles: `arsitek`, `kontraktor`, `notaris`, `interior`, `structural`, `mep`, `project_manager`, `supplier`, `logistics`, plus sub-roles (`civil`, `mechanical`, `electrical`, `plumbing`, `roofing`, `finishing`). Admins exist via the role tables and `role_type='admin'`.
 
 Each professional role has a profile table (`Arsitek`, `Kontraktor`, `NotarisProfile`, `InteriorProfile`, `StructuralEngineer`, `MepEngineer`, `ProjectManager`) keyed by `user_id`. Ratings live in per-role rating tables.
 
-**ID convention trap**: bid tables store the *profile* id (e.g. `bids_arsitek.arsitek_id → arsitek.id`), and so does `projects.pm_id` — it holds `project_managers.id`, the same value `bids_project_manager.pm_id` holds. `projects.selected_*_id` columns are profile ids too. Never compare any of them with a user id.
+**ID convention trap**: a bid stores the *profile* id (`bids.profile_id` points at the role's profile table, e.g. `arsiteks.id`), and so does `projects.pm_id` — it holds `project_managers.id`. `projects.selected_*_id` columns are profile ids too. Never compare any of them with a user id.
 
 ## Project lifecycle
 
@@ -52,7 +52,7 @@ Statuses flow: `open → accepted_arsitek → accepted_kontraktor → awaiting_p
 
 ## Collaboration surfaces
 
-- Chat: `conversations` (unique user pair) + `chat_messages`; unread counters cached in Redis (`forever` keys — see audit note), mirrored in DB counts.
+- Chat: `conversations` (unique user pair) + `chat_messages`; unread counts are computed from those rows on read — there is no external cache to invalidate.
 - Notifications: single `notifications` table (one row per chat message too); read state via `read_at`.
 - Firms & teams: `firm_members` (owner↔specialist, state machine invited/requested/active/removed) and `team_members`; sub-professionals attach to projects (`project_sub_professionals`).
 - Activity log: nearly every action writes `project_activity_logs`.

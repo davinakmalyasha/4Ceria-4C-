@@ -55,7 +55,7 @@ Three consequences that are easy to get wrong:
 - **`refund` rows are NEGATIVE** and are part of the disbursement sum. Excluding them
   leaves refunded money permanently consumed.
 - **`platform_fee` is NOT a professional earning.** It is the platform's revenue. The
-  omission is deliberate and documented in `ProjectFinancialService.php:97`.
+  omission is deliberate and documented in `escrow.IsProfessionalEarning()`.
 
 **`CEILING_NEUTRAL_TYPES` is the one that caused a double charge.** The old test was
 `$type !== 'payment'`, which sent `platform_fee` and `retention_release` down the
@@ -78,14 +78,14 @@ available = ceiling - outflow
 | Concept | Meaning | Read by |
 |---|---|---|
 | `ceiling` | The maximum the owner has committed. Moved by `deposit` (+) and `adjustment_down` (−) only. | `projects.budget` |
-| `available` | What is actually still in the escrow. | `ProjectFinancialService::available()` |
-| `committed` | **Informational only.** Money that is promised but not yet paid: addenda in (`approved_unpaid`, `pending_approval`, `verifying`) + termin stages in (`locked`, `pending`, `invoice_sent`). **Does not reduce `available`.** | `ProjectFinancialService::summary()` |
-| `allocated` | `paid + committed` — how much of the ceiling is spoken for. | `summary()` |
+| `available` | What is actually still in the escrow. | `escrow.Service.Available()` |
+| `committed` | **Informational only.** Money that is promised but not yet paid: addenda in (`approved_unpaid`, `pending_approval`, `verifying`) + termin stages in (`locked`, `pending`, `invoice_sent`). **Does not reduce `available`.** | `escrow.Service.Summary()` |
+| `allocated` | `paid + committed` — how much of the ceiling is spoken for. | `escrow.Service.Summary()` |
 
-**`available` is never computed from `projects.budget` directly.** `summary()` returns
+**`available` is never computed from `projects.budget` directly.** `Service.Summary()` returns
 **both** float keys (`total`, `paid`, `allocated`, `committed`, `remaining`,
 `available`, `percent_used`) **and** exact integer keys (`*_cents`) **and** display
-strings — and the key names are part of the SPA's contract.
+strings — and the key names are part of the API's wire contract.
 
 ---
 
@@ -201,14 +201,14 @@ There is exactly **one** writer. `escrow.record_movement(...)` (ADR-0020).
 6. COMMIT   -- the ceiling move and the ledger row are atomic
 ```
 
-**The order matters.** The insert comes **before** the ceiling move. In the PHP original
+**The order matters.** The insert comes **before** the ceiling move. In the legacy implementation
 the ceiling was decremented first, and the unique-violation was caught *inside* the
 transaction — so a duplicate could commit a ceiling change with **no ledger row**.
 
 **The caller must inspect the result.** `RecordPayment` returns
 `(written bool, err error)`; a discarded result is how a bid ends up `paid` with no
-ledger row (`AGENTS.md` trap #12). The Go tooling includes an `escrowlint` analyzer
-that **fails the build** on a discarded `Result`.
+ledger row (`AGENTS.md` trap #12). The compiler cannot see a discarded result, so
+the escrow tests assert the written flag and code review treats a bare call as a defect.
 
 ---
 
@@ -222,24 +222,27 @@ retention_amount + net_amount === amount      exactly
 
 | Rule | Detail |
 |---|---|
-| The split is filled **at insert** | `ProjectPaymentTermin::creating()` — no stage can be minted with a zeroed column. |
+| The split is filled **at insert** | The three handlers that mint a stage (`projecttermins`, `projectbidsign`, `projectupdate`) call `escrow.SplitRetention`; no stage is minted with a zeroed column. |
 | The remainder goes to `net` | A 5 % retention of Rp 1 000 000.03 is 50 000.0015 → truncated to 50 000; the **net** takes the remainder. The rounding error is never rounded away. |
-| The percentage is configurable | `ESCROW_RETENTION_PERCENT`, default **5**. |
-| `forTermin()` **reads** the persisted split | It never recomputes it. A later rate change must not move an agreed net. |
+| The percentage is currently a constant | **5** is passed at the three call sites. The Go service does not read `ESCROW_RETENTION_PERCENT`. |
+| `escrow.ForTermin()` **reads** the persisted split | It never recomputes it. A later rate change must not move an agreed net. |
 | Legacy rows (`net_amount = 0`) fall back to the **gross** | Pre-D1 stages have no split. |
 | A **half-written** split (net 0, retention > 0) is corruption, not legacy | The recorded retention is held back. **Not currently covered by a test.** |
 | The termin payment debits the **net** | The gross was never paid out. |
 | The release debits the **retention**, as a `retention_release` row | Never as a `payment`. Reusing the termin's reference with type `payment` is what made the original release a silent no-op. |
-| The release is blocked by a claim in `open` or `fixing` | `resolved` and `closed` do not block. `ESCROW_BLOCKING_CLAIM_STATES`. |
+| The release is blocked by a claim in `open` or `fixing` | `resolved` and `closed` do not block. |
 | The release is **idempotent** | `retention_released_at` is re-read inside the transaction that writes the ledger row. |
 | The warranty window comes from `projects.warranty_end_at` | Recorded at hand-over, never recomputed. |
 
-> ⚠ **A known discrepancy that the rewrite ports, not fixes:** the frontend shows a
-> warranty window of 180 / 90 / 60 / 30 days per project category
-> (`resources/js/types/phase.types.ts:116-121`), while the server uses a single
-> `config('escrow.warranty_days') = 180` for every category. **The UI and the money
-> disagree today.** The rewrite reproduces the discrepancy; the fix is a separate,
-> signed-off change on both sides.
+> ⚠ **Known gap:** the release itself is not exposed in the Go service. The ledger
+> type (`retention_release`), the `retention_released_at` column and the UI display exist,
+> but no endpoint or scheduler writes the release row yet — the legacy
+> `escrow:release-retention` command was not ported. Treat a retained amount as held until
+> that job is written and tested.
+>
+> The warranty window is `handoverWarrantyDays = 180` for every project
+> (`internal/httpapi/projecthandover.go`); the ported UI no longer shows a
+> per-category window.
 
 ---
 
@@ -297,7 +300,7 @@ refundable(ref)      = max(0, paidAgainst(ref) - refundedAgainst(ref))
 ```
 
 `paidAgainst` and `refundedAgainst` are **two separate queries over two separate
-columns**. The PHP original computed `SUM(payment + refund) - refunded_amount` =
+columns**. The legacy implementation computed `SUM(payment + refund) - refunded_amount` =
 **net − gross**, which shrank by twice the already-refunded amount on every subsequent
 refund. The separation makes that class of bug structurally impossible.
 
@@ -395,9 +398,9 @@ parity risks.
 
 | # | Invariant | Enforced by | Test |
 |---|---|---|---|
-| I1 | `DISBURSEMENT_TYPES` is exactly `{payment, refund, platform_fee, retention_release}` | `ProjectFinancialService:81` | `EscrowCeilingTest` |
-| I2 | `CEILING_NEUTRAL_TYPES` = the same four; they spend but do not move the ceiling | `:112` | `EscrowCeilingTest` |
-| I3 | `PROFESSIONAL_EARNINGS_TYPES` = `{payment, refund, retention_release}` — excludes `platform_fee` | `:97` | `EscrowCeilingTest`, `MoneyFigureConsistencyTest` |
+| I1 | `DISBURSEMENT_TYPES` is exactly `{payment, refund, platform_fee, retention_release}` | `escrow.IsDisbursement()` | `TestOnlyDepositAndAdjustmentDownMoveTheCeiling` |
+| I2 | `CEILING_NEUTRAL_TYPES` = the same four; they spend but do not move the ceiling | `escrow.IsCeilingNeutral()` | `TestOnlyDepositAndAdjustmentDownMoveTheCeiling` |
+| I3 | `PROFESSIONAL_EARNINGS_TYPES` = `{payment, refund, retention_release}` — excludes `platform_fee` | `escrow.IsProfessionalEarning()` | `TestAPlatformFeeIsNotAProfessionalEarning` |
 | I4 | `available = ceiling − Σ(DISBURSEMENT_TYPES)` | `:188-191` | `MoneyFigureConsistencyTest` |
 | I5 | Only `deposit` and `adjustment_down` move the ceiling | `:395-402` | `EscrowCeilingAuditTest` |
 | I6 | A `deposit` is never limited by the current balance | `:368` | `EscrowCeilingAuditTest` |
@@ -427,13 +430,13 @@ parity risks.
 | I30 | A zero-retention stage is never released | `ReleaseExpiredRetentionCommand:98-102` | `RetentionTest` |
 | I31 | The split is filled **on insert** | `ProjectPaymentTermin::creating` | `RetentionTest` |
 | I32 | `retention_released_at` / `retention_released_amount` exist | migration `2026_10_01_000012` | `RetentionLedgerTest` |
-| I33 | The fee is a **separate** row sharing the payment's reference | `PlatformFeeService:88-132` | `PlatformFeeTest` |
-| I34 | The fee is **0 %** by default | `config/escrow.php:64` | `PlatformFeeTest` |
-| I35 | The fee is clamped to `[0, 100]` | `:63` | `PlatformFeeTest` |
-| I36 | The fee is charged only when the payment was written | `ProjectFinancialService:484-486` | `PlatformFeeTest` |
-| I37 | A fee that cannot be recorded does not fail the payment | `PlatformFeeService:116-130` | `PlatformFeeTest` |
-| I38 | `assertNoOpenDispute()` is the single freeze gate; it raises 422 | `DisputeService:127-139` | `DisputeFreezeTest`, `DisputeCenterTest` |
-| I39 | One open dispute per project (409) | `DisputeService:60-71` | `DisputeCenterTest` |
+| I33 | The fee is a **separate** row sharing the payment's reference | `escrow.recordFee()` | `TestFeeOnOnePercent` |
+| I34 | The fee is **0 %** by default | `WithPlatformFeePercent` (default "0") | `TestTheFeeIsOffByDefault` |
+| I35 | The fee is clamped to `[0, 100]` | `escrow.feePercent` clamp | `TestTheFeeIsClamped` |
+| I36 | The fee is charged only when the payment was written | `Service.RecordPayment()` | `TestFeeOnOnePercent` |
+| I37 | A fee that cannot be recorded does not fail the payment | `Service.recordFee()` | `TestFeeOnANonPositiveGrossIsZero` |
+| I38 | `assertNoOpenDispute()` is the single freeze gate; it raises 422 | `Service.AssertNoOpenDispute()` | `TestTheFreezeGateBlocksAPayment` |
+| I39 | One open dispute per project (409) | `disputes.create` handler | `internal/httpapi` suite |
 | I40 | A refund is **negative** and referenced by the **dispute** | `DisputeService:380-383` | `RefundAccountingTest` |
 | I41 | `refunded_amount` equals the sum of the refund reversals | — | `RefundAccountingTest` |
 | I42 | A refund cannot exceed the gross paid | — | `RefundAccountingTest` |
@@ -509,26 +512,25 @@ func (s *Service) Ceiling(ctx context.Context, projectID int64) (money.Amount, e
 ```
 
 **The Go `Record` is the reference implementation** of the SQL function's semantics.
-The `money-diff` CI job compares the two over 2 000 randomised cases, and the nightly
-`legacy-mysql-parity` job recomputes the invariants on both engines.
+`go test ./internal/domain/escrow` covers the Go implementation, and
+`db/postgres/tests/escrow_behaviour.sql` (run by the baseline gate) asserts the SQL
+function's invariants against a real PostgreSQL.
 
 ---
 
-## 13. The client contract
+## 13. The API contract
 
-The SPA reads the balance from **three** places, and all three must be server-computed
-(ADR-0022):
+`GET /projects/{p}/budget` returns **one** summary object, computed by
+`escrow.Service.Summary()` (rendered by `projectBudgetSummary` in
+`internal/httpapi/projectmoney.go`):
 
-| Endpoint | Field | During parity | After parity |
-|---|---|---|---|
-| `GET /projects/{p}/budget` | `escrow.legacy.*` | **rendered** | removed |
-| `GET /projects/{p}/budget` | `escrow.canonical.*` | present, ignored | **rendered** |
-| `GET /projects/{p}/budget` | `summary.legacy.*` | **rendered** | removed |
-| `GET /projects/{p}/budget` | `summary.canonical.*` | present, ignored | **rendered** |
-| `GET /projects/{p}/budget` | `allocations.items[]` | present, ignored | **rendered** |
-
-**The precision rules** — the ones that make the numbers identical — are in
-ADR-0022 and are not repeated here.
+| Field | Meaning |
+|---|---|
+| `total`, `paid`, `allocated`, `committed`, `remaining`, `available` | floats, for display |
+| `percent_used` | paid / ceiling × 100, or 0 when the ceiling is 0 |
+| `total_cents`, `paid_cents`, `committed_cents`, `available_cents` | exact integer minor units |
+| `total_display`, `paid_display`, `committed_display`, `available_display` | formatted strings |
+| `currency` | `IDR` |
 
 **What the client must never do:**
 
@@ -541,20 +543,24 @@ ADR-0022 and are not repeated here.
 **What the server must never do:**
 
 - accept a client-supplied amount for a payment stage;
-- read `projects.budget` to answer "how much is left" outside `ProjectFinancialService`;
-- write a ledger row outside `escrow.record_movement()`.
+- read `projects.budget` to answer "how much is left" outside `escrow.Service`;
+- write a ledger row outside the escrow service.
 
 ---
 
 ## 14. Configuration
 
-| Variable | Default | Meaning |
+The port keeps these as **constants**, not environment variables. That is a
+deliberate difference: a money constant that an environment can change is a
+number nobody can audit.
+
+| Value | Value | Where |
 |---|---|---|
-| `ESCROW_RETENTION_PERCENT` | `5` | The retention percentage on a payment stage. |
-| `ESCROW_WARRANTY_DAYS` | `180` | The warranty window from hand-over to retention release. |
-| `ESCROW_BLOCKING_CLAIM_STATES` | `open,fixing` | The claim states that block a release. **Currently a hardcoded array in `config/escrow.php:97` — the env var is documented but does nothing.** Fixed in the rewrite. |
-| `ESCROW_PLATFORM_FEE_PERCENT` | `0` | The platform fee. Off by default, so the shipped product copy is literally true. |
-| `ESCROW_RELEASE_CRON` | `17 2 * * *` | The retention release schedule. `onOneServer()`. |
+| Retention percentage | **5 %** | passed to `escrow.SplitRetention` at the three stage-creating handlers |
+| Warranty window | **180 days** | `handoverWarrantyDays` in `internal/httpapi/projecthandover.go` |
+| Blocking claim states | `open`, `fixing` | the warranty-claim status check |
+| Platform fee | **0 %** | `escrow.WithPlatformFeePercent` default |
+| Retention release | **not implemented** | see the known gap in §6 |
 
 ---
 
@@ -562,10 +568,10 @@ ADR-0022 and are not repeated here.
 
 | Document | What it adds |
 |---|---|
-| `docs/adr/0012-money-is-integer-minor-units.md` | The representation, and the two PHP rounding bugs the port fixes |
+| `docs/adr/0012-money-is-integer-minor-units.md` | The representation, and the two rounding bugs the port fixes |
 | `docs/adr/0013-the-ledger-reference-registry.md` | The reference vocabulary, and the live double-count it fixes |
 | `docs/adr/0020-escrow-invariants-live-in-the-database.md` | The `SECURITY DEFINER` function and the privileges |
-| `docs/adr/0022-the-post-parity-money-fix-is-separate.md` | The legacy/canonical dual block |
-| `docs/DOMAIN.md` | The domain model (with the two known errors) |
-| `docs/CONVENTIONS.md` | The coding rules (with the two known errors) |
-| `AGENTS.md` traps #8, #9, #12 | The three rules that shaped this model |
+| `docs/adr/0022-the-post-parity-money-fix-is-separate.md` | The history of the dual-block parity period |
+| `docs/DOMAIN.md` | The domain model |
+| `docs/CONVENTIONS.md` | The coding rules |
+| `AGENTS.md` traps #2, #3, #12 | The three rules that shaped this model |
