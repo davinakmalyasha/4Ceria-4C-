@@ -295,7 +295,7 @@ class FirmMemberService
             ->with([
                 'firmOwner:id,name,role_type,pic',
                 'firmOwner.arsitek:id,user_id,no_telp',
-                'firmOwner.kontraktor:id,user_id,no_telepon',
+                'firmOwner.kontraktor:id,user_id,no_telepon,alamat',
             ])
             ->orderBy('invited_at', 'desc')
             ->get();
@@ -322,7 +322,7 @@ class FirmMemberService
             ->with([
                 'firmOwner:id,name,role_type,pic',
                 'firmOwner.arsitek:id,user_id,no_telp',
-                'firmOwner.kontraktor:id,user_id,no_telepon',
+                'firmOwner.kontraktor:id,user_id,no_telepon,alamat',
             ])
             ->orderBy('accepted_at', 'desc')
             ->get();

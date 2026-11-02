@@ -249,7 +249,13 @@ class ProjectController extends Controller
                 $query->whereIn('status', ['open', 'accepted_arsitek', 'accepted_kontraktor', 'procurement', 'in_progress', 'awaiting_payment']);
             }
 
-            $projects = $query->latest()->limit(50)->get();
+            // A total order: several seed projects share one created_at
+            // second, and a bare `latest()` leaves their relative order to
+            // each engine's heap scan — MySQL and PostgreSQL then disagree
+            // with each other (and with themselves after any refold), so
+            // pages can duplicate or skip rows. The id tiebreak matches the
+            // Go port exactly.
+            $projects = $query->latest()->orderByDesc('id')->limit(50)->get();
             $this->attachClientHistory($projects);
             return ProjectResource::collection($projects);
         }
@@ -258,7 +264,7 @@ class ProjectController extends Controller
             // Client only sees their own projects by default
             $query->where('user_id', $user->id);
             // Default sort for user
-            $query->latest();
+            $query->latest()->orderByDesc('id');
         } elseif ($user->role_type === 'arsitek') {
             $arsitek = \App\Models\Arsitek::where('user_id', $user->id)->first();
             if ($arsitek) {
@@ -266,7 +272,7 @@ class ProjectController extends Controller
             } else {
                 $query->whereRaw('1 = 0'); // Return empty if no profile
             }
-            $query->latest();
+            $query->latest()->orderByDesc('id');
         } elseif ($user->role_type === 'kontraktor') {
             $kontraktor = \App\Models\Kontraktor::where('user_id', $user->id)->first();
             if ($kontraktor) {
@@ -274,7 +280,7 @@ class ProjectController extends Controller
             } else {
                 $query->whereRaw('1 = 0');
             }
-            $query->latest();
+            $query->latest()->orderByDesc('id');
         } elseif ($user->role_type === 'notaris') {
             $notaris = \App\Models\NotarisProfile::where('user_id', $user->id)->first();
             if ($notaris) {
@@ -282,7 +288,7 @@ class ProjectController extends Controller
             } else {
                 $query->whereRaw('1 = 0');
             }
-            $query->latest();
+            $query->latest()->orderByDesc('id');
         } elseif ($user->role_type === 'interior') {
             $interior = \App\Models\InteriorProfile::where('user_id', $user->id)->first();
             $query->where(function ($q) use ($user, $interior) {
@@ -296,13 +302,13 @@ class ProjectController extends Controller
                        ->whereIn('status', ['invited', 'accepted', 'interviewing', 'recommended', 'active']);
                 });
             });
-            $query->latest();
+            $query->latest()->orderByDesc('id');
         } elseif ($user->role_type === 'project_manager') {
             // `projects.pm_id` holds the PM's PROFILE id. A PM with no profile
             // has no projects, and `where(col, null)` matches nothing — which
             // is the right answer.
             $query->where('pm_id', Hire::pmProfileId($user));
-            $query->latest();
+            $query->latest()->orderByDesc('id');
         } elseif ($user->role_type === 'structural') {
             $structural = \App\Models\StructuralEngineer::where('user_id', $user->id)->first();
             $query->where(function ($q) use ($user, $structural) {
@@ -316,7 +322,7 @@ class ProjectController extends Controller
                        ->whereIn('status', ['invited', 'accepted', 'interviewing', 'recommended', 'active']);
                 });
             });
-            $query->latest();
+            $query->latest()->orderByDesc('id');
         } elseif ($user->role_type === 'mep') {
             $mep = \App\Models\MepEngineer::where('user_id', $user->id)->first();
             $query->where(function ($q) use ($user, $mep) {
@@ -330,13 +336,13 @@ class ProjectController extends Controller
                        ->whereIn('status', ['invited', 'accepted', 'interviewing', 'recommended', 'active']);
                 });
             });
-            $query->latest();
+            $query->latest()->orderByDesc('id');
         } elseif (in_array($user->role_type, ['civil', 'mechanical', 'electrical', 'plumbing', 'roofing', 'finishing', 'general'])) {
             $query->whereHas('subProfessionals', function ($sq) use ($user) {
                 $sq->where('user_id', $user->id)
                    ->whereIn('status', ['invited', 'accepted', 'interviewing', 'recommended', 'active']);
             });
-            $query->latest();
+            $query->latest()->orderByDesc('id');
         } else {
             // General professionals or unknown roles: show nothing in "My projects" unless hired
             $query->whereRaw('1 = 0');
@@ -347,12 +353,12 @@ class ProjectController extends Controller
             // serialized N x (images + milestones + bid trees) through
             // ProjectResource. Cap hard; clients beyond this need the
             // paginated branch.
-            $projects = $query->latest()->limit(200)->get();
+            $projects = $query->latest()->orderByDesc('id')->limit(200)->get();
             $this->attachClientHistory($projects);
             return ProjectResource::collection($projects);
         }
 
-        $paginator = $query->latest()->paginate(50);
+        $paginator = $query->latest()->orderByDesc('id')->paginate(50);
         $this->attachClientHistory($paginator->getCollection());
         return ProjectResource::collection($paginator);
     }
@@ -373,6 +379,12 @@ class ProjectController extends Controller
         $data['bidding_choices'] = json_decode($request->bidding_choices, true) ?? [];
 
         $externalVendors = json_decode($request->external_vendors, true) ?? [];
+
+        // `external_vendors` is a FORM field, not a column on `projects`.
+        // The validated payload includes it, and `Project::create($data)` then
+        // raised MassAssignmentException -> 500 for every publish that sent the
+        // key (the SPA always does). The vendor rows are written separately below.
+        unset($data['external_vendors']);
 
         // Auto-publish the first non-management phase if PM is not wanted, 
         // or just management if PM is wanted.
@@ -1273,7 +1285,15 @@ class ProjectController extends Controller
             // 1. Log the current state as a snapshot before updating
             $this->negotiationService->logRound($bid, $validated, $validated['note'] ?? null);
 
-            $bid->update([
+            // NOT every bid model owns every proposal column. `selected_services`
+            // exists on BidNotaris only, and `proposed_team` is absent from
+            // BidNotaris, BidInterior and BidProjectManager. Writing a key the
+            // model does not fill raises MassAssignmentException -> HTTP 500, and
+            // because the two keys were written UNCONDITIONALLY this endpoint
+            // failed for every role (arsitek/kontraktor/structural/mep hit
+            // selected_services; notaris/interior/pm hit proposed_team). Strip
+            // the keys the model cannot fill rather than special-casing callers.
+            $updateData = [
                 'price' => $validated['price'],
                 'fee_type' => $validated['fee_type'] ?? $bid->fee_type ?? 'fixed',
                 'calculated_total' => $grandTotal,
@@ -1284,7 +1304,14 @@ class ProjectController extends Controller
                 'status' => 'negotiating',
                 'offered_by_id' => $user->id,
                 'negotiation_count' => ($bid->negotiation_count ?? 0) + 1,
-            ]);
+            ];
+            $updateData = array_filter(
+                $updateData,
+                fn ($value, $key) => $bid->isFillable($key),
+                ARRAY_FILTER_USE_BOTH,
+            );
+
+            $bid->update($updateData);
 
             \App\Models\ProjectActivityLog::create([
                 'project_id' => $project->id,
@@ -1811,9 +1838,13 @@ class ProjectController extends Controller
             }
 
             if ($project->status === 'in_progress' || $project->status === 'accepted_arsitek' || $project->status === 'accepted_kontraktor') {
+                // There is no `status` column on milestones (and never was --
+                // the lifecycle column is `approval_status`, already defaulted
+                // to 'pending'). Passing it relied on silent discarding in
+                // production while 500ing every development accept.
                 \App\Models\ProjectMilestone::firstOrCreate(
                     ['project_id' => $project->id, 'title' => 'Project Kickoff'],
-                    ['description' => 'Contract executed. The project is ready to begin.', 'status' => 'pending']
+                    ['description' => 'Contract executed. The project is ready to begin.']
                 );
             }
 
@@ -2287,22 +2318,22 @@ class ProjectController extends Controller
 
         if ($request->bid_type === 'arsitek') {
             $bid = \App\Models\BidArsitek::where('id', $request->bid_id)->where('project_id', $project->id)->whereIn('status', ['pending', 'shortlisted'])->firstOrFail();
-            $bid->update(['status' => 'rejected', 'rejection_reason' => $request->reason]);
+            $bid->update(['status' => 'rejected']);
         } elseif ($request->bid_type === 'kontraktor') {
             $bid = \App\Models\BidKontraktor::where('id', $request->bid_id)->where('project_id', $project->id)->whereIn('status', ['pending', 'shortlisted'])->firstOrFail();
-            $bid->update(['status' => 'rejected', 'rejection_reason' => $request->reason]);
+            $bid->update(['status' => 'rejected']);
         } elseif ($request->bid_type === 'notaris') {
             $bid = \App\Models\BidNotaris::where('id', $request->bid_id)->where('project_id', $project->id)->whereIn('status', ['pending', 'shortlisted'])->firstOrFail();
-            $bid->update(['status' => 'rejected', 'rejection_reason' => $request->reason]);
+            $bid->update(['status' => 'rejected']);
         } elseif ($request->bid_type === 'interior') {
             $bid = \App\Models\BidInterior::where('id', $request->bid_id)->where('project_id', $project->id)->whereIn('status', ['pending', 'shortlisted'])->firstOrFail();
-            $bid->update(['status' => 'rejected', 'rejection_reason' => $request->reason]);
+            $bid->update(['status' => 'rejected']);
         } elseif ($request->bid_type === 'structural') {
             $bid = \App\Models\BidStructural::where('id', $request->bid_id)->where('project_id', $project->id)->whereIn('status', ['pending', 'shortlisted'])->firstOrFail();
-            $bid->update(['status' => 'rejected', 'rejection_reason' => $request->reason]);
+            $bid->update(['status' => 'rejected']);
         } elseif ($request->bid_type === 'mep') {
             $bid = \App\Models\BidMep::where('id', $request->bid_id)->where('project_id', $project->id)->whereIn('status', ['pending', 'shortlisted'])->firstOrFail();
-            $bid->update(['status' => 'rejected', 'rejection_reason' => $request->reason]);
+            $bid->update(['status' => 'rejected']);
         }
 
         // Notify the rejected professional
@@ -2556,6 +2587,14 @@ class ProjectController extends Controller
         }
         if ($request->has('requires_mep')) {
             $data['requires_mep'] = filter_var($request->requires_mep, FILTER_VALIDATE_BOOLEAN);
+        }
+
+        // SECURITY: the non-owner strip above removed these three keys, but the
+        // `$request->has()` normalisation re-added them for EVERY caller — so a
+        // hired professional could still flip the owner's commercial flags.
+        // Re-apply the ownership rule after the last write to $data.
+        if (!$isOwner) {
+            unset($data['wants_project_manager'], $data['requires_structural'], $data['requires_mep']);
         }
 
         // `negotiated_fee` and `payment_instructions` are OWNER-ONLY here, and the
@@ -2964,6 +3003,7 @@ class ProjectController extends Controller
         ->whereIn('status', ['open', 'accepted_arsitek', 'accepted_kontraktor', 'procurement', 'in_progress'])
         ->select('id', 'title')
         ->latest()
+        ->orderByDesc('id')
         ->get();
 
         return response()->json(['data' => $projects]);
@@ -3274,7 +3314,7 @@ class ProjectController extends Controller
             return response()->json(['message' => 'You have already made an offer. Please wait for the other party to respond.'], 422);
         }
 
-        return DB::transaction(function () use ($bid, $project, $request, $user, $calculationService) {
+        return DB::transaction(function () use ($bid, $bidType, $project, $request, $user, $calculationService) {
             // Check negotiation limit
             if ($bid->negotiation_count >= 5) {
                 // B1: this is not a hard stop — confirmBidFee has no cap, so
@@ -3300,9 +3340,16 @@ class ProjectController extends Controller
                 }
             }
 
-            // Calculate team member fees total if any
+            // Calculate team member fees total if any.
+            //
+            // Only arsitek/kontraktor bids carry `proposed_team` (column +
+            // fillable). Reading it on any other bid raised
+            // MissingAttributeException under strict mode — so the negotiate
+            // success path 500'd for five of the seven roles in development
+            // (production read null and skipped the block, which is exactly
+            // what the guard below reproduces everywhere).
             $teamTotal = 0;
-            $proposedTeam = $bid->proposed_team;
+            $proposedTeam = isset($bid->proposed_team) ? $bid->proposed_team : null;
             if (is_string($proposedTeam)) {
                 $proposedTeam = json_decode($proposedTeam, true);
             }
@@ -3324,17 +3371,27 @@ class ProjectController extends Controller
                 return response()->json(['message' => 'Proposed fee must be greater than zero.'], 422);
             }
 
-            $bid->update([
+            // `selected_services` is a notaris-only catalogue (the only bid
+            // table with the column and the fillable). Writing it to any
+            // other bid raised MassAssignmentException, so the negotiate
+            // success path 500'd for six of the seven roles. Only the role
+            // that carries the catalogue persists it.
+            $updateData = [
                 'price' => $calc['price'],
                 'calculated_total' => $newCalculatedTotal,
-                'selected_services' => $services,
                 'unit_price' => $calc['unit_price'],
                 'quantity' => $calc['quantity'],
                 'status' => 'negotiating',
                 'offered_by_id' => $user->id,
                 'negotiation_count' => $bid->negotiation_count + 1,
                 'fee_agreed_at' => null, // Reset agreement if renegotiating
-            ]);
+            ];
+
+            if ($bidType === 'notaris') {
+                $updateData['selected_services'] = $services;
+            }
+
+            $bid->update($updateData);
 
             return response()->json([
                 'message' => 'Fee proposal submitted (' . $bid->negotiation_count . '/5).',
@@ -3982,7 +4039,7 @@ class ProjectController extends Controller
         }
 
         return DB::transaction(function () use ($bid) {
-            $bid->update(['status' => 'rejected', 'rejection_reason' => $request->reason]);
+            $bid->update(['status' => 'rejected']);
             return response()->json(['message' => 'Invitation rejected.', 'bid' => $bid]);
         });
     }

@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"database/sql"
 	"net/http"
 	"sort"
 	"strconv"
@@ -77,12 +78,29 @@ type ProjectFreezer interface {
 // the ones that say "not implemented yet".
 type Gates struct {
 	// Handlers are the routes this build actually serves, keyed by route id.
-	// A route absent from this map answers the stub.
+	// A route absent from this map answers the stub — or the proxy, when one
+	// is configured (see Proxy).
 	Handlers map[string]http.HandlerFunc
 
 	Auth    Authenticator
 	Limiter RateLimiter
 	Freezer ProjectFreezer
+
+	// MySQL is the identity owner store (ADR-0018). Handlers that read or
+	// write users, tokens or roles take it alongside the PG read mirror.
+	// MySQLWall reads with ETL semantics (raw walls, no TZ pin) for the
+	// targeted re-sync; MySQL is pinned to UTC for instant arithmetic.
+	MySQL     *sql.DB
+	MySQLWall *sql.DB
+
+	// Proxy forwards unported routes to the Laravel application.
+	//
+	// When nil (the development and test default) an unported route answers
+	// the 501 stub. When set (production, `LARAVEL_ORIGIN`), an unported
+	// route is proxied to Laravel byte for byte, and the stub is never
+	// reached. A PORTED route is always served by its handler, never
+	// proxied — the handler is the cutover.
+	Proxy *Proxy
 }
 
 // Unimplemented reports which gates are not enforced.
@@ -235,8 +253,21 @@ func (g Gates) requireRate(limit int, window time.Duration) func(http.Handler) h
 			allowed, retryAfter := g.Limiter.Allow(r, limit, window)
 			if !allowed {
 				w.Header().Set("Retry-After", strconv.Itoa(int(retryAfter.Seconds())))
+				w.Header().Set("X-RateLimit-Limit", strconv.Itoa(limit))
+				w.Header().Set("X-RateLimit-Remaining", "0")
 				message(w, http.StatusTooManyRequests, "Too Many Attempts.")
 				return
+			}
+
+			// The remaining count, for observability. The shadow comparator
+			// only checks status, content-type and body, so these headers do
+			// not affect parity — but a client that cannot see its budget
+			// cannot back off, and Laravel emits them.
+			if remaining, ok := g.Limiter.(interface {
+				Remaining(*http.Request, int, time.Duration) int
+			}); ok {
+				w.Header().Set("X-RateLimit-Limit", strconv.Itoa(limit))
+				w.Header().Set("X-RateLimit-Remaining", strconv.Itoa(remaining.Remaining(r, limit, window)))
 			}
 
 			next.ServeHTTP(w, r)

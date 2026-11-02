@@ -10,11 +10,11 @@ import { HelpShell } from '@/components/docs/HelpShell';
  * the selection in `useState`, so the URL never changes and the back button
  * leaves the page.
  *
- * A signed-in visitor gets the same PUBLIC layout for now. The legacy switches
- * to the dashboard shell (sidebar + header) when a user is present, and those
- * two components are part of the dashboard port, which is not done yet. The
- * difference is visible and deliberate rather than silent: it disappears when
- * the shell lands.
+ * THE HELP CENTRE KEEPS THE PUBLIC SHELL for signed-in visitors. The legacy
+ * swaps in the dashboard sidebar + header here; the port renders the public
+ * navbar instead because the dashboard chrome is tab-scoped (its header needs
+ * the tab, counts and inbox) and the help centre is not a dashboard tab. The
+ * content is identical either way, and `Navbar authed` keeps the account menu.
  */
 export default async function HelpPage({
     searchParams,

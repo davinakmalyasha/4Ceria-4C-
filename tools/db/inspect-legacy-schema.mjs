@@ -391,9 +391,9 @@ const REWRITE_ENUMS = [
   },
   {
     name: 'payment_termin_status',
-    values: ['locked', 'pending', 'invoice_sent', 'verifying', 'accepted', 'paid', 'void'],
+    values: ['locked', 'pending', 'invoice_sent', 'verifying', 'accepted', 'paid', 'void', 'refunded'],
     provenance:
-      'project_payment_termins.status. MONEY.md §10.2 draws the state machine; the values are confirmed by ProjectPaymentTerminController (in:locked,pending,invoice_sent), ProjectTerminationController (out:void) and PaymentVerificationService (verifying, paid).',
+      'project_payment_termins.status. MONEY.md §10.2 draws the state machine; the values are confirmed by ProjectPaymentTerminController (in:locked,pending,invoice_sent), ProjectTerminationController (out:void), PaymentVerificationService (verifying, paid) and DisputeService::adminAction(record_refund) (refunded, appended by 0012).',
     replaces: 'project_payment_termins.status (VARCHAR(255), unconstrained — the most money-critical state machine in the app).',
   },
   {
@@ -423,9 +423,9 @@ const REWRITE_ENUMS = [
   },
   {
     name: 'dispute_resolution',
-    values: ['dismiss', 'release_payment', 'record_refund', 'terminate_project', 'custom'],
+    values: ['dismiss', 'release_payment', 'record_refund', 'terminate_project', 'custom', 'withdrawn'],
     provenance:
-      'project_disputes.resolution. The five admin arbitration actions (AdminDisputeController:96-127).',
+      'project_disputes.resolution. The five admin arbitration actions (AdminDisputeController:96-127) plus withdrawn, which DisputeService::withdraw() writes (appended by 0010).',
     replaces: 'project_disputes.resolution (VARCHAR(30)).',
   },
 ];
@@ -983,8 +983,9 @@ export const COLUMN_EQUIVALENCES = {
   'bid_negotiation_logs.bid_type': ['bid_type_id'],
   'project_disputes.payment_type': ['payment_type_id'],
   // MySQL column names are case-insensitive; PostgreSQL folds unquoted
-  // identifiers to lower case. The column is renamed rather than quoted.
-  'users.Deskripsi': ['deskripsi'],
+  // identifiers to lower case. The baseline migration QUOTES the identifier
+  // (0014_users_deskripsi_case.sql), so the exact-case name is the target.
+  'users.Deskripsi': ['Deskripsi'],
 };
 
 /**

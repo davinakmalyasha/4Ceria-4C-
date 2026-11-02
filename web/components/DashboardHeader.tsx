@@ -3,9 +3,10 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { ChevronDown, Heart, HelpCircle, LogOut, Menu, MessageSquare, ShieldCheck, User } from 'lucide-react';
-import NotificationsDropdown from '@/content/components/NotificationsDropdown';
-import { HeaderDropdown } from '@/content/components/Dashboard/HeaderDropdown';
-import { getNavItems, type NavItem } from '@/content/components/Dashboard/navConfig';
+import { NotificationsDropdown, type NotificationRow } from '@/components/header/NotificationsDropdown';
+import { HeaderDropdown } from '@/components/header/HeaderDropdown';
+import { getNavItems, type NavItem } from '@/components/header/nav';
+import { resolveAsset } from '@/lib/assetUrl';
 import { useAuth } from '@/context/AuthContext';
 
 /**
@@ -29,11 +30,17 @@ export function DashboardHeader({
     setActiveTab,
     onMenuClick,
     counts,
+    notifications,
+    unreadNotifications,
+    storageBase,
 }: {
     activeTab: string;
     setActiveTab: (tab: string) => void;
     onMenuClick: () => void;
     counts?: Record<string, number>;
+    notifications: NotificationRow[];
+    unreadNotifications: number;
+    storageBase: string;
 }) {
     const { user, logout } = useAuth();
     const [profileOpen, setProfileOpen] = useState(false);
@@ -161,7 +168,11 @@ export function DashboardHeader({
             <div className="flex items-center gap-2.5 shrink-0">
                 {user ? (
                     <>
-                        <NotificationsDropdown />
+                        <NotificationsDropdown
+                            notifications={notifications}
+                            unreadCount={unreadNotifications}
+                            setActiveTab={setActiveTab}
+                        />
 
                         <div className="relative" ref={profileRef}>
                             <button
@@ -172,7 +183,7 @@ export function DashboardHeader({
                                 <div className="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center shadow-md">
                                     {user.pic ? (
                                         /* eslint-disable-next-line @next/next/no-img-element */
-                                        <img src={user.pic} className="w-full h-full object-cover" alt="Profile" />
+                                        <img src={resolveAsset(storageBase, user.pic) ?? ''} className="w-full h-full object-cover" alt="Profile" />
                                     ) : (
                                         <div className="w-full h-full bg-linear-to-tr from-[#FF2D20] to-[#FF2D20]/90 flex items-center justify-center text-white font-black text-xs shadow-red-200">
                                             {user.name?.charAt(0).toUpperCase()}
@@ -189,7 +200,7 @@ export function DashboardHeader({
                                         <div className="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center shadow-md shrink-0">
                                             {user.pic ? (
                                                 /* eslint-disable-next-line @next/next/no-img-element */
-                                                <img src={user.pic} className="w-full h-full object-cover" alt="Profile" />
+                                                <img src={resolveAsset(storageBase, user.pic) ?? ''} className="w-full h-full object-cover" alt="Profile" />
                                             ) : (
                                                 <div className="w-full h-full bg-linear-to-tr from-[#FF2D20] to-[#FF2D20]/90 flex items-center justify-center text-white font-black text-xs shadow-red-200">
                                                     {user.name?.charAt(0).toUpperCase()}

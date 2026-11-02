@@ -320,6 +320,12 @@ class ProjectMilestoneController extends Controller
         return DB::transaction(function () use ($milestone, $validated, $project, $request, $canFinalApprove) {
             $updateData = $validated;
 
+            // `gallery` is the UPLOAD array, not a column: `gallery` is not in
+            // ProjectMilestone::$fillable, so leaving it in the update payload
+            // raised MassAssignmentException and every gallery upload 500'd.
+            // The files are merged into `content` below instead.
+            unset($updateData['gallery']);
+
             // SECURITY: professionals may track their own progress (in_progress /
             // revision) but can NEVER self-approve — approval unlocks payments.
             if (!$canFinalApprove) {

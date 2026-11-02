@@ -54,7 +54,12 @@ export async function apiFetch<T>(
     headers.set('X-Requested-With', 'XMLHttpRequest');
 
     if (init.body !== undefined && !headers.has('Content-Type')) {
-        headers.set('Content-Type', 'application/json');
+        // A FormData body carries its own multipart boundary; setting the JSON
+        // content type here would strip the boundary and break uploads.
+        const isFormData = typeof FormData !== 'undefined' && init.body instanceof FormData;
+        if (!isFormData) {
+            headers.set('Content-Type', 'application/json');
+        }
     }
 
     const token = await sessionToken();

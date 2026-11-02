@@ -13,7 +13,7 @@
         "headers": {
             "content-type": "application/json"
         },
-        "body_raw": "{\"data\":[{\"id\":14976,\"title\":\"Demo: Two-storey house - design and build open for bids\"},{\"id\":14977,\"title\":\"Demo: Notarisation and land documents, BSD pending\"},{\"id\":900009001,\"title\":\"Contract Capture Project\"},{\"id\":900009002,\"title\":\"Contract Capture Other Project\"}]}"
+        "body_raw": "{\"data\":[{\"id\":900009001,\"title\":\"Contract Capture Project\"}]}"
     },
     "side_effects": {
         "rows": []
@@ -23,7 +23,7 @@
         "action": "App\\Http\\Controllers\\Api\\ProjectController@getActiveProjects",
         "fixture_version": 1,
         "normaliser_version": 1,
-        "laravel_commit": "4b610b7",
+        "laravel_commit": "a31b52c",
         "ids": {
             "addendum": 900018001,
             "admin": 900000003,

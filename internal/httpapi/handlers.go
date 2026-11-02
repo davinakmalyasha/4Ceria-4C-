@@ -362,7 +362,7 @@ func ActiveProjectsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			  FROM projects p
 			 WHERE p.status IN ('open', 'accepted_arsitek', 'accepted_kontraktor', 'procurement', 'in_progress')
 			   AND (` + strings.Join(where, " OR ") + `)
-			 ORDER BY p.created_at DESC
+			 ORDER BY p.created_at DESC, p.id DESC
 		`
 
 		rows, err := pool.Query(ctx, query, args...)

@@ -129,7 +129,7 @@ class BidProjectManagerController extends Controller
                 'bidsKontraktor.kontraktor.user.phoneNumber',
                 'bidsNotaris.notaris.user.phoneNumber',
                 'bidsInterior.interior.user.phoneNumber',
-                'bidsProjectManager.pm.user',
+                'bidsProjectManager.pm.user.phoneNumber',
                 'images',
                 'milestones',
                 'user',
@@ -188,9 +188,16 @@ class BidProjectManagerController extends Controller
                 return response()->json(['message' => 'You must shortlist or negotiate with this professional first before hiring.'], 422);
             }
 
-            // Standardize: pm_id in projects table references users.id
+            // `projects.pm_id` holds the PM's PROFILE id — the same value
+            // `bids_project_manager.pm_id` holds and the same space
+            // `Hire::isAssignedPm` compares against. This used to write the
+            // bid's USER id (the comment even claimed that was the standard),
+            // so a PM hired through this endpoint was never recognised as the
+            // assigned PM by any Hire-gated route — and PostgreSQL's
+            // `projects_pm_id_fkey` rejected the row outright.
             $bid->loadMissing('pm.user');
-            $pmUserId = $bid->pm->user_id;            $project->update(['pm_id' => $pmUserId]);
+            $pmUserId = $bid->pm->user_id;
+            $project->update(['pm_id' => $bid->pm_id]);
             
             $bid->update([
                 'status' => 'contract_pending',
@@ -233,7 +240,7 @@ class BidProjectManagerController extends Controller
                 'bidsKontraktor.kontraktor.user.phoneNumber',
                 'bidsNotaris.notaris.user.phoneNumber',
                 'bidsInterior.interior.user.phoneNumber',
-                'bidsProjectManager.pm.user',
+                'bidsProjectManager.pm.user.phoneNumber',
                 'images',
                 'milestones',
                 'user',
@@ -278,7 +285,7 @@ class BidProjectManagerController extends Controller
                 'bidsKontraktor.kontraktor.user.phoneNumber',
                 'bidsNotaris.notaris.user.phoneNumber',
                 'bidsInterior.interior.user.phoneNumber',
-                'bidsProjectManager.pm.user',
+                'bidsProjectManager.pm.user.phoneNumber',
                 'images',
                 'milestones',
                 'user',

@@ -1,0 +1,23 @@
+-- =============================================================================
+-- 0012 — The refunded termin state.
+--
+-- WHY THIS FILE EXISTS
+-- --------------------
+-- `DisputeService::adminAction()` with `record_refund` flips a FULLY refunded
+-- payment to its terminal state. Bids carry a dedicated `payment_status`
+-- column, so they flip that; everything else flips `status` — including
+-- payment termins, whose `status` is the `payment_termin_status` ENUM.
+--
+-- That ENUM has no `refunded` member, so resolving a termin refund in full
+-- raises `invalid input value for enum payment_termin_status` (SQLSTATE
+-- 22P02) and rolls the whole arbitration back: the reversal row, the
+-- mirror, the dispute close, the log. The sibling states already went
+-- through this: `project_addendums_status` gained `refunded` in 0009, and
+-- `material_orders_status` was born with it. The termin ENUM is the last
+-- one missing the terminal its own service writes.
+--
+-- Append-only `ALTER TYPE ... ADD VALUE` (see 0009 and trap #9); its own
+-- file so 0004 stays byte-stable.
+-- =============================================================================
+
+ALTER TYPE payment_termin_status ADD VALUE IF NOT EXISTS 'refunded';

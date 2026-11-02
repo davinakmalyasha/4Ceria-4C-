@@ -73,6 +73,14 @@ class AdminUserController extends Controller
             'role_type' => 'required|in:user,arsitek,kontraktor,admin,notaris,interior,structural,mep,project_manager,supplier,logistics,civil,mechanical,electrical,plumbing,roofing,finishing'
         ]);
 
+        // DEFECT: the validated list includes `supplier` and `logistics`, but
+        // the Spatie catalogue seeded only the professional roles. `syncRoles()`
+        // threw "There is no role named `supplier`", so two options the admin
+        // dropdown offers answered 500. Find-or-create with the SAME guard the
+        // assignment resolves against makes every accepted role_type assignable.
+        $guard = \Spatie\Permission\Guard::getDefaultName($user);
+        \Spatie\Permission\Models\Role::findOrCreate($validated['role_type'], $guard);
+
         $user->syncRoles([$validated['role_type']]);
         $user->update(['role_type' => $validated['role_type']]);
 

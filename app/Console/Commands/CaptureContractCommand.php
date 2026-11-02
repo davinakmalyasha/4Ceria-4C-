@@ -380,7 +380,7 @@ class CaptureContractCommand extends Command
             if ($check) {
                 $existing = is_file($target) ? (string) file_get_contents($target) : null;
 
-                if ($existing !== $encoded) {
+                if ($existing === null || ! $this->contractsMatch($existing, $encoded)) {
                     $drift[] = $route['id'];
                 }
 
@@ -616,6 +616,30 @@ class CaptureContractCommand extends Command
         }
 
         return $uri;
+    }
+
+    /**
+     * Do two golden files agree, ignoring provenance?
+     *
+     * `meta.laravel_commit` records which commit produced the file, not what
+     * the application answered. Comparing it byte-for-byte meant the check
+     * failed on all 296 endpoints after every commit — a gate that can only
+     * pass on the commit that generated it. Everything else (request, status,
+     * headers, normalised body, side-effect rows, fixture ids and versions)
+     * is compared exactly.
+     */
+    private function contractsMatch(string $existing, string $fresh): bool
+    {
+        $a = json_decode($existing, true);
+        $b = json_decode($fresh, true);
+
+        if (! is_array($a) || ! is_array($b)) {
+            return $existing === $fresh;
+        }
+
+        unset($a['meta']['laravel_commit'], $b['meta']['laravel_commit']);
+
+        return $a === $b;
     }
 
     /**

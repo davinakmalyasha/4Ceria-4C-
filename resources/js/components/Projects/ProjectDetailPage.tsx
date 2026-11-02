@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
     ArrowLeft, DollarSign, MapPin, Calendar, 
@@ -39,10 +39,30 @@ interface ProjectDetailPageProps {
     onOpenChat?: (user: any) => void;
     onViewProfile?: (pro: any, phaseKey: 'design' | 'build' | 'legal' | 'interior') => void;
     isProjectDetailLoading?: boolean;
+    /**
+     * The tab the URL names, when the host can address one. `/projects/<id>/<tab>`
+     * passes it on every render; the legacy dashboard does not pass it and keeps
+     * its local state as before.
+     */
+    initialTab?: TabId;
+    /** Notified when the user picks a tab, so a routable host can update the URL. */
+    onTabChange?: (tab: TabId) => void;
 }
 
-export default function ProjectDetailPage({ project: projectProp, user, onBack, onRefresh, onOpenChat, onViewProfile, isProjectDetailLoading }: ProjectDetailPageProps) {
-    const [activeTab, setActiveTab] = useState<TabId>('overview');
+export default function ProjectDetailPage({ project: projectProp, user, onBack, onRefresh, onOpenChat, onViewProfile, isProjectDetailLoading, initialTab, onTabChange }: ProjectDetailPageProps) {
+    const [activeTab, setActiveTabState] = useState<TabId>(initialTab ?? 'overview');
+    const setActiveTab = useCallback((tab: TabId) => {
+        setActiveTabState(tab);
+        onTabChange?.(tab);
+    }, [onTabChange]);
+
+    // Browser back/forward (or a direct link) changes `initialTab`; the local
+    // state must follow it or the URL and the panel disagree.
+    useEffect(() => {
+        if (initialTab && initialTab !== activeTab) {
+            setActiveTabState(initialTab);
+        }
+    }, [initialTab, activeTab]);
     const { tabData, loadingStates, fetchTab } = useProjectTabsData(projectProp?.id || null);
 
     const project = useMemo(() => {

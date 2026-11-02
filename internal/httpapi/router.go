@@ -52,11 +52,18 @@ func NewRouter(manifest *Manifest, gates Gates) *Router {
 	// an unmatched API path with a JSON body, for the reason in the comment
 	// on the catch-all below.
 	for _, entry := range manifest.MethodURIs() {
-		// A route with a HANDLER is served; everything else answers the stub
-		// with the route's identity, so the port's progress is measurable from
-		// the route table itself rather than from a comment.
+		// A route with a HANDLER is served; a route without one is PROXIED
+		// to Laravel when a proxy is configured, and answers the stub
+		// otherwise. A ported route is never proxied: the handler IS the
+		// cutover, and proxying it would serve the old stack's answer while
+		// reporting the new stack as authoritative.
 		if handler, ok := gates.Handlers[entry.Route.ID]; ok {
 			mux.Handle(entry.Method+" "+entry.Pattern(), router.wrap(entry, handler))
+			continue
+		}
+
+		if gates.Proxy != nil {
+			mux.Handle(entry.Method+" "+entry.Pattern(), gates.Proxy.Handler())
 			continue
 		}
 
@@ -198,6 +205,14 @@ func (r *Router) internalRoutes(w http.ResponseWriter, req *http.Request) {
 			methods = append(methods, method)
 		}
 		entry.Set("methods", methods)
+
+		// The cutover state: which stack serves this route, and whether
+		// this gateway build serves it directly. The parity gate ignores
+		// these fields (it compares the route SET), and the cutover
+		// runbook reads them.
+		entry.Set("upstream", route.Upstream)
+		_, served := r.gates.Handlers[route.ID]
+		entry.Set("served", served)
 
 		list = append(list, entry)
 	}

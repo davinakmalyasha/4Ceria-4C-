@@ -103,9 +103,16 @@ class ProjectAddendumController extends Controller
                 $project->touch();
             }
 
-            // Special handling for procurement addendums
+            // Special handling for procurement addendums.
+            //
+            // The status column is an ENUM (`pending_pm`, `pending_owner`,
+            // `authorized`, `rejected`) and `approved` is NOT a member: the
+            // old write raised a strict-mode enum error (500) on every
+            // approval of a procurement-linked addendum. The terminal state
+            // this flow means is the same one `markPaid` writes when the
+            // owner pays the procurement addendum.
             if ($addendum->procurement_request_id) {
-                $addendum->procurementRequest()->update(['status' => 'approved']);
+                $addendum->procurementRequest()->update(['status' => 'authorized']);
             }
 
             // Notification

@@ -1,0 +1,27 @@
+-- =============================================================================
+-- 0010 — The withdrawn dispute resolution.
+--
+-- WHY THIS FILE EXISTS
+-- --------------------
+-- `DisputeService::withdraw()` closes a dispute with `resolution` and
+-- `status` both set to `'withdrawn'`. The MySQL column is a free `varchar`,
+-- and `project_disputes.status` in PostgreSQL already has the value
+-- (`dispute_status` carries 'withdrawn'), but `dispute_resolution` — the
+-- ENUM for the `resolution` column — was declared with only the five
+-- `ADMIN_ACTIONS` values and omitted it.
+--
+-- The Go port found it the way ports find these things: by writing the row.
+-- `UPDATE project_disputes SET resolution = 'withdrawn'` raises
+-- `invalid input value for enum dispute_resolution` (SQLSTATE 22P02), and
+-- because the withdrawal runs in a transaction, the rejection takes the
+-- activity log and the touch with it.
+--
+-- WHY A SEPARATE FILE
+-- -------------------
+-- `ALTER TYPE ... ADD VALUE` appends a catalogue label; it does not rebuild
+-- the type or rewrite any row (see 0009 for the full argument, and AGENTS.md
+-- trap #9 for what NOT to do instead). Kept in its own file so 0004 stays
+-- byte-stable.
+-- =============================================================================
+
+ALTER TYPE dispute_resolution ADD VALUE IF NOT EXISTS 'withdrawn';

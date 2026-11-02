@@ -53,7 +53,7 @@
                     "op": "insert",
                     "row": {
                         "id": "<id:assigned>",
-                        "user_id": 900004001,
+                        "user_id": 900000007,
                         "type": "dispute_reply",
                         "title": "New Dispute Message",
                         "body": "Contract Capture Admin replied on dispute \"A Fixture Dispute\" (Contract Capture Project).",
@@ -183,7 +183,7 @@
         "action": "App\\Http\\Controllers\\Api\\Admin\\AdminDisputeController@reply",
         "fixture_version": 1,
         "normaliser_version": 1,
-        "laravel_commit": "4b610b7",
+        "laravel_commit": "a31b52c",
         "ids": {
             "addendum": 900018001,
             "admin": 900000003,

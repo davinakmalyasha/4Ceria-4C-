@@ -51,6 +51,14 @@ class ProjectRequirementController extends Controller
             $imagePath = $request->file('image')->store('requirements', \App\Support\Vault::disk());
         }
 
+        // The validated payload carries the UploadedFile object under
+        // 'image', which is neither fillable nor a column — passing it
+        // to create() raised MassAssignmentException on EVERY image
+        // upload (strict mode 500; production throws the same way, so
+        // the upload path was simply dead). The stored path travels
+        // under 'image_path' instead.
+        unset($validated['image']);
+
         $requirement = $project->requirements()->create(array_merge($validated, [
             'user_id' => $user->id,
             'image_path' => $imagePath,
@@ -101,6 +109,10 @@ class ProjectRequirementController extends Controller
         if ($request->hasFile('image')) {
             $validated['image_path'] = $request->file('image')->store('requirements', \App\Support\Vault::disk());
         }
+
+        // Same trap as store(): the UploadedFile under 'image' is
+        // neither fillable nor a column.
+        unset($validated['image']);
 
         $oldFolderId = $requirement->folder_id;
         $oldBomType = $requirement->bom_type;

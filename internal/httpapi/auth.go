@@ -2,13 +2,11 @@ package httpapi
 
 import (
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
 	"errors"
 	"net/http"
 	"strings"
-
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // ErrUnauthenticated is returned when a token is missing, malformed, unknown or
@@ -35,16 +33,18 @@ func (s Session) IsAdmin() bool { return s.IsAdmin_ }
 // what arrived and compares hashes. Getting that wrong (looking up the plain
 // value) would simply never match, which is the safe way to be wrong.
 //
-// It reads the same `personal_access_tokens` table the legacy application
-// writes, which is why the ETL copies it: the two applications share the
-// session, so a token minted by either is valid for both.
+// It reads the MySQL `personal_access_tokens` table the legacy application
+// writes — the same table, not a copy. ADR-0018 keeps `users` and tokens
+// MySQL-owned for the entire transition, so the Go service authenticates
+// against MySQL read-only: a token minted by either application is valid in
+// both the instant it is written, with no ETL lag in between.
 type Sanctum struct {
-	pool *pgxpool.Pool
+	db *sql.DB
 }
 
-// NewSanctum builds the authenticator over a PostgreSQL pool.
-func NewSanctum(pool *pgxpool.Pool) *Sanctum {
-	return &Sanctum{pool: pool}
+// NewSanctum builds the authenticator over the MySQL owner store.
+func NewSanctum(db *sql.DB) *Sanctum {
+	return &Sanctum{db: db}
 }
 
 // Authenticate resolves the caller from the request's bearer token.
@@ -75,21 +75,21 @@ func (s *Sanctum) Authenticate(r *http.Request) (Caller, error) {
 	var (
 		userID    int64
 		role      string
-		suspended bool
+		suspended int64
 	)
 
-	err := s.pool.QueryRow(r.Context(), `
+	err := s.db.QueryRowContext(r.Context(), `
 		SELECT t.tokenable_id,
-		       COALESCE(u.role_type::text, ''),
-		       COALESCE(u.is_suspended, false)
+		       COALESCE(u.role_type, ''),
+		       COALESCE(u.is_suspended, 0)
 		  FROM personal_access_tokens t
 		  JOIN users u ON u.id = t.tokenable_id
-		 WHERE t.id = $1
-		   AND t.token = $2
-		   AND (t.expires_at IS NULL OR t.expires_at > now())
+		 WHERE t.id = ?
+		   AND t.token = ?
+		   AND (t.expires_at IS NULL OR t.expires_at > NOW())
 	`, id, hex.EncodeToString(sum[:])).Scan(&userID, &role, &suspended)
 
-	if errors.Is(err, pgx.ErrNoRows) {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrUnauthenticated
 	}
 
@@ -97,7 +97,7 @@ func (s *Sanctum) Authenticate(r *http.Request) (Caller, error) {
 		return nil, err
 	}
 
-	if suspended {
+	if suspended != 0 {
 		return nil, ErrUnauthenticated
 	}
 

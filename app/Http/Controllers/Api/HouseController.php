@@ -100,7 +100,8 @@ class HouseController extends Controller
             return HouseResource::collection($query->paginate($perPage));
         }
 
-        $cacheKey = 'houses_list_' . md5(json_encode($filters) . "|{$perPage}");
+        $cacheKey = 'houses_list_v' . (int) \Illuminate\Support\Facades\Cache::get('houses_list_version', 1)
+            . '_' . md5(json_encode($filters) . "|{$perPage}");
         $supportsTags = in_array(config('cache.default'), ['redis', 'memcached']);
         
         $houses = $supportsTags
@@ -136,7 +137,19 @@ class HouseController extends Controller
             $validated['id_user'] = Auth::id();
             $validated['coordinate'] = ($validated['lat'] ?? null).', '.($validated['lng'] ?? null);
 
+            // `lat`/`lng` are REQUEST fields, not columns: passing them to
+            // `create()` throws MassAssignmentException under
+            // `Model::shouldBeStrict()` (and is silently discarded in
+            // production), so every listing creation answered 500 locally.
+            // They are folded into `coordinate` above and dropped here.
+            unset($validated['lat'], $validated['lng']);
+
             $house = House::create($validated);
+
+            // Reload so the created payload carries the DB defaults (`views`)
+            // and the decimal scale of `width`/`length`, exactly like a
+            // subsequent read of the same row.
+            $house->refresh();
 
             // Handle initial rooms and their photos if provided
             if ($request->has('rooms')) {
@@ -191,12 +204,7 @@ class HouseController extends Controller
                 }
             }
 
-            $supportsTags = in_array(config('cache.default'), ['redis', 'memcached']);
-            if ($supportsTags) {
-        TaggedCache::flush('houses');
-
-
-            }
+            $this->invalidateListCache();
 
             return new HouseResource($house->load(['housePic', 'room', 'room.roomPic']));
         } catch (\Throwable $e) {
@@ -241,11 +249,26 @@ class HouseController extends Controller
             $validated['coordinate'] = ($validated['lat'] ?? null).', '.($validated['lng'] ?? null);
         }
 
+        // See store(): `lat`/`lng` are request fields, not columns.
+        //
+        // `rooms`, `house_pics` and `deleted_house_pics` are RELATIONSHIP /
+        // side-effect fields too. `validated()` includes them, and passing them
+        // to `$house->update()` raised MassAssignmentException — so any edit
+        // that carried the gallery (the legacy modal always does) answered 500.
+        unset(
+            $validated['lat'],
+            $validated['lng'],
+            $validated['rooms'],
+            $validated['house_pics'],
+            $validated['deleted_house_pics'],
+        );
+
         if (isset($validated['price'])) {
             $validated['price'] = str_replace('.', '', $validated['price'] ?? null);
         }
 
         $house->update($validated);
+        $house->refresh();
 
         // Handle rooms during update
         if ($request->has('rooms')) {
@@ -337,12 +360,7 @@ class HouseController extends Controller
             }
         }
 
-        $supportsTags = in_array(config('cache.default'), ['redis', 'memcached']);
-        if ($supportsTags) {
-        TaggedCache::flush('houses');
-
-
-        }
+        $this->invalidateListCache();
 
         return new HouseResource($house->load(['housePic', 'room', 'room.roomPic']));
     }
@@ -356,13 +374,30 @@ class HouseController extends Controller
         // Ideally, extracting file deletion to an independent Action/Service class goes here.
         $house->delete();
 
-        $supportsTags = in_array(config('cache.default'), ['redis', 'memcached']);
-        if ($supportsTags) {
-        TaggedCache::flush('houses');
-
-
-        }
+        $this->invalidateListCache();
 
         return response()->json(['message' => 'House deleted successfully']);
+    }
+
+    /**
+     * Invalidate the public listings cache after ANY house mutation.
+     *
+     * `HouseController@index` caches the public list for ten minutes keyed by
+     * the filter hash. The tag flush only works on redis/memcached; under the
+     * `file`/`array` drivers the guard used to skip invalidation entirely, so
+     * a freshly posted (or deleted) house stayed invisible — and the owner's
+     * "My Properties" screen, which filtered the same cached list, showed a
+     * listing it had just created only after the TTL. The version segment in
+     * the cache key makes the invalidation real on every driver: old entries
+     * are simply never read again and expire on their own.
+     */
+    private function invalidateListCache(): void
+    {
+        $version = (int) \Illuminate\Support\Facades\Cache::get('houses_list_version', 1);
+        \Illuminate\Support\Facades\Cache::forever('houses_list_version', $version + 1);
+
+        if (in_array(config('cache.default'), ['redis', 'memcached'], true)) {
+            TaggedCache::flush('houses');
+        }
     }
 }

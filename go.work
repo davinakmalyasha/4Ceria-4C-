@@ -31,6 +31,6 @@
 // `go.work` is checked in deliberately. It is not a local artefact: without
 // it, `go build` at the root fails for every developer and in CI.
 
-go 1.27.2
+go 1.27.3
 
 use .

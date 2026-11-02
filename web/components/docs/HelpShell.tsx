@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Menu, Search } from 'lucide-react';
 import Navbar from '@/components/Navbar';
-import { allDocArticles, type DocArticle } from '@/content/constants/docsData';
+import { allDocArticles, type DocArticle } from './data';
 import { DocsArticle, slugify } from './DocsArticle';
 import { DocsSidebar } from './DocsSidebar';
 

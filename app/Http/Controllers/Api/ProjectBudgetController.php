@@ -276,8 +276,8 @@ class ProjectBudgetController extends Controller
             $map = [
                 'bid_arsitek' => [\App\Models\BidArsitek::class, 'arsitek_id', 'arsitek'],
                 'bid_kontraktor' => [\App\Models\BidKontraktor::class, 'kontraktor_id', 'kontraktor'],
-                'bid_notaris' => [\App\Models\BidNotaris::class, 'notaris_id', 'notaris_profile'],
-                'bid_interior' => [\App\Models\BidInterior::class, 'interior_id', 'interior_profile'],
+                'bid_notaris' => [\App\Models\BidNotaris::class, 'notaris_id', 'notaris'],
+                'bid_interior' => [\App\Models\BidInterior::class, 'interior_id', 'interior'],
                 'bid_project_manager' => [\App\Models\BidProjectManager::class, 'pm_id', 'pm'],
                 'bid_structural' => [\App\Models\BidStructural::class, 'structural_engineer_id', 'structuralEngineer'],
                 'bid_mep' => [\App\Models\BidMep::class, 'mep_engineer_id', 'mepEngineer'],

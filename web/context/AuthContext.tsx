@@ -1,6 +1,7 @@
 'use client';
 
-import { createContext, useContext, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, type ReactNode } from 'react';
+import { useRouter } from 'next/navigation';
 import { signOut } from '@/lib/actions';
 
 /**
@@ -83,17 +84,30 @@ type AuthValue = {
     user: SessionUser | null;
     isLoading: false;
     logout: () => void;
+    /**
+     * The synced edit forms call `refreshUser()` after a successful save. The
+     * server owns the session here, so the honest equivalent is a route
+     * refresh: it re-runs the page's `/me` fetch and streams the updated user
+     * back into this provider. Without it the forms threw after saving.
+     */
+    refreshUser: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthValue | null>(null);
 
 export function AuthProvider({ user, children }: { user: SessionUser | null; children: ReactNode }) {
+    const router = useRouter();
+    const refreshUser = useCallback(async () => {
+        router.refresh();
+    }, [router]);
+
     const value: AuthValue = {
         user,
         isLoading: false,
         logout: () => {
             void signOut();
         },
+        refreshUser,
     };
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

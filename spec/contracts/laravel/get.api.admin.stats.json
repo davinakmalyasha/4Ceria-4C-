@@ -13,7 +13,7 @@
         "headers": {
             "content-type": "application/json"
         },
-        "body_raw": "{\"total_users\":34,\"total_houses\":1,\"total_projects\":10,\"pending_verifications\":0,\"active_projects\":5,\"role_distribution\":{\"client\":8,\"arsitek\":2,\"kontraktor\":2,\"supplier\":1,\"notaris\":2,\"interior\":1,\"project_manager\":3}}"
+        "body_raw": "{\"total_users\":34,\"total_houses\":1,\"total_projects\":10,\"pending_verifications\":0,\"active_projects\":6,\"role_distribution\":{\"client\":8,\"arsitek\":2,\"kontraktor\":2,\"supplier\":1,\"notaris\":2,\"interior\":1,\"project_manager\":3}}"
     },
     "side_effects": {
         "rows": []
@@ -23,7 +23,7 @@
         "action": "App\\Http\\Controllers\\Api\\Admin\\AdminDashboardController@stats",
         "fixture_version": 1,
         "normaliser_version": 1,
-        "laravel_commit": "4b610b7",
+        "laravel_commit": "a31b52c",
         "ids": {
             "addendum": 900018001,
             "admin": 900000003,

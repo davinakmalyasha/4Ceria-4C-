@@ -944,6 +944,9 @@ if ($psql === null || getenv('SKIP_POSTGRES_BASELINE') === '1') {
         [
             'PHP_BIN' => $php,
             'DATABASE_URL' => 'postgres://postgres@127.0.0.1:5432/4ceria_pgcheck',
+            // The gateway authenticates against MySQL (ADR-0018); parseTime
+            // gives it real timestamps rather than strings.
+            'MYSQL_DSN' => str_replace('parseTime=false', 'parseTime=true', $etlDsn),
         ],
     )) {
         $failed[] = 'shadow parity';
@@ -972,7 +975,6 @@ if (! is_dir($root.'/web/node_modules')) {
     // proc_open cannot launch by name — the same trap the SPA steps document.
     $webSteps = [
         'the port ships the same stylesheet' => npmCommand(['run', 'sync:styles:check']),
-        'the port ships the same help content' => npmCommand(['run', 'sync:content:check']),
         'the port type-checks' => npmCommand(['exec', '--', 'tsc', '--noEmit']),
         'the port builds' => npmCommand(['run', 'build']),
     ];

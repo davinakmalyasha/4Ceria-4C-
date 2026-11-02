@@ -96,8 +96,15 @@ class ProjectScheduleService
                     $schedule->save();
                 }
 
-                // Notify owner and assigned PM (pm_id stores the PM's USER id).
-                $recipients = array_unique(array_filter([$project->user_id, $project->pm_id]));
+                // Notify the owner and the assigned PM. `projects.pm_id` holds
+                // the PM's PROFILE id, NOT a user id — using it directly created
+                // a notification for a non-existent user (rejected by PostgreSQL's
+                // FK) and never reached the PM.
+                $project->loadMissing('projectManager');
+                $recipients = array_unique(array_filter([
+                    $project->user_id,
+                    $project->projectManager?->user_id,
+                ]));
                 foreach ($recipients as $userId) {
                     Notification::create([
                         'user_id' => $userId,

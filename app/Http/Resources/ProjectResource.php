@@ -696,7 +696,7 @@ class ProjectResource extends JsonResource
                             'rate_harga' => $bid->interior->rate_harga,
                             'pengalaman_tahun' => $bid->interior->pengalaman_tahun,
                             'deskripsi' => $bid->interior->deskripsi,
-                            'pendidikan' => $bid->interior->pendidikan,
+                            'pendidikan' => $bid->interior->pendidikan ?? null,
                             'file_portofolio' => $this->piiStoragePath($bid->interior->file_portofolio),
                             'file_sertifikat' => $this->piiStoragePath($bid->interior->file_sertifikat),
                             'user' => [

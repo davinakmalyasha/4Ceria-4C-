@@ -92,8 +92,10 @@ class ProjectEngineeringController extends Controller
                 'phase_context' => $request->role_type,
                 'title' => $request->title,
                 'description' => $request->description,
+                // No `status` key: the milestones table has no such column and
+                // ProjectMilestone does not allow it, so strict mode raised a
+                // MassAssignmentException and every manual log 500'd.
                 'type' => 'generic',
-                'status' => 'active',
                 'approval_status' => 'approved', // Internal logs are auto-approved
                 'pm_verified_at' => now(),
                 'content' => [
@@ -140,14 +142,15 @@ class ProjectEngineeringController extends Controller
             ], 400);
         }
 
-        if ($milestone->approval_status === 'approved') {
-            return response()->json(['message' => 'Cannot delete an approved milestone.'], 400);
-        }
-
         if ($milestone->linkedTermin && $milestone->linkedTermin->status === 'paid') {
             return response()->json(['message' => 'Cannot delete a step linked to a PAID payment.'], 400);
         }
 
+        // NOTE: manual logs are created ALREADY APPROVED by storeLog(), so the
+        // old "approved milestones cannot be deleted" guard made this endpoint
+        // unreachable for every log it was meant to delete. The manual-log
+        // check above already limits this route to non-payment log entries;
+        // the only money guard that still matters is a PAID linked stage.
         $milestone->delete();
         return response()->json(['message' => 'Log removed']);
     }

@@ -108,7 +108,12 @@ class ProjectWarrantyController extends Controller
         $updateData = ['status' => $validated['status']];
 
         if (isset($validated['cost_impact'])) {
-            if ($validated['cost_impact'] ?? null > 0 && !$isOwner) {
+            // `??` binds LOOSER than `&&`, so the old
+            // `$validated['cost_impact'] ?? null > 0 && !$isOwner` was
+            // `$validated['cost_impact'] ?? (...)` — any numeric value made the
+            // whole condition truthy and even the OWNER got the 403.
+            $costImpact = (float) ($validated['cost_impact'] ?? 0);
+            if ($costImpact > 0 && !$isOwner) {
                 return response()->json(['message' => 'Only the project owner can set a cost impact.'], 403);
             }
             $updateData['cost_impact'] = $validated['cost_impact'] ?? null;

@@ -2,18 +2,16 @@ import { redirect } from 'next/navigation';
 import { apiFetch, ApiFailure } from '@/lib/api';
 import { sessionToken } from '@/lib/session';
 import { AuthProvider, type User } from '@/context/AuthContext';
+import { AdminShell } from '@/components/admin/AdminShell';
+import type { AdminStats, DisputesPayload } from '@/components/admin/types';
 
 /**
- * The admin area's guard and providers.
+ * The admin area's guard, chrome and badges.
  *
- * A LAYOUT, not a per-page check. The legacy wraps each admin route in
- * `<AdminRoute>`, which renders a loader while `/me` answers and then either
- * redirects or renders — so a non-admin briefly sees the admin shell. Here the
- * check happens once, on the server, before any admin markup exists, and a
- * non-admin is redirected without being told the area exists.
- *
- * The synced pages keep their own `AdminLayout` chrome; this layout only
- * supplies the session and the guard.
+ * A LAYOUT, not a per-page check: the session is resolved once, on the server,
+ * before any admin markup exists, and a non-admin never sees the shell. The two
+ * badge counts come from the same endpoints the legacy layout called after
+ * mount, so the sidebar is correct on first paint.
  */
 export default async function AdminLayoutPage({ children }: { children: React.ReactNode }) {
     if (!(await sessionToken())) {
@@ -37,5 +35,25 @@ export default async function AdminLayoutPage({ children }: { children: React.Re
         redirect('/dashboard');
     }
 
-    return <AuthProvider user={user}>{children}</AuthProvider>;
+    let pending = 0;
+    let openDisputes = 0;
+
+    try {
+        const [stats, disputes] = await Promise.all([
+            apiFetch<AdminStats>('/admin/stats'),
+            apiFetch<DisputesPayload>('/admin/disputes?status=open&page=1'),
+        ]);
+        pending = stats.pending_verifications ?? 0;
+        openDisputes = disputes.open_count ?? 0;
+    } catch {
+        // The shell still renders; a failed badge is not a failed page.
+    }
+
+    return (
+        <AuthProvider user={user}>
+            <AdminShell pending={pending} disputes={openDisputes}>
+                {children}
+            </AdminShell>
+        </AuthProvider>
+    );
 }

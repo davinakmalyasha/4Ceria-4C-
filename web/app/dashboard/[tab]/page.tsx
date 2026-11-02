@@ -1,0 +1,45 @@
+import { notFound } from 'next/navigation';
+import { DashboardView } from '../DashboardView';
+import { isDashboardTab } from '../tabs';
+
+/**
+ * `/dashboard/<tab>` — one route per dashboard section.
+ *
+ * An unknown segment is a real 404: a renamed tab must not silently render the
+ * overview, which is how a removed screen stays "working" forever.
+ */
+export default async function DashboardTabPage({
+    params,
+    searchParams,
+}: {
+    params: Promise<{ tab: string }>;
+    searchParams: Promise<{
+        error?: string;
+        section?: string;
+        q?: string;
+        category?: string;
+        type?: string;
+        conversation?: string;
+        firm?: string;
+    }>;
+}) {
+    const { tab } = await params;
+    const { error, section, q, category, type, conversation, firm } = await searchParams;
+
+    if (!isDashboardTab(tab)) {
+        notFound();
+    }
+
+    return (
+        <DashboardView
+            activeTab={tab}
+            error={error}
+            section={section}
+            q={q}
+            category={category}
+            type={type}
+            conversation={conversation}
+            firm={firm}
+        />
+    );
+}

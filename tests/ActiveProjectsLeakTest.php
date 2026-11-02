@@ -34,6 +34,15 @@ use Illuminate\Support\Facades\Hash;
 
 uses(Tests\TestCase::class);
 
+beforeEach(function () {
+    // Without boot() there is no transaction to roll back, and every row the
+    // test creates is COMMITTED to the developer's database. That is how nine
+    // runs of this file left 27 users and 18 projects behind, which then
+    // drifted the admin-stats, admin-users, admin-projects and dispute-reply
+    // golden files (they enumerate or notify live rows).
+    Tests\Support\DatabaseHarness::boot();
+});
+
 afterEach(function () {
     Tests\Support\DatabaseHarness::rollback();
 });

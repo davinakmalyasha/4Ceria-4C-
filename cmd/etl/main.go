@@ -146,6 +146,45 @@ func run(ctx context.Context, opts runOptions) error {
 	var copied int
 
 	for _, table := range ordered {
+		// The bid fold: `bids` has no MySQL source table — it is built
+		// from seven of them (see bids.go and ADR-0014) — so the generic
+		// copier's "not in MySQL" skip would empty the bid surface.
+		if table == "bids" {
+			if opts.verify {
+				mysqlCount, pgCount, err := verifyBids(ctx, source, target)
+				if err != nil {
+					return fmt.Errorf("bids: %w", err)
+				}
+
+				status := "ok"
+				if mysqlCount != pgCount {
+					status = fmt.Sprintf("MISMATCH mysql=%d postgres=%d", mysqlCount, pgCount)
+				}
+
+				fmt.Printf("  %-40s %s\n", table, status)
+				continue
+			}
+
+			if opts.truncate {
+				if _, err := target.Exec(ctx, "TRUNCATE "+quoteIdent(table)+" RESTART IDENTITY CASCADE"); err != nil {
+					return fmt.Errorf("truncating %s: %w", table, err)
+				}
+			}
+
+			rows, err := foldBids(ctx, source, target)
+			if err != nil {
+				return fmt.Errorf("%s: %w", table, err)
+			}
+
+			copied += rows
+
+			if opts.verbose {
+				fmt.Printf("  %-40s %d row(s)\n", table, rows)
+			}
+
+			continue
+		}
+
 		if !sourceTables[table] {
 			fmt.Printf("  %-40s SKIPPED (not in MySQL)\n", table)
 			continue
@@ -192,6 +231,73 @@ func run(ctx context.Context, opts runOptions) error {
 	}
 
 	fmt.Printf("\ncopied %d row(s) across %d table(s).\n", copied, len(ordered))
+
+	// The sequences must continue where MySQL's AUTO_INCREMENT does.
+	//
+	// `TRUNCATE ... RESTART IDENTITY` resets every sequence to 1, while the
+	// source database keeps allocating from max(id)+1. The next insert on each
+	// side would then take a DIFFERENT id, and every response that echoes a
+	// generated id would differ between the stacks for a reason that has
+	// nothing to do with the handler.
+	//
+	// Setting each sequence to its table's max(id) puts both engines on the
+	// same counter. Inserts stay in lockstep as long as every write happens on
+	// both sides in the same order — which is exactly the shadow discipline —
+	// and there are no concurrent writers.
+	if err := syncSequences(ctx, target, ordered); err != nil {
+		return fmt.Errorf("syncing sequences: %w", err)
+	}
+
+	return nil
+}
+
+// syncSequences sets each table's id sequence to max(id), so the next allocated
+// id matches what MySQL would allocate.
+func syncSequences(ctx context.Context, target *pgx.Conn, tables []string) error {
+	for _, table := range tables {
+		var hasID bool
+
+		err := target.QueryRow(ctx, `
+			SELECT exists(
+				SELECT 1 FROM information_schema.columns
+				 WHERE table_schema = 'public' AND table_name = $1 AND column_name = 'id'
+			)`, table).Scan(&hasID)
+		if err != nil {
+			return err
+		}
+
+		if !hasID {
+			continue
+		}
+
+		var sequence *string
+
+		err = target.QueryRow(ctx, `SELECT pg_get_serial_sequence($1, 'id')`, table).Scan(&sequence)
+		if err != nil {
+			return err
+		}
+
+		if sequence == nil {
+			continue
+		}
+
+		var maximum *int64
+
+		err = target.QueryRow(ctx, fmt.Sprintf(`SELECT max(id) FROM %s`, quoteIdent(table))).Scan(&maximum)
+		if err != nil {
+			return err
+		}
+
+		next := int64(1)
+		if maximum != nil {
+			next = *maximum + 1
+		}
+
+		// is_called = false: the next nextval() returns exactly `next`.
+		if _, err := target.Exec(ctx, fmt.Sprintf(`SELECT setval('%s', $1, false)`, *sequence), next); err != nil {
+			return fmt.Errorf("table %s: %w", table, err)
+		}
+	}
 
 	return nil
 }

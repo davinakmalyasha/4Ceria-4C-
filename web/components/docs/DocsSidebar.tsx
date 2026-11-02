@@ -5,7 +5,7 @@ import {
     BookOpen, ChevronDown, HardHat, HelpCircle, Layout, Rocket,
     Settings, ShieldCheck, Store, Truck, User,
 } from 'lucide-react';
-import { allDocArticles, docCategories, type CategoryGroup, type DocArticle } from '@/content/constants/docsData';
+import { allDocArticles, docCategories, type CategoryGroup, type DocArticle } from './data';
 
 /**
  * The Help Centre's navigation — a port of `DocsSidebar.tsx`.

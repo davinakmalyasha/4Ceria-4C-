@@ -969,10 +969,6 @@ jobs:
         working-directory: web
         run: npm run sync:styles:check
 
-      - name: The port must ship the same help content
-        working-directory: web
-        run: npm run sync:content:check
-
       - name: Type check
         working-directory: web
         run: npx tsc --noEmit

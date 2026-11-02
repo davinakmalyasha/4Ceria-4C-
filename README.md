@@ -193,7 +193,7 @@ test suite that may only rise.
 | **JSON encoder** | `internal/jsonphp` — a port of `json_encode` with PHP's flags. 3,333 differential cases agree byte for byte. |
 | **PostgreSQL** | The baseline builds from scratch, matches the live MySQL schema (86 tables, 36 enum types), and is checked in CI. |
 | **ETL** | `cmd/etl` copies the live data into PostgreSQL through `COPY`, in foreign-key order, and `-verify` compares row counts on both sides. It runs in the gate. |
-| **Go endpoints** | `GET /api/admin/stats`, `GET /api/notifications` and `GET /api/user/active-projects` are served by Go from PostgreSQL and answer **byte-identically** to Laravel — including the key order of `role_distribution` and the JSON document embedded in each notification. |
+| **Go endpoints** | `GET /api/admin/stats`, `GET /api/notifications`, `GET /api/user/active-projects` and the whole `/me` surface (`GET`, `PUT`, avatar upload/delete, professional update, unread summary) are served by Go from PostgreSQL and answer **byte-identically** to Laravel. |
 | **Shadow comparator** | `tools/parity/shadow.mjs` compares one route; `shadow-all.mjs` compares every PORTED route and runs in the gate. Status, content type and body, **byte for byte**. |
 | **Visual baseline** | 51 screens captured from this application, deterministic across runs. |
 | **Next.js port** | **The whole visual baseline matches**: 51 screens — every guest route, all 38 dashboard tabs across four roles, the public tabs signed out, and all six `/admin/*` screens — photographed beside this application. 47 are byte-for-byte identical; 4 differ by 200–320 pixels, inside the declared antialiasing budget. |

@@ -196,6 +196,7 @@
                         "payment_instructions": null,
                         "planning_submitted_at": null,
                         "planning_approved_at": null,
+                        "planning_pm_verified_at": null,
                         "design_payment_verified_at": null,
                         "construction_payment_verified_at": null,
                         "interior_payment_verified_at": null,
@@ -249,7 +250,7 @@
         "action": "App\\Http\\Controllers\\Api\\ProjectTerminationController@resignFromProject",
         "fixture_version": 1,
         "normaliser_version": 1,
-        "laravel_commit": "4b610b7",
+        "laravel_commit": "a31b52c",
         "ids": {
             "addendum": 900018001,
             "admin": 900000003,

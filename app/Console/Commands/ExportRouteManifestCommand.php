@@ -105,17 +105,27 @@ class ExportRouteManifestCommand extends Command
 
             $current = (string) file_get_contents($path);
 
-            // The TIMESTAMP is normalised away before the comparison.
+            // The TIMESTAMP and the COMMIT are normalised away before the comparison.
             //
-            // `generated_at` changes on every run, so comparing the bytes
-            // would report "out of date" every single time and the check
-            // would be a gate that could never pass. What matters is whether
-            // the ROUTES changed.
-            $normalise = static fn (string $text): string => (string) preg_replace(
-                "/^(\s*'generated_at':).*$/m",
-                '$1 <timestamp>',
-                $text,
-            );
+            // `generated_at` changes on every run, and `laravel_commit` changes
+            // on every commit, so comparing the bytes would report "out of
+            // date" every single time and the check would be a gate that could
+            // never pass across commits. What matters is whether the ROUTES
+            // changed: the commit is provenance, recorded in the file, not a
+            // property the gate judges.
+            $normalise = static function (string $text): string {
+                $text = (string) preg_replace(
+                    "/^(\s*'generated_at':).*$/m",
+                    '$1 <timestamp>',
+                    $text,
+                );
+
+                return (string) preg_replace(
+                    "/^(\s*'laravel_commit':).*$/m",
+                    '$1 <commit>',
+                    $text,
+                );
+            };
 
             if ($normalise($current) !== $normalise($yaml)) {
                 $this->error('The manifest is out of date. Run: php artisan routes:export');

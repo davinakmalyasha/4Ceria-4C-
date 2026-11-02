@@ -268,6 +268,11 @@ class SubProfessionalController extends Controller
             ->first();
 
         if ($bid) {
+            // `recommended` is a VARCHAR on `bids_structural`/`bids_mep`
+            // (the only roles this branch touches), so the value is
+            // storable there. The PG mirror's `bid_status` ENUM had to
+            // grow it too — see migration 0017; without that append the
+            // port rejected the same write the oracle accepts.
             $bid->update([
                 'status' => 'recommended',
                 'is_recommended' => true

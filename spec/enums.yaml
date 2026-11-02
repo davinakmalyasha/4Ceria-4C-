@@ -16,7 +16,7 @@
 # db/postgres/migrations/, and is the source for the Go constants and
 # the TypeScript union.
 version: 1
-generated_at: '2026-10-25T15:21:11.865Z'
+generated_at: '2026-11-02T10:44:45.260Z'
 source:
   engine: mysql
   database: 4ceria
@@ -41,7 +41,7 @@ enums:
     replaces: 'project_addendums.recommended_bid_type (a free-text role name) and the seven per-role bid id columns.'
 
   bid_status:
-    values: [pending, shortlisted, invited, negotiating, contract_pending, awaiting_payment, accepted, active, rejected, declined, terminated, resigned]
+    values: [pending, shortlisted, invited, negotiating, contract_pending, awaiting_payment, accepted, active, rejected, declined, terminated, resigned, recommended]
     origin: mysql
     sources:
       - bids_arsitek.status
@@ -76,9 +76,9 @@ enums:
       - contractor_subspecialties.category
 
   dispute_resolution:
-    values: [dismiss, release_payment, record_refund, terminate_project, custom]
+    values: [dismiss, release_payment, record_refund, terminate_project, custom, withdrawn]
     origin: rewrite
-    provenance: 'project_disputes.resolution. The five admin arbitration actions (AdminDisputeController:96-127).'
+    provenance: 'project_disputes.resolution. The five admin arbitration actions (AdminDisputeController:96-127) plus withdrawn, which DisputeService::withdraw() writes (appended by 0010).'
     replaces: 'project_disputes.resolution (VARCHAR(30)).'
 
   dispute_status:
@@ -131,9 +131,9 @@ enums:
       - project_sub_professionals.parent_role
 
   payment_termin_status:
-    values: [locked, pending, invoice_sent, verifying, accepted, paid, void]
+    values: [locked, pending, invoice_sent, verifying, accepted, paid, void, refunded]
     origin: rewrite
-    provenance: 'project_payment_termins.status. MONEY.md §10.2 draws the state machine; the values are confirmed by ProjectPaymentTerminController (in:locked,pending,invoice_sent), ProjectTerminationController (out:void) and PaymentVerificationService (verifying, paid).'
+    provenance: 'project_payment_termins.status. MONEY.md §10.2 draws the state machine; the values are confirmed by ProjectPaymentTerminController (in:locked,pending,invoice_sent), ProjectTerminationController (out:void), PaymentVerificationService (verifying, paid) and DisputeService::adminAction(record_refund) (refunded, appended by 0012).'
     replaces: 'project_payment_termins.status (VARCHAR(255), unconstrained — the most money-critical state machine in the app).'
 
   phase_role:

@@ -30,7 +30,7 @@
         "headers": {
             "content-type": "application/json"
         },
-        "body_raw": "{\"data\":{\"id\":<id:assigned>,\"name\":\"capture-name\",\"price\":\"1.00\",\"description\":\"capture-house_desc\",\"dimensions\":{\"width\":1,\"length\":1,\"floors\":1},\"rooms\":{\"bedrooms\":1,\"bathrooms\":1},\"address\":{\"street\":\"capture-street_name\",\"kelurahan\":\"capture-kelurahan\",\"kecamatan\":\"capture-kecamatan\",\"city\":\"capture-kab_kota\",\"province\":\"capture-province\",\"postal_code\":1,\"coordinates\":\"1, 1\"},\"coordinate\":\"1, 1\",\"user_id\":900000001,\"views\":null,\"created_at\":\"<timestamp>\",\"updated_at\":\"<timestamp>\",\"housePic\":[],\"roomList\":[]}}"
+        "body_raw": "{\"data\":{\"id\":<id:assigned>,\"name\":\"capture-name\",\"price\":\"1.00\",\"description\":\"capture-house_desc\",\"dimensions\":{\"width\":\"1\",\"length\":\"1\",\"floors\":1},\"rooms\":{\"bedrooms\":1,\"bathrooms\":1},\"address\":{\"street\":\"capture-street_name\",\"kelurahan\":\"capture-kelurahan\",\"kecamatan\":\"capture-kecamatan\",\"city\":\"capture-kab_kota\",\"province\":\"capture-province\",\"postal_code\":\"1\",\"coordinates\":\"1, 1\"},\"coordinate\":\"1, 1\",\"user_id\":900000001,\"views\":0,\"created_at\":\"<timestamp>\",\"updated_at\":\"<timestamp>\",\"housePic\":[],\"roomList\":[]}}"
     },
     "side_effects": {
         "rows": {
@@ -61,6 +61,25 @@
                         "updated_at": "<timestamp>"
                     }
                 }
+            ],
+            "provinces": [
+                {
+                    "op": "insert",
+                    "row": {
+                        "id": "<id:assigned>",
+                        "name": "capture-province"
+                    }
+                }
+            ],
+            "regions": [
+                {
+                    "op": "insert",
+                    "row": {
+                        "id": "<id:assigned>",
+                        "name": "capture-kab_kota",
+                        "id_province": "<id:assigned>"
+                    }
+                }
             ]
         }
     },
@@ -69,7 +88,7 @@
         "action": "App\\Http\\Controllers\\Api\\HouseController@store",
         "fixture_version": 1,
         "normaliser_version": 1,
-        "laravel_commit": "4b610b7",
+        "laravel_commit": "a31b52c",
         "ids": {
             "addendum": 900018001,
             "admin": 900000003,

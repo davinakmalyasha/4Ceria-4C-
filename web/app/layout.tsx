@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import '@/styles/globals.css';
-import { ToastProvider } from '@/content/context/ToastContext';
 import { ClientProviders } from '@/components/ClientProviders';
 
 /**
@@ -39,13 +38,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 />
             </head>
             <body className="antialiased">
-                {/* The toast host is global, as it is in the legacy tree: any
-                    component may raise one, and it must survive a route
-                    change. The AUTH provider is per page, because it carries
-                    the user the server resolved for that request. */}
-                <ClientProviders>
-                    <ToastProvider>{children}</ToastProvider>
-                </ClientProviders>
+                {/* THE TOAST HOST IS GONE: nothing in the app raises a toast any
+                    more. Feedback is inline next to the action that caused it. */}
+                <ClientProviders>{children}</ClientProviders>
             </body>
         </html>
     );

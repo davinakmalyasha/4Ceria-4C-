@@ -93,11 +93,12 @@ class ChatController extends Controller
             if ($ids->isEmpty()) {
                 continue;
             }
-            $model::whereIn('user_id', $ids)
-                ->whereNotNull('foto')
-                ->select('user_id', 'foto')
-                ->get()
-                ->each(fn ($p) => $avatars[$p->user_id] = $p->foto);
+            foreach ($model::whereIn('user_id', $ids)->whereNotNull('foto')->select('user_id', 'foto')->get() as $p) {
+                // NOT an arrow function: `fn () => $avatars[...] = ...` captures
+                // the array BY VALUE, so the map stayed empty and every
+                // other_user.pic was null.
+                $avatars[$p->user_id] = $p->foto;
+            }
         }
 
         return $avatars;

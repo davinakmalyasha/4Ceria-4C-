@@ -15,8 +15,9 @@ class ProjectReportPolicy
      */
     public function viewAny(User $user, Project $project): bool
     {
-        return (int)$user->id === (int)$project->user_id ||
-               (int)$user->id === (int)$project->pm_id;
+        // `projects.pm_id` holds the PM's PROFILE id — comparing it with the
+        // user id locked the assigned PM out of the report list.
+        return (int)$user->id === (int)$project->user_id || Hire::isAssignedPm($project, $user);
     }
 
     /**
@@ -24,8 +25,9 @@ class ProjectReportPolicy
      */
     public function view(User $user, ProjectReport $projectReport): bool
     {
-        return (int)$user->id === (int)$projectReport->project->user_id || 
-               (int)$user->id === (int)$projectReport->project->pm_id;
+        $projectReport->loadMissing('project');
+        return (int)$user->id === (int)$projectReport->project->user_id ||
+               Hire::isAssignedPm($projectReport->project, $user);
     }
 
     /**
@@ -41,7 +43,8 @@ class ProjectReportPolicy
      */
     public function update(User $user, ProjectReport $projectReport): bool
     {
-        return (int)$user->id === (int)$projectReport->created_by || 
+        $projectReport->loadMissing('project');
+        return (int)$user->id === (int)$projectReport->created_by ||
                (int)$user->id === (int)$projectReport->project->user_id;
     }
 
@@ -50,7 +53,8 @@ class ProjectReportPolicy
      */
     public function delete(User $user, ProjectReport $projectReport): bool
     {
-        return (int)$user->id === (int)$projectReport->created_by || 
+        $projectReport->loadMissing('project');
+        return (int)$user->id === (int)$projectReport->created_by ||
                (int)$user->id === (int)$projectReport->project->user_id;
     }
 }

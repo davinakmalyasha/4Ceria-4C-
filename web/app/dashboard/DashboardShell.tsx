@@ -1,42 +1,21 @@
 'use client';
 
-import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { DashboardHeader } from '@/components/DashboardHeader';
-import ChatOverlay from '@/content/components/Chat/ChatOverlay';
-// THE TAB BODY IS BROWSER-ONLY.
-//
-// The tab tree reaches `maplibre-gl` through `react-map-gl`, and that library
-// touches `document` while its module initialises — so server-rendering it
-// throws at import time and the whole page 500s. The tabs are client
-// components that fetch their own data anyway, so nothing is lost by rendering
-// them on the client; the SHELL (header, counts, session) is still server-
-// rendered, which is what the first paint is made of.
-const DashboardTabs = dynamic(
-    () => import('@/content/components/Dashboard/DashboardTabs').then((module) => module.DashboardTabs),
-    {
-        ssr: false,
-        loading: () => (
-            <div className="py-24 flex flex-col items-center justify-center gap-3">
-                <div className="w-8 h-8 rounded-full border-[3px] border-neutral-200 border-t-[#FF2D20] animate-spin" />
-                <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Loading module...</p>
-            </div>
-        ),
-    },
-);
-import { VerificationAlert } from '@/content/components/Dashboard/VerificationAlert';
-import { CartProvider } from '@/content/context/CartContext';
+import { VerificationAlert } from '@/components/header/VerificationAlert';
 import { useAuth } from '@/context/AuthContext';
+import { ChatLauncher } from './ChatLauncher';
+import type { ConversationRow } from './chat';
+import type { NotificationRow } from '@/components/header/NotificationsDropdown';
 
 /**
  * The dashboard shell.
  *
- * IT OWNS THE TAB, THE SELECTIONS AND NOTHING ELSE. The body is
- * `DashboardTabs` — the SAME component the legacy application renders, on the
- * new runtime. That is phase 1 of the frontend port: the shell, the session,
- * the routing and the data fetching are the port's own code; the tab bodies are
- * the existing ones until each is rewritten.
+ * IT OWNS THE TAB, THE SELECTIONS AND NOTHING ELSE. Every tab body is now a
+ * native panel rendered by the server; `nativeTab` is the slot that receives it.
+ * The synced `DashboardTabs` tree is no longer mounted by the dashboard, so the
+ * legacy bundle (and its `Loading module...` boundary) is not part of the route.
  *
  * `setActiveTab` pushes a URL rather than setting state, so every tab is a
  * location: the back button works, a notification can deep-link to it, and the
@@ -60,6 +39,11 @@ export function DashboardShell({
     myBids,
     hiredProfessionals,
     collection,
+    conversations,
+    notifications,
+    unreadNotifications,
+    storageBase,
+    nativeTab,
 }: {
     activeTab: string;
     projects: Rows;
@@ -67,6 +51,12 @@ export function DashboardShell({
     myBids: Rows;
     hiredProfessionals: Rows;
     collection: Rows;
+    conversations: ConversationRow[];
+    notifications: NotificationRow[];
+    unreadNotifications: number;
+    storageBase: string;
+    /** A server-rendered panel; when present the legacy tab tree is not mounted. */
+    nativeTab?: ReactNode;
 }) {
     const router = useRouter();
     const { user } = useAuth();
@@ -82,7 +72,7 @@ export function DashboardShell({
 
     const setActiveTab = (tab: string) => {
         setSidebarOpen(false);
-        router.push(tab === 'overview' ? '/dashboard' : `/dashboard?tab=${tab}`);
+        router.push(tab === 'overview' ? '/dashboard' : `/dashboard/${tab}`);
     };
 
     const counts = useMemo(() => {
@@ -100,10 +90,7 @@ export function DashboardShell({
     // The directory a tab needs, delivered by the page for the ACTIVE tab.
     const directory = (tab: string): Rows => (activeTab === tab ? collection : []);
 
-    // The cart is dashboard-scoped in the legacy tree: `Dashboard.tsx` wraps the
-    // page in it, and the marketplace tabs read it with `useCart()`.
     return (
-        <CartProvider>
         <div className="min-h-screen bg-neutral-100 flex overflow-hidden font-sans">
             <main className="flex-1 flex flex-col h-screen overflow-hidden">
                 <DashboardHeader
@@ -111,6 +98,9 @@ export function DashboardShell({
                     setActiveTab={setActiveTab}
                     onMenuClick={() => setSidebarOpen(true)}
                     counts={counts}
+                    notifications={notifications}
+                    unreadNotifications={unreadNotifications}
+                    storageBase={storageBase}
                 />
 
                 <div className={`flex-1 overflow-y-auto px-4 sm:px-8 relative ${activeTab === 'houses' ? 'py-3 sm:py-4' : 'py-4 sm:py-8'}`}>
@@ -119,57 +109,22 @@ export function DashboardShell({
                             <VerificationAlert user={user} activeTab={activeTab} setActiveTab={setActiveTab} />
                         )}
 
-                        <DashboardTabs
-                            activeTab={activeTab}
-                            setActiveTab={setActiveTab}
-                            activeSubTab={activeSubTab}
-                            setActiveSubTab={setActiveSubTab}
-                            user={user}
-                            houses={directory('houses')}
-                            projects={projects}
-                            projectFeed={projectFeed}
-                            latestBids={myBids}
-                            myBids={myBids}
-                            isLoadingData={false}
-                            hiredProfessionals={hiredProfessionals}
-                            architects={directory('architects')}
-                            constructors={directory('constructors')}
-                            interiors={directory('interior')}
-                            notaries={directory('notaris')}
-                            projectManagers={directory('project_manager')}
-                            structuralEngineers={directory('structural')}
-                            mepEngineers={directory('mep')}
-                            selectedProfessional={selectedProfessional}
-                            setSelectedProfessional={setSelectedProfessional}
-                            selectedProject={selectedProject}
-                            setSelectedProject={setSelectedProject}
-                            selectedStoreId={selectedStoreId}
-                            setSelectedStoreId={setSelectedStoreId}
-                            selectedMaterial={selectedMaterial}
-                            setSelectedMaterial={setSelectedMaterial}
-                            handleOpenChat={(professional: { id: number }) => {
-                                setChatUserId(professional.id);
-                                setActiveTab('chat');
-                            }}
-                            handleProjectStatusChange={() => {}}
-                            setProjectToEdit={setProjectToEdit}
-                            setProjectToDelete={setProjectToDelete}
-                            handleViewActiveBids={() => setActiveTab('projects')}
-                            onRefresh={() => router.refresh()}
-                            chatUserId={chatUserId}
-                            onClearChatUser={() => setChatUserId(null)}
-                        />
+                        {nativeTab}
                     </div>
                 </div>
             </main>
 
-            {/* The floating chat button, exactly as the legacy tree renders it. */}
-            <ChatOverlay activeTab={activeTab} onMaximize={() => setActiveTab('chat')} />
+            {/* The floating messenger: server-fed inbox, BFF thread, native composer. */}
+            <ChatLauncher
+                conversations={conversations}
+                viewerId={user?.id ?? 0}
+                activeTab={activeTab}
+                storageBase={storageBase}
+            />
 
             {/* The shell keeps the tab's modals unmounted until they are used;
                 these two carry state the tabs own. */}
             <span hidden data-modals={String(!!projectToEdit || !!projectToDelete)} />
         </div>
-        </CartProvider>
     );
 }

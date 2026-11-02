@@ -1,7 +1,7 @@
 import {
     AlertCircle, CheckCircle2, HelpCircle, Info, Lightbulb,
 } from 'lucide-react';
-import { type DocArticle } from '@/content/constants/docsData';
+import { type DocArticle } from './data';
 import { InteractiveWidgets } from './InteractiveWidgets';
 
 /**

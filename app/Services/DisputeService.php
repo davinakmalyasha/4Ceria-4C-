@@ -500,7 +500,11 @@ class DisputeService
         $ids = [(int) $project->user_id];
 
         if ($project->pm_id) {
-            $ids[] = (int) $project->pm_id;
+            // pm_id is a PROFILE id; notifications need the USER id.
+            $pmUserId = \App\Models\ProjectManager::find($project->pm_id)?->user_id;
+            if ($pmUserId) {
+                $ids[] = (int) $pmUserId;
+            }
         }
 
         $lookups = [

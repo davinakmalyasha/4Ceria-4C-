@@ -215,8 +215,14 @@ class ProjectHandoverController extends Controller
         ]);
 
         $phase = $request->phase;
-        $column = "{$phase}_handover_submitted_at";
-        $notesColumn = "{$phase}_handover_notes";
+
+        // `build` and `construction` are the same phase in this schema: the
+        // columns are construction_handover_*. Writing build_handover_* raised
+        // MassAssignmentException (the columns do not exist), so the documented
+        // `build` spelling could never reject anything.
+        $columnPhase = $phase === 'build' ? 'construction' : $phase;
+        $column = "{$columnPhase}_handover_submitted_at";
+        $notesColumn = "{$columnPhase}_handover_notes";
 
         $project->update([
             $column => null,
@@ -272,11 +278,17 @@ class ProjectHandoverController extends Controller
                 return response()->json(['message' => 'Failed to finalize project. Check SLF and Phase requirements.'], 500);
             }
 
-            if ($request->rating) {
+            if ($request->rating && $project->selected_arsitek_id) {
+                // ArsitekRating's columns are reviewer_id / arsitek_id / rating /
+                // komentar. The old payload sent `user_id` and `review` — neither
+                // fillable — and omitted the NOT NULL `arsitek_id`, so supplying a
+                // rating raised MassAssignmentException (or a DB error in
+                // production). Store it against the hired architect.
                 $project->ratings()->create([
-                    'user_id' => $user->id,
+                    'reviewer_id' => $user->id,
+                    'arsitek_id' => $project->selected_arsitek_id,
                     'rating' => $request->rating,
-                    'review' => $request->review,
+                    'komentar' => $request->review,
                 ]);
             }
 
@@ -294,7 +306,7 @@ class ProjectHandoverController extends Controller
             'user', 'arsitek', 'kontraktor', 'interior', 'notaris', 'projectManager',
             'bidsArsitek', 'bidsKontraktor', 'bidsNotaris', 'bidsInterior',
             'bidsProjectManager', 'bidsStructural', 'bidsMep',
-            'milestones', 'documents', 'comments', 'addendums', 'snagItems', 'paymentTermins'
+            'milestones', 'documents.uploader', 'comments', 'addendums', 'snagItems', 'paymentTermins.milestone'
         ]);
         return $project;
     }
