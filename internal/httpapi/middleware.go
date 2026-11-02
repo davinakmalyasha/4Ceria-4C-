@@ -78,8 +78,7 @@ type ProjectFreezer interface {
 // the ones that say "not implemented yet".
 type Gates struct {
 	// Handlers are the routes this build actually serves, keyed by route id.
-	// A route absent from this map answers the stub — or the proxy, when one
-	// is configured (see Proxy).
+	// A route absent from this map answers the 501 stub.
 	Handlers map[string]http.HandlerFunc
 
 	Auth    Authenticator
@@ -92,15 +91,6 @@ type Gates struct {
 	// targeted re-sync; MySQL is pinned to UTC for instant arithmetic.
 	MySQL     *sql.DB
 	MySQLWall *sql.DB
-
-	// Proxy forwards unported routes to the Laravel application.
-	//
-	// When nil (the development and test default) an unported route answers
-	// the 501 stub. When set (production, `LARAVEL_ORIGIN`), an unported
-	// route is proxied to Laravel byte for byte, and the stub is never
-	// reached. A PORTED route is always served by its handler, never
-	// proxied — the handler is the cutover.
-	Proxy *Proxy
 }
 
 // Unimplemented reports which gates are not enforced.

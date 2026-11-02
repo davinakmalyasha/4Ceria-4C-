@@ -7,6 +7,12 @@ ADR that supersedes the old one.
 **Format:** `NNNN-title-in-kebab-case.md` · **Statuses:** `Proposed` · `Accepted` ·
 `Superseded by ADR-NNNN` · `Rejected`
 
+> **A note on the links.** Some ADRs reference port-era documents
+> (`docs/REWRITE-PLAN.md`, `docs/PARITY.md`, `docs/PORTING.md`, the audits).
+> Those were retired with the Laravel application when the port completed. They
+> remain in git history at commit `72bdfb2`; the decisions above them are still
+> the record of why the stack is what it is.
+
 ---
 
 ## The index

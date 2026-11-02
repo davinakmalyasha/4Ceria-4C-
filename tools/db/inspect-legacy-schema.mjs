@@ -1689,15 +1689,25 @@ function main() {
 
     // The Eloquent check: does the schema provide what the application
     // actually reads and writes?
-    const models = readEloquentModels(join(REPO, 'app', 'Models'));
-    const modelCheck = checkModels(models, pg);
-    process.stdout.write(
-      `  eloquent: ${models.length} models checked, ` +
-        `${modelCheck.missingTables.length} missing tables, ` +
-        `${modelCheck.missingColumns.length} missing columns\n`,
-    );
-    problems.push(...modelCheck.missingTables.map((t) => `model touches a missing table: ${t}`));
-    problems.push(...modelCheck.missingColumns.map((c) => `model reads a missing column: ${c}`));
+    //
+    // The Laravel models are gone with the application, so the check is
+    // skipped rather than reported as "0 models checked" — a zero that looks
+    // like a pass. The Go handlers are checked by their own suites.
+    const modelsDirectory = join(REPO, 'app', 'Models');
+
+    if (existsSync(modelsDirectory)) {
+      const models = readEloquentModels(modelsDirectory);
+      const modelCheck = checkModels(models, pg);
+      process.stdout.write(
+        `  eloquent: ${models.length} models checked, ` +
+          `${modelCheck.missingTables.length} missing tables, ` +
+          `${modelCheck.missingColumns.length} missing columns\n`,
+      );
+      problems.push(...modelCheck.missingTables.map((t) => `model touches a missing table: ${t}`));
+      problems.push(...modelCheck.missingColumns.map((c) => `model reads a missing column: ${c}`));
+    } else {
+      process.stdout.write('  eloquent: skipped (no app/Models — the Laravel application is retired)\n');
+    }
 
     if (problems.length === 0) {
       process.stdout.write('  DIFF CLEAN — every legacy table, column, enum and foreign key is present.\n');

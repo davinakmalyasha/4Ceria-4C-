@@ -24,7 +24,7 @@ export const SESSION_COOKIE = '4ceria_session';
 
 /** The API origin. Server-side only; never exposed to the browser. */
 export function apiOrigin(): string {
-    return process.env.API_ORIGIN ?? 'http://127.0.0.1:9000';
+    return process.env.API_ORIGIN ?? 'http://127.0.0.1:8099';
 }
 
 /** The token from the request's cookie, when there is one. */

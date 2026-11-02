@@ -2,30 +2,22 @@
 # Dependencies and build output
 # ---------------------------------------------------------------------------
 /node_modules
-/vendor
-/.phpunit.cache
-/.phpunit.result.cache
-
-# Vite emits the Laravel build here; the standalone Vercel build goes to dist/.
-/public/build
-/public/hot
-/public/storage
+/web/node_modules
+/web/.next
+/web/.next-*
+/web/tsconfig.tsbuildinfo
 dist/
 .vite/
 
-# Octane / FrankenPHP workers written into the public root at boot.
-/**/caddy
-frankenphp
-frankenphp-worker.php
+# Go build output (go build ./cmd/... writes binaries here on Windows).
+/*.exe
 
 # ---------------------------------------------------------------------------
-# Secrets. `.env` is the only one that must never be tracked.
+# Secrets
 # ---------------------------------------------------------------------------
 .env
-.env.backup
-.env.production
-/storage/*.key
-/storage/pail
+.env.*
+!.env.example
 auth.json
 
 # ---------------------------------------------------------------------------
@@ -38,19 +30,13 @@ ehthumbs.db
 .vscode
 .zed
 .fleet
-phpactor.json
-Homestead.json
-Homestead.yaml
 
-# Office lock files, editor temp files
+# Office lock files and editor temp files
 ~$*
 *.tmp
 
 # ---------------------------------------------------------------------------
 # Runtime logs
-#
-# `.log` is safe to match globally: no source file in this repository is a log.
-# The sibling `*.txt` rule was REMOVED -- see the note below.
 # ---------------------------------------------------------------------------
 *.log
 npm-debug.log
@@ -59,73 +45,42 @@ yarn-error.log
 # ---------------------------------------------------------------------------
 # Database DUMPS
 #
-# Scoped to a directory rather than matched by extension, because a `.sql` file
-# under `scripts/` is CODE: `scripts/disbursement-migration-seed.sql` seeds the
-# throwaway database that `verify-disbursement-migration.cmd` builds, and
-# without it that proof cannot run on a fresh clone.
-#
-# The PostgreSQL baseline is also CODE, not a dump: `db/postgres/migrations/`
-# holds the forward-only migration files the rewrite is built from, and they
-# have to be versioned like any other source.
+# `.sql` is ignored globally because a throwaway dump is not source. The two
+# exceptions ARE source:
+#   - `db/postgres/migrations/` is the forward-only PostgreSQL baseline.
+#   - `db/mysql/` holds the frozen legacy schema (MySQL still owns identity:
+#     users, tokens and the role tables).
 # ---------------------------------------------------------------------------
 *.sql
-!scripts/*.sql
 !db/postgres/migrations/*.sql
+!db/postgres/tests/*.sql
+!db/mysql/*.sql
 
 # ---------------------------------------------------------------------------
-# SCRATCH SCRIPTS -- ANCHORED TO THE REPOSITORY ROOT, DELIBERATELY
+# Scratch scripts at the repository ROOT only.
 #
-# These used to be unanchored (`debug_*.php` rather than `/debug_*.php`), which
-# made them match at ANY depth. Verified consequences, none of which reported an
-# error -- `git add` simply did not stage the file:
-#
-#     tests/Feature/test_login.php            would be ignored (test_*.php)
-#     app/Services/verify_helper.php          would be ignored (verify_*.php)
-#     database/seeders/seed_demo.php          would be ignored (seed_*.php)
-#     app/Http/Middleware/debug_headers.php   would be ignored (debug_*.php)
-#     tests/Unit/cleanup_helper.php           would be ignored (cleanup_*.php)
-#
-# That is the worst possible failure mode for a `.gitignore`: a file that a
-# developer wrote, reviewed and committed to locally, permanently absent from
-# the repository with no warning. It is also why this file had grown a block of
-# `!` negations to force specific files back in.
-#
-# The leading `/` restricts each pattern to the repository root, which is where
-# a one-off debug script actually lives. A legitimately named file anywhere else
-# is now tracked normally.
+# Unanchored patterns once matched at any depth and silently excluded real
+# source files. The leading `/` keeps these to the place a one-off actually
+# lives.
 # ---------------------------------------------------------------------------
-/check_*.php
-/fix_*.php
-/seed_*.php
-/scratch_*.php
-/inspect_*.php
-/restore_*.php
-/cleanup_*.php
-/final_*.php
-/deep_*.php
-/verify_*.php
-/debug_*.php
-/tmp_*.php
+/check_*.mjs
+/fix_*.mjs
+/seed_*.mjs
+/scratch_*.mjs
+/inspect_*.mjs
+/restore_*.mjs
+/cleanup_*.mjs
+/final_*.mjs
+/verify_*.mjs
+/debug_*.mjs
+/tmp_*.mjs
 /debug_*.json
-/hero-centered-check.png
-/hero-centered-final.png
-/houses-tab-fixed.png
 
 # Scratch directories
 /scratch/
 /tmp/
-/resources/js/scratch/
-/mobile/
 
-# NOTE: there is deliberately no `*.txt` rule. The previous file had one, and it
-# was broad enough to silently exclude legitimate text files anywhere -- a
-# `docs/notes.txt`, a `public/security.txt`. `public/robots.txt` survived only
-# because it was committed before the rule was added. Text files are ordinary
-# source; ignore them by path when you mean a specific one.
-
-# ---------------------------------------------------------------------------
-# Local-only tooling and local-only dev helpers
-# ---------------------------------------------------------------------------
+# Local-only tooling and dev helpers
 .mcp.json
 .codex/
 .claude/
@@ -133,34 +88,19 @@ yarn-error.log
 /.playwright-mcp/
 /.mcp.json
 
-# Dev-only quick-login panel. Never committed: it bypasses authentication.
-/resources/js/pages/dev/
-
 # Nested tooling repos and local archives
 /word-mcp-server/
 /word-mcp-server.venv/
 mobile.zip
 
-# ---------------------------------------------------------------------------
-# Local working documents
-#
-# These record in-flight thinking and the history of a single pass. The
-# committed record of what changed and why is the commit messages, plus
-# `docs/CLEANUP-LOG.md`. A reviewer should not have to read a working file to
-# understand the repository.
+# Local working documents: the committed record is the commit message, not a
+# working file a reviewer has to read.
 /REFINEMENT-PLAN.md
 /REFINEMENT-*.md
 /NOTES-*.md
 /FINAL-SWEEP.md
 /FINAL-SWEEP-*.md
 
-# Visual-comparison scratch: the captured computed styles are large and are
-# regenerated on demand. The COMMITTED baseline lives in
-# `spec/visual-baseline/`.
+# Scratch output regenerated on demand.
 /.tmp/
-
-# PHPUnit/JUnit output written by the suite-floor assertion (scripts/ci/assert-suite-floor.php).
 /junit.xml
-
-# Go build output (go build ./cmd/etl writes etl.exe here on Windows).
-/*.exe

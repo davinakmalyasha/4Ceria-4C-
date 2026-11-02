@@ -3,57 +3,82 @@
 ## Runtime topology
 
 ```
-Browser / PWA
-   │  (Vercel: static SPA, VITE_API_URL points at API origin)
-   ▼
-React SPA (React 19 + TS, react-router v7, axios)
-   │  Bearer token (Sanctum) in Authorization header
-   ▼
-Laravel 13 API — Docker image (php:8.4-fpm-alpine + nginx + supervisord) on Railway
+Browser
    │
-   ├── MySQL (primary datastore; strict mode ON)
-   ├── Redis (cache, sessions, queue — REQUIRED in prod; tags used for cache invalidation)
-   ├── Railway Object Storage = Tigris (S3-compatible):
-   │     • disk `public`  → world-readable assets (driver local|s3 via PUBLIC_STORAGE_DRIVER)
-   │     • disk `railway` → private bucket (contracts/, KYC, requirements images) via presigned URLs
-   └── Resend (transactional email)
+   ▼
+Next.js 16 (web/, standalone build)      ── server components / route handlers
+   │  API_ORIGIN
+   ▼
+Go gateway (cmd/gateway)                 ── routing/routes.yaml, all 296 endpoints
+   │
+   ├── PostgreSQL 17   application data, ledger, mirror of identity
+   ├── MySQL 9.6       identity: users, personal_access_tokens, role tables (ADR-0018)
+   ├── Tigris (S3)     public uploads + private contracts / KYC / evidence
+   ├── Resend          password-reset mail
+   └── Nominatim       geocoding (proxied and re-encoded)
 ```
 
-Local dev runs the same API under **Laravel Octane + FrankenPHP** on port 9000 (built-in PHP server segfaults on Windows). The SPA either consumes built assets through Laravel (`public/build` + `resources/views/app.blade.php`) or builds standalone to `dist/` when `VITE_STANDALONE=true` (Vercel path).
+The browser never calls the API directly on a cross-origin hop it does not
+control: the Next server reads `API_ORIGIN` at request time and forwards the
+request. That keeps the session cookie/httpOnly design intact and makes the
+API origin a deploy-time value rather than a build-time one.
 
-## Request lifecycle (API)
+## Request lifecycle
 
-1. `bootstrap/app.php` mounts only `web.php`, `api.php`, `console.php` (+ health `/up`). There is no `Http/Kernel.php`; middleware is aliased/appended here.
-2. Global api group: `ThrottleRequests:api` (authed 200/min, guests 60/min — `AppServiceProvider::boot`) + custom middlewares:
-   - `SecurityHeaders` — appended to web and api stacks
-   - `admin` (`AdminMiddleware`) — role gate for `/api/admin/*`
-   - `freeze_pending_termination` — blocks writes during pending project termination
-3. Exceptions render JSON for any `api/*` request (`shouldRenderJsonWhen`).
-4. Auth = Sanctum **bearer tokens** (no cookies/sessions for the SPA). Token model override throttles `last_used_at` writes to once per 5 min.
-5. SPA catch-all in `web.php` serves `SpaController@index` (the only reachable Blade view).
+1. `cmd/gateway` loads `routing/routes.yaml` at startup. A route without a
+   handler answers a deliberate 501 stub — the route table is the contract,
+   and `TestEveryRouteIsRegistered` fails the build if the two disagree.
+2. Middleware order is: recover → security headers → rate limit →
+   auth (Sanctum token, read from MySQL) → admin gate → freeze gate.
+3. Handlers write PostgreSQL directly. Identity handlers write MySQL and then
+   re-sync the touched row into PostgreSQL before serialising, so a response
+   never shows the old mirror.
+4. Unmatched `/api/*` paths answer a JSON 404. Anything else is not the
+   gateway's business.
 
-## Storage layout
+## Data ownership
 
-| Disk | Driver | Contents | Access |
-|---|---|---|---|
-| `local` | local | framework private files | never public |
-| `public` | env-driven (`PUBLIC_STORAGE_DRIVER=local\|s3`) | uploads: avatars, portfolios*, certificates*, receipts, proofs, chat images, delivery docs, milestone files, bid attachments, vault documents | anonymous via `/storage/{path}` fallback route (presigns `portfolios/*`, `certificates/*`) |
-| `railway` | s3 (Tigris) | `contracts/project_{id}/…` SPK snapshots & signatures, verification documents | presigned URLs only (5 min–24 h TTLs) |
+| Store | Tables | Why |
+|---|---|---|
+| MySQL | `users`, `personal_access_tokens`, Spatie role tables | A session minted by either stack must work on both during the transition (ADR-0018). |
+| PostgreSQL | everything else | The rewrite's schema: native enums, one `bids` table with a role discriminator, integer money. |
+| Both | the identity rows, mirrored | The ETL copies MySQL → PostgreSQL; identity writes re-sync the touched row. |
 
-*Known security debt (documented in `docs/audits/security.md`): several sensitive classes still land on the *public* disk and `/storage/{path}` has no ownership check.
+`cmd/etl` is the bridge: it reads each MySQL table, writes PostgreSQL with the
+same values, and verifies row-count equality. `db/mysql/schema.sql` and
+`db/mysql/demo.sql` are the frozen legacy schema and a demo dataset, used to
+build a local MySQL and by CI.
 
-## Deploy pipeline
+## Storage
 
-- **API**: repo root `Dockerfile` → `docker/entrypoint.sh` runs `migrate --force`, then warms `config:cache` / `route:cache` / `view:cache` / `event:cache`, then supervisord (nginx + php-fpm + `queue:work` + a `schedule:run` loop). OPcache is enabled in the image. There is **no Octane in production** — Octane is a local-dev server only; `config/octane.php` does not govern prod.
-- **SPA**: `vercel.json` rewrites + security headers (CSP / HSTS / nosniff / frame-ancestors — the SPA origin had NO headers at all before 2026-09-23); build command uses `VITE_STANDALONE=true vite build` → `dist/`.
-- **Logging**: `LOG_STACK` must include `stderr` in containers. Supervisord only drains stdout and `storage/logs/*.log` sits on the container's ephemeral filesystem, so a file-only stack silently discards every error on deploy.
-- **Migrations**: 240 files; notable generated-table migrations include `restore_legacy_tables` pair that recreates pre-Laravel tables (`house`, `rooms`, notifications, activity logs, etc.).
-- **CI**: `.github/workflows/ci.yml` — MySQL 8 service, `php -l` sweep, migrations (with a rollback/re-apply check), all Pest suites, the in-process smoke test, `npm run typecheck:check`, `npm run build`, plus a gitleaks job that fails on committed secrets.
+| Kind | Location | Access |
+|---|---|---|
+| Public uploads | `PUBLIC_STORAGE_ROOT` (local) or Tigris | anonymous `/storage/...` |
+| Contracts, KYC, receipts, dispute evidence | `EVIDENCE_DIR` (local) or private Tigris | presigned URLs |
+| Generated application files | PostgreSQL byte columns / storage root | handler-checked |
 
-## Frontend structure
+Uploads are server-named; the client filename is never used as a path.
 
-- Entry: `resources/js/app.tsx` (router), `bootstrap.js` (axios defaults, retry/cache interceptors).
-- Pages under `resources/js/pages/**`, heavy feature components under `components/{Dashboard,Projects,Marketplace,Chat,…}`.
-- `DashboardTabs.tsx` lazy-loads 16 tab modules behind one Suspense boundary; keep new heavy routes lazy.
-- PWA via `vite-plugin-pwa`: precaches app shell + all hashed assets (~4.7 MB today); runtime caching limited to Google Fonts. Never cache `/api/*`.
-- Dev-only quick-login panel loads via `import.meta.glob('./dev/QuickLoginPanel.tsx')` from a gitignored folder.
+## Deploy
+
+- **API** — `go build ./cmd/gateway` → Railway. Environment: `DATABASE_URL`,
+  `MYSQL_DSN`, `APP_KEY`, `APP_URL`, `PUBLIC_STORAGE_ROOT`, `EVIDENCE_DIR`,
+  `RESEND_API_KEY`, `VAPID_PUBLIC_KEY`, `GEOCODING_ORIGIN`.
+- **Frontend** — `web/` on Vercel. `API_ORIGIN` is read at runtime; the build
+  output is `standalone`.
+- **PostgreSQL** — migrations are applied in filename order before the new
+  binary is promoted. They are forward-only and idempotent where possible.
+- **MySQL** — identity only. The schema is frozen; a new environment restores
+  `db/mysql/schema.sql`.
+
+## CI
+
+`.github/workflows/ci.yml`:
+
+| Job | What it proves |
+|---|---|
+| `action-policy` | Every action is pinned to a SHA and every image to a digest. |
+| `secrets` | gitleaks over full history; no VAPID private key tracked. |
+| `go` | `gofmt`, `go vet`, `go test ./...`. |
+| `web` | `tsc --noEmit` and `next build`. |
+| `database` | PostgreSQL builds from scratch and matches MySQL; the ETL loads and both engines hold the same row counts. |

@@ -14,10 +14,10 @@
 // A route that exists in Laravel and not in Go is a 404 in production that no
 // test caught, because the test called the Go handler directly.
 //
-// So the route table is GENERATED (`php artisan routes:export`), read by
-// both engines, and compared by a gate (`tools/parity/routes.mjs`) that
-// fails the build when the three views disagree. This package is the Go
-// view of that file.
+// The route table is FROZEN: it was generated from the Laravel router at the
+// end of the port and is now the contract the gateway serves. A route without
+// a handler answers the 501 stub; TestEveryRouteIsRegistered fails the build
+// when the two disagree.
 //
 // THE TWO SPELLINGS OF THE SAME MIDDLEWARE
 // -----------------------------------------
@@ -59,16 +59,15 @@ const (
 
 // Route is one entry of the manifest.
 type Route struct {
-	// ID is the stable identifier: the Laravel route name when it has one,
-	// and a generated `<method>.<slug>` otherwise. It is the name of the
-	// golden file for this endpoint, so it must not change when the route
-	// moves.
+	// ID is the stable identifier: the Laravel route name when it had one, and
+	// a generated `<method>.<slug>` otherwise. Clients and tests key on it, so
+	// it must not change when a handler moves.
 	ID string `yaml:"id"`
 
 	// Methods are the HTTP verbs, without the implied HEAD.
 	Methods []string `yaml:"methods"`
 
-	// URI is the Laravel URI, WITHOUT a leading slash: `api/projects/{project}`.
+	// URI is the API path, WITHOUT a leading slash: `api/projects/{project}`.
 	URI string `yaml:"uri"`
 
 	// Auth is the auth classification.
@@ -78,14 +77,12 @@ type Route struct {
 	// minute — or null when the route declares none.
 	Throttle *string `yaml:"throttle"`
 
-	// Tier is the parity contract of this endpoint (REWRITE-PLAN §5.2):
-	// 1 byte-identical including the side-effect rows, 2 shape-identical,
-	// 3 compatible. It is generated from the endpoint's AREA, and the
-	// matrix in docs/PARITY.md is generated from it.
+	// Tier recorded the parity contract during the port: 1 byte-identical
+	// including side-effect rows, 2 shape-identical, 3 compatible.
 	Tier int `yaml:"tier"`
 
-	// Upstream is which stack serves the endpoint in production. Every
-	// endpoint starts on `laravel`, and flipping one to `go` is the cutover.
+	// Upstream is which stack serves the endpoint. Every route is `go` now; the
+	// field is retained because /internal/routes reports it.
 	Upstream string `yaml:"upstream"`
 
 	// Laravel carries the legacy facts the manifest recorded.

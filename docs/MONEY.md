@@ -7,7 +7,7 @@ ADR-0020 (the invariant lives in the database) · ADR-0022 (the post-parity mone
 > `docs/DOMAIN.md` contains two known errors, both corrected here:
 > 1. It says a dispute refund is "attributed to the PAYMENT (not the dispute)". It is
 >    **inverted** — the refund's `reference_*` is the **dispute**, and `reverses_*` is
->    the payment (`app/Services/DisputeService.php:380-383`).
+>    the payment (`internal/httpapi/disputes.go`, the refund branch of the admin action).
 > 2. It says the unique index "allows exactly ONE `payment` and one `refund` per
 >    referenced payment". Since `2026_09_29_000003` a refund's reference is the
 >    **dispute**: one refund per dispute, any number against a payment.

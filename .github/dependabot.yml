@@ -1,19 +1,19 @@
 version: 2
 
 updates:
-  - package-ecosystem: composer
+  - package-ecosystem: gomod
     directory: "/"
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
     commit-message:
-      prefix: "composer"
+      prefix: "go"
     labels:
       - dependencies
-      - php
+      - go
 
   - package-ecosystem: npm
-    directory: "/"
+    directory: "/web"
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
@@ -28,8 +28,3 @@ updates:
     schedule:
       interval: monthly
     open-pull-requests-limit: 3
-    commit-message:
-      prefix: "ci"
-    labels:
-      - dependencies
-      - ci

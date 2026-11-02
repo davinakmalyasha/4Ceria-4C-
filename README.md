@@ -1,335 +1,86 @@
 # 4Ceria Portal
 
-**Multi-party contract and payment coordination for Indonesian residential construction.**
-
-An owner posts a project. Seven *separately licensed* professional roles bid on it — arsitek,
-kontraktor, notaris, interior, structural engineer, MEP engineer, project manager. Each one
-negotiates a fee, signs their own SPK, and gets a payment schedule. Money moves through a
-milestone escrow **ledger**. Milestones gate payment. Disputes freeze it. Handover closes it.
-
----
-
-## Screenshots
-
-Seed the database (`php artisan migrate && php artisan db:seed`) and sign in as any demo
-account — every one uses the password `123456`, and the addresses are listed in
-`database/seeders/Support/DemoAccount.php`.
-
-| Professional dashboard | Bidding board | Project tender |
-|---|---|---|
-| ![Dashboard](docs/screenshots/dashboard-pm.png) | ![Bidding board](docs/screenshots/bidding-board.png) | ![Project detail](docs/screenshots/project-detail.png) |
-| Role-aware landing, open-tender counts, shortcuts | Discovery feed filtered by the viewer's role, budget and phase | Bid count, required specialties, tender CTA, Q&A thread |
-
-The map on the bidding board needs a tile-provider key (`VITE_MAP_TILE_KEY`); it is hidden
-from the screenshot above for that reason rather than faked.
-
-## The problem
-
-Indonesian house construction is coordinated in a WhatsApp group and a notebook, and it fails
-there. The parties have to agree on scope, price, schedule, and *when money is released* — and
-none of them have ever worked with each other before. The architect, the structural engineer, the
-MEP engineer, the notary, the main contractor and the project manager are each individually
-licensed, each legally liable, and each unable to verify the others. There is no shared record of
-what was agreed, no single place where "how much is left" has one answer, and no mechanism that
-stops a payment while a quality dispute is open.
-
-4Ceria is the shared record. The hard part is not the marketplace; it is the money and the
-contracts, and that is where the engineering effort went.
-
-## What it is
-
-A contract-bound payment graph, not a listing site. The structural bet is the seven-role model
-and everything that falls out of it:
-
-- **Seven parallel role pipelines.** Each role has its own bid table, profile, fee model,
-  negotiation thread, contract, and termin schedule. A project is complete only when the roles it
-  published are all filled.
-- **Per-role SPK.** Seven separate agreements, each with its own signature, bank details, and
-  payment plan whose percentages must sum to exactly 100%.
-- **One escrow ledger per project.** A single source of truth for spendable balance, with a
-  row-level lock, one affordability guard, and a database unique index that makes a double-charge
-  physically impossible.
-- **Milestone-gated release.** A termin is `locked` until its milestone is approved, and
-  `void` the moment a professional is fired or a contract is re-signed.
-- **A dispute centre that actually freezes money.** One open dispute per project; while it is
-  open, every payment route returns 422. An admin then arbitrates with five defined outcomes,
-  including partial refunds attributed to the specific payment they reverse.
-
-Plus the supporting surfaces: materials marketplace with courier job board, BOM requirements
-with usage tracking, change orders, snag lists, BAST handover, 180-day warranty, a notary legal
-vault covering 27 Indonesian instruments, and a PWA.
-
-## The escrow model, stated honestly
-
-4Ceria maintains an escrow **ledger**. It does not hold your money. Transfers go from the client's
-account to the professional's, and the platform records and gates each one.
-
-| The ledger does | The ledger does not |
-|---|---|
-| Records every movement against the project budget | Hold or move funds |
-| Refuses a payment the budget cannot cover | Recover money sent to a wrong account |
-| Freezes every payment route while a dispute is open | Make a bank transfer itself |
-| Records who authorised each movement | Issue tax invoices or withhold tax |
-| Caps refunds at what that payment actually received | — |
-
-There is currently **no platform fee**. That is a deliberate current state, not a hidden charge.
-
-### Three questions the ledger answers separately
-
-Most of the difficulty in this file is one distinction kept straight: *spending* the escrow,
-*moving* the escrow, and *reaching a professional* are three different questions. Conflating them
-is how a client gets charged twice for one movement.
-
-| Constant | Answers | Members |
-|---|---|---|
-| `DISBURSEMENT_TYPES` | how much left the account | `payment`, `refund`, `platform_fee`, `retention_release` |
-| `CEILING_NEUTRAL_TYPES` | which movements must **not** also touch `projects.budget` | the same four |
-| `PROFESSIONAL_EARNINGS_TYPES` | how much reached a professional (feeds the public `client_history`) | `payment`, `refund`, `retention_release` — **not** the fee |
-
-A `platform_fee` is the platform's revenue, not the professional's income, so counting it in a
-professional's public earnings figure would flatter nobody. Retention release *is* included: it is
-the professional's own withheld money finally arriving.
-
-### Retention is withheld, not just displayed
-
-Each payment stage stores a split at creation — `retention_amount` held until the warranty
-expires, `net_amount` payable now, and `retention_amount + net_amount === amount` exactly. The
-completion payment debits the **net**; the release debits the withheld part later, as its own
-`retention_release` row.
-
-That separate type is not cosmetic. `deductBudget()` de-duplicates on
-`(reference, transaction_type)`, so a release recorded as another `payment` on the same termin
-matches the completion row and returns `true` **without inserting** — while the command still
-marked the stage released and reported success. Retention was neither held nor released; it
-simply disappeared. `RetentionService::forTermin()` reads the split that was persisted rather than
-recomputing it, so a later change to the retention rate cannot move a net the parties already
-agreed.
-
-The release is blocked while a claim is open or being fixed, is idempotent because every replica
-runs the schedule, and runs from `escrow:release-retention`.
-
-## The three hardest problems, and where they live
-
-**1. Escrow overpayment and double-spend under concurrency.**
-`ProjectFinancialService::deductBudget()` takes a `lockForUpdate()` on the project row, checks
-affordability, writes the ledger row, and relies on the widened unique index
-`(project_id, reference_model, reference_id, transaction_type)` — which permits exactly one
-`payment` and one `refund` per referenced payment, so a reversal is representable but a second
-identical charge is not. The unique-violation is caught and treated as success, so a
-double-submit is idempotent rather than fatal.
-→ `app/Services/ProjectFinancialService.php:99`
-
-**2. Payment forgery: mint a payment stage, then self-verify it.**
-A professional could create a termin in their own name and then accept it, moving the client's
-escrow to themselves. Three independent guards close it: only the payee or a privileged role may
-verify, the escrow must cover the amount, and the plan must stay within the negotiated contract
-value. The test asserts the full chain, not one bug.
-→ `tests/PaymentIntegrityTest.php:83`
-
-**3. Refunding professional A's termin out of professional B's money.**
-The dispute centre originally compared a refund against the *project's* total payments, so an
-admin could return A's money twice by opening two disputes. Fixed with a durable `refunded_amount`
-accumulator per payment, attributed at the payment rather than the project.
-→ `app/Services/DisputeService.php`, `tests/PaymentIntegrityTest.php:508`
-
-## State machines
-
-`projects.status` is a MySQL ENUM and a hard write error outside the list
-(`open, accepted_arsitek, accepted_kontraktor, awaiting_payment, in_progress, termination_pending,
-legal, procurement, completed_build, completed, cancelled`).
+Construction-coordination and real-estate marketplace. A Go API serves every
+endpoint from PostgreSQL; a Next.js 16 App Router application is the frontend;
+MySQL still owns identity (users, tokens and the role tables) during the
+migration, and an ETL mirrors it into PostgreSQL.
 
 ```
-termin:    locked ──approve milestone──> pending ──> invoice_sent ──> verifying ──proof──> paid
-              │                                                                      │
-              └──────────── fire pro / re-sign / terminate ─────────────────────┴──> void
-
-dispute:   open ──withdraw──> withdrawn        open ──admin action──> resolved
-              │                │                │   dismiss | release_payment
-              └──escalate──────┴──> open        │   record_refund | terminate_project | custom
+Next.js (web/)  ──HTTP──▶  Go gateway (cmd/gateway)  ──▶  PostgreSQL
+                                   │
+                                   ├──▶  MySQL  (users, tokens, roles — ADR-0018)
+                                   └──▶  Resend / Tigris / Nominatim
 ```
 
-`docs/DOMAIN.md` has the full model.
+## Layout
 
-## Stack
-
-- **Backend** — Laravel 13 (API-only under `/api`), PHP 8.4+, Sanctum, Spatie Permission, Resend,
-  Redis. **Laravel Octane (FrankenPHP)** locally, php-fpm + nginx in the container.
-- **Frontend** — React 19 + TypeScript SPA, Vite 6, Tailwind 3, react-router 7, PWA
-  (`injectManifest` with a hand-written service worker).
-- **Data** — MySQL 8/9 (ENUM- and decimal-heavy; the schema is not SQLite-portable), Redis for
-  cache/session/queue, S3-compatible object storage (Tigris) with two disks: `public` and the
-  private `railway`.
-- **Deploy** — SPA on Vercel (standalone `dist/` build), API as a Docker image on Railway
-  (nginx + php-fpm + queue worker + scheduler under supervisord).
-
-## Roadmap — the Go + PostgreSQL + Next.js rewrite
-
-This application is being rewritten to **Go 1.27.2 + PostgreSQL 17 + Next.js 16**, under two
-hard constraints: **100 % feature parity** and a **byte-identical** frontend. The rewrite
-is executed as a strangler — this application stays deployed and green throughout, and
-serves as the oracle the rewrite is judged against.
-
-| | |
+| Path | What it is |
 |---|---|
-| [`docs/REWRITE-PLAN.md`](docs/REWRITE-PLAN.md) | The master plan: the measured baseline, the 16 live defects, the target architecture, the parity contract, the 19 slices, the cutover and rollback runbooks, the CI matrix, the risk register, and the first two weeks day by day. |
-| [`docs/adr/`](docs/adr/) | The 22 decisions, with their context, their consequences and the alternatives rejected. |
-| [`docs/MONEY.md`](docs/MONEY.md) | The escrow model and its 50 machine-checked invariants. |
-| [`docs/PORTING.md`](docs/PORTING.md) | How to port one endpoint, and the definition of done. |
-| [`docs/PARITY.md`](docs/PARITY.md) | The generated matrix: every endpoint, its parity tier, its upstream, and what verified it. |
+| `cmd/gateway` | The API server. Reads the route manifest and registers every route. |
+| `cmd/etl` | The MySQL → PostgreSQL loader and verifier. |
+| `internal/httpapi` | Handlers, middleware, money and request plumbing. |
+| `internal/domain` | Pure domain packages: money, escrow, termin plan, authz, identity. |
+| `internal/jsonphp` | PHP-compatible JSON encoder (the wire contract). |
+| `web/` | Next.js 16 application (standalone build). |
+| `routing/routes.yaml` | The route manifest the gateway serves. |
+| `db/postgres/migrations` | The PostgreSQL schema, forward-only. |
+| `db/mysql/` | Frozen legacy schema + demo rows (MySQL still owns identity). |
+| `spec/enums.yaml` | Every enum value list, in MySQL order. |
+| `docs/` | Domain, money, conventions, architecture, ADRs. |
 
-**The parity is machine-checked**, not asserted: route-set equality, middleware parity,
-three-way URI classification, recorded golden files, a zero-tolerance visual-regression
-gate whose baseline can only change through an accepted ADR, and a floor on the legacy
-test suite that may only rise.
+## Run it
 
-### Where the rewrite actually is
-
-| Piece | State |
-|---|---|
-| **Route parity** | 296 routes / 300 method-URI pairs. The manifest, the Laravel route table and the Go router agree, including the normalised middleware and the rate limit. |
-| **Contract capture** | All 300 endpoints recorded into `spec/contracts/laravel/`, byte-for-byte reproducible. Found and fixed eight live defects on the way (B23–B30). |
-| **Go gateway** | `cmd/gateway` serves every route from the manifest, answers `501` until a handler exists, and exposes `/internal/routes`, `/healthz`, `/readyz`. The JSON 404 is PHP-identical. |
-| **Go escrow** | `internal/domain/escrow` — the three type-lists, the retention split, the platform fee, the service. 52 Go tests, plus `db/postgres/tests/escrow_behaviour.sql` driving the real SQL function on a from-scratch database. |
-| **JSON encoder** | `internal/jsonphp` — a port of `json_encode` with PHP's flags. 3,333 differential cases agree byte for byte. |
-| **PostgreSQL** | The baseline builds from scratch, matches the live MySQL schema (86 tables, 36 enum types), and is checked in CI. |
-| **ETL** | `cmd/etl` copies the live data into PostgreSQL through `COPY`, in foreign-key order, and `-verify` compares row counts on both sides. It runs in the gate. |
-| **Go endpoints** | `GET /api/admin/stats`, `GET /api/notifications`, `GET /api/user/active-projects` and the whole `/me` surface (`GET`, `PUT`, avatar upload/delete, professional update, unread summary) are served by Go from PostgreSQL and answer **byte-identically** to Laravel. |
-| **Shadow comparator** | `tools/parity/shadow.mjs` compares one route; `shadow-all.mjs` compares every PORTED route and runs in the gate. Status, content type and body, **byte for byte**. |
-| **Visual baseline** | 51 screens captured from this application, deterministic across runs. |
-| **Next.js port** | **The whole visual baseline matches**: 51 screens — every guest route, all 38 dashboard tabs across four roles, the public tabs signed out, and all six `/admin/*` screens — photographed beside this application. 47 are byte-for-byte identical; 4 differ by 200–320 pixels, inside the declared antialiasing budget. |
-| **Port infrastructure** | A BFF (`/api/*` forwards the cookie's token), a `react-router-dom` shim onto Next's router, and an axios bootstrap — which is why the ported screens reuse this application's own components. |
-
-The port's stylesheets and Help Centre content are **generated** from this application's
-files, so the design and the prose cannot fork.
+Requirements: Go 1.27+, Node 20+, PostgreSQL 17, MySQL 9.6.
 
 ```bash
-php scripts/verify.php                                   # the whole gate
-node tools/parity/matrix.mjs                             # regenerate docs/PARITY.md
-node tools/visual/compare-upstreams.mjs --screen=guest.route.login
+# 1. Databases
+psql -d postgres -c 'CREATE DATABASE 4ceria_pgcheck'
+for f in db/postgres/migrations/*.sql; do psql -d 4ceria_pgcheck -f "$f"; done
+
+mysql -uroot -e 'CREATE DATABASE 4ceria'
+mysql -uroot 4ceria < db/mysql/schema.sql
+mysql -uroot 4ceria < db/mysql/demo.sql
+
+# 2. API
+cp .env.example .env
+go run ./cmd/gateway --addr=:8099
+
+# 3. Frontend
+cd web && npm ci && API_ORIGIN=http://127.0.0.1:8099 npm run dev
 ```
 
-## Getting started
+The demo accounts all use the password `123456` (for example
+`client@example.test`).
 
-Requires **PHP >= 8.4** — the `php` on `PATH` may be older and will fail to parse vendor code.
+## Verify
 
 ```bash
-composer install
-npm install
-cp .env.example .env          # then fill DB_*, RESEND_API_KEY
-php artisan key:generate
-php artisan migrate --seed
+node scripts/verify.mjs          # gofmt, vet, go test, frontend typecheck + build
+node scripts/verify.mjs --db     # plus the PostgreSQL baseline and the ETL row check
 ```
 
-Run it:
+The database gate builds PostgreSQL from scratch, diffs it against the live
+MySQL schema, loads the ETL and asserts both engines hold the same number of
+rows. `bash scripts/ci/action-policy.sh` asserts every action and image is
+pinned.
 
-```bash
-composer dev                  # server + queue + logs + vite, all at once
-# or
-php artisan octane:start --server=frankenphp --port=9000
-npm run dev                   # Vite on :5173
-```
+## Deployment
 
-> No local Redis? Override the drivers per process:
-> `set SESSION_DRIVER=file&& set CACHE_STORE=file&& set QUEUE_CONNECTION=sync&& php artisan octane:start --server=frankenphp --port=9000`
-
-The test suite runs against **real MySQL** inside a rolled-back transaction — the migrations
-contain raw `ALTER`/`ENUM` statements that SQLite cannot execute. Any MySQL 8+ will do; use a
-scratch database, never a shared one.
-
-## Testing
-
-```bash
-php artisan test               # all Pest suites
-php artisan schema:verify      # every model attribute exists in a from-scratch migration
-php artisan money:detect-duplicates   # read-only ledger integrity scan
-scripts\verify-schema.cmd <scratch_db> # full migrate:fresh → verify → rollback → re-migrate
-```
-
-`schema:verify` is the gate that keeps the schema honest. It exists because 37 migrations were
-once recorded as applied while doing nothing — see [AGENTS.md trap 11](AGENTS.md). `money:detect-duplicates`
-exists because a bid could be marked `paid` with no ledger row behind it.
-
-## Build
-
-```bash
-npm run build                          # Laravel-integrated, into public/build
-VITE_STANDALONE=true npm run build     # standalone SPA into dist/ (this is what Vercel serves)
-```
-
-CI builds **both**, because building only the first proves an artifact that is never shipped.
-
-## Key environment variables
-
-| Variable | Purpose |
-|---|---|
-| `APP_URL` | Base URL used for reset links / signed URLs |
-| `DB_*` | MySQL connection |
-| `SESSION_DRIVER` / `CACHE_STORE` / `QUEUE_CONNECTION` | `redis` in prod; `file`/`sync` locally |
-| `RESEND_API_KEY` | Transactional email |
-| `PUBLIC_STORAGE_DRIVER` | `local` (dev) or `s3` (prod) |
-| `RAILWAY_STORAGE_*` | Private bucket: contracts, KYC, receipts, evidence |
-| `TRUSTED_PROXIES` | CIDR list behind the edge. `"*"` lets clients spoof `X-Forwarded-For` and rotate rate-limit buckets — do not use it in production. |
-| `VAPID_*` | Web push. Push returns 501 until the trio is set. |
-| `VITE_API_URL` / `VITE_STANDALONE` | Standalone SPA build config |
-
-## Repository layout
-
-| Path | |
-|---|---|
-| `routes/api.php` | The single source of truth for the API surface (~300 actions) |
-| `app/Http/Controllers/Api/` | Controllers |
-| `app/Services/` | Domain services — the money lives in `ProjectFinancialService` |
-| `app/Support/Schema/` | Migration safety helpers (`EnumValues`, `ForeignKeyIndexGuard`) |
-| `resources/js/` | React SPA |
-| `tests/` | Pest suites, all against real MySQL, all rolled back |
-| `docs/` | Architecture, domain model, conventions, API map, backlog |
-| `AGENTS.md` | **Read this before changing anything** — 13 traps that have each cost real time |
-| `scripts/` | Verification entry points, codemods, and committed asset generators |
-| `cmd/` `internal/` | The Go services: the gateway, the escrow domain, the JSON encoder, the differentials |
-| `db/postgres/` | The PostgreSQL baseline (9 migrations) and the escrow's SQL behaviour test |
-| `routing/routes.yaml` | The generated route manifest — the Go router and the parity gate both read it |
-| `spec/` | The oracle: 300 recorded contracts, the visual baseline, the enum manifest |
-| `web/` | The Next.js 16 port (RSC + Server Actions + httpOnly cookies) |
+- **API** — the Go binary (`go build ./cmd/gateway`) on Railway, with
+  `DATABASE_URL`, `MYSQL_DSN`, `APP_KEY` and the storage/mail variables.
+- **Frontend** — `web/` on Vercel (`next build`, standalone output), with
+  `API_ORIGIN` pointing at the API.
+- **PostgreSQL** — the application datastore.
+- **MySQL** — identity only; the frozen schema is in `db/mysql/`.
 
 ## Documentation
 
 | | |
 |---|---|
-| [`AGENTS.md`](AGENTS.md) | Working rules, the verification gate, and the critical traps |
-| [`docs/DOMAIN.md`](docs/DOMAIN.md) | Domain model, lifecycle, money flow, dispute arbitration |
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Runtime topology, request lifecycle, deploy pipeline |
-| [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md) | Auth, authorization and upload conventions |
-| [`docs/API_MAP.md`](docs/API_MAP.md) | Route map grouped by domain |
-| [`docs/BACKLOG.md`](docs/BACKLOG.md) | What shipped, and what is deliberately not scheduled |
-
-## Known limitations
-
-Stated rather than hidden:
-
-- **No payment gateway.** Money moves by manual bank transfer with human proof verification.
-  There is no automated hold or release.
-- **No automated payouts, and no invoices.** The ledger records budget consumption, not who is
-  owed, and 4Ceria does not issue tax invoices — which is what the product copy says. A platform
-  fee *is* implemented (`PlatformFeeService`, recorded as its own `retention_release`-style
-  separate row beside the payment) but is **0% by default**, so nothing is charged unless
-  `ESCROW_PLATFORM_FEE_PERCENT` is set. Indonesian retention (*potong*) **is** implemented and
-  released on warranty expiry; see the escrow section above.
-- **Seven parallel bid tables.** 235 columns for 52 distinct names, with several type
-  inconsistencies between them. `config/bids.php` is meant to paper over this and only partially
-  does.
-- **Type debt.** `tsconfig.json` is not `strict`. `npm run typecheck:check` is a ratchet against
-  a recorded baseline of 96 errors, and the baseline is not zero.
-- **The feed filters on a JSON column.** The discovery board reads
-  `projects.published_bidding_roles` with `whereJsonContains` in eight places — one per
-  professional role — which no btree index can serve, so each is a table scan. The fix is a
-  `project_published_roles` join table mirrored from that column; it is not built.
-- **Some landing-page images are not in the repository.** The partner and institutional logos and
-  the marketing photography on the landing page are third-party assets that were never committed,
-  so they 404 on a fresh clone. The brand logo *is* committed (`public/assets/Logo4C.png`,
-  generated by `scripts/generate-pwa-icons.ps1`); the rest need supplying.
-- **Test coverage is backend-heavy.** 546 Pest assertions-heavy tests against real MySQL, and 20
-  Vitest tests for the SPA. The Vue/React side is the thinner of the two.
-
-## License
-
-MIT — see [LICENSE](LICENSE).
+| [`AGENTS.md`](AGENTS.md) | Start here: working rules and traps. |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Topology, request lifecycle, storage, deploy. |
+| [`docs/DOMAIN.md`](docs/DOMAIN.md) | Actors, project lifecycle, money flow. |
+| [`docs/MONEY.md`](docs/MONEY.md) | The escrow model and its invariants. |
+| [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md) | Auth, authorization, uploads, responses. |
+| [`docs/POSTGRES-SCHEMA.md`](docs/POSTGRES-SCHEMA.md) | The PostgreSQL target schema. |
+| [`docs/adr/`](docs/adr/README.md) | The decisions, with their consequences. |

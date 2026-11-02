@@ -9,31 +9,18 @@
 .env.backup
 .idea
 .vscode
-.phpunit.cache
 .agents
 README.md
 docs
+.tmp
+.playwright-mcp
 
-# Application development artifacts
+# Frontend — built and deployed separately on Vercel
+web
 node_modules
-vendor
 npm-debug.log
-yarn-error.log
-package-lock.json
 
-# Laravel specific ignores
-storage/framework/cache/data/*
-storage/framework/sessions/*
-storage/framework/testing/*
-storage/framework/views/*
-storage/logs/*
-bootstrap/cache/*
-public/build
-public/storage
-
-# Docker
-Dockerfile
-.dockerignore
-
-# Vite dev-server marker must never ship to production
-public/hot
+# Tests and local databases
+db/mysql/demo.sql
+*.log
+*.exe

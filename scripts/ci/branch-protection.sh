@@ -48,16 +48,14 @@ fi
 
 echo "==> protecting ${REPO}:${BRANCH}"
 
-# The CI job names, exactly as GitHub reports them. The matrix job expands to
-# one check per PHP version.
+# The CI job names, exactly as GitHub reports them.
 CONTEXTS=$(cat <<'JSON'
 [
   "Action policy",
   "Secret scan",
-  "API (PHP 8.4)",
-  "API (PHP 8.5)",
-  "Schema integrity",
-  "SPA (TypeScript + Vite)"
+  "Go suites",
+  "Next.js",
+  "PostgreSQL + ETL"
 ]
 JSON
 )

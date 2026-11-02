@@ -16,7 +16,7 @@
 # db/postgres/migrations/, and is the source for the Go constants and
 # the TypeScript union.
 version: 1
-generated_at: '2026-11-02T10:44:45.260Z'
+generated_at: '2026-11-02T12:40:47.318Z'
 source:
   engine: mysql
   database: 4ceria

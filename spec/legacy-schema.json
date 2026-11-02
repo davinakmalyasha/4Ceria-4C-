@@ -1,7 +1,7 @@
 {
   "engine": "mysql",
   "database": "4ceria",
-  "generatedAt": "2026-11-02T10:44:45.260Z",
+  "generatedAt": "2026-11-02T12:40:47.318Z",
   "counts": {
     "tables": 98,
     "columns": 1350,

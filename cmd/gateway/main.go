@@ -2,22 +2,19 @@
 //
 // WHAT IT IS FOR
 // --------------
-// The rewrite moves 296 API endpoints from Laravel to Go. The gateway is
-// the process that serves them, and the first thing it does is serve the
-// ROUTE TABLE — because "without losing one" is not something a person can
-// check by reading.
+// The gateway serves all 296 API endpoints. The first thing it does is
+// serve the ROUTE TABLE — because "every endpoint is registered" is not
+// something a person can check by reading.
 //
-// A route that exists in Laravel and not in Go is a 404 in production that
-// no test caught, because the test called the Go handler directly.
+// A route in the manifest without a handler is a 404 in production that no
+// test caught, because the test called the handler directly.
 //
 // So the gateway:
 //
-//   - reads the GENERATED route manifest (`routing/routes.yaml`), which the
-//     same command that produced it also checks against the live Laravel
-//     route table;
-//   - registers every route in it, with the same gates;
-//   - reports its own route table at `GET /internal/routes`, so the parity
-//     gate can compare the THIRD view against the other two;
+//   - reads the route manifest (`routing/routes.yaml`) and registers every
+//     entry with its gates;
+//   - answers a deliberate 501 stub for a manifest route with no handler;
+//   - reports its own route table at `GET /internal/routes`;
 //   - answers `GET /healthz` and `GET /readyz`.
 //
 // USAGE
@@ -77,26 +74,6 @@ func main() {
 		// would be a lie with a cache header — the limit is a protection,
 		// and an unwired one is a hole.
 		Limiter: httpapi.NewMemoryLimiter(),
-	}
-
-	// THE STRANGLER'S EDGE.
-	//
-	// `LARAVEL_ORIGIN` is the Laravel application this gateway proxies
-	// unported routes to (e.g. `http://127.0.0.1:9001`). When it is set,
-	// every route without a Go handler is forwarded to Laravel byte for
-	// byte, so one origin serves traffic while the port moves endpoint by
-	// endpoint. When it is empty (development, tests), unported routes
-	// answer the 501 stub.
-	if origin := os.Getenv("LARAVEL_ORIGIN"); origin != "" {
-		proxy, err := httpapi.NewProxy(origin)
-		if err != nil {
-			logger.Error("could not configure the Laravel proxy", "origin", origin, "error", err)
-			os.Exit(1)
-		}
-
-		gates.Proxy = proxy
-
-		logger.Info("laravel proxy wired", "origin", origin)
 	}
 
 	// IDENTITY LIVES IN MYSQL.

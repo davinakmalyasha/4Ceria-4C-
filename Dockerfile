@@ -1,82 +1,35 @@
-# Production Dockerfile for Laravel API Backend (Frontend deployed on Vercel)
-FROM php:8.4-fpm-alpine
-WORKDIR /var/www/html
+# The Go API image.
+#
+# Two stages: the module is built with the toolchain that matches `go.mod`,
+# and the runtime image carries the binary, the route manifest and CA
+# certificates — nothing else. There is no PHP, no web server and no queue
+# worker: the gateway is one process, and the database is external.
 
-# Install system dependencies
-RUN apk add --no-cache \
-    nginx \
-    supervisor \
-    curl \
-    libpng-dev \
-    libjpeg-turbo-dev \
-    libwebp-dev \
-    freetype-dev \
-    libxml2-dev \
-    zip \
-    unzip \
-    git \
-    oniguruma-dev \
-    postgresql-dev \
-    libzip-dev \
-    mysql-client \
-    mariadb-connector-c
+FROM golang:1.27-alpine AS build
 
-# Configure and install PHP extensions (gd with JPEG & Freetype for full image support)
-# $PHPIZE_DEPS provides build tools for pecl; removed after to keep image small
-RUN apk add --no-cache --virtual .build-deps $PHPIZE_DEPS \
-    && docker-php-ext-configure gd --with-jpeg --with-webp --with-freetype \
-    && docker-php-ext-install pdo pdo_mysql pdo_pgsql mbstring exif pcntl bcmath gd xml zip \
-    && pecl install redis \
-    && docker-php-ext-enable redis \
-    && apk del .build-deps
+WORKDIR /src
 
-# Configure PHP upload and memory limits
-RUN echo "upload_max_filesize = 64M" > /usr/local/etc/php/conf.d/uploads.ini \
-    && echo "post_max_size = 64M" >> /usr/local/etc/php/conf.d/uploads.ini \
-    && echo "memory_limit = 256M" >> /usr/local/etc/php/conf.d/uploads.ini
+# Cache the module download separately from the source.
+COPY go.mod go.sum ./
+RUN go mod download
 
-# Enable and tune OPcache (php-fpm-alpine ships without it enabled by default)
-RUN docker-php-ext-install opcache \
-    && echo "opcache.enable=1" > /usr/local/etc/php/conf.d/opcache.ini \
-    && echo "opcache.enable_cli=0" >> /usr/local/etc/php/conf.d/opcache.ini \
-    && echo "opcache.memory_consumption=192" >> /usr/local/etc/php/conf.d/opcache.ini \
-    && echo "opcache.interned_strings_buffer=16" >> /usr/local/etc/php/conf.d/opcache.ini \
-    && echo "opcache.max_accelerated_files=20000" >> /usr/local/etc/php/conf.d/opcache.ini \
-    && echo "opcache.validate_timestamps=1" >> /usr/local/etc/php/conf.d/opcache.ini \
-    && echo "opcache.revalidate_freq=60" >> /usr/local/etc/php/conf.d/opcache.ini
+COPY cmd ./cmd
+COPY internal ./internal
 
-# Install Composer
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+# GOEXPERIMENT=nojsonv2: the wire contract is PHP-compatible JSON, and Go
+# 1.27's encoding/json/v2 may encode differently (AGENTS.md trap 1).
+RUN GOEXPERIMENT=nojsonv2 CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o /out/gateway ./cmd/gateway
 
-# Copy application files
-COPY . .
+FROM alpine:3.21
 
-# Install PHP production dependencies (retry up to 3 times for transient GitHub CDN failures)
-RUN COMPOSER_ALLOW_SUPERUSER=1 composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist \
-    || (sleep 5 && COMPOSER_ALLOW_SUPERUSER=1 composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist) \
-    || (sleep 10 && COMPOSER_ALLOW_SUPERUSER=1 composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist)
+RUN apk add --no-cache ca-certificates tzdata
 
-# Create necessary Laravel directories and set permissions
-RUN mkdir -p /var/www/html/storage/framework/cache/data \
-             /var/www/html/storage/framework/sessions \
-             /var/www/html/storage/framework/testing \
-             /var/www/html/storage/framework/views \
-             /var/www/html/storage/logs \
-             /var/www/html/bootstrap/cache \
-    && rm -rf /var/www/html/public/storage \
-    && php artisan storage:link \
-    && chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/public \
-    && chown -R www-data:www-data /var/lib/nginx /var/log/nginx
+WORKDIR /app
 
-# Copy Nginx, PHP-FPM, Supervisor configurations, and entrypoint
-COPY docker/nginx.conf /etc/nginx/nginx.conf
-COPY docker/supervisord.conf /etc/supervisord.conf
-COPY docker/www.conf /usr/local/etc/php-fpm.d/www.conf
-COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
+COPY --from=build /out/gateway /app/gateway
+COPY routing/routes.yaml /app/routing/routes.yaml
 
-# Expose HTTP port
-EXPOSE 80
+ENV TZ=UTC
+EXPOSE 8080
 
-# Run migrations at container startup (MySQL/Aiven available at runtime)
-RUN chmod +x /usr/local/bin/entrypoint.sh
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+ENTRYPOINT ["/app/gateway", "--addr=:8080"]

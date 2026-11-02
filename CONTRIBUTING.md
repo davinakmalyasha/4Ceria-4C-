@@ -2,30 +2,40 @@
 
 ## Before you change anything
 
-Read [`AGENTS.md`](AGENTS.md). It is short and it contains 13 traps that have each cost real
-debugging time — the MySQL `ENUM` that silently broke a whole flow for months, the `pm_id`
-column that stores a user id while every other id column stores a profile id, the index that
-InnoDB adopts as a foreign key's backing store.
+Read [`AGENTS.md`](AGENTS.md). It is short, and it lists the traps that have
+each cost real debugging time: the Go 1.27 JSON v2 difference that breaks the
+byte contract, the `pm_id` column that stores a profile id, the MySQL enum that
+must only ever be appended to, the UTC pinning the ETL depends on.
 
 Two rules that are not negotiable:
 
-- **Never commit without the owner's explicit instruction.** The owner reviews the tree.
-- **Before deleting something as "dead", re-grep the inbound references yourself.** Two past
-  audit claims about dead code were wrong.
+- **Never commit without the owner's explicit instruction.** The owner reviews
+  the tree.
+- **Before deleting something as "dead", re-grep the inbound references
+  yourself.**
 
 ## Environment
 
-- **PHP >= 8.4.** The `php` on `PATH` may be older and will fail to parse vendor code.
-- **MySQL 8+.** The schema is not SQLite-portable — the migrations contain raw `ALTER`/`ENUM`
-  statements that SQLite cannot execute. The test suite needs a real MySQL.
-- **Node 18+.**
+- **Go 1.27+**
+- **Node 20+**
+- **PostgreSQL 17+**
+- **MySQL 9.6** — identity only (ADR-0018)
 
 ```bash
-composer install
-npm install
 cp .env.example .env
-php artisan key:generate
-php artisan migrate --seed
+
+# PostgreSQL
+createdb 4ceria_pgcheck
+for f in db/postgres/migrations/*.sql; do psql -d 4ceria_pgcheck -f "$f"; done
+
+# MySQL (identity + demo rows)
+mysql -uroot -e 'CREATE DATABASE 4ceria'
+mysql -uroot 4ceria < db/mysql/schema.sql
+mysql -uroot 4ceria < db/mysql/demo.sql
+
+# API + frontend
+go run ./cmd/gateway --addr=:8099
+cd web && npm ci && API_ORIGIN=http://127.0.0.1:8099 npm run dev
 ```
 
 ## The verification gate
@@ -33,94 +43,47 @@ php artisan migrate --seed
 Run the full list after any structural change. CI runs the same one.
 
 ```bash
-# 1. syntax
-php -l <file>                                   # or sweep app database routes tests
-# 2. autoloader, after adding/removing a class
-composer dump-autoload
-# 3. types — a ratchet, must not RISE
-npm run typecheck:check
-# 4. BOTH builds. Production ships dist/, not public/build.
-npm run build
-VITE_STANDALONE=true npm run build
-# 5. migrations, if you added one
-php artisan migrate --force
-# 6. schema honesty — every model attribute exists in a from-scratch migration
-php artisan schema:verify
-# 7. tests — real MySQL, every test rolled back
-php artisan test
-# 8. manual pass
-# login -> dashboard -> project page, in a browser
+gofmt -l ./cmd ./internal                       # must print nothing
+go vet ./...
+GOEXPERIMENT=nojsonv2 go test ./...
+cd web && npx tsc --noEmit
+cd web && npm run build
+node tools/db/verify-postgres-baseline.mjs      # from-scratch PostgreSQL vs. MySQL
+go run ./cmd/etl -all -truncate                 # then:
+go run ./cmd/etl -all -verify
+bash scripts/ci/action-policy.sh
 ```
 
-For a full round-trip against a throwaway database:
+`node scripts/verify.mjs` runs the first five; `--db` adds the database and
+ETL steps.
 
-```bash
-scripts\verify-schema.cmd 4ceria_scratch
-```
+## Changing money code
 
-That drops the database, runs every migration from scratch, verifies the schema against every
-model, rolls back the last three batches, re-applies, and verifies again. It is slow — MySQL
-rebuilds the whole table for every `ENUM` alter — but it is the only way to know the schema is
-reproducible.
+Money changes are not "refinements". They need:
 
-## Money changes
+1. a test in `internal/` that fails without the change;
+2. a read of [`docs/MONEY.md`](docs/MONEY.md), and an update to it if the model
+   changed;
+3. the dispute gate (`assertNoOpenDispute`) on any new payment path;
+4. a transaction with `FOR UPDATE` on the project row for multi-row writes.
 
-Money is not a "refinement". A change to escrow, termin, refund, dispute or payout logic needs:
+## Adding an endpoint
 
-1. **A test in `tests/`** that fails before the fix and passes after.
-2. **A look at `docs/DOMAIN.md`**, and an update if the model changed.
-3. A `money:detect-duplicates` run to confirm the ledger is still coherent.
+1. Add the route to `routing/routes.yaml` (method, path, id, middleware tier).
+2. Add the handler and register it in `cmd/gateway/main.go`.
+3. `TestEveryRouteIsRegistered` must stay green.
+4. Serialise through `internal/jsonphp`; the body is a wire contract.
 
-Every payment path goes through `ProjectFinancialService`. Never write a
-`project_budget_transactions` row by hand, and never read `projects.budget` to answer "how much
-is left" — use `available()` / `summary()`. Check the return value of `recordPayment()`.
+## Changing the schema
 
-## Adding a migration
+- PostgreSQL: a new numbered file in `db/postgres/migrations/`, forward-only.
+  Rebuild from scratch and run the baseline gate before committing.
+- MySQL: append-only. A new enum value is appended; never rewrite the list.
+  Update `db/mysql/schema.sql`, `spec/enums.yaml` and the PostgreSQL enum in
+  the same change.
 
-- **Never** write a migration whose `up()` is empty. 37 of them once accumulated that way, and
-  they left 26 columns in the models but not the database. If a migration is unnecessary, delete
-  the file.
-- **Never rewrite a MySQL `ENUM` with `MODIFY COLUMN`.** It is a full table rebuild and it aborts
-  the migration if any row holds a value you dropped. Use
-  `App\Support\Schema\EnumValues::addValues()`, which only appends.
-- **Never `dropIndex()` a composite whose leading column is a foreign key.** Use
-  `App\Support\Schema\ForeignKeyIndexGuard::dropIndex()`.
-- Keep `down()` honest, or document loudly why it is one-way.
+## Scratch scripts
 
-## Tests
-
-- Suites share `tests/Support/DatabaseHarness.php`. Do not re-roll the `.env` recovery or the
-  transaction rollback per file.
-- Build fixtures through a scenario factory. Do not add a fifth copy of a hand-rolled user
-  builder.
-- DML only. Never DDL in a test.
-- A throwaway script is a local file, not a directory: put it at the repository
-  root and name it `debug_*.php`, `verify_*.php`, `seed_*.php` and so on. Those
-  patterns are anchored to the root in `.gitignore`, so they are ignored there and
-  nowhere else — a file called `test_login.php` inside `tests/` is tracked
-  normally. Dev tooling belongs in `app/Console/Commands/` — a Pest suite is a
-  test, an artisan command is a tool.
-
-## Where things belong
-
-| | |
-|---|---|
-| Business logic | `app/Services/`, behind a thin controller |
-| Request validation | `app/Http/Requests/` |
-| Authorization | a policy, not an inline id comparison |
-| A new API route | `routes/api.php`, then `docs/API_MAP.md` |
-| A new domain concept | `docs/DOMAIN.md` |
-| A decision worth explaining | `docs/CLEANUP-LOG.md` |
-| Shipped work | `docs/BACKLOG.md` |
-
-## Local-only files
-
-Keep out of commits: `.env`, `resources/js/pages/dev/` (the quick-login panel),
-and the local working documents `REFINEMENT-PLAN.md` / `FINAL-SWEEP.md`.
-
-Scratch scripts do not need a home directory. Name them `debug_*.php`,
-`verify_*.php`, `seed_*.php` and drop them at the repository root; the patterns
-in `.gitignore` are anchored with a leading `/` so they match the root and
-nothing else. That anchoring is deliberate — unanchored, they also matched
-`tests/Feature/test_login.php` and silently kept it out of the repository, with
-no error from `git add`.
+Name them `debug_*.mjs`, `verify_*.mjs`, `seed_*.mjs`, `scratch_*.mjs` at the
+repository root. The `.gitignore` patterns are anchored there, so a file with
+that name anywhere else is tracked normally.

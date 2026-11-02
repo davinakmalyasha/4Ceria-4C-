@@ -52,18 +52,11 @@ func NewRouter(manifest *Manifest, gates Gates) *Router {
 	// an unmatched API path with a JSON body, for the reason in the comment
 	// on the catch-all below.
 	for _, entry := range manifest.MethodURIs() {
-		// A route with a HANDLER is served; a route without one is PROXIED
-		// to Laravel when a proxy is configured, and answers the stub
-		// otherwise. A ported route is never proxied: the handler IS the
-		// cutover, and proxying it would serve the old stack's answer while
-		// reporting the new stack as authoritative.
+		// A route with a handler is served; a route without one answers the
+		// 501 stub. Every route is ported, so the stub is a bug detector, not
+		// a normal path.
 		if handler, ok := gates.Handlers[entry.Route.ID]; ok {
 			mux.Handle(entry.Method+" "+entry.Pattern(), router.wrap(entry, handler))
-			continue
-		}
-
-		if gates.Proxy != nil {
-			mux.Handle(entry.Method+" "+entry.Pattern(), gates.Proxy.Handler())
 			continue
 		}
 

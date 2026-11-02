@@ -17,33 +17,32 @@ name: Pull request
 
 The gate from [`CONTRIBUTING.md`](../CONTRIBUTING.md). Tick what you ran:
 
-- [ ] `php -l` sweep over `app database routes tests`
-- [ ] `composer dump-autoload` (if classes were added or removed)
-- [ ] `npm run typecheck:check` — ratchet, must not rise
-- [ ] `npm run build` **and** `VITE_STANDALONE=true npm run build`
-- [ ] `php artisan migrate --force` (migration added)
-- [ ] `php artisan schema:verify` (migration added)
-- [ ] `php artisan test`
-- [ ] `php artisan money:detect-duplicates` (money path)
+- [ ] `gofmt -l ./cmd ./internal` prints nothing
+- [ ] `go vet ./...`
+- [ ] `GOEXPERIMENT=nojsonv2 go test ./...`
+- [ ] `cd web && npx tsc --noEmit`
+- [ ] `cd web && npm run build`
+- [ ] `node tools/db/verify-postgres-baseline.mjs` (schema changed)
+- [ ] `go run ./cmd/etl -all -verify` (schema or data changed)
+- [ ] `bash scripts/ci/action-policy.sh` (workflow changed)
 - [ ] Manual pass: login → dashboard → project page
 
 ## If this touches money
 
-- [ ] A test in `tests/` fails before the change and passes after
-- [ ] `docs/DOMAIN.md` reviewed, and updated if the model changed
-- [ ] Every payment path still goes through `ProjectFinancialService` — no direct
+- [ ] A test in `internal/` fails before the change and passes after
+- [ ] `docs/MONEY.md` reviewed, and updated if the model changed
+- [ ] Every payment path goes through `internal/domain/escrow` — no direct
       `project_budget_transactions` writes
-- [ ] `recordPayment()` return values are checked
-- [ ] New payment endpoints call `DisputeService::assertNoOpenDispute()`
+- [ ] Return values from ledger writes are checked
+- [ ] New payment endpoints check for an open dispute first
 
 ## If this adds a migration
 
-- [ ] `up()` is not empty
-- [ ] No `MODIFY COLUMN` on a MySQL `ENUM` — used `EnumValues::addValues()` instead
-- [ ] No bare `dropIndex()` on a composite over a foreign key — used
-      `ForeignKeyIndexGuard::dropIndex()` instead
-- [ ] `down()` works, or its one-way nature is documented in the file
-- [ ] `scripts\verify-schema.cmd <scratch_db>` passes
+- [ ] The migration is forward-only and numbered in `db/postgres/migrations/`
+- [ ] PostgreSQL enums match `spec/enums.yaml` in value and order
+- [ ] A MySQL enum change APPENDS the value; it never rewrites the list
+- [ ] `db/mysql/schema.sql` is regenerated when the identity schema changes
+- [ ] `db/postgres/tests/escrow_behaviour.sql` still passes
 
 ## Notes
 

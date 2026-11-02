@@ -5,11 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "next dev --port 3000",
-    "build": "npm run sync:styles && next build",
+    "build": "next build",
     "start": "next start --port 3000",
-    "typecheck": "tsc --noEmit",
-    "sync:styles": "node scripts/sync-styles.mjs",
-    "sync:styles:check": "node scripts/sync-styles.mjs --check"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "axios": "^1.20.0",

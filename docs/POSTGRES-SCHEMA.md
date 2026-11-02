@@ -8,9 +8,10 @@ ADR-0020 (the escrow invariants live in the database)
 **Migrations:** `db/postgres/migrations/` · **Enum manifest:** `spec/enums.yaml` ·
 **Instrument:** `tools/db/inspect-legacy-schema.mjs`
 
-> The Laravel application is the ORACLE and it is not modified by this work. The
-> MySQL database keeps running. This document describes the TARGET schema and
-> the reasoning behind it; nothing here changes the legacy application.
+> PostgreSQL is the application datastore. MySQL keeps running for identity
+> only (ADR-0018): `users`, `personal_access_tokens` and the role tables. This
+> document describes the schema and the reasoning behind it; the identity
+> tables are mirrored from MySQL and are not owned here.
 
 ---
 
