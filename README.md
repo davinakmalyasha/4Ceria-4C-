@@ -12,6 +12,24 @@ Next.js (web/)  ──HTTP──▶  Go gateway (cmd/gateway)  ──▶  Postgr
                                    └──▶  Resend / Tigris / Nominatim
 ```
 
+## Screenshots
+
+| | |
+|---|---|
+| ![Owner dashboard](docs/screenshots/03-dashboard.png) | ![Project workspace](docs/screenshots/04-project.png) |
+| Owner dashboard | Project workspace with escrow, milestones and phase tabs |
+
+More in [`docs/PORTFOLIO.md`](docs/PORTFOLIO.md): the full gallery, demo
+accounts, and a two-minute demo script.
+
+## History
+
+This repository used to be a Laravel 13 + MySQL + React SPA application. It was
+ported to Go + PostgreSQL + Next.js with a byte-identical contract, verified
+endpoint by endpoint against the running legacy app. The last commit that
+carries the Laravel application is tagged [`laravel-final`](https://github.com/davinakmalyasha/4Ceria-4C-/tree/laravel-final);
+`git diff laravel-final main` is the retirement.
+
 ## Layout
 
 | Path | What it is |

@@ -7,6 +7,7 @@ MySQL still owns identity (ADR-0018); the frozen schema is in `db/mysql/`.
 
 | | |
 |---|---|
+| [`PORTFOLIO.md`](PORTFOLIO.md) | The pitch, screenshots, demo accounts and a two-minute demo script. |
 | [`../AGENTS.md`](../AGENTS.md) | Working rules, commands and the traps that have each cost real time. |
 | [`../README.md`](../README.md) | What the application is, how to run it, how to deploy it. |
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | Topology, request lifecycle, data ownership, storage, CI. |
