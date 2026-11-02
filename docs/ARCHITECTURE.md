@@ -61,9 +61,12 @@ Uploads are server-named; the client filename is never used as a path.
 
 ## Deploy
 
-- **API** — `go build ./cmd/gateway` → Railway. Environment: `DATABASE_URL`,
-  `MYSQL_DSN`, `APP_KEY`, `APP_URL`, `PUBLIC_STORAGE_ROOT`, `EVIDENCE_DIR`,
-  `RESEND_API_KEY`, `VAPID_PUBLIC_KEY`, `GEOCODING_ORIGIN`.
+**Not deployed.** This is a portfolio project; the shape below is what a
+deployment would look like.
+
+- **API** — the `Dockerfile` (Go binary) on a container host. Environment:
+  `DATABASE_URL`, `MYSQL_DSN`, `APP_KEY`, `APP_URL`, `PUBLIC_STORAGE_ROOT`,
+  `EVIDENCE_DIR`, `RESEND_API_KEY`, `VAPID_PUBLIC_KEY`, `GEOCODING_ORIGIN`.
 - **Frontend** — `web/` on Vercel. `API_ORIGIN` is read at runtime; the build
   output is `standalone`.
 - **PostgreSQL** — migrations are applied in filename order before the new
