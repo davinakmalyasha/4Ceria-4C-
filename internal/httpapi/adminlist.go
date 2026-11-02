@@ -118,10 +118,10 @@ func AdminProfessionalsIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		supplierDocs := []string{"foto", "address", "bio", "no_telp"}
 
 		type collection struct {
-			key        string
-			table      string
-			docs       []string
-			roleType   string
+			key      string
+			table    string
+			docs     []string
+			roleType string
 		}
 		collections := []collection{
 			{"arsiteks", "arsiteks", profileDocs, ""},
@@ -239,12 +239,12 @@ func AdminProfessionalsHistoryHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		items := make([]any, 0, perPage)
 		for rows.Next() {
 			var (
-				id                            int64
-				typeKey, roleLabel, name      string
-				email                         string
-				status                        string
-				rejectionReason               *string
-				auditedAt                     *time.Time
+				id                       int64
+				typeKey, roleLabel, name string
+				email                    string
+				status                   string
+				rejectionReason          *string
+				auditedAt                *time.Time
 			)
 			if err := rows.Scan(&id, &typeKey, &roleLabel, &name, &email, &status,
 				&rejectionReason, &auditedAt); err != nil {
@@ -404,11 +404,11 @@ func adminUserRoles(ctx context.Context, pool *pgxpool.Pool, userID int64) ([]an
 	out := make([]any, 0)
 	for rows.Next() {
 		var (
-			id                     int64
-			name, guardName        string
-			createdAt, updatedAt   *time.Time
-			modelType              string
-			modelID, roleID        int64
+			id                   int64
+			name, guardName      string
+			createdAt, updatedAt *time.Time
+			modelType            string
+			modelID, roleID      int64
 		)
 		if err := rows.Scan(&id, &name, &guardName, &createdAt, &updatedAt,
 			&modelType, &modelID, &roleID); err != nil {

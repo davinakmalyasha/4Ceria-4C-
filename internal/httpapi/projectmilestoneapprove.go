@@ -419,7 +419,6 @@ func rawProjectModel(ctx context.Context, pool *pgxpool.Pool, projectID int64) (
 	return model, rows.Err()
 }
 
-
 // decodeOrderedJSON parses JSON while PRESERVING object key order. The
 // oracle serializes the stored content array verbatim, so `gallery`
 // precedes `file_names` exactly as it was written; a Go map would sort
@@ -485,6 +484,7 @@ func readOrderedJSON(decoder *json.Decoder) (any, error) {
 
 	return nil, nil
 }
+
 // projectJSONValue renders an Eloquent array cast: null stays null, an
 // empty array stays [].
 func eloquentJSONValue(value any) any {

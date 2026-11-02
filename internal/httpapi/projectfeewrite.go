@@ -23,21 +23,21 @@ import (
 
 // feeProposal is the validated payload.
 type feeProposal struct {
-	bidID       int64
-	bidType     string
-	priceText   string
-	price       float64
-	feeType     string
-	note        *string
-	termins     []map[string]any
-	milestones  []map[string]any
+	bidID         int64
+	bidType       string
+	priceText     string
+	price         float64
+	feeType       string
+	note          *string
+	termins       []map[string]any
+	milestones    []map[string]any
 	hasMilestones bool
-	services    []map[string]any
-	hasServices bool
-	team        []map[string]any
-	hasTeam     bool
-	length      *float64
-	width       *float64
+	services      []map[string]any
+	hasServices   bool
+	team          []map[string]any
+	hasTeam       bool
+	length        *float64
+	width         *float64
 }
 
 // numericArrayItem reads a JSON object from a decoded array.

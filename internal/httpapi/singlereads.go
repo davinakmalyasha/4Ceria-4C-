@@ -34,12 +34,12 @@ func PublicBriefHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		token := r.PathValue("token")
 
 		var (
-			projectID  int64
-			title      string
-			location   *string
-			city       *string
-			details    *string
-			lockedAt   any
+			projectID int64
+			title     string
+			location  *string
+			city      *string
+			details   *string
+			lockedAt  any
 		)
 
 		err := pool.QueryRow(ctx, `SELECT id, title, lokasi, city,
@@ -437,11 +437,11 @@ func myBidProject(ctx context.Context, pool *pgxpool.Pool, projectID *int64) any
 
 // hireRole is one project relation in the hire-history walk.
 type hireRole struct {
-	relation  string // how the controller spells it
-	table     string
-	fk        string
-	label     string
-	phoneCol  string
+	relation string // how the controller spells it
+	table    string
+	fk       string
+	label    string
+	phoneCol string
 }
 
 var hireRoles = []hireRole{

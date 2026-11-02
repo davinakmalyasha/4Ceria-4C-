@@ -50,13 +50,13 @@ func canModifyMilestone(ctx context.Context, pool *pgxpool.Pool, viewer *project
 	}
 
 	ownColumns := map[string]string{
-		"arsitek_id":         "arsitek",
-		"kontraktor_id":      "kontraktor",
-		"notaris_id":         "notaris",
-		"interior_id":        "interior",
-		"pm_id":              "project_manager",
-		"structural_id":      "structural",
-		"mep_id":             "mep",
+		"arsitek_id":    "arsitek",
+		"kontraktor_id": "kontraktor",
+		"notaris_id":    "notaris",
+		"interior_id":   "interior",
+		"pm_id":         "project_manager",
+		"structural_id": "structural",
+		"mep_id":        "mep",
 	}
 	for column, role := range ownColumns {
 		owner := intPtrDeref(byName[column])

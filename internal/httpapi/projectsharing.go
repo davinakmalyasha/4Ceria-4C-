@@ -507,7 +507,6 @@ func RevokeShareTokenHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	}
 }
 
-
 // NOTIFICATION PREFERENCES — per-user, per-channel toggles.
 //
 // GET answers {preferences, always_on, channels}; `preferences` groups rows
@@ -609,6 +608,7 @@ func notificationPreferenceCreatedObject(byName map[string]any) *jsonphp.Object 
 	entry.Set("id", projectRawValue(byName["id"]))
 	return entry
 }
+
 // NotificationPreferencesIndexHandler serves `GET /api/notification-preferences`.
 func NotificationPreferencesIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

@@ -30,14 +30,14 @@ import (
 
 // sealSpec describes one seal's texts and columns.
 type sealSpec struct {
-	role      identity.Role
-	forbidden string
-	incomplete string
-	phase     string
-	stampCol  string
-	notesCol  string
-	action    string
-	details   string
+	role        identity.Role
+	forbidden   string
+	incomplete  string
+	phase       string
+	stampCol    string
+	notesCol    string
+	action      string
+	details     string
 	notifyTitle string
 	notifyBody  string
 	failMsg     string

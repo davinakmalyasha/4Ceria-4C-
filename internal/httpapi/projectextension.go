@@ -22,7 +22,6 @@ import (
 // the requested days to the project deadline (or today when there is
 // none) and pushes `projects.deadline` forward.
 
-
 // extensionCreatedObject renders Eloquent\u0027s CREATED extension.
 func extensionCreatedObject(byName map[string]any) *jsonphp.Object {
 	entry := jsonphp.NewObject()

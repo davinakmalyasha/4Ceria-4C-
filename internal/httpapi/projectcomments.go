@@ -418,7 +418,6 @@ func validateComment(fields map[string]any, failures *errorBag) (string, *int64)
 	return text, parentID
 }
 
-
 // UpdateCommentHandler serves `PUT /api/projects/{project}/comments/{comment}`.
 func UpdateCommentHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

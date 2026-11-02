@@ -54,16 +54,16 @@ type projectViewer struct {
 
 // projectLoad is the endpoint's eager-load set: what `whenLoaded` sees.
 type projectLoad struct {
-	images         bool
-	milestones     bool
-	documents      bool
-	comments       bool
+	images     bool
+	milestones bool
+	documents  bool
+	comments   bool
 	// bidsWithoutBidder renders the bid arrays but answers `bidder: null`,
 	// matching a load that never eager-loaded the bidder tree.
 	bidsWithoutBidder bool
-	ownerPhone     bool   // phoneNumber relation loaded: owner.phone is the first contact only then, else null
-	subPros        string // "", "viewer", "all"
-	viewerBidRoles []string
+	ownerPhone        bool   // phoneNumber relation loaded: owner.phone is the first contact only then, else null
+	subPros           string // "", "viewer", "all"
+	viewerBidRoles    []string
 	// unscopedBids loads every bid relation without the viewer filter —
 	// the `with_bids=true` second with() call, which replaces the scoped
 	// eager loads.
@@ -91,7 +91,7 @@ type projectLoad struct {
 	// engineerRatings appends the `ratings` rows to the interior-engineer
 	// profile block when the load eager-loaded them.
 	engineerRatings bool
-	pmBlock        bool
+	pmBlock         bool
 	// paymentTermins renders the termin list (always empty on live data;
 	// accept is the only S2 read that loads the relation).
 	paymentTermins bool

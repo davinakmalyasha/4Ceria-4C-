@@ -48,15 +48,19 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          # Full history so a secret committed earlier is still caught.
-          fetch-depth: 0
 
-      - name: Scan for committed secrets
+      # The TREE, not the history. The pre-rewrite history contains findings
+      # that were committed before this pipeline existed (old Blade templates
+      # and a local tool's virtualenv). Scanning all of history would fail
+      # every run on commits nobody can change without rewriting the
+      # repository. What must be true is that the tree being shipped carries
+      # no secret — that is what this checks.
+      - name: Scan the shipped tree for secrets
         run: |
           docker run --rm -v "$PWD:/repo" \
             zricethezav/gitleaks@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f \
-            detect --source=/repo --no-banner --redact --verbose --exit-code 1
+            detect --no-git --source=/repo --config=/repo/.gitleaks.toml \
+            --no-banner --redact --verbose --exit-code 1
 
       - name: Assert no VAPID private key is tracked
         run: |

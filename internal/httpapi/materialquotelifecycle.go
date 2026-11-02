@@ -1070,17 +1070,17 @@ func mustMinorValue(text string) int64 {
 // create order, then `items`, each with its `material`.
 func materialOrderCreatedObject(ctx context.Context, pool *pgxpool.Pool, orderID int64) (*jsonphp.Object, error) {
 	var (
-		userID, supplierID                 int64
-		projectID                          *int64
-		status                             string
-		totalPrice, shippingCost           string
-		deliveryMethod                     *string
-		whatsappOrderID                    string
-		notes, deliveryAddress             *string
-		addressDetail                      *string
-		latitude, longitude                *float64
-		totalWeight                        *string
-		createdAt, updatedAt               any
+		userID, supplierID       int64
+		projectID                *int64
+		status                   string
+		totalPrice, shippingCost string
+		deliveryMethod           *string
+		whatsappOrderID          string
+		notes, deliveryAddress   *string
+		addressDetail            *string
+		latitude, longitude      *float64
+		totalWeight              *string
+		createdAt, updatedAt     any
 	)
 	if err := pool.QueryRow(ctx, `SELECT user_id, supplier_id, project_id, status::text,
 		total_price::text, shipping_cost::text, delivery_method, whatsapp_order_id, notes,
@@ -1188,13 +1188,13 @@ func materialModelObject(ctx context.Context, pool *pgxpool.Pool, materialID int
 		return nil, errLedgerGone
 	}
 	var (
-		id, supplierID             int64
-		name, description, price   *string
-		unit, category             *string
-		stock                      *int64
-		isAvailable                bool
-		imagePath, specifications  *string
-		createdAt, updatedAt       any
+		id, supplierID            int64
+		name, description, price  *string
+		unit, category            *string
+		stock                     *int64
+		isAvailable               bool
+		imagePath, specifications *string
+		createdAt, updatedAt      any
 	)
 	if err := rows.Scan(&id, &supplierID, &name, &description, &price, &unit, &category,
 		&stock, &isAvailable, &imagePath, &specifications, &createdAt, &updatedAt); err != nil {

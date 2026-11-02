@@ -122,13 +122,13 @@ type houseRoomInput struct {
 
 // houseStoreInput is the validated create payload.
 type houseStoreInput struct {
-	name, price, houseDesc           string
-	width, length, ba, br, floors    string
-	street, kelurahan, kecamatan     string
-	kabKota, province, postalCode    string
-	lat, lng                         string
-	rooms                            []houseRoomInput
-	housePics                        []*galleryUpload
+	name, price, houseDesc        string
+	width, length, ba, br, floors string
+	street, kelurahan, kecamatan  string
+	kabKota, province, postalCode string
+	lat, lng                      string
+	rooms                         []houseRoomInput
+	housePics                     []*galleryUpload
 }
 
 // validateStoreHouse mirrors StoreHouseRequest.

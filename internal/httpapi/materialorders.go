@@ -223,13 +223,13 @@ func materialOrderReviewObject(ctx context.Context, pool *pgxpool.Pool, orderID 
 // materialOrderDeliveryJobObject renders `deliveryJob.logistics.phoneNumber`.
 func materialOrderDeliveryJobObject(ctx context.Context, pool *pgxpool.Pool, orderID int64) (any, error) {
 	var (
-		id, order                     int64
-		quoteID, logisticsID          *int64
-		pickup, dropoff, jobStatus    *string
-		agreedFee                     *string
-		estimatedWeight               *string
-		createdAt, updatedAt          any
-		pickupPhotos, deliveryPhotos  *string
+		id, order                    int64
+		quoteID, logisticsID         *int64
+		pickup, dropoff, jobStatus   *string
+		agreedFee                    *string
+		estimatedWeight              *string
+		createdAt, updatedAt         any
+		pickupPhotos, deliveryPhotos *string
 	)
 	err := pool.QueryRow(ctx, `SELECT id, quote_id, order_id, logistics_id, pickup_address,
 		dropoff_address, status, agreed_fee::text, estimated_weight, created_at, updated_at,

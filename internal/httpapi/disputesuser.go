@@ -145,13 +145,13 @@ func disputeMessages(ctx context.Context, pool *pgxpool.Pool, disputeID int64) (
 	out := make([]any, 0)
 	for rows.Next() {
 		var (
-			id, disputeID, userID        int64
-			body                         string
-			evidencePath, evidenceName   *string
-			createdAt, updatedAt         *time.Time
-			authorID                     int64
-			authorName                   string
-			authorPic                    *string
+			id, disputeID, userID      int64
+			body                       string
+			evidencePath, evidenceName *string
+			createdAt, updatedAt       *time.Time
+			authorID                   int64
+			authorName                 string
+			authorPic                  *string
 		)
 		if err := rows.Scan(&id, &disputeID, &userID, &body, &evidencePath,
 			&evidenceName, &createdAt, &updatedAt, &authorID, &authorName, &authorPic); err != nil {
@@ -712,5 +712,3 @@ func validateDisputeReply(fields map[string]any, r *http.Request, failures *erro
 
 	return body, evidence
 }
-
-

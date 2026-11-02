@@ -76,7 +76,6 @@ func extensionObject(byName map[string]any) *jsonphp.Object {
 	return entry
 }
 
-
 // changeOrderCreatedObject renders Eloquent\u0027s CREATED change order.
 func changeOrderCreatedObject(byName map[string]any) *jsonphp.Object {
 	entry := jsonphp.NewObject()

@@ -92,11 +92,11 @@ func firmPortfolios(ctx context.Context, pool *pgxpool.Pool, userID int64) ([]an
 	out := make([]any, 0)
 	for rows.Next() {
 		var (
-			id, user                   int64
-			role, title, description   *string
-			imagePath, duration        *string
-			clientReview               *string
-			createdAt, updatedAt       any
+			id, user                 int64
+			role, title, description *string
+			imagePath, duration      *string
+			clientReview             *string
+			createdAt, updatedAt     any
 		)
 		if err := rows.Scan(&id, &user, &role, &title, &description, &imagePath,
 			&duration, &clientReview, &createdAt, &updatedAt); err != nil {
@@ -181,8 +181,8 @@ func firmRoster(ctx context.Context, pool *pgxpool.Pool, ownerID int64) ([]any, 
 
 	// Projects this roster is hired on as the PRIMARY professional.
 	type primaryProject struct {
-		title                                              string
-		structural, mep, interior, kontraktor, arsitek     *int64
+		title                                          string
+		structural, mep, interior, kontraktor, arsitek *int64
 	}
 	primary := make([]primaryProject, 0)
 	projectRows, err := pool.Query(ctx, `SELECT title, structural_id, mep_id,
@@ -209,9 +209,9 @@ func firmRoster(ctx context.Context, pool *pgxpool.Pool, ownerID int64) ([]any, 
 		memberUserID := intPtrDeref(member["member_user_id"])
 
 		var (
-			userID                        int64
-			name                          string
-			uniqueCode, roleType, pic     *string
+			userID                    int64
+			name                      string
+			uniqueCode, roleType, pic *string
 		)
 		err := pool.QueryRow(ctx, `SELECT id, name, unique_code, role_type::text, pic
 			FROM users WHERE id = $1`, memberUserID).Scan(&userID, &name, &uniqueCode, &roleType, &pic)
@@ -392,13 +392,13 @@ func FirmMembersProfileHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		ctx := r.Context()
 
 		var (
-			id                                int64
-			name                              string
-			username, pic, roleType           *string
-			firmName, firmSlogan              *string
-			banner, firmDescription           *string
-			firmHiring                        *bool
-			needed                            *string
+			id                      int64
+			name                    string
+			username, pic, roleType *string
+			firmName, firmSlogan    *string
+			banner, firmDescription *string
+			firmHiring              *bool
+			needed                  *string
 		)
 		err = pool.QueryRow(ctx, `SELECT id, name, username, pic, role_type::text,
 			firm_name, firm_slogan, firm_banner_path, firm_description,

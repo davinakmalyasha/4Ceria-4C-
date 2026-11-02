@@ -255,7 +255,6 @@ func StoreDocumentHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	}
 }
 
-
 // documentCreatedObject renders Eloquent\u0027s CREATED model for the store
 // response: the create payload order, then timestamps and id, then the
 // file_url append and the loaded uploader.

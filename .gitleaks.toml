@@ -1,0 +1,19 @@
+# gitleaks configuration.
+#
+# `useDefault` keeps every built-in rule; this file only narrows WHERE they
+# look. Generated and vendored directories are not source: Next writes build
+# manifests and caches into `web/.next`, and a dependency tree can contain
+# strings that look like keys. Scanning them produces findings nobody can act
+# on and trains reviewers to ignore the job.
+
+[extend]
+useDefault = true
+
+[allowlist]
+paths = [
+  '''web/\.next/''',
+  '''web/node_modules/''',
+  '''node_modules/''',
+  '''\.tmp/''',
+  '''\.playwright-mcp/''',
+]

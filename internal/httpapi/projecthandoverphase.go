@@ -487,6 +487,7 @@ func verifyPhaseTx(ctx context.Context, tx pgx.Tx, projectID int64, project map[
 
 	return true
 }
+
 // triggerPaymentForPhaseTx unblocks the FIRST locked stage of the role.
 func triggerPaymentForPhaseTx(ctx context.Context, tx pgx.Tx, projectID int64, phase string, actorID int64) error {
 	role := ""

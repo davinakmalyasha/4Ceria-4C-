@@ -66,7 +66,6 @@ func dailyLogPhotoURLs(ctx context.Context, value any) []any {
 	return out
 }
 
-
 // dailyLogCreatedObject renders Eloquent\u0027s CREATED log (create order).
 func dailyLogCreatedObject(ctx context.Context, byName map[string]any) *jsonphp.Object {
 	entry := jsonphp.NewObject()

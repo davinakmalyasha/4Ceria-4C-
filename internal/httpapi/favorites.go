@@ -116,9 +116,9 @@ func favoriteHouseCards(ctx context.Context, pool *pgxpool.Pool, ids []int64) ([
 	cards := make([]any, 0)
 	for rows.Next() {
 		var (
-			id                                 int64
-			name                               string
-			kabKota, province, priceText       *string
+			id                           int64
+			name                         string
+			kabKota, province, priceText *string
 		)
 		if err := rows.Scan(&id, &name, &kabKota, &province, &priceText); err != nil {
 			return nil, err
@@ -157,10 +157,10 @@ func favoriteProfileCards(ctx context.Context, pool *pgxpool.Pool, kind string, 
 	cards := make([]any, 0)
 	for rows.Next() {
 		var (
-			id                                 int64
-			nama                               *string
-			namaPerusahaan                     *string
-			spesialisasi, lokasi, foto         *string
+			id                         int64
+			nama                       *string
+			namaPerusahaan             *string
+			spesialisasi, lokasi, foto *string
 		)
 		if kind == "kontraktor" {
 			if err := rows.Scan(&id, &nama, &namaPerusahaan, &spesialisasi, &lokasi, &foto); err != nil {
@@ -213,9 +213,9 @@ func favoriteMaterialCards(ctx context.Context, pool *pgxpool.Pool, ids []int64)
 	cards := make([]any, 0)
 	for rows.Next() {
 		var (
-			id                                    int64
-			name                                  string
-			category, unit, imagePath, priceText  *string
+			id                                   int64
+			name                                 string
+			category, unit, imagePath, priceText *string
 		)
 		if err := rows.Scan(&id, &name, &category, &unit, &imagePath, &priceText); err != nil {
 			return nil, err

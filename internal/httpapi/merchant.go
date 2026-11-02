@@ -336,9 +336,9 @@ func materialObject(ctx context.Context, pool *pgxpool.Pool, byName map[string]a
 	images := make([]any, 0)
 	for rows.Next() {
 		var (
-			id, material                  int64
-			imagePath                     *string
-			createdAt, updatedAt          any
+			id, material         int64
+			imagePath            *string
+			createdAt, updatedAt any
 		)
 		if err := rows.Scan(&id, &material, &imagePath, &createdAt, &updatedAt); err != nil {
 			return nil, err

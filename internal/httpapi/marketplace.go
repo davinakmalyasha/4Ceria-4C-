@@ -296,14 +296,14 @@ func marketplaceSupplierReviews(ctx context.Context, pool *pgxpool.Pool, supplie
 	out := make([]any, 0)
 	for rows.Next() {
 		var (
-			id, userID, supplier, order        int64
-			rating                             *int64
-			comment, imagePath                 *string
-			createdAt, updatedAt               any
-			deliveryRating                     *int64
-			deliveryComment                    *string
-			deliveryUserID                     *int64
-			imagePaths, deliveryPaths          *string
+			id, userID, supplier, order int64
+			rating                      *int64
+			comment, imagePath          *string
+			createdAt, updatedAt        any
+			deliveryRating              *int64
+			deliveryComment             *string
+			deliveryUserID              *int64
+			imagePaths, deliveryPaths   *string
 		)
 		if err := rows.Scan(&id, &userID, &supplier, &order, &rating, &comment,
 			&imagePath, &createdAt, &updatedAt, &deliveryRating, &deliveryComment,

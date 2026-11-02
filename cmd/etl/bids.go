@@ -223,4 +223,3 @@ func verifyBids(ctx context.Context, source *mysqlConn, target *pgx.Conn) (mysql
 
 	return mysqlTotal, postgresTotal, nil
 }
-
