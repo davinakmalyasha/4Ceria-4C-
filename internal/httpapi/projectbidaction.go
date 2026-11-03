@@ -174,7 +174,7 @@ func findBid(ctx context.Context, pool *pgxpool.Pool, projectID int64, role, bid
 		return nil, nil, false, nil
 	}
 
-	rows, err := pool.Query(ctx, `SELECT * FROM bids WHERE project_id = $1 AND role::text = $2 AND (id = $3 OR legacy_id = $3) ORDER BY CASE WHEN legacy_id = $3 THEN 0 ELSE 1 END LIMIT 1`,
+	rows, err := pool.Query(ctx, `SELECT `+bidsColumns+` FROM bids WHERE project_id = $1 AND role::text = $2 AND (id = $3 OR legacy_id = $3) ORDER BY CASE WHEN legacy_id = $3 THEN 0 ELSE 1 END LIMIT 1`,
 		projectID, role, bidID)
 	if err != nil {
 		return nil, nil, false, err
@@ -401,7 +401,7 @@ type bidRow struct {
 
 // reloadBid re-reads one unified bid by physical id.
 func reloadBid(ctx context.Context, pool *pgxpool.Pool, physicalID int64) (bidRow, error) {
-	rows, err := pool.Query(ctx, `SELECT * FROM bids WHERE id = $1`, physicalID)
+	rows, err := pool.Query(ctx, `SELECT `+bidsColumns+` FROM bids WHERE id = $1`, physicalID)
 	if err != nil {
 		return bidRow{}, err
 	}

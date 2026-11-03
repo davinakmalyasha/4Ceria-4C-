@@ -219,7 +219,7 @@ func DestroyMilestoneHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 // loadMilestoneRow reads one milestone bound to the project.
 func loadMilestoneRow(ctx context.Context, pool *pgxpool.Pool, projectID, milestoneID int64) (map[string]any, bool, error) {
-	rows, err := pool.Query(ctx, `SELECT * FROM project_milestones WHERE id = $1 AND project_id = $2`, milestoneID, projectID)
+	rows, err := pool.Query(ctx, `SELECT `+milestonesColumns+` FROM project_milestones WHERE id = $1 AND project_id = $2`, milestoneID, projectID)
 	if err != nil {
 		return nil, false, err
 	}

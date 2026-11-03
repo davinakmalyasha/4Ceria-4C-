@@ -576,7 +576,7 @@ func requirementUpdateSets(input requirementUpdate, imagePath string, imageSet b
 
 // loadRequirement reads one requirement row by id.
 func loadRequirement(ctx context.Context, pool *pgxpool.Pool, requirementID int64) (requirementRow, error) {
-	rows, err := pool.Query(ctx, `SELECT * FROM project_requirements WHERE id = $1`, requirementID)
+	rows, err := pool.Query(ctx, `SELECT `+requirementsColumns+` FROM project_requirements WHERE id = $1`, requirementID)
 	if err != nil {
 		return requirementRow{}, err
 	}

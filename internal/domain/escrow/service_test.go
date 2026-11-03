@@ -429,9 +429,10 @@ func TestTheFreezeGateBlocksAPayment(t *testing.T) {
 // resolution, so a gate that refused it would make arbitration impossible.
 func TestTheFreezeGateDoesNotBlockARefund(t *testing.T) {
 	store := fundedStore(100_000_000)
-	service := newServiceWith(t, store, WithFreezeGate(&fakeGate{open: true, disputeID: 42}))
-
-	paymentResult, err := service.Record(context.Background(), paymentMovement(40_000_000))
+	// Record the payment BEFORE the dispute opens: payments are blocked
+	// while frozen, so the fixture must predate the freeze.
+	ungated := newServiceWith(t, store)
+	paymentResult, err := ungated.Record(context.Background(), paymentMovement(40_000_000))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -439,6 +440,8 @@ func TestTheFreezeGateDoesNotBlockARefund(t *testing.T) {
 	if !paymentResult.Written {
 		t.Fatal("the payment was not written")
 	}
+
+	service := newServiceWith(t, store, WithFreezeGate(&fakeGate{open: true, disputeID: 42}))
 
 	refund := Movement{
 		ProjectID: 1,
@@ -615,6 +618,32 @@ func TestAnUnknownProjectIsReported(t *testing.T) {
 	_, err := service.Record(context.Background(), paymentMovement(1_000))
 	if !errors.Is(err, ErrProjectNotFound) {
 		t.Fatalf("err = %v, want ErrProjectNotFound", err)
+	}
+}
+
+// TestRecordBlocksDisbursementWhenFrozen covers the TOCTOU fix: Record
+// itself enforces the freeze for disbursements, so a future direct caller
+// cannot skip it. Deposits and refunds stay open by design.
+func TestRecordBlocksDisbursementWhenFrozen(t *testing.T) {
+	store := fundedStore(100_000_000)
+	service := newServiceWith(t, store, WithFreezeGate(&fakeGate{open: true, disputeID: 42}))
+
+	if _, err := service.Record(context.Background(), paymentMovement(10_000_000)); err == nil {
+		t.Fatal("Record(payment) was accepted while a dispute is open")
+	}
+	if len(store.entries) != 0 {
+		t.Fatal("a ledger row was written while the freeze was on")
+	}
+
+	// Structural moves are disbursements only when they spend; deposits
+	// must stay open (adding funds never harms arbitration).
+	if _, err := service.Record(context.Background(), Movement{
+		ProjectID: 1,
+		Type:      TxDeposit,
+		Amount:    minor(10_000_000),
+		Title:     "Add funds while frozen",
+	}); err != nil {
+		t.Fatalf("Record(deposit) was refused while frozen: %v", err)
 	}
 }
 

@@ -3,6 +3,7 @@ import { assetUrl } from '@/lib/assets';
 import { formatIDR, titleCase } from '@/lib/format';
 import { removeFavorite } from './saved-actions';
 import type { FavoriteItem } from './explore';
+import { CoverImage } from '@/components/CoverImage';
 
 /**
  * Native "Saved" panel.
@@ -100,8 +101,7 @@ export function SavedPanel({
                                                 className="bg-white rounded-2xl border border-neutral-200 overflow-hidden"
                                             >
                                                 {image ? (
-                                                    // eslint-disable-next-line @next/next/no-img-element
-                                                    <img src={image} alt="" className="h-32 w-full object-cover" />
+                                                    <CoverImage src={image} alt="" className="h-32" />
                                                 ) : (
                                                     <div className="h-32 w-full bg-neutral-100 flex items-center justify-center text-[10px] font-black uppercase tracking-wider text-neutral-400">
                                                         {titleCase(item.type ?? group.type)}

@@ -166,7 +166,7 @@ func ProjectHistoryHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		rows, err := pool.Query(ctx, `SELECT * FROM project_requirement_histories WHERE project_requirement_id IN (SELECT id FROM project_requirements WHERE project_id = $1) ORDER BY created_at DESC`, projectID)
+		rows, err := pool.Query(ctx, `SELECT `+requirementHistoriesColumns+` FROM project_requirement_histories WHERE project_requirement_id IN (SELECT id FROM project_requirements WHERE project_id = $1) ORDER BY created_at DESC`, projectID)
 		if err != nil {
 			slog.Error("reqhist: list", "error", err)
 			serverError(w)
@@ -287,7 +287,7 @@ func RequirementHistoryHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		rows, err := pool.Query(ctx, `SELECT * FROM project_requirement_histories WHERE project_requirement_id = $1 ORDER BY created_at DESC`, requirementID)
+		rows, err := pool.Query(ctx, `SELECT `+requirementHistoriesColumns+` FROM project_requirement_histories WHERE project_requirement_id = $1 ORDER BY created_at DESC`, requirementID)
 		if err != nil {
 			slog.Error("reqhist-one: list", "error", err)
 			serverError(w)

@@ -73,6 +73,12 @@ func warrantyCreatedObject(ctx context.Context, byName map[string]any) *jsonphp.
 func insertNotificationPool(ctx context.Context, pool *pgxpool.Pool, userID int64, kind, title, body, data string) error {
 	_, err := pool.Exec(ctx, `INSERT INTO notifications (user_id, type, title, body, data, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, date_trunc('second', now()), date_trunc('second', now()))`,
 		userID, kind, title, body, data)
+	if err != nil {
+		return err
+	}
+	if shouldPushForPool(ctx, pool, userID, kind) {
+		go fanoutPushPool(pool, userID, kind, title, body)
+	}
 	return err
 }
 

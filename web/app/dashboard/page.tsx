@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { redirect } from 'next/navigation';
 import { DashboardView } from './DashboardView';
 
@@ -38,15 +39,17 @@ export default async function DashboardPage({
     }
 
     return (
-        <DashboardView
-            activeTab="overview"
-            error={error}
-            section={section}
-            q={q}
-            category={category}
-            type={type}
-            conversation={conversation}
-            firm={firm}
-        />
+        <Suspense fallback={<div className="p-6 text-sm text-neutral-500">Loading dashboard…</div>}>
+            <DashboardView
+                activeTab="overview"
+                error={error}
+                section={section}
+                q={q}
+                category={category}
+                type={type}
+                conversation={conversation}
+                firm={firm}
+            />
+        </Suspense>
     );
 }

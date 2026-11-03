@@ -34,7 +34,7 @@ var marketplaceHiddenUserFields = map[string]bool{
 
 // marketplaceUser renders the owner payload with the sensitive set removed.
 func marketplaceUser(ctx context.Context, pool *pgxpool.Pool, userID int64) (any, error) {
-	rows, err := pool.Query(ctx, `SELECT * FROM users WHERE id = $1`, userID)
+	rows, err := pool.Query(ctx, `SELECT id,name,email,username,unique_code,email_verified_at,pic,firm_name,firm_slogan,firm_banner_path,firm_description,firm_is_hiring,firm_needed_roles,"Deskripsi",bank_name,bank_account_number,bank_account_name,created_at,updated_at,role_type,is_suspended FROM users WHERE id = $1`, userID)
 	if err != nil {
 		return nil, err
 	}

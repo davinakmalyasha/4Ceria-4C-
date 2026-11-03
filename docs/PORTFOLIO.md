@@ -18,8 +18,8 @@ preserved on the `laravel-final` tag.
 | Byte-identical port | `internal/jsonphp`, `spec/` history | The API's JSON is a wire contract: key order, number formatting and escaping were reproduced, not approximated. |
 | Escrow arithmetic | `internal/domain/money`, `internal/domain/escrow` | Integer minor units, one formula for "how much is left", retention split, platform fee, refunds. |
 | Database invariants | `db/postgres/migrations`, `db/postgres/tests/escrow_behaviour.sql` | The ledger's `CHECK` constraints make an invalid state impossible, not merely unlikely. |
-| Route manifest | `routing/routes.yaml`, `internal/httpapi` | 296 endpoints, every one registered; a manifest route without a handler fails the build. |
-| Identity split | ADR-0018, `cmd/etl` | MySQL keeps `users`/tokens/roles while PostgreSQL holds everything else; the ETL proves the mirror row for row. |
+| Route manifest | `routing/routes.yaml`, `internal/httpapi` | 312 endpoints, every one registered; a manifest route without a handler fails the build. |
+| All-PostgreSQL auth | `internal/httpapi/authpg.go`, `cmd/gateway` | Login, register, tokens and roles run from PostgreSQL (Sanctum semantics preserved); MySQL is only the one-time seed. |
 | Decisions | `docs/adr/` | 22 ADRs with context, consequences and rejected alternatives — including the ones that were wrong. |
 
 ## Screenshots
@@ -79,9 +79,7 @@ These are the things a reviewer should hear from the author before finding them:
 
 | Gap | Where it is documented |
 |---|---|
-| Identity still lives in MySQL (tokens, users, roles) | ADR-0018, `SECURITY.md` |
-| Uploads write to local disk; the S3/Tigris path is not implemented in the Go service | `.env.example`, `SECURITY.md` |
-| The retention **release** job was not ported — retained amounts are held, and the ledger type exists but nothing writes it | `docs/MONEY.md` §6, §14 |
+| Live mail/push/S3 need credentials (`RESEND_API_KEY`, `VAPID_PRIVATE_KEY`, `S3_*`) — local runs log-and-keep | `.env.example`, `mailoutbox.go`, `pushfanout.go`, `storage_s3.go` |
 | The pre-rewrite git history contains credentials that should be revoked | `SECURITY.md` |
 
 The honest list is part of the work. A portfolio that claims a finished money
@@ -89,6 +87,6 @@ system without naming its gaps is a portfolio nobody should trust with money.
 
 ## Running it
 
-See [`../README.md`](../README.md). Short version: PostgreSQL + MySQL, apply
-`db/postgres/migrations` and restore `db/mysql/schema.sql` + `demo.sql`, then
+See [`../README.md`](../README.md). Short version: PostgreSQL only at runtime — apply
+`db/postgres/migrations`, seed once via ETL from `db/mysql/`, then
 `go run ./cmd/gateway` and `cd web && npm run dev`.

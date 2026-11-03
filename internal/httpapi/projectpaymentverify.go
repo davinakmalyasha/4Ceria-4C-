@@ -869,6 +869,9 @@ func acceptVerifyRow(ctx context.Context, tx pgx.Tx, pool *pgxpool.Pool, bySpell
 		title := verifyLedgerTitle(ctx, tx, pool, target, short)
 		written, _, err := recordPaymentMinor(ctx, tx, projectID, amountMinor, title, fqcn, target.refID, registryID, viewer.id, viewer.role)
 		if err != nil {
+			if fe, ok := asFrozen(err); ok {
+				return false, proofErrorValue{status: 422, message: fe.Error()}
+			}
 			return false, err
 		}
 		if !written {
@@ -903,6 +906,9 @@ func acceptVerifyRow(ctx context.Context, tx pgx.Tx, pool *pgxpool.Pool, bySpell
 	title := verifyLedgerTitle(ctx, tx, pool, target, short)
 	written, available, err := recordPaymentMinor(ctx, tx, projectID, amountMinor, title, fqcn, target.refID, registryID, viewer.id, viewer.role)
 	if err != nil {
+		if fe, ok := asFrozen(err); ok {
+			return false, proofErrorValue{status: 422, message: fe.Error()}
+		}
 		return false, err
 	}
 	if !written {
@@ -1138,7 +1144,7 @@ func reloadVerifyRow(ctx context.Context, pool *pgxpool.Pool, target *verifyTarg
 	case "material_orders":
 		return reloadMaterialVerify(ctx, pool, target.physID)
 	default:
-		rows, err := pool.Query(ctx, `SELECT * FROM bids WHERE id = $1`, target.physID)
+		rows, err := pool.Query(ctx, `SELECT `+bidsColumns+` FROM bids WHERE id = $1`, target.physID)
 		if err != nil {
 			return nil, err
 		}

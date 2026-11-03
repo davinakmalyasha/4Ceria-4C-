@@ -39,12 +39,74 @@ function statusClasses(status: string | null | undefined): string {
     }
 }
 
+function minorOf(text: string | null | undefined): bigint {
+    // Exact minor-unit parse for the header totals: truncates past 2 decimals,
+    // never floats. Mirrors Go parseMinor.
+    let s = String(text ?? '0').trim();
+    if (s === '') {
+        return 0n;
+    }
+    s = s.replace(/[\s_  ]/g, '');
+    let neg = false;
+    if (s.startsWith('-')) {
+        neg = true;
+        s = s.slice(1);
+    } else if (s.startsWith('+')) {
+        s = s.slice(1);
+    }
+    const dot = s.indexOf('.');
+    let whole = dot >= 0 ? s.slice(0, dot) : s;
+    let frac = dot >= 0 ? s.slice(dot + 1) : '';
+    if (!/^\d+$/.test(whole) || (frac !== '' && !/^\d+$/.test(frac))) {
+        return 0n;
+    }
+    if (frac.length > 2) {
+        frac = frac.slice(0, 2);
+    }
+    while (frac.length < 2) {
+        frac += '0';
+    }
+    let minor = BigInt(whole === '' ? '0' : whole) * 100n + BigInt(frac);
+    return neg ? -minor : minor;
+}
+
+function formatMinor(minor: bigint): string {
+    const neg = minor < 0n;
+    const abs = neg ? -minor : minor;
+    const whole = (abs / 100n).toString();
+    let grouped = '';
+    for (let i = 0; i < whole.length; i++) {
+        if (i > 0 && (whole.length - i) % 3 === 0) {
+            grouped += '.';
+        }
+        grouped += whole[i];
+    }
+    return (neg ? '-Rp ' : 'Rp ') + grouped;
+}
+
 export function PaymentsPanel({ termins }: { termins: TerminRow[] }) {
-    const total = termins.reduce((sum, termin) => sum + Number.parseFloat(termin.amount ?? '0'), 0);
-    const retained = termins.reduce((sum, termin) => sum + Number.parseFloat(termin.retention_amount ?? '0'), 0);
-    const paid = termins
-        .filter((termin) => termin.status === 'paid')
-        .reduce((sum, termin) => sum + Number.parseFloat(termin.amount ?? '0'), 0);
+    // Exact header totals in minor units (no floats). Paid uses the NET that
+    // was actually disbursed (the gross was never paid out); retained shows
+    // what is still HELD (retention minus what the release sweeper paid out).
+    let totalMinor = 0n;
+    let retainedHeldMinor = 0n;
+    let releasedMinor = 0n;
+    let paidNetMinor = 0n;
+    for (const termin of termins) {
+        totalMinor += minorOf(termin.amount);
+        const retention = minorOf(termin.retention_amount);
+        const released = minorOf(termin.retention_released_amount);
+        retainedHeldMinor += retention - released;
+        releasedMinor += released;
+        if (termin.status === 'paid') {
+            // Prefer the persisted net; fall back to gross minus retention
+            // for legacy rows with no split.
+            const net = termin.net_amount != null && String(termin.net_amount).trim() !== '' && minorOf(termin.net_amount) > 0n
+                ? minorOf(termin.net_amount)
+                : minorOf(termin.amount) - retention;
+            paidNetMinor += net;
+        }
+    }
     const inFlight = termins.filter((termin) => termin.status === 'verifying').length;
 
     const groups = new Map<string, TerminRow[]>();
@@ -72,15 +134,18 @@ export function PaymentsPanel({ termins }: { termins: TerminRow[] }) {
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-8">
                 <div className="bg-white rounded-2xl border border-neutral-200 p-5">
                     <p className="text-[10px] font-black uppercase tracking-wider text-neutral-400">Planned</p>
-                    <p className="mt-2 text-xl font-black text-neutral-900">{formatIDR(total)}</p>
+                    <p className="mt-2 text-xl font-black text-neutral-900">{formatMinor(totalMinor)}</p>
                 </div>
                 <div className="bg-white rounded-2xl border border-neutral-200 p-5">
                     <p className="text-[10px] font-black uppercase tracking-wider text-neutral-400">Paid</p>
-                    <p className="mt-2 text-xl font-black text-emerald-600">{formatIDR(paid)}</p>
+                    <p className="mt-2 text-xl font-black text-emerald-600">{formatMinor(paidNetMinor)}</p>
                 </div>
                 <div className="bg-white rounded-2xl border border-neutral-200 p-5">
-                    <p className="text-[10px] font-black uppercase tracking-wider text-neutral-400">Retention</p>
-                    <p className="mt-2 text-xl font-black text-neutral-900">{formatIDR(retained)}</p>
+                    <p className="text-[10px] font-black uppercase tracking-wider text-neutral-400">Retention held</p>
+                    <p className="mt-2 text-xl font-black text-neutral-900">{formatMinor(retainedHeldMinor)}</p>
+                    {releasedMinor > 0n && (
+                        <p className="mt-1 text-[11px] text-neutral-500">Released {formatMinor(releasedMinor)}</p>
+                    )}
                 </div>
                 <div className="bg-white rounded-2xl border border-neutral-200 p-5">
                     <p className="text-[10px] font-black uppercase tracking-wider text-neutral-400">In verification</p>

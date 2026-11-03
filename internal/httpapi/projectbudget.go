@@ -294,7 +294,7 @@ func nullableTeamMember(ctx context.Context, pool *pgxpool.Pool, memberID *int64
 		return nil, nil
 	}
 
-	rows, err := pool.Query(ctx, `SELECT * FROM team_members WHERE id = $1`, *memberID)
+	rows, err := pool.Query(ctx, `SELECT `+teamMembersColumns+` FROM team_members WHERE id = $1`, *memberID)
 	if err != nil {
 		return nil, err
 	}
@@ -399,7 +399,7 @@ func budgetAcceptedBids(ctx context.Context, pool *pgxpool.Pool, projectID int64
 	accepted.Set("project_manager", pmBlock)
 
 	for _, role := range []string{"arsitek", "kontraktor", "notaris", "interior"} {
-		rows, err := pool.Query(ctx, `SELECT * FROM bids WHERE project_id = $1 AND role::text = $2 AND status::text = 'accepted' ORDER BY id LIMIT 1`,
+		rows, err := pool.Query(ctx, `SELECT `+bidsColumns+` FROM bids WHERE project_id = $1 AND role::text = $2 AND status::text = 'accepted' ORDER BY id LIMIT 1`,
 			projectID, role)
 		if err != nil {
 			return nil, err
@@ -464,7 +464,7 @@ func relationKey(role string) string {
 // cannot be reused: it appends the user first, which would order any
 // role extra after it.
 func budgetProfileBlock(ctx context.Context, pool *pgxpool.Pool, table string, profileID int64, role string) (*jsonphp.Object, error) {
-	rows, err := pool.Query(ctx, `SELECT * FROM `+table+` WHERE id = $1`, profileID)
+	rows, err := pool.Query(ctx, `SELECT `+profileRowColumns(table)+` FROM `+table+` WHERE id = $1`, profileID)
 	if err != nil {
 		return nil, err
 	}

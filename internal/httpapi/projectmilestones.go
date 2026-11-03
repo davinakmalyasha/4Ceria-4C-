@@ -236,7 +236,7 @@ func milestoneProfile(ctx context.Context, pool *pgxpool.Pool, table string, pro
 		return nil, nil
 	}
 
-	rows, err := pool.Query(ctx, `SELECT * FROM `+table+` WHERE id = $1`, *id)
+	rows, err := pool.Query(ctx, `SELECT `+profileRowColumns(table)+` FROM `+table+` WHERE id = $1`, *id)
 	if err != nil {
 		return nil, err
 	}

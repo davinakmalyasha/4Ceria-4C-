@@ -69,14 +69,30 @@ export interface BudgetPayload {
     }[];
 }
 
+function shellStatusClasses(status: string | null | undefined): string {
+    switch (status) {
+        case 'open':
+            return 'bg-emerald-50 text-emerald-700 border border-emerald-200';
+        case 'cancelled':
+            return 'bg-neutral-100 text-neutral-500 border border-neutral-200';
+        case 'completed':
+        case 'completed_build':
+            return 'bg-sky-50 text-sky-700 border border-sky-200';
+        default:
+            return 'bg-amber-50 text-amber-700 border border-amber-200';
+    }
+}
+
 export function ProjectShell({
     project,
     activeTab,
     children,
+    hideBudget = false,
 }: {
     project: ProjectPayload;
     activeTab: ProjectTab;
     children: ReactNode;
+    hideBudget?: boolean;
 }) {
     return (
         <div className="min-h-screen bg-neutral-100">
@@ -95,11 +111,11 @@ export function ProjectShell({
                         </div>
                         <div className="flex items-center gap-3">
                             {project.status && (
-                                <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-red-50 text-red-600">
+                                <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${shellStatusClasses(project.status)}`}>
                                     {titleCase(project.status)}
                                 </span>
                             )}
-                            {project.budget && (
+                            {project.budget && !hideBudget && (
                                 <span className="text-sm font-bold text-neutral-900">{formatIDR(project.budget)}</span>
                             )}
                         </div>
@@ -276,6 +292,7 @@ export function BudgetPanel({ project, budget }: { project: ProjectPayload; budg
 export interface BidRow {
     id: number;
     price?: string;
+    price_max?: string | null;
     calculated_total?: string | null;
     fee_type?: string | null;
     proposal?: string | null;
@@ -328,13 +345,30 @@ const BID_ROLES: { key: keyof BidsPayload; label: string }[] = [
     { key: 'bids_project_manager', label: 'Project managers' },
 ];
 
-function BidCard({ bid }: { bid: BidRow }) {
+export function bidPriceLabel(bid: BidRow): string {
+    const priceMax = Number.parseFloat(bid.price_max ?? '0');
+    if (bid.fee_type === 'percentage') {
+        if (priceMax > 0) {
+            return `${bid.price ?? '0'}% - ${bid.price_max}%`;
+        }
+        if (bid.calculated_total) {
+            return formatIDR(bid.calculated_total);
+        }
+        return `${bid.price ?? '0'}%`;
+    }
+    if (priceMax > 0) {
+        return `${formatIDR(bid.price)} - ${formatIDR(bid.price_max)}`;
+    }
+    return formatIDR(bid.calculated_total ?? bid.price);
+}
+
+function BidCard({ bid, projectId }: { bid: BidRow; projectId: number }) {
     const name = bid.bidder?.name ?? bid.bidder?.user?.name ?? `Bid #${bid.id}`;
     const specialization = bid.bidder?.spesialisasi ?? bid.bidder?.specialization;
     const location = bid.bidder?.location ?? bid.bidder?.lokasi;
 
     return (
-        <article className="bg-white rounded-2xl border border-neutral-200 p-5">
+        <article className="bg-white rounded-2xl border border-neutral-200 p-5 flex flex-col">
             <div className="flex items-start justify-between gap-3">
                 <div>
                     <h3 className="text-sm font-black text-neutral-900">{name}</h3>
@@ -342,13 +376,20 @@ function BidCard({ bid }: { bid: BidRow }) {
                         {[specialization, location].filter(Boolean).join(' · ') || 'Professional'}
                     </p>
                 </div>
-                <span className="shrink-0 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-neutral-100 text-neutral-600">
-                    {titleCase(bid.status)}
-                </span>
+                <div className="flex shrink-0 items-center gap-1.5">
+                    {bid.is_recommended && (
+                        <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-600">
+                            Recommended
+                        </span>
+                    )}
+                    <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-neutral-100 text-neutral-600">
+                        {titleCase(bid.status)}
+                    </span>
+                </div>
             </div>
 
             <div className="mt-4 flex items-baseline justify-between gap-3">
-                <p className="text-lg font-black text-neutral-900">{formatIDR(bid.calculated_total ?? bid.price)}</p>
+                <p className="text-lg font-black text-neutral-900">{bidPriceLabel(bid)}</p>
                 <p className="text-[10px] font-black uppercase tracking-wider text-neutral-400">
                     {titleCase(bid.fee_type ?? 'fixed')}
                 </p>
@@ -362,15 +403,26 @@ function BidCard({ bid }: { bid: BidRow }) {
                 <span>
                     {bid.estimated_duration ? `${bid.estimated_duration} ${bid.duration_unit ?? ''}`.trim() : 'Duration not stated'}
                 </span>
-                {typeof bid.bidder?.average_rating === 'number' && bid.bidder.average_rating > 0 && (
+                {typeof bid.bidder?.average_rating === 'number' && bid.bidder.average_rating > 0 ? (
                     <span>★ {bid.bidder.average_rating} ({bid.bidder.review_count ?? 0})</span>
+                ) : (
+                    <span>No ratings yet</span>
                 )}
+            </div>
+
+            <div className="mt-4 pt-3 border-t border-neutral-100">
+                <Link
+                    href={`/projects/${projectId}/interviews`}
+                    className="text-[10px] font-black uppercase tracking-wider text-neutral-900 hover:text-red-600"
+                >
+                    View in Interviews →
+                </Link>
             </div>
         </article>
     );
 }
 
-export function ProposalsPanel({ bids }: { bids: BidsPayload }) {
+export function ProposalsPanel({ bids, projectId, error }: { bids: BidsPayload; projectId: number; error?: string }) {
     const groups = BID_ROLES.map((role) => ({
         label: role.label,
         rows: (bids[role.key] as BidRow[] | undefined) ?? [],
@@ -389,9 +441,23 @@ export function ProposalsPanel({ bids }: { bids: BidsPayload }) {
                 <span className="text-[10px] font-black uppercase tracking-wider text-neutral-400">{total} bids</span>
             </div>
 
+            {error && (
+                <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700">{error}</div>
+            )}
+
             {total === 0 ? (
-                <div className="bg-white rounded-2xl border border-neutral-200 p-8 text-sm text-neutral-500">
-                    No proposals have been submitted yet.
+                <div className="bg-white rounded-2xl border border-dashed border-neutral-200 p-8 text-sm text-neutral-500">
+                    <p className="font-black text-neutral-900">No proposals have been submitted yet.</p>
+                    <p className="mt-1">
+                        Share the brief with professionals or invite a specific pro — new bids
+                        appear here grouped by role.{' '}
+                        <Link
+                            href={`/projects/${projectId}/interviews`}
+                            className="font-bold text-neutral-900 hover:text-red-600"
+                        >
+                            Open the interviews board →
+                        </Link>
+                    </p>
                 </div>
             ) : (
                 <div className="space-y-8">
@@ -402,7 +468,7 @@ export function ProposalsPanel({ bids }: { bids: BidsPayload }) {
                             </h2>
                             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                                 {group.rows.map((bid) => (
-                                    <BidCard key={bid.id} bid={bid} />
+                                    <BidCard key={bid.id} bid={bid} projectId={projectId} />
                                 ))}
                             </div>
                         </div>
@@ -501,6 +567,15 @@ export function ProcessPanel({
                             {titleCase(phase)}
                         </span>
                     ))}
+                    {project.project_manager?.nama ? (
+                        <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-600 text-[10px] font-black uppercase tracking-wider">
+                            PM assigned: {project.project_manager.nama}
+                        </span>
+                    ) : (
+                        <span className="px-3 py-1 rounded-full bg-amber-50 text-amber-700 text-[10px] font-black uppercase tracking-wider">
+                            No PM assigned
+                        </span>
+                    )}
                 </div>
             )}
 
@@ -512,12 +587,13 @@ export function ProcessPanel({
                             return null;
                         }
                         return (
-                            <span
+                            <Link
                                 key={phase}
-                                className="px-3 py-1 rounded-full bg-neutral-900 text-white text-[10px] font-black uppercase tracking-wider"
+                                href={`/projects/${project.id}/proposals`}
+                                className="px-3 py-1 rounded-full bg-neutral-900 text-white text-[10px] font-black uppercase tracking-wider hover:bg-neutral-700"
                             >
-                                {role.label}: {rows.length} {rows.length === 1 ? 'bid' : 'bids'}
-                            </span>
+                                {role.label}: {rows.length} {rows.length === 1 ? 'bid' : 'bids'} →
+                            </Link>
                         );
                     })}
                 </div>

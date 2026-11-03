@@ -309,8 +309,8 @@ func AdminHousesHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		args := []any{}
 		if search != "" {
 			args = append(args, "%"+search+"%")
-			where = ` WHERE (t.name LIKE $1 OR EXISTS (
-				SELECT 1 FROM users u WHERE u.id = t.id_user AND u.name LIKE $1))`
+			where = ` WHERE (t.name ILIKE $1 OR EXISTS (
+				SELECT 1 FROM users u WHERE u.id = t.id_user AND u.name ILIKE $1))`
 		}
 
 		var total int
@@ -447,6 +447,10 @@ func AdminUsersHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		if value := query.Get("status"); value != "" {
 			args = append(args, value == "suspended")
 			where = append(where, "is_suspended = $"+strconv.Itoa(len(args)))
+		}
+		if value := query.Get("search"); value != "" {
+			args = append(args, "%"+value+"%")
+			where = append(where, "(name ILIKE $"+strconv.Itoa(len(args))+" OR username ILIKE $"+strconv.Itoa(len(args))+" OR email ILIKE $"+strconv.Itoa(len(args))+")")
 		}
 		clause := ""
 		if len(where) > 0 {
@@ -615,6 +619,43 @@ func AdminProjectsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				}
 				entry.Set(relation.key, block)
 			}
+
+			// Audit columns: bid volume, open-dispute freeze state, money moved.
+			// bid_count is lifetime volume; pending_bid_count is the actionable
+			// triage queue (pending|reviewed|invited|negotiating|shortlisted).
+			var bidCount, pendingBidCount int64
+			if err := pool.QueryRow(ctx, `SELECT COUNT(*), COALESCE(SUM(CASE WHEN status::text IN ('pending','reviewed','invited','negotiating','shortlisted') THEN 1 ELSE 0 END), 0) FROM bids WHERE project_id = $1`, id).Scan(&bidCount, &pendingBidCount); err != nil {
+				slog.Error("admin projects: bids", "error", err)
+				serverError(w)
+				return
+			}
+			entry.Set("bid_count", bidCount)
+			entry.Set("pending_bid_count", pendingBidCount)
+
+			// An open dispute freezes every payment path (terminFreezeGate), so
+			// the auditor sees exactly what the freeze gate sees.
+			var disputeID int64
+			var disputeTitle string
+			if err := pool.QueryRow(ctx, `SELECT id, title FROM project_disputes WHERE project_id = $1 AND status::text = 'open' ORDER BY id LIMIT 1`, id).Scan(&disputeID, &disputeTitle); err != nil {
+				entry.Set("open_dispute", nil)
+			} else {
+				dispute := jsonphp.NewObject()
+				dispute.Set("id", disputeID)
+				dispute.Set("title", disputeTitle)
+				entry.Set("open_dispute", dispute)
+			}
+
+			// Outflow vs refunds, as decimal strings like budget. Outflow is
+			// payment + platform_fee + retention_release; refunds are separate
+			// so paid-out can never hide behind a refund.
+			var paidMinor, refundedMinor int64
+			if err := pool.QueryRow(ctx, `SELECT COALESCE((SUM(CASE WHEN transaction_type::text IN ('payment','platform_fee','retention_release') THEN amount ELSE 0 END) * 100)::bigint, 0), COALESCE((SUM(CASE WHEN transaction_type::text = 'refund' THEN amount ELSE 0 END) * 100)::bigint, 0) FROM project_budget_transactions WHERE project_id = $1`, id).Scan(&paidMinor, &refundedMinor); err != nil {
+				slog.Error("admin projects: ledger", "error", err)
+				serverError(w)
+				return
+			}
+			entry.Set("paid_total", formatMinor(paidMinor))
+			entry.Set("refunded_total", formatMinor(refundedMinor))
 
 			items = append(items, entry)
 		}

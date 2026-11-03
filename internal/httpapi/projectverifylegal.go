@@ -156,7 +156,7 @@ func VerifyLegalHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		entry, err := projectResource(ctx, pool, fields, values, viewer, fullSealLoad(), nil)
+		entry, err := projectResource(ctx, pool, fields, values, viewer, fullSealLoad(), nil, nil)
 		if err != nil {
 			slog.Error("verify-legal: render", "error", err)
 			serverError(w)

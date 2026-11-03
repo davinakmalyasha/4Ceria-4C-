@@ -267,8 +267,10 @@ func projectColumns(values []any, fields []string, columns ...string) map[string
 }
 
 // projectResource builds the full `ProjectResource` object: every key, in
-// order, with `whenLoaded` driven by the load spec.
-func projectResource(ctx context.Context, pool *pgxpool.Pool, fields []string, values []any, viewer *projectViewer, spec projectLoad, histories map[int64]*clientHistory) (*jsonphp.Object, error) {
+// order, with `whenLoaded` driven by the load spec. A non-nil bundle serves
+// the list path from prefetches (see listbatch.go); nil keeps the per-row
+// path byte-for-byte, which is what every other caller uses.
+func projectResource(ctx context.Context, pool *pgxpool.Pool, fields []string, values []any, viewer *projectViewer, spec projectLoad, histories map[int64]*clientHistory, bundle *listBundle) (*jsonphp.Object, error) {
 	byName := projectColumnsByName(fields, values)
 
 	id, _ := byName["id"].(int64)
@@ -277,12 +279,12 @@ func projectResource(ctx context.Context, pool *pgxpool.Pool, fields []string, v
 	pmID := projectIntPtr(values, fields, "pm_id")
 	privileged := viewer.privileged(ownerID, pmID)
 
-	canViewPhone, err := projectCanViewPhone(ctx, pool, viewer, id, ownerID, pmID, byName, spec)
+	canViewPhone, err := projectCanViewPhone(ctx, pool, viewer, id, ownerID, pmID, byName, spec, bundle)
 	if err != nil {
 		return nil, err
 	}
 
-	hasBid, err := projectHasSubmittedBid(ctx, pool, viewer, id, spec)
+	hasBid, err := projectHasSubmittedBid(ctx, pool, viewer, id, spec, bundle)
 	if err != nil {
 		return nil, err
 	}
@@ -311,7 +313,7 @@ func projectResource(ctx context.Context, pool *pgxpool.Pool, fields []string, v
 	row.Set("owner_id", ownerID)
 	row.Set("user_id", ownerID)
 
-	owner, err := projectOwnerBlock(ctx, pool, ownerID, canViewPhone, spec.ownerPhone)
+	owner, err := projectOwnerBlockBundled(ctx, pool, id, ownerID, canViewPhone, spec.ownerPhone, bundle)
 	if err != nil {
 		return nil, err
 	}
@@ -481,7 +483,11 @@ func projectResource(ctx context.Context, pool *pgxpool.Pool, fields []string, v
 	row.Set("updated_at", projectTime(values, fields, "updated_at"))
 
 	counts := map[string]int64{}
-	if len(spec.countRoles) > 0 {
+	if bundle != nil {
+		for _, role := range spec.countRoles {
+			counts[role] = bundle.counts[id][role]
+		}
+	} else if len(spec.countRoles) > 0 {
 		all, err := projectBidCounts(ctx, pool, id)
 		if err != nil {
 			return nil, err
@@ -494,14 +500,37 @@ func projectResource(ctx context.Context, pool *pgxpool.Pool, fields []string, v
 		row.Set("bids_"+role+"_count", counts[role])
 	}
 
-	loaded, err := loadViewerBids(ctx, pool, id, viewer, spec)
-	if err != nil {
-		return nil, err
+	var loaded map[string][]map[string]any
+	if bundle != nil && bundle.bidsBatched {
+		loaded = bundle.viewerBids[id]
+		if loaded == nil {
+			loaded = map[string][]map[string]any{}
+		}
+		// Per-row loadViewerBids sets one key per attempted role even when
+		// it holds no rows; the batch only creates entries for projects
+		// with rows, so fill the gaps to keep key presence identical.
+		for _, role := range bundle.batchRoles {
+			if _, ok := loaded[role]; !ok {
+				loaded[role] = nil
+			}
+		}
+	} else {
+		var err error
+		loaded, err = loadViewerBids(ctx, pool, id, viewer, spec)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	bySpelling, _, err := registryIDs(ctx, pool)
-	if err != nil {
-		return nil, err
+	var bySpelling map[string]int64
+	if bundle != nil {
+		bySpelling = bundle.bySpelling
+	} else {
+		var err error
+		bySpelling, _, err = registryIDs(ctx, pool)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if spec.addendums {
@@ -528,7 +557,7 @@ func projectResource(ctx context.Context, pool *pgxpool.Pool, fields []string, v
 		row.Set("images", images)
 	}
 
-	if err := renderBidLists(ctx, pool, row, id, viewer, privileged, loaded, []string{"arsitek", "kontraktor", "notaris", "interior", "project_manager"}, bySpelling, !spec.bidsWithoutBidder); err != nil {
+	if err := renderBidLists(ctx, pool, row, id, viewer, privileged, loaded, []string{"arsitek", "kontraktor", "notaris", "interior", "project_manager"}, bySpelling, !spec.bidsWithoutBidder, bundleNegLogs(bundle), bundleBidders(bundle)); err != nil {
 		return nil, err
 	}
 
@@ -580,7 +609,7 @@ func projectResource(ctx context.Context, pool *pgxpool.Pool, fields []string, v
 		}
 	}
 
-	if err := renderBidLists(ctx, pool, row, id, viewer, privileged, loaded, []string{"structural", "mep"}, bySpelling, !spec.bidsWithoutBidder); err != nil {
+	if err := renderBidLists(ctx, pool, row, id, viewer, privileged, loaded, []string{"structural", "mep"}, bySpelling, !spec.bidsWithoutBidder, bundleNegLogs(bundle), bundleBidders(bundle)); err != nil {
 		return nil, err
 	}
 
@@ -623,11 +652,19 @@ func projectResource(ctx context.Context, pool *pgxpool.Pool, fields []string, v
 	}
 
 	if spec.subPros != "" {
-		subs, err := projectSubProfessionals(ctx, pool, id, viewer, spec.subPros == "viewer")
-		if err != nil {
-			return nil, err
+		if bundle != nil && bundle.subBatched && spec.subPros == "viewer" {
+			subs := bundle.subPros[id]
+			if subs == nil {
+				subs = []any{}
+			}
+			row.Set("sub_professionals", subs)
+		} else {
+			subs, err := projectSubProfessionals(ctx, pool, id, viewer, spec.subPros == "viewer")
+			if err != nil {
+				return nil, err
+			}
+			row.Set("sub_professionals", subs)
 		}
-		row.Set("sub_professionals", subs)
 	}
 
 	return row, nil
@@ -793,7 +830,7 @@ func projectOwnerBlock(ctx context.Context, pool *pgxpool.Pool, ownerID int64, c
 
 // projectCanViewPhone mirrors the resource rule: the owner, the assigned
 // PM, a hired professional, or an active sub-professional assignment.
-func projectCanViewPhone(ctx context.Context, pool *pgxpool.Pool, viewer *projectViewer, projectID, ownerID int64, pmID *int64, byName map[string]any, spec projectLoad) (bool, error) {
+func projectCanViewPhone(ctx context.Context, pool *pgxpool.Pool, viewer *projectViewer, projectID, ownerID int64, pmID *int64, byName map[string]any, spec projectLoad, bundle *listBundle) (bool, error) {
 	if viewer == nil || viewer.id == 0 {
 		return false, nil
 	}
@@ -847,16 +884,10 @@ func projectCanViewPhone(ctx context.Context, pool *pgxpool.Pool, viewer *projec
 		}
 	}
 
-	if spec.subPros == "viewer" {
-		var exists bool
-		if err := pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM project_sub_professionals WHERE project_id = $1 AND user_id = $2 AND status::text = 'active')`,
-			projectID, viewer.id).Scan(&exists); err != nil {
-			return false, err
+	if spec.subPros == "viewer" || spec.subPros == "all" {
+		if bundle != nil {
+			return bundle.subActive[projectID], nil
 		}
-		return exists, nil
-	}
-
-	if spec.subPros == "all" {
 		var exists bool
 		if err := pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM project_sub_professionals WHERE project_id = $1 AND user_id = $2 AND status::text = 'active')`,
 			projectID, viewer.id).Scan(&exists); err != nil {
@@ -871,7 +902,7 @@ func projectCanViewPhone(ctx context.Context, pool *pgxpool.Pool, viewer *projec
 // projectHasSubmittedBid mirrors the resource: a non-invited bid from the
 // viewer's own profile — from the loaded relation when present, else a
 // targeted exists query.
-func projectHasSubmittedBid(ctx context.Context, pool *pgxpool.Pool, viewer *projectViewer, projectID int64, spec projectLoad) (bool, error) {
+func projectHasSubmittedBid(ctx context.Context, pool *pgxpool.Pool, viewer *projectViewer, projectID int64, spec projectLoad, bundle *listBundle) (bool, error) {
 	if viewer == nil || viewer.id == 0 || viewer.role == "" {
 		return false, nil
 	}
@@ -884,6 +915,10 @@ func projectHasSubmittedBid(ctx context.Context, pool *pgxpool.Pool, viewer *pro
 	column, ok := bidProfileColumn(viewer.role)
 	if !ok {
 		return false, nil
+	}
+
+	if bundle != nil {
+		return bundle.hasBid[projectID], nil
 	}
 
 	for _, loaded := range spec.viewerBidRoles {

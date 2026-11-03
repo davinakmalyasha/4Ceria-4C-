@@ -18,6 +18,18 @@ const config: NextConfig = {
     // The Next app is NOT in a workspace with the legacy SPA. The output is
     // standalone so the deploy ships a server, not a directory of sources.
     output: 'standalone',
+
+    // Sized variants for the card/cover images (`CoverImage`). Absolute seeds
+    // come from `images.unsplash.com`; uploads resolve to `{API_ORIGIN}/storage`.
+    // The API host is runtime (`API_ORIGIN`), so local entries pin the local
+    // gateway — a deploy adds its own API host here.
+    images: {
+        remotePatterns: [
+            { protocol: 'https', hostname: 'images.unsplash.com' },
+            { protocol: 'http', hostname: '127.0.0.1', port: '8099', pathname: '/storage/**' },
+            { protocol: 'http', hostname: 'localhost', port: '8099', pathname: '/storage/**' },
+        ],
+    },
     turbopack: {
         root,
 

@@ -252,11 +252,32 @@ func VerificationDocumentHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		// The vault disk is S3-backed in production. This build has no signer,
-		// and the local oracle fails the same way, so the controller's
-		// catch-all message is the honest answer.
-		slog.Error("verification doc: no vault signer configured", "field", field)
-		message(w, http.StatusInternalServerError, "Failed to generate secure preview URL")
+		// Secure local serve: the vault disk is S3-backed in production, but
+		// this build serves the same bytes from the local public disk behind
+		// the same auth gate (owner or admin). Private, no-store, content
+		// sniffed — never a world-readable redirect.
+		rel := strings.TrimPrefix(strings.TrimPrefix(*path, "/storage/"), "/")
+		// Strip any absolute S3 prefix the legacy rows may carry.
+		if idx := strings.Index(rel, "/storage/"); idx >= 0 {
+			rel = rel[idx+len("/storage/"):]
+		}
+		full := filepath.Join(publicDiskRoot(), filepath.FromSlash(rel))
+		info, err := os.Stat(full)
+		if err != nil || info.IsDir() {
+			message(w, http.StatusNotFound, "No document uploaded for this field.")
+			return
+		}
+		f, err := os.Open(full)
+		if err != nil {
+			slog.Error("verification doc: open", "error", err)
+			serverError(w)
+			return
+		}
+		defer f.Close()
+		w.Header().Set("Cache-Control", "private, no-store")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		// Content-Type from extension; ServeContent sniffs when empty.
+		http.ServeContent(w, r, info.Name(), info.ModTime(), f)
 	}
 }
 

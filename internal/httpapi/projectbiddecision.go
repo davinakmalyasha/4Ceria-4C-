@@ -205,7 +205,7 @@ func math_Trunc(value float64) float64 {
 
 // decisionProject locks the project row for the decision transaction.
 func decisionProject(ctx context.Context, tx pgx.Tx, projectID int64) (fields []string, values []any, err error) {
-	rows, err := tx.Query(ctx, `SELECT * FROM projects WHERE id = $1 FOR UPDATE`, projectID)
+	rows, err := tx.Query(ctx, `SELECT `+projectsRowColumns+` FROM projects WHERE id = $1 FOR UPDATE`, projectID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -240,7 +240,15 @@ func insertActivityLog(ctx context.Context, tx pgx.Tx, projectID, userID int64, 
 func insertNotification(ctx context.Context, tx pgx.Tx, userID int64, kind, title, body, data string) error {
 	_, err := tx.Exec(ctx, `INSERT INTO notifications (user_id, type, title, body, data, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, date_trunc('second', now()), date_trunc('second', now()))`,
 		userID, kind, title, body, data)
-	return err
+	if err != nil {
+		return err
+	}
+	// Push fan-out (best-effort, async): the in-app row is the contract,
+	// the push is the extra. Failures never fail the request.
+	if shouldPushForTx(ctx, tx, userID, kind) {
+		go fanoutPushTx(userID, kind, title, body)
+	}
+	return nil
 }
 
 // mysqlJSONPair renders `{"project_id": 1, ...}` in MySQL JSON text form.
@@ -313,7 +321,7 @@ func acceptGate(ctx context.Context, pool *pgxpool.Pool, viewer *projectViewer, 
 // findBidTx loads one unified bid inside a transaction, preferring the
 // legacy hit.
 func findBidTx(ctx context.Context, tx pgx.Tx, projectID int64, role string, bidID int64) (fields []string, values []any, found bool, err error) {
-	rows, err := tx.Query(ctx, `SELECT * FROM bids WHERE project_id = $1 AND role::text = $2 AND (id = $3 OR legacy_id = $3) ORDER BY CASE WHEN legacy_id = $3 THEN 0 ELSE 1 END LIMIT 1`,
+	rows, err := tx.Query(ctx, `SELECT `+bidsColumns+` FROM bids WHERE project_id = $1 AND role::text = $2 AND (id = $3 OR legacy_id = $3) ORDER BY CASE WHEN legacy_id = $3 THEN 0 ELSE 1 END LIMIT 1`,
 		projectID, role, bidID)
 	if err != nil {
 		return nil, nil, false, err

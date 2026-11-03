@@ -120,7 +120,7 @@ func GetProjectBidsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		row, err := projectResource(r.Context(), pool, fields, values, viewer, getBidsLoad(), map[int64]*clientHistory{})
+		row, err := projectResource(r.Context(), pool, fields, values, viewer, getBidsLoad(), map[int64]*clientHistory{}, nil)
 		if err != nil {
 			slog.Error("project bids: resource", "error", err)
 			serverError(w)

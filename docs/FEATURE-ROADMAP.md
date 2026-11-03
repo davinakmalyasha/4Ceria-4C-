@@ -4,6 +4,22 @@ Grounded feature additions identified during the 4-agent audit. Each item lists 
 
 ## Shipped in this pass
 
+### B2 - Unified escrow ledger view (SHIPPED)
+- Backend: `GET /api/projects/{project}/finance-ledger` (`FinanceLedgerHandler` in `roadmap.go`): summary + every `project_budget_transactions` row via `renderLedgerRow`. Owner/PM/admin gated. Covered by `TestFinanceLedgerHandler`.
+- Frontend wiring to `ProjectBudgetManager` statement tab remains (API ready).
+
+### B7 - Role analytics endpoint (SHIPPED, minimal)
+- Backend: `GET /api/me/analytics` (`AnalyticsHandler`): posted/hired/active/spent (via `clientHistories`) + `bids_placed` + `saved_searches`. Covered by `TestAnalyticsHandler`. Win-rate/response-time trends remain future.
+
+### B8 - Saved searches (SHIPPED, API)
+- Backend: `saved_searches` table (0025) + `GET/POST/DELETE /api/saved-searches` (`roadmap.go`). Covered by `TestSavedSearchesCRUD`. Explore hearts wiring remains.
+
+### B11 - Budget statement export (SHIPPED, minimal)
+- Backend: `GET /api/projects/{project}/reports/export?format=csv|pdf` (`ExportReportHandler`): BOM CSV + hand-rolled single-page PDF. Owner/admin gated. Covered by `TestExportReportCSVAndPDF`. Design-grade PDF + weekly digest remain via `mail_outbox`.
+
+### B5 - Delivery confirmation loop (SHIPPED, API)
+- Backend: `POST /api/material-orders/{id}/confirm-receipt` (`ConfirmOrderReceiptHandler`) + scheduler auto-complete (`delivered` > 3d → `completed`). Buyer/owner/admin gated, idempotent.
+
 ### B12 - Chat history pagination (SHIPPED)
 - Backend: `ChatController::show` accepts `?before_id=` cursor, returns `{data, meta:{oldest_id, has_more}}`; also skips the no-op mark-read UPDATE on already-caught-up polls.
 - Frontend: `useChat.loadEarlierMessages()` + `hasMoreHistory/isLoadingEarlier`; "Load earlier messages" chip in `MessageThread` and the compact overlay thread.
@@ -20,7 +36,7 @@ Grounded feature additions identified during the 4-agent audit. Each item lists 
 ## Pending backlog (specs)
 
 ### B2 - Unified escrow ledger view (M)
-New `GET /projects/{project}/finance-ledger`: chronological union of `project_budget_transactions`, `payment_termins`, addendums, procurement authorizations with running available balance (budget - ledger). UI: statement tab inside ProjectBudgetManager + CSV export.
+Shipped (API): `GET /api/projects/{project}/finance-ledger` — see above. Remaining: chronological union with termins/addendums/procurement + running balance + UI statement tab + CSV button (CSV lives at `reports/export`).
 
 ### B3 - Milestone-weighted progress % (M)
 Add `project_milestones.weight` (default 1). Roll up weighted % per phase/project; feed into OverviewStats/PhaseTimeline instead of boolean counts.
@@ -29,22 +45,22 @@ Add `project_milestones.weight` (default 1). Roll up weighted % per phase/projec
 Link column `procurement_requests.material_order_id`; approved request pre-fills material quote/order; receipt auto-increments `quantity_on_site` via existing restock endpoint.
 
 ### B5 - Delivery confirmation loop (M)
-Buyer-side `POST /material-orders/{id}/confirm-receipt` after courier `delivered` (add `confirmed_at`); supplier/buyer notifications on pickup/delivery; delivery-job transition guards now exist server-side (Phase 0).
+Shipped (API): `POST /material-orders/{id}/confirm-receipt` + auto-complete — see above. Remaining: `confirmed_at` column, pickup/delivery notifications, transition guards.
 
 ### B6 - Notification preferences + digest (M-L)
-`notification_preferences(user_id, type, channels)` table; central `NotificationService` so ~20 existing create sites respect mutes; preferences UI; weekly digest mail via queue.
+`notification_preferences` table exists; `shouldPushForPool/Tx` respects mutes + ALWAYS_ON; push fan-out live via `webpush-go` (VAPID env-gated); digest mail via `mail_outbox` + scheduler. Remaining: preferences UI polish.
 
 ### B7 - Role analytics endpoints (M)
-`GET /me/analytics`: pro win-rate/response time/earnings trend (bid tables + paid termins), owner spend-by-phase (budget ledger), PM pending-approval counters across projects. No schema changes.
+Shipped (minimal): `GET /me/analytics` — see above. Remaining: win-rate/response-time/earnings trends, spend-by-phase, PM counters.
 
 ### B8 - Server-side favorites & saved searches (M)
-Tables: `favorites(user_id, favoritable_type, favoritable_id)`, `saved_searches(user_id, params json, alert_enabled)`. CRUD pairs + wire hearts in Explore HouseCard; localStorage hook stays as optimistic cache.
+Shipped (API): `saved_searches` CRUD — see above. `favorites` CRUD predates. Remaining: wire hearts in Explore HouseCard (localStorage stays as optimistic cache).
 
 ### B9 - Review parity between parties (M)
 Pros-review-owners (new polymorphic or `owner_ratings` table); make structural/mep/couriers reviewable by extending the role registry in `internal/domain/identity`; "both parties reviewed" nudge.
 
 ### B11 - PDF/CSV export & reporting (M-L)
-Budget statement CSV, milestone progress report PDF (a Go PDF library, or the client-side jsPDF pattern already used by the quote history and final hand-over screens), weekly digest mail. Endpoint shape: `GET /projects/{project}/reports/export?format=csv|pdf`.
+Shipped (minimal): `GET /projects/{project}/reports/export?format=csv|pdf` — BOM CSV + hand-rolled PDF. Remaining: milestone progress report design, weekly digest via `mail_outbox`.
 
 ### Stretch
 Snag-list SLA aging badges; KPR calculator widget on house details; account deletion/export (ProfileController).

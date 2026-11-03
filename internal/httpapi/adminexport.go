@@ -39,12 +39,16 @@ func AdminProjectsExportHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		args := []any{}
 		if search != "" {
 			args = append(args, "%"+search+"%")
-			where = ` WHERE (p.title LIKE $1 OR EXISTS (
-				SELECT 1 FROM users u2 WHERE u2.id = p.user_id AND u2.name LIKE $1))`
+			where = ` WHERE (p.title ILIKE $1 OR EXISTS (
+				SELECT 1 FROM users u2 WHERE u2.id = p.user_id AND u2.name ILIKE $1))`
 		}
 
 		rows, err := pool.Query(ctx, `
-			SELECT p.id, p.title, p.status::text, p.budget::text, p.created_at, u.name
+			SELECT p.id, p.title, p.status::text, p.budget::text, p.created_at, u.name,
+			  (SELECT COUNT(*) FROM bids b WHERE b.project_id = p.id),
+			  COALESCE((SELECT d.title FROM project_disputes d WHERE d.project_id = p.id AND d.status::text = 'open' ORDER BY d.id LIMIT 1), ''),
+			  COALESCE((SELECT SUM(CASE WHEN t.transaction_type::text IN ('payment','platform_fee','retention_release') THEN t.amount ELSE 0 END) FROM project_budget_transactions t WHERE t.project_id = p.id), 0.00)::text,
+			  COALESCE((SELECT SUM(CASE WHEN t.transaction_type::text = 'refund' THEN t.amount ELSE 0 END) FROM project_budget_transactions t WHERE t.project_id = p.id), 0.00)::text
 			  FROM projects p
 			  LEFT JOIN users u ON u.id = p.user_id`+where+`
 			 ORDER BY p.created_at DESC, p.id ASC
@@ -59,19 +63,22 @@ func AdminProjectsExportHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		var builder strings.Builder
 		builder.WriteString("\xEF\xBB\xBF")
 
-		header := []string{"ID", "Title", "Owner", "Status", "Budget (IDR)", "Created At"}
+		header := []string{"ID", "Title", "Owner", "Status", "Budget (IDR)", "Bids", "Open Dispute", "Paid Out (IDR)", "Refunded (IDR)", "Created At"}
 		builder.WriteString(phpCSVLine(header))
 
 		for rows.Next() {
 			var (
-				id      int64
-				title   string
-				status  string
-				budget  *string
-				created *time.Time
-				owner   *string
+				id                int64
+				title             string
+				status            string
+				budget            *string
+				created           *time.Time
+				owner             *string
+				bidCount          int64
+				openDispute       string
+				paidOut, refunded *string
 			)
-			if err := rows.Scan(&id, &title, &status, &budget, &created, &owner); err != nil {
+			if err := rows.Scan(&id, &title, &status, &budget, &created, &owner, &bidCount, &openDispute, &paidOut, &refunded); err != nil {
 				slog.Error("admin export: scan", "error", err)
 				serverError(w)
 				return
@@ -85,6 +92,14 @@ func AdminProjectsExportHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			if budget != nil {
 				budgetText = *budget
 			}
+			paidText := ""
+			if paidOut != nil {
+				paidText = *paidOut
+			}
+			refundedText := ""
+			if refunded != nil {
+				refundedText = *refunded
+			}
 			createdText := ""
 			if created != nil {
 				createdText = created.UTC().Format("2006-01-02 15:04:05")
@@ -96,6 +111,10 @@ func AdminProjectsExportHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				csvCell(ownerName),
 				status,
 				budgetText,
+				strconv.FormatInt(bidCount, 10),
+				csvCell(openDispute),
+				paidText,
+				refundedText,
 				createdText,
 			}))
 		}
@@ -161,6 +180,11 @@ func AdminForceTerminateHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 		ctx := r.Context()
+		caller, ok := CallerFrom(ctx)
+		if !ok {
+			message(w, http.StatusUnauthorized, "Unauthenticated.")
+			return
+		}
 
 		// Existence + relation ids, read before the mutation.
 		fields, values, err := projectRowByID(ctx, pool, projectID)
@@ -175,11 +199,60 @@ func AdminForceTerminateHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		project := projectColumnsByName(fields, values)
 
-		if _, err := pool.Exec(ctx, `UPDATE projects SET status = 'cancelled',
-			updated_at = date_trunc('second', now()) WHERE id = $1`, projectID); err != nil {
+		// Idempotency: a terminal project is a 422, not a silent re-terminate.
+		// A retry after a successful terminate must learn nothing changed.
+		currentStatus, _ := project["status"].(string)
+		if currentStatus == "cancelled" || currentStatus == "completed" {
+			message(w, http.StatusUnprocessableEntity, "Project is already "+currentStatus+".")
+			return
+		}
+
+		title, _ := project["title"].(string)
+		if title == "" {
+			title = "Project #" + strconv.FormatInt(projectID, 10)
+		}
+
+		tx, err := pool.Begin(ctx)
+		if err != nil {
+			slog.Error("admin terminate: begin", "error", err)
+			serverError(w)
+			return
+		}
+		defer tx.Rollback(ctx)
+
+		// The status predicate closes the race: a concurrent terminate (or a
+		// dispute-act terminate) wins once; the loser sees zero rows.
+		tag, err := tx.Exec(ctx, `UPDATE projects SET status = 'cancelled',
+			updated_at = date_trunc('second', now()) WHERE id = $1
+			  AND status::text NOT IN ('cancelled','completed')`, projectID)
+		if err != nil {
 			slog.Error("admin terminate: update", "error", err)
 			serverError(w)
 			return
+		}
+		if tag.RowsAffected() == 0 {
+			message(w, http.StatusUnprocessableEntity, "Project is already terminated or completed.")
+			return
+		}
+
+		if err := insertActivityLog(ctx, tx, projectID, caller.UserID(), "admin_force_terminate",
+			"Administrator force-terminated "+title+" (was "+currentStatus+")."); err != nil {
+			slog.Error("admin terminate: log", "error", err)
+			serverError(w)
+			return
+		}
+
+		if err := tx.Commit(ctx); err != nil {
+			slog.Error("admin terminate: commit", "error", err)
+			serverError(w)
+			return
+		}
+
+		if ownerID, _ := project["user_id"].(int64); ownerID != 0 && ownerID != caller.UserID() {
+			data := `{"project_id": ` + strconv.FormatInt(projectID, 10) + `}`
+			_ = insertNotificationPool(ctx, pool, ownerID, "contract_terminated",
+				"Project Terminated by Administrator",
+				`"`+title+`" was terminated by an administrator. Contact support if you believe this is a mistake.`, data)
 		}
 
 		freshFields, freshValues, err := projectRowByID(ctx, pool, projectID)

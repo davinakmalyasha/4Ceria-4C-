@@ -1,6 +1,5 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import '@/styles/globals.css';
-import { ClientProviders } from '@/components/ClientProviders';
 
 /**
  * The document shell.
@@ -24,6 +23,16 @@ import { ClientProviders } from '@/components/ClientProviders';
 export const metadata: Metadata = {
     title: '4C Project',
     description: 'Construction coordination and real estate marketplace.',
+    manifest: '/manifest.webmanifest',
+    appleWebApp: {
+        capable: true,
+        title: '4Ceria',
+        statusBarStyle: 'default',
+    },
+};
+
+export const viewport: Viewport = {
+    themeColor: '#0f172a',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -40,7 +49,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <body className="antialiased">
                 {/* THE TOAST HOST IS GONE: nothing in the app raises a toast any
                     more. Feedback is inline next to the action that caused it. */}
-                <ClientProviders>{children}</ClientProviders>
+                {children}
             </body>
         </html>
     );

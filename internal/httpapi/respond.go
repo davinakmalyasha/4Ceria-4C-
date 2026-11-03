@@ -1,7 +1,10 @@
 package httpapi
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"net/http"
+	"strconv"
 
 	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
 )
@@ -57,6 +60,32 @@ func writeJSON(w http.ResponseWriter, status int, body any) {
 		return
 	}
 
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_, _ = w.Write(encoded)
+}
+
+// writeJSONPublic is writeJSON for safe public GETs (directories, houses,
+// geocode): `Cache-Control: public, max-age=60` + ETag + `If-None-Match` →
+// 304. Money/user routes stay `no-store` via writeJSON (no caching).
+func writeJSONPublic(w http.ResponseWriter, r *http.Request, status int, body any, maxAge int) {
+	encoded, err := jsonphp.Marshal(body)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{"message":"Server Error"}`))
+		return
+	}
+	sum := sha256.Sum256(encoded)
+	etag := `"` + hex.EncodeToString(sum[:16]) + `"`
+	w.Header().Set("ETag", etag)
+	w.Header().Set("Cache-Control", "public, max-age="+strconv.Itoa(maxAge))
+	if r != nil {
+		if inm := r.Header.Get("If-None-Match"); inm != "" && inm == etag {
+			w.WriteHeader(http.StatusNotModified)
+			return
+		}
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_, _ = w.Write(encoded)

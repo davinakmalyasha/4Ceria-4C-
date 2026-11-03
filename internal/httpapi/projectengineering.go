@@ -826,7 +826,7 @@ func RejectSpecialistHandler(pool *pgxpool.Pool) http.HandlerFunc {
 // engineeringBid loads the bid by WIRE id within the project.
 func engineeringBid(ctx context.Context, pool *pgxpool.Pool, projectID int64,
 	role string, wireID int64) ([]string, []any, bool, error) {
-	rows, err := pool.Query(ctx, `SELECT * FROM bids
+	rows, err := pool.Query(ctx, `SELECT `+bidsColumns+` FROM bids
 		WHERE project_id = $1 AND role::text = $2 AND (id = $3 OR legacy_id = $3)
 		ORDER BY CASE WHEN legacy_id = $3 THEN 0 ELSE 1 END, id LIMIT 1`,
 		projectID, role, wireID)

@@ -401,7 +401,7 @@ func storeTerminProof(ctx context.Context, tx pgx.Tx, pool *pgxpool.Pool, projec
 	_ = pool
 	_ = viewer
 
-	rows, err := tx.Query(ctx, `SELECT * FROM project_payment_termins WHERE id = $1 AND project_id = $2 FOR UPDATE`, terminID, projectID)
+	rows, err := tx.Query(ctx, `SELECT `+terminsColumns+` FROM project_payment_termins WHERE id = $1 AND project_id = $2 FOR UPDATE`, terminID, projectID)
 	if err != nil {
 		return "", nil, err
 	}
@@ -469,7 +469,7 @@ func storeAddendumProof(ctx context.Context, tx pgx.Tx, pool *pgxpool.Pool, proj
 	_ = pool
 	_ = viewer
 
-	rows, err := tx.Query(ctx, `SELECT * FROM project_addendums WHERE id = $1 AND project_id = $2 FOR UPDATE`, addendumID, projectID)
+	rows, err := tx.Query(ctx, `SELECT `+addendumsColumns+` FROM project_addendums WHERE id = $1 AND project_id = $2 FOR UPDATE`, addendumID, projectID)
 	if err != nil {
 		return "", nil, err
 	}
@@ -515,7 +515,7 @@ func storeMaterialProof(ctx context.Context, tx pgx.Tx, pool *pgxpool.Pool, proj
 	_ = pool
 	_ = viewer
 
-	rows, err := tx.Query(ctx, `SELECT * FROM material_orders WHERE id = $1 AND project_id = $2 FOR UPDATE`, orderID, projectID)
+	rows, err := tx.Query(ctx, `SELECT `+materialOrdersColumns+` FROM material_orders WHERE id = $1 AND project_id = $2 FOR UPDATE`, orderID, projectID)
 	if err != nil {
 		return "", nil, err
 	}
@@ -782,7 +782,7 @@ func tinyInt(value any) any {
 // reloadBidTx re-reads one bid with its professional block inside the
 // caller's transaction.
 func reloadBidTx(ctx context.Context, tx pgx.Tx, pool *pgxpool.Pool, physicalID int64, role string) (*jsonphp.Object, error) {
-	rows, err := tx.Query(ctx, `SELECT * FROM bids WHERE id = $1`, physicalID)
+	rows, err := tx.Query(ctx, `SELECT `+bidsColumns+` FROM bids WHERE id = $1`, physicalID)
 	if err != nil {
 		return nil, err
 	}

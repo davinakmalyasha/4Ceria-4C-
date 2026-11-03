@@ -25,9 +25,10 @@ import (
 // header as a token.
 //
 // This is the in-memory implementation: a fixed window per key, safe for
-// concurrent use. A multi-replica deployment needs a shared store (Redis);
-// the interface (`RateLimiter`) is what the gate depends on, so the store
-// can move without touching the router.
+// concurrent use. A multi-replica deployment uses the shared PgLimiter
+// (`rate_pg.go`, same interface) instead of this per-process map — no Redis
+// to operate. The interface (`RateLimiter`) is what the gate depends on, so
+// the store can move without touching the router.
 
 // MemoryLimiter counts calls per key in memory.
 type MemoryLimiter struct {

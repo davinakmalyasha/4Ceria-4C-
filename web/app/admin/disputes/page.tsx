@@ -71,7 +71,7 @@ export default async function AdminDisputesPage({
                     <p className="mt-1 whitespace-pre-line text-sm text-neutral-700">{row.description}</p>
                     <div className="mt-3 flex flex-wrap gap-4 text-[11px] font-bold text-neutral-500">
                         <span>
-                            Opened by {row.opened_by?.name ?? '—'}
+                            Opened by {row.opener?.name ?? '—'}
                             {row.created_at ? ` · ${row.created_at.slice(0, 16).replace('T', ' ')}` : ''}
                         </span>
                         {row.disputed_amount != null && <span>Amount: {formatIDR(row.disputed_amount)}</span>}
@@ -307,7 +307,7 @@ export default async function AdminDisputesPage({
                                     <td className="px-6 py-4 text-neutral-700">
                                         {row.project?.title ?? `#${row.project_id}`}
                                     </td>
-                                    <td className="px-6 py-4 text-neutral-700">{row.opened_by?.name ?? '—'}</td>
+                                    <td className="px-6 py-4 text-neutral-700">{row.opener?.name ?? '—'}</td>
                                     <td className="px-6 py-4 font-bold text-neutral-900">
                                         {row.disputed_amount != null ? formatIDR(row.disputed_amount) : '—'}
                                     </td>

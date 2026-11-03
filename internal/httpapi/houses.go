@@ -180,7 +180,7 @@ func HousesHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		payload.Set("links", pageLinksSummary(baseURL, "", currentPage, lastPage(total, perPage)))
 		payload.Set("meta", directoryMeta(total, perPage, currentPage, basePathOf(baseURL), "", items))
 
-		writeJSON(w, http.StatusOK, payload)
+		writeJSONPublic(w, r, http.StatusOK, payload, 60)
 	}
 }
 

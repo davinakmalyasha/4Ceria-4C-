@@ -62,6 +62,38 @@ export async function updateOrderStatus(formData: FormData): Promise<void> {
 }
 
 /**
+ * Upload the buyer's transfer receipt for a direct order.
+ *
+ * Mirrors `uploadQuoteProof`: the API only accepts proof while the order is
+ * pending/awaiting_payment, and the supplier's verify box activates on it.
+ * Without this action a buyer-side order could never reach verification.
+ */
+export async function uploadOrderProof(formData: FormData): Promise<void> {
+    const id = Number(formData.get('order_id'));
+    const proof = formData.get('payment_proof');
+
+    if (!Number.isInteger(id) || id <= 0 || !(proof instanceof File) || proof.size === 0) {
+        return;
+    }
+
+    const body = new FormData();
+    body.set('payment_proof', proof);
+
+    try {
+        await apiFetch(`/material-orders/${id}/payment-proof`, { method: 'POST', body });
+    } catch (error) {
+        if (error instanceof ApiFailure) {
+            redirect(`/dashboard/orders?error=${encodeURIComponent(error.message)}`);
+        }
+
+        throw error;
+    }
+
+    revalidatePath('/dashboard/orders');
+    revalidatePath('/dashboard/material-orders');
+}
+
+/**
  * Verify the buyer's transfer receipt and mark the order paid.
  *
  * Supplier-only; the controller refuses orders with no proof, refunded/cancelled

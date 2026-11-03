@@ -117,7 +117,7 @@ func bidRows(ctx context.Context, pool *pgxpool.Pool, projectID int64, role stri
 		return nil, nil
 	}
 
-	query := `SELECT * FROM bids WHERE project_id = $1 AND role::text = $2`
+	query := `SELECT `+bidsColumns+` FROM bids WHERE project_id = $1 AND role::text = $2`
 	args := []any{projectID, role}
 	if profileID != nil {
 		query += ` AND ` + column + ` = $3`
@@ -243,7 +243,7 @@ func loadViewerBids(ctx context.Context, pool *pgxpool.Pool, projectID int64, vi
 }
 
 // renderBidLists renders the bids_X lists for the given roles, in order.
-func renderBidLists(ctx context.Context, pool *pgxpool.Pool, row *jsonphp.Object, projectID int64, viewer *projectViewer, privileged bool, loaded map[string][]map[string]any, roles []string, bySpelling map[string]int64, withBidder bool) error {
+func renderBidLists(ctx context.Context, pool *pgxpool.Pool, row *jsonphp.Object, projectID int64, viewer *projectViewer, privileged bool, loaded map[string][]map[string]any, roles []string, bySpelling map[string]int64, withBidder bool, neg *negLogBatch, bb *bidderBatch) error {
 	for _, role := range roles {
 		rows, ok := loaded[role]
 		if !ok {
@@ -254,7 +254,7 @@ func renderBidLists(ctx context.Context, pool *pgxpool.Pool, row *jsonphp.Object
 
 		items := make([]any, 0, len(visible))
 		for _, bid := range visible {
-			entry, err := bidEntry(ctx, pool, role, bid, privileged, bySpelling, withBidder)
+			entry, err := bidEntry(ctx, pool, role, bid, privileged, bySpelling, withBidder, neg, projectID, bb)
 			if err != nil {
 				return err
 			}
@@ -293,7 +293,7 @@ func renderAcceptedBids(ctx context.Context, pool *pgxpool.Pool, row *jsonphp.Ob
 }
 
 // bidEntry renders one bid row for its role, in key order.
-func bidEntry(ctx context.Context, pool *pgxpool.Pool, role string, bid map[string]any, privileged bool, bySpelling map[string]int64, withBidder bool) (*jsonphp.Object, error) {
+func bidEntry(ctx context.Context, pool *pgxpool.Pool, role string, bid map[string]any, privileged bool, bySpelling map[string]int64, withBidder bool, neg *negLogBatch, projectID int64, bb *bidderBatch) (*jsonphp.Object, error) {
 	entry := jsonphp.NewObject()
 	entry.Set("id", bidWireID(bid))
 	entry.Set("price", decimalOrNilBid(bid, "price"))
@@ -319,7 +319,7 @@ func bidEntry(ctx context.Context, pool *pgxpool.Pool, role string, bid map[stri
 		entry.Set("proposed_milestones", jsonOrNil(bid["proposed_milestones"]))
 		entry.Set("pro_signature_url", bidSignatureURL(ctx, "project_manager", bid, false))
 		entry.Set("client_signature_url", bidSignatureURL(ctx, "project_manager", bid, true))
-		entry.Set("negotiation_logs", bidNegotiationLogs(ctx, pool, role, bid, bySpelling))
+		entry.Set("negotiation_logs", bidNegotiationLogsBundled(ctx, pool, role, bid, bySpelling, neg, projectID))
 
 		if column, ok := bidProfileColumn(role); ok {
 			if role == "kontraktor" || role == "notaris" || role == "interior" {
@@ -392,7 +392,7 @@ func bidEntry(ctx context.Context, pool *pgxpool.Pool, role string, bid map[stri
 			entry.Set("is_recommended", boolOrFalse(bid["is_recommended"]))
 		}
 
-		entry.Set("negotiation_logs", bidNegotiationLogs(ctx, pool, role, bid, bySpelling))
+		entry.Set("negotiation_logs", bidNegotiationLogsBundled(ctx, pool, role, bid, bySpelling, neg, projectID))
 
 		if column, ok := bidProfileColumn(role); ok {
 			if role == "kontraktor" || role == "notaris" || role == "interior" {
@@ -409,7 +409,13 @@ func bidEntry(ctx context.Context, pool *pgxpool.Pool, role string, bid map[stri
 	}
 
 	if withBidder {
-		bidder, err := bidderTree(ctx, pool, role, bid, privileged)
+		var bidder any
+		var err error
+		if bb != nil {
+			bidder, err = bidderTreeBatched(ctx, role, bid, privileged, bb)
+		} else {
+			bidder, err = bidderTree(ctx, pool, role, bid, privileged)
+		}
 		if err != nil {
 			return nil, err
 		}

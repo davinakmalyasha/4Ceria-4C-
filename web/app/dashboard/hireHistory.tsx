@@ -1,4 +1,5 @@
 import { titleCase } from '@/lib/format';
+import { CoverImage } from '@/components/CoverImage';
 
 /**
  * Native "Hire History" panel (dashboard `hire-history`).
@@ -56,8 +57,7 @@ export function HireHistoryPanel({ rows }: { rows: HireRow[] }) {
                                     aria-hidden
                                 >
                                     {row.avatar ? (
-                                        // eslint-disable-next-line @next/next/no-img-element
-                                        <img src={row.avatar} alt="" className="h-full w-full object-cover" />
+                                        <CoverImage src={row.avatar} alt="" className="h-full" />
                                     ) : (
                                         initial(row.name)
                                     )}
@@ -77,7 +77,7 @@ export function HireHistoryPanel({ rows }: { rows: HireRow[] }) {
                             </p>
 
                             <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-[10px] font-bold uppercase tracking-wider text-neutral-400">
-                                <span>{row.phone ?? 'No phone'}</span>
+                                <span>{row.phone ?? 'Phone unlocks after hire'}</span>
                                 <span>{row.hired_at ? row.hired_at.slice(0, 10) : ''}</span>
                             </div>
                         </article>

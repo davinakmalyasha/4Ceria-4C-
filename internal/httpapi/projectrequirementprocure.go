@@ -82,7 +82,7 @@ func ProcurementListHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		rows, err := pool.Query(ctx, `SELECT * FROM project_procurement_requests WHERE project_id = $1 ORDER BY id`, projectID)
+		rows, err := pool.Query(ctx, `SELECT `+procurementColumns+` FROM project_procurement_requests WHERE project_id = $1 ORDER BY id`, projectID)
 		if err != nil {
 			slog.Error("procure-list: list", "error", err)
 			serverError(w)

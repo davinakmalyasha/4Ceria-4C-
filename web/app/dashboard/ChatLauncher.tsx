@@ -6,6 +6,7 @@ import { resolveAsset } from '@/lib/assetUrl';
 import { titleCase } from '@/lib/format';
 import { ChatComposer } from './chatComposer';
 import type { ChatMessage, ConversationRow } from './chat';
+import { CoverImage } from '@/components/CoverImage';
 
 /**
  * The floating chat messenger.
@@ -184,7 +185,6 @@ export function ChatLauncher({
                                                             </p>
                                                         )}
                                                         {image && (
-                                                            // eslint-disable-next-line @next/next/no-img-element
                                                             <img src={image} alt="" className="mt-1.5 max-h-40 rounded-xl object-cover" />
                                                         )}
                                                         <p className="mt-1 text-[9px] font-bold uppercase tracking-wider text-neutral-400">
@@ -227,8 +227,7 @@ export function ChatLauncher({
                                                     >
                                                         <span className="h-10 w-10 shrink-0 rounded-full bg-neutral-900 text-white text-xs font-black flex items-center justify-center overflow-hidden">
                                                             {image ? (
-                                                                // eslint-disable-next-line @next/next/no-img-element
-                                                                <img src={image} alt="" className="h-full w-full object-cover" />
+                                                                <CoverImage src={image} alt="" className="h-full" />
                                                             ) : (
                                                                 (conversation.other_user.name ?? '?').trim().charAt(0).toUpperCase()
                                                             )}

@@ -21,10 +21,16 @@ export default async function DashboardTabPage({
         type?: string;
         conversation?: string;
         firm?: string;
+        city?: string;
+        price_min?: string;
+        price_max?: string;
+        bedrooms?: string;
+        sort?: string;
     }>;
 }) {
     const { tab } = await params;
-    const { error, section, q, category, type, conversation, firm } = await searchParams;
+    const { error, section, q, category, type, conversation, firm, city, price_min, price_max, bedrooms, sort } =
+        await searchParams;
 
     if (!isDashboardTab(tab)) {
         notFound();
@@ -40,6 +46,11 @@ export default async function DashboardTabPage({
             type={type}
             conversation={conversation}
             firm={firm}
+            city={city}
+            price_min={price_min}
+            price_max={price_max}
+            bedrooms={bedrooms}
+            sort={sort}
         />
     );
 }

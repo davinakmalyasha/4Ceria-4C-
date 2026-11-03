@@ -13,49 +13,85 @@ import (
 
 // projectImages lists a project's images in sort order.
 func projectImages(ctx context.Context, pool *pgxpool.Pool, projectID int64) ([]any, error) {
-	rows, err := pool.Query(ctx, `SELECT id, image_path, sort_order FROM project_images WHERE project_id = $1 ORDER BY sort_order, id`, projectID)
+	m, err := projectImagesBatch(ctx, pool, []int64{projectID})
+	if err != nil {
+		return nil, err
+	}
+	return m[projectID], nil
+}
+
+// projectImagesBatch lists images for many projects in ONE query
+// (WHERE project_id = ANY($1)). The list path was N+1: one query per row
+// in a 50-row page. Callers that need per-project omission semantics keep
+// calling projectImages; projectList uses the batch.
+func projectImagesBatch(ctx context.Context, pool *pgxpool.Pool, projectIDs []int64) (map[int64][]any, error) {
+	out := map[int64][]any{}
+	if len(projectIDs) == 0 {
+		return out, nil
+	}
+	rows, err := pool.Query(ctx, `SELECT project_id, id, image_path, sort_order FROM project_images WHERE project_id = ANY($1) ORDER BY project_id, sort_order, id`, projectIDs)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	list := make([]any, 0)
 	for rows.Next() {
-		var id int64
+		var pid, id int64
 		var path *string
 		var sortOrder int
-		if err := rows.Scan(&id, &path, &sortOrder); err != nil {
+		if err := rows.Scan(&pid, &id, &path, &sortOrder); err != nil {
 			return nil, err
 		}
-
 		item := jsonphp.NewObject()
 		item.Set("id", id)
 		item.Set("url", projectStorageURL(ctx, nullableString(path)))
 		item.Set("sort_order", sortOrder)
-		list = append(list, item)
+		out[pid] = append(out[pid], item)
 	}
-
-	return list, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	// Preserve empty (not null) for projects with no images, matching the
+	// single-row path which returns an empty list.
+	for _, pid := range projectIDs {
+		if _, ok := out[pid]; !ok {
+			out[pid] = []any{}
+		}
+	}
+	return out, nil
 }
 
 // projectMilestones lists a project's milestones, resolving gallery
 // image URLs exactly like the model's accessor does.
 func projectMilestones(ctx context.Context, pool *pgxpool.Pool, projectID int64) ([]any, error) {
+	m, err := projectMilestonesBatch(ctx, pool, []int64{projectID})
+	if err != nil {
+		return nil, err
+	}
+	return m[projectID], nil
+}
+
+// projectMilestonesBatch lists milestones for many projects in ONE query.
+// Same N+1 rationale as projectImagesBatch.
+func projectMilestonesBatch(ctx context.Context, pool *pgxpool.Pool, projectIDs []int64) (map[int64][]any, error) {
+	out := map[int64][]any{}
+	if len(projectIDs) == 0 {
+		return out, nil
+	}
 	rows, err := pool.Query(ctx, `
-		SELECT id, title, description, type, content, approval_status, phase_context,
+		SELECT project_id, id, title, description, type, content, approval_status, phase_context,
 		       start_date, due_date, is_completed,
 		       arsitek_id, kontraktor_id, notaris_id, interior_id, structural_id, mep_id,
 		       review_note, review_status, created_at
-		  FROM project_milestones WHERE project_id = $1 ORDER BY id
-	`, projectID)
+		  FROM project_milestones WHERE project_id = ANY($1) ORDER BY project_id, id
+	`, projectIDs)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	list := make([]any, 0)
 	for rows.Next() {
-		var id int64
+		var pid, id int64
 		var title, description, milestoneType *string
 		var content []byte
 		var approvalStatus, phaseContext *string
@@ -65,7 +101,7 @@ func projectMilestones(ctx context.Context, pool *pgxpool.Pool, projectID int64)
 		var reviewNote, reviewStatus *string
 		var createdAt *time.Time
 
-		if err := rows.Scan(&id, &title, &description, &milestoneType, &content, &approvalStatus, &phaseContext,
+		if err := rows.Scan(&pid, &id, &title, &description, &milestoneType, &content, &approvalStatus, &phaseContext,
 			&startDate, &dueDate, &completed,
 			&arsitekID, &kontraktorID, &notarisID, &interiorID, &structuralID, &mepID,
 			&reviewNote, &reviewStatus, &createdAt); err != nil {
@@ -92,10 +128,17 @@ func projectMilestones(ctx context.Context, pool *pgxpool.Pool, projectID int64)
 		item.Set("review_note", nullableString(reviewNote))
 		item.Set("review_status", nullableString(reviewStatus))
 		item.Set("created_at", carbon(createdAt))
-		list = append(list, item)
+		out[pid] = append(out[pid], item)
 	}
-
-	return list, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	for _, pid := range projectIDs {
+		if _, ok := out[pid]; !ok {
+			out[pid] = []any{}
+		}
+	}
+	return out, nil
 }
 
 // milestoneContent mirrors the resource: a gallery map gets its URLs
@@ -972,7 +1015,7 @@ func specialistPaymentStatus(ctx context.Context, pool *pgxpool.Pool, role strin
 // rating appends where the model declares them, and the user minus
 // $hidden plus their phoneNumber rows.
 func fullProfileBlock(ctx context.Context, pool *pgxpool.Pool, table string, profileID int64, withRatings, withRatingsRelation, withPhones bool) (*jsonphp.Object, error) {
-	rows, err := pool.Query(ctx, `SELECT * FROM `+table+` WHERE id = $1`, profileID)
+	rows, err := pool.Query(ctx, `SELECT `+profileRowColumns(table)+` FROM `+table+` WHERE id = $1`, profileID)
 	if err != nil {
 		return nil, err
 	}
@@ -1123,7 +1166,7 @@ func fullProfileUser(ctx context.Context, pool *pgxpool.Pool, userID int64, with
 		return nil, nil
 	}
 
-	rows, err := pool.Query(ctx, `SELECT * FROM users WHERE id = $1`, userID)
+	rows, err := pool.Query(ctx, `SELECT `+usersRowColumns+` FROM users WHERE id = $1`, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -1230,7 +1273,7 @@ func profileRatings(ctx context.Context, pool *pgxpool.Pool, table string, profi
 		return []any{}, nil
 	}
 
-	rows, err := pool.Query(ctx, `SELECT * FROM `+ratingsTable+` WHERE `+fk+` = $1 ORDER BY id`, profileID)
+	rows, err := pool.Query(ctx, `SELECT `+ratingsRowColumns(fk)+` FROM `+ratingsTable+` WHERE `+fk+` = $1 ORDER BY id`, profileID)
 	if err != nil {
 		return nil, err
 	}

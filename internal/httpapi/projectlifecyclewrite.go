@@ -221,7 +221,7 @@ func InviteProfessionalHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		rows, err := pool.Query(ctx, `SELECT * FROM bids WHERE id = $1`, bidID)
+		rows, err := pool.Query(ctx, `SELECT `+bidsColumns+` FROM bids WHERE id = $1`, bidID)
 		if err != nil {
 			slog.Error("invite: reload", "error", err)
 			serverError(w)
@@ -389,7 +389,7 @@ func MarkCompleteHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		entry, err := projectResource(ctx, pool, fields, values, viewer, projectLoad{budgetSummary: true}, nil)
+		entry, err := projectResource(ctx, pool, fields, values, viewer, projectLoad{budgetSummary: true}, nil, nil)
 		if err != nil {
 			slog.Error("complete: render", "error", err)
 			serverError(w)

@@ -78,7 +78,7 @@ func NewRouter(manifest *Manifest, gates Gates) *Router {
 		message(w, http.StatusNotFound, "Not found.")
 	})
 
-	router.handler = mux
+	router.handler = withRequestID(mux)
 
 	return router
 }
@@ -245,6 +245,15 @@ func (r *Router) readyz(w http.ResponseWriter, req *http.Request) {
 	missing := r.gates.Unimplemented()
 
 	body := jsonphp.NewObject()
+
+	if r.gates.DBStats != nil {
+		total, idle, acquired := r.gates.DBStats()
+		pool := jsonphp.NewObject()
+		pool.Set("total_conns", int64(total))
+		pool.Set("idle_conns", int64(idle))
+		pool.Set("acquired_conns", int64(acquired))
+		body.Set("pool", pool)
+	}
 
 	if len(missing) == 0 {
 		body.Set("status", "ready")

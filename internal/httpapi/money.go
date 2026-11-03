@@ -2,12 +2,34 @@ package httpapi
 
 import (
 	"context"
+	"math/big"
 	"strings"
 
 	"github.com/davinakmalyasha/4ceria/internal/domain/identity"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+func trimSpaces(s string) string {
+	s = strings.ReplaceAll(s, "\u00a0", "")
+	s = strings.ReplaceAll(s, "\u202f", "")
+	s = strings.ReplaceAll(s, "_", "")
+	s = strings.ReplaceAll(s, " ", "")
+	return strings.TrimSpace(s)
+}
+
+func bigParseFloat(s string) (*big.Float, int, error) {
+	return big.ParseFloat(trimSpaces(s), 10, 256, big.ToZero)
+}
+
+func bigNewFloat(v float64) *big.Float {
+	return big.NewFloat(v)
+}
+
+func fInt(f *big.Float) int64 {
+	iv, _ := f.Int64()
+	return iv
+}
 
 // THE MONEY SUBSTRATE
 // -------------------
@@ -107,6 +129,39 @@ func formatMinor(minor int64) string {
 	}
 
 	return out
+}
+
+// numericMinor parses any `numeric` text (plain decimals, exponents) into
+// minor units, truncating past 2 decimals. It is the exact replacement for
+// `strconv.ParseFloat` range gates: floats cannot represent sen past 2^53,
+// while this stays integer. Returns ok=false when the text is not numeric.
+func numericMinor(raw string) (int64, bool) {
+	s := raw
+	// Fast path: plain decimals (what parseMinor accepts).
+	if minor, ok := parseMinor(s); ok {
+		return minor, true
+	}
+	// Slow path: exponents / other numeric spellings isNumericText accepts.
+	// Use big.Float then truncate toward zero at 2 decimals.
+	s = trimSpaces(s)
+	if s == "" {
+		return 0, false
+	}
+	// big.ParseFloat with 256 bits is exact for the magnitudes we gate
+	// (<=1e14); truncation, never rounding.
+	f, _, err := bigParseFloat(s)
+	if err != nil {
+		return 0, false
+	}
+	// f * 100, truncated toward zero.
+	f.Mul(f, bigNewFloat(100))
+	// Truncate toward zero: Int() truncates.
+	iv := fInt(f)
+	// Overflow guard: same bound as parseMinor.
+	if iv > 9_000_000_000_000_000_000 || iv < -9_000_000_000_000_000_000 {
+		return 0, false
+	}
+	return iv, true
 }
 
 // itoa renders a non-negative integer.

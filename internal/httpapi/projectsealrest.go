@@ -207,7 +207,7 @@ func sealPhase(pool *pgxpool.Pool, key string) http.HandlerFunc {
 			return
 		}
 
-		entry, err := projectResource(ctx, pool, fields, values, viewer, fullSealLoad(), nil)
+		entry, err := projectResource(ctx, pool, fields, values, viewer, fullSealLoad(), nil, nil)
 		if err != nil {
 			slog.Error("seal-"+key+": render", "error", err)
 			serverError(w)
@@ -377,7 +377,7 @@ func AuthorizePhaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		entry, err := projectResource(ctx, pool, fields, values, viewer, fullSealLoad(), nil)
+		entry, err := projectResource(ctx, pool, fields, values, viewer, fullSealLoad(), nil, nil)
 		if err != nil {
 			slog.Error("authorize-phase: render", "error", err)
 			serverError(w)

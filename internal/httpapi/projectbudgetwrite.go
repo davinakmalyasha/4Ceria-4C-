@@ -98,6 +98,8 @@ func AddTransactionHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		defer tx.Rollback(ctx)
 
+		_ = setAppUser(ctx, tx, viewer.id)
+
 		var lockedBudget string
 		if err := tx.QueryRow(ctx, `SELECT budget::text FROM projects WHERE id = $1 FOR UPDATE`, projectID).Scan(&lockedBudget); err != nil {
 			slog.Error("txn: lock", "error", err)
@@ -117,6 +119,15 @@ func AddTransactionHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		if txnType == "deposit" {
 			newBudget = budgetMinor + amountMinor
 		} else {
+			// Structural freeze: lowering the ceiling mid-dispute would let
+			// an owner shrink the escrow while payouts are frozen. Deposits
+			// stay open (adding funds never harms arbitration).
+			var openID int64
+			var openTitle string
+			if err := tx.QueryRow(ctx, `SELECT id, title FROM project_disputes WHERE project_id = $1 AND status::text = 'open' LIMIT 1`, projectID).Scan(&openID, &openTitle); err == nil {
+				message(w, http.StatusUnprocessableEntity, "Payments are frozen: dispute #"+strconv.FormatInt(openID, 10)+" (\""+openTitle+"\") is open on this project. An admin must resolve it first.")
+				return
+			}
 			paid, err := paidTotalMinor(ctx, tx, projectID)
 			if err != nil {
 				slog.Error("txn: paid", "error", err)
@@ -207,11 +218,11 @@ func validateTransactionFields(fields map[string]any, failures *errorBag) (txnTy
 		failures.add("amount", "The amount field must be a number.")
 	} else if !isNumericText(text) {
 		failures.add("amount", "The amount field must be a number.")
-	} else if parsed, err := strconv.ParseFloat(text, 64); err != nil {
+	} else if minor, ok := numericMinor(strings.TrimSpace(text)); !ok {
 		failures.add("amount", "The amount field must be a number.")
-	} else if parsed < 1 {
+	} else if minor < 100 {
 		failures.add("amount", "The amount field must be at least 1.")
-	} else if parsed > 99999999999999 {
+	} else if minor > 99999999999999*100 {
 		failures.add("amount", "The amount field must not be greater than 99999999999999.")
 	} else {
 		amountText = strings.TrimSpace(text)
@@ -368,9 +379,9 @@ func validateSandboxFields(fields map[string]any, failures *errorBag) (title, am
 		failures.add("estimated_amount", "The estimated amount field must be a number.")
 	} else if !isNumericText(text) {
 		failures.add("estimated_amount", "The estimated amount field must be a number.")
-	} else if parsed, err := strconv.ParseFloat(text, 64); err != nil {
+	} else if minor, ok := numericMinor(strings.TrimSpace(text)); !ok {
 		failures.add("estimated_amount", "The estimated amount field must be a number.")
-	} else if parsed < 1 {
+	} else if minor < 100 {
 		failures.add("estimated_amount", "The estimated amount field must be at least 1.")
 	} else {
 		amountText = strings.TrimSpace(text)

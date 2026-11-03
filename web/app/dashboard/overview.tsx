@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { formatIDR, titleCase } from '@/lib/format';
 import { respondToInvitation } from './overview-actions';
 import type { MyBidRow } from './myBids';
+import { CoverImage } from '@/components/CoverImage';
 
 /**
  * Native dashboard overview.
@@ -30,6 +31,9 @@ export interface OverviewProject {
     bids_kontraktor_count?: number | null;
     bids_notaris_count?: number | null;
     bids_interior_count?: number | null;
+    bids_structural_count?: number | null;
+    bids_mep_count?: number | null;
+    bids_project_manager_count?: number | null;
 }
 
 export interface FirmInvitation {
@@ -129,8 +133,7 @@ export function FirmInvitationsPanel({ invitations }: { invitations: FirmInvitat
                                 <div className="flex items-center gap-3 min-w-0">
                                     <span className="h-10 w-10 shrink-0 rounded-full bg-slate-900 text-white text-xs font-black flex items-center justify-center overflow-hidden">
                                         {owner?.pic ? (
-                                            // eslint-disable-next-line @next/next/no-img-element
-                                            <img src={owner.pic} alt="" className="h-full w-full object-cover" />
+                                            <CoverImage src={owner.pic} alt="" className="h-full" />
                                         ) : (
                                             (owner?.name ?? '?').trim().charAt(0).toUpperCase()
                                         )}
@@ -141,7 +144,6 @@ export function FirmInvitationsPanel({ invitations }: { invitations: FirmInvitat
                                         </p>
                                         <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
                                             {titleCase(owner?.role_type)}
-                                            {owner?.no_telp ? ` · ${owner.no_telp}` : ''}
                                         </p>
                                     </div>
                                 </div>
@@ -208,13 +210,21 @@ export function OverviewPanel({
     const isOwner = user.role_type === 'user';
     const isSpecialist = SPECIALIST_ROLES.has(user.role_type ?? '');
 
+    // Active = not completed/cancelled — the same definition as the sidebar
+    // badge (DashboardShell), so the two numbers agree.
+    const activeProjects = projects.filter(
+        (project) => project.status !== 'completed' && project.status !== 'cancelled',
+    );
     const bidsReceived = projects.reduce(
         (sum, project) =>
             sum +
             (project.bids_arsitek_count ?? 0) +
             (project.bids_kontraktor_count ?? 0) +
             (project.bids_notaris_count ?? 0) +
-            (project.bids_interior_count ?? 0),
+            (project.bids_interior_count ?? 0) +
+            (project.bids_structural_count ?? 0) +
+            (project.bids_mep_count ?? 0) +
+            (project.bids_project_manager_count ?? 0),
         0,
     );
     const pipeline = myBids.filter((bid) =>
@@ -248,10 +258,10 @@ export function OverviewPanel({
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 {isOwner ? (
                     <>
-                        <Stat label="Active projects" value={projects.length} hint="Owned or in progress" />
-                        <Stat label="Open tenders" value={projectFeed.length} hint="Published for bidding" />
-                        <Stat label="Bids received" value={bidsReceived} hint="Across all your projects" />
-                        <Stat label="Hired professionals" value={hiredProfessionals.length} hint="In your hire history" />
+                        <Stat label="Active projects" value={activeProjects.length} hint="Not completed or cancelled" />
+                        <Stat label="Marketplace tenders" value={projectFeed.length} hint="Open across the platform" />
+                        <Stat label="Proposals received" value={bidsReceived} hint="All-time total on your projects" />
+                        <Stat label="Hire records" value={hiredProfessionals.length} hint="One row per project and role" />
                     </>
                 ) : (
                     <>
@@ -269,13 +279,13 @@ export function OverviewPanel({
                     {isOwner ? (
                         <>
                             <QuickAction href="/dashboard/post-project" label="Post a project" description="Publish a brief and open it for bids." />
-                            <QuickAction href="/dashboard/explore" label="Browse tenders" description="See the projects accepting proposals." />
+                            <QuickAction href="/dashboard/projects" label="Browse tenders" description="Your projects and their proposal inboxes." />
                             <QuickAction href="/dashboard/projects" label="My projects" description="Open the workspace for each project." />
                             <QuickAction href="/dashboard/hire-history" label="Hire history" description="Every professional you have hired." />
                         </>
                     ) : (
                         <>
-                            <QuickAction href="/dashboard/explore" label="Browse tenders" description="Find your next project." />
+                            <QuickAction href="/dashboard/projects" label="Browse tenders" description="Find your next project." />
                             <QuickAction href="/dashboard/my-bids" label="My bids" description="Track every proposal you submitted." />
                             <QuickAction href="/dashboard/my-firms" label="My firms" description="The firms you belong to." />
                             <QuickAction href="/dashboard/profile" label="My profile" description="Keep your public profile complete." />
@@ -298,24 +308,44 @@ export function OverviewPanel({
                     </div>
                 ) : (
                     <div className="grid gap-4 lg:grid-cols-2">
-                        {projects.slice(0, 6).map((project) => (
-                            <Link
-                                key={project.id}
-                                href={`/projects/${project.id}`}
-                                className="bg-white rounded-2xl border border-neutral-200 p-5 hover:border-neutral-400 transition-colors"
-                            >
-                                <div className="flex items-start justify-between gap-3">
-                                    <h3 className="text-sm font-black text-neutral-900 leading-snug">{project.title}</h3>
-                                    <span className={`shrink-0 px-2 py-0.5 rounded-full border text-[9px] font-black uppercase tracking-wider ${statusClasses(project.status)}`}>
-                                        {titleCase(project.status)}
-                                    </span>
-                                </div>
-                                <p className="mt-2 text-xs text-neutral-500">
-                                    {[project.location, project.city].filter(Boolean).join(', ') || 'Location not set'}
-                                </p>
-                                <p className="mt-3 text-sm font-bold text-neutral-900">{formatIDR(project.budget)}</p>
-                            </Link>
-                        ))}
+                        {projects.slice(0, 6).map((project) => {
+                            const received =
+                                (project.bids_arsitek_count ?? 0) +
+                                (project.bids_kontraktor_count ?? 0) +
+                                (project.bids_notaris_count ?? 0) +
+                                (project.bids_interior_count ?? 0) +
+                                (project.bids_structural_count ?? 0) +
+                                (project.bids_mep_count ?? 0) +
+                                (project.bids_project_manager_count ?? 0);
+                            // Terminal projects have nothing to triage — send
+                            // the owner to the workspace, not the proposals inbox.
+                            const terminal = project.status === 'completed' || project.status === 'cancelled';
+                            return (
+                                <Link
+                                    key={project.id}
+                                    href={terminal ? `/projects/${project.id}/overview` : `/projects/${project.id}/proposals`}
+                                    className="bg-white rounded-2xl border border-neutral-200 p-5 hover:border-neutral-400 transition-colors"
+                                >
+                                    <div className="flex items-start justify-between gap-3">
+                                        <h3 className="text-sm font-black text-neutral-900 leading-snug">{project.title}</h3>
+                                        <span className={`shrink-0 px-2 py-0.5 rounded-full border text-[9px] font-black uppercase tracking-wider ${statusClasses(project.status)}`}>
+                                            {titleCase(project.status)}
+                                        </span>
+                                    </div>
+                                    <p className="mt-2 text-xs text-neutral-500">
+                                        {[project.location, project.city].filter(Boolean).join(', ') || 'Location not set'}
+                                    </p>
+                                    <p className="mt-3 text-sm font-bold text-neutral-900">{formatIDR(project.budget)}</p>
+                                    <p className="mt-2 text-[10px] font-black uppercase tracking-wider text-neutral-400">
+                                        {terminal
+                                            ? 'Open workspace →'
+                                            : received > 0
+                                              ? `${received} ${received === 1 ? 'bid' : 'bids'} · Review →`
+                                              : 'No bids yet · Share brief →'}
+                                    </p>
+                                </Link>
+                            );
+                        })}
                     </div>
                 )}
             </section>
@@ -335,7 +365,11 @@ export function OverviewPanel({
                 ) : (
                     <div className="grid gap-4 lg:grid-cols-2">
                         {projectFeed.slice(0, 6).map((project) => (
-                            <article key={project.id} className="bg-white rounded-2xl border border-neutral-200 p-5">
+                            <Link
+                                key={project.id}
+                                href={`/projects/${project.id}/proposals`}
+                                className="bg-white rounded-2xl border border-neutral-200 p-5 hover:border-neutral-400 transition-colors"
+                            >
                                 <div className="flex items-start justify-between gap-3">
                                     <h3 className="text-sm font-black text-neutral-900 leading-snug">{project.title}</h3>
                                     <span className="shrink-0 px-2 py-0.5 rounded-full border bg-emerald-50 text-emerald-700 border-emerald-200 text-[9px] font-black uppercase tracking-wider">
@@ -346,7 +380,10 @@ export function OverviewPanel({
                                     {[project.location, project.city].filter(Boolean).join(', ') || 'Location not set'}
                                 </p>
                                 <p className="mt-3 text-sm font-bold text-neutral-900">{formatIDR(project.budget)}</p>
-                            </article>
+                                <p className="mt-2 text-[10px] font-black uppercase tracking-wider text-neutral-400">
+                                    Review proposals →
+                                </p>
+                            </Link>
                         ))}
                     </div>
                 )}

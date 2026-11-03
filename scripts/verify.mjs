@@ -93,11 +93,13 @@ if (process.platform === 'win32') {
     }
 }
 
-step('go vet', 'go', ['vet', './...']);
+step('go vet', 'go', ['vet', './...'], { env: { GOEXPERIMENT: 'nojsonv2' } });
 
 if (!step('go test', 'go', ['test', './...'], { env: { GOEXPERIMENT: 'nojsonv2' } })) {
     // `go test` already reported why.
 }
+
+step('action policy (SHA-pinned actions, digest-pinned images)', 'bash', ['scripts/ci/action-policy.sh']);
 
 // ---------------------------------------------------------------------------
 // The frontend.
@@ -105,7 +107,8 @@ if (!step('go test', 'go', ['test', './...'], { env: { GOEXPERIMENT: 'nojsonv2' 
 if (skipWeb) {
     process.stdout.write('\n==> web\n    skipped (--skip-web)\n');
 } else if (!existsSync(join(WEB, 'node_modules'))) {
-    process.stdout.write('\n==> web\n    skipped: web/node_modules is absent (cd web && npm ci)\n');
+    process.stderr.write('\n::error::web/node_modules is absent (cd web && npm ci) — failing instead of silently skipping\n');
+    failures.push('web/node_modules absent');
 } else {
     step('frontend type check', npm, ['exec', '--', 'tsc', '--noEmit'], { cwd: WEB });
     step('frontend build', npm, ['run', 'build'], { cwd: WEB });

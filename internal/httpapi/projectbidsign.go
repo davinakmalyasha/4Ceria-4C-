@@ -2,7 +2,6 @@ package httpapi
 
 import (
 	"context"
-	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"log/slog"
@@ -559,28 +558,12 @@ func projectLocationText(lokasi, street, kelurahan, kecamatan, city, province, p
 	return strings.Join(parts, ", ")
 }
 
-// updateUserBank writes the signer's bank details to the MySQL owner
-// store and re-syncs the row into the PG mirror, so the response
-// serialiser sees what MySQL just committed. Without MySQL (dev), it
-// writes the mirror directly — the PUT /me precedent.
-func updateUserBank(ctx context.Context, mysqlDB, mysqlWall *sql.DB, pool *pgxpool.Pool, userID int64, bankType, bankNo, bankName string) error {
+// updateUserBank writes the signer's bank details to PostgreSQL directly,
+// so the response serialiser sees what was just committed.
+func updateUserBank(ctx context.Context, pool *pgxpool.Pool, userID int64, bankType, bankNo, bankName string) error {
 	bankType = strings.TrimSpace(bankType)
 	bankNo = strings.TrimSpace(bankNo)
 	bankName = strings.TrimSpace(bankName)
-
-	if mysqlDB != nil {
-		if _, err := mysqlDB.ExecContext(ctx,
-			`UPDATE users SET bank_name = ?, bank_account_number = ?, bank_account_name = ? WHERE id = ?`,
-			bankType, bankNo, bankName, userID); err != nil {
-			return err
-		}
-
-		if mysqlWall != nil {
-			if err := syncRow(ctx, mysqlWall, pool, "users", "id", userID); err != nil {
-				return err
-			}
-		}
-	}
 
 	if _, err := pool.Exec(ctx,
 		`UPDATE users SET bank_name = $1, bank_account_number = $2, bank_account_name = $3 WHERE id = $4`,
@@ -592,7 +575,7 @@ func updateUserBank(ctx context.Context, mysqlDB, mysqlWall *sql.DB, pool *pgxpo
 }
 
 // SignContractHandler serves `POST /api/projects/{project}/bids/{bid}/sign-contract`.
-func SignContractHandler(pool *pgxpool.Pool, mysqlDB, mysqlWall *sql.DB) http.HandlerFunc {
+func SignContractHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		r = r.WithContext(withAssetBase(r.Context(), requestOrigin(r)))
 
@@ -724,7 +707,7 @@ func SignContractHandler(pool *pgxpool.Pool, mysqlDB, mysqlWall *sql.DB) http.Ha
 		wireID := bidWireID(bid)
 		signatureTS := createdAt.Unix()
 
-		if err := updateUserBank(ctx, mysqlDB, mysqlWall, pool, caller.UserID(), bankType, bankNo, bankName); err != nil {
+		if err := updateUserBank(ctx, pool, caller.UserID(), bankType, bankNo, bankName); err != nil {
 			slog.Error("sign-contract: bank", "error", err)
 			serverError(w)
 			return

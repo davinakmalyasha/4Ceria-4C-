@@ -1,6 +1,6 @@
 import { formatIDR, titleCase } from '@/lib/format';
 import { ConfirmSubmit } from './confirmSubmit';
-import { updateOrderStatus, verifyOrderPayment } from './order-actions';
+import { updateOrderStatus, uploadOrderProof, verifyOrderPayment } from './order-actions';
 
 /**
  * Native material-orders panel.
@@ -160,8 +160,15 @@ export function OrdersPanel({
                                         <dd className="mt-0.5 font-bold text-neutral-900">
                                             {formatIDR(order.total_price)}
                                             {order.shipping_cost && Number(order.shipping_cost) > 0 && (
-                                                <span className="text-[10px] font-semibold text-neutral-400">
-                                                    {' '}+ {formatIDR(order.shipping_cost)} shipping
+                                                <span className="block text-[10px] font-semibold text-neutral-400">
+                                                    incl. {formatIDR(order.shipping_cost)} shipping
+                                                    {(() => {
+                                                        const goods =
+                                                            Number(order.total_price) - Number(order.shipping_cost);
+                                                        return Number.isFinite(goods) && goods >= 0 ? (
+                                                            <> · goods {formatIDR(String(goods))}</>
+                                                        ) : null;
+                                                    })()}
                                                 </span>
                                             )}
                                         </dd>
@@ -254,6 +261,30 @@ export function OrdersPanel({
                                         </>
                                     ) : (
                                         <>
+                                            {(order.status === 'pending' || order.status === 'awaiting_payment') && !order.payment_proof_path && (
+                                                <form action={uploadOrderProof} className="flex flex-wrap items-end gap-2">
+                                                    <input type="hidden" name="order_id" value={order.id} />
+                                                    <label className="block">
+                                                        <span className="text-[9px] font-black uppercase tracking-wider text-neutral-400">
+                                                            Transfer receipt
+                                                        </span>
+                                                        <input
+                                                            type="file"
+                                                            name="payment_proof"
+                                                            required
+                                                            accept="image/jpeg,image/png,image/webp,application/pdf"
+                                                            className="mt-1 block text-xs text-neutral-600 file:mr-2 file:rounded-lg file:border-0 file:bg-neutral-900 file:px-2 file:py-1.5 file:text-[9px] file:font-black file:uppercase file:tracking-wider file:text-white"
+                                                        />
+                                                    </label>
+                                                    <button
+                                                        type="submit"
+                                                        className="px-3 py-1.5 rounded-lg bg-neutral-900 text-white text-[10px] font-black uppercase tracking-wider hover:bg-neutral-700"
+                                                    >
+                                                        Upload proof
+                                                    </button>
+                                                </form>
+                                            )}
+
                                             {(order.status === 'pending' || order.status === 'awaiting_payment') && (
                                                 <form action={updateOrderStatus}>
                                                     <input type="hidden" name="order_id" value={order.id} />

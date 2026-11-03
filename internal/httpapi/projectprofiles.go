@@ -337,6 +337,14 @@ func bidderTree(ctx context.Context, pool *pgxpool.Pool, role string, bid map[st
 
 	average, count := profileRating(ctx, pool, table, column, profileID)
 	phones := userPhones(ctx, pool, userID)
+
+	return assembleBidderTree(ctx, role, bid, privileged, profile, profileID, user, average, count, phones), nil
+}
+
+// assembleBidderTree renders the per-role bidder block from prefetched
+// data — the pure assembly half of bidderTree, shared by the per-row and
+// batched paths so the wire bytes cannot drift between them.
+func assembleBidderTree(ctx context.Context, role string, bid map[string]any, privileged bool, profile map[string]any, profileID int64, user map[string]any, average, count any, phones []string) *jsonphp.Object {
 	phone := firstPhone(phones)
 
 	nameOf := func(key string) any {
@@ -476,7 +484,7 @@ func bidderTree(ctx context.Context, pool *pgxpool.Pool, role string, bid map[st
 		}
 	}
 
-	return tree, nil
+	return tree
 }
 
 // averageOrZero renders a profile average the way the append does:
@@ -575,7 +583,7 @@ func firstPhone(contacts []string) any {
 
 // profileRowByID reads one profile row by id.
 func profileRowByID(ctx context.Context, pool *pgxpool.Pool, table string, id int64) (map[string]any, error) {
-	rows, err := pool.Query(ctx, `SELECT * FROM `+table+` WHERE id = $1`, id)
+	rows, err := pool.Query(ctx, `SELECT `+profileRowColumns(table)+` FROM `+table+` WHERE id = $1`, id)
 	if err != nil {
 		return nil, err
 	}
@@ -604,7 +612,7 @@ func profileRowByID(ctx context.Context, pool *pgxpool.Pool, table string, id in
 
 // projectRowByID reads one project row.
 func projectRowByID(ctx context.Context, pool *pgxpool.Pool, projectID int64) ([]string, []any, error) {
-	rows, err := pool.Query(ctx, `SELECT * FROM projects WHERE id = $1`, projectID)
+	rows, err := pool.Query(ctx, `SELECT `+projectsRowColumns+` FROM projects WHERE id = $1`, projectID)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -1,4 +1,5 @@
 import { postComment } from './qa-actions';
+import { CoverImage } from '@/components/CoverImage';
 
 /**
  * Native Q&A panel.
@@ -50,8 +51,7 @@ function avatar({
             aria-hidden
         >
             {user?.pic ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={user.pic} alt="" className="h-full w-full object-cover" />
+                <CoverImage src={user.pic} alt="" className="h-full" />
             ) : (
                 initial(user?.name)
             )}

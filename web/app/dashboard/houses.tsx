@@ -5,6 +5,7 @@ import { deleteHouse } from './houses-actions';
 import { updateHouse } from './house-actions';
 import { ConfirmSubmit } from './confirmSubmit';
 import type { HouseRow } from './explore';
+import { CoverImage } from '@/components/CoverImage';
 
 /**
  * Native house listings.
@@ -20,17 +21,22 @@ function HouseCard({ house }: { house: HouseRow }) {
 
     return (
         <article data-native-house={house.id} className="bg-white rounded-2xl border border-neutral-200 overflow-hidden">
-            {cover ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={cover} alt="" className="h-44 w-full object-cover" />
-            ) : (
-                <div className="h-44 w-full bg-neutral-100 flex items-center justify-center text-[10px] font-black uppercase tracking-wider text-neutral-400">
-                    No photo
-                </div>
-            )}
+            <Link href={`/dashboard/houses/${house.id}`} aria-label={house.name ?? `House #${house.id}`}>
+                {cover ? (
+                    <CoverImage src={cover} alt="" className="h-44" />
+                ) : (
+                    <div className="h-44 w-full bg-neutral-100 flex items-center justify-center text-[10px] font-black uppercase tracking-wider text-neutral-400">
+                        No photo
+                    </div>
+                )}
+            </Link>
 
             <div className="p-5">
-                <h3 className="text-sm font-black text-neutral-900 leading-snug">{house.name ?? `House #${house.id}`}</h3>
+                <h3 className="text-sm font-black text-neutral-900 leading-snug">
+                    <Link href={`/dashboard/houses/${house.id}`} className="hover:text-red-600">
+                        {house.name ?? `House #${house.id}`}
+                    </Link>
+                </h3>
                 <p className="mt-1 text-xs text-neutral-500">{address || 'Location not set'}</p>
                 <p className="mt-3 text-lg font-black text-neutral-900">{formatIDR(house.price)}</p>
                 <div className="mt-3 flex flex-wrap gap-3 text-[10px] font-black uppercase tracking-wider text-neutral-400">
@@ -52,7 +58,17 @@ function HouseCard({ house }: { house: HouseRow }) {
     );
 }
 
-export function HousesPanel({ houses }: { houses: HouseRow[] }) {
+export interface HouseFilters {
+    q?: string;
+    city?: string;
+    price_min?: string;
+    price_max?: string;
+    bedrooms?: string;
+    sort?: string;
+}
+
+export function HousesPanel({ houses, filters }: { houses: HouseRow[]; filters?: HouseFilters }) {
+    const active = filters ?? {};
     return (
         <div data-native-panel="houses" className="space-y-6">
             <div className="flex flex-wrap items-end justify-between gap-4">
@@ -75,9 +91,72 @@ export function HousesPanel({ houses }: { houses: HouseRow[] }) {
                 </div>
             </div>
 
+            <form method="get" action="/dashboard/houses" className="bg-white rounded-2xl border border-neutral-200 p-4">
+                <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-6">
+                    <input
+                        type="search"
+                        name="q"
+                        defaultValue={active.q ?? ''}
+                        placeholder="Search name or area…"
+                        className="rounded-xl border border-neutral-200 px-3 py-2 text-xs outline-none focus:border-neutral-900"
+                    />
+                    <input
+                        name="city"
+                        defaultValue={active.city ?? ''}
+                        placeholder="City (kab/kota)…"
+                        className="rounded-xl border border-neutral-200 px-3 py-2 text-xs outline-none focus:border-neutral-900"
+                    />
+                    <input
+                        name="price_min"
+                        inputMode="numeric"
+                        defaultValue={active.price_min ?? ''}
+                        placeholder="Min price (Rp)"
+                        className="rounded-xl border border-neutral-200 px-3 py-2 text-xs outline-none focus:border-neutral-900"
+                    />
+                    <input
+                        name="price_max"
+                        inputMode="numeric"
+                        defaultValue={active.price_max ?? ''}
+                        placeholder="Max price (Rp)"
+                        className="rounded-xl border border-neutral-200 px-3 py-2 text-xs outline-none focus:border-neutral-900"
+                    />
+                    <input
+                        name="bedrooms"
+                        type="number"
+                        min={0}
+                        defaultValue={active.bedrooms ?? ''}
+                        placeholder="Min bedrooms"
+                        className="rounded-xl border border-neutral-200 px-3 py-2 text-xs outline-none focus:border-neutral-900"
+                    />
+                    <select
+                        name="sort"
+                        defaultValue={active.sort ?? ''}
+                        className="rounded-xl border border-neutral-200 bg-white px-3 py-2 text-xs outline-none focus:border-neutral-900"
+                    >
+                        <option value="">Newest first</option>
+                        <option value="price_asc">Price: low to high</option>
+                        <option value="price_desc">Price: high to low</option>
+                    </select>
+                </div>
+                <div className="mt-2 flex items-center gap-3">
+                    <button
+                        type="submit"
+                        className="px-4 py-2 rounded-xl bg-neutral-900 text-white text-[10px] font-black uppercase tracking-wider hover:bg-neutral-700"
+                    >
+                        Filter
+                    </button>
+                    <Link
+                        href="/dashboard/houses"
+                        className="text-[10px] font-black uppercase tracking-wider text-neutral-400 hover:text-neutral-900"
+                    >
+                        Reset
+                    </Link>
+                </div>
+            </form>
+
             {houses.length === 0 ? (
                 <div className="bg-white rounded-2xl border border-dashed border-neutral-200 p-8 text-sm text-neutral-500">
-                    No properties found. A house appears here as soon as it is published.
+                    No properties match these filters. Try widening the price range or clearing the search.
                 </div>
             ) : (
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -143,7 +222,7 @@ export function MyHousesPanel({
                             <HouseCard house={house} />
                             <div className="flex items-center justify-between gap-2">
                                 <Link
-                                    href={`/dashboard/houses`}
+                                    href={`/dashboard/houses/${house.id}`}
                                     className="px-3 py-1.5 rounded-lg border border-neutral-200 text-[10px] font-black uppercase tracking-wider text-neutral-600 hover:text-neutral-900"
                                 >
                                     Details
@@ -221,6 +300,109 @@ export function MyHousesPanel({
                     ))}
                 </div>
             )}
+        </div>
+    );
+}
+
+/**
+ * Native house detail.
+ *
+ * Served at `/dashboard/houses/[id]` from `GET /houses/{house}` — the same
+ * call that counts the view (once per viewer per six hours), so opening a
+ * card is what makes the view counter move.
+ */
+export function HouseDetailPanel({ house }: { house: HouseRow }) {
+    const pics = house.housePic ?? [];
+    const cover = assetUrl(pics[0]?.dir ?? null);
+    const address = [
+        house.address?.street,
+        house.address?.kelurahan,
+        house.address?.kecamatan,
+        house.address?.city,
+        house.address?.province,
+        house.address?.postal_code,
+    ].filter(Boolean).join(', ');
+
+    return (
+        <div data-native-panel="house-detail" className="space-y-6">
+            <Link
+                href="/dashboard/houses"
+                className="text-xs font-bold text-neutral-500 hover:text-neutral-900"
+            >
+                ← All houses
+            </Link>
+
+            <div className="grid gap-5 lg:grid-cols-3">
+                <div className="lg:col-span-2 space-y-4">
+                    {cover ? (
+                        <CoverImage src={cover} alt="" className="h-72 w-full rounded-2xl" />
+                    ) : (
+                        <div className="h-72 w-full rounded-2xl bg-neutral-100 flex items-center justify-center text-[10px] font-black uppercase tracking-wider text-neutral-400">
+                            No photo
+                        </div>
+                    )}
+                    {pics.length > 1 && (
+                        <div className="grid grid-cols-3 gap-3">
+                            {pics.slice(1, 7).map((pic) => {
+                                const src = assetUrl(pic.dir ?? null);
+                                return src ? (
+                                    <CoverImage key={pic.id} src={src} alt="" className="h-24" />
+                                ) : null;
+                            })}
+                        </div>
+                    )}
+                    <section className="bg-white rounded-2xl border border-neutral-200 p-6">
+                        <h2 className="text-sm font-black uppercase tracking-wider text-neutral-400">Description</h2>
+                        <p className="mt-3 text-sm leading-relaxed text-neutral-700 whitespace-pre-line">
+                            {house.description || 'No description provided.'}
+                        </p>
+                    </section>
+                </div>
+
+                <aside className="space-y-5">
+                    <section className="bg-white rounded-2xl border border-neutral-200 p-6">
+                        <h1 className="text-xl font-black text-neutral-900 leading-snug">
+                            {house.name ?? `House #${house.id}`}
+                        </h1>
+                        <p className="mt-1 text-xs text-neutral-500">{address || 'Location not set'}</p>
+                        <p className="mt-4 text-2xl font-black text-neutral-900">{formatIDR(house.price)}</p>
+                        <dl className="mt-4 grid grid-cols-2 gap-3 text-xs">
+                            <div>
+                                <dt className="text-[10px] font-black uppercase tracking-wider text-neutral-400">Bedrooms</dt>
+                                <dd className="mt-0.5 font-bold">{house.rooms?.bedrooms ?? '—'}</dd>
+                            </div>
+                            <div>
+                                <dt className="text-[10px] font-black uppercase tracking-wider text-neutral-400">Bathrooms</dt>
+                                <dd className="mt-0.5 font-bold">{house.rooms?.bathrooms ?? '—'}</dd>
+                            </div>
+                            <div>
+                                <dt className="text-[10px] font-black uppercase tracking-wider text-neutral-400">Floors</dt>
+                                <dd className="mt-0.5 font-bold">{house.dimensions?.floors ?? '—'}</dd>
+                            </div>
+                            <div>
+                                <dt className="text-[10px] font-black uppercase tracking-wider text-neutral-400">Size</dt>
+                                <dd className="mt-0.5 font-bold">
+                                    {house.dimensions?.width != null && house.dimensions?.length != null
+                                        ? `${house.dimensions.width} × ${house.dimensions.length} m`
+                                        : '—'}
+                                </dd>
+                            </div>
+                        </dl>
+                        {house.views != null && (
+                            <p className="mt-4 text-[10px] font-black uppercase tracking-wider text-neutral-400">
+                                {house.views} {house.views === 1 ? 'view' : 'views'}
+                            </p>
+                        )}
+                    </section>
+
+                    <Link
+                        href="/dashboard/my-houses"
+                        className="block text-center px-4 py-2.5 rounded-xl border border-neutral-200 bg-white text-[10px] font-black uppercase tracking-wider text-neutral-600 hover:text-neutral-900"
+                    >
+                        Manage my properties
+                    </Link>
+                </aside>
+            </div>
         </div>
     );
 }

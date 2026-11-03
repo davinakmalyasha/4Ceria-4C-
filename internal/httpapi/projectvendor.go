@@ -27,12 +27,12 @@ func vendorAgreedFee(fields map[string]any, failures *errorBag) string {
 		failures.add("agreed_fee", "The agreed fee field must be a number.")
 		return "0"
 	}
-	parsed, err := strconv.ParseFloat(text, 64)
-	if err != nil {
+	minor, ok := numericMinor(strings.TrimSpace(text))
+	if !ok {
 		failures.add("agreed_fee", "The agreed fee field must be a number.")
 		return "0"
 	}
-	if parsed < 0 {
+	if minor < 0 {
 		failures.add("agreed_fee", "The agreed fee field must be at least 0.")
 		return "0"
 	}
@@ -211,6 +211,14 @@ func ImportExternalVendorHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		if feeMinor > 0 {
+			// Structural freeze: same rule as budget/transactions — lowering
+			// the ceiling while a dispute is open is blocked.
+			var openID int64
+			var openTitle string
+			if err := tx.QueryRow(ctx, `SELECT id, title FROM project_disputes WHERE project_id = $1 AND status::text = 'open' LIMIT 1`, projectID).Scan(&openID, &openTitle); err == nil {
+				message(w, http.StatusUnprocessableEntity, "Payments are frozen: dispute #"+strconv.FormatInt(openID, 10)+" (\""+openTitle+"\") is open on this project. An admin must resolve it first.")
+				return
+			}
 			var lockedBudget string
 			if err := tx.QueryRow(ctx, `SELECT budget::text FROM projects WHERE id = $1 FOR UPDATE`,
 				projectID).Scan(&lockedBudget); err != nil {
@@ -294,7 +302,7 @@ func ImportExternalVendorHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 		projectEntry, err := projectResource(ctx, pool, freshFields, freshValues, viewer,
-			projectLoad{budgetSummary: true}, nil)
+			projectLoad{budgetSummary: true}, nil, nil)
 		if err != nil {
 			slog.Error("import-vendor: resource", "error", err)
 			serverError(w)

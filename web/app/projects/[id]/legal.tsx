@@ -29,14 +29,17 @@ function dateOnly(value: string | null | undefined): string {
 export function LegalPanel({
     project,
     documents,
+    notaryBids = 0,
+    canVerify = false,
 }: {
     project: ProjectPayload;
     documents: DocumentRow[];
+    notaryBids?: number;
+    canVerify?: boolean;
 }) {
     const legalDocuments = documents.filter(
         (document) => (document.category ?? '').startsWith('legal_') || document.target_role === 'notary',
     );
-    const vault = legalDocuments.length > 0 ? legalDocuments : documents;
 
     return (
         <section>
@@ -48,7 +51,22 @@ export function LegalPanel({
                     </p>
                 </div>
                 <span className="text-[10px] font-black uppercase tracking-wider text-neutral-400">
-                    {project.notaris?.nama ?? 'No notary assigned'}
+                    {project.notaris?.nama ?? (
+                        <>
+                            No notary assigned
+                            {notaryBids > 0 && (
+                                <>
+                                    {' '}·{' '}
+                                    <a
+                                        href={`/projects/${project.id}/proposals`}
+                                        className="font-bold text-neutral-900 hover:text-red-600"
+                                    >
+                                        {notaryBids} {notaryBids === 1 ? 'bid' : 'bids'} · Review →
+                                    </a>
+                                </>
+                            )}
+                        </>
+                    )}
                 </span>
             </div>
 
@@ -84,7 +102,7 @@ export function LegalPanel({
                                 </>
                             ) : (
                                 <p className="mt-3 text-[11px] font-bold uppercase tracking-wider text-amber-600">
-                                    Awaiting Owner Upload
+                                    {canVerify ? 'Awaiting Owner Upload' : 'Awaiting owner documents'}
                                 </p>
                             )}
                         </article>
@@ -151,8 +169,11 @@ export function LegalPanel({
                         Official Document Vault
                     </h2>
                 </div>
-                {vault.length === 0 ? (
-                    <p className="px-6 py-6 text-sm text-neutral-500">No legal documents uploaded yet.</p>
+                {legalDocuments.length === 0 ? (
+                    <p className="px-6 py-6 text-sm text-neutral-500">
+                        No legal documents uploaded yet. Compliance files appear here once
+                        the owner uploads them in the Files tab.
+                    </p>
                 ) : (
                     <table className="w-full text-sm">
                         <thead>
@@ -163,7 +184,7 @@ export function LegalPanel({
                             </tr>
                         </thead>
                         <tbody>
-                            {vault.map((document) => (
+                            {legalDocuments.map((document) => (
                                 <tr key={document.id} className="border-t border-neutral-100">
                                     <td className="px-6 py-3 font-semibold text-neutral-800">
                                         {document.file_url ? (

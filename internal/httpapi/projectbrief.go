@@ -54,7 +54,7 @@ func renderProjectAnswer(ctx context.Context, pool *pgxpool.Pool, w http.Respons
 		return
 	}
 
-	entry, err := projectResource(ctx, pool, fields, values, viewer, spec, nil)
+	entry, err := projectResource(ctx, pool, fields, values, viewer, spec, nil, nil)
 	if err != nil {
 		slog.Error("project answer: render", "error", err)
 		serverError(w)
@@ -567,7 +567,7 @@ func ReviewProjectHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		var bidFields []string
 		var bidValues []any
-		bidRows, err := pool.Query(ctx, `SELECT * FROM bids WHERE project_id = $1 AND role::text = $2
+		bidRows, err := pool.Query(ctx, `SELECT `+bidsColumns+` FROM bids WHERE project_id = $1 AND role::text = $2
 			AND status::text IN ('accepted','active','contract_pending','awaiting_payment','terminated','resigned')
 			ORDER BY created_at DESC, id DESC LIMIT 1`, projectID, bidRole)
 		if err != nil {
@@ -671,7 +671,7 @@ func ReviewProjectHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		rows, err := pool.Query(ctx, `SELECT * FROM `+role.table+` WHERE id = $1`, reviewID)
+		rows, err := pool.Query(ctx, `SELECT `+profileRowColumns(role.table)+` FROM `+role.table+` WHERE id = $1`, reviewID)
 		if err != nil {
 			slog.Error("review: reload", "error", err)
 			serverError(w)

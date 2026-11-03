@@ -69,6 +69,9 @@ export default async function AdminProjectsPage({
                                 <th className="px-6 py-3.5">Project</th>
                                 <th className="px-6 py-3.5">Owner</th>
                                 <th className="px-6 py-3.5">Participants</th>
+                                <th className="px-6 py-3.5">Bids</th>
+                                <th className="px-6 py-3.5">Freeze</th>
+                                <th className="px-6 py-3.5">Money</th>
                                 <th className="px-6 py-3.5">Budget</th>
                                 <th className="px-6 py-3.5">Status</th>
                                 <th className="px-6 py-3.5 text-right">Moderation</th>
@@ -77,7 +80,7 @@ export default async function AdminProjectsPage({
                         <tbody className="divide-y divide-neutral-100 text-xs">
                             {(projects.data ?? []).length === 0 ? (
                                 <tr>
-                                    <td colSpan={6} className="px-6 py-12 text-center italic text-neutral-400">
+                                    <td colSpan={9} className="px-6 py-12 text-center italic text-neutral-400">
                                         No projects match these filters.
                                     </td>
                                 </tr>
@@ -100,6 +103,40 @@ export default async function AdminProjectsPage({
                                         <td className="px-6 py-4 text-neutral-600">
                                             <p>Architect: {project.arsitek?.nama ?? '—'}</p>
                                             <p>Contractor: {project.kontraktor?.nama_perusahaan ?? '—'}</p>
+                                        </td>
+                                        <td className="px-6 py-4 text-neutral-700">
+                                            <p className="font-bold text-neutral-900">{project.bid_count ?? 0} total</p>
+                                            <p className="mt-0.5 text-[10px] font-semibold text-neutral-400">
+                                                {(project.pending_bid_count ?? 0) > 0 ? (
+                                                    <span className="text-amber-600">
+                                                        {project.pending_bid_count} awaiting triage
+                                                    </span>
+                                                ) : (
+                                                    'queue clear'
+                                                )}
+                                            </p>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            {project.open_dispute ? (
+                                                <span className="inline-flex rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-red-700">
+                                                    Frozen · #{project.open_dispute.id}
+                                                </span>
+                                            ) : (
+                                                <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-300">
+                                                    No freeze
+                                                </span>
+                                            )}
+                                        </td>
+                                        <td className="px-6 py-4 text-neutral-700">
+                                            <p className="font-bold text-neutral-900">
+                                                {formatIDR(project.paid_total)}
+                                            </p>
+                                            <p className="mt-0.5 text-[10px] font-semibold text-neutral-400">
+                                                paid out
+                                                {(project.refunded_total != null && String(project.refunded_total) !== '0' && String(project.refunded_total) !== '0.00') && (
+                                                    <> · refunded {formatIDR(project.refunded_total)}</>
+                                                )}
+                                            </p>
                                         </td>
                                         <td className="px-6 py-4 font-bold text-neutral-900">
                                             {formatIDR(project.budget)}

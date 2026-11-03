@@ -112,6 +112,16 @@ func (s *Service) Record(ctx context.Context, movement Movement) (Result, error)
 		return Result{}, err
 	}
 
+	// The freeze applies to every disbursement except a refund: a refund IS
+	// the arbitration outcome inside an open dispute, so blocking it would
+	// deadlock resolution. RecordPayment keeps its own explicit check for
+	// the legacy message path; this covers any future direct Record caller.
+	if s.freeze != nil && movement.Type.IsDisbursement() && movement.Type != TxRefund {
+		if err := s.freeze.AssertNoOpenDispute(ctx, movement.ProjectID); err != nil {
+			return Result{}, err
+		}
+	}
+
 	outcome, err := s.store.RecordMovement(ctx, movement)
 	if err != nil {
 		return Result{}, err

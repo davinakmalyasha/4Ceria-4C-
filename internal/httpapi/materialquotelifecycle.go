@@ -514,6 +514,10 @@ func MarkQuotePaidHandler(pool *pgxpool.Pool) http.HandlerFunc {
 					"Payment: Material Quote #"+strconv.FormatInt(quoteID, 10),
 					`App\Models\MaterialQuote`, quoteID, registryID, viewer.id, viewer.role)
 				if err != nil {
+					if fe, ok := asFrozen(err); ok {
+						message(w, http.StatusUnprocessableEntity, fe.Error())
+						return
+					}
 					slog.Error("quote mark-paid: ledger", "error", err)
 					serverError(w)
 					return

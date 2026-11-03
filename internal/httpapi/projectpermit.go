@@ -134,7 +134,7 @@ func permitVerification(pool *pgxpool.Pool, kind string) http.HandlerFunc {
 			return
 		}
 
-		entry, err := projectResource(ctx, pool, fields, values, viewer, projectLoad{budgetSummary: true}, nil)
+		entry, err := projectResource(ctx, pool, fields, values, viewer, projectLoad{budgetSummary: true}, nil, nil)
 		if err != nil {
 			slog.Error("permit-"+kind+": render", "error", err)
 			serverError(w)

@@ -226,7 +226,7 @@ func RequirementsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		rows, err := pool.Query(ctx, `SELECT * FROM project_requirements WHERE project_id = $1 ORDER BY id`, projectID)
+		rows, err := pool.Query(ctx, `SELECT `+requirementsColumns+` FROM project_requirements WHERE project_id = $1 ORDER BY id`, projectID)
 		if err != nil {
 			slog.Error("requirements: list", "error", err)
 			serverError(w)

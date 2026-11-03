@@ -2,6 +2,7 @@ import { assetUrl } from '@/lib/assets';
 import { formatIDR, titleCase } from '@/lib/format';
 import type { User } from '@/context/AuthContext';
 import { ProfileEditPanel } from './profileEdit';
+import { CoverImage } from '@/components/CoverImage';
 
 /**
  * Native dashboard profile summary.
@@ -16,6 +17,14 @@ import { ProfileEditPanel } from './profileEdit';
 const PROFILE_KEYS: Record<string, string> = {
     arsitek: 'arsitek',
     kontraktor: 'kontraktor',
+    // Trade sub-roles share the kontraktor relation in /me
+    // (cf. RELATION_MAP in verification.tsx).
+    civil: 'kontraktor',
+    mechanical: 'kontraktor',
+    electrical: 'kontraktor',
+    plumbing: 'kontraktor',
+    roofing: 'kontraktor',
+    finishing: 'kontraktor',
     notaris: 'notaris_profile',
     interior: 'interior_profile',
     project_manager: 'project_manager',
@@ -120,8 +129,7 @@ export function ProfilePanel({ user, error }: { user: User; error?: string }) {
                 <div className="flex flex-wrap items-start gap-5">
                     <span className="h-20 w-20 shrink-0 rounded-2xl bg-neutral-900 text-white text-2xl font-black flex items-center justify-center overflow-hidden">
                         {avatar ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={avatar} alt="" className="h-full w-full object-cover" />
+                            <CoverImage src={avatar} alt="" className="h-full" />
                         ) : (
                             (user.name ?? '?').trim().charAt(0).toUpperCase()
                         )}

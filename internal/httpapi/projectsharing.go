@@ -1173,7 +1173,7 @@ func BroadcastPhaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		// Every project-nested route carries budget_summary (the resource's
 		// when() checks ('project')).
-		entry, err := projectResource(ctx, pool, freshFields, freshValues, viewer, projectLoad{budgetSummary: true}, nil)
+		entry, err := projectResource(ctx, pool, freshFields, freshValues, viewer, projectLoad{budgetSummary: true}, nil, nil)
 		if err != nil {
 			slog.Error("broadcast: render", "error", err)
 			serverError(w)

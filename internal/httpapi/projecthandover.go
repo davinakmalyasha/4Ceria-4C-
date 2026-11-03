@@ -211,7 +211,7 @@ func OwnerAcceptProjectHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		entry, err := projectResource(ctx, pool, freshFields, freshValues, viewer, projectLoad{
 			budgetSummary: true,
 			countRoles:    bidCountRoles,
-		}, nil)
+		}, nil, nil)
 		if err != nil {
 			slog.Error("owner-accept: render", "error", err)
 			serverError(w)

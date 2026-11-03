@@ -24,20 +24,18 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"flag"
 	"log/slog"
 	"net/http"
-	"net/url"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
 
 	"github.com/davinakmalyasha/4ceria/internal/httpapi"
-	_ "github.com/go-sql-driver/mysql"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -72,86 +70,17 @@ func main() {
 		// wired even when PostgreSQL is absent. A gateway that answers 501
 		// on a throttled route because the limiter is "not implemented yet"
 		// would be a lie with a cache header — the limit is a protection,
-		// and an unwired one is a hole.
+		// and an unwired one is a hole. When PostgreSQL is present the
+		// shared PgLimiter replaces it (see postgres block below).
 		Limiter: httpapi.NewMemoryLimiter(),
 	}
 
-	// IDENTITY LIVES IN MYSQL.
+	// IDENTITY LIVES IN POSTGRESQL.
 	//
-	// ADR-0018 keeps `users`, `personal_access_tokens` and the Spatie
-	// tables MySQL-owned for the whole transition. The Go service reads
-	// and writes them through MySQL directly — the same rows, never a
-	// copy — so a session minted by either stack works on both instantly.
-	// PostgreSQL stays the read mirror for everything else, and the auth
-	// handlers re-sync the touched rows into it before serialising.
-	if mysqlDSN := os.Getenv("MYSQL_DSN"); mysqlDSN != "" {
-		// UTC, EXPLICITLY.
-		//
-		// MySQL TIMESTAMP columns have no zone: the server renders them in
-		// the session's zone. The legacy stack means UTC by them
-		// (`APP_TIMEZONE=UTC`), while this machine's system zone is
-		// +07:00. Without the session pin a wall clock reads seven hours
-		// in the future and a 2-hour-old reset token verifies as fresh —
-		// found live, comparing expiry against Laravel on the same row.
-		// This is the same UTC discipline the ETL applies to PostgreSQL.
-		logicDSN := mysqlDSN
-		if !strings.Contains(logicDSN, "time_zone=") {
-			separator := "?"
-			if strings.Contains(logicDSN, "?") {
-				separator = "&"
-			}
-
-			logicDSN += separator + "time_zone=%27%2B00%3A00%27"
-		}
-
-		mysqlDB, err := sql.Open("mysql", logicDSN)
-		if err != nil {
-			logger.Error("connecting to MySQL", "error", err)
-			os.Exit(1)
-		}
-		defer mysqlDB.Close()
-
-		if err := mysqlDB.PingContext(context.Background()); err != nil {
-			logger.Error("MySQL did not answer", "error", err)
-			os.Exit(1)
-		}
-
-		gates.Auth = httpapi.NewSanctum(mysqlDB)
-		gates.MySQL = mysqlDB
-
-		// The re-sync reads with ETL semantics: raw wall-clock text, no
-		// session time-zone pin, so the mirror holds byte-for-byte what a
-		// full ETL would write. The logic pool above stays pinned to UTC
-		// for correct instant arithmetic (token expiry).
-		wallDSN := os.Getenv("MYSQL_DSN")
-		if i := strings.Index(wallDSN, "?"); i >= 0 {
-			query, err := url.ParseQuery(wallDSN[i+1:])
-			if err != nil {
-				logger.Error("could not parse MYSQL_DSN", "error", err)
-				os.Exit(1)
-			}
-			query.Set("parseTime", "false")
-			query.Del("time_zone")
-			wallDSN = wallDSN[:i+1] + query.Encode()
-		} else {
-			wallDSN += "?parseTime=false"
-		}
-		wallDB, err := sql.Open("mysql", wallDSN)
-		if err != nil {
-			logger.Error("connecting to MySQL for re-sync", "error", err)
-			os.Exit(1)
-		}
-		defer wallDB.Close()
-
-		if err := wallDB.PingContext(context.Background()); err != nil {
-			logger.Error("MySQL re-sync source did not answer", "error", err)
-			os.Exit(1)
-		}
-
-		gates.MySQLWall = wallDB
-
-		logger.Info("mysql wired", "auth", true)
-	}
+	// Local/portfolio default: all-PostgreSQL (authpg.go, Sanctum semantics
+	// preserved). MySQL remains only as the one-time legacy seed
+	// (`db/mysql/` + `cmd/etl`); the gateway has no MySQL runtime dependency.
+	// (ADR-0018 described the transition window; the cutover is done.)
 
 	// POSTGRES IS OPTIONAL, AND SAYS SO WHEN IT IS ABSENT.
 	//
@@ -159,6 +88,12 @@ func main() {
 	// starts it and compares route tables, which needs no data. With
 	// DATABASE_URL set, the ported handlers and the Sanctum authenticator are
 	// wired; without it they stay stubs and `/readyz` reports the reason.
+	//
+	// The scheduler lives as long as the process: schedStop fires on shutdown
+	// so in-flight sweeps, not the process exit, bound the wait.
+	schedCtx, schedStop := context.WithCancel(context.Background())
+	defer schedStop()
+
 	if dsn := os.Getenv("DATABASE_URL"); dsn != "" {
 		config, err := pgxpool.ParseConfig(dsn)
 		if err != nil {
@@ -176,6 +111,13 @@ func main() {
 			_, err := conn.Exec(ctx, "SET TIME ZONE 'UTC'")
 			return err
 		}
+		// Bounded pool: pgx defaults to ~4*CPU open with an unbounded queue.
+		// Explicit caps keep burst traffic from becoming `too many clients`.
+		config.MaxConns = int32(envInt("PGPOOL_MAX_CONNS", 20))
+		config.MinConns = int32(envInt("PGPOOL_MIN_CONNS", 2))
+		config.MaxConnLifetime = 5 * time.Minute
+		config.MaxConnIdleTime = time.Minute
+		config.HealthCheckPeriod = 30 * time.Second
 
 		pool, err := pgxpool.NewWithConfig(context.Background(), config)
 		if err != nil {
@@ -190,6 +132,8 @@ func main() {
 		}
 
 		gates.Freezer = httpapi.NewDbFreezer(pool)
+		// Shared rate limiting across replicas (pg-backed, same interface).
+		gates.Limiter = httpapi.NewPgLimiter(pool)
 		gates.Handlers["get.api.admin.stats"] = httpapi.StatsHandler(pool)
 		gates.Handlers["get.api.notifications"] = httpapi.NotificationsHandler(pool)
 		gates.Handlers["get.api.user.active-projects"] = httpapi.ActiveProjectsHandler(pool)
@@ -214,6 +158,21 @@ func main() {
 		gates.Handlers["post.api.material-orders.material_order.payment-proof"] = httpapi.UploadOrderPaymentProofHandler(pool)
 		gates.Handlers["material-orders.update"] = httpapi.UpdateMaterialOrderHandler(pool)
 		gates.Handlers["post.api.material-orders.material_order.verify-payment"] = httpapi.VerifyOrderPaymentHandler(pool)
+		gates.Handlers["post.api.material-orders.material_order.confirm-receipt"] = httpapi.ConfirmOrderReceiptHandler(pool)
+		gates.Handlers["get.api.saved-searches"] = httpapi.SavedSearchesIndexHandler(pool)
+		gates.Handlers["post.api.saved-searches"] = httpapi.StoreSavedSearchHandler(pool)
+		gates.Handlers["delete.api.saved-searches.id"] = httpapi.DestroySavedSearchHandler(pool)
+		gates.Handlers["get.api.projects.project.finance-ledger"] = httpapi.FinanceLedgerHandler(pool)
+		gates.Handlers["get.api.me.analytics"] = httpapi.AnalyticsHandler(pool)
+		gates.Handlers["get.api.projects.project.reports.export"] = httpapi.ExportReportHandler(pool)
+		gates.Handlers["get.api.projects.project.progress"] = httpapi.ProjectProgressHandler(pool)
+		gates.Handlers["put.api.projects.project.milestones.milestone.weight"] = httpapi.UpdateMilestoneWeightHandler(pool)
+		gates.Handlers["post.api.procurement-requests.id.purchase"] = httpapi.PurchaseBridgeHandler(pool)
+		gates.Handlers["get.api.projects.project.owner-reviews"] = httpapi.OwnerReviewsHandler(pool)
+		gates.Handlers["post.api.projects.project.owner-reviews"] = httpapi.StoreOwnerReviewHandler(pool)
+		gates.Handlers["get.api.projects.project.snags.sla"] = httpapi.SnagSLAHandler(pool)
+		gates.Handlers["get.api.tools.kpr"] = httpapi.KPRHandler(pool)
+		gates.Handlers["get.api.me.export"] = httpapi.AccountExportHandler(pool)
 		gates.Handlers["get.api.suppliers.supplier.reviews"] = httpapi.SupplierReviewsHandler(pool)
 		gates.Handlers["post.api.material-order-reviews"] = httpapi.StoreOrderReviewHandler(pool)
 		gates.Handlers["put.api.material-order-reviews.material_order_review"] = httpapi.UpdateOrderReviewHandler(pool)
@@ -230,7 +189,7 @@ func main() {
 		gates.Handlers["get.api.houses.house.questions"] = httpapi.HouseQuestionsHandler(pool)
 		gates.Handlers["post.api.houses.house.questions"] = httpapi.StoreHouseQuestionHandler(pool)
 		gates.Handlers["get.api.firm-members.profile.ownerId"] = httpapi.FirmMembersProfileHandler(pool)
-		gates.Handlers["post.api.firm-members.update-profile"] = httpapi.FirmMembersUpdateProfileHandler(gates.MySQL, gates.MySQLWall, pool)
+		gates.Handlers["post.api.firm-members.update-profile"] = httpapi.FirmMembersUpdateProfileHandler(pool)
 		gates.Handlers["get.api.firm-members.suggestions"] = httpapi.FirmMembersSuggestionsHandler(pool)
 		gates.Handlers["get.api.firm-members.my-firms"] = httpapi.FirmMembersMyFirmsHandler(pool)
 		gates.Handlers["post.api.firm-members.search"] = httpapi.FirmMembersSearchHandler(pool)
@@ -326,8 +285,8 @@ func main() {
 		gates.Handlers["post.api.admin.projects.project.force-terminate"] = httpapi.AdminForceTerminateHandler(pool)
 		gates.Handlers["get.api.admin.professionals"] = httpapi.AdminProfessionalsIndexHandler(pool)
 		gates.Handlers["get.api.admin.professionals.history"] = httpapi.AdminProfessionalsHistoryHandler(pool)
-		gates.Handlers["patch.api.admin.users.user.suspend"] = httpapi.AdminSuspendUserHandler(gates.MySQL, gates.MySQLWall, pool)
-		gates.Handlers["patch.api.admin.users.user.role"] = httpapi.AdminUpdateUserRoleHandler(gates.MySQL, gates.MySQLWall, pool)
+		gates.Handlers["patch.api.admin.users.user.suspend"] = httpapi.AdminSuspendUserPGHandler(pool)
+		gates.Handlers["patch.api.admin.users.user.role"] = httpapi.AdminUpdateUserRolePGHandler(pool)
 		gates.Handlers["patch.api.admin.houses.id.suspend"] = httpapi.AdminSuspendHouseHandler(pool)
 		gates.Handlers["patch.api.admin.professionals.type.id.status"] = httpapi.AdminUpdateProfessionalStatusHandler(pool)
 		gates.Handlers["get.api.admin.disputes"] = httpapi.AdminDisputesHandler(pool)
@@ -335,6 +294,7 @@ func main() {
 		gates.Handlers["post.api.admin.disputes.dispute.reply"] = httpapi.AdminDisputeReplyHandler(pool)
 		gates.Handlers["post.api.admin.disputes.dispute.act"] = httpapi.AdminDisputeActHandler(pool)
 		gates.Handlers["get.api.admin.disputes.dispute.messages.message.evidence"] = httpapi.AdminDisputeEvidenceHandler(pool)
+		gates.Handlers["post.api.admin.retention.release"] = httpapi.AdminRetentionReleaseHandler(pool)
 		gates.Handlers["get.api.arsitek"] = httpapi.DirectoryHandler(pool, "arsiteks", "/api/arsitek", false)
 		gates.Handlers["get.api.kontraktor"] = httpapi.DirectoryHandler(pool, "kontraktors", "/api/kontraktor", false)
 		gates.Handlers["get.api.interior"] = httpapi.DirectoryHandler(pool, "interior_profiles", "/api/interior", false)
@@ -382,7 +342,7 @@ func main() {
 		gates.Handlers["post.api.projects.project.bids.bid.confirm-fee"] = httpapi.ConfirmBidFeeHandler(pool)
 		gates.Handlers["post.api.projects.project.accept-bid"] = httpapi.AcceptBidHandler(pool)
 		gates.Handlers["post.api.projects.project.decline-bid"] = httpapi.DeclineBidHandler(pool)
-		gates.Handlers["post.api.projects.project.bids.bid.sign-contract"] = httpapi.SignContractHandler(pool, gates.MySQL, gates.MySQLWall)
+		gates.Handlers["post.api.projects.project.bids.bid.sign-contract"] = httpapi.SignContractHandler(pool)
 		gates.Handlers["post.api.projects.project.bids.bid.client-sign-contract"] = httpapi.ClientSignContractHandler(pool)
 		gates.Handlers["get.api.projects.project.budget"] = httpapi.BudgetDashboardHandler(pool)
 		gates.Handlers["post.api.projects.project.budget.transactions"] = httpapi.AddTransactionHandler(pool)
@@ -490,17 +450,28 @@ func main() {
 		gates.Handlers["post.api.projects.project.procurement-requests.procurementRequest.verify"] = httpapi.VerifyProcurementHandler(pool)
 		gates.Handlers["post.api.projects.project.procurement-requests.procurementRequest.reject"] = httpapi.RejectProcurementHandler(pool)
 
-		// Identity writes go to the MySQL owner store (ADR-0018) and read
-		// back through the PG mirror after a targeted re-sync.
-		if gates.MySQL != nil && gates.MySQLWall != nil {
-			gates.Handlers["post.api.login"] = httpapi.LoginHandler(gates.MySQL, gates.MySQLWall, pool)
-			gates.Handlers["post.api.register"] = httpapi.RegisterHandler(gates.MySQL, gates.MySQLWall, pool)
-			gates.Handlers["post.api.logout"] = httpapi.LogoutHandler(gates.MySQL)
-			gates.Handlers["post.api.forgot-password"] = httpapi.ForgotPasswordHandler(gates.MySQL, httpapi.NewMailer())
-			gates.Handlers["post.api.reset-password"] = httpapi.ResetPasswordHandler(gates.MySQL)
+		// Identity is PostgreSQL-native (authpg.go). No MySQL at runtime.
+		gates.Auth = httpapi.NewSanctumPG(pool)
+		gates.Handlers["post.api.login"] = httpapi.LoginPGHandler(pool)
+		gates.Handlers["post.api.register"] = httpapi.RegisterPGHandler(pool)
+		gates.Handlers["post.api.logout"] = httpapi.LogoutPGHandler(pool)
+		gates.Handlers["post.api.forgot-password"] = httpapi.ForgotPasswordPGHandler(pool, httpapi.NewMailer())
+		gates.Handlers["post.api.reset-password"] = httpapi.ResetPasswordPGHandler(pool)
+
+		gates.DBStats = func() (int32, int32, int32) {
+			stat := pool.Stat()
+			return stat.TotalConns(), stat.IdleConns(), stat.AcquiredConns()
 		}
 
 		logger.Info("postgres wired", "handlers", len(gates.Handlers))
+
+		// Background sweepers (retention, auto-complete, snag escalation,
+		// prune). Disabled in tests via DISABLE_SCHEDULER=1. Advisory locks
+		// elect one winner across replicas (legacy onOneServer). The
+		// scheduler dies with the process via schedStop on shutdown.
+		if os.Getenv("DISABLE_SCHEDULER") != "1" {
+			httpapi.StartScheduler(schedCtx, pool, logger)
+		}
 	}
 
 	router := httpapi.NewRouter(manifest, gates)
@@ -540,6 +511,7 @@ func main() {
 
 	case sig := <-stop:
 		logger.Info("shutting down", "signal", sig.String())
+		schedStop()
 
 		ctx, cancel := context.WithTimeout(context.Background(), *shutdownTimeout)
 		defer cancel()
@@ -551,4 +523,13 @@ func main() {
 
 		logger.Info("stopped")
 	}
+}
+
+func envInt(key string, def int) int {
+	if raw := os.Getenv(key); raw != "" {
+		if v, err := strconv.Atoi(strings.TrimSpace(raw)); err == nil && v > 0 {
+			return v
+		}
+	}
+	return def
 }

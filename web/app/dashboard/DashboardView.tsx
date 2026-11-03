@@ -71,6 +71,11 @@ export async function DashboardView({
     type,
     conversation,
     firm,
+    city,
+    price_min,
+    price_max,
+    bedrooms,
+    sort,
 }: {
     activeTab: string;
     error?: string;
@@ -80,6 +85,11 @@ export async function DashboardView({
     type?: string;
     conversation?: string;
     firm?: string;
+    city?: string;
+    price_min?: string;
+    price_max?: string;
+    bedrooms?: string;
+    sort?: string;
 }) {
     /**
      * THE TABS A SIGNED-OUT VISITOR MAY READ.
@@ -238,7 +248,24 @@ export async function DashboardView({
 
         if (collectionUrl) {
             try {
-                const response = await apiFetch<{ data: unknown[] }>(collectionUrl);
+                // Houses carry the listing filters into the API call, so the
+                // filter form narrows server-side (search/city/price/bedrooms/
+                // sort) instead of filtering the first page in the browser.
+                let url = collectionUrl;
+                if (activeTab === 'houses' || activeTab === 'my-houses') {
+                    const params = new URLSearchParams();
+                    if (q) params.set('search', q);
+                    if (city) params.set('city', city);
+                    if (price_min) params.set('price_min', price_min);
+                    if (price_max) params.set('price_max', price_max);
+                    if (bedrooms) params.set('bedrooms', bedrooms);
+                    if (sort) params.set('sort', sort);
+                    const query = params.toString();
+                    if (query) url += `?${query}`;
+                }
+                // Public directories change slowly; a 60s cache keeps Explore
+                // cheap. Authenticated money/user reads below stay no-store.
+                const response = await apiFetch<{ data: unknown[] }>(url, {}, 60);
                 collection = response.data ?? [];
             } catch {
                 // A directory that cannot be fetched renders empty, exactly as
@@ -597,7 +624,12 @@ export async function DashboardView({
                 />
             );
     } else if (activeTab === 'houses') {
-        nativeTab = <HousesPanel houses={collection as HouseRow[]} />;
+        nativeTab = (
+            <HousesPanel
+                houses={collection as HouseRow[]}
+                filters={{ q, city, price_min, price_max, bedrooms, sort }}
+            />
+        );
     } else if (activeTab === 'my-houses') {
         nativeTab = (
             <MyHousesPanel houses={collection as HouseRow[]} viewerId={user.id} error={error} />
@@ -705,7 +737,12 @@ export async function DashboardView({
     } else if (activeTab === 'explore') {
         nativeTab = <ExplorePanel section={exploreSection} data={explore} />;
     } else if (activeTab === 'projects') {
-        nativeTab = <ProjectsPanel rows={projects as never[]} />;
+        // Owners see their own/hired scope; professionals see the open-tender
+        // feed as their Bidding Board (the nav labels it so). Sharing one
+        // panel keeps the cards identical — only the dataset and the board
+        // copy switch.
+        const board = user.role_type !== 'user';
+        nativeTab = <ProjectsPanel rows={(board ? projectFeed : projects) as never[]} board={board} />;
     } else if (activeTab === 'my-bids') {
         nativeTab = <MyBidsPanel bids={myBids as MyBidRow[]} />;
     } else if (activeTab === 'hire-history') {

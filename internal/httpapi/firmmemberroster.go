@@ -2,7 +2,6 @@ package httpapi
 
 import (
 	"context"
-	"database/sql"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -19,7 +18,7 @@ import (
 // arsitek, matching the service's `??` chain.
 func firmProfileRow(ctx context.Context, pool *pgxpool.Pool, userID int64) (string, map[string]any, bool) {
 	for _, table := range []string{"structural_engineers", "mep_engineers", "interior_profiles", "kontraktors", "arsiteks"} {
-		rows, err := pool.Query(ctx, `SELECT * FROM `+table+` WHERE user_id = $1 LIMIT 1`, userID)
+		rows, err := pool.Query(ctx, `SELECT `+profileRowColumns(table)+` FROM `+table+` WHERE user_id = $1 LIMIT 1`, userID)
 		if err != nil {
 			continue
 		}
@@ -541,7 +540,7 @@ func firmBoolFilter(value any) bool {
 // Identity (`users`) is MySQL-owned: the write goes to MySQL and re-syncs the
 // mirror. The professional profile (`arsiteks`/`kontraktors`) is written to
 // PostgreSQL, which is the read source.
-func FirmMembersUpdateProfileHandler(mysqlDB, mysqlWall *sql.DB, pool *pgxpool.Pool) http.HandlerFunc {
+func FirmMembersUpdateProfileHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		caller, ok := CallerFrom(r.Context())
 		if !ok {
@@ -653,13 +652,13 @@ func FirmMembersUpdateProfileHandler(mysqlDB, mysqlWall *sql.DB, pool *pgxpool.P
 			return
 		}
 
-		// Build the users UPDATE (MySQL-owned).
+		// Build the users UPDATE (PostgreSQL-owned).
 		sets := make([]string, 0, 8)
 		// Values first; the WHERE id is bound LAST.
 		args := make([]any, 0, 8)
 		setClause := func(column string, value any) string {
 			args = append(args, value)
-			return column + " = ?"
+			return column + " = $" + strconv.Itoa(len(args))
 		}
 		if firmName != nil {
 			sets = append(sets, setClause("firm_name", *firmName))
@@ -692,8 +691,7 @@ func FirmMembersUpdateProfileHandler(mysqlDB, mysqlWall *sql.DB, pool *pgxpool.P
 		bannerPath := ""
 		if len(banner) == 1 {
 			var oldBanner *string
-			_ = mysqlDB.QueryRowContext(ctx, `SELECT firm_banner_path FROM users WHERE id = ?`,
-				caller.UserID()).Scan(&oldBanner)
+			_ = pool.QueryRow(ctx, `SELECT firm_banner_path FROM users WHERE id = $1`, caller.UserID()).Scan(&oldBanner)
 			stored, err := storeVaultFile("firm_banners", banner[0].filename, banner[0].data)
 			if err != nil {
 				slog.Error("firm update: banner", "error", err)
@@ -708,7 +706,7 @@ func FirmMembersUpdateProfileHandler(mysqlDB, mysqlWall *sql.DB, pool *pgxpool.P
 		}
 		if len(logo) == 1 {
 			var oldLogo *string
-			_ = mysqlDB.QueryRowContext(ctx, `SELECT pic FROM users WHERE id = ?`, caller.UserID()).Scan(&oldLogo)
+			_ = pool.QueryRow(ctx, `SELECT pic FROM users WHERE id = $1`, caller.UserID()).Scan(&oldLogo)
 			stored, err := storeVaultFile("avatars", logo[0].filename, logo[0].data)
 			if err != nil {
 				slog.Error("firm update: logo", "error", err)
@@ -723,14 +721,8 @@ func FirmMembersUpdateProfileHandler(mysqlDB, mysqlWall *sql.DB, pool *pgxpool.P
 
 		sets = append(sets, "updated_at = NOW()")
 		args = append(args, caller.UserID())
-		if _, err := mysqlDB.ExecContext(ctx, `UPDATE users SET `+strings.Join(sets, ", ")+` WHERE id = ?`, args...); err != nil {
-			slog.Error("firm update: mysql", "error", err)
-			serverError(w)
-			return
-		}
-
-		if err := syncAuthUserToPG(ctx, mysqlDB, mysqlWall, pool, caller.UserID()); err != nil {
-			slog.Error("firm update: resync", "error", err)
+		if _, err := pool.Exec(ctx, `UPDATE users SET `+strings.Join(sets, ", ")+` WHERE id = $`+strconv.Itoa(len(args)), args...); err != nil {
+			slog.Error("firm update: pg", "error", err)
 			serverError(w)
 			return
 		}

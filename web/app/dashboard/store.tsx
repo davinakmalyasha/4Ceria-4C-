@@ -1,6 +1,7 @@
 import { assetUrl } from '@/lib/assets';
 import { formatIDR, titleCase } from '@/lib/format';
 import { updateStoreProfile } from './store-actions';
+import { CoverImage } from '@/components/CoverImage';
 
 /**
  * Native "My Store" screen.
@@ -74,8 +75,7 @@ export function StorePanel({ store, error }: { store: StorePayload | null; error
         <div data-native-panel="store" className="space-y-6">
             <div className="bg-white rounded-2xl border border-neutral-200 overflow-hidden">
                 {cover ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={cover} alt="" className="h-40 w-full object-cover" />
+                    <CoverImage src={cover} alt="" className="h-40" />
                 ) : (
                     <div className="h-24 w-full bg-neutral-100" />
                 )}
@@ -202,8 +202,7 @@ export function StorePanel({ store, error }: { store: StorePayload | null; error
                             return (
                                 <article key={material.id} className="bg-white rounded-2xl border border-neutral-200 overflow-hidden">
                                     {image ? (
-                                        // eslint-disable-next-line @next/next/no-img-element
-                                        <img src={image} alt="" className="h-32 w-full object-cover" />
+                                        <CoverImage src={image} alt="" className="h-32" />
                                     ) : (
                                         <div className="h-32 w-full bg-neutral-100" />
                                     )}

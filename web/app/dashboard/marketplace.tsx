@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { assetUrl } from '@/lib/assets';
 import { formatIDR, titleCase } from '@/lib/format';
 import type { MaterialRow, SupplierRow } from './explore';
+import { CoverImage } from '@/components/CoverImage';
+import { requestQuote } from './quotes-actions';
 
 /**
  * Native marketplace cluster.
@@ -220,8 +222,7 @@ export function MarketplacePanel({
                                     className="bg-white rounded-2xl border border-neutral-200 overflow-hidden"
                                 >
                                     {image ? (
-                                        // eslint-disable-next-line @next/next/no-img-element
-                                        <img src={image} alt="" className="h-40 w-full object-cover" />
+                                        <CoverImage src={image} alt="" className="h-40" />
                                     ) : (
                                         <div className="h-40 w-full bg-neutral-100" />
                                     )}
@@ -256,6 +257,53 @@ export function MarketplacePanel({
                                         {material.stock != null && (
                                             <p className="mt-1 text-[10px] font-black uppercase tracking-wider text-neutral-400">
                                                 {material.stock} in stock
+                                            </p>
+                                        )}
+                                        {material.supplier?.id ? (
+                                            <form action={requestQuote} className="mt-3 border-t border-neutral-100 pt-3">
+                                                <input type="hidden" name="supplier_id" value={material.supplier.id} />
+                                                <input type="hidden" name="material_id" value={material.id} />
+                                                <input type="hidden" name="name" value={material.name ?? `Material #${material.id}`} />
+                                                <input type="hidden" name="price_at_quote" value={material.price ?? '0'} />
+                                                <input type="hidden" name="unit" value={material.unit ?? 'pcs'} />
+                                                <div className="flex gap-2">
+                                                    <label className="block w-20 shrink-0">
+                                                        <span className="text-[9px] font-black uppercase tracking-wider text-neutral-400">
+                                                            Qty
+                                                        </span>
+                                                        <input
+                                                            name="qty"
+                                                            type="number"
+                                                            min={1}
+                                                            step={1}
+                                                            defaultValue={1}
+                                                            required
+                                                            className="mt-1 w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-xs text-neutral-800 outline-none focus:border-neutral-900"
+                                                        />
+                                                    </label>
+                                                    <label className="block min-w-0 flex-1">
+                                                        <span className="text-[9px] font-black uppercase tracking-wider text-neutral-400">
+                                                            Delivery address
+                                                        </span>
+                                                        <input
+                                                            name="delivery_address"
+                                                            required
+                                                            maxLength={500}
+                                                            placeholder="Street, city…"
+                                                            className="mt-1 w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-xs text-neutral-800 outline-none focus:border-neutral-900"
+                                                        />
+                                                    </label>
+                                                </div>
+                                                <button
+                                                    type="submit"
+                                                    className="mt-2 w-full px-3 py-1.5 rounded-lg bg-neutral-900 text-white text-[10px] font-black uppercase tracking-wider hover:bg-neutral-700"
+                                                >
+                                                    Request quote
+                                                </button>
+                                            </form>
+                                        ) : (
+                                            <p className="mt-3 border-t border-neutral-100 pt-3 text-[10px] font-bold uppercase tracking-wider text-neutral-400">
+                                                Supplier unavailable — quoting disabled
                                             </p>
                                         )}
                                     </div>

@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"crypto/md5"
+	"crypto/sha256"
 	"encoding/hex"
 	"io"
 	"log/slog"
@@ -127,7 +128,7 @@ func GeocodeReverseHandler(_ *pgxpool.Pool) http.HandlerFunc {
 		cacheKey := "geocode:reverse:lat:" + formatCoord(lat) + ":lng:" + formatCoord(lng)
 
 		if body, ok := geocodeMemo.get(cacheKey); ok {
-			writeJSONRaw(w, http.StatusOK, body)
+			writeJSONRawPublic(w, r, http.StatusOK, body, 300)
 			return
 		}
 
@@ -145,7 +146,7 @@ func GeocodeReverseHandler(_ *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		geocodeMemo.set(cacheKey, body, geocodeSuccessTTL)
-		writeJSONRaw(w, http.StatusOK, body)
+		writeJSONRawPublic(w, r, http.StatusOK, body, 300)
 	}
 }
 
@@ -177,7 +178,7 @@ func GeocodeSearchHandler(_ *pgxpool.Pool) http.HandlerFunc {
 		cacheKey := "geocode:search:" + hex.EncodeToString(sum[:])
 
 		if body, ok := geocodeMemo.get(cacheKey); ok {
-			writeJSONRaw(w, http.StatusOK, body)
+			writeJSONRawPublic(w, r, http.StatusOK, body, 300)
 			return
 		}
 
@@ -194,7 +195,7 @@ func GeocodeSearchHandler(_ *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		geocodeMemo.set(cacheKey, body, geocodeSuccessTTL)
-		writeJSONRaw(w, http.StatusOK, body)
+		writeJSONRawPublic(w, r, http.StatusOK, body, 300)
 	}
 }
 
@@ -279,6 +280,24 @@ func geocodeFetch(r *http.Request, target string) ([]byte, bool) {
 // writeJSONRaw writes an already-encoded JSON document with the API's
 // content type.
 func writeJSONRaw(w http.ResponseWriter, status int, body []byte) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_, _ = w.Write(body)
+}
+
+// writeJSONRawPublic adds public caching to writeJSONRaw for geocode hits
+// (third-party bytes, short TTL).
+func writeJSONRawPublic(w http.ResponseWriter, r *http.Request, status int, body []byte, maxAge int) {
+	sum := sha256.Sum256(body)
+	etag := `"` + hex.EncodeToString(sum[:16]) + `"`
+	w.Header().Set("ETag", etag)
+	w.Header().Set("Cache-Control", "public, max-age="+strconv.Itoa(maxAge))
+	if r != nil {
+		if inm := r.Header.Get("If-None-Match"); inm != "" && inm == etag {
+			w.WriteHeader(http.StatusNotModified)
+			return
+		}
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_, _ = w.Write(body)

@@ -36,6 +36,11 @@ export interface AdminProjectRow {
     user?: { name?: string | null } | null;
     arsitek?: { nama?: string | null } | null;
     kontraktor?: { nama_perusahaan?: string | null } | null;
+    bid_count?: number | null;
+    pending_bid_count?: number | null;
+    open_dispute?: { id: number; title?: string | null } | null;
+    paid_total?: string | number | null;
+    refunded_total?: string | number | null;
     created_at?: string | null;
 }
 
@@ -72,7 +77,10 @@ export interface DisputeRow {
     resolution_notes?: string | null;
     resolved_at?: string | null;
     created_at?: string | null;
-    opened_by?: { id: number; name: string } | null;
+    // opened_by is the numeric user id (legacy column); the joined
+    // opener carries the display name.
+    opened_by?: number | null;
+    opener?: { id: number; name?: string | null; pic?: string | null } | null;
     resolver?: { id: number; name: string } | null;
     project?: { id: number; title: string; status: string; budget?: string | number } | null;
     messages?: DisputeMessageRow[];

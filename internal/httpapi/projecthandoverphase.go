@@ -55,7 +55,7 @@ func handoverRespond(ctx context.Context, pool *pgxpool.Pool, w http.ResponseWri
 		return
 	}
 
-	entry, err := projectResource(ctx, pool, fields, values, viewer, handoverLoadSpec(), nil)
+	entry, err := projectResource(ctx, pool, fields, values, viewer, handoverLoadSpec(), nil, nil)
 	if err != nil {
 		slog.Error("handover: render", "error", err)
 		serverError(w)

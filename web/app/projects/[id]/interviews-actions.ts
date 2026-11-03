@@ -48,6 +48,8 @@ export async function shortlistBid(formData: FormData): Promise<void> {
     }
 
     revalidatePath(`/projects/${bid.projectId}/interviews`);
+    revalidatePath(`/projects/${bid.projectId}/proposals`);
+    revalidatePath(`/projects/${bid.projectId}/overview`);
 }
 
 export async function acceptBid(formData: FormData): Promise<void> {
@@ -68,6 +70,8 @@ export async function acceptBid(formData: FormData): Promise<void> {
     }
 
     revalidatePath(`/projects/${bid.projectId}/interviews`);
+    revalidatePath(`/projects/${bid.projectId}/proposals`);
+    revalidatePath(`/projects/${bid.projectId}/overview`);
 }
 
 export async function declineBid(formData: FormData): Promise<void> {
@@ -88,6 +92,8 @@ export async function declineBid(formData: FormData): Promise<void> {
     }
 
     revalidatePath(`/projects/${bid.projectId}/interviews`);
+    revalidatePath(`/projects/${bid.projectId}/proposals`);
+    revalidatePath(`/projects/${bid.projectId}/overview`);
 }
 
 export async function recommendSpecialist(formData: FormData): Promise<void> {
@@ -110,4 +116,6 @@ export async function recommendSpecialist(formData: FormData): Promise<void> {
     }
 
     revalidatePath(`/projects/${projectId}/interviews`);
+    revalidatePath(`/projects/${projectId}/proposals`);
+    revalidatePath(`/projects/${projectId}/engineering`);
 }

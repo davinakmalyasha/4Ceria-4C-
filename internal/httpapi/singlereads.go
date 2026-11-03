@@ -102,7 +102,7 @@ func PublicBriefHandler(pool *pgxpool.Pool) http.HandlerFunc {
 // — plain models, so the columns in table order with their casts and NO
 // relations (the brief does not load them).
 func briefMilestones(ctx context.Context, pool *pgxpool.Pool, projectID int64) ([]any, error) {
-	rows, err := pool.Query(ctx, `SELECT * FROM project_milestones
+	rows, err := pool.Query(ctx, `SELECT `+milestonesColumns+` FROM project_milestones
 		WHERE project_id = $1 ORDER BY sort_order ASC, id ASC`, projectID)
 	if err != nil {
 		return nil, err
@@ -142,7 +142,7 @@ func briefMilestones(ctx context.Context, pool *pgxpool.Pool, projectID int64) (
 // plain models with the decimal casts and the `image_url` append — no `user`
 // and no `folder` relation (the brief loads neither).
 func briefRequirements(ctx context.Context, pool *pgxpool.Pool, projectID int64) ([]any, error) {
-	rows, err := pool.Query(ctx, `SELECT * FROM project_requirements
+	rows, err := pool.Query(ctx, `SELECT `+requirementsColumns+` FROM project_requirements
 		WHERE project_id = $1 ORDER BY name ASC, id ASC`, projectID)
 	if err != nil {
 		return nil, err
@@ -284,7 +284,7 @@ func ContractorSubspecialtiesHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 
-		rows, err := pool.Query(ctx, `SELECT * FROM contractor_subspecialties
+		rows, err := pool.Query(ctx, `SELECT id,slug,label,label_id,category,icon,created_at,updated_at FROM contractor_subspecialties
 			ORDER BY category ASC, label ASC`)
 		if err != nil {
 			slog.Error("subspecialties: query", "error", err)
@@ -378,7 +378,7 @@ func MyBidsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		rows, err := pool.Query(ctx, `SELECT * FROM bids
+		rows, err := pool.Query(ctx, `SELECT `+bidsColumns+` FROM bids
 			WHERE role::text = $1 AND `+role.profileID+` = $2
 			ORDER BY created_at DESC, id ASC`, caller.RoleType(), profileID)
 		if err != nil {

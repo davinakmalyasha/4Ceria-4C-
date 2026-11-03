@@ -46,7 +46,7 @@ func leanProjectResponse(ctx context.Context, pool *pgxpool.Pool, w http.Respons
 		return
 	}
 
-	entry, err := projectResource(ctx, pool, fields, values, viewer, planningLoad(), nil)
+	entry, err := projectResource(ctx, pool, fields, values, viewer, planningLoad(), nil, nil)
 	if err != nil {
 		slog.Error("planning: render", "error", err)
 		serverError(w)

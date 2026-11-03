@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { assetUrl } from '@/lib/assets';
 import { formatIDR, titleCase } from '@/lib/format';
+import { CoverImage } from '@/components/CoverImage';
 
 /**
  * Native dashboard "Explore" panel.
@@ -139,16 +140,21 @@ function HousesSection({ houses }: { houses: HouseRow[] }) {
 
                 return (
                     <article key={house.id} className="bg-white rounded-2xl border border-neutral-200 overflow-hidden">
-                        {cover ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={cover} alt="" className="h-40 w-full object-cover" />
-                        ) : (
-                            <div className="h-40 w-full bg-neutral-100 flex items-center justify-center text-[10px] font-black uppercase tracking-wider text-neutral-400">
-                                No photo
-                            </div>
-                        )}
+                        <Link href={`/dashboard/houses/${house.id}`} aria-label={house.name ?? `House #${house.id}`}>
+                            {cover ? (
+                                <CoverImage src={cover} alt="" className="h-40" />
+                            ) : (
+                                <div className="h-40 w-full bg-neutral-100 flex items-center justify-center text-[10px] font-black uppercase tracking-wider text-neutral-400">
+                                    No photo
+                                </div>
+                            )}
+                        </Link>
                         <div className="p-5">
-                            <h3 className="text-sm font-black text-neutral-900 leading-snug">{house.name ?? `House #${house.id}`}</h3>
+                            <h3 className="text-sm font-black text-neutral-900 leading-snug">
+                                <Link href={`/dashboard/houses/${house.id}`} className="hover:text-red-600">
+                                    {house.name ?? `House #${house.id}`}
+                                </Link>
+                            </h3>
                             <p className="mt-1 text-xs text-neutral-500">{city || 'Location not set'}</p>
                             <p className="mt-3 text-sm font-bold text-neutral-900">{formatIDR(house.price)}</p>
                             <div className="mt-3 flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-wider text-neutral-400">
@@ -177,7 +183,7 @@ const ROLE_GROUPS: { key: string; label: string; href: string }[] = [
 
 function ProfessionalCard({ professional }: { professional: DirectoryRow }) {
     return (
-        <article className="bg-white rounded-2xl border border-neutral-200 p-4">
+        <article className="bg-white rounded-2xl border border-neutral-200 p-4 flex flex-col">
             <div className="flex items-start justify-between gap-2">
                 <h4 className="text-sm font-black text-neutral-900 leading-snug">
                     {professional.nama_perusahaan || professional.nama || 'Professional'}
@@ -195,6 +201,14 @@ function ProfessionalCard({ professional }: { professional: DirectoryRow }) {
             <div className="mt-3 flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-neutral-400">
                 <span>{professional.pengalaman_tahun ?? 0} yrs</span>
                 <span>{formatIDR(professional.rate_harga)}</span>
+            </div>
+            <div className="mt-3 pt-3 border-t border-neutral-100">
+                <Link
+                    href="/dashboard/projects"
+                    className="text-[10px] font-black uppercase tracking-wider text-neutral-900 hover:text-red-600"
+                >
+                    Invite to a project →
+                </Link>
             </div>
         </article>
     );
@@ -250,8 +264,7 @@ function MarketplaceSection({ materials, suppliers }: { materials: MaterialRow[]
                         {materials.map((material) => (
                             <article key={material.id} className="bg-white rounded-2xl border border-neutral-200 overflow-hidden">
                                 {assetUrl(material.image_path) ? (
-                                    // eslint-disable-next-line @next/next/no-img-element
-                                    <img src={assetUrl(material.image_path) ?? ''} alt="" className="h-36 w-full object-cover" />
+                                    <CoverImage src={assetUrl(material.image_path) ?? ''} alt="" className="h-36" />
                                 ) : (
                                     <div className="h-36 w-full bg-neutral-100" />
                                 )}

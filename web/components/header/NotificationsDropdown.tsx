@@ -57,14 +57,20 @@ export interface NotificationRow {
 type PreferenceMap = Record<string, { webpush?: { enabled?: boolean } }>;
 
 const MUTEABLE_TYPES: { type: string | null; label: string }[] = [
+    // NOTE: bid_accepted and snag_overdue are intentionally absent — the API
+    // lists them in notificationPreferenceAlwaysOn (projectsharing.go) and
+    // 422s any attempt to disable them. Offering the switch would flip then
+    // snap back.
     { type: null, label: 'All regular notifications' },
     { type: 'chat_message', label: 'Direct messages' },
     { type: 'project_message', label: 'Project messages' },
     { type: 'bid_received', label: 'New bids' },
+    { type: 'bid_shortlisted', label: 'Shortlisted bids' },
+    { type: 'bid_recommended', label: 'Recommended bids' },
+    { type: 'bid_rejected', label: 'Rejected bids' },
     { type: 'new_review', label: 'New reviews' },
     { type: 'order_status', label: 'Material order status' },
     { type: 'schedule_delayed', label: 'Schedule delays' },
-    { type: 'snag_overdue', label: 'Defect SLA warnings' },
     { type: 'consultation_requested', label: 'Consultation requests' },
 ];
 
@@ -97,6 +103,18 @@ function iconFor(type: string) {
         case 'termin_due':
         case 'contract_ready':
             return <Star size={16} className="text-amber-500" />;
+        case 'budget_approved':
+        case 'budget_counter_accepted':
+            return <CheckCircle size={16} className="text-green-500" />;
+        case 'budget_negotiation':
+        case 'budget_approval_needed':
+            return <Star size={16} className="text-amber-500" />;
+        case 'budget_rejected':
+            return <X size={16} className="text-red-500" />;
+        case 'design_submitted':
+        case 'design_approved':
+        case 'design_revision_requested':
+            return <FileText size={16} className="text-teal-500" />;
         case 'dispute_opened':
             return <ShieldAlert size={16} className="text-red-500" />;
         case 'dispute_reply':
@@ -111,6 +129,7 @@ function iconFor(type: string) {
         case 'requirement_tagged':
             return <AlertTriangle size={16} className="text-amber-500" />;
         case 'order_payment_proof':
+        case 'quote_payment_proof':
         case 'order_status':
             return <Package size={16} className="text-blue-500" />;
         case 'consultation_requested':
@@ -159,10 +178,12 @@ export function NotificationsDropdown({
     notifications,
     unreadCount,
     setActiveTab,
+    isAdmin = false,
 }: {
     notifications: NotificationRow[];
     unreadCount: number;
     setActiveTab: (tab: string) => void;
+    isAdmin?: boolean;
 }) {
     const router = useRouter();
     const [open, setOpen] = useState(false);
@@ -271,10 +292,92 @@ export function NotificationsDropdown({
         if (
             notification.type === 'bid_shortlisted' ||
             notification.type === 'bid_recommended' ||
-            notification.type === 'pm_bid_shortlisted'
+            notification.type === 'pm_bid_shortlisted' ||
+            notification.type === 'bid_accepted' ||
+            notification.type === 'pm_bid_accepted' ||
+            notification.type === 'bid_rejected'
         ) {
             setOpen(false);
             setActiveTab('my-bids');
+            return;
+        }
+
+        if (
+            notification.type === 'bid_received' ||
+            notification.type === 'pm_bid_received' ||
+            notification.type === 'pm_hire_initiated'
+        ) {
+            setOpen(false);
+            if (projectId > 0) {
+                router.push(`/projects/${projectId}/interviews`);
+            } else {
+                setActiveTab('my-bids');
+            }
+            return;
+        }
+
+        // Disputes freeze money: admins land on the dispute itself, everyone
+        // else on the project workspace where the freeze banner explains why
+        // payments are held. Payload carries {project_id, dispute_id}.
+        if (
+            notification.type === 'dispute_opened' ||
+            notification.type === 'dispute_reply' ||
+            notification.type === 'dispute_resolved'
+        ) {
+            setOpen(false);
+            const disputeId = Number(data.dispute_id ?? data.disputeId ?? 0);
+            if (isAdmin && disputeId > 0) {
+                router.push(`/admin/disputes?dispute=${disputeId}`);
+            } else if (projectId > 0) {
+                router.push(`/projects/${projectId}/overview`);
+            }
+            return;
+        }
+
+        // Money, milestone, design and specialist events deep-link to the
+        // project tab that owns them instead of the generic overview.
+        if (projectId > 0) {
+            const tabForType: Record<string, string> = {
+                milestone_updated: 'process',
+                milestone_approved: 'process',
+                milestone_approval_needed: 'process',
+                milestone_revision_requested: 'process',
+                phase_verified: 'process',
+                schedule_delayed: 'process',
+                design_submitted: 'process',
+                design_approved: 'process',
+                design_revision_requested: 'process',
+                budget_approved: 'budget',
+                budget_negotiation: 'budget',
+                budget_counter_accepted: 'budget',
+                budget_rejected: 'budget',
+                budget_approval_needed: 'budget',
+                procurement_rejected: 'budget',
+                addendum_approved: 'budget',
+                addendum_rejected: 'budget',
+                change_order: 'budget',
+                sub_professional_invite: 'engineering',
+                sub_professional_activated: 'engineering',
+                sub_professional_declined: 'engineering',
+                warranty_claim: 'overview',
+                professional_resigned: 'activity',
+            };
+            const tab = tabForType[notification.type];
+            if (tab) {
+                setOpen(false);
+                router.push(`/projects/${projectId}/${tab}`);
+                return;
+            }
+        }
+
+        // Marketplace money events have no project context — they live on the
+        // dashboard commerce tabs. Payload carries material_quote_id /
+        // material_order_id; the lists are small enough to scan visually.
+        // (order_payment_proof and order_status are handled with the orders
+        // tab above; quote proofs and verifications route here.)
+        if (notification.type === 'payment_verified' || notification.type === 'quote_payment_proof') {
+            setOpen(false);
+            setActiveTab(notification.type === 'quote_payment_proof' ? 'quotes' : 'orders');
             return;
         }
 

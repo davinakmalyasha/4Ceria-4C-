@@ -455,7 +455,7 @@ func inputQuantity(row procurementRow) string {
 
 // loadProcurement reads one procurement row by id.
 func loadProcurement(ctx context.Context, pool *pgxpool.Pool, procurementID int64) (procurementRow, error) {
-	rows, err := pool.Query(ctx, `SELECT * FROM project_procurement_requests WHERE id = $1`, procurementID)
+	rows, err := pool.Query(ctx, `SELECT `+procurementColumns+` FROM project_procurement_requests WHERE id = $1`, procurementID)
 	if err != nil {
 		return procurementRow{}, err
 	}

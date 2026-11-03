@@ -299,6 +299,9 @@ func markPaidApply(ctx context.Context, tx pgx.Tx, pool *pgxpool.Pool, bySpellin
 
 	written, _, err := recordPaymentMinor(ctx, tx, projectID, amountMinor, title, fqcn, refID, registryID, viewer.id, viewer.role)
 	if err != nil {
+		if fe, ok := asFrozen(err); ok {
+			return markPaidError{status: 422, message: fe.Error()}
+		}
 		return err
 	}
 	if !written {
@@ -788,6 +791,9 @@ func markPaidRecommended(ctx context.Context, tx pgx.Tx, pool *pgxpool.Pool, pro
 		}
 		written, _, err := recordPaymentMinor(ctx, tx, projectID, feeMinor, title, fqcn, refID, registryID, viewer.id, viewer.role)
 		if err != nil {
+			if fe, ok := asFrozen(err); ok {
+				return markPaidError{status: 422, message: fe.Error()}
+			}
 			return err
 		}
 		if !written {

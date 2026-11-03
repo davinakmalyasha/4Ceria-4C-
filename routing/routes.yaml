@@ -11,9 +11,9 @@
 'meta':
   'generated_at': '2026-10-23T01:05:59+00:00'
   'laravel_commit': '4b610b7'
-  'api_route_count': 296
+  'api_route_count': 312
   'public_route_count': 20
-  'admin_route_count': 17
+  'admin_route_count': 18
 'routes':
   - 'id': 'get.api.admin.disputes'
     'methods':
@@ -85,6 +85,21 @@
     'upstream': 'go'
     'laravel':
       'action': 'App\Http\Controllers\Api\Admin\AdminDisputeController@reply'
+      'middleware':
+        - 'api'
+        - 'auth:sanctum'
+        - 'freeze_pending_termination'
+        - 'admin'
+  - 'id': 'post.api.admin.retention.release'
+    'methods':
+      - 'POST'
+    'uri': 'api/admin/retention/release'
+    'auth': 'admin'
+    'throttle': null
+    'tier': 1
+    'upstream': 'go'
+    'laravel':
+      'action': 'App\Console\Commands\ReleaseExpiredRetentionCommand'
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1098,6 +1113,20 @@
     'upstream': 'go'
     'laravel':
       'action': 'App\Http\Controllers\MaterialOrderController@verifyPayment'
+      'middleware':
+        - 'api'
+        - 'auth:sanctum'
+        - 'freeze_pending_termination'
+  - 'id': 'post.api.material-orders.material_order.confirm-receipt'
+    'methods':
+      - 'POST'
+    'uri': 'api/material-orders/{material_order}/confirm-receipt'
+    'auth': 'authenticated'
+    'throttle': null
+    'tier': 1
+    'upstream': 'go'
+    'laravel':
+      'action': 'App\Http\Controllers\MaterialOrderController@confirmReceipt'
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -4142,6 +4171,202 @@
     'upstream': 'go'
     'laravel':
       'action': 'App\Http\Controllers\Api\SecureVerificationDocumentController@getSignedUrl'
+      'middleware':
+        - 'api'
+        - 'auth:sanctum'
+        - 'freeze_pending_termination'
+  - 'id': 'get.api.saved-searches'
+    'methods':
+      - 'GET'
+    'uri': 'api/saved-searches'
+    'auth': 'authenticated'
+    'throttle': null
+    'tier': 1
+    'upstream': 'go'
+    'laravel':
+      'action': 'SavedSearchController@index'
+      'middleware':
+        - 'api'
+        - 'auth:sanctum'
+        - 'freeze_pending_termination'
+  - 'id': 'post.api.saved-searches'
+    'methods':
+      - 'POST'
+    'uri': 'api/saved-searches'
+    'auth': 'authenticated'
+    'throttle': null
+    'tier': 1
+    'upstream': 'go'
+    'laravel':
+      'action': 'SavedSearchController@store'
+      'middleware':
+        - 'api'
+        - 'auth:sanctum'
+        - 'freeze_pending_termination'
+  - 'id': 'delete.api.saved-searches.id'
+    'methods':
+      - 'DELETE'
+    'uri': 'api/saved-searches/{id}'
+    'auth': 'authenticated'
+    'throttle': null
+    'tier': 1
+    'upstream': 'go'
+    'laravel':
+      'action': 'SavedSearchController@destroy'
+      'middleware':
+        - 'api'
+        - 'auth:sanctum'
+        - 'freeze_pending_termination'
+  - 'id': 'get.api.projects.project.finance-ledger'
+    'methods':
+      - 'GET'
+    'uri': 'api/projects/{project}/finance-ledger'
+    'auth': 'authenticated'
+    'throttle': null
+    'tier': 1
+    'upstream': 'go'
+    'laravel':
+      'action': 'ProjectFinanceLedgerController@index'
+      'middleware':
+        - 'api'
+        - 'auth:sanctum'
+        - 'freeze_pending_termination'
+  - 'id': 'get.api.me.analytics'
+    'methods':
+      - 'GET'
+    'uri': 'api/me/analytics'
+    'auth': 'authenticated'
+    'throttle': null
+    'tier': 1
+    'upstream': 'go'
+    'laravel':
+      'action': 'AnalyticsController@me'
+      'middleware':
+        - 'api'
+        - 'auth:sanctum'
+        - 'freeze_pending_termination'
+  - 'id': 'get.api.projects.project.reports.export'
+    'methods':
+      - 'GET'
+    'uri': 'api/projects/{project}/reports/export'
+    'auth': 'authenticated'
+    'throttle': null
+    'tier': 1
+    'upstream': 'go'
+    'laravel':
+      'action': 'ProjectReportController@export'
+      'middleware':
+        - 'api'
+        - 'auth:sanctum'
+        - 'freeze_pending_termination'
+  - 'id': 'get.api.projects.project.progress'
+    'methods':
+      - 'GET'
+    'uri': 'api/projects/{project}/progress'
+    'auth': 'authenticated'
+    'throttle': null
+    'tier': 1
+    'upstream': 'go'
+    'laravel':
+      'action': 'ProjectProgressController@index'
+      'middleware':
+        - 'api'
+        - 'auth:sanctum'
+        - 'freeze_pending_termination'
+  - 'id': 'put.api.projects.project.milestones.milestone.weight'
+    'methods':
+      - 'PUT'
+    'uri': 'api/projects/{project}/milestones/{milestone}/weight'
+    'auth': 'authenticated'
+    'throttle': null
+    'tier': 1
+    'upstream': 'go'
+    'laravel':
+      'action': 'ProjectMilestoneController@updateWeight'
+      'middleware':
+        - 'api'
+        - 'auth:sanctum'
+        - 'freeze_pending_termination'
+  - 'id': 'post.api.procurement-requests.id.purchase'
+    'methods':
+      - 'POST'
+    'uri': 'api/procurement-requests/{id}/purchase'
+    'auth': 'authenticated'
+    'throttle': null
+    'tier': 1
+    'upstream': 'go'
+    'laravel':
+      'action': 'ProcurementController@bridge'
+      'middleware':
+        - 'api'
+        - 'auth:sanctum'
+        - 'freeze_pending_termination'
+  - 'id': 'get.api.projects.project.owner-reviews'
+    'methods':
+      - 'GET'
+    'uri': 'api/projects/{project}/owner-reviews'
+    'auth': 'authenticated'
+    'throttle': null
+    'tier': 1
+    'upstream': 'go'
+    'laravel':
+      'action': 'OwnerReviewController@index'
+      'middleware':
+        - 'api'
+        - 'auth:sanctum'
+        - 'freeze_pending_termination'
+  - 'id': 'post.api.projects.project.owner-reviews'
+    'methods':
+      - 'POST'
+    'uri': 'api/projects/{project}/owner-reviews'
+    'auth': 'authenticated'
+    'throttle': null
+    'tier': 1
+    'upstream': 'go'
+    'laravel':
+      'action': 'OwnerReviewController@store'
+      'middleware':
+        - 'api'
+        - 'auth:sanctum'
+        - 'freeze_pending_termination'
+  - 'id': 'get.api.projects.project.snags.sla'
+    'methods':
+      - 'GET'
+    'uri': 'api/projects/{project}/snags/sla'
+    'auth': 'authenticated'
+    'throttle': null
+    'tier': 1
+    'upstream': 'go'
+    'laravel':
+      'action': 'SnagController@sla'
+      'middleware':
+        - 'api'
+        - 'auth:sanctum'
+        - 'freeze_pending_termination'
+  - 'id': 'get.api.tools.kpr'
+    'methods':
+      - 'GET'
+    'uri': 'api/tools/kpr'
+    'auth': 'authenticated'
+    'throttle': null
+    'tier': 1
+    'upstream': 'go'
+    'laravel':
+      'action': 'ToolController@kpr'
+      'middleware':
+        - 'api'
+        - 'auth:sanctum'
+        - 'freeze_pending_termination'
+  - 'id': 'get.api.me.export'
+    'methods':
+      - 'GET'
+    'uri': 'api/me/export'
+    'auth': 'authenticated'
+    'throttle': null
+    'tier': 1
+    'upstream': 'go'
+    'laravel':
+      'action': 'ProfileController@export'
       'middleware':
         - 'api'
         - 'auth:sanctum'

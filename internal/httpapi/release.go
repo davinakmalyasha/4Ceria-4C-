@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"log/slog"
+	"strconv"
 
 	"github.com/davinakmalyasha/4ceria/internal/domain/identity"
 	"github.com/jackc/pgx/v5"
@@ -75,6 +76,26 @@ func paidTotalMinor(ctx context.Context, tx pgx.Tx, projectID int64) (int64, err
 	return total, nil
 }
 
+// frozenError is an in-transaction freeze refusal. It carries the open
+// dispute so every payment path answers the same 422 the pre-check does,
+// even when the dispute opened after the pre-check (TOCTOU).
+type frozenError struct {
+	disputeID    int64
+	disputeTitle string
+}
+
+func (e *frozenError) Error() string {
+	return "Payments are frozen: dispute #" + strconv.FormatInt(e.disputeID, 10) + " (\"" + e.disputeTitle + "\") is open on this project. An admin must resolve it first."
+}
+
+// asFrozen returns the frozen dispute refusal, if err is one.
+func asFrozen(err error) (*frozenError, bool) {
+	if fe, ok := err.(*frozenError); ok {
+		return fe, true
+	}
+	return nil, false
+}
+
 // recordPaymentMinor is `deductBudget` + `recordPayment` for a `payment`:
 // dedupe on the reference, lock the project, check the escrow fits, write
 // the row, touch. The platform fee is a no-op at the default 0% (its own
@@ -82,9 +103,41 @@ func paidTotalMinor(ctx context.Context, tx pgx.Tx, projectID int64) (int64, err
 //
 // Returns (written, availableMinor, error). written=false means the escrow
 // cannot cover it — the caller throws the insufficient message.
+// A *frozenError means a dispute opened before the ledger write: the caller
+// must answer 422 with err.Error(), never 500.
 func recordPaymentMinor(ctx context.Context, tx pgx.Tx, projectID, amountMinor int64,
 	title, refFQCN string, refID int64, refRegistryID int64,
 	actorID int64, actorRole string) (bool, int64, error) {
+	return recordPaymentMinorInner(ctx, tx, projectID, amountMinor, title, refFQCN, refID, refRegistryID, actorID, actorRole, true)
+}
+
+// recordPaymentMinorArbitration is the arbitration variant used by
+// `release_payment` (admin resolving a dispute). It skips the freeze check
+// by design: the payment IS the resolution inside the open dispute.
+// Every other caller must use recordPaymentMinor so a mid-transaction
+// dispute still blocks the payment.
+func recordPaymentMinorArbitration(ctx context.Context, tx pgx.Tx, projectID, amountMinor int64,
+	title, refFQCN string, refID int64, refRegistryID int64,
+	actorID int64, actorRole string) (bool, int64, error) {
+	return recordPaymentMinorInner(ctx, tx, projectID, amountMinor, title, refFQCN, refID, refRegistryID, actorID, actorRole, false)
+}
+
+func recordPaymentMinorInner(ctx context.Context, tx pgx.Tx, projectID, amountMinor int64,
+	title, refFQCN string, refID int64, refRegistryID int64,
+	actorID int64, actorRole string, checkFreeze bool) (bool, int64, error) {
+	// RLS second layer: pin the actor into the tx so the database re-checks
+	// membership behind the handler WHERE. SET LOCAL dies with the tx.
+	_ = setAppUser(ctx, tx, actorID)
+	// In-transaction freeze re-check: closes the TOCTOU between the
+	// handler's pre-BEGIN check and this INSERT. Uses the caller's tx so
+	// a dispute committed after the pre-check still blocks the payment.
+	if checkFreeze {
+		var openID int64
+		var openTitle string
+		if err := tx.QueryRow(ctx, `SELECT id, title FROM project_disputes WHERE project_id = $1 AND status::text = 'open' LIMIT 1`, projectID).Scan(&openID, &openTitle); err == nil {
+			return false, 0, &frozenError{disputeID: openID, disputeTitle: openTitle}
+		}
+	}
 	var exists bool
 	if err := tx.QueryRow(ctx, `
 		SELECT exists(
@@ -217,6 +270,18 @@ func notifyPaymentVerified(ctx context.Context, pool *pgxpool.Pool, projectID in
 
 	slog.Info("release: receipt email skipped (no mailer)",
 		"project", projectID, "label", label, "amount", formatted)
+
+	// Receipt outbox (best-effort, never fails the payment): queue the payer
+	// receipt; the scheduler delivers via Resend or logs-and-marks-sent.
+	var ownerEmail *string
+	_ = pool.QueryRow(ctx, `SELECT email FROM users WHERE id = $1`, ownerID).Scan(&ownerEmail)
+	if ownerEmail != nil && *ownerEmail != "" {
+		subject := "Payment Receipt — " + label
+		lines := []string{
+			"Your " + formatted + " payment for \"" + label + "\" on \"" + projectTitle + "\" has been verified.",
+		}
+		_ = enqueueMailPool(ctx, pool, *ownerEmail, subject, mailHTML(subject, lines), subject+"\n"+lines[0])
+	}
 }
 
 // transitionBidProjectStatus mirrors the service: an arsitek acceptance

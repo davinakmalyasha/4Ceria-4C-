@@ -4,6 +4,7 @@ import { formatIDR, titleCase } from '@/lib/format';
 import { respondToInvitation } from './overview-actions';
 import { FirmBrowsePanel, FirmOwnerWorkspace } from './firmWorkspace';
 import type { FirmBrowseRow, FirmJob } from './firmWorkspace';
+import { CoverImage } from '@/components/CoverImage';
 
 /**
  * Native firms cluster.
@@ -57,8 +58,7 @@ function FirmAvatar({ owner }: { owner?: FirmOwnerCard | null }) {
     return (
         <span className="h-11 w-11 shrink-0 rounded-xl bg-neutral-900 text-white text-sm font-black flex items-center justify-center overflow-hidden">
             {image ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={image} alt="" className="h-full w-full object-cover" />
+                <CoverImage src={image} alt="" className="h-full" />
             ) : (
                 (owner?.name ?? '?').trim().charAt(0).toUpperCase()
             )}
@@ -91,8 +91,7 @@ export function FirmProfilePanel({ profile, error }: { profile: FirmProfilePaylo
         <div data-native-panel="my-firm" className="space-y-6">
             <div className="bg-white rounded-2xl border border-neutral-200 overflow-hidden">
                 {banner ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={banner} alt="" className="h-40 w-full object-cover" />
+                    <CoverImage src={banner} alt="" className="h-40" />
                 ) : (
                     <div className="h-24 w-full bg-neutral-100" />
                 )}

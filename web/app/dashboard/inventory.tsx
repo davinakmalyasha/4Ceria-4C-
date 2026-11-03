@@ -2,6 +2,7 @@ import { assetUrl } from '@/lib/assets';
 import { formatIDR, titleCase } from '@/lib/format';
 import { ConfirmSubmit } from './confirmSubmit';
 import { createMaterial, deleteMaterial, updateMaterial } from './inventory-actions';
+import { CoverImage } from '@/components/CoverImage';
 
 /**
  * Native merchant inventory.
@@ -135,8 +136,7 @@ export function InventoryPanel({
                                 className="bg-white rounded-2xl border border-neutral-200 overflow-hidden"
                             >
                                 {image ? (
-                                    // eslint-disable-next-line @next/next/no-img-element
-                                    <img src={image} alt="" className="h-36 w-full object-cover" />
+                                    <CoverImage src={image} alt="" className="h-36" />
                                 ) : (
                                     <div className="h-36 w-full bg-neutral-100" />
                                 )}

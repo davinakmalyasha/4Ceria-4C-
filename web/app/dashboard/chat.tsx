@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { assetUrl } from '@/lib/assets';
 import { titleCase } from '@/lib/format';
 import { ChatComposer } from './chatComposer';
+import { CoverImage } from '@/components/CoverImage';
 
 /**
  * Native chat screen.
@@ -53,8 +54,7 @@ function Avatar({ user, size = 'h-10 w-10' }: { user: ChatUser; size?: string })
             aria-hidden
         >
             {image ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={image} alt="" className="h-full w-full object-cover" />
+                <CoverImage src={image} alt="" className="h-full" />
             ) : (
                 (user.name ?? '?').trim().charAt(0).toUpperCase()
             )}

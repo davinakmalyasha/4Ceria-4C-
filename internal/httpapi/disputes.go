@@ -1279,7 +1279,7 @@ func AdminDisputeActHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 
-			written, available, err := recordPaymentMinor(r.Context(), tx, projectID,
+			written, available, err := recordPaymentMinorArbitration(r.Context(), tx, projectID,
 				target.NetMinor, target.Title, target.FQCN, target.RefID, target.RegistryID,
 				caller.UserID(), senderRole)
 			if err != nil {

@@ -162,3 +162,60 @@ export async function postQuoteDeliveryJob(formData: FormData): Promise<void> {
     revalidatePath('/dashboard/job-radar');
     revalidatePath('/dashboard/delivery-jobs');
 }
+
+/**
+ * Request a material quote from a supplier.
+ *
+ * Minimal single-item entry point for the marketplace cards: posts
+ * `{supplier_id, items:[{material_id, name, price_at_quote, qty, unit}],
+ * delivery_address}` to `POST /material-quotes`. The API validates supplier
+ * existence, item shape and the delivery address; multi-item carts stay a
+ * future step. Success lands on the quotations list.
+ */
+export async function requestQuote(formData: FormData): Promise<void> {
+    const supplierId = Number(formData.get('supplier_id'));
+    const materialId = Number(formData.get('material_id'));
+    const qty = Number(formData.get('qty'));
+    const name = String(formData.get('name') ?? '').trim();
+    const price = String(formData.get('price_at_quote') ?? '').trim();
+    const unit = String(formData.get('unit') ?? '').trim() || 'pcs';
+    const deliveryAddress = String(formData.get('delivery_address') ?? '').trim();
+
+    if (
+        !Number.isInteger(supplierId) ||
+        supplierId <= 0 ||
+        !Number.isInteger(materialId) ||
+        materialId <= 0 ||
+        !Number.isInteger(qty) ||
+        qty < 1 ||
+        name === '' ||
+        price === '' ||
+        deliveryAddress === ''
+    ) {
+        return;
+    }
+
+    try {
+        await apiFetch('/material-quotes', {
+            method: 'POST',
+            body: JSON.stringify({
+                supplier_id: supplierId,
+                items: [
+                    {
+                        material_id: materialId,
+                        name,
+                        price_at_quote: price,
+                        qty,
+                        unit,
+                    },
+                ],
+                delivery_address: deliveryAddress,
+            }),
+        });
+    } catch (error) {
+        fail(error);
+    }
+
+    revalidatePath('/dashboard/quotes');
+    redirect('/dashboard/quotes');
+}

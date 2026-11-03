@@ -12,6 +12,7 @@ import {
     updateFirmProfile,
 } from './firm-actions';
 import type { FirmMembership, FirmProfilePayload } from './firms';
+import { CoverImage } from '@/components/CoverImage';
 
 /**
  * Native firm workspace.
@@ -116,8 +117,7 @@ function FirmAvatar({ name, pic, size = 'h-11 w-11' }: { name?: string | null; p
             className={`${size} shrink-0 rounded-xl bg-neutral-900 text-white text-sm font-black flex items-center justify-center overflow-hidden`}
         >
             {image ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={image} alt="" className="h-full w-full object-cover" />
+                <CoverImage src={image} alt="" className="h-full" />
             ) : (
                 (name ?? '?').trim().charAt(0).toUpperCase()
             )}
@@ -249,8 +249,7 @@ function PortfolioCard({ portfolio, editable }: { portfolio: PortfolioRow; edita
     return (
         <article className="bg-white rounded-2xl border border-neutral-200 overflow-hidden">
             {image ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={image} alt="" className="h-32 w-full object-cover" />
+                <CoverImage src={image} alt="" className="h-32" />
             ) : (
                 <div className="h-32 w-full bg-neutral-100" />
             )}
@@ -483,8 +482,7 @@ function FirmReadOnlyProfile({ firm, ownerId }: { firm: FirmProfilePayload; owne
     return (
         <section data-native-firm-profile={ownerId} className="bg-white rounded-2xl border border-neutral-200 overflow-hidden">
             {banner ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={banner} alt="" className="h-36 w-full object-cover" />
+                <CoverImage src={banner} alt="" className="h-36" />
             ) : (
                 <div className="h-20 w-full bg-neutral-100" />
             )}

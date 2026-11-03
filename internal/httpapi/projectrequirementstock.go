@@ -430,7 +430,7 @@ func stringPtrOf(value any) *string {
 	return nil
 }
 func loadHistory(ctx context.Context, pool *pgxpool.Pool, historyID int64) (historyRow, error) {
-	rows, err := pool.Query(ctx, `SELECT * FROM project_requirement_histories WHERE id = $1`, historyID)
+	rows, err := pool.Query(ctx, `SELECT `+requirementHistoriesColumns+` FROM project_requirement_histories WHERE id = $1`, historyID)
 	if err != nil {
 		return historyRow{}, err
 	}

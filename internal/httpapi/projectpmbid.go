@@ -588,7 +588,7 @@ func PMBidDecisionHandler(pool *pgxpool.Pool, verb string) http.HandlerFunc {
 			return
 		}
 
-		entry, err := projectResource(ctx, pool, fields, values, viewer, pmBidResourceLoad(verb != "decline"), nil)
+		entry, err := projectResource(ctx, pool, fields, values, viewer, pmBidResourceLoad(verb != "decline"), nil, nil)
 		if err != nil {
 			slog.Error("pm-"+verb+": render", "error", err)
 			serverError(w)

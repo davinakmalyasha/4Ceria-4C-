@@ -1,6 +1,6 @@
 import { formatIDR, titleCase } from '@/lib/format';
 import { requestEngineering, verifyEngineering } from './engineering-actions';
-import type { BidRow, BidsPayload, ProjectPayload } from './panels';
+import { bidPriceLabel, type BidRow, type BidsPayload, type ProjectPayload } from './panels';
 
 /**
  * Native engineering hub.
@@ -57,13 +57,16 @@ function BidCard({ bid }: { bid: BidRow }) {
             </div>
 
             <div className="mt-4 flex items-baseline justify-between gap-3">
-                <p className="text-lg font-black text-neutral-900">{formatIDR(bid.calculated_total ?? bid.price)}</p>
+                <p className="text-lg font-black text-neutral-900">{bidPriceLabel(bid)}</p>
                 {bid.is_recommended && (
                     <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[9px] font-black uppercase tracking-wider">
                         Recommended
                     </span>
                 )}
             </div>
+            <p className="text-[10px] font-black uppercase tracking-wider text-neutral-400">
+                {titleCase(bid.fee_type ?? 'fixed')}
+            </p>
 
             {bid.proposal && (
                 <p className="mt-3 text-xs leading-relaxed text-neutral-600 line-clamp-3">{bid.proposal}</p>
@@ -139,7 +142,12 @@ function EngineeringSection({
 
             {bids.length === 0 ? (
                 <div className="bg-white rounded-2xl border border-dashed border-neutral-200 p-6 text-sm text-neutral-500">
-                    {emptyLabel}
+                    <p className="font-black text-neutral-900">{emptyLabel}</p>
+                    <p className="mt-1">
+                        Specialists appear here once they bid. Ask the lead professional to
+                        request you first — the request creates the roster row that unlocks
+                        recommending.
+                    </p>
                 </div>
             ) : (
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -188,9 +196,12 @@ export function EngineeringPanel({
                         MEP: {mep.length}
                     </span>
                     {recommended > 0 && (
-                        <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-600 text-[10px] font-black uppercase tracking-wider">
-                            {recommended} recommended
-                        </span>
+                        <a
+                            href="#recommended-specialists"
+                            className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-600 text-[10px] font-black uppercase tracking-wider hover:bg-emerald-100"
+                        >
+                            {recommended} recommended →
+                        </a>
                     )}
                 </div>
             </div>
@@ -318,7 +329,7 @@ export function EngineeringPanel({
                 )}
             </section>
 
-            <div className="space-y-8">
+            <div className="space-y-8" id="recommended-specialists">
                 <EngineeringSection
                     title="Structural Engineering"
                     assignedLabel="No structural specialist hired yet"

@@ -46,18 +46,20 @@ export default async function ProjectTabPage({
         const { project } = await loadProjectPage(id);
 
         let budget: BudgetPayload | null = null;
+        let budgetDenied = false;
         try {
             budget = await apiFetch<BudgetPayload>(`/projects/${id}/budget`);
         } catch (error) {
             if (!(error instanceof ApiFailure) || error.status !== 403) {
                 throw error;
             }
+            budgetDenied = true;
             // A viewer without financial access gets the header and the empty
             // state rather than an error page.
         }
 
         return (
-            <ProjectShell project={project as ProjectPayload} activeTab={tab}>
+            <ProjectShell project={project as ProjectPayload} activeTab={tab} hideBudget={budgetDenied}>
                 {budget ? (
                     <BudgetPanel project={project as ProjectPayload} budget={budget} />
                 ) : (
@@ -86,10 +88,11 @@ export default async function ProjectTabPage({
         return (
             <ProjectShell project={project as ProjectPayload} activeTab={tab}>
                 {bids ? (
-                    <ProposalsPanel bids={bids} />
+                    <ProposalsPanel bids={bids} projectId={Number.parseInt(id, 10)} error={error} />
                 ) : (
                     <div className="bg-white rounded-2xl border border-neutral-200 p-6 text-sm text-neutral-500">
-                        Proposals are visible to the project owner, the assigned PM and bidders only.
+                        Proposals are visible to the project team; bidders see only
+                        their own roles.
                     </div>
                 )}
             </ProjectShell>
@@ -319,7 +322,11 @@ export default async function ProjectTabPage({
     }
 
     if (tab === 'pm_legal') {
-        const { project } = await loadProjectPage(id);
+        const { project, user } = await loadProjectPage(id);
+        const record = project as { user_id?: number; pm_id?: number | null };
+        const isPm =
+            user.role_type === 'project_manager' && user.project_manager?.id === record.pm_id;
+        const canVerifyLegal = user.id === record.user_id || isPm;
 
         let documents: DocumentRow[] = [];
         let denied = false;
@@ -333,6 +340,21 @@ export default async function ProjectTabPage({
             denied = true;
         }
 
+        let notaryBids = 0;
+        if (!denied) {
+            try {
+                const response = await apiFetch<{ data: { bids_notaris?: { status?: string }[] } }>(
+                    `/projects/${id}/bids`,
+                );
+                const actionable = new Set(['pending', 'reviewed', 'invited', 'negotiating', 'shortlisted']);
+                notaryBids = (response.data?.bids_notaris ?? []).filter((bid) =>
+                    actionable.has(bid?.status ?? ''),
+                ).length;
+            } catch {
+                notaryBids = 0;
+            }
+        }
+
         return (
             <ProjectShell project={project as ProjectPayload} activeTab={tab}>
                 {denied ? (
@@ -340,7 +362,12 @@ export default async function ProjectTabPage({
                         The legal workspace is visible to the project team only.
                     </div>
                 ) : (
-                    <LegalPanel project={project as ProjectPayload} documents={documents} />
+                    <LegalPanel
+                        project={project as ProjectPayload}
+                        documents={documents}
+                        notaryBids={notaryBids}
+                        canVerify={canVerifyLegal}
+                    />
                 )}
             </ProjectShell>
         );

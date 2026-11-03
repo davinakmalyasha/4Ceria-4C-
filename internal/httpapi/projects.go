@@ -44,6 +44,12 @@ import (
 // signature and can never be byte-identical across stacks (same class as
 // the dispute evidence URLs).
 
+// projectListColumns is the explicit list-path column set: every `projects`
+// column in table order (no `SELECT *`). Explicit so a schema change cannot
+// silently shift positional scanners or over-fetch new blobs into cards.
+// Same rows as `SELECT *`, byte-identical wire output.
+const projectListColumns = `p.id,p.user_id,p.title,p.description,p.budget,p.lokasi,p.jenis_proyek,p.owner_id,p.selected_arsitek_id,p.selected_kontraktor_id,p.selected_notaris_id,p.selected_interior_id,p.pm_id,p.structural_id,p.mep_id,p.structural_approved_at,p.mep_approved_at,p.status,p.published_bidding_roles,p.bidding_choices,p.target_role,p.needed_phases,p.completed_phases,p.wants_project_manager,p.requires_structural,p.requires_mep,p.requires_interior,p.latitude,p.longitude,p.province,p.city,p.kecamatan,p.kelurahan,p.postal_code,p.street_name,p.design_details,p.design_completed_at,p.design_authorized_at,p.materials_authorized_at,p.design_locked_at,p.legal_completed_at,p.pbg_verified_at,p.slf_verified_at,p.legal_locked_at,p.construction_details,p.construction_completed_at,p.construction_authorized_at,p.construction_locked_at,p.construction_brief_status,p.construction_brief_revision_notes,p.interior_details,p.interior_locked_at,p.interior_completed_at,p.planning_status,p.negotiated_fee,p.payment_instructions,p.planning_submitted_at,p.planning_approved_at,p.design_payment_verified_at,p.construction_payment_verified_at,p.interior_payment_verified_at,p.arsitek_kickoff_at,p.kontraktor_kickoff_at,p.pm_audit_notes,p.pm_audit_attachments,p.architect_notes,p.planning_iteration,p.project_category,p.project_dimensions,p.legal_detail,p.wants_to_discuss_later,p.legal_requirements,p.share_token,p.attachment,p.deadline,p.created_at,p.updated_at,p.design_handover_submitted_at,p.construction_handover_submitted_at,p.interior_handover_submitted_at,p.design_handover_notes,p.construction_handover_notes,p.interior_handover_notes,p.legal_handover_submitted_at,p.legal_handover_notes,p.final_walkthrough_at,p.walkthrough_status,p.completed_at,p.owner_accepted_at,p.owner_acceptance_notes,p.owner_design_approved_at,p.owner_build_approved_at,p.owner_interior_approved_at,p.owner_legal_approved_at,p.warranty_start_at,p.warranty_end_at,p.deleted_at,p.planning_pm_verified_at`
+
 // projectViewer is the caller as the resource sees them.
 type projectViewer struct {
 	id       int64
@@ -309,7 +315,7 @@ func ProjectsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		if r.URL.Query().Get("all") == "true" || feed {
-			rows, err := pool.Query(r.Context(), `SELECT * FROM projects p`+where+` ORDER BY p.created_at DESC, p.id DESC LIMIT `+feedLimit(feed)+``, args...)
+			rows, err := pool.Query(r.Context(), `SELECT `+projectListColumns+` FROM projects p`+where+` ORDER BY p.created_at DESC, p.id DESC LIMIT `+feedLimit(feed)+``, args...)
 			if err != nil {
 				slog.Error("projects: all", "error", err)
 				serverError(w)
@@ -341,7 +347,7 @@ func ProjectsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		const perPage = 50
 		offset := (currentPage - 1) * perPage
 
-		rows, err := pool.Query(r.Context(), `SELECT * FROM projects p`+where+` ORDER BY p.created_at DESC, p.id DESC LIMIT 50 OFFSET `+strconv.Itoa(offset), args...)
+		rows, err := pool.Query(r.Context(), `SELECT `+projectListColumns+` FROM projects p`+where+` ORDER BY p.created_at DESC, p.id DESC LIMIT 50 OFFSET `+strconv.Itoa(offset), args...)
 		if err != nil {
 			slog.Error("projects: query", "error", err)
 			serverError(w)
@@ -380,16 +386,22 @@ func hasBidProfile(viewer *projectViewer) bool {
 
 // projectList reads every row and builds its resource with the client
 // history attached — the controller's `attachClientHistory` batch.
+// Images and milestones are prefetched in ONE query each (not N+1);
+// every other relation keeps its per-project loader to preserve
+// `whenLoaded` omission semantics.
 func projectList(ctx context.Context, pool *pgxpool.Pool, rows pgx.Rows, viewer *projectViewer, spec projectLoad) ([]any, error) {
 	fields := fieldNames(rows)
 
 	type rawProject struct {
 		fields []string
 		values []any
+		id     int64
 	}
 
 	var projects []rawProject
 	ownerIDs := map[int64]bool{}
+	var ids []int64
+	var ownerIDList []int64
 
 	for rows.Next() {
 		values, err := scanRow(rows, len(fields))
@@ -397,10 +409,17 @@ func projectList(ctx context.Context, pool *pgxpool.Pool, rows pgx.Rows, viewer 
 			return nil, err
 		}
 
-		projects = append(projects, rawProject{fields: fields, values: values})
+		pid := projectInt(values, fields, "id")
+		projects = append(projects, rawProject{fields: fields, values: values, id: pid})
+		if pid != 0 {
+			ids = append(ids, pid)
+		}
 
 		if id := projectInt(values, fields, "user_id"); id != 0 {
-			ownerIDs[id] = true
+			if !ownerIDs[id] {
+				ownerIDs[id] = true
+				ownerIDList = append(ownerIDList, id)
+			}
 		}
 	}
 	if err := rows.Err(); err != nil {
@@ -412,11 +431,62 @@ func projectList(ctx context.Context, pool *pgxpool.Pool, rows pgx.Rows, viewer 
 		return nil, err
 	}
 
+	// Batch the two hottest fan-outs on the list path. When the spec does
+	// not ask for them the maps stay nil and nothing is attached.
+	var imageMap map[int64][]any
+	var milestoneMap map[int64][]any
+	if spec.images && len(ids) > 0 {
+		if m, err := projectImagesBatch(ctx, pool, ids); err == nil {
+			imageMap = m
+		} else {
+			return nil, err
+		}
+	}
+	if spec.milestones && len(ids) > 0 {
+		if m, err := projectMilestonesBatch(ctx, pool, ids); err == nil {
+			milestoneMap = m
+		} else {
+			return nil, err
+		}
+	}
+	// Strip the batched keys from the per-row spec so projectResource does
+	// not re-query them; they are attached from the maps below.
+	batchedSpec := spec
+	batchedSpec.images = false
+	batchedSpec.milestones = false
+
+	var bundle *listBundle
+	if len(ids) > 0 {
+		if b := buildListBundle(ctx, pool, ids, ownerIDList, viewer, spec); b != nil {
+			bundle = b
+		} else {
+			slog.Warn("projectList: batch prefetch failed, falling back to per-row queries")
+		}
+	}
+
 	items := make([]any, 0, len(projects))
 	for _, project := range projects {
-		row, err := projectResource(ctx, pool, project.fields, project.values, viewer, spec, histories)
+		useSpec := spec
+		if imageMap != nil || milestoneMap != nil {
+			useSpec = batchedSpec
+		}
+		row, err := projectResource(ctx, pool, project.fields, project.values, viewer, useSpec, histories, bundle)
 		if err != nil {
 			return nil, err
+		}
+		if imageMap != nil {
+			if imgs, ok := imageMap[project.id]; ok {
+				row.Set("images", imgs)
+			} else {
+				row.Set("images", []any{})
+			}
+		}
+		if milestoneMap != nil {
+			if ms, ok := milestoneMap[project.id]; ok {
+				row.Set("milestones", ms)
+			} else {
+				row.Set("milestones", []any{})
+			}
 		}
 		items = append(items, row)
 	}
@@ -489,7 +559,7 @@ func ProjectShowHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		row, err := projectResource(r.Context(), pool, fields, values, viewer, showLoad(viewer.role, hasBidProfile(viewer)), histories)
+		row, err := projectResource(r.Context(), pool, fields, values, viewer, showLoad(viewer.role, hasBidProfile(viewer)), histories, nil)
 		if err != nil {
 			slog.Error("project show: resource", "error", err)
 			serverError(w)

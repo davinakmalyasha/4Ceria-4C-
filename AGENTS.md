@@ -69,9 +69,10 @@ node tools/db/verify-postgres-baseline.mjs   # from-scratch schema vs. live MySQ
 8. **The route manifest is the contract.** `routing/routes.yaml` is read at
    startup; `TestEveryRouteIsRegistered` fails if a manifest route has no
    handler. Add the route to the manifest and the handler together.
-9. **Identity lives in MySQL.** `MYSQL_DSN` is required for login, register,
-   password reset and admin role changes. Without it the gateway serves the
-   PostgreSQL-backed routes and identity answers 501.
+9. **Identity lives in PostgreSQL by default.** Login, register, tokens and
+   roles are PostgreSQL-native (`authpg.go`, Sanctum semantics preserved).
+   Set `MYSQL_DSN` only to re-seed via ETL or run the historical parity
+   check; the gateway no longer needs it at runtime.
 10. **Unmatched `/api/*` paths answer JSON 404**, never the Next.js HTML. The
     router's catch-all enforces that.
 

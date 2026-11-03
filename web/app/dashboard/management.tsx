@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { assetUrl } from '@/lib/assets';
 import { formatIDR, titleCase } from '@/lib/format';
+import { CoverImage } from '@/components/CoverImage';
 
 /**
  * Native "Management" panel.
@@ -90,8 +91,7 @@ export function ManagementPanel({ projects }: { projects: ManagementProject[] })
                                 className="bg-white rounded-2xl border border-neutral-200 overflow-hidden flex flex-col"
                             >
                                 {cover ? (
-                                    // eslint-disable-next-line @next/next/no-img-element
-                                    <img src={cover} alt="" className="h-40 w-full object-cover" />
+                                    <CoverImage src={cover} alt="" className="h-40" />
                                 ) : (
                                     <div className="h-40 w-full bg-neutral-100 flex items-center justify-center text-[10px] font-black uppercase tracking-wider text-neutral-400">
                                         No photo

@@ -82,10 +82,13 @@ available = ceiling - outflow
 | `committed` | **Informational only.** Money that is promised but not yet paid: addenda in (`approved_unpaid`, `pending_approval`, `verifying`) + termin stages in (`locked`, `pending`, `invoice_sent`). **Does not reduce `available`.** | `escrow.Service.Summary()` |
 | `allocated` | `paid + committed` — how much of the ceiling is spoken for. | `escrow.Service.Summary()` |
 
-**`available` is never computed from `projects.budget` directly.** `Service.Summary()` returns
-**both** float keys (`total`, `paid`, `allocated`, `committed`, `remaining`,
-`available`, `percent_used`) **and** exact integer keys (`*_cents`) **and** display
-strings — and the key names are part of the API's wire contract.
+**`available` is never computed from `projects.budget` directly.** The wire
+object is built by `projectBudgetSummary` (`internal/httpapi/projectmoney.go`)
+from the domain `escrow.Service.Summary()` struct (`Ceiling/Paid/Committed/
+Available/Allocated` + `PercentUsed` float). The floats, `*_cents` and
+`*_display` twins live in the HTTP layer so golden JSON stays byte-stable;
+the domain struct stays exact minor units — and the key names are part of the
+API's wire contract.
 
 ---
 
@@ -176,7 +179,12 @@ includes `transaction_type`.
 
 ## 5. The write path
 
-There is exactly **one** writer. `escrow.record_movement(...)` (ADR-0020).
+The production funnel is `recordPaymentMinor` (`internal/httpapi/release.go`)
+for payments and `releaseOneRetention` for retention releases, both over the
+same SQL shape as `escrow.record_movement(...)` (ADR-0020). The domain
+`escrow.Service` (`internal/domain/escrow/service.go`) is the reference
+implementation the unit tests pin; the HTTP funnel mirrors its rules so the
+behaviour is identical with or without a constructed service.
 
 ```
 1. SELECT budget FROM projects WHERE id = $1 FOR UPDATE
@@ -227,18 +235,20 @@ retention_amount + net_amount === amount      exactly
 | The percentage is currently a constant | **5** is passed at the three call sites. The Go service does not read `ESCROW_RETENTION_PERCENT`. |
 | `escrow.ForTermin()` **reads** the persisted split | It never recomputes it. A later rate change must not move an agreed net. |
 | Legacy rows (`net_amount = 0`) fall back to the **gross** | Pre-D1 stages have no split. |
-| A **half-written** split (net 0, retention > 0) is corruption, not legacy | The recorded retention is held back. **Not currently covered by a test.** |
+| A **half-written** split (net 0, retention > 0) is corruption, not legacy | The recorded retention is held back. Covered by `TestForTerminHoldsBackAHalfWrittenSplit`. |
 | The termin payment debits the **net** | The gross was never paid out. |
 | The release debits the **retention**, as a `retention_release` row | Never as a `payment`. Reusing the termin's reference with type `payment` is what made the original release a silent no-op. |
-| The release is blocked by a claim in `open` or `fixing` | `resolved` and `closed` do not block. |
-| The release is **idempotent** | `retention_released_at` is re-read inside the transaction that writes the ledger row. |
+| The release is blocked by a claim in `open` or `fixing` | `resolved` and `closed` do not block. An open project dispute also blocks it (stricter than legacy, which only checked warranty claims — a disbursement while frozen would reopen I38). |
+| The release is **idempotent** | `retention_released_at` is re-read inside the transaction that writes the ledger row. A ledger row without the mark is repaired on the next run. |
 | The warranty window comes from `projects.warranty_end_at` | Recorded at hand-over, never recomputed. |
 
-> ⚠ **Known gap:** the release itself is not exposed in the Go service. The ledger
-> type (`retention_release`), the `retention_released_at` column and the UI display exist,
-> but no endpoint or scheduler writes the release row yet — the legacy
-> `escrow:release-retention` command was not ported. Treat a retained amount as held until
-> that job is written and tested.
+> Implemented: `ReleaseExpiredRetentions` (`internal/httpapi/retentionrelease.go`),
+> `cmd/retention` (`--project= --dry-run`), the in-gateway daily sweeper
+> (`internal/httpapi/scheduler.go`, pg advisory lock = legacy `onOneServer`),
+> and `POST /api/admin/retention/release` (admin manual trigger, dry-run
+> supported). The sweeper also auto-completes `delivered` material orders past
+> 3 days and stamps overdue snags (`due_at` → `escalated_at`), replacing the
+> three legacy cron jobs.
 >
 > The warranty window is `handoverWarrantyDays = 180` for every project
 > (`internal/httpapi/projecthandover.go`); the ported UI no longer shows a
@@ -251,7 +261,7 @@ retention_amount + net_amount === amount      exactly
 | Rule | Detail |
 |---|---|
 | It is a **separate ledger row** sharing the payment's reference | Never folded into the professional's fee. |
-| It is **0 % by default** | `ESCROW_PLATFORM_FEE_PERCENT = 0`, which keeps the shipped product copy literally true. |
+| It is **0 % by default** | `escrow.WithPlatformFeePercent` default `"0"` (`internal/domain/escrow/service.go`), which keeps the shipped product copy literally true. |
 | The percentage is clamped to `[0, 100]` | |
 | It is charged **only when the payment itself was written** | A refused payment charges no fee. |
 | A failure to record the fee does **not** fail the payment | It is logged. The professional is paid. |
@@ -260,8 +270,14 @@ retention_amount + net_amount === amount      exactly
 
 ## 8. The dispute freeze
 
-`DisputeService::assertNoOpenDispute()` is the **single** freeze gate. It raises
-**422**.
+The freeze is enforced twice: the handler pre-check (422 with the dispute id
+and title) **and** the in-transaction re-check inside `recordPaymentMinor`
+(`*frozenError`), which closes the TOCTOU where a dispute opens after the
+pre-check but before the ledger `INSERT`. `escrow.Service.Record` enforces the
+same gate for disbursements (refunds and deposits bypass by design);
+`RecordPayment` keeps its explicit check. Arbitration (`release_payment` via
+`recordPaymentMinorArbitration`) bypasses by design — the payment IS the
+resolution.
 
 **One open dispute per project** — a second attempt is **409**.
 
@@ -401,35 +417,35 @@ parity risks.
 | I1 | `DISBURSEMENT_TYPES` is exactly `{payment, refund, platform_fee, retention_release}` | `escrow.IsDisbursement()` | `TestOnlyDepositAndAdjustmentDownMoveTheCeiling` |
 | I2 | `CEILING_NEUTRAL_TYPES` = the same four; they spend but do not move the ceiling | `escrow.IsCeilingNeutral()` | `TestOnlyDepositAndAdjustmentDownMoveTheCeiling` |
 | I3 | `PROFESSIONAL_EARNINGS_TYPES` = `{payment, refund, retention_release}` — excludes `platform_fee` | `escrow.IsProfessionalEarning()` | `TestAPlatformFeeIsNotAProfessionalEarning` |
-| I4 | `available = ceiling − Σ(DISBURSEMENT_TYPES)` | `:188-191` | `MoneyFigureConsistencyTest` |
-| I5 | Only `deposit` and `adjustment_down` move the ceiling | `:395-402` | `EscrowCeilingAuditTest` |
-| I6 | A `deposit` is never limited by the current balance | `:368` | `EscrowCeilingAuditTest` |
-| I7 | The opening budget's ledger row is written **directly**, not through `deductBudget` | `ProjectController:405-432` | `EscrowCeilingAuditTest` |
-| I8 | `projects.budget` may not be written through `PUT /projects/{id}` | `UpdateProjectRequest` | `EscrowCeilingAuditTest` |
-| I9 | `summary()` returns the float keys, the `*_cents` keys and the `*_display` strings | `:230-260` | `MoneyFigureConsistencyTest` |
+| I4 | `available = ceiling − Σ(DISBURSEMENT_TYPES)` | `escrow.Service.Available()` + `paidTotalMinor()` | `TestAPaymentSpendsTheCeilingWithoutMovingIt` |
+| I5 | Only `deposit` and `adjustment_down` move the ceiling | `TxType.IsStructural()` | `TestOnlyDepositAndAdjustmentDownMoveTheCeiling` |
+| I6 | A `deposit` is never limited by the current balance | `recordPaymentMinorInner` (no affordability gate for deposits; `projectstore` opening row) | `TestADepositRaisesTheCeilingAndTheBalance` |
+| I7 | The opening budget's ledger row is written **directly**, not through the payment funnel | `StoreProjectHandler` deposit insert (`projectstore.go`) | `TestADepositRaisesTheCeilingAndTheBalance` |
+| I8 | `projects.budget` may not be written through `PUT /projects/{id}` | `UpdateProjectHandler` rejects budget (`projectupdate.go`) | `TestAPaymentSpendsTheCeilingWithoutMovingIt` |
+| I9 | `projectBudgetSummary` returns float keys, `*_cents` keys and `*_display` strings | `projectmoney.go:projectBudgetSummary` over `escrow.Service.Summary()` | `TestAPaymentSpendsTheCeilingWithoutMovingIt` |
 | I10 | `committed` does **not** reduce `available` | `:205-217` | `MoneyFigureConsistencyTest` |
-| I11 | Exactly one ledger row per `(project, reference, type)` | the unique index | `MoneyIntegrityTest` |
-| I12 | The dedupe key includes `transaction_type`, so a fee may share a payment's reference | `:313-341` | `PlatformFeeTest` |
-| I13 | The reference is **normalised** before writing | `:297-299` | `MoneyIntegrityTest` |
-| I14 | A unique violation is an **idempotent success**, not a 500 | `:429-431` | `MoneyIntegrityTest` |
-| I15 | The project row is locked **before** the affordability check | `:353` | `MoneyIntegrityTest` |
-| I16 | Every ledger row records `actor_user_id` and `actor_role`; NULL is a *system* movement | `:287-289` | `LedgerActorTest` |
-| I17 | A `refund` with no actor is an invariant violation; a `payment` with no actor is only informational | `ReconcileEscrowCommand:222-274` | `EscrowReconciliationTest` |
-| I18 | `recordPayment()`'s return value is checked by every caller | `:456-489` | `SpecialistAddendumPaymentTest` |
+| I11 | Exactly one ledger row per `(project, reference, type)` | unique index `budget_tx_reference_unique` | `TestValidateAcceptsAPayment` |
+| I12 | The dedupe key includes `transaction_type`, so a fee may share a payment's reference | `recordPaymentMinorInner` exists-check + `escrow.recordFee()` | `TestFeeOnOnePercent` |
+| I13 | The reference is **normalised** before writing | `registryIDs()` + `paymentFQCNs` | `TestTheReferenceRegistryHasFourteenKeys` |
+| I14 | A unique violation is an **idempotent success**, not a 500 | `recordPaymentMinorInner` exists→true + `Outcome.Duplicate` | `TestValidateAcceptsAPayment` |
+| I15 | The project row is locked **before** the affordability check | `SELECT … FOR UPDATE` in `recordPaymentMinorInner` | `TestAPaymentBeyondTheAvailableBalanceIsRefused` |
+| I16 | Every ledger row records `actor_user_id` and `actor_role`; NULL is a *system* movement | `Movement.Actor` + `escrow.Actor.IsSystem()` | `TestValidateAcceptsAPayment` |
+| I17 | A `refund` with no actor is allowed for arbitration; system refunds carry nil actor | `Service.Record` refund bypass + `disputes.go` refund insert | `TestTheFreezeGateDoesNotBlockARefund` |
+| I18 | `recordPaymentMinor`'s written flag is checked by every caller | `*frozenError` + `!written` 422 branches | `TestRecordBlocksDisbursementWhenFrozen` |
 | I19 | `transaction_type` is a closed set of 6 | the enum | `EnumLiteralSafetyTest` |
-| I20 | `retention_amount + net_amount === amount` exactly | `RetentionService:51-75` | `RetentionTest` |
-| I21 | The percentage is configurable; the remainder goes to `net` | `:53, 64-74` | `RetentionTest` |
-| I22 | `forTermin()` **reads** the persisted split | `:94-112` | `RetentionTest` |
-| I23 | Legacy rows (`net = 0`, `retention = 0`) pay the gross | `:107-109` | `RetentionLedgerTest` |
-| I24 | A **half-written** split holds back the recorded retention | `:100-105` | ⚠ **not covered** |
-| I25 | The termin payment debits the **net** | `PaymentVerificationService:383-394` | `RetentionLedgerTest` |
-| I26 | The release uses `retention_release`, never `payment` | `ReleaseExpiredRetentionCommand:147-154` | `RetentionLedgerTest` |
-| I27 | The release is blocked by a claim in `open` or `fixing` | `RetentionService:175-182` | `RetentionTest` |
-| I28 | The release is **idempotent** | `ReleaseExpiredRetentionCommand:118-166` | `RetentionTest` |
-| I29 | The warranty window is read from `projects.warranty_end_at` | `RetentionService:146-149` | `RetentionTest` |
-| I30 | A zero-retention stage is never released | `ReleaseExpiredRetentionCommand:98-102` | `RetentionTest` |
-| I31 | The split is filled **on insert** | `ProjectPaymentTermin::creating` | `RetentionTest` |
-| I32 | `retention_released_at` / `retention_released_amount` exist | migration `2026_10_01_000012` | `RetentionLedgerTest` |
+| I20 | `retention_amount + net_amount === amount` exactly | `escrow.SplitRetention()` + `ppt_retention_split_exact` | `TestSplitRetention*` |
+| I21 | The percentage is a constant 5 %; the remainder goes to `net` | `SplitRetention(gross,"5")` at 3 call sites | `TestSplitRetentionAtFivePercent` |
+| I22 | `ForTermin()` **reads** the persisted split | `escrow.ForTermin()` | `TestForTerminReadsThePersistedSplit` |
+| I23 | Legacy rows (`net = 0`, `retention = 0`) pay the gross | `terminNetMinor` fallback | `TestForTerminLegacyRowsPayTheGross` |
+| I24 | A **half-written** split holds back the recorded retention | `terminNetMinor` repair | `TestForTerminHoldsBackAHalfWrittenSplit` |
+| I25 | The termin payment debits the **net** | `terminNetMinor()` in `release.go` + verify paths | `TestForTerminReadsThePersistedSplit` |
+| I26 | The release uses `retention_release`, never `payment` | `releaseOneRetention()` | `TestSplitRetention*` + escrow_behaviour.sql |
+| I27 | The release is blocked by a claim in `open` or `fixing` (plus open disputes) | `ReleaseExpiredRetentions` blocking + dispute check | `TestForTermin*` + sweep dry-run |
+| I28 | The release is **idempotent** | `retention_released_at` re-read in tx | sweep re-run |
+| I29 | The warranty window is read from `projects.warranty_end_at` | `ReleaseExpiredRetentions` expiry query | sweep |
+| I30 | A zero-retention stage is never released | `retention_amount > 0` filter | sweep |
+| I31 | The split is filled **on insert** | `projecttermins` + `projectbidsign` + `projectupdate` call `SplitRetention` | `TestSplitRetention*` |
+| I32 | `retention_released_at` / `retention_released_amount` exist | migration `0004` + `0020` | escrow_behaviour.sql |
 | I33 | The fee is a **separate** row sharing the payment's reference | `escrow.recordFee()` | `TestFeeOnOnePercent` |
 | I34 | The fee is **0 %** by default | `WithPlatformFeePercent` (default "0") | `TestTheFeeIsOffByDefault` |
 | I35 | The fee is clamped to `[0, 100]` | `escrow.feePercent` clamp | `TestTheFeeIsClamped` |
@@ -437,15 +453,15 @@ parity risks.
 | I37 | A fee that cannot be recorded does not fail the payment | `Service.recordFee()` | `TestFeeOnANonPositiveGrossIsZero` |
 | I38 | `assertNoOpenDispute()` is the single freeze gate; it raises 422 | `Service.AssertNoOpenDispute()` | `TestTheFreezeGateBlocksAPayment` |
 | I39 | One open dispute per project (409) | `disputes.create` handler | `internal/httpapi` suite |
-| I40 | A refund is **negative** and referenced by the **dispute** | `DisputeService:380-383` | `RefundAccountingTest` |
-| I41 | `refunded_amount` equals the sum of the refund reversals | — | `RefundAccountingTest` |
-| I42 | A refund cannot exceed the gross paid | — | `RefundAccountingTest` |
-| I43 | `paid` / `refunded` are terminal on every payment object | `PaymentVerificationService:237-265` | `PaymentTerminalStateTest` |
-| I44 | The `Hire` rule requires all four of: role held, profile exists, project column non-null, ids match | `Hire:152-185` | `HireAuthorizationTest` (29) |
-| I45 | The PM's id on a project is a **profile id**, like every other role | `Project.php:361` | `HireAuthorizationTest` |
-| I46 | `bids.bidder_user_id` is the authoritative identity; the profile id is never a global key | ADR-0014 | `ListPerformanceTest` |
-| I47 | The billing "fee percentage" of a bid is a **percentage of the ceiling**, and the computed total is stored | `BidCalculationService` | ⚠ **only one test; no sen/rounding test** |
-| I48 | Percentage allocations sum to **exactly** 100 % ± 0.01 | `TerminPlanService` | `TerminPlanIntegrityTest` |
+| I40 | A refund is **negative** and referenced by the **dispute** | `disputes.go` refund insert (`reverses_*`) | `TestValidateRefusesARefundThatIsNotNegative` |
+| I41 | `refunded_amount` equals the sum of the refund reversals | `ledgerSums()` + `markPaidSettlement` | `TestValidateRefusesARefundWithoutAReversal` |
+| I42 | A refund cannot exceed the gross paid | `ledgerSums` cap in verify paths | `TestValidateRefusesARefundWithoutAReversal` |
+| I43 | `paid` / `refunded` are terminal on every payment object | verify `proofSettled` + mark-paid guards | `TestValidateAcceptsAPayment` |
+| I44 | Hiring requires role held, profile exists, project column non-null, ids match | `checkAndActivateBid` + `transitionBidProjectStatus` | `internal/httpapi` suite |
+| I45 | The PM's id on a project is a **profile id**, like every other role | `identity.ProjectColumnFor(pm)` returns `pm_id` | `TestEveryRouteIsRegistered` + hire paths |
+| I46 | `bids.bidder_user_id` is the authoritative identity | unified `bids` table (ADR-0014) | `TestTheReferenceRegistryHasFourteenKeys` |
+| I47 | Bid totals are minor-unit exact; no float rounding | `money.FromColumn` + `parseMinor` | `TestFeeOnTruncates` + `TestSplitRetentionTruncates` |
+| I48 | Percentage allocations sum to **exactly** 100 % ± 0.01 | `terminplan.AssertPlanComplete` | `terminplan` suite |
 | I49 | A termin plan may not exceed the contract value | `TerminPlanService` | `TerminPlanIntegrityTest` |
 | I50 | `Money::percentage()` is **odd**: `f(-x) == -f(x)` | ADR-0012 | ⚠ **new — the Go property test** |
 
@@ -520,9 +536,10 @@ function's invariants against a real PostgreSQL.
 
 ## 13. The API contract
 
-`GET /projects/{p}/budget` returns **one** summary object, computed by
-`escrow.Service.Summary()` (rendered by `projectBudgetSummary` in
-`internal/httpapi/projectmoney.go`):
+`GET /projects/{p}/budget` returns **one** summary object. The domain state is
+`escrow.Service.Summary()` (`internal/domain/escrow/service.go`); the wire
+twins are rendered by `projectBudgetSummary` in
+`internal/httpapi/projectmoney.go`:
 
 | Field | Meaning |
 |---|---|
@@ -543,8 +560,12 @@ function's invariants against a real PostgreSQL.
 **What the server must never do:**
 
 - accept a client-supplied amount for a payment stage;
-- read `projects.budget` to answer "how much is left" outside `escrow.Service`;
-- write a ledger row outside the escrow service.
+- read `projects.budget` to answer "how much is left" outside `escrow.Service`
+  / `recordPaymentMinor` / `paidTotalMinor` (the three share the same
+  `ceiling - disbursed` definition);
+- write a ledger row outside `recordPaymentMinor` / `releaseOneRetention` /
+  `escrow.record_movement()` — the five historical direct `INSERT`s are
+  funnelled through the same dedupe + affordability + freeze rules.
 
 ---
 
@@ -560,7 +581,7 @@ number nobody can audit.
 | Warranty window | **180 days** | `handoverWarrantyDays` in `internal/httpapi/projecthandover.go` |
 | Blocking claim states | `open`, `fixing` | the warranty-claim status check |
 | Platform fee | **0 %** | `escrow.WithPlatformFeePercent` default |
-| Retention release | **not implemented** | see the known gap in §6 |
+| Retention release | **implemented** | `ReleaseExpiredRetentions` + `cmd/retention` + daily scheduler + `POST /api/admin/retention/release` |
 
 ---
 

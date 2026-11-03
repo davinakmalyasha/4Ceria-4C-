@@ -31,14 +31,15 @@ const inputClass =
 export default async function AdminPage({
     searchParams,
 }: {
-    searchParams: Promise<{ search?: string; role?: string; page?: string; sort?: string; error?: string }>;
+    searchParams: Promise<{ search?: string; role?: string; status?: string; page?: string; sort?: string; error?: string }>;
 }) {
-    const { search, role, page, sort, error } = await searchParams;
+    const { search, role, status, page, sort, error } = await searchParams;
     const currentPage = Math.max(1, Number.parseInt(page ?? '1', 10) || 1);
     const params = new URLSearchParams({ page: String(currentPage) });
 
     if (search) params.set('search', search);
     if (role) params.set('role', role);
+    if (status) params.set('status', status);
 
     const [stats, users] = await Promise.all([
         apiFetch<AdminStats>('/admin/stats'),
@@ -134,6 +135,11 @@ export default async function AdminPage({
                                     {option.label}
                                 </option>
                             ))}
+                        </select>
+                        <select name="status" defaultValue={status ?? ''} className={inputClass}>
+                            <option value="">All statuses</option>
+                            <option value="active">Active</option>
+                            <option value="suspended">Suspended</option>
                         </select>
                         <select name="sort" defaultValue={sort ?? 'asc'} className={inputClass}>
                             <option value="asc">A – Z</option>

@@ -11,6 +11,29 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// directoryColumns is the explicit list-path column set per profile table
+// (no `SELECT *`). Same rows as `SELECT *`, schema-change safe.
+func directoryColumns(table string) string {
+	switch table {
+	case "arsiteks":
+		return `id,user_id,nama,no_telp,rate_harga,spesialisasi,deskripsi,lokasi,pengalaman_tahun,file_portofolio,file_sertifikat,npwp,siup,pendidikan,alasan_hire,verification_status,rejection_reason,foto,identity_number,npwp_number,siup_number,entity_type,company_name,company_license,reliability_score,created_at,updated_at`
+	case "kontraktors":
+		return `id,user_id,nama,no_telepon,alamat,jenis,nama_perusahaan,npwp,siup,pengalaman,spesialisasi,subspecialties,rate_harga,pendidikan,alasan_hire,verification_status,rejection_reason,foto,file_portofolio,file_sertifikat,identity_number,npwp_number,siup_number,entity_type,company_name,company_license,reliability_score,created_at,updated_at`
+	case "notaris_profiles":
+		return `id,user_id,nama,no_telp,foto,file_portofolio,identity_number,npwp_number,siup_number,entity_type,company_name,company_license,reliability_score,nomor_sk,wilayah_kerja,spesialisasi,deskripsi,lokasi,pengalaman_tahun,rate_harga,file_sertifikat,npwp,siup,verification_status,rejection_reason,created_at,updated_at`
+	case "interior_profiles":
+		return `id,user_id,nama,no_telp,foto,identity_number,npwp_number,siup_number,entity_type,company_name,company_license,reliability_score,file_portofolio,file_sertifikat,npwp,siup,spesialisasi,deskripsi,lokasi,pengalaman_tahun,rate_harga,verification_status,rejection_reason,created_at,updated_at`
+	case "structural_engineers":
+		return `id,user_id,nama,no_telp,rate_harga,reliability_score,spesialisasi,deskripsi,lokasi,pengalaman_tahun,file_portofolio,file_sertifikat,npwp,siup,pendidikan,alasan_hire,verification_status,rejection_reason,foto,identity_number,npwp_number,siup_number,entity_type,company_name,company_license,created_at,updated_at`
+	case "mep_engineers":
+		return `id,user_id,nama,no_telp,rate_harga,reliability_score,spesialisasi,deskripsi,lokasi,pengalaman_tahun,file_portofolio,file_sertifikat,npwp,siup,pendidikan,alasan_hire,verification_status,rejection_reason,foto,identity_number,npwp_number,siup_number,entity_type,company_name,company_license,created_at,updated_at`
+	case "project_managers":
+		return `id,user_id,nama,no_telp,rate_harga,spesialisasi,deskripsi,lokasi,pengalaman_tahun,file_portofolio,file_sertifikat,npwp,siup,pendidikan,alasan_hire,verification_status,rejection_reason,foto,identity_number,npwp_number,siup_number,entity_type,company_name,company_license,reliability_score,created_at,updated_at`
+	default:
+		return `*`
+	}
+}
+
 // THE PUBLIC DIRECTORIES.
 //
 // `GET /api/arsitek`, `/kontraktor`, `/interior`, `/notaris`,
@@ -71,8 +94,10 @@ func DirectoryHandler(pool *pgxpool.Pool, table, base string, withServices bool)
 
 		offset := (currentPage - 1) * perPage
 
+		// Explicit columns (no `SELECT *`): same rows, schema-change safe.
+		cols := directoryColumns(table)
 		rows, err := pool.Query(r.Context(), `
-			SELECT * FROM `+table+` WHERE verification_status = 'verified'
+			SELECT `+cols+` FROM `+table+` WHERE verification_status = 'verified'
 			 ORDER BY id LIMIT $1 OFFSET $2
 		`, perPage, offset)
 		if err != nil {
@@ -115,7 +140,7 @@ func DirectoryHandler(pool *pgxpool.Pool, table, base string, withServices bool)
 		payload.Set("links", pageLinksSummary(baseURL, "", currentPage, lastPage(total, perPage)))
 		payload.Set("meta", directoryMeta(total, perPage, currentPage, basePathOf(baseURL), "", items))
 
-		writeJSON(w, http.StatusOK, payload)
+		writeJSONPublic(w, r, http.StatusOK, payload, 60)
 	}
 }
 

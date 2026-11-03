@@ -66,7 +66,7 @@ func bidShowAfterWrite(ctx context.Context, pool *pgxpool.Pool, projectID int64,
 		return nil, err
 	}
 
-	return projectResource(ctx, pool, fields, values, viewer, submitBidLoad(), map[int64]*clientHistory{})
+	return projectResource(ctx, pool, fields, values, viewer, submitBidLoad(), map[int64]*clientHistory{}, nil)
 }
 
 // updateBidInvited converts an invited structural/mep bid into a live one.

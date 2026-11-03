@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { assetUrl } from '@/lib/assets';
 import { formatIDR } from '@/lib/format';
 import type { DirectoryRow } from './explore';
+import { CoverImage } from '@/components/CoverImage';
 
 /**
  * Native "Hire Sub-Contractors" panel.
@@ -46,8 +47,7 @@ export function FindSubContractorsPanel({ contractors }: { contractors: Director
                                 <div className="flex items-start gap-3">
                                     <span className="h-12 w-12 shrink-0 rounded-xl bg-neutral-900 text-white text-sm font-black flex items-center justify-center overflow-hidden">
                                         {image ? (
-                                            // eslint-disable-next-line @next/next/no-img-element
-                                            <img src={image} alt="" className="h-full w-full object-cover" />
+                                            <CoverImage src={image} alt="" className="h-full" />
                                         ) : (
                                             (contractor.nama ?? '?').trim().charAt(0).toUpperCase()
                                         )}

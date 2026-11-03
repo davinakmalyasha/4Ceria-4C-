@@ -11,7 +11,7 @@
  *
  * `cache: 'no-store'` on every call is deliberate: the data is per-user and
  * money-shaped, and Next's default fetch cache is a cache of someone else's
- * ledger. A page that wants a cache expires it explicitly.
+ * ledger. A page that wants a cache expires it explicitly via `revalidate`.
  */
 
 import { apiOrigin, sessionToken } from './session';
@@ -47,6 +47,7 @@ export class ApiFailure extends Error {
 export async function apiFetch<T>(
     path: string,
     init: RequestInit = {},
+    revalidateSeconds?: number,
 ): Promise<T> {
     const headers = new Headers(init.headers);
 
@@ -71,7 +72,11 @@ export async function apiFetch<T>(
     const response = await fetch(`${apiOrigin()}/api${path}`, {
         ...init,
         headers,
-        cache: 'no-store',
+        // Public directories may opt into timed caching; everything else
+        // stays `no-store` so one user's ledger never renders for another.
+        ...(revalidateSeconds === undefined
+            ? { cache: 'no-store' as const }
+            : { next: { revalidate: revalidateSeconds } }),
     });
 
     if (!response.ok) {

@@ -2,7 +2,9 @@ package httpapi
 
 import (
 	"context"
-	"database/sql"
+	"crypto/rand"
+	"encoding/hex"
+	"log/slog"
 	"net/http"
 	"sort"
 	"strconv"
@@ -85,12 +87,10 @@ type Gates struct {
 	Limiter RateLimiter
 	Freezer ProjectFreezer
 
-	// MySQL is the identity owner store (ADR-0018). Handlers that read or
-	// write users, tokens or roles take it alongside the PG read mirror.
-	// MySQLWall reads with ETL semantics (raw walls, no TZ pin) for the
-	// targeted re-sync; MySQL is pinned to UTC for instant arithmetic.
-	MySQL     *sql.DB
-	MySQLWall *sql.DB
+	// DBStats reports pool totals for /readyz observability. Nil when the
+	// gateway runs without PostgreSQL. Readiness itself stays gate-based so
+	// a slow database cannot flip a probe into a restart loop.
+	DBStats func() (total, idle, acquired int32)
 }
 
 // Unimplemented reports which gates are not enforced.
@@ -116,6 +116,57 @@ func (g Gates) Unimplemented() []string {
 	sort.Strings(missing)
 
 	return missing
+}
+
+// requestIDKey is the context key carrying the request's ID.
+type requestIDKey struct{}
+
+// RequestIDFrom returns the request's ID, if the request-ID middleware ran.
+func RequestIDFrom(ctx context.Context) (string, bool) {
+	id, ok := ctx.Value(requestIDKey{}).(string)
+	return id, ok && id != ""
+}
+
+// withRequestID propagates the client-supplied `X-Request-ID` or mints a
+// 128-bit hex id, echoes it back on the response, and logs the request with
+// the id attached — one place, so handlers do not thread it themselves.
+func withRequestID(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		id := strings.TrimSpace(r.Header.Get("X-Request-ID"))
+		if id == "" {
+			var b [16]byte
+			if _, err := rand.Read(b[:]); err != nil {
+				id = "unknown"
+			} else {
+				id = hex.EncodeToString(b[:])
+			}
+		}
+		if len(id) > 128 {
+			id = id[:128]
+		}
+		w.Header().Set("X-Request-ID", id)
+		start := time.Now()
+		sr := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
+		next.ServeHTTP(sr, r.WithContext(context.WithValue(r.Context(), requestIDKey{}, id)))
+		slog.Info("request",
+			"request_id", id,
+			"method", r.Method,
+			"path", r.URL.Path,
+			"status", sr.status,
+			"duration_ms", time.Since(start).Milliseconds(),
+		)
+	})
+}
+
+// statusRecorder captures the status for the request log.
+type statusRecorder struct {
+	http.ResponseWriter
+	status int
+}
+
+func (s *statusRecorder) WriteHeader(status int) {
+	s.status = status
+	s.ResponseWriter.WriteHeader(status)
 }
 
 // callerKey is the context key the resolved caller is stored under.

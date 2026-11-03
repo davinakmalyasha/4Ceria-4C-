@@ -235,7 +235,14 @@ func verifyOrderPayment(ctx context.Context, w http.ResponseWriter, pool *pgxpoo
 	}
 
 	projectID := intPtrDeref(byName["project_id"])
-	amountMinor := mustMinorValue(stringOf(byName["total_price"])) + mustMinorValue(stringOf(byName["shipping_cost"]))
+	// INVARIANT: material_orders.total_price is shipping-INCLUSIVE. The quote
+	// approve writes total_price = total_amount(goods) + shipping and stores
+	// shipping separately for display (materialquotelifecycle.go approve).
+	// The ledger must therefore move exactly total_price — adding
+	// shipping_cost again would charge shipping twice. This matches the quote
+	// mark-paid path, which moves total_amount + shipping_cost on a row whose
+	// total_amount is goods-only.
+	amountMinor := mustMinorValue(stringOf(byName["total_price"]))
 
 	if projectID != 0 {
 		var openID int64
@@ -267,6 +274,11 @@ func verifyOrderPayment(ctx context.Context, w http.ResponseWriter, pool *pgxpoo
 				"Payment: Material Order #"+strconv.FormatInt(orderID, 10),
 				`App\Models\MaterialOrder`, orderID, registryID, viewer.id, viewer.role)
 			if err != nil {
+				if fe, ok := asFrozen(err); ok {
+					tx.Rollback(ctx)
+					message(w, http.StatusUnprocessableEntity, fe.Error())
+					return
+				}
 				tx.Rollback(ctx)
 				slog.Error("order verify: ledger", "error", err)
 				serverError(w)
@@ -399,6 +411,31 @@ func validateOrderStatus(fields map[string]any, failures *errorBag) string {
 	return ""
 }
 
+// supplierOrderTransitions is the supplier-side state machine for material
+// orders. The previous gate authorized ANY supplier transition - including
+// pending -> delivered with no payment, no proof and no escrow movement.
+// Every edge below is an explicit, fulfilment-ordered step; paid is reachable
+// only through the verify-payment path (proof required, ledger + freeze enforced).
+var supplierOrderTransitions = map[string][]string{
+	"pending":          {"processing", "cancelled"},
+	"awaiting_payment": {"processing", "cancelled"},
+	"processing":       {"ready_for_pickup", "shipping", "cancelled"},
+	"ready_for_pickup": {"shipping", "delivered"},
+	"shipping":         {"delivered"},
+	"paid":             {"processing", "shipping"},
+}
+
+// supplierOrderTransitionAllowed reports whether a supplier may move an order
+// from oldStatus to newStatus. Pure so it is unit-testable without a database.
+func supplierOrderTransitionAllowed(oldStatus, newStatus string) bool {
+	for _, next := range supplierOrderTransitions[oldStatus] {
+		if next == newStatus {
+			return true
+		}
+	}
+	return false
+}
+
 // UpdateMaterialOrderHandler serves `PUT /api/material-orders/{material_order}`.
 func UpdateMaterialOrderHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -459,11 +496,9 @@ func UpdateMaterialOrderHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			authorized = true
 		case isBuyer && newStatus == "cancelled" && (oldStatus == "pending" || oldStatus == "awaiting_payment"):
 			authorized = true
-		case isSupplier && newStatus == "cancelled" && (oldStatus == "pending" || oldStatus == "awaiting_payment" || oldStatus == "processing"):
-			authorized = true
-		case isSupplier && newStatus != "paid":
-			authorized = true
 		case isSupplier && newStatus == "paid" && proof != "":
+			authorized = true
+		case isSupplier && supplierOrderTransitionAllowed(oldStatus, newStatus):
 			authorized = true
 		}
 		if !authorized {
@@ -640,4 +675,94 @@ func validateOrderNotes(fields map[string]any, failures *errorBag) (string, bool
 		return text, true
 	}
 	return "", false
+}
+
+// ConfirmOrderReceiptHandler serves
+// `POST /api/material-orders/{material_order}/confirm-receipt`.
+//
+// The buyer acknowledges delivery: `delivered` → `completed`. Only the buyer
+// (order user) or the project owner may confirm; any other state is 422.
+// Idempotent: an already-`completed` order succeeds without rewriting.
+func ConfirmOrderReceiptHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		caller, ok := CallerFrom(r.Context())
+		if !ok {
+			message(w, http.StatusUnauthorized, "Unauthenticated.")
+			return
+		}
+		ctx := r.Context()
+
+		raw := r.PathValue("material_order")
+		if raw == "" {
+			raw = lastPathSegment(r.URL.Path)
+			// /confirm-receipt suffix: step one segment back.
+			if raw == "confirm-receipt" {
+				trimmed := strings.TrimSuffix(strings.Trim(r.URL.Path, "/"), "/confirm-receipt")
+				raw = lastPathSegment(trimmed)
+			}
+		}
+		orderID, err := strconv.ParseInt(raw, 10, 64)
+		if err != nil {
+			modelNotFound(w, `App\Models\MaterialOrder`, raw)
+			return
+		}
+
+		var userID, projectID *int64
+		var status string
+		if err := pool.QueryRow(ctx, `SELECT user_id, project_id, status::text FROM material_orders WHERE id = $1`, orderID).Scan(&userID, &projectID, &status); err != nil {
+			if isNoRows(err) {
+				modelNotFound(w, `App\Models\MaterialOrder`, raw)
+				return
+			}
+			slog.Error("order confirm: load", "error", err)
+			serverError(w)
+			return
+		}
+
+		viewer, err := loadViewer(ctx, pool, caller)
+		if err != nil {
+			slog.Error("order confirm: viewer", "error", err)
+			serverError(w)
+			return
+		}
+
+		allowed := false
+		if userID != nil && *userID == viewer.id {
+			allowed = true
+		}
+		if !allowed && projectID != nil {
+			var ownerID int64
+			if err := pool.QueryRow(ctx, `SELECT user_id FROM projects WHERE id = $1`, *projectID).Scan(&ownerID); err == nil && ownerID == viewer.id {
+				allowed = true
+			}
+		}
+		if !allowed && caller.IsAdmin() {
+			allowed = true
+		}
+		if !allowed {
+			message(w, http.StatusForbidden, "Unauthorized. Only the buyer or project owner can confirm receipt.")
+			return
+		}
+
+		if status == "completed" {
+			payload := jsonphp.NewObject()
+			payload.Set("message", "Receipt already confirmed.")
+			writeJSON(w, http.StatusOK, payload)
+			return
+		}
+		if status != "delivered" {
+			message(w, http.StatusUnprocessableEntity, "Only a delivered order can be confirmed. Current status: "+status+".")
+			return
+		}
+
+		if _, err := pool.Exec(ctx, `UPDATE material_orders SET status = 'completed', updated_at = date_trunc('second', now()) WHERE id = $1`, orderID); err != nil {
+			slog.Error("order confirm: update", "error", err)
+			serverError(w)
+			return
+		}
+
+		payload := jsonphp.NewObject()
+		payload.Set("message", "Receipt confirmed. Order completed.")
+		writeJSON(w, http.StatusOK, payload)
+	}
 }

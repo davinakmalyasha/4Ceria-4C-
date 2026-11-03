@@ -135,9 +135,19 @@ function BidCard({ bid }: { bid: MyBidRow }) {
             </div>
 
             {bid.status === 'invited' && (
-                <p className="mt-3 text-[10px] font-black uppercase tracking-wider text-amber-600">
-                    Response required — open the project to accept.
-                </p>
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-amber-600">
+                        Response required — open the project to accept.
+                    </p>
+                    {projectId ? (
+                        <Link
+                            href={`/projects/${projectId}/interviews`}
+                            className="px-3 py-1.5 rounded-lg bg-neutral-900 text-white text-[10px] font-black uppercase tracking-wider hover:bg-neutral-700"
+                        >
+                            Open invitation →
+                        </Link>
+                    ) : null}
+                </div>
             )}
         </article>
     );

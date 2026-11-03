@@ -22,14 +22,22 @@ RUN GOEXPERIMENT=nojsonv2 CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o /
 
 FROM alpine:3.21
 
-RUN apk add --no-cache ca-certificates tzdata
+RUN apk add --no-cache ca-certificates tzdata wget && \
+    adduser -D -H -u 10001 app
 
 WORKDIR /app
 
 COPY --from=build /out/gateway /app/gateway
 COPY routing/routes.yaml /app/routing/routes.yaml
 
+RUN chown -R app:app /app
+
 ENV TZ=UTC
 EXPOSE 8080
+
+USER app
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD wget -qO- http://127.0.0.1:8080/healthz || exit 1
 
 ENTRYPOINT ["/app/gateway", "--addr=:8080"]

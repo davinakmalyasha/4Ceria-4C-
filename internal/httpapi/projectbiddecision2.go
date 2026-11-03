@@ -179,7 +179,7 @@ func acceptShowAfterWrite(ctx context.Context, pool *pgxpool.Pool, spec projectL
 		return nil, err
 	}
 
-	return projectResource(ctx, pool, fields, values, viewer, spec, map[int64]*clientHistory{})
+	return projectResource(ctx, pool, fields, values, viewer, spec, map[int64]*clientHistory{}, nil)
 }
 
 // acceptHireRole runs the per-role hire branch inside the accept transaction.
@@ -652,7 +652,7 @@ func DeclineBidHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		rows, err := tx.Query(ctx, `SELECT * FROM bids WHERE project_id = $1 AND role::text = $2 AND (id = $3 OR legacy_id = $3) AND status::text IN ('pending','shortlisted') ORDER BY CASE WHEN legacy_id = $3 THEN 0 ELSE 1 END LIMIT 1`,
+		rows, err := tx.Query(ctx, `SELECT `+bidsColumns+` FROM bids WHERE project_id = $1 AND role::text = $2 AND (id = $3 OR legacy_id = $3) AND status::text IN ('pending','shortlisted') ORDER BY CASE WHEN legacy_id = $3 THEN 0 ELSE 1 END LIMIT 1`,
 			projectID, bidType, bidID)
 		if err != nil {
 			slog.Error("decline-bid: lookup", "error", err)

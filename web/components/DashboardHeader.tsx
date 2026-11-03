@@ -8,6 +8,7 @@ import { HeaderDropdown } from '@/components/header/HeaderDropdown';
 import { getNavItems, type NavItem } from '@/components/header/nav';
 import { resolveAsset } from '@/lib/assetUrl';
 import { useAuth } from '@/context/AuthContext';
+import { CoverImage } from '@/components/CoverImage';
 
 /**
  * The dashboard header — a port of `DashboardHeader.tsx`.
@@ -16,7 +17,7 @@ import { useAuth } from '@/context/AuthContext';
  * ------------
  * `react-router-dom`'s `Link` and `useNavigate` are gone; the two links are
  * `next/link` and the tab callbacks are the shell's. `useUnreadCounts()` is
- * kept for the Inbox badge, and it works unchanged because its `axios` call now
+ * kept for the Inbox badge, and it works unchanged because its `fetch` call
  * goes through the BFF (`app/api/[...path]`) with the session cookie.
  *
  * WHAT DID NOT CHANGE
@@ -172,6 +173,7 @@ export function DashboardHeader({
                             notifications={notifications}
                             unreadCount={unreadNotifications}
                             setActiveTab={setActiveTab}
+                            isAdmin={user?.role_type === 'admin'}
                         />
 
                         <div className="relative" ref={profileRef}>
@@ -183,7 +185,7 @@ export function DashboardHeader({
                                 <div className="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center shadow-md">
                                     {user.pic ? (
                                         /* eslint-disable-next-line @next/next/no-img-element */
-                                        <img src={resolveAsset(storageBase, user.pic) ?? ''} className="w-full h-full object-cover" alt="Profile" />
+                                        <CoverImage src={resolveAsset(storageBase, user.pic) ?? ''} alt="Profile" className="h-full" />
                                     ) : (
                                         <div className="w-full h-full bg-linear-to-tr from-[#FF2D20] to-[#FF2D20]/90 flex items-center justify-center text-white font-black text-xs shadow-red-200">
                                             {user.name?.charAt(0).toUpperCase()}
@@ -200,7 +202,7 @@ export function DashboardHeader({
                                         <div className="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center shadow-md shrink-0">
                                             {user.pic ? (
                                                 /* eslint-disable-next-line @next/next/no-img-element */
-                                                <img src={resolveAsset(storageBase, user.pic) ?? ''} className="w-full h-full object-cover" alt="Profile" />
+                                                <CoverImage src={resolveAsset(storageBase, user.pic) ?? ''} alt="Profile" className="h-full" />
                                             ) : (
                                                 <div className="w-full h-full bg-linear-to-tr from-[#FF2D20] to-[#FF2D20]/90 flex items-center justify-center text-white font-black text-xs shadow-red-200">
                                                     {user.name?.charAt(0).toUpperCase()}

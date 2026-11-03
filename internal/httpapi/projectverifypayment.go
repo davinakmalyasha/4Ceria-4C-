@@ -176,6 +176,10 @@ func VerifyPaymentHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			written, available, err := recordPaymentMinor(ctx, tx, projectID, amountMinor,
 				"Paid Architect Base Fee (Verified by Professional)", `App\Models\BidArsitek`, legacyID, registryID, viewer.id, viewer.role)
 			if err != nil {
+				if fe, ok := asFrozen(err); ok {
+					message(w, http.StatusUnprocessableEntity, fe.Error())
+					return
+				}
 				slog.Error("verify-payment: ledger", "error", err)
 				serverError(w)
 				return
@@ -252,7 +256,7 @@ func VerifyPaymentHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		entry, err := projectResource(ctx, pool, fields, values, viewer, projectLoad{budgetSummary: true}, nil)
+		entry, err := projectResource(ctx, pool, fields, values, viewer, projectLoad{budgetSummary: true}, nil, nil)
 		if err != nil {
 			slog.Error("verify-payment: render", "error", err)
 			serverError(w)

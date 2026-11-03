@@ -84,9 +84,9 @@ func StoreProjectHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			failures.add("budget", "The budget field is required.")
 		} else if text, ok := numericTextOf(raw); !ok || !isNumericText(text) {
 			failures.add("budget", "The budget field must be a number.")
-		} else if parsed, err := strconv.ParseFloat(text, 64); err != nil {
+		} else if minor, ok := numericMinor(strings.TrimSpace(text)); !ok {
 			failures.add("budget", "The budget field must be a number.")
-		} else if parsed < 0 {
+		} else if minor < 0 {
 			failures.add("budget", "The budget field must be at least 0.")
 		} else {
 			budget = text
@@ -329,8 +329,9 @@ func StoreProjectHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		// Opening budget row: the escrow ceiling's baseline.
-		budgetFloat, _ := strconv.ParseFloat(budget, 64)
-		if budgetFloat > 0 {
+		// Exact minor-unit gate (no floats): a zero budget writes no row.
+		budgetMinor, _ := numericMinor(strings.TrimSpace(budget))
+		if budgetMinor > 0 {
 			if _, err := tx.Exec(ctx, `INSERT INTO project_budget_transactions
 				(project_id, transaction_type, amount, title, transaction_date, actor_user_id, actor_role, created_at, updated_at)
 				VALUES ($1, 'deposit', $2::numeric, 'Opening project budget', date_trunc('second', now()), $3, $4,
@@ -409,7 +410,7 @@ func StoreProjectHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 		entry, err := projectResource(ctx, pool, fieldsRow, valuesRow, viewer,
-			projectLoad{images: true}, nil)
+			projectLoad{images: true}, nil, nil)
 		if err != nil {
 			slog.Error("project store: resource", "error", err)
 			serverError(w)

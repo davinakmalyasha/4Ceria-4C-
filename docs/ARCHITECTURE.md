@@ -9,12 +9,12 @@ Browser
 Next.js 16 (web/, standalone build)      ── server components / route handlers
    │  API_ORIGIN
    ▼
-Go gateway (cmd/gateway)                 ── routing/routes.yaml, all 296 endpoints
+Go gateway (cmd/gateway)                 ── routing/routes.yaml, all 312 endpoints
    │
-   ├── PostgreSQL 17   application data, ledger, mirror of identity
-   ├── MySQL 9.6       identity: users, personal_access_tokens, role tables (ADR-0018)
-   ├── Tigris (S3)     public uploads + private contracts / KYC / evidence
-   ├── Resend          password-reset mail
+   ├── PostgreSQL 17   all data + auth (users, tokens, roles, ledger)
+   ├── MySQL 9.6       one-time legacy seed only (db/mysql + cmd/etl)
+   ├── Local disk      public uploads + private contracts / KYC / evidence
+   ├── Resend          password-reset mail (log driver when key empty)
    └── Nominatim       geocoding (proxied and re-encoded)
 ```
 
@@ -29,10 +29,9 @@ API origin a deploy-time value rather than a build-time one.
    handler answers a deliberate 501 stub — the route table is the contract,
    and `TestEveryRouteIsRegistered` fails the build if the two disagree.
 2. Middleware order is: recover → security headers → rate limit →
-   auth (Sanctum token, read from MySQL) → admin gate → freeze gate.
-3. Handlers write PostgreSQL directly. Identity handlers write MySQL and then
-   re-sync the touched row into PostgreSQL before serialising, so a response
-   never shows the old mirror.
+   auth (Sanctum token, read from PostgreSQL) → admin gate → freeze gate.
+3. Handlers write PostgreSQL directly, including identity. MySQL is only the
+   one-time seed source via `cmd/etl`.
 4. Unmatched `/api/*` paths answer a JSON 404. Anything else is not the
    gateway's business.
 
@@ -40,14 +39,13 @@ API origin a deploy-time value rather than a build-time one.
 
 | Store | Tables | Why |
 |---|---|---|
-| MySQL | `users`, `personal_access_tokens`, Spatie role tables | A session minted by either stack must work on both during the transition (ADR-0018). |
-| PostgreSQL | everything else | The rewrite's schema: native enums, one `bids` table with a role discriminator, integer money. |
-| Both | the identity rows, mirrored | The ETL copies MySQL → PostgreSQL; identity writes re-sync the touched row. |
+| PostgreSQL | everything, including `users`, `personal_access_tokens`, roles | Local/portfolio runtime is all-PostgreSQL (ADR-0018 superseded for local). |
+| MySQL | frozen legacy seed only | `db/mysql/` + `cmd/etl` seed PostgreSQL once; not needed at runtime. |
 
-`cmd/etl` is the bridge: it reads each MySQL table, writes PostgreSQL with the
+`cmd/etl` is the one-time seeder: it reads each MySQL table, writes PostgreSQL with the
 same values, and verifies row-count equality. `db/mysql/schema.sql` and
-`db/mysql/demo.sql` are the frozen legacy schema and a demo dataset, used to
-build a local MySQL and by CI.
+`db/mysql/demo.sql` are the frozen legacy schema and a demo dataset, used once
+to seed a local PostgreSQL. Runtime needs only PostgreSQL.
 
 ## Storage
 
@@ -65,14 +63,13 @@ Uploads are server-named; the client filename is never used as a path.
 deployment would look like.
 
 - **API** — the `Dockerfile` (Go binary) on a container host. Environment:
-  `DATABASE_URL`, `MYSQL_DSN`, `APP_KEY`, `APP_URL`, `PUBLIC_STORAGE_ROOT`,
-  `EVIDENCE_DIR`, `RESEND_API_KEY`, `VAPID_PUBLIC_KEY`, `GEOCODING_ORIGIN`.
+  `DATABASE_URL`, `APP_KEY`, `APP_URL`, `PUBLIC_STORAGE_ROOT`,
+  `EVIDENCE_DIR`, `RESEND_API_KEY`, `VAPID_PUBLIC_KEY`, `GEOCODING_ORIGIN` (no `MYSQL_DSN` at runtime).
 - **Frontend** — `web/` on Vercel. `API_ORIGIN` is read at runtime; the build
   output is `standalone`.
 - **PostgreSQL** — migrations are applied in filename order before the new
-  binary is promoted. They are forward-only and idempotent where possible.
-- **MySQL** — identity only. The schema is frozen; a new environment restores
-  `db/mysql/schema.sql`.
+  binary is promoted. They are forward-only and idempotent where possible. Auth included.
+- **MySQL** — one-time seed only (`db/mysql/schema.sql` + ETL); not a runtime dependency.
 
 ## CI
 

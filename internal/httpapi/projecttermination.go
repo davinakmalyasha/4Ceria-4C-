@@ -54,7 +54,7 @@ func terminationRoleFor(raw string) (terminationRole, bool) {
 // terminationBid marks the live bid and returns its profile id, or nil.
 func terminationBid(ctx context.Context, tx pgx.Tx, projectID int64,
 	role terminationRole, status string) (*int64, error) {
-	rows, err := tx.Query(ctx, `SELECT * FROM bids WHERE project_id = $1 AND role::text = $2
+	rows, err := tx.Query(ctx, `SELECT `+bidsColumns+` FROM bids WHERE project_id = $1 AND role::text = $2
 		AND status::text IN ('accepted','awaiting_payment','contract_pending','active')
 		ORDER BY created_at DESC, id DESC LIMIT 1`, projectID, role.termin)
 	if err != nil {

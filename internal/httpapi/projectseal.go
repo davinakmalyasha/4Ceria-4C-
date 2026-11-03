@@ -190,7 +190,7 @@ func SealDesignHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		entry, err := projectResource(ctx, pool, fields, values, viewer, fullSealLoad(), nil)
+		entry, err := projectResource(ctx, pool, fields, values, viewer, fullSealLoad(), nil, nil)
 		if err != nil {
 			slog.Error("seal-design: render", "error", err)
 			serverError(w)
