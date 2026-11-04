@@ -26,10 +26,11 @@ export default async function DashboardTabPage({
         price_max?: string;
         bedrooms?: string;
         sort?: string;
+        page?: string;
     }>;
 }) {
     const { tab } = await params;
-    const { error, section, q, category, type, conversation, firm, city, price_min, price_max, bedrooms, sort } =
+    const { error, section, q, category, type, conversation, firm, city, price_min, price_max, bedrooms, sort, page } =
         await searchParams;
 
     if (!isDashboardTab(tab)) {
@@ -51,6 +52,7 @@ export default async function DashboardTabPage({
             price_max={price_max}
             bedrooms={bedrooms}
             sort={sort}
+            page={page}
         />
     );
 }

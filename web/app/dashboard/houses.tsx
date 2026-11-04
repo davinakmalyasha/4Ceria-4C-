@@ -67,8 +67,30 @@ export interface HouseFilters {
     sort?: string;
 }
 
-export function HousesPanel({ houses, filters }: { houses: HouseRow[]; filters?: HouseFilters }) {
+export function HousesPanel({
+    houses,
+    filters,
+    pageMeta,
+}: {
+    houses: HouseRow[];
+    filters?: HouseFilters;
+    pageMeta?: { total: number; current_page: number; last_page: number } | null;
+}) {
     const active = filters ?? {};
+    const total = pageMeta?.total ?? houses.length;
+    const currentPage = pageMeta?.current_page ?? 1;
+    const lastPage = pageMeta?.last_page ?? 1;
+    const pageHref = (target: number) => {
+        const params = new URLSearchParams();
+        if (active.q) params.set('q', active.q);
+        if (active.city) params.set('city', active.city);
+        if (active.price_min) params.set('price_min', active.price_min);
+        if (active.price_max) params.set('price_max', active.price_max);
+        if (active.bedrooms) params.set('bedrooms', active.bedrooms);
+        if (active.sort) params.set('sort', active.sort);
+        params.set('page', String(target));
+        return `/dashboard/houses?${params.toString()}`;
+    };
     return (
         <div data-native-panel="houses" className="space-y-6">
             <div className="flex flex-wrap items-end justify-between gap-4">
@@ -80,7 +102,7 @@ export function HousesPanel({ houses, filters }: { houses: HouseRow[]; filters?:
                 </div>
                 <div className="flex items-center gap-3">
                     <span className="text-[10px] font-black uppercase tracking-wider text-neutral-400">
-                        {houses.length} listed
+                        {total} listed
                     </span>
                     <Link
                         href="/dashboard/my-houses"
@@ -159,11 +181,44 @@ export function HousesPanel({ houses, filters }: { houses: HouseRow[]; filters?:
                     No properties match these filters. Try widening the price range or clearing the search.
                 </div>
             ) : (
-                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                    {houses.map((house) => (
-                        <HouseCard key={house.id} house={house} />
-                    ))}
-                </div>
+                <>
+                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                        {houses.map((house) => (
+                            <HouseCard key={house.id} house={house} />
+                        ))}
+                    </div>
+                    {lastPage > 1 && (
+                        <nav className="flex items-center justify-between gap-3 pt-1" aria-label="Houses pages">
+                            {currentPage > 1 ? (
+                                <Link
+                                    href={pageHref(currentPage - 1)}
+                                    className="px-4 py-2 rounded-xl border border-neutral-200 bg-white text-[10px] font-black uppercase tracking-wider text-neutral-600 hover:text-neutral-900"
+                                >
+                                    ← Newer page
+                                </Link>
+                            ) : (
+                                <span className="px-4 py-2 text-[10px] font-black uppercase tracking-wider text-neutral-300">
+                                    ← Newer page
+                                </span>
+                            )}
+                            <span className="text-[10px] font-black uppercase tracking-wider text-neutral-400">
+                                Page {currentPage} of {lastPage}
+                            </span>
+                            {currentPage < lastPage ? (
+                                <Link
+                                    href={pageHref(currentPage + 1)}
+                                    className="px-4 py-2 rounded-xl border border-neutral-200 bg-white text-[10px] font-black uppercase tracking-wider text-neutral-600 hover:text-neutral-900"
+                                >
+                                    Older page →
+                                </Link>
+                            ) : (
+                                <span className="px-4 py-2 text-[10px] font-black uppercase tracking-wider text-neutral-300">
+                                    Older page →
+                                </span>
+                            )}
+                        </nav>
+                    )}
+                </>
             )}
         </div>
     );

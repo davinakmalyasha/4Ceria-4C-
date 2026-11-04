@@ -76,6 +76,7 @@ export async function DashboardView({
     price_max,
     bedrooms,
     sort,
+    page,
 }: {
     activeTab: string;
     error?: string;
@@ -90,6 +91,7 @@ export async function DashboardView({
     price_max?: string;
     bedrooms?: string;
     sort?: string;
+    page?: string;
 }) {
     /**
      * THE TABS A SIGNED-OUT VISITOR MAY READ.
@@ -141,6 +143,7 @@ export async function DashboardView({
     let myBids: unknown[] = [];
     let hiredProfessionals: unknown[] = [];
     let collection: unknown[] = [];
+    let collectionMeta: { total: number; current_page: number; last_page: number } | null = null;
     /** Specialist roles see the firm-invitation banner on the overview. */
     let invitations: unknown[] = [];
     /** Explore fetches ONLY the section named by the URL. */
@@ -248,25 +251,61 @@ export async function DashboardView({
 
         if (collectionUrl) {
             try {
-                // Houses carry the listing filters into the API call, so the
-                // filter form narrows server-side (search/city/price/bedrooms/
-                // sort) instead of filtering the first page in the browser.
-                let url = collectionUrl;
-                if (activeTab === 'houses' || activeTab === 'my-houses') {
-                    const params = new URLSearchParams();
-                    if (q) params.set('search', q);
-                    if (city) params.set('city', city);
-                    if (price_min) params.set('price_min', price_min);
-                    if (price_max) params.set('price_max', price_max);
-                    if (bedrooms) params.set('bedrooms', bedrooms);
-                    if (sort) params.set('sort', sort);
-                    const query = params.toString();
-                    if (query) url += `?${query}`;
+                if (activeTab === 'my-houses') {
+                    // `?mine=` is dead server-side (anonymous caller, parity
+                    // with the oracle which answers everybody's rows), so
+                    // aggregate every public page here and let MyHousesPanel
+                    // client-filter by viewerId — the same rows, just all of
+                    // them. The 20-page cap bounds this at 240 listings;
+                    // no-store because the panel renders a per-viewer slice.
+                    const mine: unknown[] = [];
+                    for (let wanted = 1; wanted <= 20; wanted++) {
+                        const minePage = await apiFetch<{
+                            data: unknown[];
+                            meta?: { last_page?: number };
+                        }>(`/houses?mine=true&page=${wanted}`);
+                        mine.push(...(minePage.data ?? []));
+                        if (
+                            wanted >= (minePage.meta?.last_page ?? 1) ||
+                            (minePage.data ?? []).length === 0
+                        ) {
+                            break;
+                        }
+                    }
+                    collection = mine;
+                } else {
+                    // Houses carry the listing filters into the API call, so the
+                    // filter form narrows server-side (search/city/price/bedrooms/
+                    // sort) instead of filtering the first page in the browser.
+                    let url = collectionUrl;
+                    if (activeTab === 'houses') {
+                        const params = new URLSearchParams();
+                        if (q) params.set('search', q);
+                        if (city) params.set('city', city);
+                        if (price_min) params.set('price_min', price_min);
+                        if (price_max) params.set('price_max', price_max);
+                        if (bedrooms) params.set('bedrooms', bedrooms);
+                        if (sort) params.set('sort', sort);
+                        const wanted = Math.max(1, Number.parseInt(page ?? '1', 10) || 1);
+                        params.set('page', String(wanted));
+                        const query = params.toString();
+                        if (query) url += `${url.includes('?') ? '&' : '?'}${query}`;
+                    }
+                    // Public directories change slowly; a 60s cache keeps Explore
+                    // cheap. Authenticated money/user reads below stay no-store.
+                    const response = await apiFetch<{
+                        data: unknown[];
+                        meta?: { total?: number; current_page?: number; last_page?: number };
+                    }>(url, {}, 60);
+                    collection = response.data ?? [];
+                    if (response.meta && typeof response.meta.total === 'number') {
+                        collectionMeta = {
+                            total: response.meta.total,
+                            current_page: response.meta.current_page ?? 1,
+                            last_page: response.meta.last_page ?? 1,
+                        };
+                    }
                 }
-                // Public directories change slowly; a 60s cache keeps Explore
-                // cheap. Authenticated money/user reads below stay no-store.
-                const response = await apiFetch<{ data: unknown[] }>(url, {}, 60);
-                collection = response.data ?? [];
             } catch {
                 // A directory that cannot be fetched renders empty, exactly as
                 // the legacy hook leaves it after a failed lazy load.
@@ -628,6 +667,7 @@ export async function DashboardView({
             <HousesPanel
                 houses={collection as HouseRow[]}
                 filters={{ q, city, price_min, price_max, bedrooms, sort }}
+                pageMeta={collectionMeta}
             />
         );
     } else if (activeTab === 'my-houses') {
