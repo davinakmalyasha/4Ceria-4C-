@@ -6,6 +6,7 @@ import { DashboardHeader } from '@/components/DashboardHeader';
 import { VerificationAlert } from '@/components/header/VerificationAlert';
 import { useAuth } from '@/context/AuthContext';
 import { ChatLauncher } from './ChatLauncher';
+import { AiLauncher } from '@/components/ai/AiLauncher';
 import type { ConversationRow } from './chat';
 import type { NotificationRow } from '@/components/header/NotificationsDropdown';
 
@@ -139,6 +140,9 @@ export function DashboardShell({
                 activeTab={activeTab}
                 storageBase={storageBase}
             />
+
+            {/* Ceria, the AI assistant: compact chat on every tab but its own. */}
+            <AiLauncher activeTab={activeTab} viewerId={user?.id ?? 0} />
 
             {/* The shell keeps the tab's modals unmounted until they are used;
                 these two carry state the tabs own. */}

@@ -25,7 +25,7 @@ are in `db/mysql/`.
 # API
 go run ./cmd/gateway --addr=:8099
 go build ./cmd/gateway
-GOEXPERIMENT=nojsonv2 go test ./...          # the wire contract assumes Go 1.27 JSON v1
+go test ./...          # default toolchain: GO ADK v2 needs JSON v2 enabled (see trap 1)
 
 # Frontend
 cd web && npm ci && npm run dev              # Next on :3000
@@ -45,9 +45,15 @@ node tools/db/verify-postgres-baseline.mjs   # from-scratch schema vs. live MySQ
 
 ## Critical traps
 
-1. **`GOEXPERIMENT=nojsonv2`.** Go 1.27 ships `encoding/json/v2`, whose output
-   may differ. The API's contract is byte-for-byte PHP-compatible JSON; run
-   tests and builds with the experiment disabled.
+1. **Default toolchain (JSON v2 enabled).** Go 1.27 ships `encoding/json/v2`.
+   The API's contract is byte-for-byte PHP-compatible JSON, but every
+   response goes through the hand-rolled `internal/jsonphp` encoder (which
+   only uses `encoding/json` for `json.Valid`), so the experiment does not
+   touch the wire bytes — the golden suite (`perfect_test.go` et al.) passes
+   byte-identical with the default toolchain and is the proof. The default
+   is REQUIRED since the AI assistant landed: GO ADK v2's transitive deps
+   import `encoding/json/jsontext`, which does not compile with
+   `GOEXPERIMENT=nojsonv2`. Do not re-pin it; see `docs/AI-ASSISTANT.md`.
 2. **Money is integer minor units.** Never use floats for money. The escrow
    arithmetic lives in `internal/domain/money` and `internal/domain/escrow` —
    do not re-derive it in a handler.
@@ -90,7 +96,7 @@ node tools/db/verify-postgres-baseline.mjs   # from-scratch schema vs. live MySQ
 - Full verification gate after structural changes:
   1. `gofmt -l ./cmd ./internal` (empty)
   2. `go vet ./...`
-  3. `GOEXPERIMENT=nojsonv2 go test ./...`
+  3. `go test ./...`
   4. `cd web && npx tsc --noEmit`
   5. `cd web && npm run build`
   6. `node tools/db/verify-postgres-baseline.mjs` (from-scratch PostgreSQL)

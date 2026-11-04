@@ -44,6 +44,8 @@ import {
 import { InventoryPanel, type InventoryMaterial } from './inventory';
 import { StorePanel, type StorePayload } from './store';
 import { ConsultationsPanel, type ConsultationRow } from './consultations';
+import { AssistantPanel } from './assistant';
+import type { AiMessage, AiSession } from '@/components/ai/AiChat';
 import { PostProjectForm } from './postProject';
 import {
     LogisticsOverviewPanel,
@@ -77,6 +79,7 @@ export async function DashboardView({
     bedrooms,
     sort,
     page,
+    session,
 }: {
     activeTab: string;
     error?: string;
@@ -92,6 +95,7 @@ export async function DashboardView({
     bedrooms?: string;
     sort?: string;
     page?: string;
+    session?: string;
 }) {
     /**
      * THE TABS A SIGNED-OUT VISITOR MAY READ.
@@ -193,6 +197,12 @@ export async function DashboardView({
     let logisticsStats: LogisticsStats = {};
     let logisticsJobs: LogisticsRecentJob[] = [];
     let logisticsError: string | undefined;
+    /** AI assistant: status, session list and (when `?session=` names one) its thread. */
+    let aiEnabled = false;
+    let aiSessions: AiSession[] = [];
+    let aiMessages: AiMessage[] = [];
+    let aiActiveId: string | null = null;
+    let aiError: string | undefined;
 
     // THE COLLECTION THIS TAB NEEDS, fetched HERE rather than after mount.
     const collectionForTab: Record<string, string> = {
@@ -624,6 +634,39 @@ export async function DashboardView({
                 consultationsError = consultationFailure.message;
             }
         }
+
+        if (activeTab === 'assistant') {
+            try {
+                const status = await apiFetch<{ enabled?: boolean }>('/ai/status');
+                aiEnabled = status.enabled ?? false;
+            } catch {
+                // An unreadable status renders the panel as unconfigured.
+            }
+            try {
+                const list = await apiFetch<{ data: AiSession[] }>('/ai/sessions');
+                aiSessions = list.data ?? [];
+                if (session) {
+                    try {
+                        const thread = await apiFetch<{ messages?: AiMessage[] }>(
+                            `/ai/sessions/${encodeURIComponent(session)}`,
+                        );
+                        aiActiveId = session;
+                        aiMessages = thread.messages ?? [];
+                    } catch (threadError) {
+                        if (
+                            threadError instanceof ApiFailure &&
+                            (threadError.status === 403 || threadError.status === 404)
+                        ) {
+                            aiError = 'That conversation is not available for this account.';
+                        } else {
+                            throw threadError;
+                        }
+                    }
+                }
+            } catch {
+                // The assistant renders its empty states if the list fails.
+            }
+        }
     } catch (error) {
         if (error instanceof ApiFailure && error.status === 401) {
             redirect('/login');
@@ -772,6 +815,16 @@ export async function DashboardView({
                 consultations={consultations}
                 role={user.role_type}
                 error={consultationsError ?? error}
+            />
+        );
+    } else if (activeTab === 'assistant') {
+        nativeTab = (
+            <AssistantPanel
+                enabled={aiEnabled}
+                sessions={aiSessions}
+                activeSessionId={aiActiveId}
+                messages={aiMessages}
+                error={aiError ?? error}
             />
         );
     } else if (activeTab === 'explore') {

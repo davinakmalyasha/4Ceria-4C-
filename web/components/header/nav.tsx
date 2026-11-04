@@ -12,6 +12,7 @@ import {
     Search,
     ShieldCheck,
     ShoppingBag,
+    Sparkles,
     Truck,
     Users,
     type LucideIcon,
@@ -33,6 +34,7 @@ export interface NavItem {
 
 const USER_NAV: NavItem[] = [
     { id: 'overview', label: 'Dashboard', icon: Home },
+    { id: 'assistant', label: 'AI Assistant', icon: Sparkles },
     { id: 'projects', label: 'My Projects', icon: FolderKanban },
     {
         id: 'properties_group',
@@ -71,6 +73,7 @@ const USER_NAV: NavItem[] = [
 const PRO_NAV = (role: string): NavItem[] => {
     const nav: NavItem[] = [
         { id: 'overview', label: 'Dashboard', icon: Home },
+        { id: 'assistant', label: 'AI Assistant', icon: Sparkles },
         { id: 'projects', label: 'Bidding Board', icon: Search },
         { id: 'management', label: 'My Projects', icon: CheckSquare },
         { id: 'my-bids', label: 'My Proposals', icon: FileText },
@@ -126,6 +129,7 @@ const PRO_NAV = (role: string): NavItem[] => {
 
 const SUPPLIER_NAV: NavItem[] = [
     { id: 'overview', label: 'Dashboard', icon: Home },
+    { id: 'assistant', label: 'AI Assistant', icon: Sparkles },
     { id: 'store', label: 'My Store', icon: Building },
     { id: 'inventory', label: 'Inventory', icon: Package },
     { id: 'quotes', label: 'Quotes', icon: FileText },
@@ -135,6 +139,7 @@ const SUPPLIER_NAV: NavItem[] = [
 
 const LOGISTICS_NAV: NavItem[] = [
     { id: 'overview', label: 'Dashboard', icon: Home },
+    { id: 'assistant', label: 'AI Assistant', icon: Sparkles },
     { id: 'job-radar', label: 'Job Radar', icon: Search },
     { id: 'my-deliveries', label: 'Deliveries', icon: Truck },
 ];
@@ -176,6 +181,7 @@ const GUEST_NAV: NavItem[] = [
 
 const ADMIN_NAV: NavItem[] = [
     { id: 'overview', label: 'Dashboard', icon: Home },
+    { id: 'assistant', label: 'AI Assistant', icon: Sparkles },
     { id: 'users', label: 'User Directory', icon: Users },
     { id: 'verifications', label: 'Verification Queue', icon: ShieldCheck },
     { id: 'properties_moderation', label: 'Properties Moderation', icon: Building2 },

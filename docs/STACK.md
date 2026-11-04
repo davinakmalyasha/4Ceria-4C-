@@ -13,9 +13,11 @@
 
 ## Rules
 
-- **The wire contract is PHP-compatible JSON.** Go 1.27 ships
-  `encoding/json/v2`, whose output may differ. Every test and build runs with
-  `GOEXPERIMENT=nojsonv2`.
+- **The wire contract is PHP-compatible JSON.** Every response goes through
+  the hand-rolled `internal/jsonphp` encoder, so Go 1.27's `encoding/json/v2`
+  does not touch the wire bytes; the golden suite proves it byte-identical
+  under the default toolchain (which GO ADK v2 requires — see trap 1 in
+  `AGENTS.md`).
 - **Money is integer minor units.** No float ever holds an amount.
 - **Enums are append-only.** A new MySQL enum value is appended; a PostgreSQL
   enum type must carry the same values in the same order.

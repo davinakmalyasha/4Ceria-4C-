@@ -93,9 +93,9 @@ if (process.platform === 'win32') {
     }
 }
 
-step('go vet', 'go', ['vet', './...'], { env: { GOEXPERIMENT: 'nojsonv2' } });
+step('go vet', 'go', ['vet', './...']);
 
-if (!step('go test', 'go', ['test', './...'], { env: { GOEXPERIMENT: 'nojsonv2' } })) {
+if (!step('go test', 'go', ['test', './...'])) {
     // `go test` already reported why.
 }
 
@@ -122,15 +122,10 @@ if (withDb) {
         'PostgreSQL baseline (from scratch, vs. live MySQL)',
         'node',
         [join(ROOT, 'tools', 'db', 'verify-postgres-baseline.mjs')],
-        { env: { GOEXPERIMENT: 'nojsonv2' } },
     );
 
-    step('ETL load', 'go', ['run', './cmd/etl', '-all', '-truncate'], {
-        env: { GOEXPERIMENT: 'nojsonv2' },
-    });
-    step('ETL row-count equality', 'go', ['run', './cmd/etl', '-all', '-verify'], {
-        env: { GOEXPERIMENT: 'nojsonv2' },
-    });
+    step('ETL load', 'go', ['run', './cmd/etl', '-all', '-truncate'], {});
+    step('ETL row-count equality', 'go', ['run', './cmd/etl', '-all', '-verify'], {});
 } else {
     process.stdout.write(
         '\n==> databases\n    skipped: pass --db to run the PostgreSQL baseline and the ETL checks\n',

@@ -11,7 +11,7 @@
 'meta':
   'generated_at': '2026-10-23T01:05:59+00:00'
   'laravel_commit': '4b610b7'
-  'api_route_count': 312
+  'api_route_count': 320
   'public_route_count': 20
   'admin_route_count': 18
 'routes':
@@ -286,6 +286,120 @@
         - 'auth:sanctum'
         - 'freeze_pending_termination'
         - 'admin'
+  - 'id': 'get.api.ai.status'
+    'methods':
+      - 'GET'
+    'uri': 'api/ai/status'
+    'auth': 'authenticated'
+    'throttle': null
+    'tier': 1
+    'upstream': 'go'
+    'laravel':
+      'action': 'App\Http\Controllers\Api\AiChatController@status'
+      'middleware':
+        - 'api'
+        - 'auth:sanctum'
+        - 'freeze_pending_termination'
+  - 'id': 'get.api.ai.sessions'
+    'methods':
+      - 'GET'
+    'uri': 'api/ai/sessions'
+    'auth': 'authenticated'
+    'throttle': null
+    'tier': 1
+    'upstream': 'go'
+    'laravel':
+      'action': 'App\Http\Controllers\Api\AiChatController@sessions'
+      'middleware':
+        - 'api'
+        - 'auth:sanctum'
+        - 'freeze_pending_termination'
+  - 'id': 'post.api.ai.sessions'
+    'methods':
+      - 'POST'
+    'uri': 'api/ai/sessions'
+    'auth': 'authenticated'
+    'throttle': null
+    'tier': 1
+    'upstream': 'go'
+    'laravel':
+      'action': 'App\Http\Controllers\Api\AiChatController@storeSession'
+      'middleware':
+        - 'api'
+        - 'auth:sanctum'
+        - 'freeze_pending_termination'
+  - 'id': 'get.api.ai.sessions.session'
+    'methods':
+      - 'GET'
+    'uri': 'api/ai/sessions/{session}'
+    'auth': 'authenticated'
+    'throttle': null
+    'tier': 1
+    'upstream': 'go'
+    'laravel':
+      'action': 'App\Http\Controllers\Api\AiChatController@showSession'
+      'middleware':
+        - 'api'
+        - 'auth:sanctum'
+        - 'freeze_pending_termination'
+  - 'id': 'put.api.ai.sessions.session'
+    'methods':
+      - 'PUT'
+    'uri': 'api/ai/sessions/{session}'
+    'auth': 'authenticated'
+    'throttle': null
+    'tier': 1
+    'upstream': 'go'
+    'laravel':
+      'action': 'App\Http\Controllers\Api\AiChatController@renameSession'
+      'middleware':
+        - 'api'
+        - 'auth:sanctum'
+        - 'freeze_pending_termination'
+  - 'id': 'delete.api.ai.sessions.session'
+    'methods':
+      - 'DELETE'
+    'uri': 'api/ai/sessions/{session}'
+    'auth': 'authenticated'
+    'throttle': null
+    'tier': 1
+    'upstream': 'go'
+    'laravel':
+      'action': 'App\Http\Controllers\Api\AiChatController@destroySession'
+      'middleware':
+        - 'api'
+        - 'auth:sanctum'
+        - 'freeze_pending_termination'
+  - 'id': 'post.api.ai.chat'
+    'methods':
+      - 'POST'
+    'uri': 'api/ai/chat'
+    'auth': 'authenticated'
+    'throttle': '30,1'
+    'tier': 1
+    'upstream': 'go'
+    'laravel':
+      'action': 'App\Http\Controllers\Api\AiChatController@chat'
+      'middleware':
+        - 'api'
+        - 'auth:sanctum'
+        - 'freeze_pending_termination'
+        - 'throttle:30,1'
+  - 'id': 'post.api.ai.chat.stream'
+    'methods':
+      - 'POST'
+    'uri': 'api/ai/chat/stream'
+    'auth': 'authenticated'
+    'throttle': '30,1'
+    'tier': 1
+    'upstream': 'go'
+    'laravel':
+      'action': 'App\Http\Controllers\Api\AiChatController@stream'
+      'middleware':
+        - 'api'
+        - 'auth:sanctum'
+        - 'freeze_pending_termination'
+        - 'throttle:30,1'
   - 'id': 'get.api.arsitek'
     'methods':
       - 'GET'
