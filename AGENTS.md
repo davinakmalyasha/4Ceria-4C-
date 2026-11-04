@@ -75,6 +75,13 @@ node tools/db/verify-postgres-baseline.mjs   # from-scratch schema vs. live MySQ
    check; the gateway no longer needs it at runtime.
 10. **Unmatched `/api/*` paths answer JSON 404**, never the Next.js HTML. The
     router's catch-all enforces that.
+11. **Absolute seed URLs pass through asset builders untouched.** Laravel's
+    `asset()` returns an absolute URL as-is; prefixing it with `/storage/`
+    produces a URL next/image answers 400 to (seen live on hire-history
+    avatars). New photo/cover/avatar code follows `firmAssetURL` /
+    `isExternalURL`: external in, external out. Working-tree CRLF is a
+    Windows checkout artefact — the blobs are LF, so `gofmt -w` a flagged
+    file and the committed diff stays minimal.
 
 ## Working rules for agents
 

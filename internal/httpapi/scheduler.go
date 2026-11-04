@@ -22,7 +22,7 @@ import (
 // picked up on the next run.
 
 const (
-	schedLockRetention   = int64(4101)
+	schedLockRetention    = int64(4101)
 	schedLockAutoComplete = int64(4102)
 	schedLockSnagEscalate = int64(4103)
 	schedLockPrune        = int64(4104)

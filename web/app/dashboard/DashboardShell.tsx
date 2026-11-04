@@ -70,8 +70,26 @@ export function DashboardShell({
     const [projectToDelete, setProjectToDelete] = useState<unknown>(null);
     const [chatUserId, setChatUserId] = useState<number | null>(null);
 
+    /**
+     * Admin nav ids are portal pages, not dashboard tabs.
+     */
+    const ADMIN_ROUTES: Record<string, string> = {
+        users: '/admin',
+        verifications: '/admin/verification',
+        properties_moderation: '/admin/houses',
+        projects_moderation: '/admin/projects',
+    };
+
     const setActiveTab = (tab: string) => {
         setSidebarOpen(false);
+        // The admin screens live under /admin/*, not /dashboard/*. Routing an
+        // admin nav id into /dashboard/<id> 404s (isDashboardTab rejects it),
+        // so admin ids jump straight to their portal page.
+        const adminRoute = ADMIN_ROUTES[tab];
+        if (adminRoute) {
+            router.push(adminRoute);
+            return;
+        }
         router.push(tab === 'overview' ? '/dashboard' : `/dashboard/${tab}`);
     };
 

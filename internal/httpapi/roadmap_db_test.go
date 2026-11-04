@@ -18,9 +18,9 @@ type roadmapCaller struct {
 	admin bool
 }
 
-func (c roadmapCaller) UserID() int64   { return c.id }
+func (c roadmapCaller) UserID() int64    { return c.id }
 func (c roadmapCaller) RoleType() string { return c.role }
-func (c roadmapCaller) IsAdmin() bool   { return c.admin }
+func (c roadmapCaller) IsAdmin() bool    { return c.admin }
 
 func roadmapPool(t *testing.T) *pgxpool.Pool {
 	t.Helper()

@@ -70,8 +70,8 @@ func presignedS3Get(ctx context.Context, key string, ttl time.Duration) (string,
 		region = "auto"
 	}
 	client := s3.NewFromConfig(aws.Config{
-		Region:      region,
-		Credentials: credentials.NewStaticCredentialsProvider(os.Getenv("S3_ACCESS_KEY"), os.Getenv("S3_SECRET_KEY"), ""),
+		Region:       region,
+		Credentials:  credentials.NewStaticCredentialsProvider(os.Getenv("S3_ACCESS_KEY"), os.Getenv("S3_SECRET_KEY"), ""),
 		BaseEndpoint: &endpoint,
 	})
 	presigner := s3.NewPresignClient(client)
@@ -98,8 +98,8 @@ func presignedS3Put(ctx context.Context, key, contentType string, ttl time.Durat
 		region = "auto"
 	}
 	client := s3.NewFromConfig(aws.Config{
-		Region:      region,
-		Credentials: credentials.NewStaticCredentialsProvider(os.Getenv("S3_ACCESS_KEY"), os.Getenv("S3_SECRET_KEY"), ""),
+		Region:       region,
+		Credentials:  credentials.NewStaticCredentialsProvider(os.Getenv("S3_ACCESS_KEY"), os.Getenv("S3_SECRET_KEY"), ""),
 		BaseEndpoint: &endpoint,
 	})
 	presigner := s3.NewPresignClient(client)

@@ -117,7 +117,7 @@ func bidRows(ctx context.Context, pool *pgxpool.Pool, projectID int64, role stri
 		return nil, nil
 	}
 
-	query := `SELECT `+bidsColumns+` FROM bids WHERE project_id = $1 AND role::text = $2`
+	query := `SELECT ` + bidsColumns + ` FROM bids WHERE project_id = $1 AND role::text = $2`
 	args := []any{projectID, role}
 	if profileID != nil {
 		query += ` AND ` + column + ` = $3`

@@ -35,16 +35,16 @@ type negLogBatch struct {
 
 // listBundle carries one page's prefetched relations.
 type listBundle struct {
-	counts       map[int64]map[string]int64
-	viewerBids   map[int64]map[string][]map[string]any
-	bidsBatched  bool
-	batchRoles   []string
-	bySpelling   map[string]int64
-	negLogs      *negLogBatch
-	hasBid       map[int64]bool
-	subPros      map[int64][]any
-	subBatched   bool
-	subActive    map[int64]bool
+	counts      map[int64]map[string]int64
+	viewerBids  map[int64]map[string][]map[string]any
+	bidsBatched bool
+	batchRoles  []string
+	bySpelling  map[string]int64
+	negLogs     *negLogBatch
+	hasBid      map[int64]bool
+	subPros     map[int64][]any
+	subBatched  bool
+	subActive   map[int64]bool
 	ownerNames  map[int64]string
 	ownerFound  map[int64]bool
 	ownerPhones map[int64]*string
@@ -345,14 +345,14 @@ func subProfessionalUserFromMaps(userID int64, users map[int64]map[string]any, p
 // returns nil so the caller falls back to the per-row path byte-for-byte.
 func buildListBundle(ctx context.Context, pool *pgxpool.Pool, projectIDs []int64, ownerIDs []int64, viewer *projectViewer, spec projectLoad) *listBundle {
 	b := &listBundle{
-		counts:     map[int64]map[string]int64{},
-		viewerBids: map[int64]map[string][]map[string]any{},
-		bySpelling: map[string]int64{},
-		hasBid:     map[int64]bool{},
-		subPros:    map[int64][]any{},
-		subActive:  map[int64]bool{},
-		ownerNames: map[int64]string{},
-		ownerFound: map[int64]bool{},
+		counts:      map[int64]map[string]int64{},
+		viewerBids:  map[int64]map[string][]map[string]any{},
+		bySpelling:  map[string]int64{},
+		hasBid:      map[int64]bool{},
+		subPros:     map[int64][]any{},
+		subActive:   map[int64]bool{},
+		ownerNames:  map[int64]string{},
+		ownerFound:  map[int64]bool{},
 		ownerPhones: map[int64]*string{},
 	}
 
@@ -555,6 +555,7 @@ func projectOwnerBlockFromMaps(ownerID int64, canViewPhone, withPhones bool, bun
 	owner.Set("phone", phone)
 	return owner
 }
+
 // bidNegotiationLogsBundled serves one bid's negotiation logs from a
 // prefetched batch when it covers the role; otherwise it queries per-row
 // exactly like bidNegotiationLogs.
@@ -690,11 +691,11 @@ func loadBidderBatch(ctx context.Context, pool *pgxpool.Pool, needs []bidderNeed
 	}
 	ratings := map[ratingKey][2]any{}
 	ratingTables := map[string][2]string{
-		"arsiteks":         {"arsitek_ratings", "arsitek_id"},
-		"kontraktors":      {"kontraktor_ratings", "kontraktor_id"},
-		"notaris_profiles": {"notaris_ratings", "notaris_id"},
+		"arsiteks":          {"arsitek_ratings", "arsitek_id"},
+		"kontraktors":       {"kontraktor_ratings", "kontraktor_id"},
+		"notaris_profiles":  {"notaris_ratings", "notaris_id"},
 		"interior_profiles": {"interior_ratings", "interior_id"},
-		"project_managers": {"p_m_ratings", "pm_id"},
+		"project_managers":  {"p_m_ratings", "pm_id"},
 	}
 	byRatingTable := map[string][]int64{}
 	byRatingFK := map[string]string{}
