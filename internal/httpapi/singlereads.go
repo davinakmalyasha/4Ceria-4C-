@@ -576,10 +576,18 @@ func hireEntry(ctx context.Context, pool *pgxpool.Pool, role hireRole,
 	}
 
 	var avatar any
+	// Absolute seed URLs (unsplash, CDN) pass through like Laravel's
+	// asset(); only relative disk paths resolve under /storage/.
+	avatarURL := func(path string) string {
+		if isExternalURL(path) {
+			return path
+		}
+		return base + "/storage/" + strings.TrimPrefix(path, "/")
+	}
 	if foto != nil && *foto != "" {
-		avatar = base + "/storage/" + strings.TrimPrefix(*foto, "/")
+		avatar = avatarURL(*foto)
 	} else if userPic != nil && *userPic != "" {
-		avatar = base + "/storage/" + strings.TrimPrefix(*userPic, "/")
+		avatar = avatarURL(*userPic)
 	}
 
 	entry := jsonphp.NewObject()

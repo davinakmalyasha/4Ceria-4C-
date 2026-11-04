@@ -52,6 +52,10 @@ func assetBase() string {
 }
 
 func assetStorage(path string) string {
+	// Absolute seed URLs pass through like Laravel's asset().
+	if isExternalURL(path) {
+		return path
+	}
 	return assetBase() + "/storage/" + strings.TrimPrefix(path, "/")
 }
 

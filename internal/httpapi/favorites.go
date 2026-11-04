@@ -127,7 +127,7 @@ func favoriteHouseCards(ctx context.Context, pool *pgxpool.Pool, ids []int64) ([
 		_ = pool.QueryRow(ctx, `SELECT dir FROM house_pic WHERE id_house = $1 ORDER BY id LIMIT 1`, id).Scan(&cover)
 		var image any
 		if cover != nil && *cover != "" {
-			image = assetBaseOf(ctx) + "/storage/" + *cover
+			image = firmAssetURL(ctx, *cover)
 		}
 		var price any
 		if priceText != nil {
@@ -194,7 +194,7 @@ func favoriteProfileCards(ctx context.Context, pool *pgxpool.Pool, kind string, 
 
 		var image any
 		if foto != nil && *foto != "" {
-			image = assetBaseOf(ctx) + "/storage/" + *foto
+			image = firmAssetURL(ctx, *foto)
 		}
 		cards = append(cards, favoriteCard(id, kind, title, subtitle, image, nil))
 	}
@@ -222,7 +222,7 @@ func favoriteMaterialCards(ctx context.Context, pool *pgxpool.Pool, ids []int64)
 		}
 		var image any
 		if imagePath != nil && *imagePath != "" {
-			image = assetBaseOf(ctx) + "/storage/" + *imagePath
+			image = firmAssetURL(ctx, *imagePath)
 		}
 		var price any
 		if priceText != nil {
