@@ -378,7 +378,7 @@ func stockNotesSet(fields map[string]any) bool {
 	return present && raw == nil
 }
 
-// stockLess compares two decimal texts as floats, the way the oracle's
+// stockLess compares two decimal texts as floats, the way the reference's
 // loose comparison does.
 func stockLess(onSite *string, quantity string) bool {
 	if onSite == nil {
@@ -397,7 +397,7 @@ func stockLess(onSite *string, quantity string) bool {
 
 // historyCreateResponse renders a fresh history row in create order:
 // the fillable keys as assigned, then updated_at, created_at, id, and
-// the actor. A re-read emits table order instead — and the oracle
+// the actor. A re-read emits table order instead — and the reference
 // answers create order on every one of these 200s.
 func historyCreateResponse(ctx context.Context, pool *pgxpool.Pool, row historyRow) (*jsonphp.Object, error) {
 	byName := row.byName

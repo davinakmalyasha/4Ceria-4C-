@@ -9,7 +9,7 @@ import (
 
 // TestListBundleMatchesPerRow renders the same projects through the
 // per-row path and the batched list path and requires byte-identical JSON.
-// Any divergence is a parity break, not an optimization.
+// Any divergence is a contract break, not an optimization.
 func TestListBundleMatchesPerRow(t *testing.T) {
 	pool := testPool(t)
 	defer pool.Close()
@@ -166,7 +166,7 @@ func TestBatchHelpersAgainstSingleRow(t *testing.T) {
 		t.Skip("no seeded project")
 	}
 
-	// Ephemeral negotiation logs on a real bid (legacy ids name the
+	// Ephemeral negotiation logs on a real bid (previous ids name the
 	// thread: use the row exactly as the list path loads it).
 	allBids, err := bidRows(ctx, pool, 14976, "arsitek", nil)
 	if err != nil || len(allBids) == 0 {

@@ -11,9 +11,8 @@ import (
 
 // PG ADMIN IDENTITY — all-PostgreSQL local mode.
 //
-// Mirrors AdminSuspendUserHandler / AdminUpdateUserRoleHandler without MySQL
-// and without re-sync: PostgreSQL is the owner store, so the write and the
-// read see the same row in one pool.
+// PostgreSQL is the owner store, so the write and the read see the same row
+// in one pool.
 
 // AdminSuspendUserPGHandler serves `PATCH /api/admin/users/{user}/suspend` on PG.
 func AdminSuspendUserPGHandler(pool *pgxpool.Pool) http.HandlerFunc {
@@ -107,23 +106,36 @@ func AdminUpdateUserRolePGHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			modelNotFound(w, `App\Models\User`, rawID)
 			return
 		}
+		tx, err := pool.Begin(ctx)
+		if err != nil {
+			slog.Error("admin role-pg: begin", "error", err)
+			serverError(w)
+			return
+		}
+		defer tx.Rollback(ctx)
+
 		var roleID int64
-		if err := pool.QueryRow(ctx, `SELECT id FROM roles WHERE name = $1 AND guard_name = 'web' LIMIT 1`, roleType).Scan(&roleID); err != nil {
-			if err := pool.QueryRow(ctx, `INSERT INTO roles (name, guard_name, created_at, updated_at) VALUES ($1,'web',NOW(),NOW()) RETURNING id`, roleType).Scan(&roleID); err != nil {
+		if err := tx.QueryRow(ctx, `SELECT id FROM roles WHERE name = $1 AND guard_name = 'web' LIMIT 1`, roleType).Scan(&roleID); err != nil {
+			if err := tx.QueryRow(ctx, `INSERT INTO roles (name, guard_name, created_at, updated_at) VALUES ($1,'web',NOW(),NOW()) RETURNING id`, roleType).Scan(&roleID); err != nil {
 				slog.Error("admin role-pg: create role", "error", err)
 				serverError(w)
 				return
 			}
 		}
-		if _, err := pool.Exec(ctx, `DELETE FROM model_has_roles WHERE model_type = $1 AND model_id = $2`, `App\Models\User`, userID); err != nil {
+		if _, err := tx.Exec(ctx, `DELETE FROM model_has_roles WHERE model_type = $1 AND model_id = $2`, `App\Models\User`, userID); err != nil {
 			serverError(w)
 			return
 		}
-		if _, err := pool.Exec(ctx, `INSERT INTO model_has_roles (role_id, model_type, model_id) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING`, roleID, `App\Models\User`, userID); err != nil {
+		if _, err := tx.Exec(ctx, `INSERT INTO model_has_roles (role_id, model_type, model_id) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING`, roleID, `App\Models\User`, userID); err != nil {
 			serverError(w)
 			return
 		}
-		if _, err := pool.Exec(ctx, `UPDATE users SET role_type = $1, updated_at = NOW() WHERE id = $2`, roleType, userID); err != nil {
+		if _, err := tx.Exec(ctx, `UPDATE users SET role_type = $1, updated_at = NOW() WHERE id = $2`, roleType, userID); err != nil {
+			serverError(w)
+			return
+		}
+		if err := tx.Commit(ctx); err != nil {
+			slog.Error("admin role-pg: commit", "error", err)
 			serverError(w)
 			return
 		}

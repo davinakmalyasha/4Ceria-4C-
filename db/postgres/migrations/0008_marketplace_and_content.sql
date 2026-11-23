@@ -13,7 +13,7 @@
 -- 'house.name', 'materials.name', 'suppliers.store_name' and the other
 -- human-facing text columns are searched with a LIKE '%term%'. Under MySQL
 -- that LIKE was case-insensitive AND accent-insensitive; under PostgreSQL
--- it is neither. The decision (ADR-0008):
+-- it is neither. The decision (the collation decision):
 --
 --   * the QUERY must fold the case explicitly - lower(col) LIKE lower(?)
 --     - and the index below is built on the same expression, so the index
@@ -226,7 +226,7 @@ CREATE TABLE phone_user (
 -- --------------------------------------------------------------------------
 -- favorites  (legacy table: `favorites`)
 -- A favourite. 'favoritable_type' is a polymorphic model name - the same
--- class of defect ADR-0013 retired in the ledger - but it is a display
+-- class of defect the reference registry retired in the ledger - but it is a display
 -- concern, not a money one, and it has two live values. It is left as
 -- text here and listed in docs/POSTGRES-SCHEMA.md as a deliberate
 -- carry-over.

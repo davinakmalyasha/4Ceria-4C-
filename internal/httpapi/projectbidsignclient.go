@@ -276,7 +276,7 @@ func ClientSignContractHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		// getBidderName touches the profile relation (and its user), so
-		// the wire bid carries it — the one key beyond the legacy columns.
+		// the wire bid carries it — the one key beyond the previous columns.
 		bidObject := rawBidObject(bidType, refreshed.fields, refreshed.values)
 		if key, table, profile, ok := bidRelationKey(bidType, bid); ok {
 			block, err := fullProfileBlock(ctx, pool, table, profile, true, true, false)

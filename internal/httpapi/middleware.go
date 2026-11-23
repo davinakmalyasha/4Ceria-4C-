@@ -14,7 +14,7 @@ import (
 
 // THE GATES
 // ---------
-// The legacy route table carries four gates, and the Go router has to carry
+// The previous route table carries four gates, and the Go router has to carry
 // the same four or the new stack protects something differently than the old
 // one:
 //
@@ -28,7 +28,7 @@ import (
 // port, and it is why the gateway reports itself as not ready.
 //
 // A gate that is declared but not enforced is a gate the new stack does not
-// have, and a gateway that answers 200 on a route the legacy app rate
+// have, and a gateway that answers 200 on a route the previous app rate
 // limits is worse than one that answers 501: the 501 says "not written
 // yet", and the 200 says "protected" when it is not.
 
@@ -48,7 +48,7 @@ type Caller interface {
 
 // Authenticator resolves the caller from a request.
 //
-// The legacy application uses Sanctum bearer tokens: the token is the
+// The original application uses Sanctum bearer tokens: the token is the
 // `id|<40 hex>` form, the row lives in `personal_access_tokens`, and the
 // lookup is by the SHA-256 of the token.
 type Authenticator interface {
@@ -66,7 +66,7 @@ type RateLimiter interface {
 
 // ProjectFreezer answers whether a project is frozen.
 //
-// The legacy middleware `FreezeWorkspaceIfTerminationPending` blocks every
+// The previous middleware `FreezeWorkspaceIfTerminationPending` blocks every
 // POST, PUT, PATCH and DELETE on a project whose status is
 // `termination_pending`, with a 422 and a fixed Indonesian message.
 type ProjectFreezer interface {
@@ -169,6 +169,19 @@ func (s *statusRecorder) WriteHeader(status int) {
 	s.ResponseWriter.WriteHeader(status)
 }
 
+// Flush lets an SSE handler stream through the request logger. Without this
+// method the `http.Flusher` assertion fails and the whole stream is buffered.
+func (s *statusRecorder) Flush() {
+	if flusher, ok := s.ResponseWriter.(http.Flusher); ok {
+		flusher.Flush()
+	}
+}
+
+// Unwrap keeps `http.ResponseController` working through the recorder.
+func (s *statusRecorder) Unwrap() http.ResponseWriter {
+	return s.ResponseWriter
+}
+
 // callerKey is the context key the resolved caller is stored under.
 type callerKey struct{}
 
@@ -183,17 +196,80 @@ func withCaller(ctx context.Context, caller Caller) context.Context {
 	return context.WithValue(ctx, callerKey{}, caller)
 }
 
+// withSecurityHeaders is the browser-side baseline for every response,
+// including the JSON 404 catch-all and uploaded bytes.
+func withSecurityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("X-Frame-Options", "DENY")
+		w.Header().Set("Referrer-Policy", "no-referrer")
+
+		if forwardedProto(r) == "https" {
+			w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+// withRequestLimits bounds the bytes a request can make the process buffer.
+//
+// JSON is small by design (2 MB); a multipart upload is allowed up to 80 MB,
+// which is the largest attachment cap any handler declares. A content length
+// that already exceeds the cap is refused before a single byte is read.
+func withRequestLimits(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		limit := int64(2 << 20)
+
+		if strings.HasPrefix(strings.ToLower(r.Header.Get("Content-Type")), "multipart/form-data") {
+			limit = 80 << 20
+		}
+
+		if r.ContentLength > limit {
+			message(w, http.StatusRequestEntityTooLarge, "The request body is too large.")
+			return
+		}
+
+		r.Body = http.MaxBytesReader(w, r.Body, limit)
+		next.ServeHTTP(w, r)
+	})
+}
+
+// withOptionalCaller resolves a bearer token without requiring one.
+//
+// Public endpoints still need to know who is asking: `GET /api/houses?mine=1`
+// and the public directories personalize their rows for a signed-in caller.
+// A missing or invalid token stays anonymous here; `requireAuth` is what
+// rejects it on a protected route.
+func withOptionalCaller(gates Gates, next http.Handler) http.Handler {
+	if gates.Auth == nil {
+		return next
+	}
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "" {
+			if caller, err := gates.Auth.Authenticate(r); err == nil && caller != nil {
+				r = r.WithContext(withCaller(r.Context(), caller))
+			}
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
 // requireAuth is the `auth` gate.
 //
-// The legacy middleware is `auth:sanctum`, which answers 401 with
+// The previous middleware is `auth:sanctum`, which answers 401 with
 // `{"message":"Unauthenticated."}` when there is no usable token.
 func (g Gates) requireAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if _, ok := CallerFrom(r.Context()); ok {
+			next.ServeHTTP(w, r)
+			return
+		}
+
 		if g.Auth == nil {
-			// The gate is declared but not enforced. Saying so is the
-			// difference between a port in progress and a hole.
-			message(w, http.StatusNotImplemented,
-				"This endpoint is not implemented yet: the authentication gate is declared but not enforced.")
+			message(w, http.StatusNotImplemented, "Authentication is not configured.")
 			return
 		}
 
@@ -214,7 +290,7 @@ func (g Gates) requireAuth(next http.Handler) http.Handler {
 
 // requireAdmin is the `admin` gate.
 //
-// The legacy middleware is `AdminMiddleware`, which answers 403 with
+// The previous middleware is `AdminMiddleware`, which answers 403 with
 // `{"message":"Unauthorized access."}`.
 func (g Gates) requireAdmin(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -239,7 +315,7 @@ func (g Gates) requireAdmin(next http.Handler) http.Handler {
 
 // requireFreeze is the `freeze_termination` gate.
 //
-// The legacy middleware blocks every mutation on a project that is awaiting
+// The previous middleware blocks every mutation on a project that is awaiting
 // a termination, with a 422 and a fixed message. It is a READ gate on the
 // project, and it only applies to the mutating verbs.
 func (g Gates) requireFreeze(next http.Handler) http.Handler {
@@ -274,12 +350,12 @@ func (g Gates) requireFreeze(next http.Handler) http.Handler {
 
 // requireRate is the `rate:N/m` gate.
 //
-// The legacy routes declare `throttle:5,1` on the login, the register and
+// The previous routes declare `throttle:5,1` on the login, the register and
 // the two password resets, `throttle:10,1` on the conversation endpoints and
 // the admin CSV export, and `throttle:30,1` on the geocode proxies and the
 // message endpoint.
 //
-// The legacy limiter is keyed by the bearer token's hash, or by the client
+// The previous limiter is keyed by the bearer token's hash, or by the client
 // IP for an anonymous caller, and the api group carries a second, coarser
 // limit of 60 per minute per IP.
 func (g Gates) requireRate(limit int, window time.Duration) func(http.Handler) http.Handler {
@@ -302,8 +378,8 @@ func (g Gates) requireRate(limit int, window time.Duration) func(http.Handler) h
 
 			// The remaining count, for observability. The shadow comparator
 			// only checks status, content-type and body, so these headers do
-			// not affect parity — but a client that cannot see its budget
-			// cannot back off, and Laravel emits them.
+			// not affect contract — but a client that cannot see its budget
+			// cannot back off, and the original API emits them.
 			if remaining, ok := g.Limiter.(interface {
 				Remaining(*http.Request, int, time.Duration) int
 			}); ok {
@@ -318,7 +394,7 @@ func (g Gates) requireRate(limit int, window time.Duration) func(http.Handler) h
 
 // isMutation reports whether a method changes something.
 //
-// The legacy freeze middleware only blocks the mutating verbs.
+// The previous freeze middleware only blocks the mutating verbs.
 func isMutation(method string) bool {
 	switch method {
 	case http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete:
@@ -330,7 +406,7 @@ func isMutation(method string) bool {
 
 // rateLimit parses a rate limit spec — `10,1` — into its limit and window.
 //
-// The spec is Laravel's: the maximum number of attempts, and the decay
+// The spec is the original API's: the maximum number of attempts, and the decay
 // window in minutes.
 func rateLimit(spec string) (int, time.Duration, bool) {
 	parts := strings.Split(spec, ",")

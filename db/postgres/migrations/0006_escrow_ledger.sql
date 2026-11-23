@@ -10,7 +10,7 @@
 --
 -- THREE THINGS CHANGE HERE, and each one closes a defect that cost money.
 --
--- 1. THE REFERENCE BECOMES A REGISTRY KEY (ADR-0013)
+-- 1. THE REFERENCE BECOMES A REGISTRY KEY (the reference registry)
 --    `reference_model` was a VARCHAR holding an Eloquent class name. The
 --    live database held the same Rp 5 500 000 payment written twice, under
 --    two spellings of the same model:
@@ -23,7 +23,7 @@
 --    as the same movement, and the escrow is understated by exactly
 --    Rp 5 500 000. A `smallint` cannot be spelled two ways.
 --
--- 2. THE INVARIANT MOVES INTO THE DATABASE (ADR-0020)
+-- 2. THE INVARIANT MOVES INTO THE DATABASE (the database ledger design)
 --    `AGENTS.md` trap 12 says "never write a ledger row directly" — and it
 --    was a CONVENTION. It is now a PRIVILEGE: the application role cannot
 --    INSERT, UPDATE or DELETE a ledger row at all. It calls
@@ -177,10 +177,10 @@ CREATE UNIQUE INDEX budget_tx_reference_unique
 COMMENT ON TABLE project_budget_transactions IS
     'The escrow ledger. One row per movement of money against a project''s '
     'escrow. Written ONLY through escrow.record_movement(): the application '
-    'role has no INSERT, UPDATE or DELETE privilege on this table (ADR-0020).';
+    'role has no INSERT, UPDATE or DELETE privilege on this table (the database ledger design).';
 
 COMMENT ON COLUMN project_budget_transactions.reference_type_id IS
-    'The registry key naming what this row is about (ADR-0013). It replaces '
+    'The registry key naming what this row is about (the reference registry). It replaces '
     'the polymorphic reference_model VARCHAR, whose two spellings of the same '
     'model understated a live escrow by Rp 5 500 000.';
 
@@ -347,7 +347,7 @@ BEGIN
         END IF;
     END IF;
 
-    -- 6. The available balance AFTER the movement. The ADR-0020 sketch
+    -- 6. The available balance AFTER the movement. The the database ledger design sketch
     --    returned the figure computed BEFORE the insert, which is the
     --    available balance the caller had before it moved the money; a
     --    caller that trusted it would have believed the escrow was unchanged.

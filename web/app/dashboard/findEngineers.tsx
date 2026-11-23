@@ -5,7 +5,7 @@ import type { DirectoryRow } from './explore';
 /**
  * Native "Find Engineers" panel.
  *
- * The legacy tab stacked the structural and MEP directories in one screen. Both
+ * The previous tab stacked the structural and MEP directories in one screen. Both
  * are fetched on the server (`/structural-engineers`, `/mep-engineers`) and
  * rendered here; each card links to the fuller directory route, which is already
  * a native panel.

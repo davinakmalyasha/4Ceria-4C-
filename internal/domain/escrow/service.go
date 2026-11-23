@@ -17,7 +17,7 @@ import (
 // The production adapter calls that function in ONE round trip. Reimplementing
 // the write path in Go would put a second writer in the system, which is
 // exactly what the SECURITY DEFINER function and its revoked INSERT privilege
-// exist to prevent (ADR-0020).
+// exist to prevent (the database ledger design).
 type Store interface {
 	// RecordMovement calls escrow.record_movement() and reports what it did.
 	// `Written=false` is an IDEMPOTENT SUCCESS, never an error.
@@ -77,7 +77,7 @@ func WithCurrency(currency string) Option {
 	return func(s *Service) { s.currency = currency }
 }
 
-// WithLogger sets where a fee that could not be recorded is reported.
+// WithLogger sets where a fee that could not be recorded is reimplemented.
 func WithLogger(logger *slog.Logger) Option {
 	return func(s *Service) { s.logger = logger }
 }
@@ -115,7 +115,7 @@ func (s *Service) Record(ctx context.Context, movement Movement) (Result, error)
 	// The freeze applies to every disbursement except a refund: a refund IS
 	// the arbitration outcome inside an open dispute, so blocking it would
 	// deadlock resolution. RecordPayment keeps its own explicit check for
-	// the legacy message path; this covers any future direct Record caller.
+	// the previous message path; this covers any future direct Record caller.
 	if s.freeze != nil && movement.Type.IsDisbursement() && movement.Type != TxRefund {
 		if err := s.freeze.AssertNoOpenDispute(ctx, movement.ProjectID); err != nil {
 			return Result{}, err
@@ -170,7 +170,7 @@ func (s *Service) RecordPayment(ctx context.Context, movement Movement) (Result,
 
 	fee, feeResult, err := s.recordFee(ctx, movement)
 	if err != nil {
-		// The payment stands. Reported so the shortfall is visible rather than
+		// The payment stands. Reimplemented so the shortfall is visible rather than
 		// silent — a fee nobody can see is a fee nobody can reconcile.
 		s.logger.WarnContext(ctx, "the platform fee was not recorded",
 			"project_id", movement.ProjectID,

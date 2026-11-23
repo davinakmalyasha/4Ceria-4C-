@@ -120,7 +120,7 @@ func TestNormalisesTheCurrencyCode(t *testing.T) {
 }
 
 func TestAddsAndSubtractsExactlyAtMagnitudesThatOverflowAFloat(t *testing.T) {
-	// 2^53 is the last integer a float64 represents exactly. The legacy code
+	// 2^53 is the last integer a float64 represents exactly. The previous code
 	// used PHP floats, so this is the magnitude where it started losing sen.
 	const big = int64(1) << 53
 
@@ -601,7 +601,7 @@ func TestMultiplyByRoundsHalfAwayFromZero(t *testing.T) {
 
 func TestRefusesAnAmountThatOverflowsRatherThanCorruptingIt(t *testing.T) {
 	// The differential corpus caught this: at 2^53 minor units the float64
-	// product loses its low bits, and the legacy PHP implementation turns the
+	// product loses its low bits, and the previous PHP implementation turns the
 	// integer overflow into a float and then CRASHES in `intdiv(float, int)`.
 	//
 	// A crash is bad. A wrong number is worse. So the Go port refuses.

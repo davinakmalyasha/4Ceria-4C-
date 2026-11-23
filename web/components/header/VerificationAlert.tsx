@@ -2,12 +2,12 @@ import { AlertTriangle, ArrowRight, Clock, ShieldAlert } from 'lucide-react';
 import type { User } from '@/context/AuthContext';
 
 /**
- * The verification banner — a native port of the synced `VerificationAlert`.
+ * The verification banner — a native version of the `VerificationAlert`.
  *
  * The rule is unchanged: only a professional account with a profile shows it,
  * `pending` with NO uploaded documents displays as unverified, and a verified
  * account never sees it. The CTA now lands on the native Verification screen
- * (the legacy one pushed the profile tab).
+ * (the previous one pushed the profile tab).
  */
 
 const CONTRACTOR_ROLES = ['civil', 'mechanical', 'electrical', 'plumbing', 'roofing', 'finishing'];

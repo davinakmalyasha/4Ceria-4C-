@@ -29,8 +29,8 @@ import (
 //     Counts stay public via the per-role COUNTs.
 //   - `budget_summary` renders on the show route only; the list omits it
 //     rather than fabricating it (2026-09-29).
-//   - bids read from the unified `bids` table by role (ADR-0014); the wire
-//     id is the legacy id for migrated rows.
+//   - bids read from the unified `bids` table by role (the unified bids design); the wire
+//     id is the previous id for migrated rows.
 //
 // Timestamps are Carbon (`2006-01-02T15:04:05.000000Z`), decimals stay
 // strings, floats stay floats — the casts on the model decide, and the
@@ -615,8 +615,11 @@ func canAccessProject(ctx context.Context, pool *pgxpool.Pool, viewer *projectVi
 				}
 
 				var exists bool
-				if err := pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM bids WHERE project_id = $1 AND role::text = $2 AND `+mapping.column+` = $3)`,
-					projectID, viewer.role, own).Scan(&exists); err != nil {
+				if err := pool.QueryRow(ctx, `SELECT EXISTS (
+					SELECT 1 FROM bids
+					 WHERE project_id = $1 AND role::text = $2 AND `+mapping.column+` = $3
+					   AND status::text NOT IN ('rejected','declined','terminated','resigned')
+				)`, projectID, viewer.role, own).Scan(&exists); err != nil {
 					return false, err
 				}
 				if exists {
@@ -627,8 +630,11 @@ func canAccessProject(ctx context.Context, pool *pgxpool.Pool, viewer *projectVi
 	}
 
 	var member bool
-	if err := pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM project_sub_professionals WHERE project_id = $1 AND user_id = $2)`,
-		projectID, viewer.id).Scan(&member); err != nil {
+	if err := pool.QueryRow(ctx, `SELECT EXISTS (
+		SELECT 1 FROM project_sub_professionals
+		 WHERE project_id = $1 AND user_id = $2
+		   AND status::text IN ('invited','interviewing','accepted','recommended','active')
+	)`, projectID, viewer.id).Scan(&member); err != nil {
 		return false, err
 	}
 

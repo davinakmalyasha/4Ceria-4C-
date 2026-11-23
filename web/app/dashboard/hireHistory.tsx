@@ -6,7 +6,7 @@ import { CoverImage } from '@/components/CoverImage';
  *
  * `GET /hire-history` returns the professionals the signed-in owner has hired,
  * each with the project title and the hire date. The dashboard already fetched
- * it on the server; this panel renders it without the legacy tab tree.
+ * it on the server; this panel renders it without the previous tab tree.
  */
 
 export interface HireRow {

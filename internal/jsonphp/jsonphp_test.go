@@ -6,7 +6,7 @@ import (
 )
 
 // The expectations below are PHP's OWN output, captured from
-// `json_encode($value)` with the default flags — the flags Laravel's
+// `json_encode($value)` with the default flags — the flags the original API's
 // `response()->json()` uses.
 //
 // The full differential over a 2 000-case corpus lives in `tools/json/` and

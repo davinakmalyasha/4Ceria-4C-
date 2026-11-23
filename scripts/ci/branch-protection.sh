@@ -19,7 +19,7 @@
 #   - One approving review.
 #   - Stale approvals are dismissed — a review of an old revision is not a
 #     review of the new one.
-#   - Linear history. The repository has 401 commits and ZERO merge commits;
+#   - Linear history. The repository uses a linear history with zero merge commits;
 #     this keeps it that way.
 #   - No force-push, no branch deletion.
 #   - Conversations must be resolved before merging.
@@ -55,7 +55,8 @@ CONTEXTS=$(cat <<'JSON'
   "Secret scan",
   "Go suites",
   "Next.js",
-  "PostgreSQL + ETL"
+  "PostgreSQL baseline, seed and DB tests",
+  "API image"
 ]
 JSON
 )

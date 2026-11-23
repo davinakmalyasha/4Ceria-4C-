@@ -42,12 +42,14 @@ export async function setSession(token: string): Promise<void> {
     store.set(SESSION_COOKIE, token, {
         httpOnly: true,
         sameSite: 'lax',
-        secure: process.env.NODE_ENV === 'production',
+        secure:
+            process.env.SESSION_COOKIE_SECURE !== undefined
+                ? process.env.SESSION_COOKIE_SECURE === 'true'
+                : process.env.NODE_ENV === 'production',
         path: '/',
-        // Sanctum's personal access tokens do not expire by default, so the
-        // cookie should not either: an arbitrary cookie lifetime would log the
-        // user out of a session that is still valid on the server.
-        maxAge: 60 * 60 * 24 * 30,
+        // The API mints tokens with a 48-hour lifetime. The cookie matches it;
+        // a longer cookie would only hold a credential the API already rejects.
+        maxAge: 60 * 60 * 48,
     });
 }
 

@@ -206,8 +206,12 @@ func UpdateProfessionalHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		email, emailOK := requireText(fields, "email", 255, failures)
 		username, usernameOK := requireText(fields, "username", 255, failures)
 
-		if emailOK && !strings.Contains(email, "@") {
+		if emailOK && !validEmail(email) {
 			failures.add("email", "The email field must be a valid email address.")
+			emailOK = false
+		}
+		if emailOK && email != strings.ToLower(email) {
+			failures.add("email", "The email field must be lowercase.")
 			emailOK = false
 		}
 
@@ -235,7 +239,7 @@ func UpdateProfessionalHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		// The role fields are validated up front, in role order, so a request
 		// carrying two roles' fields fails on the FIRST role's first error —
-		// the same order Laravel validates in.
+		// the same order the original API validates in.
 		type rolePlan struct {
 			table      string
 			nameColumn string
@@ -251,7 +255,7 @@ func UpdateProfessionalHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				[]string{"spesialisasi", "lokasi", "no_telp", "deskripsi", "pendidikan", "alasan_hire"},
 				[]string{"rate_harga", "pengalaman_tahun"}}
 		case "kontraktor", "civil", "mechanical", "electrical", "plumbing", "roofing", "finishing":
-			// Laravel merges the aliases BEFORE validating, so `lokasi` feeds
+			// the original API merges the aliases BEFORE validating, so `lokasi` feeds
 			// `alamat`, `no_telp` feeds `no_telepon`, and so on — and the
 			// VALIDATED keys are the canonical ones.
 			alias(fields, "lokasi", "alamat")
@@ -316,6 +320,27 @@ func UpdateProfessionalHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		if phoneInput, ok := fields["phone_numbers"]; ok {
 			if err := syncPhoneNumbers(ctx, pool, caller.UserID(), phoneInput); err != nil {
 				slog.Error("me.professional: phones", "error", err)
+				serverError(w)
+				return
+			}
+		}
+
+		bankName, bankNamePresent := stringField(fields, "bank_name")
+		bankNumber, bankNumberPresent := stringField(fields, "bank_account_number")
+		bankHolder, bankHolderPresent := stringField(fields, "bank_account_name")
+		if bankNamePresent || bankNumberPresent || bankHolderPresent {
+			if len([]rune(bankName)) > 255 || len([]rune(bankNumber)) > 64 || len([]rune(bankHolder)) > 255 {
+				failures.add("bank_name", "The payout details are too long.")
+				failures.write(w)
+				return
+			}
+			if _, err := pool.Exec(ctx,
+				`UPDATE users SET bank_name = NULLIF($1, ''), bank_account_number = NULLIF($2, ''),
+				                  bank_account_name = NULLIF($3, ''), updated_at = date_trunc('second', now())
+				 WHERE id = $4`,
+				bankName, bankNumber, bankHolder, caller.UserID(),
+			); err != nil {
+				slog.Error("me.professional: bank", "error", err)
 				serverError(w)
 				return
 			}

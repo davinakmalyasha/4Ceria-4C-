@@ -62,7 +62,7 @@ export const clientProjectDocs: DocArticle[] = [
                 type: 'step',
                 title: 'Professional Recruitment Flow:',
                 steps: [
-                    { stepNumber: 1, title: 'Browse Professional Directory', description: 'Go to Hire Professionals in the sidebar and select the type you need (Architect, Constructor, etc.).' },
+                    { stepNumber: 1, title: 'Browse Professional Directory', description: 'Go to Hire Professionals in the dashboard navigation and select the type you need (Architect, Constructor, etc.).' },
                     { stepNumber: 2, title: 'Review Profiles & Ratings', description: 'View rate pricing, portfolios, years of experience, specializations, and client reviews.' },
                     { stepNumber: 3, title: 'Chat Directly', description: 'Click "Chat" on their profile card to discuss project specifics in a private conversation.' },
                     { stepNumber: 4, title: 'Send a Hire Proposal', description: 'Click "Hire" to send a direct proposal with locked budget terms for their review and acceptance.' }
@@ -140,7 +140,7 @@ export const clientProjectDocs: DocArticle[] = [
         sections: [
             {
                 type: 'text',
-                body: 'Once a professional is shortlisted, the interview phase begins. In the Tendering Hub, you can chat with the professional, review their past portfolios, and negotiate the project fee.'
+                body: 'Once a professional is shortlisted, the interview phase begins. In the Bidding Board, you can chat with the professional, review their past portfolios, and negotiate the project fee.'
             },
             {
                 type: 'step',

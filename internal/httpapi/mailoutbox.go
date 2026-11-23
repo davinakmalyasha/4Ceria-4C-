@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"html"
 	"log/slog"
 	"net/http"
 	"os"
@@ -41,7 +42,14 @@ func SendQueuedMail(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger
 		html    string
 		text    string
 	}
-	rows, err := pool.Query(ctx, `SELECT id, to_email, subject, html, text_body FROM mail_outbox WHERE sent_at IS NULL ORDER BY id LIMIT 25`)
+	rows, err := pool.Query(ctx, `
+		SELECT id, to_email, subject, html, text_body
+		  FROM mail_outbox
+		 WHERE sent_at IS NULL
+		   AND attempts < 5
+		   AND (next_attempt_at IS NULL OR next_attempt_at <= now())
+		 ORDER BY id
+		 LIMIT 25`)
 	if err != nil {
 		// Table may not exist on old baselines: skip, do not fail the tick.
 		if logger != nil {
@@ -94,12 +102,18 @@ func SendQueuedMail(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger
 		req.Header.Set("Content-Type", "application/json")
 		resp, err := client.Do(req)
 		if err != nil {
-			_, _ = pool.Exec(ctx, `UPDATE mail_outbox SET error = $2 WHERE id = $1`, j.id, err.Error())
+			_, _ = pool.Exec(ctx, `UPDATE mail_outbox
+				SET error = $2, attempts = attempts + 1,
+				    next_attempt_at = now() + (interval '1 minute' * (attempts + 1))
+				WHERE id = $1`, j.id, err.Error())
 			continue
 		}
 		resp.Body.Close()
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-			_, _ = pool.Exec(ctx, `UPDATE mail_outbox SET error = $2 WHERE id = $1`, j.id, "resend status "+resp.Status)
+			_, _ = pool.Exec(ctx, `UPDATE mail_outbox
+				SET error = $2, attempts = attempts + 1,
+				    next_attempt_at = now() + (interval '1 minute' * (attempts + 1))
+				WHERE id = $1`, j.id, "resend status "+resp.Status)
 			continue
 		}
 		_, _ = pool.Exec(ctx, `UPDATE mail_outbox SET sent_at = date_trunc('second', now()), error = NULL WHERE id = $1`, j.id)
@@ -109,9 +123,9 @@ func SendQueuedMail(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger
 
 func mailHTML(title string, lines []string) string {
 	var b strings.Builder
-	b.WriteString("<p>" + title + "</p>")
+	b.WriteString("<p>" + html.EscapeString(title) + "</p>")
 	for _, l := range lines {
-		b.WriteString("<p>" + l + "</p>")
+		b.WriteString("<p>" + html.EscapeString(l) + "</p>")
 	}
 	return b.String()
 }

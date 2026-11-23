@@ -15,7 +15,7 @@ import (
 // registry). This file batches each of those into one `WHERE ... = ANY($1)`
 // query per relation. `projectList` builds a bundle and `projectResource`
 // prefers it; every other caller passes nil and keeps the per-row path
-// byte-for-byte, so the parity gate cannot tell the difference.
+// byte-for-byte, so the contract gate cannot tell the difference.
 //
 // The batch builders return empty (not nil) collections exactly where the
 // per-row path returns empty lists, and absent map keys read as such.
@@ -683,7 +683,7 @@ func loadBidderBatch(ctx context.Context, pool *pgxpool.Pool, needs []bidderNeed
 		}
 	}
 	// Ratings per mapped table (unmapped tables keep the single path's
-	// nil, nil — the port renders those as 0/null, never an error).
+	// nil, nil — this service renders those as 0/null, never an error).
 	type ratingKey struct {
 		table string
 		fk    string

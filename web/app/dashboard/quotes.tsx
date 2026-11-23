@@ -8,7 +8,7 @@ import { approveQuote, markQuotePaid, postQuoteDeliveryJob, requestQuotePayment,
  * supplier) with `supplier`, `user`, `project` and the JSON `items` array.
  * The supplier can request payment, confirm it (after the buyer's proof) and
  * approve the order; the buyer uploads the transfer receipt. Every button is a
- * server action calling the same endpoint the legacy screen used.
+ * server action calling the same endpoint the previous screen used.
  */
 
 export interface QuoteItem {

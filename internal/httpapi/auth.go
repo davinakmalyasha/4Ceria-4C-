@@ -7,7 +7,7 @@ import (
 )
 
 // ErrUnauthenticated is returned when a token is missing, malformed, unknown or
-// expired. The router turns it into the legacy 401 shape.
+// expired. The router turns it into the previous 401 shape.
 var ErrUnauthenticated = errors.New("unauthenticated")
 
 // Session is a resolved caller.

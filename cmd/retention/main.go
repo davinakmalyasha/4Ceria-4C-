@@ -1,9 +1,8 @@
 // Command retention releases expired retention balances.
 //
-// Mirrors `escrow:release-retention` from the legacy stack: warranty-expired
-// stages whose retention is still held are paid out as `retention_release`
-// ledger rows, unless a warranty claim (open/fixing) or an open dispute
-// blocks them.
+// Warranty-expired stages whose retention is still held are paid out as
+// `retention_release` ledger rows, unless a warranty claim (open/fixing) or
+// an open dispute blocks them.
 //
 // USAGE
 //
@@ -11,7 +10,7 @@
 //	go run ./cmd/retention --project=12 --dry-run
 //
 // DATABASE_URL defaults to the local baseline; the session is pinned to UTC
-// like every other Go entrypoint (AGENTS.md trap #7).
+// like every other Go entrypoint.
 package main
 
 import (

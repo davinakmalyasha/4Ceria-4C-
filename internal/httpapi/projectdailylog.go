@@ -427,7 +427,12 @@ func validateDailyLog(fields map[string]any, files map[string]*uploadedFile, fai
 		}
 	}
 
-	_ = files
+	if photo, ok := files["photos"]; ok && photo != nil {
+		if !photo.isImage || photo.size > 5<<20 {
+			failures.add("photos", "The photos field must be an image no larger than 5120 kilobytes.")
+		}
+	}
+
 	return input
 }
 

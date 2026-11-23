@@ -1,9 +1,12 @@
 package httpapi
 
 import (
+	"crypto/subtle"
 	"net/http"
+	"os"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
 )
@@ -13,11 +16,10 @@ import (
 // The router registers every route of the manifest, and reports its own
 // route table at `GET /internal/routes`.
 //
-// The route table is the point. A route that exists in Laravel and not in
-// Go is a 404 in production that no test caught, because the test called
-// the Go handler directly — so the table is compared by a gate
-// (`tools/parity/routes.mjs`) that fails the build when the manifest, the
-// Laravel route table and the Go route table disagree.
+// The route table is the point. A manifest entry without a handler is a 404 in
+// production that no unit test catches, because the test calls the handler
+// directly. The router therefore exposes its table at /internal/routes and
+// answers a deliberate 501 for a route that has no implementation.
 
 // Router is the gateway's HTTP surface.
 type Router struct {
@@ -29,31 +31,35 @@ type Router struct {
 // NewRouter builds the router.
 //
 // The manifest is read, not hard-coded, so the route table cannot drift
-// from the file the parity gate reads. A route that is in the manifest and
+// from the contract file. A route that is in the manifest and
 // not in the router is a failure, and so is the reverse.
 func NewRouter(manifest *Manifest, gates Gates) *Router {
 	router := &Router{manifest: manifest, gates: gates}
 
 	mux := http.NewServeMux()
 
-	// The route table, for the parity gate.
+	// The route table, for the contract gate.
 	mux.HandleFunc("GET /internal/routes", router.internalRoutes)
 
 	// The liveness and readiness probes.
 	mux.HandleFunc("GET /healthz", router.healthz)
 	mux.HandleFunc("GET /readyz", router.readyz)
 
+	// Uploaded bytes. Public folders are cacheable; private folders require a
+	// signed URL or a signed-in caller.
+	mux.HandleFunc("GET /storage/{path...}", router.storage)
+
 	// The API routes.
 	//
 	// They are registered on the SAME mux as the catch-all below, rather
 	// than on a nested one. A nested mux would answer an unmatched API path
 	// with Go's default `text/plain` 404, because the nested mux's own
-	// catch-all is Go's and not ours — and the legacy application answers
+	// catch-all is Go's and not ours — and the original application answers
 	// an unmatched API path with a JSON body, for the reason in the comment
 	// on the catch-all below.
 	for _, entry := range manifest.MethodURIs() {
 		// A route with a handler is served; a route without one answers the
-		// 501 stub. Every route is ported, so the stub is a bug detector, not
+		// 501 stub. Every route is implemented, so the stub is a bug detector, not
 		// a normal path.
 		if handler, ok := gates.Handlers[entry.Route.ID]; ok {
 			mux.Handle(entry.Method+" "+entry.Pattern(), router.wrap(entry, handler))
@@ -63,7 +69,7 @@ func NewRouter(manifest *Manifest, gates Gates) *Router {
 		mux.Handle(entry.Method+" "+entry.Pattern(), router.stub(entry))
 	}
 
-	// The catch-all. The legacy application answers an unmatched API path
+	// The catch-all. The original application answers an unmatched API path
 	// with a JSON 404, because a route removed or renamed on the API while
 	// an older SPA build is still live degrades silently into the SPA's
 	// HTML instead of 404ing. The SPA's own routes are not the gateway's
@@ -78,7 +84,7 @@ func NewRouter(manifest *Manifest, gates Gates) *Router {
 		message(w, http.StatusNotFound, "Not found.")
 	})
 
-	router.handler = withRequestID(mux)
+	router.handler = withRequestID(withSecurityHeaders(withRequestLimits(withOptionalCaller(gates, mux))))
 
 	return router
 }
@@ -88,9 +94,9 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	r.handler.ServeHTTP(w, req)
 }
 
-// stub returns the handler for a route that has not been ported yet.
+// stub returns the handler for a route that has not been implemented yet.
 //
-// The route EXISTS — that is what the parity gate compares — and the
+// The route EXISTS — that is what the contract gate compares — and the
 // handler says so, rather than pretending.
 //
 // A 501 is the honest status: the endpoint is registered but not written.
@@ -100,9 +106,9 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 // wrap applies the route's gates to a real handler.
 //
 // The SAME chain the stub builds, because a route's middleware is a property of
-// the ROUTE, not of whether its handler happens to be written yet. A ported
+// the ROUTE, not of whether its handler happens to be written yet. A implemented
 // handler that skipped `requireAdmin` would be authorized differently from the
-// endpoint it replaces, and the parity gate would never see it.
+// endpoint it replaces, and the contract gate would never see it.
 func (r *Router) wrap(entry MethodURI, inner http.HandlerFunc) http.Handler {
 	return r.chain(entry, inner)
 }
@@ -124,10 +130,19 @@ func (r *Router) stub(entry MethodURI) http.Handler {
 func (r *Router) chain(entry MethodURI, inner http.Handler) http.Handler {
 	var chain []func(http.Handler) http.Handler
 
+	// A coarse API-wide ceiling runs first. Every route gets one, so a public
+	// list or an upload cannot be used as an unbounded amplifier even when the
+	// manifest declares no route-specific throttle. It keys on the address
+	// because the caller is not resolved yet; the route's own limiter, when it
+	// has one, keys on the user and sets the more specific headers.
+	if r.gates.Limiter != nil {
+		chain = append(chain, r.gates.requireRate(300, time.Minute))
+	}
+
 	// THE ORDER IS FIXED, AND THAT IS THE POINT.
 	//
 	// `NormalisedMiddleware` returns a SET (a map's keys, so the order is
-	// deliberately irrelevant for the parity gate, which compares sets).
+	// deliberately irrelevant for the contract gate, which compares sets).
 	// Building a CHAIN from that order would apply the gates in whatever order
 	// Go happened to iterate — and `admin` before `auth` means the admin gate
 	// looks for a caller that has not been resolved yet, and answers 403 to an
@@ -137,7 +152,7 @@ func (r *Router) chain(entry MethodURI, inner http.Handler) http.Handler {
 	// So the order is declared here, once: identify, then authorize, then the
 	// state gate, then the rate limit.
 	names := map[string]bool{}
-	for _, name := range NormalisedMiddleware(entry.Laravel.Middleware) {
+	for _, name := range NormalisedMiddleware(entry.Gates.Middleware) {
 		names[name] = true
 	}
 
@@ -171,10 +186,22 @@ func (r *Router) chain(entry MethodURI, inner http.Handler) http.Handler {
 
 // internalRoutes reports the router's own route table.
 //
-// The shape is what `tools/parity/routes.mjs` reads, and the URI is the
-// manifest's URI — WITHOUT a leading slash — because that is the form the
-// manifest uses and the gate compares the two directly.
+// The shape mirrors the manifest: the URI is reported WITHOUT a leading slash,
+// because that is the form the file uses.
 func (r *Router) internalRoutes(w http.ResponseWriter, req *http.Request) {
+	// The route table is reconnaissance. Require the configured token, or a
+	// loopback peer when no token is configured for local development.
+	if token := os.Getenv("INTERNAL_ROUTES_TOKEN"); token != "" {
+		provided := req.Header.Get("X-Internal-Token")
+		if subtle.ConstantTimeCompare([]byte(provided), []byte(token)) != 1 {
+			message(w, http.StatusNotFound, "Not found.")
+			return
+		}
+	} else if !isLoopbackIP(remoteIP(req.RemoteAddr)) {
+		message(w, http.StatusNotFound, "Not found.")
+		return
+	}
+
 	routes := jsonphp.NewObject()
 
 	list := make([]any, 0, len(r.manifest.Routes))
@@ -185,7 +212,7 @@ func (r *Router) internalRoutes(w http.ResponseWriter, req *http.Request) {
 		entry.Set("id", route.ID)
 		entry.Set("uri", route.URI)
 		entry.Set("auth", string(route.Auth))
-		entry.Set("middleware", NormalisedMiddleware(route.Laravel.Middleware))
+		entry.Set("middleware", NormalisedMiddleware(route.Gates.Middleware))
 
 		if route.Throttle != nil {
 			entry.Set("throttle", *route.Throttle)
@@ -199,11 +226,6 @@ func (r *Router) internalRoutes(w http.ResponseWriter, req *http.Request) {
 		}
 		entry.Set("methods", methods)
 
-		// The cutover state: which stack serves this route, and whether
-		// this gateway build serves it directly. The parity gate ignores
-		// these fields (it compares the route SET), and the cutover
-		// runbook reads them.
-		entry.Set("upstream", route.Upstream)
 		_, served := r.gates.Handlers[route.ID]
 		entry.Set("served", served)
 
@@ -216,7 +238,7 @@ func (r *Router) internalRoutes(w http.ResponseWriter, req *http.Request) {
 	meta.Set("api_route_count", r.manifest.Meta.APICount)
 	meta.Set("public_route_count", r.manifest.Meta.PublicCount)
 	meta.Set("admin_route_count", r.manifest.Meta.AdminCount)
-	meta.Set("laravel_commit", r.manifest.Meta.LaravelCommit)
+	meta.Set("updated_at", r.manifest.Meta.UpdatedAt)
 	routes.Set("meta", meta)
 
 	writeJSON(w, http.StatusOK, routes)
@@ -274,7 +296,7 @@ func (r *Router) readyz(w http.ResponseWriter, req *http.Request) {
 
 // RouteIDs returns the router's route ids, sorted.
 //
-// It is the router's own list of what it serves, which is what the parity
+// It is the router's own list of what it serves, which is what the contract
 // gate compares against the manifest.
 func (r *Router) RouteIDs() []string {
 	ids := make([]string, 0, len(r.manifest.Routes))

@@ -27,10 +27,10 @@ import (
 //   - bids: only the bidding professional (the profile's user).
 //   - everything else: the assigned PM first (profile-id match, the Hire
 //     rule), then per type — termin by recipient (or the hired pro for the
-//     role on legacy recipient-less rows), addendum by specialist assignee
+//     role on previous recipient-less rows), addendum by specialist assignee
 //     or any hired pro, material by the supplier's user or the PM.
 //     The material and legacy-termin PM checks compare `projects.pm_id`
-//     against the USER id — the oracle's own spelling, kept byte for byte.
+//     against the USER id — the reference's own spelling, kept byte for byte.
 //
 // WHAT REJECT DOES
 // -----------------
@@ -45,11 +45,11 @@ import (
 // other payment uses (insufficient escrow 422s), touch the project,
 // activate the awaiting bid (termins) or the specialist assignment
 // (addendums), and notify both parties. The receipt email is the mailer's
-// job — like the release path, the port logs instead of inventing SMTP.
+// job — like the release path, this service logs instead of inventing SMTP.
 //
 // RESPONSE SHAPES
 // ---------------
-// The answer is the reloaded row: bids in legacy column order with the
+// The answer is the reloaded row: bids in previous column order with the
 // profile block, termins in table order WITHOUT the milestone key (the
 // service never eager-loads it — unlike the upload path, which does),
 // addendums and materials in table order.
@@ -153,7 +153,7 @@ func VerifyProofHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		if err := pool.QueryRow(ctx, `SELECT id, title FROM project_disputes WHERE project_id = $1 AND status::text = 'open' LIMIT 1`, projectID).Scan(&openID, &openTitle); err == nil {
+		if err := tx.QueryRow(ctx, `SELECT id, title FROM project_disputes WHERE project_id = $1 AND status::text = 'open' LIMIT 1`, projectID).Scan(&openID, &openTitle); err == nil {
 			proofError(w, http.StatusUnprocessableEntity, "Payments are frozen: dispute #"+strconv.FormatInt(openID, 10)+" (\""+openTitle+"\") is open on this project. An admin must resolve it first.")
 			return
 		}
@@ -270,7 +270,7 @@ func verifyIDFromPath(path string) string {
 // validateVerifyProof enforces `action` required|string|in:accept,reject
 // (with the custom `in` message) and `notes` nullable|string|max:1000.
 // An empty string reads as missing — `ConvertEmptyStringsToNull` runs
-// before validation on the legacy stack.
+// before validation on the previous stack.
 func validateVerifyProof(fields map[string]any, failures *errorBag) (action string, notes string, notesSet bool) {
 	raw, present := fields["action"]
 	text := ""
@@ -323,7 +323,7 @@ type verifyRow struct {
 	proofPath string
 	role      string
 	roleType  string
-	// refID is the ledger/API id: the legacy id for migrated bids, the
+	// refID is the ledger/API id: the previous id for migrated bids, the
 	// physical id otherwise.
 	refID int64
 	// physID is the physical row id for writes.
@@ -346,7 +346,7 @@ type verifyTarget struct {
 
 // lockVerifyRow resolves and locks the payment row: 400 for a bad type,
 // 404 when the row is not on this project. Bids resolve by (role,
-// legacy-or-physical id), preferring the legacy hit.
+// legacy-or-physical id), preferring the previous hit.
 func lockVerifyRow(ctx context.Context, tx pgx.Tx, pool *pgxpool.Pool, projectID int64, short, rawID string) (*verifyTarget, map[string]any, error) {
 	_ = pool
 

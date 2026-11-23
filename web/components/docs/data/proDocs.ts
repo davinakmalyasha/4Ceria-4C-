@@ -94,7 +94,7 @@ export const proDocs: DocArticle[] = [
                 type: 'step',
                 title: 'How to Submit a Bid:',
                 steps: [
-                    { stepNumber: 1, title: 'Browse the Bidding Board', description: 'Navigate to the Bidding Board tab in your sidebar. Filter projects by type (fondasi, struktur, etc.), budget range, and location.' },
+                    { stepNumber: 1, title: 'Browse the Bidding Board', description: 'Navigate to the Bidding Board tab in the dashboard navigation. Filter projects by type (fondasi, struktur, etc.), budget range, and location.' },
                     { stepNumber: 2, title: 'Review the Project Brief', description: 'Click any project to view the full brief — scope, requirements, budget cap, deadline, and required documents.' },
                     { stepNumber: 3, title: 'Prepare Your Proposal', description: 'Set your proposed price, estimated timeline (waktu pengerjaan), and add detailed notes explaining your approach.' },
                     { stepNumber: 4, title: 'Submit Your Bid', description: 'Click "Submit Bid" to send your proposal. The project owner will see it alongside other bids.' }
@@ -237,7 +237,7 @@ export const proDocs: DocArticle[] = [
                 type: 'step',
                 title: 'Setting Up Your Firm:',
                 steps: [
-                    { stepNumber: 1, title: 'Go to My Firm', description: 'Navigate to the My Firm tab in your dashboard sidebar.' },
+                    { stepNumber: 1, title: 'Go to My Firm', description: 'Navigate to the My Firm tab in the dashboard navigation.' },
                     { stepNumber: 2, title: 'Create Your Firm Profile', description: 'Enter firm name, description, services offered, and upload a logo.' },
                     { stepNumber: 3, title: 'Invite Team Members', description: 'Search for other verified professionals on the platform and send them firm invitations.' },
                     { stepNumber: 4, title: 'Manage Roster & Roles', description: 'Assign roles to members — Owner, Manager, or Member. Manage permissions and responsibilities.' }

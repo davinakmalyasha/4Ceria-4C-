@@ -30,7 +30,7 @@ import (
 //     the object must say which.
 //   - `pic` is rewritten through `asset('storage/'.$pic)`: an ABSOLUTE URL from
 //     the application's base, not the stored path. `APP_URL` names the base;
-//     it must match the Laravel application's, or every user with a picture
+//     it must match the the original API application's, or every user with a picture
 //     differs. The seed users have none, which is why the default is only the
 //     repository's own `.env` value.
 //   - Profile appends are COMPUTED, not stored: `average_rating` is the ratings
@@ -52,7 +52,7 @@ func assetBase() string {
 }
 
 func assetStorage(path string) string {
-	// Absolute seed URLs pass through like Laravel's asset().
+	// Absolute seed URLs pass through like the original API's asset().
 	if isExternalURL(path) {
 		return path
 	}

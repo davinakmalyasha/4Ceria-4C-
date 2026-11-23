@@ -1,99 +1,107 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import {
-    ArrowRight, Briefcase, FolderKanban, HardHat,
-    Paintbrush, ShieldCheck, ShoppingBag, Truck, Users, Zap,
+    ArrowRight,
+    BadgeCheck,
+    Briefcase,
+    CheckCircle2,
+    FolderKanban,
+    HardHat,
+    Layers,
+    Paintbrush,
+    ShieldCheck,
+    ShoppingBag,
+    Smartphone,
+    Truck,
+    Users,
+    Wallet,
+    Zap,
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import { LandingFaq } from '@/components/LandingFaq';
 import { sessionToken } from '@/lib/session';
 
-/**
- * The landing page — ported from the legacy SPA's landing page.
- *
- * WHAT IS IDENTICAL
- * -----------------
- * Every class string, every text node, the order of every section, the picture
- * markup, and the two marquees. The visual baseline `guest.route.root.png` was
- * captured from the legacy page and this must reproduce it.
- *
- * WHAT IS DIFFERENT, AND WHY
- * --------------------------
- *   - It is a SERVER component. The only client code on the page is the navbar
- *     (scroll + menus) and the FAQ (which answer is open).
- *   - The framer-motion wrappers are gone. They animated opacity and a 20px
- *     lift; the settled state they leave behind is the plain element, and P-6
- *     excludes animation timing from the visual contract.
- *   - The `isLoading && hasToken` splash screen is gone entirely. It existed
- *     because the SPA had to ask `/me` after the bundle loaded. Here the cookie
- *     is read on the server, so there is no unauthenticated-but-loading state
- *     to draw — a signed-in visitor is redirected before any markup is sent.
- *   - `localStorage.getItem('auth_token')` is gone: that is the point.
- *
- * The FAQ data and the workflow copy are kept verbatim, including the ones that
- * exist because the previous version invented testimonials (see the legacy
- * comment): replacing fabricated social proof with the real workflow is part of
- * the design, not part of the port.
- */
-
 const PROFESSIONAL_ROLES = [
-    { key: 'arsitek', label: 'Arsitek', icon: FolderKanban },
-    { key: 'kontraktor', label: 'Kontraktor', icon: HardHat },
-    { key: 'mep', label: 'MEP', icon: Zap },
-    { key: 'structural', label: 'Struktural', icon: ShieldCheck },
-    { key: 'interior', label: 'Interior', icon: Paintbrush },
-    { key: 'notaris', label: 'Notaris', icon: Briefcase },
-    { key: 'pm', label: 'Project Manager', icon: Users },
+    { label: 'Arsitek', icon: FolderKanban },
+    { label: 'Kontraktor', icon: HardHat },
+    { label: 'MEP', icon: Zap },
+    { label: 'Struktural', icon: ShieldCheck },
+    { label: 'Interior', icon: Paintbrush },
+    { label: 'Notaris', icon: Briefcase },
+    { label: 'Project Manager', icon: Users },
 ] as const;
 
 const SOLUTIONS = [
     {
         title: 'Project Management Hub',
-        desc: 'Kelola rencana kerja, design brief, dan progress konstruksi secara real-time.',
+        desc: 'Brief desain, milestone, dokumen, dan progres konstruksi dalam satu ruang kerja yang bisa diaudit.',
         icon: FolderKanban,
-        bg: 'bg-red-50/50',
     },
     {
         title: 'Verified Professionals',
-        desc: 'Hubungi arsitek, kontraktor, MEP engineer, dan notaris bersertifikasi resmi.',
-        icon: HardHat,
-        bg: 'bg-red-50/50',
+        desc: 'Arsitek, kontraktor, MEP, notaris, dan spesialis lain dengan profil, portofolio, dan verifikasi.',
+        icon: BadgeCheck,
     },
     {
         title: 'Material Marketplace',
-        desc: 'Beli bahan bangunan berkualitas langsung dari supplier pilihan dengan aman.',
+        desc: 'Bandingkan supplier, ajukan penawaran, dan lacak pesanan material sampai diterima di lokasi.',
         icon: ShoppingBag,
-        bg: 'bg-red-50/50',
     },
     {
         title: 'Smart Logistics',
-        desc: 'Layanan kurir dengan Job Radar terintegrasi untuk pengiriman barang cepat.',
+        desc: 'Job Radar menghubungkan pengiriman material dengan kurir di sekitar lokasi proyek.',
         icon: Truck,
-        bg: 'bg-red-50/50',
     },
 ] as const;
 
 const WORKFLOW = [
-    { date: 'Tahap 1', text: 'Owner memposting proyek lengkap dengan dimensi, lokasi, dan peran profesional yang dibutuhkan.', author: 'Publish proyek' },
-    { date: 'Tahap 2', text: 'Profesional terverifikasi menawar dengan rincian lingkup pekerjaan, durasi, dan biaya.', author: 'Menerima penawaran' },
-    { date: 'Tahap 3', text: 'Setiap peran menandatangani SPK-nya sendiri, lalu menyusun jadwal termin yang wajib berjumlah 100%.', author: 'Menandatangani SPK' },
-    { date: 'Tahap 4', text: 'Pembayaran dilepas hanya setelah milestone disetujui, dengan bukti transfer dan verifikasi.', author: 'Melepas pembayaran' },
+    {
+        step: '01',
+        title: 'Publikasikan proyek',
+        text: 'Owner menjelaskan kebutuhan, lokasi, dimensi, dan peran profesional yang dibutuhkan.',
+    },
+    {
+        step: '02',
+        title: 'Terima penawaran',
+        text: 'Profesional terverifikasi menawar dengan lingkup pekerjaan, durasi, dan biaya yang jelas.',
+    },
+    {
+        step: '03',
+        title: 'Sepakati kontrak',
+        text: 'Setiap peran menandatangani SPK dan menyusun termin pembayaran yang berjumlah 100%.',
+    },
+    {
+        step: '04',
+        title: 'Lepas pembayaran',
+        text: 'Dana milestone hanya dilepas setelah pekerjaan disetujui, dengan bukti dan jejak audit.',
+    },
 ] as const;
 
 const FAQS = [
-    { q: 'Bagaimana cara merekrut profesional di platform ini?', a: 'Anda dapat masuk ke Dashboard, pilih kategori profesional yang dibutuhkan (Arsitek, Kontraktor, MEP, Notaris), lalu buat ajakan wawancara atau ajukan proyek ke Bidding Board untuk mendapatkan penawaran.' },
-    { q: 'Apakah ada proteksi transaksi selama pembangunan berlangsung?', a: 'Ya, seluruh pembayaran material dan penawaran kerja dikelola melalui sistem terintegrasi. Dana dilepaskan berdasarkan milestone proyek yang telah disetujui bersama.' },
-    { q: 'Bagaimana cara kurir menerima pekerjaan pengantaran?', a: 'Kurir yang terverifikasi dapat masuk ke Job Radar di Dashboard mereka untuk melihat daftar pengiriman material konstruksi yang aktif, lengkap dengan tarif dan peta rute.' },
-    { q: 'Bagaimana cara supplier mendaftarkan bahan bangunan?', a: 'Setelah mendaftar sebagai Supplier, Anda dapat mengelola etalase toko, memasukkan stok inventori material, serta melacak order masuk dari kontraktor atau pemilik proyek.' },
+    {
+        q: 'Bagaimana cara merekrut profesional di platform ini?',
+        a: 'Masuk ke dashboard, pilih kategori profesional yang dibutuhkan, lalu kirim undangan wawancara atau buka proyek ke Bidding Board untuk menerima penawaran.',
+    },
+    {
+        q: 'Apakah transaksi selama pembangunan terlindungi?',
+        a: 'Ya. Pembayaran material dan jasa dikelola melalui ledger proyek. Dana milestone hanya dilepas setelah pekerjaan disetujui, dan sengketa membekukan pembayaran terkait.',
+    },
+    {
+        q: 'Bagaimana kurir menerima pekerjaan pengantaran?',
+        a: 'Kurir terverifikasi membuka Job Radar untuk melihat pengiriman material aktif di sekitarnya, lengkap dengan tarif dan rute, lalu mengambil dan mengantar pesanan.',
+    },
+    {
+        q: 'Bagaimana supplier mendaftarkan bahan bangunan?',
+        a: 'Setelah mendaftar sebagai Supplier, Anda mengelola etalase, stok inventori, penawaran, pesanan masuk, dan status pengiriman dari satu tempat.',
+    },
 ] as const;
 
-const SPONSORS = ['google', 'bri', 'mandiri', 'cimbniaga', 'kominfo', 'btn', 'badanpertahanan', 'pupr'] as const;
-
-const STATS = [
-    { value: '1,200+', label: 'Proyek Selesai', desc: 'Rumah tinggal, gedung komersial, dan renovasi terselesaikan.' },
-    { value: '50,000+', label: 'Material Terjual', desc: 'Pasokan semen, besi, bata, hingga dekorasi interior terdistribusi.' },
-    { value: '4,500+', label: 'Mitra Terdaftar', desc: 'Arsitek, kontraktor, notaris, dan supplier terverifikasi sistem.' },
-    { value: '24/7', label: 'Monitoring Proyek', desc: 'Pemantauan progress lelang dan pengiriman bahan real-time.' },
+const FACTS = [
+    { value: '7', label: 'Peran profesional', desc: 'Satu alur untuk arsitek, kontraktor, MEP, struktural, interior, notaris, dan PM.' },
+    { value: '100%', label: 'Milestone terlacak', desc: 'Setiap pembayaran terhubung ke pekerjaan, bukti, dan persetujuan.' },
+    { value: '1', label: 'Ledger proyek', desc: 'Termin, addendum, material, dan sengketa pada satu catatan yang konsisten.' },
+    { value: '0', label: 'Aplikasi toko', desc: 'Pasang langsung dari browser — cepat, ringan, dan tetap bisa dibuka saat offline.' },
 ] as const;
 
 export default async function LandingPage() {
@@ -102,222 +110,337 @@ export default async function LandingPage() {
     }
 
     return (
-        <div className="min-h-screen bg-neutral-50 text-neutral-900 selection:bg-red-100 selection:text-red-900 font-sans">
+        <div className="min-h-screen bg-neutral-50 font-sans text-neutral-900 selection:bg-red-100 selection:text-red-900">
             <Navbar authed={false} />
 
-            {/* Hero Section */}
-            <section className="relative px-6 text-center overflow-hidden flex items-center justify-center min-h-[calc(100vh-3.5rem)] mt-14 py-20 bg-white">
-                <div className="absolute inset-0 bg-[radial-gradient(#fd1d1d08_1px,transparent_1px)] bg-size-[16px_16px] pointer-events-none" />
-
-                <div className="relative z-10 max-w-4xl mx-auto flex flex-col items-center">
-                    <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-red-50 text-[#FD1D1D] text-xs font-extrabold tracking-wider uppercase mb-8 border border-red-100/50">
-                        <span className="relative flex h-2 w-2">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+            <section className="relative mt-[calc(3.5rem+env(safe-area-inset-top))] overflow-hidden bg-white">
+                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(#fd1d1d0a_1px,transparent_1px)] bg-size-[18px_18px]" />
+                <div className="relative mx-auto grid max-w-7xl items-center gap-14 px-6 py-20 lg:grid-cols-12 lg:py-28">
+                    <div className="lg:col-span-6">
+                        <span className="inline-flex items-center gap-2 rounded-full border border-red-100 bg-red-50 px-4 py-1.5 text-[11px] font-extrabold uppercase tracking-wider text-[#FD1D1D]">
+                            <span className="relative flex h-2 w-2">
+                                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+                                <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
+                            </span>
+                            Creative · Comprehensive · Collaborative · Cool
                         </span>
-                        4C: Creative, Comprehensive, Collaborative &amp; Cool
-                    </span>
 
-                    <h1 className="text-4xl sm:text-5xl md:text-7xl font-black text-neutral-900 leading-[1.15] tracking-tight mb-8">
-                        Sistem Konstruksi <br />
-                        <span className="text-[#FD1D1D]">End-to-End</span> Terintegrasi
-                    </h1>
+                        <h1 className="mt-7 text-4xl font-black leading-[1.08] tracking-tight text-neutral-900 sm:text-5xl lg:text-6xl">
+                            Konstruksi yang terkoordinasi,
+                            <span className="text-[#FD1D1D]"> dari brief sampai serah terima.</span>
+                        </h1>
 
-                    <p className="text-base sm:text-lg md:text-xl text-neutral-500 max-w-2xl mx-auto mb-12 leading-relaxed">
-                        Platform digital pertama untuk legalitas notaris, perancangan arsitek, kolaborasi kontraktor, pembelian supplier material, hingga pengiriman logistik kurir.
-                    </p>
-
-                    <div className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full sm:w-auto">
-                        <Link href="/register" className="w-full sm:w-auto px-8 py-4 bg-neutral-900 text-white rounded-2xl font-bold hover:bg-neutral-800 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-neutral-200 text-center">
-                            Mulai Proyek Baru
-                        </Link>
-                        <Link href="/pro/register" className="w-full sm:w-auto px-8 py-4 bg-white text-neutral-900 border border-neutral-200 rounded-2xl font-bold hover:border-[#FD1D1D] hover:text-[#FD1D1D] transition-all flex items-center justify-center gap-2">
-                            Gabung Mitra Profesional <ArrowRight className="w-4 h-4" />
-                        </Link>
-                    </div>
-                </div>
-            </section>
-
-            {/* Logo Ticker Section */}
-            <div className="w-full bg-white border-y border-neutral-100 py-6 overflow-hidden">
-                <div className="sponsor-marquee-container">
-                    <div className="sponsor-marquee-track">
-                        {[...SPONSORS, ...SPONSORS].map((logo, idx) => (
-                            <picture key={`${logo}-${idx}`}>
-                                <source srcSet={`/storage/Assets/${logo}.avif`} type="image/avif" />
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img src={`/storage/Assets/${logo}.png`} alt={`${logo} logo`} className="sponsor-marquee-item" />
-                            </picture>
-                        ))}
-                    </div>
-                </div>
-            </div>
-
-            {/* Solutions Section */}
-            <section className="py-24 px-6 w-full max-w-7xl mx-auto">
-                <div className="grid lg:grid-cols-12 gap-16 items-center">
-                    <div className="lg:col-span-5">
-                        <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-neutral-900 leading-tight tracking-tight mb-6">
-                            Ekosistem Lengkap untuk Mewujudkan Hunian Anda
-                        </h2>
-                        <p className="text-base sm:text-lg text-neutral-500 leading-relaxed mb-10">
-                            Kami menghubungkan seluruh pelaku industri konstruksi dalam satu jaringan dinamis demi menciptakan efisiensi maksimal.
+                        <p className="mt-6 max-w-xl text-base leading-relaxed text-neutral-500 sm:text-lg">
+                            Satu workspace untuk owner, profesional terverifikasi, supplier material, dan
+                            kurir — dengan penawaran yang transparan dan pembayaran yang mengikuti
+                            pekerjaan.
                         </p>
 
-                        <div className="flex items-center gap-4 p-5 bg-white rounded-3xl border border-neutral-200/60 shadow-sm w-fit">
+                        <div className="mt-9 flex flex-col gap-3 sm:flex-row">
+                            <Link
+                                href="/register"
+                                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-neutral-900 px-7 py-4 text-sm font-bold text-white shadow-lg shadow-neutral-200 transition hover:-translate-y-0.5 hover:bg-neutral-800 active:translate-y-0"
+                            >
+                                Mulai proyek baru
+                                <ArrowRight className="h-4 w-4" />
+                            </Link>
+                            <Link
+                                href="/pro/register"
+                                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-neutral-200 bg-white px-7 py-4 text-sm font-bold text-neutral-900 transition hover:border-[#FD1D1D] hover:text-[#FD1D1D]"
+                            >
+                                Gabung sebagai profesional
+                            </Link>
+                        </div>
+
+                        <dl className="mt-10 flex flex-wrap gap-x-8 gap-y-3 text-xs font-semibold text-neutral-500">
+                            <div className="flex items-center gap-2">
+                                <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                                Escrow per milestone
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                                Profil terverifikasi
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                                Bisa dipasang sebagai app
+                            </div>
+                        </dl>
+                    </div>
+
+                    <div className="relative lg:col-span-6">
+                        <div className="relative overflow-hidden rounded-[2rem] border border-neutral-200 bg-neutral-100 shadow-[0_30px_80px_rgba(15,23,42,0.18)]">
+                            <Image
+                                src="/assets/home-1.webp"
+                                alt="Rumah modern dengan taman"
+                                width={1200}
+                                height={800}
+                                priority
+                                sizes="(max-width: 1024px) 100vw, 50vw"
+                                className="h-[360px] w-full object-cover sm:h-[440px]"
+                            />
+                            <div className="absolute inset-0 bg-linear-to-t from-neutral-950/55 via-transparent to-transparent" />
+
+                            <div className="absolute inset-x-5 bottom-5 rounded-2xl border border-white/15 bg-white/95 p-4 shadow-xl backdrop-blur">
+                                <div className="flex items-center justify-between gap-4">
+                                    <div>
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400">
+                                            Modern Minimalist Villa · Ubud
+                                        </p>
+                                        <p className="mt-1 text-sm font-black text-neutral-900">
+                                            Milestone 3 of 5 · Struktur
+                                        </p>
+                                    </div>
+                                    <span className="rounded-full bg-emerald-50 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-700">
+                                        On track
+                                    </span>
+                                </div>
+                                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-neutral-100">
+                                    <div className="h-full w-3/5 rounded-full bg-[#FD1D1D]" />
+                                </div>
+                                <div className="mt-2 flex justify-between text-[10px] font-semibold text-neutral-400">
+                                    <span>Rp 420.000.000 terverifikasi</span>
+                                    <span>60% selesai</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="absolute -left-4 top-8 hidden rounded-2xl border border-neutral-100 bg-white px-4 py-3 shadow-xl sm:block">
+                            <p className="flex items-center gap-2 text-[11px] font-black text-neutral-900">
+                                <Wallet className="h-4 w-4 text-[#FD1D1D]" />
+                                Escrow aktif
+                            </p>
+                            <p className="mt-1 text-[10px] font-semibold text-neutral-400">
+                                Pembayaran menunggu persetujuan
+                            </p>
+                        </div>
+
+                        <div className="absolute -right-3 bottom-24 hidden rounded-2xl border border-neutral-100 bg-white px-4 py-3 shadow-xl sm:block">
+                            <p className="flex items-center gap-2 text-[11px] font-black text-neutral-900">
+                                <Layers className="h-4 w-4 text-emerald-500" />
+                                Ledger konsisten
+                            </p>
+                            <p className="mt-1 text-[10px] font-semibold text-neutral-400">
+                                Tanpa pembulatan float
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section className="border-y border-neutral-100 bg-white py-6">
+                <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-8 gap-y-4 px-6">
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-400">
+                        Dirancang untuk
+                    </p>
+                    {PROFESSIONAL_ROLES.map((role) => (
+                        <span
+                            key={role.label}
+                            className="inline-flex items-center gap-1.5 text-xs font-bold text-neutral-600"
+                        >
+                            <role.icon className="h-3.5 w-3.5 text-[#FD1D1D]" />
+                            {role.label}
+                        </span>
+                    ))}
+                </div>
+            </section>
+
+            <section className="mx-auto max-w-7xl px-6 py-24">
+                <div className="grid items-center gap-16 lg:grid-cols-12">
+                    <div className="lg:col-span-5">
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#FD1D1D]">
+                            Satu ekosistem
+                        </span>
+                        <h2 className="mt-3 text-3xl font-black leading-tight tracking-tight text-neutral-900 sm:text-4xl">
+                            Semua pihak, satu versi kebenaran.
+                        </h2>
+                        <p className="mt-5 text-base leading-relaxed text-neutral-500">
+                            Setiap peran melihat pekerjaan, dokumen, dan uang dari sudut yang sama. Tidak
+                            ada penawaran yang hilang di chat, tidak ada pembayaran tanpa bukti.
+                        </p>
+
+                        <div className="mt-8 flex items-center gap-4 rounded-3xl border border-neutral-200/70 bg-white p-4 shadow-sm">
                             <div className="flex -space-x-3">
                                 {PROFESSIONAL_ROLES.map((role) => (
-                                    <div key={role.key} className="w-10 h-10 rounded-full border-2 border-white bg-neutral-100 overflow-hidden grid place-items-center">
-                                        <role.icon className="w-4 h-4 text-neutral-500" aria-hidden="true" />
-                                    </div>
+                                    <span
+                                        key={role.label}
+                                        className="grid h-10 w-10 place-items-center overflow-hidden rounded-full border-2 border-white bg-neutral-100"
+                                    >
+                                        <role.icon className="h-4 w-4 text-neutral-500" />
+                                    </span>
                                 ))}
                             </div>
-                            <div className="pr-4">
-                                <p className="text-sm font-extrabold text-neutral-900 tracking-tight">
-                                    {PROFESSIONAL_ROLES.length} peran profesional terverifikasi
+                            <div>
+                                <p className="text-sm font-extrabold tracking-tight text-neutral-900">
+                                    7 peran profesional terverifikasi
                                 </p>
-                                <p className="text-xs text-neutral-500">Arsitek, kontraktor, notaris, interior, dan rekayasa</p>
+                                <p className="text-xs text-neutral-500">
+                                    Ditambah supplier, kurir, dan admin platform
+                                </p>
                             </div>
                         </div>
                     </div>
 
-                    <div className="lg:col-span-7 grid sm:grid-cols-2 gap-6">
-                        {SOLUTIONS.map((item, index) => (
+                    <div className="grid gap-5 sm:grid-cols-2 lg:col-span-7">
+                        {SOLUTIONS.map((item) => (
                             <div
-                                key={index}
-                                className="group p-8 bg-white border border-neutral-100 rounded-3xl hover:border-red-200 hover:shadow-xl hover:shadow-red-500/2 transition-all duration-300"
+                                key={item.title}
+                                className="group rounded-3xl border border-neutral-100 bg-white p-7 transition duration-300 hover:-translate-y-1 hover:border-red-200 hover:shadow-xl hover:shadow-red-500/5"
                             >
-                                <div className={`w-12 h-12 ${item.bg} rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300 border border-red-100/30`}>
-                                    <item.icon className="w-6 h-6 text-[#FD1D1D]" />
+                                <div className="mb-5 grid h-12 w-12 place-items-center rounded-2xl border border-red-100/50 bg-red-50 text-[#FD1D1D] transition group-hover:scale-105">
+                                    <item.icon className="h-6 w-6" />
                                 </div>
-                                <h3 className="text-lg font-bold text-neutral-900 mb-2 group-hover:text-[#FD1D1D] transition-colors">{item.title}</h3>
-                                <p className="text-sm text-neutral-500 leading-relaxed">{item.desc}</p>
+                                <h3 className="text-lg font-bold text-neutral-900">{item.title}</h3>
+                                <p className="mt-2 text-sm leading-relaxed text-neutral-500">{item.desc}</p>
                             </div>
                         ))}
                     </div>
                 </div>
             </section>
 
-            {/* Feature Showcases */}
-            <section className="py-12 bg-white">
-                <div className="max-w-7xl mx-auto px-6 space-y-24">
-                    <div id="showcase-professionals" className="flex flex-col lg:flex-row items-center gap-12 lg:gap-20">
-                        <div className="w-full lg:w-1/2">
-                            <picture>
-                                <source srcSet="/storage/Assets/rumah1.avif" type="image/avif" />
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img src="/storage/Assets/rumah1.png" className="w-full h-auto rounded-3xl shadow-lg border border-neutral-100 object-cover aspect-4/3" alt="Roster & Ahli" />
-                            </picture>
+            <section className="bg-white py-8">
+                <div className="mx-auto max-w-7xl space-y-24 px-6 py-10">
+                    <div id="showcase-professionals" className="scroll-mt-24 grid items-center gap-12 lg:grid-cols-2 lg:gap-20">
+                        <div className="overflow-hidden rounded-3xl border border-neutral-100 shadow-lg">
+                            <Image
+                                src="/assets/project-1.webp"
+                                alt="Tim proyek di lokasi konstruksi"
+                                width={1400}
+                                height={900}
+                                sizes="(max-width: 1024px) 100vw, 50vw"
+                                className="aspect-4/3 w-full object-cover"
+                            />
                         </div>
-                        <div className="w-full lg:w-1/2 space-y-6">
-                            <span className="text-xs font-black uppercase tracking-widest text-[#FD1D1D]">Professional Directory</span>
-                            <h2 className="text-3xl sm:text-4xl font-extrabold text-neutral-900 leading-tight">Rekrut Tim Ahli Berlisensi</h2>
-                            <p className="text-neutral-500 leading-relaxed text-base">
-                                Temukan dan pekerjakan arsitek perancang blueprint, kontraktor sipil pelaksana lapangan, desainer interior, spesialis ME/Struktur, hingga PPAT/Notaris hukum untuk verifikasi sertifikat kepemilikan Anda.
+                        <div>
+                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#FD1D1D]">
+                                Collaborative workspace
+                            </span>
+                            <h2 className="mt-3 text-3xl font-black leading-tight tracking-tight text-neutral-900 sm:text-4xl">
+                                Bidding Board dan Project Vault
+                            </h2>
+                            <p className="mt-4 text-base leading-relaxed text-neutral-500">
+                                Bandingkan proposal, kirim undangan wawancara, tanda tangani kontrak, dan
+                                simpan dokumen di satu tempat. Riwayat aktivitas membuat setiap keputusan
+                                bisa ditelusuri.
                             </p>
-                            <div className="flex flex-wrap gap-2 pt-2">
-                                <span className="px-3 py-1 bg-neutral-100 text-neutral-800 text-xs font-bold rounded-lg flex items-center gap-1"><Paintbrush className="w-3.5 h-3.5" /> Interior</span>
-                                <span className="px-3 py-1 bg-neutral-100 text-neutral-800 text-xs font-bold rounded-lg flex items-center gap-1"><HardHat className="w-3.5 h-3.5" /> Kontraktor</span>
-                                <span className="px-3 py-1 bg-neutral-100 text-neutral-800 text-xs font-bold rounded-lg flex items-center gap-1"><ShieldCheck className="w-3.5 h-3.5" /> Notaris</span>
-                            </div>
+                            <ul className="mt-6 grid gap-3 text-sm font-semibold text-neutral-700 sm:grid-cols-2">
+                                {['Penawaran & negosiasi', 'Kontrak digital', 'Dokumen terkunci', 'Jejak audit'].map(
+                                    (item) => (
+                                        <li key={item} className="flex items-center gap-2">
+                                            <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                                            {item}
+                                        </li>
+                                    ),
+                                )}
+                            </ul>
                         </div>
                     </div>
 
-                    <div id="showcase-properties" className="flex flex-col lg:flex-row-reverse items-center gap-12 lg:gap-20">
-                        <div className="w-full lg:w-1/2">
-                            <picture>
-                                <source srcSet="/storage/Assets/2 (City).avif" type="image/avif" />
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img src="/storage/Assets/2 (City).jpg" className="w-full h-auto rounded-3xl shadow-lg border border-neutral-100 object-cover aspect-4/3" alt="Project Hub" />
-                            </picture>
-                        </div>
-                        <div className="w-full lg:w-1/2 space-y-6">
-                            <span className="text-xs font-black uppercase tracking-widest text-[#FD1D1D]">Collaborative Workspace</span>
-                            <h2 className="text-3xl sm:text-4xl font-extrabold text-neutral-900 leading-tight">Project Management &amp; Bidding Board</h2>
-                            <p className="text-neutral-500 leading-relaxed text-base">
-                                Pantau jalannya pembangunan secara mendetail. Buka papan lelang proyek (Bidding Board) untuk membandingkan proposal harga mitra, kelola design brief arsitektur, buat catatan perencanaan harian, dan unggah dokumen penting ke dalam Project Vault yang aman.
+                    <div id="showcase-marketplace" className="scroll-mt-24 grid items-center gap-12 lg:grid-cols-2 lg:gap-20">
+                        <div className="order-2 lg:order-1">
+                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#FD1D1D]">
+                                Building materials
+                            </span>
+                            <h2 className="mt-3 text-3xl font-black leading-tight tracking-tight text-neutral-900 sm:text-4xl">
+                                Supplier, penawaran, dan pengiriman
+                            </h2>
+                            <p className="mt-4 text-base leading-relaxed text-neutral-500">
+                                Cari material dari supplier terverifikasi, minta penawaran, lalu ikuti
+                                status pembayaran dan pengiriman. Kurir melihat pekerjaan yang tersedia
+                                lewat Job Radar.
                             </p>
-                            <div className="flex flex-wrap gap-2 pt-2">
-                                <span className="px-3 py-1 bg-neutral-100 text-neutral-800 text-xs font-bold rounded-lg flex items-center gap-1"><FolderKanban className="w-3.5 h-3.5" /> Project Vault</span>
-                                <span className="px-3 py-1 bg-neutral-100 text-neutral-800 text-xs font-bold rounded-lg flex items-center gap-1"><Briefcase className="w-3.5 h-3.5" /> Bidding Board</span>
-                            </div>
+                            <ul className="mt-6 grid gap-3 text-sm font-semibold text-neutral-700 sm:grid-cols-2">
+                                {['Etalase supplier', 'Stok real-time', 'Penawaran material', 'Job Radar'].map(
+                                    (item) => (
+                                        <li key={item} className="flex items-center gap-2">
+                                            <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                                            {item}
+                                        </li>
+                                    ),
+                                )}
+                            </ul>
+                        </div>
+                        <div className="order-1 overflow-hidden rounded-3xl border border-neutral-100 shadow-lg lg:order-2">
+                            <Image
+                                src="/assets/materials-1.webp"
+                                alt="Material konstruksi di lokasi"
+                                width={1400}
+                                height={900}
+                                sizes="(max-width: 1024px) 100vw, 50vw"
+                                className="aspect-4/3 w-full object-cover"
+                            />
                         </div>
                     </div>
 
-                    <div id="showcase-marketplace" className="flex flex-col lg:flex-row items-center gap-12 lg:gap-20">
-                        <div className="w-full lg:w-1/2">
-                            <picture>
-                                <source srcSet="/storage/Assets/konsultan2.avif" type="image/avif" />
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img src="/storage/Assets/konsultan2.png" className="w-full h-auto rounded-3xl shadow-lg border border-neutral-100 object-cover aspect-4/3" alt="Marketplace Store" />
-                            </picture>
+                    <div id="showcase-properties" className="scroll-mt-24 grid items-center gap-12 lg:grid-cols-2 lg:gap-20">
+                        <div className="overflow-hidden rounded-3xl border border-neutral-100 shadow-lg">
+                            <Image
+                                src="/assets/home-2.webp"
+                                alt="Interior rumah modern"
+                                width={1400}
+                                height={900}
+                                sizes="(max-width: 1024px) 100vw, 50vw"
+                                className="aspect-4/3 w-full object-cover"
+                            />
                         </div>
-                        <div className="w-full lg:w-1/2 space-y-6">
-                            <span className="text-xs font-black uppercase tracking-widest text-[#FD1D1D]">Building Materials</span>
-                            <h2 className="text-3xl sm:text-4xl font-extrabold text-neutral-900 leading-tight">Belanja di Toko Material Terpercaya</h2>
-                            <p className="text-neutral-500 leading-relaxed text-base">
-                                Supplier dapat membuka toko bahan bangunan digital mereka sendiri dan melacak order masuk. Sebagai pembeli, cari kebutuhan besi, semen, keramik, cat, hingga perkakas konstruksi terlengkap langsung lewat menu Marketplace.
+                        <div>
+                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#FD1D1D]">
+                                Property marketplace
+                            </span>
+                            <h2 className="mt-3 text-3xl font-black leading-tight tracking-tight text-neutral-900 sm:text-4xl">
+                                Temukan rumah, lalu bangun dengan tim yang tepat
+                            </h2>
+                            <p className="mt-4 text-base leading-relaxed text-neutral-500">
+                                Jelajahi properti dengan filter lokasi, harga, kamar, dan fasilitas.
+                                Simpan favorit, ajukan pertanyaan ke pemilik, dan lanjutkan ke proses
+                                desain serta konstruksi tanpa pindah platform.
                             </p>
-                            <div className="flex flex-wrap gap-2 pt-2">
-                                <span className="px-3 py-1 bg-neutral-100 text-neutral-800 text-xs font-bold rounded-lg flex items-center gap-1"><ShoppingBag className="w-3.5 h-3.5" /> Storefront</span>
-                                <span className="px-3 py-1 bg-neutral-100 text-neutral-800 text-xs font-bold rounded-lg flex items-center gap-1"><Zap className="w-3.5 h-3.5" /> Instant Order</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="flex flex-col lg:flex-row-reverse items-center gap-12 lg:gap-20">
-                        <div className="w-full lg:w-1/2">
-                            <picture>
-                                <source srcSet="/storage/Assets/rumah3.avif" type="image/avif" />
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img src="/storage/Assets/rumah3.png" className="w-full h-auto rounded-3xl shadow-lg border border-neutral-100 object-cover aspect-4/3" alt="Logistics Courier" />
-                            </picture>
-                        </div>
-                        <div className="w-full lg:w-1/2 space-y-6">
-                            <span className="text-xs font-black uppercase tracking-widest text-[#FD1D1D]">Courier Services</span>
-                            <h2 className="text-3xl sm:text-4xl font-extrabold text-neutral-900 leading-tight">Pengiriman Cepat lewat Job Radar</h2>
-                            <p className="text-neutral-500 leading-relaxed text-base">
-                                Untuk memperlancar pengiriman bahan material, kurir logistik independen dapat mencari pesanan aktif di wilayah sekitar mereka lewat fitur Job Radar, mengambil barang dari toko supplier, dan mengantarkannya langsung ke lokasi proyek konstruksi.
-                            </p>
-                            <div className="flex flex-wrap gap-2 pt-2">
-                                <span className="px-3 py-1 bg-neutral-100 text-neutral-800 text-xs font-bold rounded-lg flex items-center gap-1"><Truck className="w-3.5 h-3.5" /> Courier Job Radar</span>
-                                <span className="px-3 py-1 bg-neutral-100 text-neutral-800 text-xs font-bold rounded-lg flex items-center gap-1"><Users className="w-3.5 h-3.5" /> Logistics Network</span>
+                            <div className="mt-7 flex flex-wrap gap-2">
+                                {['Filter lokasi', 'Simpan favorit', 'Tanya pemilik', 'Rencana renovasi'].map(
+                                    (tag) => (
+                                        <span
+                                            key={tag}
+                                            className="rounded-lg bg-neutral-100 px-3 py-1.5 text-xs font-bold text-neutral-700"
+                                        >
+                                            {tag}
+                                        </span>
+                                    ),
+                                )}
                             </div>
                         </div>
                     </div>
                 </div>
             </section>
 
-            {/* Statistics Section */}
-            <section className="py-24 bg-white border-y border-neutral-100 overflow-hidden">
-                <div className="max-w-7xl mx-auto px-6">
-                    <div className="flex flex-col lg:flex-row items-center lg:items-start justify-between gap-16">
-                        <div className="w-full lg:w-5/12 space-y-6 text-center lg:text-left">
-                            <span className="text-xs font-black uppercase tracking-widest text-[#FD1D1D] bg-red-50 px-4 py-1.5 rounded-full inline-block">
-                                Laporan Kinerja
+            <section className="overflow-hidden border-y border-neutral-100 bg-white py-24">
+                <div className="mx-auto max-w-7xl px-6">
+                    <div className="grid items-start gap-16 lg:grid-cols-12">
+                        <div className="space-y-6 text-center lg:col-span-5 lg:text-left">
+                            <span className="inline-block rounded-full bg-red-50 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-[#FD1D1D]">
+                                Dibangun untuk dipercaya
                             </span>
-                            <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-neutral-900 leading-[1.1] tracking-tight">
-                                Transparansi dan Skala dalam Setiap Detik
+                            <h2 className="text-3xl font-black leading-[1.1] tracking-tight text-neutral-900 sm:text-4xl">
+                                Transparansi yang bisa diperiksa, bukan janji.
                             </h2>
-                            <p className="text-neutral-500 text-sm sm:text-base leading-relaxed">
-                                Kami menyatukan seluruh rantai pasok industri konstruksi di Indonesia. Dari perencanaan desain oleh arsitek terverifikasi hingga pengiriman bahan bangunan oleh jaringan kurir logistik kami.
+                            <p className="text-sm leading-relaxed text-neutral-500 sm:text-base">
+                                Uang bergerak sebagai satuan minor integer, aturan escrow tinggal di domain
+                                dan database, dan setiap aksi penting meninggalkan jejak.
                             </p>
-                            <div className="pt-4 flex justify-center lg:justify-start">
-                                <div className="h-1 w-20 bg-[#FD1D1D] rounded-full" />
-                            </div>
+                            <div className="mx-auto h-1 w-20 rounded-full bg-[#FD1D1D] lg:mx-0" />
                         </div>
 
-                        <div className="w-full lg:w-7/12 grid grid-cols-1 sm:grid-cols-2 gap-x-12 gap-y-16">
-                            {STATS.map((stat, idx) => (
-                                <div key={idx} className="space-y-3 relative group text-center sm:text-left pl-0 sm:pl-4">
-                                    <div className="absolute -left-1 top-2 w-1.5 h-1.5 rounded-full bg-[#FD1D1D] opacity-0 group-hover:opacity-100 transition-opacity duration-300 hidden sm:block" />
-                                    <p className="text-5xl sm:text-6xl font-black text-neutral-900 tracking-tighter group-hover:text-[#FD1D1D] transition-colors duration-300">
-                                        {stat.value}
+                        <div className="grid grid-cols-1 gap-x-12 gap-y-12 sm:grid-cols-2 lg:col-span-7">
+                            {FACTS.map((fact) => (
+                                <div key={fact.label} className="text-center sm:text-left">
+                                    <p className="text-5xl font-black tracking-tighter text-neutral-900 sm:text-6xl">
+                                        {fact.value}
                                     </p>
-                                    <div className="space-y-1">
-                                        <h4 className="text-sm font-black text-neutral-800 uppercase tracking-wider">{stat.label}</h4>
-                                        <p className="text-xs text-neutral-400 leading-relaxed font-semibold">{stat.desc}</p>
-                                    </div>
+                                    <h3 className="mt-3 text-sm font-black uppercase tracking-wider text-neutral-800">
+                                        {fact.label}
+                                    </h3>
+                                    <p className="mt-1 text-xs font-semibold leading-relaxed text-neutral-400">
+                                        {fact.desc}
+                                    </p>
                                 </div>
                             ))}
                         </div>
@@ -325,146 +448,188 @@ export default async function LandingPage() {
                 </div>
             </section>
 
-            {/* Workflow section */}
-            <section className="py-24 px-6 max-w-7xl mx-auto">
-                <div className="text-center max-w-2xl mx-auto mb-16">
-                    <span className="text-xs font-black uppercase tracking-widest text-[#FD1D1D] mb-3 block">Alur Kerja</span>
-                    <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-neutral-900">Empat Tahap, dari Posting sampai Serah Terima</h2>
+            <section className="mx-auto max-w-7xl px-6 py-24">
+                <div className="mx-auto mb-16 max-w-2xl text-center">
+                    <span className="mb-3 block text-[10px] font-black uppercase tracking-[0.2em] text-[#FD1D1D]">
+                        Alur kerja
+                    </span>
+                    <h2 className="text-3xl font-black tracking-tight text-neutral-900 sm:text-4xl">
+                        Empat tahap, dari posting sampai serah terima
+                    </h2>
                 </div>
 
-                <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    {WORKFLOW.map((step, index) => (
+                <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
+                    {WORKFLOW.map((item) => (
                         <div
-                            key={step.author}
-                            className="bg-white border border-neutral-100 p-8 rounded-3xl shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between"
+                            key={item.step}
+                            className="flex flex-col justify-between rounded-3xl border border-neutral-100 bg-white p-7 shadow-sm transition hover:shadow-md"
                         >
                             <div>
-                                <div className="flex items-baseline gap-2 mb-4">
-                                    <span className="text-3xl font-black text-[#FD1D1D]">{String(index + 1).padStart(2, '0')}</span>
-                                    <span className="text-xs font-black uppercase tracking-widest text-neutral-400">{step.date}</span>
+                                <div className="mb-4 flex items-baseline gap-2">
+                                    <span className="text-3xl font-black text-[#FD1D1D]">{item.step}</span>
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400">
+                                        Tahap
+                                    </span>
                                 </div>
-                                <p className="text-neutral-600 text-sm leading-relaxed mb-6">{step.text}</p>
-                            </div>
-                            <div>
-                                <p className="font-extrabold text-neutral-900 text-sm">{step.author}</p>
+                                <h3 className="text-base font-extrabold text-neutral-900">{item.title}</h3>
+                                <p className="mt-2 text-sm leading-relaxed text-neutral-500">{item.text}</p>
                             </div>
                         </div>
                     ))}
                 </div>
-
-                <div className="mt-20 rounded-3xl overflow-hidden shadow-xl border border-neutral-200/50 aspect-21/9 max-h-[500px]">
-                    <picture>
-                        <source srcSet="/storage/Assets/4CTeam.avif" type="image/avif" />
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src="/storage/Assets/4CTeam.jpg" className="w-full h-full object-cover" alt="4C Development Team" />
-                    </picture>
-                </div>
             </section>
 
-            {/* FAQ Section */}
-            <section id="faq" className="py-24 bg-white border-y border-neutral-100">
-                <div className="max-w-4xl mx-auto px-6">
-                    <div className="text-center mb-16">
-                        <span className="text-xs font-black uppercase tracking-widest text-[#FD1D1D] mb-3 block">FAQ</span>
-                        <h2 className="text-3xl sm:text-4xl font-black text-neutral-900 leading-tight">Anda Tanya, Kami Jawab</h2>
+            <section className="border-y border-neutral-100 bg-white py-24">
+                <div className="mx-auto max-w-4xl px-6">
+                    <div className="mb-14 text-center">
+                        <span className="mb-3 block text-[10px] font-black uppercase tracking-[0.2em] text-[#FD1D1D]">
+                            FAQ
+                        </span>
+                        <h2 className="text-3xl font-black tracking-tight text-neutral-900 sm:text-4xl">
+                            Anda tanya, kami jawab
+                        </h2>
                     </div>
-
                     <LandingFaq faqs={FAQS.map((faq) => ({ q: faq.q, a: faq.a }))} />
                 </div>
             </section>
 
-            {/* Original CTA Section */}
-            <section className="py-24 bg-white border-t border-neutral-100">
-                <div className="kelompokKe6">
-                    <h1>Wujudkan Rumah Impianmu – Beli, Bangun, atau Jual!</h1>
-                    <div className="bawahKelompok6">
-                        <div className="kiriBawahKelompok6">
-                            <div className="tengahKelompok6">
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img src="/assets/Logo4C.png" alt="Logo" />
-                                <h3>4C 4Construction By 4C Team</h3>
-                            </div>
-                            <div className="textIsiKelompok6">
-                                <picture>
-                                    <source srcSet="/storage/Assets/4CTeam.avif" type="image/avif" />
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img src="/storage/Assets/4CTeam.jpg" alt="Team" />
-                                </picture>
-                                <p>
-                                    Dapatkan rumah impian dengan kualitas premium dari tim berpengalaman.
-                                    <span>
-                                        {' '}
-                                        Dengan proses yang mudah dan transparan, kami memastikan setiap hunian tidak hanya sesuai kebutuhan Anda, tetapi juga menghadirkan nilai terbaik dalam setiap langkahnya.
-                                    </span>
-                                </p>
-                            </div>
+            <section className="relative overflow-hidden bg-neutral-950 py-24">
+                <Image
+                    src="/assets/team-1.webp"
+                    alt=""
+                    width={1400}
+                    height={900}
+                    sizes="100vw"
+                    className="absolute inset-0 h-full w-full object-cover opacity-25"
+                />
+                <div className="absolute inset-0 bg-linear-to-r from-neutral-950 via-neutral-950/85 to-neutral-950/40" />
+                <div className="relative mx-auto max-w-7xl px-6">
+                    <div className="max-w-xl">
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#FD1D1D]">
+                            Mulai dari sini
+                        </span>
+                        <h2 className="mt-4 text-3xl font-black leading-tight text-white sm:text-4xl lg:text-5xl">
+                            Rumah impian dimulai dengan rencana yang jelas.
+                        </h2>
+                        <p className="mt-4 text-sm leading-relaxed text-neutral-300 sm:text-base">
+                            Buat proyek, temukan profesional, dan kelola setiap milestone dengan catatan
+                            yang bisa dipercaya.
+                        </p>
+                        <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                            <Link
+                                href="/register"
+                                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#FD1D1D] px-7 py-4 text-sm font-bold text-white transition hover:bg-red-600"
+                            >
+                                Buat akun owner
+                                <ArrowRight className="h-4 w-4" />
+                            </Link>
+                            <Link
+                                href="/pro/register"
+                                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/20 bg-white/10 px-7 py-4 text-sm font-bold text-white backdrop-blur transition hover:bg-white/15"
+                            >
+                                Daftar sebagai profesional
+                            </Link>
                         </div>
-                        <Link href="/register">
-                            <div className="tombolCta">
-                                <div className="text-wrapper">
-                                    <h3>Saya Tertarik!</h3>
-                                    <div className="hover-text">Saya Tertarik!</div>
-                                </div>
-                            </div>
-                        </Link>
+                        <p className="mt-6 flex items-center gap-2 text-[11px] font-semibold text-neutral-400">
+                            <Smartphone className="h-3.5 w-3.5" />
+                            Bisa dipasang ke home screen — tanpa app store.
+                        </p>
                     </div>
                 </div>
             </section>
 
-            {/* Footer */}
-            <footer className="bg-neutral-900 border-t border-neutral-800 text-neutral-400 py-16 px-6">
-                <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-12 pb-12 border-b border-neutral-800">
-                    <div className="lg:col-span-5 space-y-6">
-                        <h2 className="text-3xl font-black text-white tracking-tighter">4Ceria<span className="text-[#FD1D1D]">.</span></h2>
-                        <p className="text-sm text-neutral-500 max-w-sm leading-relaxed">
-                            The complete creative comprehensive construction platform made with passion and dedication.
+            <footer className="border-t border-neutral-800 bg-neutral-950 px-6 py-16 text-neutral-400">
+                <div className="mx-auto grid max-w-7xl grid-cols-1 gap-12 pb-12 md:grid-cols-2 lg:grid-cols-12">
+                    <div className="space-y-5 lg:col-span-5">
+                        <h2 className="text-3xl font-black tracking-tighter text-white">
+                            4Ceria<span className="text-[#FD1D1D]">.</span>
+                        </h2>
+                        <p className="max-w-sm text-sm leading-relaxed text-neutral-500">
+                            Construction coordination and real-estate marketplace. Satu workspace untuk
+                            owner, profesional, supplier, dan kurir.
+                        </p>
+                        <p className="text-xs font-semibold text-neutral-600">
+                            Portfolio reference implementation. Semua data adalah data demo.
                         </p>
                     </div>
 
-                    <div className="lg:col-span-4 grid grid-cols-2 gap-8">
-                        <div className="space-y-4">
-                            <h4 className="text-white text-xs font-black uppercase tracking-widest">Company</h4>
+                    <div className="grid grid-cols-2 gap-8 lg:col-span-4">
+                        <div className="space-y-3">
+                            <h3 className="text-[10px] font-black uppercase tracking-widest text-white">Produk</h3>
                             <ul className="space-y-2 text-sm">
-                                <li><a href="#" className="hover:text-white transition-colors">About Us</a></li>
-                                <li><a href="#" className="hover:text-white transition-colors">Products</a></li>
-                                <li><a href="#" className="hover:text-white transition-colors">Contact</a></li>
+                                <li>
+                                    <Link href="/dashboard/houses" className="transition hover:text-white">
+                                        Cari rumah
+                                    </Link>
+                                </li>
+                                <li>
+                                    <Link href="/dashboard/architects" className="transition hover:text-white">
+                                        Cari profesional
+                                    </Link>
+                                </li>
+                                <li>
+                                    <Link
+                                        href="/dashboard/marketplace-materials"
+                                        className="transition hover:text-white"
+                                    >
+                                        Material
+                                    </Link>
+                                </li>
+                                <li>
+                                    <Link href="/help" className="transition hover:text-white">
+                                        Pusat bantuan
+                                    </Link>
+                                </li>
                             </ul>
                         </div>
-                        <div className="space-y-4">
-                            <h4 className="text-white text-xs font-black uppercase tracking-widest">Resources</h4>
+                        <div className="space-y-3">
+                            <h3 className="text-[10px] font-black uppercase tracking-widest text-white">Akun</h3>
                             <ul className="space-y-2 text-sm">
-                                <li><a href="#" className="hover:text-white transition-colors">Privacy Policy</a></li>
-                                <li><a href="#" className="hover:text-white transition-colors">Terms of Service</a></li>
-                                <li><a href="#" className="hover:text-white transition-colors">Help Center</a></li>
+                                <li>
+                                    <Link href="/login" className="transition hover:text-white">
+                                        Masuk
+                                    </Link>
+                                </li>
+                                <li>
+                                    <Link href="/register" className="transition hover:text-white">
+                                        Daftar owner
+                                    </Link>
+                                </li>
+                                <li>
+                                    <Link href="/pro/register" className="transition hover:text-white">
+                                        Daftar profesional
+                                    </Link>
+                                </li>
+                                <li>
+                                    <Link href="/forgot-password" className="transition hover:text-white">
+                                        Lupa password
+                                    </Link>
+                                </li>
                             </ul>
                         </div>
                     </div>
 
-                    <div className="lg:col-span-3 space-y-4">
-                        <h4 className="text-white text-xs font-black uppercase tracking-widest">Contact Us</h4>
-                        <p className="text-sm text-neutral-500 leading-relaxed">
-                            Have questions or feedback? Send us a message!
+                    <div className="space-y-3 lg:col-span-3">
+                        <h3 className="text-[10px] font-black uppercase tracking-widest text-white">Platform</h3>
+                        <p className="text-sm leading-relaxed text-neutral-500">
+                            Go · PostgreSQL · Next.js. Escrow dengan satuan minor integer, ledger
+                            PostgreSQL, dan PWA tanpa app store.
                         </p>
-                        <div className="flex gap-2">
-                            <input
-                                type="text"
-                                placeholder="Pesan Anda"
-                                className="bg-neutral-800 border border-neutral-700/60 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-[#FD1D1D] text-white w-full"
-                            />
-                            <button type="button" className="bg-[#FD1D1D] hover:bg-[#e01a1a] text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0">
-                                Kirim
-                            </button>
-                        </div>
+                        <a
+                            href="https://github.com/davinakmalyasha/4Ceria-4C-"
+                            target="_blank"
+                            rel="noreferrer noopener"
+                            className="inline-flex items-center gap-1.5 text-xs font-bold text-neutral-300 transition hover:text-white"
+                        >
+                            Lihat repository
+                            <ArrowRight className="h-3.5 w-3.5" />
+                        </a>
                     </div>
                 </div>
 
-                <div className="max-w-7xl mx-auto pt-8 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-neutral-500">
-                    <p>© {new Date().getFullYear()} 4Ceria. All rights reserved.</p>
-                    <div className="flex gap-6">
-                        <a href="#" className="hover:text-white transition-colors">Instagram</a>
-                        <a href="#" className="hover:text-white transition-colors">LinkedIn</a>
-                        <a href="#" className="hover:text-white transition-colors">YouTube</a>
-                    </div>
+                <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 border-t border-neutral-800 pt-8 text-xs text-neutral-600 sm:flex-row">
+                    <p>© {new Date().getFullYear()} 4Ceria. Demo project.</p>
+                    <p>Creative, Comprehensive, Collaborative &amp; Cool.</p>
                 </div>
             </footer>
         </div>

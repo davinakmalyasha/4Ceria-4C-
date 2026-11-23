@@ -16,7 +16,7 @@ import { signOut } from './actions';
  *      loads and `/me` answers.
  *   3. A session with a STANDARD user: the "Partner Portal" panel, which asks
  *      them to sign out first. It names the account, so the server fetches it
- *      once; the legacy reads it from `localStorage`.
+ *      once; the previous reads it from `localStorage`.
  *
  * The panel's sign-out is a form posting to a server action: the token is
  * revoked server-side and the cookie dropped, so the next request really is

@@ -19,7 +19,7 @@ import { useAuth } from '@/context/AuthContext';
 /**
  * The admin chrome.
  *
- * A native port of the synced `AdminLayout`: the same five destinations, the
+ * A native version of the `AdminLayout`: the same five destinations, the
  * same badges (pending verifications, open disputes) and the same fixed
  * sidebar. The counts are fetched by the server layout and passed in, so the
  * badges are correct on first paint; `usePathname` replaces react-router's
@@ -44,7 +44,7 @@ export function AdminShell({
 }) {
     const pathname = usePathname();
     const { user, logout } = useAuth();
-    const [open, setOpen] = useState(true);
+    const [open, setOpen] = useState(false);
 
     const isActive = (path: string) =>
         path === '/admin' ? pathname === '/admin' : pathname.startsWith(path);
@@ -54,8 +54,19 @@ export function AdminShell({
 
     return (
         <div className="min-h-screen bg-[#fafafa] flex font-sans text-neutral-900 antialiased">
+            {open && (
+                <button
+                    type="button"
+                    aria-label="Close admin menu"
+                    onClick={() => setOpen(false)}
+                    className="fixed inset-0 z-40 bg-neutral-900/40 backdrop-blur-[2px] md:hidden"
+                />
+            )}
+
             <aside
-                className={`${open ? 'w-64' : 'w-20'} bg-white border-r border-neutral-200 transition-all duration-300 flex flex-col fixed h-full z-50`}
+                className={`fixed inset-y-0 left-0 z-50 flex h-full w-64 flex-col border-r border-neutral-200 bg-white pt-[env(safe-area-inset-top)] transition-all duration-300 md:static md:translate-x-0 ${
+                    open ? 'translate-x-0 md:w-64' : '-translate-x-full md:w-20'
+                }`}
             >
                 <div className="p-6 flex items-center justify-between border-b border-neutral-100">
                     {open ? (
@@ -88,6 +99,9 @@ export function AdminShell({
                             <Link
                                 key={item.path}
                                 href={item.path}
+                                onClick={() => {
+                                    if (typeof window !== 'undefined' && window.innerWidth < 768) setOpen(false);
+                                }}
                                 className={`relative flex items-center gap-3 p-3 rounded-xl transition-all ${
                                     active
                                         ? 'bg-neutral-900 text-white shadow-sm font-semibold'
@@ -132,8 +146,20 @@ export function AdminShell({
                 </div>
             </aside>
 
-            <main className={`${open ? 'ml-64' : 'ml-20'} flex-1 transition-all duration-300 min-h-screen`}>
-                <div className="p-6 sm:p-8 max-w-[1400px] mx-auto">{children}</div>
+            <main className={`min-h-screen flex-1 transition-all duration-300 ${open ? 'md:ml-64' : 'md:ml-20'}`}>
+                <div className="sticky top-0 z-30 flex items-center justify-between border-b border-neutral-200 bg-white/90 px-4 py-3 backdrop-blur md:hidden">
+                    <button
+                        type="button"
+                        onClick={() => setOpen(true)}
+                        aria-label="Open admin menu"
+                        className="rounded-lg p-2 text-neutral-600 transition hover:bg-neutral-100"
+                    >
+                        <Menu size={20} />
+                    </button>
+                    <span className="text-xs font-black uppercase tracking-[0.15em] text-neutral-900">Admin Portal</span>
+                    <span className="w-9" />
+                </div>
+                <div className="p-4 sm:p-8 max-w-[1400px] mx-auto">{children}</div>
             </main>
         </div>
     );

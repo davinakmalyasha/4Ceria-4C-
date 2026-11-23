@@ -466,7 +466,7 @@ func GenerateShareTokenHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		payload := jsonphp.NewObject()
 		payload.Set("share_token", *token)
-		payload.Set("share_url", assetBaseOf(ctx)+"/brief/"+*token)
+		payload.Set("share_url", frontendBase()+"/brief/"+*token)
 		writeJSON(w, http.StatusOK, payload)
 	}
 }

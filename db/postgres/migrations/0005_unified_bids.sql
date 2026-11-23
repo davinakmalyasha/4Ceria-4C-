@@ -28,7 +28,7 @@
 --     details under the ARCHITECT's role.
 --
 -- One table with a role discriminator removes the class of bug rather than
--- hiding it (ADR-0014).
+-- hiding it (the unified bids table).
 --
 -- THE STATUS ENUM IS THE UNION OF THE SEVEN
 -- -----------------------------------------
@@ -182,7 +182,7 @@ CREATE TABLE bids (
 
     -- The uniqueness rule the legacy per-role indexes expressed. It is keyed
     -- on the USER id, which is globally unique, so the cross-table profile-id
-    -- collision class is structurally impossible (ADR-0014).
+    -- collision class is structurally impossible (the unified bids table).
     CONSTRAINT bids_project_role_bidder_unique UNIQUE (project_id, role, bidder_user_id),
 
     -- The role and the profile columns cannot disagree. This is what makes
@@ -250,7 +250,7 @@ CREATE TABLE bids (
 COMMENT ON TABLE bids IS
     'The unified bid table. Replaces seven near-identical legacy tables (235 '
     'columns, 185 of them exact duplicates) with one row per bid discriminated '
-    'by `role` (ADR-0014). `bidder_user_id` is the authoritative identity; '
+    'by `role` (the unified bids table). `bidder_user_id` is the authoritative identity; '
     '`bidder_profile_id` is the legacy profile id preserved verbatim for the '
     'audit trail.';
 
@@ -288,8 +288,8 @@ CREATE INDEX bids_offered_by_id_idx ON bids (offered_by_id);
 --
 -- `bid_type` was an Eloquent class name. `Relation::morphMap()` registered
 -- nine entries and NONE of them was a bid model, so the raw class name was
--- stored — the same defect class ADR-0013 retired in the ledger. It becomes
--- a registry key (ADR-0013).
+-- stored — the same defect class the reference registry retired in the ledger. It becomes
+-- a registry key (the reference registry).
 --
 -- `bid_id` now points at the unified `bids.id`. It carries no foreign key,
 -- exactly as the legacy column did: the legacy bid ids are per table, so

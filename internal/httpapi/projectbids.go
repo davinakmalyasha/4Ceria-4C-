@@ -13,8 +13,8 @@ import (
 // BID BLOCKS — the seven per-role bid lists, their bidder trees, and the
 // accepted-bid summaries.
 //
-// Reads come from the unified `bids` table (ADR-0014): one row per legacy
-// bid, `role` discriminating, the wire id the legacy id for migrated rows.
+// Reads come from the unified `bids` table (the unified bids design): one row per legacy
+// bid, `role` discriminating, the wire id the previous id for migrated rows.
 // `visibleBids()` gates every block: the owner, the assigned PM or an admin
 // sees every loaded bid, a professional sees only their own, anyone else
 // none. Counts stay public.
@@ -75,7 +75,7 @@ func bidRegistryKey(role string) string {
 	return "bid." + role
 }
 
-// bidWireID is the id the wire names: the legacy id for migrated rows,
+// bidWireID is the id the wire names: the previous id for migrated rows,
 // the physical id for rows the new stack created.
 func bidWireID(values map[string]any) int64 {
 	if legacy, ok := values["legacy_id"].(int64); ok && legacy != 0 {
@@ -550,7 +550,7 @@ func acceptedNotaris(ctx context.Context, pool *pgxpool.Pool, notarisID int64) (
 	return notaris, nil
 }
 
-// bidDuration mirrors the legacy column types: estimated_duration is a
+// bidDuration mirrors the previous column types: estimated_duration is a
 // varchar on bids_notaris and bids_interior (a string on the wire) and an
 // integer everywhere else. The unified table coerced everything to int,
 // so the role decides the spelling.

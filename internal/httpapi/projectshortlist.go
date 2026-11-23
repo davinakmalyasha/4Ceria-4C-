@@ -203,7 +203,7 @@ func ShortlistBidHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	}
 }
 
-// bidModelNameForRole is the legacy model name used by the scoped 404.
+// bidModelNameForRole is the previous model name used by the scoped 404.
 func bidModelNameForRole(role string) string {
 	switch role {
 	case "arsitek":

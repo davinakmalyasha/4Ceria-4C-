@@ -184,7 +184,7 @@ func DestroyMilestoneHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		// `linkedTermin` is a hasOne with no ordering, so the oracle looks at
+		// `linkedTermin` is a hasOne with no ordering, so the reference looks at
 		// exactly ONE row: the first the database returns (PK order here).
 		// A later paid stage on the same milestone does NOT block the delete.
 		var linkedStatus *string

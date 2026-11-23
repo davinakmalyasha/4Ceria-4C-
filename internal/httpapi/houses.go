@@ -32,7 +32,7 @@ import (
 //   - The envelope is `PaginatedResourceResponse`: data, four-way links,
 //     eight-key meta — the same builders the directories use.
 //
-// MySQL-isms the port preserves deliberately: the six `LIKE` filters are
+// MySQL-isms this service preserves deliberately: the six `LIKE` filters are
 // case-insensitive (ILIKE), the `city` equality folds case (a ci `=`), and
 // `width`/`length` coerce like MySQL (leading number or 0) because the
 // columns are TEXT.
@@ -63,13 +63,11 @@ func HousesHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			conditions = append(conditions, condition+" $"+strconv.Itoa(len(args)))
 		}
 
-		// `?mine=true` scopes to the caller and skips the cache. In practice
-		// this never scopes: these routes carry no `auth:sanctum`
-		// middleware, so Laravel's `Auth::check()` (default `web` guard)
-		// is always false here and the bearer token is ignored — the
-		// oracle answers everybody's rows to everybody. The branch stays
-		// so a future middleware change behaves like the controller.
-		if parseBoolean(query.Get("mine")) && caller != nil {
+		// `?mine=true` scopes to the signed-in caller. The optional caller
+		// resolver runs before the route, so a public listing can still be
+		// personalized without making the whole endpoint authenticated.
+		mine := parseBoolean(query.Get("mine")) && caller != nil
+		if mine {
 			add("h.id_user =", callerID)
 		}
 
@@ -180,6 +178,10 @@ func HousesHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		payload.Set("links", pageLinksSummary(baseURL, "", currentPage, lastPage(total, perPage)))
 		payload.Set("meta", directoryMeta(total, perPage, currentPage, basePathOf(baseURL), "", items))
 
+		if mine {
+			writeJSON(w, http.StatusOK, payload)
+			return
+		}
 		writeJSONPublic(w, r, http.StatusOK, payload, 60)
 	}
 }
@@ -626,9 +628,9 @@ func mustInt(raw string) int {
 // more, which is a counter, not money.
 var viewThrottle = newViewGate()
 
-// viewerIP identifies the viewer the way Laravel's $request->ip() does:
+// viewerIP identifies the viewer the way the original API's $request->ip() does:
 // the first forwarded address when present, else the peer host without
-// its ephemeral port. The port MUST NOT be part of the key: every HTTP
+// its ephemeral port. This service MUST NOT be part of the key: every HTTP
 // client opens a fresh ephemeral port per connection, so including it
 // would make the six-hour throttle never throttle.
 func viewerIP(r *http.Request) string {

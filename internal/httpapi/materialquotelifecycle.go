@@ -30,8 +30,8 @@ import (
 //     courier) the delivery job in one transaction.
 //   - post-delivery-job: the supplier queues a courier job for the quote.
 //
-// Tariff pricing is a float calculation on the oracle side (deg2rad/sin/
-// cos/asin are float64 there too), so the port reproduces the same float64
+// Tariff pricing is a float calculation on the reference side (deg2rad/sin/
+// cos/asin are float64 there too), so this service reproduces the same float64
 // operations before rounding the RUPIAH amount up.
 
 // quoteSupplierProfile reads the caller's supplier profile. loadViewer only
@@ -70,7 +70,7 @@ func platformShippingTariff(quote map[string]any, supplier map[string]any, deliv
 
 	const earthRadiusKm = 6371.0
 	lat1 := quoteLat * math.Pi / 180
-	// The oracle converts the SUPPLIER coordinates first and the QUOTE
+	// The reference converts the SUPPLIER coordinates first and the QUOTE
 	// coordinates second.
 	lat1 = supplierLat * math.Pi / 180
 	lon1 := supplierLng * math.Pi / 180
@@ -529,7 +529,7 @@ func MarkQuotePaidHandler(pool *pgxpool.Pool) http.HandlerFunc {
 					return
 				}
 
-				// The oracle TOUCHES the project after writing the ledger row
+				// The reference TOUCHES the project after writing the ledger row
 				// (ProjectFinancialService's $project->touch()), which is how a
 				// project listing's updated_at moves on a payment.
 				if _, err := tx.Exec(ctx, `UPDATE projects SET updated_at = date_trunc('second', now()) WHERE id = $1`, projectID); err != nil {

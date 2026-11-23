@@ -4,7 +4,7 @@ import { ChevronDown } from 'lucide-react';
 import type { NavItem } from './nav';
 
 /**
- * A nav group's dropdown — the native port of the synced `HeaderDropdown`.
+ * A nav group's dropdown — the native version of the `HeaderDropdown`.
  *
  * Same markup, same active/count rules. The panel is rendered conditionally
  * instead of through framer-motion; the header owns the one open id, so

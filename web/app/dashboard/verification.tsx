@@ -8,7 +8,7 @@ import { VerificationForm } from './verificationForm';
  * The `/me` payload already contains the role-specific profile relation, so the
  * panel can render the current status, the submitted identifiers and the
  * document slots without another request. The submit form is native too and
- * posts the same multipart payload as the legacy page to `/me/professional`.
+ * posts the same multipart payload as the previous page to `/me/professional`.
  */
 
 const RELATION_MAP: Record<string, string> = {
@@ -19,6 +19,7 @@ const RELATION_MAP: Record<string, string> = {
     mep: 'mep_engineer',
     notaris: 'notaris_profile',
     interior: 'interior_profile',
+    supplier: 'supplier',
     civil: 'kontraktor',
     mechanical: 'kontraktor',
     electrical: 'kontraktor',
@@ -72,7 +73,7 @@ export function VerificationPanel({ user }: { user: User }) {
     );
 
     let status: string = profile?.verification_status ?? 'unverified';
-    // The legacy page treated a PENDING row with no documents as unverified.
+    // The previous page treated a PENDING row with no documents as unverified.
     if (status === 'pending' && !hasDocuments) {
         status = 'unverified';
     }

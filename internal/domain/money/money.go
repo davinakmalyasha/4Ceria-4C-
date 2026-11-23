@@ -1,10 +1,10 @@
-// Package money is the port of App\Support\Money.
+// Package money implements App\Support\Money.
 //
 // An immutable monetary amount held in INTEGER MINOR UNITS.
 //
 // WHY INTEGER MINOR UNITS
 // -----------------------
-// Every money path in the legacy application used to be a PHP float, against
+// Every money path in the original application used to be a PHP float, against
 // columns declared `decimal(24,2)`. A `decimal(24,2)` column can hold values
 // up to ~1.7e22; a float64 tops out at ~9e15 AND carries only 15-17
 // significant decimal digits. So a Rp 1e12 project at sen precision sits
@@ -16,7 +16,7 @@
 // was a magic `+ 0.01` epsilon on a float. None of those comparisons are
 // reproducible at the values real projects reach.
 //
-// Integer minor units is the same approach Stripe, Shopify and Laravel Cashier
+// Integer minor units is the same approach Stripe, Shopify and the original API Cashier
 // take. It is exact, it is testable, and it makes the money arithmetic a pure
 // function of integers.
 //
@@ -123,7 +123,7 @@ var ErrInvalidWeights = errors.New("weights must be non-empty and sum to a posit
 // ErrAmountOverflow is returned when a result is beyond the representable
 // range of an int64 minor-unit amount.
 //
-// The legacy PHP implementation has the same limit, and it fails LOUDLY: PHP's
+// The previous PHP implementation has the same limit, and it fails LOUDLY: PHP's
 // integer overflow becomes a float, and `intdiv(float, int)` throws a
 // TypeError. The Go port must not be quieter than that — a wrong number is
 // worse than a crash — so it refuses too.
@@ -189,7 +189,7 @@ func OfMinor(minor int64, currency string) Money {
 // FromColumn reads a value straight off a decimal column.
 //
 // It handles the shapes that actually appear in the schema: a numeric string, a
-// float, an int, and — for legacy rows — an empty string or null, which must
+// float, an int, and — for previous rows — an empty string or null, which must
 // become zero rather than blowing up a money path.
 func FromColumn(value any, currency string) (Money, error) {
 	switch typed := value.(type) {
@@ -441,7 +441,7 @@ func (m Money) Percentage(percentage string) (Money, error) {
 	//
 	// The PHP original has the same defect, and it fails differently: PHP's
 	// integer overflow becomes a float, and `intdiv(float, int)` then throws a
-	// TypeError. So the legacy application CRASHES on a percentage of an
+	// TypeError. So the original application CRASHES on a percentage of an
 	// amount that large, and the Go port SILENTLY CORRUPTED it. A crash is bad
 	// and corruption is worse.
 	product := new(big.Int).Mul(big.NewInt(m.minor), big.NewInt(basisPoints))
@@ -531,7 +531,7 @@ func (m Money) Split(parts int) ([]Money, error) {
 // unit at a time, in descending weight order, so the parts always sum exactly
 // to the original.
 //
-// Used for termin schedules, where the legacy `signContract` and the SPA both
+// Used for termin schedules, where the previous `signContract` and the SPA both
 // computed `Math.round(pct / 100 * total)` independently and therefore
 // disagreed.
 func (m Money) Allocate(weights []int64) ([]Money, error) {

@@ -15,15 +15,14 @@ import (
 // approve or reject a professional.
 //
 // Identity (users, personal_access_tokens and the Spatie tables) is
-// MySQL-owned, so the two user verbs write MySQL and re-sync the mirror
-// before rendering; everything else writes PostgreSQL like the rest of the
-// port.
+// PostgreSQL-native, so the user verbs and the profile writes share one
+// transaction boundary and one read source.
 //
 // Three subtle behaviours are load-bearing:
 //   - suspending REVOKES every personal access token, otherwise a suspended
 //     account keeps working with the bearer token it already holds;
 //   - a house/listing response renders `is_suspended` as the BOOLEAN the
-//     oracle just assigned (the raw model has no cast, so a RELOAD would
+//     reference just assigned (the raw model has no cast, so a RELOAD would
 //     render MySQL's tinyint 1 instead);
 //   - the professional answer is the profile model with its appends and the
 //     eager-loaded `user`.
@@ -90,7 +89,7 @@ func validateAdminRoleType(fields map[string]any, failures *errorBag) string {
 }
 
 // houseResponseObject renders a house row plus its owner. `suspended` is the
-// value the request JUST assigned, so it renders as a boolean (the oracle's
+// value the request JUST assigned, so it renders as a boolean (the reference's
 // in-memory attribute) rather than the raw tinyint a reload would produce.
 func houseResponseObject(ctx context.Context, pool *pgxpool.Pool, byName map[string]any, suspended bool) *jsonphp.Object {
 	entry := jsonphp.NewObject()
@@ -274,7 +273,7 @@ func AdminUpdateProfessionalStatusHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		// The dashboard notification (best-effort: the oracle swallows its
+		// The dashboard notification (best-effort: the reference swallows its
 		// errors too).
 		userID := intPtrDeref(byName["user_id"])
 		if userID != 0 {

@@ -7,7 +7,6 @@ import (
 
 	"github.com/davinakmalyasha/4ceria/internal/domain/identity"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func trimSpaces(s string) string {
@@ -36,7 +35,7 @@ func fInt(f *big.Float) int64 {
 // `record_refund` (and later `release_payment`) needs three things the
 // handlers did not have yet:
 //
-//  1. turn a dispute's legacy `payment_type` short code (`termin`,
+//  1. turn a dispute's previous `payment_type` short code (`termin`,
 //     `arsitek_bid`, …) into the `ledger_reference_types` row the PG ledger
 //     keys on (migration 0011 backfilled the three missing aliases);
 //  2. resolve the linked payment row and lock it (`FOR UPDATE`, mirroring
@@ -181,11 +180,18 @@ func formatInt(value int64) string {
 
 // registryIDs loads `ledger_reference_types` into two maps: every spelling
 // (type_key, FQCN, alias) to id, and type_key to id.
-func registryIDs(ctx context.Context, pool *pgxpool.Pool) (bySpelling map[string]int64, byKey map[string]int64, err error) {
+// registryQuerier is the subset of pgx shared by a pool and a transaction. Reads
+// inside an open transaction must use the transaction: asking the pool for a
+// second connection while holding one is how a bounded pool deadlocks.
+type registryQuerier interface {
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+}
+
+func registryIDs(ctx context.Context, q registryQuerier) (bySpelling map[string]int64, byKey map[string]int64, err error) {
 	bySpelling = map[string]int64{}
 	byKey = map[string]int64{}
 
-	rows, err := pool.Query(ctx, `SELECT id, type_key, fqcn, legacy_aliases FROM ledger_reference_types`)
+	rows, err := q.Query(ctx, `SELECT id, type_key, fqcn, legacy_aliases FROM ledger_reference_types`)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -210,7 +216,7 @@ func registryIDs(ctx context.Context, pool *pgxpool.Pool) (bySpelling map[string
 }
 
 // paymentFQCNs maps the dispute short code to the payment model's FQCN — the
-// inverse of the registry, for the `reverses_model` the legacy code wrote as
+// inverse of the registry, for the `reverses_model` the previous code wrote as
 // a class name. The FQCN is what `paidAgainst`/`refundedAgainst` filter on,
 // so the spelling here decides which ledger rows count.
 var paymentFQCNs = map[string]string{
@@ -247,7 +253,7 @@ type paymentTarget struct {
 	Short string
 	// ID is the payment row's id.
 	ID int64
-	// RefID is the id the ledger and the API name: the legacy id for
+	// RefID is the id the ledger and the API name: the previous id for
 	// migrated rows (what every existing reference holds), the physical
 	// id for rows the new stack created.
 	RefID int64
@@ -288,7 +294,7 @@ func (e *errPaymentNotFound) Error() string { return "payment not found: " + e.s
 // resolvePaymentTarget reads and locks the linked payment row.
 //
 // `termin`, `addendum`, `material` and the seven bid types all resolve —
-// bids by (role, legacy id), preferring the legacy match because every
+// bids by (role, previous id), preferring the previous match because every
 // existing reference still names it (migration 0013). An unknown short or
 // a missing row reads as not found, and the caller answers the service's
 // sentence (`The linked payment no longer exists…`, or the 404/400 pair
@@ -400,8 +406,8 @@ func resolvePaymentTarget(ctx context.Context, tx pgx.Tx, bySpelling map[string]
 			}
 		}
 	default:
-		// The seven bid types resolve by (role, legacy id) — or by real
-		// id for new-stack rows, preferring the legacy match because
+		// The seven bid types resolve by (role, previous id) — or by real
+		// id for new-stack rows, preferring the previous match because
 		// every existing reference still names it.
 		if _, known := bidShortSet()[short]; !known {
 			return nil, &errPaymentNotFound{short, formatInt(paymentID)}
@@ -529,7 +535,7 @@ func bidderDisplayName(ctx context.Context, tx pgx.Tx, short string, profileID, 
 // Refund rows carry a negative amount, so the sign is flipped here, once.
 func ledgerSums(ctx context.Context, tx pgx.Tx, projectID, paymentRegistryID, paymentID int64) (paidMinor, refundedMinor int64, err error) {
 	if err := tx.QueryRow(ctx, `
-		SELECT COALESCE((SUM(amount) * 100)::bigint, 0)
+		SELECT COALESCE(trunc(SUM(amount) * 100)::bigint, 0)
 		  FROM project_budget_transactions
 		 WHERE project_id = $1
 		   AND reference_type_id = $2 AND reference_id = $3
@@ -540,7 +546,7 @@ func ledgerSums(ctx context.Context, tx pgx.Tx, projectID, paymentRegistryID, pa
 
 	var refundedNegative int64
 	if err := tx.QueryRow(ctx, `
-		SELECT COALESCE((SUM(amount) * 100)::bigint, 0)
+		SELECT COALESCE(trunc(SUM(amount) * 100)::bigint, 0)
 		  FROM project_budget_transactions
 		 WHERE project_id = $1
 		   AND reverses_type_id = $2 AND reverses_id = $3
@@ -558,7 +564,7 @@ func ledgerSums(ctx context.Context, tx pgx.Tx, projectID, paymentRegistryID, pa
 
 // disputePaymentShort turns a dispute's `payment_type_id` into the string
 // the service matches on. A missing link reads ("", false); a registry key
-// with no legacy short code reads back the key itself — mirroring a
+// with no previous short code reads back the key itself — mirroring a
 // dispute whose free-text `payment_type` names something the match does
 // not know, which `getModel` answers with 400 `Invalid payment type`.
 func disputePaymentShort(ctx context.Context, tx pgx.Tx, paymentTypeID *int64) (string, bool) {

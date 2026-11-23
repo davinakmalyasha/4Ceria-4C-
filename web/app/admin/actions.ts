@@ -132,7 +132,7 @@ export async function actOnDispute(formData: FormData): Promise<void> {
                 `/admin/disputes?dispute=${id}&error=${encodeURIComponent('A positive refund amount is required.')}`,
             );
         }
-        payload.amount = Number(amount);
+        payload.amount = amount;
         if (notes !== '') payload.notes = notes;
     } else if (notes !== '') {
         payload.notes = notes;

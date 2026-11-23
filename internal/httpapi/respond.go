@@ -11,7 +11,7 @@ import (
 
 // THE RESPONSE HELPERS
 // --------------------
-// The legacy API has NO shared envelope. It is 780 hand-rolled
+// The previous API has NO shared envelope. It is 780 hand-rolled
 // `response()->json([...])` calls across 62 controllers, and the first key
 // varies: `message` 623 times, `data` 83, `success` 21, `errors` 7. Six
 // `JsonResource` classes account for another 50 call sites, and there are
@@ -28,7 +28,7 @@ import (
 //   - `message` — the 623-call convention: `['message' => '...']`, with the
 //     status code.
 //
-// The error shapes are the four the legacy application produces, and they
+// The error shapes are the four the original application produces, and they
 // are NOT all the same:
 //
 //	422 validation   {"message":"The given data was invalid.","errors":{"field":["msg"]}}
@@ -47,13 +47,13 @@ import (
 // application that passes `JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES`.
 // The capture pins `APP_DEBUG=false`; the golden files record the bytes.
 
-// writeJSON writes a JSON body with the status and the headers Laravel's
+// writeJSON writes a JSON body with the status and the headers the original API's
 // `response()->json()` would produce.
 func writeJSON(w http.ResponseWriter, status int, body any) {
 	encoded, err := jsonphp.Marshal(body)
 	if err != nil {
 		// A body that cannot be encoded is a bug in the handler, not
-		// something to paper over. Laravel's equivalent is a 500.
+		// something to paper over. the original API's equivalent is a 500.
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
 		_, _ = w.Write([]byte(`{"message":"Server Error"}`))
@@ -61,6 +61,7 @@ func writeJSON(w http.ResponseWriter, status int, body any) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(status)
 	_, _ = w.Write(encoded)
 }
@@ -105,7 +106,7 @@ func message(w http.ResponseWriter, status int, text string) {
 // validationError writes the 422 shape the validator produces.
 //
 // The `errors` object maps a field to a LIST of messages, which is
-// Laravel's shape and not a shape one would invent.
+// the original API's shape and not a shape one would invent.
 func validationError(w http.ResponseWriter, messageText string, errors map[string][]string) {
 	body := jsonphp.NewObject()
 	body.Set("message", messageText)
@@ -144,7 +145,7 @@ func apiNotFound(w http.ResponseWriter, path string) {
 
 // sortedKeys returns a map's keys in a stable order.
 //
-// A Go map has no order, and the legacy application always produced a
+// A Go map has no order, and the original application always produced a
 // deterministic one, so anything that iterates a map has to impose one.
 func sortedKeys[V any](values map[string]V) []string {
 	keys := make([]string, 0, len(values))

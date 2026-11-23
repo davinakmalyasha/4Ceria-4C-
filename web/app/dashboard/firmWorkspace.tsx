@@ -17,12 +17,12 @@ import { CoverImage } from '@/components/CoverImage';
 /**
  * Native firm workspace.
  *
- * Replaces the synced `FirmSquadProfile` and `SpecialistFirmHub`. The owner's
+ * Replaces the `FirmSquadProfile` and `SpecialistFirmHub`. The owner's
  * screen renders the editable squad profile (text, banner/logo, recruitment
  * postings), the roster with its accept/decline/cancel/remove decisions, and
  * portfolio CRUD. The specialist's screen renders the firm directory, a
  * read-only firm profile and the request-to-join form. Every write is a server
- * action against the same endpoints the legacy hubs called.
+ * action against the same endpoints the previous hubs called.
  */
 
 export interface FirmJob {

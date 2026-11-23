@@ -3,7 +3,7 @@ import Image from 'next/image';
 /**
  * Card/cover image with built-in responsive sizing.
  *
- * The ported panels used raw `<img class="h-40 w-full object-cover">`, which
+ * The earlier panels used raw `<img class="h-40 w-full object-cover">`, which
  * ships full-size `storage/` blobs to phones with no lazy sizing. This keeps
  * the same box — height classes pass through to a relative wrapper — and lets
  * Next serve sized variants with lazy loading.
@@ -27,6 +27,7 @@ export function CoverImage({
                 alt={alt}
                 fill
                 sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 33vw"
+                unoptimized={src.startsWith('/storage/')}
                 className="object-cover"
             />
         </span>

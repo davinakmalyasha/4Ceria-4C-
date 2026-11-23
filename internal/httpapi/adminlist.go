@@ -16,11 +16,11 @@ import (
 // history.
 //
 // Everything here is `Model::with(...)->latest()->paginate(n)` on the
-// oracle side, which means:
-//   - the paginator envelope is Laravel's raw 13-key body and the page URLs
+// reference side, which means:
+//   - the paginator envelope is the original API's raw 13-key body and the page URLs
 //     carry ONLY ?page= (none of these controllers call withQueryString());
 //   - `latest()` is ORDER BY created_at DESC, and with equal timestamps
-//     MySQL serves ids ASCENDING (an index scan), so the port orders
+//     MySQL serves ids ASCENDING (an index scan), so this service orders
 //     `created_at DESC, id ASC` — without the tie-break PostgreSQL's heap
 //     order wins and the pages disagree;
 //   - `audited_at` in the history is Carbon's `toIso8601String()`, i.e.

@@ -816,9 +816,9 @@ func SubProfessionalDecisionHandler(pool *pgxpool.Pool, verb string) http.Handle
 				return
 			}
 			if subRole == "structural" || subRole == "mep" {
-				// The oracle stores `recommended` here; MySQL keeps these two
+				// The reference stores `recommended` here; MySQL keeps these two
 				// columns as VARCHAR, and the PG mirror's ENUM grew the value
-				// in migration 0017 so the port can write it too.
+				// in migration 0017 so this service can write it too.
 				if _, err := tx.Exec(ctx, `UPDATE bids SET status = 'recommended', is_recommended = true, updated_at = date_trunc('second', now())
 					WHERE project_id = $1 AND role::text = $2 AND bidder_user_id = $3`, projectID, subRole, targetUserID); err != nil {
 					slog.Error("sub-recommend: bid", "error", err)

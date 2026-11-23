@@ -73,7 +73,7 @@ export async function registerProfessional(
 /**
  * Sign the current account out, so the visitor can register a partner account.
  *
- * The legacy panel's button calls `logout()`, which revokes the token and then
+ * The previous panel's button calls `logout()`, which revokes the token and then
  * navigates. Here the token is revoked on the server and the cookie is dropped;
  * the browser never held the token in the first place.
  */

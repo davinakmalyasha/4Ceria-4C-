@@ -270,7 +270,7 @@ func RequestProcurementHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		if unitCostText == "" {
 			// The scanned wall may be text or pgtype.Numeric; the
 			// decimal renderer normalizes either, and nil means 0 —
-			// the oracle's `?? 0` fallback.
+			// the reference's `?? 0` fallback.
 			if text, ok := decimalOrNilBid(row.byName, "estimated_unit_cost").(string); ok {
 				unitCostText = text
 			} else {
@@ -400,7 +400,7 @@ func RequestProcurementHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 // procurementGate admits the hired kontraktor, an active helper sub
 // under the kontraktor, the assigned PM, and the owner — and nobody
-// else. It mirrors the oracle's explicit four-way check, including the
+// else. It mirrors the reference's explicit four-way check, including the
 // `active`-status sub-professional rule.
 func procurementGate(ctx context.Context, pool *pgxpool.Pool, viewer *projectViewer, projectID, ownerID int64) bool {
 	if viewer.id == ownerID {

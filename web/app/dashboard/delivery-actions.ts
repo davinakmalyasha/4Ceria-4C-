@@ -38,7 +38,7 @@ export async function acceptDeliveryJob(formData: FormData): Promise<void> {
  * `POST /logistics/jobs/{id}/status` accepts `accepted|picked_up|delivered` and
  * 1-3 photos; the controller enforces forward-only transitions and stores
  * pickup/dropoff photos under different folders. The form requires at least one
- * photo for each confirmed step, matching the legacy courier UI.
+ * photo for each confirmed step, matching the previous courier UI.
  */
 export async function updateDeliveryStatus(formData: FormData): Promise<void> {
     const id = Number(formData.get('job_id'));

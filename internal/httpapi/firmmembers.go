@@ -19,7 +19,7 @@ import (
 // rewritten to `asset('storage/'+pic)` unless it is already an absolute URL.
 //
 // Gate notes: `search` and `invite` are FormRequests whose `authorize()`
-// refuses non-arsitek/kontraktor with Laravel's generic 403, BEFORE any
+// refuses non-arsitek/kontraktor with the original API's generic 403, BEFORE any
 // validation. `roster` answers `{"data":[]}` for other roles instead.
 
 // firmMemberColumns is the `firm_members` table order.
@@ -697,7 +697,7 @@ func firmOwnerCard(ctx context.Context, pool *pgxpool.Pool, ownerID int64) (any,
 	if kerr == nil {
 		average, count := profileRatingValue(ctx, pool, "kontraktors", kontraktorID)
 		block := jsonphp.NewObject()
-		// The legacy model appends `lokasi` (its accessor reads `alamat`) and
+		// The previous model appends `lokasi` (its accessor reads `alamat`) and
 		// `no_telp` (its accessor reads `no_telepon`), so the raw `alamat`
 		// column is in the payload too, in select-then-append order.
 		block.Set("id", kontraktorID)

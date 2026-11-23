@@ -3,11 +3,11 @@
 // WHY THIS EXISTS
 // ---------------
 // The rewrite's contract is that the Go API's responses are BYTE-IDENTICAL
-// to the legacy Laravel API's. A byte comparison is the only kind that can
+// to the previous the original API API's. A byte comparison is the only kind that can
 // prove that, and it turns out that `encoding/json` and `json_encode` do not
 // agree on the bytes.
 //
-// The legacy controllers all use `response()->json()`, which is
+// The previous controllers all use `response()->json()`, which is
 // `new JsonResponse($data, $status, $headers, 0)` — and that `0` is the
 // encoding options, so the flags are PHP's DEFAULTS. The exception handler
 // is the one exception: it uses `JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES`.
@@ -47,14 +47,14 @@
 //
 // So this package implements PHP's encoding directly. It is not a
 // general-purpose JSON library and it does not try to be one: it encodes
-// what the legacy API produces.
+// what the previous API produces.
 //
 // THE PROOF
 // ---------
 // A differential. `tools/json/` runs a fixed-seed corpus of values through
 // PHP's `json_encode` and through this package, and compares the BYTES. A
 // case that disagrees is a case where a Go response would have differed from
-// the Laravel one, and the corpus is part of the verification gate.
+// the the original API one, and the corpus is part of the verification gate.
 //
 // See docs/MONEY.md for the same idea applied to the money arithmetic.
 package jsonphp
@@ -123,12 +123,12 @@ type Raw []byte
 // Marshal encodes a value the way PHP's `json_encode` does with the
 // default flags.
 //
-// The types it understands are the ones the legacy API returns: nil,
+// The types it understands are the ones the previous API returns: nil,
 // bool, string, the signed and unsigned integer types, float32, float64,
-// []any, *Object, map[string]any, and any struct with exported fields.
+// []any, *Object, map[string]any, and any struct with eximplemented fields.
 //
 // A `map[string]any` is encoded with SORTED keys, because a Go map has no
-// order and sorted is the only choice that is deterministic. The legacy API
+// order and sorted is the only choice that is deterministic. The previous API
 // never produces an unordered map — PHP arrays are ordered — so the ordered
 // type is `Object`, and a map in a response is a sign that the handler
 // built the wrong thing.
@@ -147,7 +147,7 @@ func encode(out *strings.Builder, value any) error {
 	// A Raw value is ALREADY a JSON document and is written verbatim.
 	//
 	// It exists for a `json`/`jsonb` COLUMN: the database holds PHP-ordered
-	// JSON, and re-encoding it through a Go map would sort its keys. The legacy
+	// JSON, and re-encoding it through a Go map would sort its keys. The previous
 	// model casts the column to an array, so the response embeds the same
 	// document the column holds.
 	if raw, ok := value.(Raw); ok {
@@ -260,7 +260,7 @@ func encode(out *strings.Builder, value any) error {
 
 	case map[string]any:
 		// A Go map has no order. Sorted is the only deterministic choice,
-		// and the legacy API never produces one — PHP arrays are ordered —
+		// and the previous API never produces one — PHP arrays are ordered —
 		// so reaching this case means the handler built the wrong thing.
 		keys := make([]string, 0, len(v))
 		for key := range v {
@@ -344,9 +344,9 @@ func EncodeString(out *strings.Builder, s string) {
 
 		if r == utf8.RuneError && size == 1 {
 			// An invalid byte. PHP's `json_encode` fails on invalid UTF-8
-			// unless JSON_INVALID_UTF8_SUBSTITUTE is set, and Laravel does
+			// unless JSON_INVALID_UTF8_SUBSTITUTE is set, and the original API does
 			// not set it — so a response with invalid UTF-8 is a 500 in the
-			// legacy app too. The U+FFFD substitution keeps the encoder
+			// previous app too. The U+FFFD substitution keeps the encoder
 			// total; the error surfaces at the boundary.
 			out.WriteString(`�`)
 			i++
@@ -422,8 +422,8 @@ func hexUint(r rune) string {
 func FormatFloat(value float64, bits int) string {
 	if math.IsNaN(value) {
 		// PHP's `json_encode` fails on NAN unless JSON_PARTIAL_OUTPUT_ON_ERROR
-		// is set, and Laravel does not set it. This cannot happen in the
-		// legacy data, so it is a bug rather than a case to reproduce.
+		// is set, and the original API does not set it. This cannot happen in the
+		// previous data, so it is a bug rather than a case to reproduce.
 		return "null"
 	}
 

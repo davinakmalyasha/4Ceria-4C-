@@ -11,7 +11,7 @@ import { CoverImage } from '@/components/CoverImage';
 /**
  * The floating chat messenger.
  *
- * The legacy `ChatOverlay` mounted the synced `useChat` hook — its own poller,
+ * The previous `ChatOverlay` mounted the `useChat` hook — its own poller,
  * its own conversation state and a bundle that pulled the whole chat tree into
  * every dashboard page. Here the inbox arrives from the server with the page
  * (the dashboard already fetches `/conversations`), and this island only owns
@@ -102,7 +102,7 @@ export function ChatLauncher({
             </button>
 
             {open && (
-                <div className="absolute bottom-[72px] right-0 w-[360px] sm:w-[420px] h-[520px] max-h-[calc(100vh-96px)] bg-white rounded-3xl border border-neutral-100 shadow-[0_20px_50px_rgba(0,0,0,0.15)] overflow-hidden flex flex-col">
+                <div className="absolute bottom-[72px] right-0 w-[min(360px,calc(100vw-3rem))] sm:w-[420px] h-[520px] max-h-[calc(100dvh-96px)] bg-white rounded-3xl border border-neutral-100 shadow-[0_20px_50px_rgba(0,0,0,0.15)] overflow-hidden flex flex-col">
                     <header className="h-14 shrink-0 bg-neutral-900 text-white flex items-center justify-between px-4">
                         <div className="flex items-center gap-2 min-w-0">
                             {active ? (

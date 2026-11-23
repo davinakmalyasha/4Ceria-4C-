@@ -1,9 +1,9 @@
-// Package terminplan is the port of App\Services\TerminPlanService — the
+// Package terminplan implements App\Services\TerminPlanService — the
 // integrity guards for payment plans (`project_payment_termins`).
 //
 // WHY THIS EXISTS, IN ONE PARAGRAPH
 // ---------------------------------
-// The legacy plan writers only checked the caller's role, so any
+// The previous plan writers only checked the caller's role, so any
 // professional could mint a termin on any project with an arbitrary amount
 // and set themselves as `recipient_id` — then self-verify it through the
 // payment verification path. This package centralises the invariants so
@@ -26,7 +26,7 @@
 // All amount comparisons run in minor units (integers, never floats) via
 // the money package — the previous PHP version compared floats against a
 // `+ 1000` tolerance, where the boundary was whatever the double rounding
-// produced. Percentages stay floats with the 0.01 tolerance the oracle
+// produced. Percentages stay floats with the 0.01 tolerance the reference
 // uses, because percentages are a display-side split, not money.
 package terminplan
 
@@ -38,7 +38,7 @@ import (
 	"github.com/davinakmalyasha/4ceria/internal/domain/money"
 )
 
-// The tolerances, in the oracle's units: percentages in points, amounts in
+// The tolerances, in the reference's units: percentages in points, amounts in
 // whole Rupiah.
 const (
 	// PercentageTolerance is TerminPlanService::PERCENTAGE_TOLERANCE.
@@ -280,7 +280,7 @@ func absMoney(value int64) int64 {
 }
 
 // formatFloat renders a float the way PHP interpolates one: "100.5", never
-// "100.500000". The oracle's percentage messages embed the raw double.
+// "100.500000". The reference's percentage messages embed the raw double.
 func formatFloat(value float64) string {
 	return strings.TrimRight(strings.TrimRight(fmt.Sprintf("%.10f", value), "0"), ".")
 }

@@ -1,123 +1,88 @@
 # AGENTS.md
 
-Entry point for AI agents working in this repo. Read this first; deeper docs
-live in `docs/`.
+Entry point for agents and contributors. The code is the source of truth;
+`docs/` explains it.
 
 ## What this is
 
 **4Ceria Portal** — a construction-coordination and real-estate marketplace.
 
-- **API**: Go 1.27 (`cmd/gateway`), serving every route from PostgreSQL.
-- **Frontend**: Next.js 16 App Router in `web/` (standalone build).
-- **Identity**: MySQL (ADR-0018) — `users`, `personal_access_tokens` and the
-  role tables stay MySQL-owned; the Go service reads and writes them directly
-  and re-syncs touched rows into PostgreSQL.
-- **Mirror**: `cmd/etl` copies MySQL into PostgreSQL and verifies row counts.
+- **API**: Go 1.27 in `cmd/gateway`; every route is declared in
+  `routing/routes.yaml` and registered in `cmd/gateway/main.go`.
+- **Frontend**: Next.js 16 App Router in `web/`; a standalone build.
+- **Database**: PostgreSQL only. Auth, tokens and roles live there too.
+- **Files**: local disk with HMAC-signed URLs, or S3-compatible storage.
 - **Money**: exact integer minor units; the ledger lives in PostgreSQL.
 
-The Laravel application and the Vite SPA are gone. Their last commit is
-`72bdfb2` on `origin/rewrite/week-1-2`; the frozen MySQL schema and demo rows
-are in `db/mysql/`.
+There is no MySQL, no PHP and no mobile app. The PWA is the mobile surface.
 
 ## Commands
 
 ```bash
+# Database: create with C collation, migrate, load the demo seed
+node tools/db/reset-demo.mjs
+
 # API
 go run ./cmd/gateway --addr=:8099
-go build ./cmd/gateway
-go test ./...          # default toolchain: GO ADK v2 needs JSON v2 enabled (see trap 1)
 
-# Frontend
-cd web && npm ci && npm run dev              # Next on :3000
+# Web
+cd web && npm ci && npm run dev     # :3000; API_ORIGIN defaults to 127.0.0.1:8099
+
+# Checks
+node scripts/verify.mjs             # gofmt, vet, go test, policy, tsc, next build
+node scripts/verify.mjs --db        # plus PostgreSQL from scratch + DB tests
 cd web && npx tsc --noEmit
-cd web && npm run build                      # standalone output
-
-# Databases
-psql -d 4ceria_pgcheck -f db/postgres/migrations/0001_extensions_and_schemas.sql   # etc.
-go run ./cmd/etl -all -truncate              # MySQL -> PostgreSQL
-go run ./cmd/etl -all -verify                # row-count equality
-
-# Full gate
-node scripts/verify.mjs                      # gofmt, vet, go test, frontend
-node scripts/verify.mjs --db                 # plus the PostgreSQL baseline + ETL
-node tools/db/verify-postgres-baseline.mjs   # from-scratch schema vs. live MySQL
+cd web && npm run build
 ```
 
 ## Critical traps
 
-1. **Default toolchain (JSON v2 enabled).** Go 1.27 ships `encoding/json/v2`.
-   The API's contract is byte-for-byte PHP-compatible JSON, but every
-   response goes through the hand-rolled `internal/jsonphp` encoder (which
-   only uses `encoding/json` for `json.Valid`), so the experiment does not
-   touch the wire bytes — the golden suite (`perfect_test.go` et al.) passes
-   byte-identical with the default toolchain and is the proof. The default
-   is REQUIRED since the AI assistant landed: GO ADK v2's transitive deps
-   import `encoding/json/jsontext`, which does not compile with
-   `GOEXPERIMENT=nojsonv2`. Do not re-pin it; see `docs/AI-ASSISTANT.md`.
-2. **Money is integer minor units.** Never use floats for money. The escrow
-   arithmetic lives in `internal/domain/money` and `internal/domain/escrow` —
-   do not re-derive it in a handler.
-3. **Every payment path checks for an open dispute** before writing money
-   state. The escrow service's `FreezeGate` is the gate; wiring it without a
-   dispute check leaves payments unfrozen.
-4. **`projects.pm_id` stores a PROFILE id** (`project_managers.id`), like the
+1. **Money is integer minor units.** Never use floats for money. Escrow
+   arithmetic lives in `internal/domain/money` and `internal/domain/escrow`.
+2. **Every payment path checks for an open dispute.** The escrow service's
+   `FreezeGate` is the gate; skipping it leaves payments unfrozen.
+3. **`projects.pm_id` stores a profile id** (`project_managers.id`), like the
    other `selected_*` columns. Never compare it with a user id.
-5. **MySQL ENUMs are append-only.** A new value is appended with an
-   append-only `ALTER` (never a `MODIFY COLUMN` that rewrites the list — that
-   is a table rebuild and aborts on any row holding a dropped value).
-   PostgreSQL `bid_status` must match the MySQL union in order;
-   `db/postgres/migrations/0017` appends `recommended`.
-6. **MySQL `users.Deskripsi` is capital-D**, quoted in PostgreSQL migration
-   0014. The wire contract emits that exact key.
-7. **Timestamps are UTC.** PostgreSQL sessions are pinned to UTC; the ETL reads
-   MySQL walls as UTC. A wall clock read in the server's local zone shifts
-   every instant.
-8. **The route manifest is the contract.** `routing/routes.yaml` is read at
-   startup; `TestEveryRouteIsRegistered` fails if a manifest route has no
-   handler. Add the route to the manifest and the handler together.
-9. **Identity lives in PostgreSQL by default.** Login, register, tokens and
-   roles are PostgreSQL-native (`authpg.go`, Sanctum semantics preserved).
-   Set `MYSQL_DSN` only to re-seed via ETL or run the historical parity
-   check; the gateway no longer needs it at runtime.
-10. **Unmatched `/api/*` paths answer JSON 404**, never the Next.js HTML. The
-    router's catch-all enforces that.
-11. **Absolute seed URLs pass through asset builders untouched.** Laravel's
-    `asset()` returns an absolute URL as-is; prefixing it with `/storage/`
-    produces a URL next/image answers 400 to (seen live on hire-history
-    avatars). New photo/cover/avatar code follows `firmAssetURL` /
-    `isExternalURL`: external in, external out. Working-tree CRLF is a
-    Windows checkout artefact — the blobs are LF, so `gofmt -w` a flagged
-    file and the committed diff stays minimal.
+4. **Timestamps are UTC.** The pool pins every session to UTC. A wall clock
+   read in the server's local zone shifts every instant.
+5. **The route manifest is the contract.** Add a route to
+   `routing/routes.yaml` and its handler in the same change; the router answers
+   a deliberate 501 for a manifest route with no handler.
+6. **Identity is PostgreSQL-native.** `internal/httpapi/authpg.go` preserves
+   Sanctum semantics. There is no MySQL driver or DSN in the runtime.
+7. **File paths go through `safeStorageJoin`.** A client filename is a label,
+   never a path. Uploads are stored under a random name with a sanitised
+   extension.
+8. **API responses are never cached.** `writeJSON` sets `no-store`; public
+   GETs opt in through `writeJSONPublic`. The service worker must never cache
+   `/api/*` or `/storage/*`.
+9. **Rate limits are scoped.** Anonymous routes key on the address, signed-in
+   routes on the user id; `X-Forwarded-For` is trusted only from
+   `TRUSTED_PROXIES`.
+10. **Next 16 differs from older Next.** Read the relevant guide in
+    `web/node_modules/next/dist/docs/` before changing App Router behavior.
+11. **Working-tree CRLF is a Windows checkout artefact.** The committed blobs
+    are LF. Run `gofmt -w` and keep the diff minimal.
+12. **No credentials in the seed.** `db/postgres/seed.sql` ends with
+    `DELETE FROM personal_access_tokens`; never commit real tokens or keys.
 
-## Working rules for agents
+## Working rules
 
-- Never commit without explicit owner instruction; the owner reviews the tree.
-- Before deleting anything as "dead", re-grep inbound references yourself.
-- Full verification gate after structural changes:
-  1. `gofmt -l ./cmd ./internal` (empty)
-  2. `go vet ./...`
-  3. `go test ./...`
-  4. `cd web && npx tsc --noEmit`
-  5. `cd web && npm run build`
-  6. `node tools/db/verify-postgres-baseline.mjs` (from-scratch PostgreSQL)
-  7. `go run ./cmd/etl -all -truncate` then `-all -verify`
-  8. `bash scripts/ci/action-policy.sh`
-  9. manual Playwright pass (login → dashboard → project page)
-- Money changes are not "refinements" — they need a test in `internal/` and a
-  look at `docs/MONEY.md`.
-- Test/scratch scripts: name them `debug_*.mjs`, `verify_*.mjs`, `seed_*.mjs`
-  at the repository root (the `.gitignore` patterns are anchored there).
+- Never commit without explicit owner instruction.
+- Prefer a migration over editing an existing one; migrations are forward-only.
+- A money change needs a test in `internal/` and a look at `docs/MONEY.md`.
+- Test/scratch scripts at the repository root are named `debug_*.mjs`,
+  `verify_*.mjs`, `seed_*.mjs`; they are ignored by git.
+- Update this file when a command or trap changes.
 
 ## Where things are
 
 | Area | Location |
 |---|---|
-| API handlers | `internal/httpapi/*` |
+| API handlers | `internal/httpapi/` |
 | Route manifest | `routing/routes.yaml` |
-| Domain model & money flow | `docs/DOMAIN.md`, `docs/MONEY.md` |
-| Escrow arithmetic | `internal/domain/money`, `internal/domain/escrow` |
-| Auth / authorization / uploads | `docs/CONVENTIONS.md` |
-| Infra & deploy | `docs/ARCHITECTURE.md` |
-| PostgreSQL schema | `db/postgres/migrations`, `docs/POSTGRES-SCHEMA.md` |
-| Frozen MySQL schema | `db/mysql/schema.sql`, `db/mysql/demo.sql` |
-| Decisions | `docs/adr/` |
+| Domain and money | `internal/domain/`, `docs/DOMAIN.md`, `docs/MONEY.md` |
+| Auth and uploads | `docs/ARCHITECTURE.md`, `docs/API.md` |
+| PostgreSQL schema | `db/postgres/migrations/`, `db/postgres/seed.sql` |
+| Demo reset | `tools/db/reset-demo.mjs` |
+| PWA | `web/public/sw.js`, `web/public/manifest.webmanifest` |

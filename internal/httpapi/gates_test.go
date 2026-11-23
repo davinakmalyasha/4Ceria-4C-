@@ -6,10 +6,10 @@ import (
 	"testing"
 )
 
-// TestTheAuthGateRunsBeforeTheAdminGate pins the defect that the first ported
+// TestTheAuthGateRunsBeforeTheAdminGate pins the defect that the first implemented
 // endpoint found.
 //
-// `NormalisedMiddleware` returns a SET — a map's keys — because the parity gate
+// `NormalisedMiddleware` returns a SET — a map's keys — because the contract gate
 // compares middleware as a set. The router built its CHAIN from that order, so
 // `admin` could run before `auth`: the admin gate then looked for a caller that
 // had not been resolved yet and answered 403 to an administrator.
@@ -25,11 +25,9 @@ func TestTheAuthGateRunsBeforeTheAdminGate(t *testing.T) {
 				Methods: []string{http.MethodGet},
 				URI:     "api/admin/thing",
 				Auth:    AuthAdmin,
-				Laravel: struct {
-					Action     string   `yaml:"action"`
+				Gates: struct {
 					Middleware []string `yaml:"middleware"`
 				}{
-					Action:     "Test@thing",
 					Middleware: []string{"api", "auth:sanctum", "freeze_pending_termination", "admin"},
 				},
 			},
@@ -82,11 +80,9 @@ func TestAnAnonymousCallerIsRefusedBeforeTheAdminGate(t *testing.T) {
 				Methods: []string{http.MethodGet},
 				URI:     "api/admin/thing",
 				Auth:    AuthAdmin,
-				Laravel: struct {
-					Action     string   `yaml:"action"`
+				Gates: struct {
 					Middleware []string `yaml:"middleware"`
 				}{
-					Action:     "Test@thing",
 					Middleware: []string{"api", "auth:sanctum", "admin"},
 				},
 			},

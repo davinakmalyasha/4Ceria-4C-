@@ -19,11 +19,11 @@ The gate from [`CONTRIBUTING.md`](../CONTRIBUTING.md). Tick what you ran:
 
 - [ ] `gofmt -l ./cmd ./internal` prints nothing
 - [ ] `go vet ./...`
-- [ ] `GOEXPERIMENT=nojsonv2 go test ./...`
+- [ ] `go test ./...`
 - [ ] `cd web && npx tsc --noEmit`
 - [ ] `cd web && npm run build`
 - [ ] `node tools/db/verify-postgres-baseline.mjs` (schema changed)
-- [ ] `go run ./cmd/etl -all -verify` (schema or data changed)
+- [ ] `node tools/db/reset-demo.mjs` (seed changed)
 - [ ] `bash scripts/ci/action-policy.sh` (workflow changed)
 - [ ] Manual pass: login → dashboard → project page
 
@@ -39,10 +39,9 @@ The gate from [`CONTRIBUTING.md`](../CONTRIBUTING.md). Tick what you ran:
 ## If this adds a migration
 
 - [ ] The migration is forward-only and numbered in `db/postgres/migrations/`
-- [ ] PostgreSQL enums match `spec/enums.yaml` in value and order
-- [ ] A MySQL enum change APPENDS the value; it never rewrites the list
-- [ ] `db/mysql/schema.sql` is regenerated when the identity schema changes
+- [ ] PostgreSQL enum changes append the value rather than reordering it
 - [ ] `db/postgres/tests/escrow_behaviour.sql` still passes
+- [ ] `node tools/db/verify-postgres-baseline.mjs` builds from scratch
 
 ## Notes
 

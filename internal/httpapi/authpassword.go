@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"html"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -19,9 +20,9 @@ import (
 // THE PASSWORD RESET SURFACE.
 //
 // `POST /api/forgot-password` and `POST /api/reset-password` are the last
-// two S0 writes, and they introduce the one primitive the port did not have
+// two S0 writes, and they introduce the one primitive this service did not have
 // yet: OUTBOUND MAIL. Everything else about them is already-solved machinery
-// (validation bags, bcrypt, MySQL writes, the PG re-sync for reads).
+// (validation bags, bcrypt, PostgreSQL writes).
 //
 // THE TOKEN IS AN HMAC, NOT A SECRET
 // ----------------------------------
@@ -29,7 +30,7 @@ import (
 // `hash_hmac('sha256', Str::random(40), APP_KEY)` — 64 lowercase hex chars,
 // keyed by the RAW `APP_KEY` value (including a `base64:` prefix when one
 // is present). The stored row holds `Hash::make($token)` (bcrypt) and is
-// verified with `Hash::check`. A Go-minted token verifies in Laravel and
+// verified with `Hash::check`. A Go-minted token verifies in the original API and
 // vice versa, because both sides compute the same HMAC over 40 alphabet
 // chars with the same key — which is why the alphabet matters and why this
 // file does not invent its own.
@@ -91,22 +92,22 @@ func (m *Mailer) sendReset(ctx context.Context, toEmail, token string) error {
 	}
 
 	if m.apiKey == "" {
-		slog.Info("reset mail (log driver)", "to", toEmail, "subject", subject, "url", url, "lines", len(lines))
+		slog.Info("reset mail (log driver)", "to", toEmail, "subject", subject)
 		return nil
 	}
 
-	var html strings.Builder
-	html.WriteString("<p>Hello!</p>")
+	var htmlBody strings.Builder
+	htmlBody.WriteString("<p>Hello!</p>")
 	for _, line := range lines[1:] {
-		html.WriteString("<p>" + line + "</p>")
+		htmlBody.WriteString("<p>" + html.EscapeString(line) + "</p>")
 	}
-	html.WriteString(`<p><a href="` + url + `">Reset Password</a></p>`)
+	htmlBody.WriteString(`<p><a href="` + html.EscapeString(url) + `">Reset Password</a></p>`)
 
 	payload, err := json.Marshal(map[string]any{
 		"from":    m.fromName + " <" + m.fromAddr + ">",
 		"to":      []string{toEmail},
 		"subject": subject,
-		"html":    html.String(),
+		"html":    htmlBody.String(),
 		"text":    "Hello!\n" + strings.Join(lines[1:], "\n") + "\nReset Password: " + url,
 	})
 	if err != nil {
@@ -133,9 +134,10 @@ func (m *Mailer) sendReset(ctx context.Context, toEmail, token string) error {
 	return nil
 }
 
-// resetLink is the notification's action URL: `{APP_URL}/reset-password/{token}?email={address}`.
+// resetLink is the notification's action URL. It points at the web app, not
+// the API: the reset screen is a Next route.
 func resetLink(token, email string) string {
-	return assetBase() + "/reset-password/" + token + "?email=" + url.QueryEscape(email)
+	return frontendBase() + "/reset-password/" + token + "?email=" + url.QueryEscape(email)
 }
 
 // mintResetToken is `createNewToken` + `getPayload`: an HMAC of 40 random

@@ -9,7 +9,7 @@ import { apiFetch, ApiFailure } from '@/lib/api';
  * httpOnly session attached.
  */
 export async function GET(
-    _request: Request,
+    request: Request,
     { params }: { params: Promise<{ dispute: string; message: string }> },
 ) {
     const { dispute, message } = await params;
@@ -23,7 +23,7 @@ export async function GET(
             return NextResponse.json({ message: 'Evidence not found.' }, { status: 404 });
         }
 
-        return NextResponse.redirect(body.url);
+        return NextResponse.redirect(new URL(body.url, request.url));
     } catch (error) {
         if (error instanceof ApiFailure) {
             return NextResponse.json({ message: error.message }, { status: error.status });

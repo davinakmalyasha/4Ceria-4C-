@@ -27,7 +27,7 @@ import (
 // ----------------------------------
 // verifyProof's non-admin path enforces proof-on-file, `verifying` status
 // and payee/PM authorization. The arbitration path skips exactly those
-// three; everything else is the same code Laravel runs, in the same order.
+// three; everything else is the same code the original API runs, in the same order.
 
 // releaseTarget is a linked payment row read for release.
 // errPaymentInvalid reports a type the switch does not know —
@@ -66,7 +66,7 @@ func orEmpty(s *string) string {
 func paidTotalMinor(ctx context.Context, tx pgx.Tx, projectID int64) (int64, error) {
 	var total int64
 	if err := tx.QueryRow(ctx, `
-		SELECT COALESCE((SUM(amount) * 100)::bigint, 0)
+		SELECT COALESCE(trunc(SUM(amount) * 100)::bigint, 0)
 		  FROM project_budget_transactions
 		 WHERE project_id = $1
 		   AND transaction_type::text IN ('payment', 'refund', 'platform_fee', 'retention_release')
@@ -149,7 +149,7 @@ func recordPaymentMinorInner(ctx context.Context, tx pgx.Tx, projectID, amountMi
 		return false, 0, err
 	}
 	if exists {
-		// Double-charge protection: the row is already there. The legacy
+		// Double-charge protection: the row is already there. The previous
 		// code ALSO matches the short spelling for rows written before the
 		// FQCN normalisation; PG rows only ever carry the registry id.
 		// Written=true: the unique index is the real guarantee, and a
@@ -237,7 +237,7 @@ func formatIDAmount(minor int64) string {
 
 // notifyPaymentVerified mirrors the service: the payer (owner) always hears
 // (`Payment Verified`), the verifier hears unless they are the payer
-// (`Payment Confirmed`). The receipt email is the mailer's job — Laravel
+// (`Payment Confirmed`). The receipt email is the mailer's job — the original API
 // queues it so the API never blocks on it — so Go logs the send instead of
 // inventing an SMTP path.
 func notifyPaymentVerified(ctx context.Context, pool *pgxpool.Pool, projectID int64,

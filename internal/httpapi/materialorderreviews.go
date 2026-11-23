@@ -24,7 +24,7 @@ import (
 //     comment, images and the two order facts a buyer needs (items + total),
 //     never the buyer's address, coordinates, receipts or notes.
 //
-// Review arrays are `image_paths` / `delivery_image_paths`; the legacy
+// Review arrays are `image_paths` / `delivery_image_paths`; the previous
 // single-image column `image_path` also serializes.
 
 // reviewColumns is the `material_order_reviews` table order.

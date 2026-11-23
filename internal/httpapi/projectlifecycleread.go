@@ -17,7 +17,7 @@ import (
 // dates off the UTC wall clock, parties off the hired rows, the same
 // three legal clauses with the escrow warranty window (180 days /
 // 6 months, the configured defaults the lifecycle service computes
-// from). Slashes escape (`\/`) exactly like the oracle's encoder.
+// from). Slashes escape (`\/`) exactly like the reference's encoder.
 //
 // `GET /api/projects/{project}/legal-financials` admits only the owner,
 // the hired notary or the assigned PM, and answers the escrow figures
@@ -288,7 +288,7 @@ func LegalFinancialsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		var paidMinor int64
 		if err := pool.QueryRow(ctx, `
-			SELECT COALESCE((SUM(amount) * 100)::bigint, 0)
+			SELECT COALESCE(trunc(SUM(amount) * 100)::bigint, 0)
 			  FROM project_budget_transactions
 			 WHERE project_id = $1
 			   AND transaction_type::text IN ('payment', 'refund', 'platform_fee', 'retention_release')
@@ -299,13 +299,13 @@ func LegalFinancialsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		var addendumMinor, terminMinor int64
-		if err := pool.QueryRow(ctx, `SELECT COALESCE((SUM(amount) * 100)::bigint, 0) FROM project_addendums WHERE project_id = $1 AND status::text IN ('approved_unpaid','pending_approval','verifying')`,
+		if err := pool.QueryRow(ctx, `SELECT COALESCE(trunc(SUM(amount) * 100)::bigint, 0) FROM project_addendums WHERE project_id = $1 AND status::text IN ('approved_unpaid','pending_approval','verifying')`,
 			projectID).Scan(&addendumMinor); err != nil {
 			slog.Error("legal: addendum", "error", err)
 			serverError(w)
 			return
 		}
-		if err := pool.QueryRow(ctx, `SELECT COALESCE((SUM(amount) * 100)::bigint, 0) FROM project_payment_termins WHERE project_id = $1 AND status::text IN ('locked','pending','invoice_sent')`,
+		if err := pool.QueryRow(ctx, `SELECT COALESCE(trunc(SUM(amount) * 100)::bigint, 0) FROM project_payment_termins WHERE project_id = $1 AND status::text IN ('locked','pending','invoice_sent')`,
 			projectID).Scan(&terminMinor); err != nil {
 			slog.Error("legal: termin", "error", err)
 			serverError(w)

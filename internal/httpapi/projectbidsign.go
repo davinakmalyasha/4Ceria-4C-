@@ -34,9 +34,9 @@ import (
 // but the method OPENS with `return DB::transaction(function () ... {
 // ... return $bid; })` — the transaction's result IS the method's result,
 // and everything after the `});` is dead code that never runs. The live
-// oracle answers the FLAT bid (33 legacy columns, no message wrapper,
-// no relations) and never writes the SPK draft row. The port matches the
-// live oracle, not the dead text. clientSignContract has no such trap:
+// reference answers the FLAT bid (33 previous columns, no message wrapper,
+// no relations) and never writes the SPK draft row. This service matches the
+// live reference, not the dead text. clientSignContract has no such trap:
 // it answers message+bid (verified live).
 
 // signTargetRole maps the bid role to the documents target_role.
@@ -73,7 +73,7 @@ func signPhaseContext(role string) string {
 	}
 }
 
-// attrName mirrors Laravel's attribute display: underscores read as spaces.
+// attrName mirrors the original API's attribute display: underscores read as spaces.
 // The error-bag KEYS keep their underscores; only the sentences change.
 func attrName(field string) string {
 	return strings.ReplaceAll(field, "_", " ")
@@ -484,7 +484,10 @@ func vaultBaseDir() string {
 
 // writeVaultFile stores decoded bytes at a vault-relative path.
 func writeVaultFile(rel string, data []byte) error {
-	full := filepath.Join(vaultBaseDir(), filepath.FromSlash(rel))
+	full, err := safeStorageJoin(storageRootFor(rel), rel)
+	if err != nil {
+		return err
+	}
 	if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
 		return err
 	}
@@ -494,7 +497,11 @@ func writeVaultFile(rel string, data []byte) error {
 // vaultHasFile reports whether any of the known signature layouts exists.
 func vaultHasFile(rels ...string) bool {
 	for _, rel := range rels {
-		if info, err := os.Stat(filepath.Join(vaultBaseDir(), filepath.FromSlash(rel))); err == nil && !info.IsDir() {
+		full, err := safeStorageJoin(storageRootFor(rel), rel)
+		if err != nil {
+			continue
+		}
+		if info, err := os.Stat(full); err == nil && !info.IsDir() {
 			return true
 		}
 	}
@@ -503,7 +510,7 @@ func vaultHasFile(rels ...string) bool {
 
 // signatureFileName builds the deterministic signature path: the bid's
 // created_at epoch, identical on both stacks because the mirror holds
-// the same wall the oracle read (see the timestamp note in PORTING.md).
+// the same wall the reference read (see the timestamp note in PORTING.md).
 func signatureFileName(role string, wireID, timestamp int64, client bool) string {
 	suffix := ""
 	if client {
@@ -870,7 +877,7 @@ func SignContractHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		// The live oracle answers the bare bid — the wrapper and the SPK
+		// The live reference answers the bare bid — the wrapper and the SPK
 		// draft below it are dead code (see the ENVELOPE TRAP above).
 		writeJSON(w, http.StatusOK, rawBidObject(bidType, refreshed.fields, refreshed.values))
 	}

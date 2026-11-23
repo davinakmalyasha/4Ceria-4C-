@@ -5,8 +5,8 @@ import "testing"
 // TestCrc32bMatchesSanctum pins the token suffix against a live-issued
 // token: PHP `hash('crc32b', 'UYaslxCquUHOTbBblEXVKlctAbUUnEcd31DSihvq')`
 // is `88834291`. The IEEE variant gives `e8584e3d` — a different checksum,
-// which would mint tokens Laravel still accepts (it only hashes) but that
-// never match the legacy shape.
+// which would mint tokens the original API still accepts (it only hashes) but that
+// never match the previous shape.
 func TestCrc32bMatchesSanctum(t *testing.T) {
 	if got := crc32bHex("UYaslxCquUHOTbBblEXVKlctAbUUnEcd31DSihvq"); got != "88834291" {
 		t.Fatalf("crc32bHex = %q, want 88834291", got)

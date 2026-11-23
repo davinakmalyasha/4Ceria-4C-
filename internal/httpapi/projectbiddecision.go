@@ -105,7 +105,7 @@ func validateDecisionFields(fields map[string]any, withNotes bool, failures *err
 				bidID = int64(typed)
 			}
 		case bool:
-			// Laravel's integer rule lets `true` through (filter_var coerces);
+			// the original API's integer rule lets `true` through (filter_var coerces);
 			// the lookup then misses. Mirror the pass, not the error.
 			if typed {
 				bidID = 1
@@ -235,18 +235,13 @@ func insertActivityLog(ctx context.Context, tx pgx.Tx, projectID, userID int64, 
 }
 
 // insertNotification writes a notifications row. Data is rendered in MySQL
-// JSON text form (space after `:` and `,`), because the legacy store is a
+// JSON text form (space after `:` and `,`), because the previous store is a
 // MySQL JSON column and its normalization is the wire shape.
 func insertNotification(ctx context.Context, tx pgx.Tx, userID int64, kind, title, body, data string) error {
 	_, err := tx.Exec(ctx, `INSERT INTO notifications (user_id, type, title, body, data, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, date_trunc('second', now()), date_trunc('second', now()))`,
 		userID, kind, title, body, data)
 	if err != nil {
 		return err
-	}
-	// Push fan-out (best-effort, async): the in-app row is the contract,
-	// the push is the extra. Failures never fail the request.
-	if shouldPushForTx(ctx, tx, userID, kind) {
-		go fanoutPushTx(userID, kind, title, body)
 	}
 	return nil
 }
@@ -319,7 +314,7 @@ func acceptGate(ctx context.Context, pool *pgxpool.Pool, viewer *projectViewer, 
 }
 
 // findBidTx loads one unified bid inside a transaction, preferring the
-// legacy hit.
+// previous hit.
 func findBidTx(ctx context.Context, tx pgx.Tx, projectID int64, role string, bidID int64) (fields []string, values []any, found bool, err error) {
 	rows, err := tx.Query(ctx, `SELECT `+bidsColumns+` FROM bids WHERE project_id = $1 AND role::text = $2 AND (id = $3 OR legacy_id = $3) ORDER BY CASE WHEN legacy_id = $3 THEN 0 ELSE 1 END LIMIT 1`,
 		projectID, role, bidID)

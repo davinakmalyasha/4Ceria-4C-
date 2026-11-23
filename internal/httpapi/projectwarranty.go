@@ -21,7 +21,7 @@ import (
 //     not started yet…", a passed end date names the day. Up to five images
 //     go to `projects/{id}/warranty`; the hired contractor's user is told.
 //   - PUT warranty-claims/{claim}/status: the hired contractor or the owner.
-//     `cost_impact` is owner-only when positive — the oracle's guard was
+//     `cost_impact` is owner-only when positive — the reference's guard was
 //     `$validated['cost_impact'] ?? null > 0 && !$isOwner`, where `??` binds
 //     LOOSER than `&&`, so the expression was truthy for every numeric value
 //     and even the owner was refused; fixed to compare the number.
@@ -76,10 +76,7 @@ func insertNotificationPool(ctx context.Context, pool *pgxpool.Pool, userID int6
 	if err != nil {
 		return err
 	}
-	if shouldPushForPool(ctx, pool, userID, kind) {
-		go fanoutPushPool(pool, userID, kind, title, body)
-	}
-	return err
+	return nil
 }
 
 // warrantyRow reads one claim by id.

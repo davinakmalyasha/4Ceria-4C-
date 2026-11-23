@@ -38,7 +38,7 @@ func authViaSanctumPG(t *testing.T, pool *pgxpool.Pool, token string) roadmapCal
 }
 
 // PG identity round-trips against the live database (skips without one).
-// These pin the ADR-0023 cutover: register → login → me → logout,
+// These pin the the PostgreSQL identity cutover cutover: register → login → me → logout,
 // forgot → reset (real minted token), admin suspend + role.
 
 func TestPGRegisterLoginMeLogout(t *testing.T) {

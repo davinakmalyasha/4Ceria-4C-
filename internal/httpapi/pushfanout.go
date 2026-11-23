@@ -2,13 +2,14 @@ package httpapi
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"sync"
 	"time"
 
 	"github.com/SherClockHolmes/webpush-go"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -49,35 +50,21 @@ func shouldPushForPool(ctx context.Context, pool *pgxpool.Pool, userID int64, ki
 	return true
 }
 
-func shouldPushForTx(ctx context.Context, tx pgx.Tx, userID int64, kind string) bool {
-	if userID <= 0 {
-		return false
-	}
-	for _, k := range notificationPreferenceAlwaysOn {
-		if k == kind {
-			return true
-		}
-	}
-	var enabled *bool
-	_ = tx.QueryRow(ctx, `SELECT enabled FROM notification_preferences WHERE user_id = $1 AND channel = 'webpush' AND type = $2 LIMIT 1`, userID, kind).Scan(&enabled)
-	if enabled != nil {
-		return *enabled
-	}
-	var defEnabled *bool
-	_ = tx.QueryRow(ctx, `SELECT enabled FROM notification_preferences WHERE user_id = $1 AND channel = 'webpush' AND type IS NULL LIMIT 1`, userID).Scan(&defEnabled)
-	if defEnabled != nil {
-		return *defEnabled
-	}
-	return true
-}
-
 func pushRateAllowed(userID int64) bool {
 	pushRateMu.Lock()
 	defer pushRateMu.Unlock()
-	if last, ok := pushLastSent[userID]; ok && time.Since(last) < 5*time.Second {
+
+	now := time.Now()
+	for id, last := range pushLastSent {
+		if now.Sub(last) > time.Hour {
+			delete(pushLastSent, id)
+		}
+	}
+
+	if last, ok := pushLastSent[userID]; ok && now.Sub(last) < 5*time.Second {
 		return false
 	}
-	pushLastSent[userID] = time.Now()
+	pushLastSent[userID] = now
 	return true
 }
 
@@ -133,21 +120,34 @@ func fanoutPushPool(pool *pgxpool.Pool, userID int64, kind, title, body string) 
 				VAPIDPrivateKey: priv,
 				TTL:             30,
 			})
-			if err == nil && resp != nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
-				lastErr = nil
-				break
-			}
 			if err != nil {
 				lastErr = err
-			} else if resp != nil && (resp.StatusCode == 404 || resp.StatusCode == 410) {
-				_, _ = pool.Exec(ctx, `DELETE FROM push_subscriptions WHERE user_id = $1 AND endpoint = $2`, userID, s.endpoint)
-				lastErr = nil
-				break
-			} else if resp != nil {
-				resp.Body.Close()
+				continue
+			}
+			if resp == nil {
 				lastErr = nil
 				break
 			}
+
+			status := resp.StatusCode
+			_, _ = io.Copy(io.Discard, resp.Body)
+			resp.Body.Close()
+
+			switch {
+			case status >= 200 && status < 300:
+				lastErr = nil
+			case status == 404 || status == 410:
+				_, _ = pool.Exec(ctx, `DELETE FROM push_subscriptions WHERE user_id = $1 AND endpoint = $2`, userID, s.endpoint)
+				lastErr = nil
+			case status == 429 || status >= 500:
+				lastErr = fmt.Errorf("push endpoint answered HTTP %d", status)
+				continue
+			default:
+				// 400/401/403 and other permanent refusals: retrying cannot
+				// help and the subscription is left for the user to renew.
+				lastErr = nil
+			}
+			break
 		}
 		if lastErr != nil {
 			slog.Error("push: send failed", "user", userID, "error", lastErr)
@@ -188,38 +188,55 @@ func pushMailFrom() string {
 	return "no-reply@4ceria.test"
 }
 
-var pushPoolOnce = struct {
-	sync.Once
-	pool *pgxpool.Pool
-}{}
-
-func pushPool() *pgxpool.Pool {
-	pushPoolOnce.Once.Do(func() {
-		dsn := os.Getenv("DATABASE_URL")
-		if dsn == "" {
-			return
-		}
-		cfg, err := pgxpool.ParseConfig(dsn)
-		if err != nil {
-			return
-		}
-		cfg.MaxConns = 4
-		pool, err := pgxpool.NewWithConfig(context.Background(), cfg)
-		if err != nil {
-			return
-		}
-		pushPoolOnce.pool = pool
-	})
-	return pushPoolOnce.pool
-}
-
-// fanoutPushTx is the tx-writer's fan-out: subscriptions are independent of
-// the caller's transaction, so it uses its own short-lived pool view.
-func fanoutPushTx(userID int64, kind, title, body string) {
-	pool := pushPool()
-	if pool == nil {
-		slog.Info("push: skipped (no DATABASE_URL)", "user", userID, "type", kind)
-		return
+// SendPendingPushes delivers web push for notifications whose creating
+// transaction has committed and which have not been pushed yet. Running from
+// the sweeper rather than from inside the handler is what prevents a push for
+// a bid or payment that then rolls back.
+func SendPendingPushes(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger) error {
+	rows, err := pool.Query(ctx, `
+		SELECT id, user_id, type, title, body
+		  FROM notifications
+		 WHERE push_sent_at IS NULL
+		   AND created_at > now() - interval '15 minutes'
+		 ORDER BY id
+		 LIMIT 25`)
+	if err != nil {
+		return err
 	}
-	fanoutPushPool(pool, userID, kind, title, body)
+
+	type pending struct {
+		id     int64
+		userID int64
+		kind   string
+		title  string
+		body   string
+	}
+
+	var batch []pending
+	for rows.Next() {
+		var item pending
+		if err := rows.Scan(&item.id, &item.userID, &item.kind, &item.title, &item.body); err != nil {
+			rows.Close()
+			return err
+		}
+		batch = append(batch, item)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	for _, item := range batch {
+		if shouldPushForPool(ctx, pool, item.userID, item.kind) {
+			fanoutPushPool(pool, item.userID, item.kind, item.title, item.body)
+		}
+		if _, err := pool.Exec(ctx, `UPDATE notifications SET push_sent_at = now() WHERE id = $1`, item.id); err != nil {
+			logger.Info("scheduler: push marker failed", "id", item.id, "error", err.Error())
+		}
+	}
+
+	if len(batch) > 0 {
+		logger.Info("scheduler: push sweep", "notifications", len(batch))
+	}
+	return nil
 }

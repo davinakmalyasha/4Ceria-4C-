@@ -12,8 +12,7 @@ import { CoverImage } from '@/components/CoverImage';
  * `my-firm` (the architect/contractor owner) reads
  * `GET /firm-members/profile/{ownerId}`; `my-firms` (specialists) reads
  * `GET /firm-members/my-firms` plus the pending `/firm-members/invitations`.
- * Both are server-rendered; the full roster/job/portfolio tools stay the synced
- * hub below the summary until their write endpoints are ported.
+ * Both are server-rendered; the full roster/job/portfolio tools stay the  * hub below the summary until their write endpoints are ported.
  */
 
 export interface FirmOwnerCard {

@@ -6,30 +6,24 @@
 //
 // WHY THE ROUTE TABLE IS A FILE
 // -----------------------------
-// The rewrite moves 296 API endpoints from Laravel to Go. "Without losing
-// one" is not something a person can check by reading: the table is four
-// hundred lines long, and the endpoint that goes missing is the one nobody
-// was looking at.
+// The manifest lists every API endpoint. "Every endpoint is registered" is not
+// something a person can check by reading: the table is thousands of lines
+// long, and the endpoint that goes missing is the one nobody was looking at.
 //
-// A route that exists in Laravel and not in Go is a 404 in production that no
-// test caught, because the test called the Go handler directly.
+// A route in the manifest without a handler is a 404 in production that no
+// test caught, because the test called the handler directly.
 //
-// The route table is FROZEN: it was generated from the Laravel router at the
-// end of the port and is now the contract the gateway serves. A route without
-// a handler answers the 501 stub; TestEveryRouteIsRegistered fails the build
-// when the two disagree.
+// The route table is a contract: it is read at startup and served by
+// /internal/routes. A route without a handler answers a deliberate 501, and
+// TestEveryRouteIsRegistered fails the build when the two disagree.
 //
-// THE TWO SPELLINGS OF THE SAME MIDDLEWARE
-// -----------------------------------------
-// The manifest reports a route's middleware the way the route was WRITTEN
-// (`auth:sanctum`, `throttle:10,1`); Laravel's route table reports it
-// RESOLVED to the class
-// (`Illuminate\Auth\Middleware\Authenticate:sanctum`). Neither is wrong, and
-// comparing the raw strings would report every route as a mismatch.
-//
-// So both are reduced to NormalisedMiddleware, which is the small set the
-// Go router is actually built from. That is the thing that has to be equal,
-// and it is what the parity gate compares.
+// GATE NAMES
+// ----------
+// `gates.middleware` carries the names the router maps to enforcement points
+// (`auth`, `admin`, `freeze_termination`, `throttle:N,M`). NormalisedMiddleware
+// reduces both spellings to the small set the router is built from, which is
+// what the contract report compares.
+
 package httpapi
 
 import (
@@ -59,9 +53,9 @@ const (
 
 // Route is one entry of the manifest.
 type Route struct {
-	// ID is the stable identifier: the Laravel route name when it had one, and
-	// a generated `<method>.<slug>` otherwise. Clients and tests key on it, so
-	// it must not change when a handler moves.
+	// ID is the stable identifier: a route name, or `<method>.<slug>` when the
+	// route has none. Clients and tests key on it, so it must not change when a
+	// handler moves.
 	ID string `yaml:"id"`
 
 	// Methods are the HTTP verbs, without the implied HEAD.
@@ -77,29 +71,20 @@ type Route struct {
 	// minute — or null when the route declares none.
 	Throttle *string `yaml:"throttle"`
 
-	// Tier recorded the parity contract during the port: 1 byte-identical
-	// including side-effect rows, 2 shape-identical, 3 compatible.
-	Tier int `yaml:"tier"`
-
-	// Upstream is which stack serves the endpoint. Every route is `go` now; the
-	// field is retained because /internal/routes reports it.
-	Upstream string `yaml:"upstream"`
-
-	// Laravel carries the legacy facts the manifest recorded.
-	Laravel struct {
-		Action     string   `yaml:"action"`
+	// Gates carries the middleware names the router maps to enforcement
+	// points (auth, admin, freeze_termination) and route throttles.
+	Gates struct {
 		Middleware []string `yaml:"middleware"`
-	} `yaml:"laravel"`
+	} `yaml:"gates"`
 }
 
 // Manifest is the whole file.
 type Manifest struct {
 	Meta struct {
-		GeneratedAt   string `yaml:"generated_at"`
-		LaravelCommit string `yaml:"laravel_commit"`
-		APICount      int    `yaml:"api_route_count"`
-		PublicCount   int    `yaml:"public_route_count"`
-		AdminCount    int    `yaml:"admin_route_count"`
+		UpdatedAt   string `yaml:"updated_at"`
+		APICount    int    `yaml:"api_route_count"`
+		PublicCount int    `yaml:"public_route_count"`
+		AdminCount  int    `yaml:"admin_route_count"`
 	} `yaml:"meta"`
 
 	Routes []Route `yaml:"routes"`
@@ -108,7 +93,7 @@ type Manifest struct {
 // LoadManifest reads the route manifest.
 //
 // The file is GENERATED, so a parse failure means the generator and the
-// reader disagree — which is exactly what the parity gate is for, and it is
+// reader disagree — which is exactly what the contract gate is for, and it is
 // not something to paper over with a fallback.
 func LoadManifest(path string) (*Manifest, error) {
 	raw, err := os.ReadFile(path)
@@ -129,12 +114,10 @@ func LoadManifest(path string) (*Manifest, error) {
 	return &manifest, nil
 }
 
-// Pattern is the chi pattern for the route: the URI with a leading slash.
+// Pattern is the ServeMux pattern for the route: the URI with a leading slash.
 //
-// chi's patterns are rooted at `/`, and the manifest's URIs are not, so the
-// leading slash is added here rather than being carried in the file — the
-// manifest is read by three programs and the Laravel URI form is the one
-// that has to stay recognisable.
+// The manifest stores the URI without a slash because that is the form the
+// API contract uses; the router adds it here.
 func (r Route) Pattern() string {
 	return "/" + strings.TrimPrefix(r.URI, "/")
 }
@@ -142,7 +125,7 @@ func (r Route) Pattern() string {
 // MethodURIs is the flattened view: one entry per (method, URI) pair.
 //
 // A route with several verbs is SEVERAL routes as far as the router and the
-// parity gate are concerned, and collapsing them would hide a verb that was
+// contract gate are concerned, and collapsing them would hide a verb that was
 // dropped.
 type MethodURI struct {
 	Route
@@ -241,8 +224,8 @@ func NormalisedMiddleware(middleware []string) []string {
 // ThrottleSpec returns the rate limit of a middleware list, in the canonical
 // `N,M` form, or "" when there is none.
 //
-// The manifest's `throttle` field and the Laravel route table's middleware
-// both reduce to the same value, which is what makes them comparable.
+// The manifest's `throttle` field and the middleware list both reduce to the
+// same value, which is what makes them comparable.
 func ThrottleSpec(middleware []string) string {
 	for _, item := range middleware {
 		if !strings.HasPrefix(item, "throttle:") &&

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 /**
- * Browser Web Push, ported from the synced `usePushNotifications`.
+ * Browser Web Push, adapted from the `usePushNotifications`.
  *
  * The Next app has no PWA build step, so the hook registers `public/sw.js`
  * itself and talks to the BFF (`/api/push/*`), which attaches the httpOnly
@@ -51,7 +51,12 @@ export function usePushNotifications() {
 
         (async () => {
             try {
-                const registration = await navigator.serviceWorker.register('/sw.js');
+                // PwaProvider owns registration; this hook only reads it.
+                const registration = await navigator.serviceWorker.getRegistration();
+                if (!registration) {
+                    return;
+                }
+
                 const subscription = await registration.pushManager.getSubscription();
 
                 if (cancelled || !subscription) {

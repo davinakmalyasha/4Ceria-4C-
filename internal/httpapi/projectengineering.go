@@ -1065,7 +1065,7 @@ func SubmitEngineeringInterviewHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		recommendedPresent := false
 		if raw, present := fields["is_recommended"]; !present || raw == nil {
 			failures.add("is_recommended", "The is recommended field is required.")
-		} else if value, ok := parseLaravelBoolean(raw); ok {
+		} else if value, ok := parseBooleanFlag(raw); ok {
 			recommended = value
 			recommendedPresent = true
 		} else {
@@ -1152,8 +1152,8 @@ func SubmitEngineeringInterviewHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	}
 }
 
-// parseLaravelBoolean reads a `boolean` rule value.
-func parseLaravelBoolean(value any) (bool, bool) {
+// parsethe original APIBoolean reads a `boolean` rule value.
+func parseBooleanFlag(value any) (bool, bool) {
 	switch typed := value.(type) {
 	case bool:
 		return typed, true

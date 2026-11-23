@@ -43,18 +43,16 @@ npm-debug.log
 yarn-error.log
 
 # ---------------------------------------------------------------------------
-# Database DUMPS
+# Database dumps
 #
-# `.sql` is ignored globally because a throwaway dump is not source. The two
-# exceptions ARE source:
-#   - `db/postgres/migrations/` is the forward-only PostgreSQL baseline.
-#   - `db/mysql/` holds the frozen legacy schema (MySQL still owns identity:
-#     users, tokens and the role tables).
+# `.sql` is ignored globally because a throwaway dump is not source. The
+# exceptions ARE source: the forward-only migrations, the SQL behaviour suites
+# and the demo seed the README tells you to load.
 # ---------------------------------------------------------------------------
 *.sql
 !db/postgres/migrations/*.sql
 !db/postgres/tests/*.sql
-!db/mysql/*.sql
+!db/postgres/seed.sql
 
 # ---------------------------------------------------------------------------
 # Scratch scripts at the repository ROOT only.
@@ -88,10 +86,11 @@ yarn-error.log
 /.playwright-mcp/
 /.mcp.json
 
-# Nested tooling repos and local archives
-/word-mcp-server/
-/word-mcp-server.venv/
+# Local archives
 mobile.zip
+
+# Runtime uploads
+/storage/
 
 # Local working documents: the committed record is the commit message, not a
 # working file a reviewer has to read.

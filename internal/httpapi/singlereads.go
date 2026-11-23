@@ -278,7 +278,7 @@ func briefISO(value any) any {
 
 // ContractorSubspecialtiesHandler serves `GET /api/contractor-subspecialties`.
 //
-// The oracle caches the list forever, but the payload is the same table read:
+// The reference caches the list forever, but the payload is the same table read:
 // category then label.
 func ContractorSubspecialtiesHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -320,7 +320,7 @@ func ContractorSubspecialtiesHandler(pool *pgxpool.Pool) http.HandlerFunc {
 }
 
 // myBidRole is one role's profile lookup. Bids live in the unified `bids`
-// table, discriminated by role (ADR-0014), so only the profile side differs.
+// table, discriminated by role (the unified bids design), so only the profile side differs.
 type myBidRole struct {
 	profileTable string
 	profileID    string // the unified table's profile column
@@ -576,7 +576,7 @@ func hireEntry(ctx context.Context, pool *pgxpool.Pool, role hireRole,
 	}
 
 	var avatar any
-	// Absolute seed URLs (unsplash, CDN) pass through like Laravel's
+	// Absolute seed URLs (unsplash, CDN) pass through like the original API's
 	// asset(); only relative disk paths resolve under /storage/.
 	avatarURL := func(path string) string {
 		if isExternalURL(path) {

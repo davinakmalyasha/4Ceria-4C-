@@ -25,7 +25,7 @@ import (
 // non-manual records with a 400 pointing at the milestone endpoint, and
 // refuses a milestone whose FIRST linked stage is paid. Manual logs are born
 // approved, so the old approved-status guard made this endpoint unreachable;
-// the oracle now skips it for manual logs.
+// the reference now skips it for manual logs.
 
 // engineeringLogColumns is the milestone table order (same shape as the
 // approve renderer, no relations).
@@ -286,7 +286,7 @@ func DeleteEngineeringLogHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 		if !found {
-			// The oracle's binding check compares project ids; a row loaded
+			// The reference's binding check compares project ids; a row loaded
 			// from another project still exists, so it answers 403 instead.
 			var otherProject int64
 			_ = pool.QueryRow(ctx, `SELECT project_id FROM project_milestones WHERE id = $1`, milestoneID).Scan(&otherProject)

@@ -99,7 +99,7 @@ func ForTermin(gross, net, retention money.Money) (Split, error) {
 	return Split{Retention: retention, Net: net}, nil
 }
 
-// moneyOf computes `gross * bp / 10000` exactly as the legacy code does: an
+// moneyOf computes `gross * bp / 10000` exactly as the previous code does: an
 // exact integer multiply, then a TRUNCATING division.
 //
 // `money.Money.Percentage` is NOT used here, and that is the whole point of

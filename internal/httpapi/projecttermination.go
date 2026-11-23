@@ -72,7 +72,7 @@ func terminationBid(ctx context.Context, tx pgx.Tx, projectID int64,
 	byName := projectColumnsByName(fields, values)
 	profileID := intPtrOf(byName[bidProfileColumnForRole(role.termin)])
 
-	// Update by the physical row id; the wire id may be a legacy id.
+	// Update by the physical row id; the wire id may be a previous id.
 	physical := intPtrOf(byName["id"])
 	if physical == nil {
 		return nil, rows.Err()

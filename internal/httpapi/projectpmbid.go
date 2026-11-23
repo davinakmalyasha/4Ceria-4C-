@@ -29,8 +29,8 @@ import (
 //
 // ACCEPT WRITES THE PM'S **USER** ID into `projects.pm_id`. The schema
 // docblock says the column holds a PROFILE id (Hire::isAssignedPm), and
-// every other writer complies — this one does not, and parity means
-// reproducing the write, not correcting it behind the oracle's back.
+// every other writer complies — this one does not, and contract means
+// reproducing the write, not correcting it behind the reference's back.
 
 // pmBidDefaults is the model's declared attribute order.
 var pmBidDefaults = []string{"duration_unit", "status", "payment_status"}
@@ -319,7 +319,7 @@ func mustMinor(text string) int64 {
 }
 
 // jsonColumnText renders a nullable JSON column from the request: a
-// string is decoded and re-encoded (the oracle decodes it), an array is
+// string is decoded and re-encoded (the reference decodes it), an array is
 // marshalled, anything else is NULL.
 func jsonColumnText(value any) *string {
 	switch typed := value.(type) {
@@ -534,9 +534,9 @@ func PMBidDecisionHandler(pool *pgxpool.Pool, verb string) http.HandlerFunc {
 			}
 		case "accept":
 			// `projects.pm_id` holds the PM's PROFILE id — matching every
-			// other writer and `Hire::isAssignedPm`. The oracle used to write
+			// other writer and `Hire::isAssignedPm`. The reference used to write
 			// the user id here, which no Hire-gated route could match and
-			// PostgreSQL's FK rejects; fixed in the oracle first.
+			// PostgreSQL's FK rejects; fixed in the reference first.
 			if _, err := tx.Exec(ctx, `UPDATE projects SET pm_id = $2, updated_at = date_trunc('second', now()) WHERE id = $1`, projectID, bidderProfileID); err != nil {
 				slog.Error("pm-accept: project", "error", err)
 				serverError(w)

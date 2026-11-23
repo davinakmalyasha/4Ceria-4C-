@@ -1,84 +1,115 @@
 # Architecture
 
-## Runtime topology
+## Topology
 
 ```
-Browser
-   │
-   ▼
-Next.js 16 (web/, standalone build)      ── server components / route handlers
-   │  API_ORIGIN
-   ▼
-Go gateway (cmd/gateway)                 ── routing/routes.yaml, all 312 endpoints
-   │
-   ├── PostgreSQL 17   all data + auth (users, tokens, roles, ledger)
-   ├── MySQL 9.6       one-time legacy seed only (db/mysql + cmd/etl)
-   ├── Local disk      public uploads + private contracts / KYC / evidence
-   ├── Resend          password-reset mail (log driver when key empty)
-   └── Nominatim       geocoding (proxied and re-encoded)
+Browser / installed PWA
+        │  same-origin HTML, RSC, /api/*, /storage/*
+        ▼
+Next.js 16 (web/)                    ┌─────────────────────────────┐
+  server components + server actions │  Go gateway (cmd/gateway)   │
+  /api/[...path]   ─── HTTP ────────▶ │  manifest router + handlers │
+  /storage/[...path] ─ HTTP ────────▶ │  auth, money, storage, SSE  │
+  /auth/expire, /offline             └──────────────┬──────────────┘
+                                                     │ pgx
+                                              ┌──────▼──────┐
+                                              │ PostgreSQL  │
+                                              │ all data    │
+                                              └─────────────┘
 ```
 
-The browser never calls the API directly on a cross-origin hop it does not
-control: the Next server reads `API_ORIGIN` at request time and forwards the
-request. That keeps the session cookie/httpOnly design intact and makes the
-API origin a deploy-time value rather than a build-time one.
+The browser never receives the API bearer token. The Next server action that
+logs a user in stores the token in an httpOnly `4ceria_session` cookie; server
+components and the two proxy route handlers attach it to API calls.
 
 ## Request lifecycle
 
-1. `cmd/gateway` loads `routing/routes.yaml` at startup. A route without a
-   handler answers a deliberate 501 stub — the route table is the contract,
-   and `TestEveryRouteIsRegistered` fails the build if the two disagree.
-2. Middleware order is: recover → security headers → rate limit →
-   auth (Sanctum token, read from PostgreSQL) → admin gate → freeze gate.
-3. Handlers write PostgreSQL directly, including identity. MySQL is only the
-   one-time seed source via `cmd/etl`.
-4. Unmatched `/api/*` paths answer a JSON 404. Anything else is not the
-   gateway's business.
+1. A page render calls `sessionToken()` (`web/lib/session.ts`) and
+   `apiFetch()` (`web/lib/api.ts`). Both are server-only.
+2. `apiFetch` sends `Authorization: Bearer <token>` to `API_ORIGIN`, with
+   `cache: 'no-store'` unless a public directory opts into 60-second caching.
+3. The Go router resolves `routing/routes.yaml`, applies the route's chain
+   (`auth`, `admin`, `freeze_termination`, route throttle, coarse API throttle)
+   and calls the handler.
+4. `internal/httpapi` handlers use pgx; money moves through
+   `internal/domain/escrow`, never ad-hoc SQL arithmetic in a handler.
+5. Responses are encoded by `internal/jsonphp` so numeric and object shapes
+   are stable. Errors use the same `{"message": ...}` shape throughout.
 
-## Data ownership
+A 401 from the API during a server render redirects to `/auth/expire`, which
+clears the cookie and then sends the visitor to `/login`. This prevents the
+stale-cookie redirect loop.
 
-| Store | Tables | Why |
-|---|---|---|
-| PostgreSQL | everything, including `users`, `personal_access_tokens`, roles | Local/portfolio runtime is all-PostgreSQL (ADR-0018 superseded for local). |
-| MySQL | frozen legacy seed only | `db/mysql/` + `cmd/etl` seed PostgreSQL once; not needed at runtime. |
+## Identity
 
-`cmd/etl` is the one-time seeder: it reads each MySQL table, writes PostgreSQL with the
-same values, and verifies row-count equality. `db/mysql/schema.sql` and
-`db/mysql/demo.sql` are the frozen legacy schema and a demo dataset, used once
-to seed a local PostgreSQL. Runtime needs only PostgreSQL.
+- `users`, `personal_access_tokens`, `roles` and `model_has_roles` are
+  PostgreSQL tables.
+- Tokens keep Sanctum's `id|plain` form; only the SHA-256 hash is stored, and
+  expiry is checked on every request.
+- `last_used_at` is touched best-effort after a successful lookup.
+- Password reset tokens are hashed, expire after 60 minutes, are deleted on use
+  and are never written to logs.
+- Login, register and forgot-password responses are timing-equalised so an
+  unknown address cannot be distinguished from a wrong password.
+
+## Authorization
+
+- `auth` requires a resolved caller.
+- `admin` requires `role_type = 'admin'` or an admin Spatie role.
+- `freeze_termination` blocks mutations while a project has an open mutual
+  termination.
+- Project reads are limited to the owner, assigned PM, admin, the hired
+  professional roles, non-terminal bidders and active sub-professionals.
+- Every money mutation also checks for an open dispute inside the transaction.
 
 ## Storage
 
-| Kind | Location | Access |
-|---|---|---|
-| Public uploads | `PUBLIC_STORAGE_ROOT` (local) or Tigris | anonymous `/storage/...` |
-| Contracts, KYC, receipts, dispute evidence | `EVIDENCE_DIR` (local) or private Tigris | presigned URLs |
-| Generated application files | PostgreSQL byte columns / storage root | handler-checked |
+Uploads are stored under `PUBLIC_STORAGE_ROOT` (public prefixes) or
+`EVIDENCE_DIR` (everything else). A stored path is always resolved through
+`safeStorageJoin`, which rejects absolute paths and `..` segments. Client
+filenames never become paths; the extension is reduced to 1–8 alphanumeric
+characters.
 
-Uploads are server-named; the client filename is never used as a path.
+`GET /storage/{path}`:
 
-## Deploy
+- public prefixes: cacheable for one hour;
+- private paths: require a valid caller or a 15-minute HMAC signature
+  (`?expires=&sig=`, keyed by `APP_KEY`);
+- S3 configuration replaces local serving with presigned GETs.
 
-**Not deployed.** This is a portfolio project; the shape below is what a
-deployment would look like.
+The Next app proxies `/storage/*` so the browser stays same-origin and the API
+host can remain server-side.
 
-- **API** — the `Dockerfile` (Go binary) on a container host. Environment:
-  `DATABASE_URL`, `APP_KEY`, `APP_URL`, `PUBLIC_STORAGE_ROOT`,
-  `EVIDENCE_DIR`, `RESEND_API_KEY`, `VAPID_PUBLIC_KEY`, `GEOCODING_ORIGIN` (no `MYSQL_DSN` at runtime).
-- **Frontend** — `web/` on Vercel. `API_ORIGIN` is read at runtime; the build
-  output is `standalone`.
-- **PostgreSQL** — migrations are applied in filename order before the new
-  binary is promoted. They are forward-only and idempotent where possible. Auth included.
-- **MySQL** — one-time seed only (`db/mysql/schema.sql` + ETL); not a runtime dependency.
+## Background work
 
-## CI
+`httpapi.StartScheduler` runs in the gateway process and is disabled with
+`DISABLE_SCHEDULER=1` in tests. Jobs are elected with PostgreSQL advisory locks
+held on one acquired connection:
 
-`.github/workflows/ci.yml`:
+- retention release;
+- auto-complete material orders after three delivered days;
+- snag escalation;
+- prune expired tokens, old notifications and limiter rows;
+- mail outbox drain (5-minute ticker, attempt/backoff accounting);
+- web push sweep (30-second ticker, only notifications whose creating
+  transaction has committed).
 
-| Job | What it proves |
-|---|---|
-| `action-policy` | Every action is pinned to a SHA and every image to a digest. |
-| `secrets` | gitleaks over full history; no VAPID private key tracked. |
-| `go` | `gofmt`, `go vet`, `go test ./...`. |
-| `web` | `tsc --noEmit` and `next build`. |
-| `database` | PostgreSQL builds from scratch and matches MySQL; the ETL loads and both engines hold the same row counts. |
+## PWA
+
+- `web/public/manifest.webmanifest` declares installability, shortcuts and
+  screenshots.
+- `web/components/pwa/PwaProvider.tsx` registers `public/sw.js` in production,
+  captures `beforeinstallprompt`, detects updates and exposes offline state.
+- The service worker precaches the offline page and immutable assets. It never
+  caches `/api/*`, authenticated HTML or `/storage/*`; a navigation failure
+  shows `/offline`.
+- Push notifications are delivered by the sweeper and open a same-origin URL
+  only.
+
+## Deployment
+
+The API is a static Go binary (`Dockerfile`, `--addr=:8080`). The web app is a
+Next standalone build. Required runtime configuration is documented in
+`.env.example` and `docs/OPERATIONS.md`.
+
+The repository is a portfolio reference, not a live service.

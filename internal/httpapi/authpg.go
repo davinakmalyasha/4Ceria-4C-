@@ -6,7 +6,9 @@ import (
 	"encoding/hex"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
 	"github.com/jackc/pgx/v5"
@@ -18,8 +20,7 @@ import (
 //
 // The gateway authenticates against PostgreSQL directly (same Sanctum
 // semantics, same bcrypt `$2y$`, same 2-day expiry). No re-sync, no ETL
-// window, no second pool. MySQL remains only as the one-time seed source
-// (`db/mysql/` + `cmd/etl`) and the frozen `--db` parity oracle.
+// window, no second pool. There is no second database and no re-sync path.
 
 type SanctumPG struct {
 	pool *pgxpool.Pool
@@ -42,25 +43,34 @@ func (s *SanctumPG) Authenticate(r *http.Request) (Caller, error) {
 	if !ok || id == "" || plain == "" {
 		return nil, ErrUnauthenticated
 	}
+	tokenID, err := strconv.ParseInt(id, 10, 64)
+	if err != nil || tokenID <= 0 {
+		return nil, ErrUnauthenticated
+	}
 	sum := sha256.Sum256([]byte(plain))
 	var userID int64
 	var role string
 	var suspended int64
-	// Token id is numeric; compare hash hex (citext in PG).
-	err := s.pool.QueryRow(r.Context(), `
+	// Compare the numeric primary key directly: `t.id::text = $1` defeats the
+	// index and turns every authenticated request into a table scan.
+	err = s.pool.QueryRow(r.Context(), `
 		SELECT t.tokenable_id, COALESCE(u.role_type::text, ''), COALESCE(u.is_suspended::int, 0)
 		  FROM personal_access_tokens t
 		  JOIN users u ON u.id = t.tokenable_id
-		 WHERE t.id::text = $1
+		 WHERE t.id = $1
 		   AND t.token = $2
 		   AND (t.expires_at IS NULL OR t.expires_at > NOW())
-	`, id, hex.EncodeToString(sum[:])).Scan(&userID, &role, &suspended)
+	`, tokenID, hex.EncodeToString(sum[:])).Scan(&userID, &role, &suspended)
 	if err != nil {
 		return nil, ErrUnauthenticated
 	}
 	if suspended != 0 {
 		return nil, ErrUnauthenticated
 	}
+
+	// Best-effort session observability; a failed touch must not fail auth.
+	_, _ = s.pool.Exec(r.Context(), `UPDATE personal_access_tokens SET last_used_at = NOW() WHERE id = $1`, tokenID)
+
 	return Session{ID: userID, Role: role, IsAdmin_: role == "admin"}, nil
 }
 
@@ -124,6 +134,10 @@ func LoginPGHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			SELECT id, name, password, COALESCE(role_type::text, 'user'), COALESCE(is_suspended::int, 0)
 			  FROM users WHERE email = $1 LIMIT 1
 		`, email).Scan(&id, &name, &hash, &role, &suspended); err != nil {
+			// Equalize the unknown-account path with a real bcrypt check:
+			// otherwise response time tells an attacker whether the address
+			// exists before the password is even considered.
+			burnPasswordCheck(password)
 			message(w, http.StatusUnauthorized, "Invalid login credentials")
 			return
 		}
@@ -195,7 +209,12 @@ func LogoutPGHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		_ = caller
 		sum := sha256.Sum256([]byte(plain))
-		_, _ = pool.Exec(r.Context(), `DELETE FROM personal_access_tokens WHERE id::text = $1 AND token = $2`, id, hex.EncodeToString(sum[:]))
+		result, err := pool.Exec(r.Context(), `DELETE FROM personal_access_tokens WHERE id::text = $1 AND token = $2`, id, hex.EncodeToString(sum[:]))
+		if err != nil || result.RowsAffected() == 0 {
+			slog.Error("logout: revoke", "error", err)
+			serverError(w)
+			return
+		}
 		payload := jsonphp.NewObject()
 		payload.Set("message", "Logged out.")
 		writeJSON(w, http.StatusOK, payload)
@@ -408,7 +427,7 @@ func RegisterPGHandler(pool *pgxpool.Pool) http.HandlerFunc {
 // ForgotPasswordPGHandler serves `POST /api/forgot-password` against PostgreSQL.
 //
 // No `exists:` rule: an identical 200 answers whether or not the account
-// exists, because a difference would be an account enumeration oracle.
+// exists, because a difference would be an account enumeration reference.
 func ForgotPasswordPGHandler(pool *pgxpool.Pool, mail *Mailer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		fields, _, err := requestFields(r)
@@ -429,16 +448,19 @@ func ForgotPasswordPGHandler(pool *pgxpool.Pool, mail *Mailer) http.HandlerFunc 
 			failures.write(w)
 			return
 		}
+		// The hash is computed whether or not the account exists, so the
+		// response time does not reveal the answer.
+		plain, tokenErr := mintResetToken()
+		var hashed string
+		if tokenErr == nil {
+			hashed, _ = bcryptHash(plain)
+		}
+
 		var userID int64
-		if err := pool.QueryRow(r.Context(), `SELECT id FROM users WHERE email = $1 LIMIT 1`, email).Scan(&userID); err == nil {
+		if err := pool.QueryRow(r.Context(), `SELECT id FROM users WHERE email = $1 LIMIT 1`, email).Scan(&userID); err == nil && tokenErr == nil && hashed != "" {
 			_, _ = pool.Exec(r.Context(), `DELETE FROM password_reset_tokens WHERE email = $1`, email)
-			plain, err := mintResetToken()
-			if err == nil {
-				hashed, err := bcryptHash(plain)
-				if err == nil {
-					_, _ = pool.Exec(r.Context(), `INSERT INTO password_reset_tokens (email, token, created_at) VALUES ($1,$2,NOW())`, email, string(hashed))
-					_ = mail.sendReset(r.Context(), email, plain)
-				}
+			if _, err := pool.Exec(r.Context(), `INSERT INTO password_reset_tokens (email, token, created_at) VALUES ($1,$2,NOW())`, email, hashed); err == nil {
+				_ = mail.sendReset(r.Context(), email, plain)
 			}
 		}
 		payload := jsonphp.NewObject()
@@ -489,9 +511,15 @@ func ResetPasswordPGHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 		var storedHash string
-		var createdAt any
+		var createdAt time.Time
 		if err := pool.QueryRow(r.Context(), `SELECT token, created_at FROM password_reset_tokens WHERE email = $1`, email).Scan(&storedHash, &createdAt); err != nil {
 			failures.add("email", "The selected email is invalid.")
+			failures.write(w)
+			return
+		}
+		if time.Since(createdAt) > resetTokenExpiryMinutes*time.Minute {
+			_, _ = pool.Exec(r.Context(), `DELETE FROM password_reset_tokens WHERE email = $1`, email)
+			failures.add("email", "The password reset token has expired.")
 			failures.write(w)
 			return
 		}
@@ -519,4 +547,12 @@ func ResetPasswordPGHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		payload.Set("message", "Password reset successfully.")
 		writeJSON(w, http.StatusOK, payload)
 	}
+}
+
+// dummyBcryptHash is a valid cost-12 hash used only to spend the same CPU on
+// an unknown account as a wrong password on a real one.
+const dummyBcryptHash = "$2a$12$bpJVoGaebq5mSG5WURUj2e/uKzgOfs64HP3RbnxSAw4zkOVaZQcES"
+
+func burnPasswordCheck(password string) {
+	_ = bcrypt.CompareHashAndPassword([]byte(dummyBcryptHash), []byte(password))
 }

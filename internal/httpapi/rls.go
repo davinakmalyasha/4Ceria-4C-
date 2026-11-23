@@ -9,7 +9,7 @@ import (
 // setAppUser pins the request's user into the database session for RLS.
 //
 // RLS policies read `current_setting('app.user_id', true)`: unset → allow
-// (legacy path), set → enforce ownership as a second layer behind the
+// (previous path), set → enforce ownership as a second layer behind the
 // handler WHERE. Call it at the top of a transaction that touches RLS-gated
 // tables; `SET LOCAL` dies with the transaction so pooled sessions never leak.
 func setAppUser(ctx context.Context, tx pgx.Tx, userID int64) error {

@@ -17,7 +17,7 @@ import (
 // Every one gates on `users.role_type === 'logistics'` and answers
 // {"message":"Unauthorized"} (no trailing period) otherwise.
 //
-// The oracle reads these through the QUERY BUILDER (`DB::table`), not the
+// The reference reads these through the QUERY BUILDER (`DB::table`), not the
 // model layer, so the rows are RAW:
 //   - timestamps are `Y-m-d H:i:s` strings, not Carbon ISO-8601;
 //   - decimal columns are strings ("50000.00"), still strings after `sum()`
@@ -201,9 +201,9 @@ func LogisticsAcceptJobHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 // LogisticsDashboardStatsHandler serves `GET /api/logistics/dashboard-stats`.
 //
-// The oracle caches the four counters for 300 s under
-// `logistics_stats_{user}`; the port computes them fresh (the Go process
-// cannot share Laravel's file cache, and the counters are cheap).
+// The reference caches the four counters for 300 s under
+// `logistics_stats_{user}`; this service computes them fresh (the Go process
+// cannot share the original API's file cache, and the counters are cheap).
 func LogisticsDashboardStatsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()

@@ -6,7 +6,7 @@ import { CoverImage } from '@/components/CoverImage';
 /**
  * Native "Management" panel.
  *
- * The legacy tab rendered `ProfessionalProjects` from the dashboard's
+ * The previous tab rendered `ProfessionalProjects` from the dashboard's
  * `/projects?all=true` payload. That payload already carries images, milestones
  * and the budget, so this panel needs no extra request: it renders the
  * professional's active project grid with delivery progress.

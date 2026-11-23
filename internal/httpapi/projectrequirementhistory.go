@@ -46,7 +46,7 @@ func scanHistoryRow(rows pgx.Rows, width int) (historyRow, error) {
 
 // historyRequirement renders the nested requirement: table columns in
 // order with the decimal casts plus the image_url append — and nothing
-// else. The oracle loads only the `requirement` relation (no nested
+// else. The reference loads only the `requirement` relation (no nested
 // user, no folder), so neither key appears.
 func historyRequirement(ctx context.Context, row requirementRow) *jsonphp.Object {
 	entry := jsonphp.NewObject()

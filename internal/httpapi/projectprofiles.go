@@ -141,7 +141,7 @@ func bidAttachments(ctx context.Context, bid map[string]any) []any {
 }
 
 // bidNegotiationLogs lists a bid's negotiation logs with authors. The
-// logs key on the legacy (registry type, legacy id) pair — the same
+// logs key on the previous (registry type, previous id) pair — the same
 // reference the ledger and disputes still name.
 func bidNegotiationLogs(ctx context.Context, pool *pgxpool.Pool, role string, bid map[string]any, bySpelling map[string]int64) []any {
 	list := make([]any, 0)
@@ -186,7 +186,7 @@ func bidNegotiationLogs(ctx context.Context, pool *pgxpool.Pool, role string, bi
 	return list
 }
 
-// bidRefID is the id negotiation logs name: the legacy id for migrated
+// bidRefID is the id negotiation logs name: the previous id for migrated
 // rows, the physical id otherwise.
 func bidRefID(bid map[string]any) int64 {
 	if legacy, ok := bid["legacy_id"].(int64); ok && legacy != 0 {

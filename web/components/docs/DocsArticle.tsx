@@ -8,7 +8,7 @@ import { InteractiveWidgets } from './InteractiveWidgets';
  * The article renderer — a port of `DocsArticle.tsx`.
  *
  * It is a SERVER component: the content is static, and only the widgets inside
- * a `widget` section hold state. That boundary is the point of the port — the
+ * a `widget` section hold state. That boundary is the point of this build — the
  * prose ships as HTML, and the simulation hydrates on its own.
  */
 
@@ -125,7 +125,7 @@ export function DocsArticle({ article }: { article?: DocArticle }) {
 
                     case 'widget':
                         return sec.widgetName ? (
-                            <div key={idx} className="bg-neutral-50 rounded-2xl p-4 border border-neutral-100/80 my-4" id="interactive-preview">
+                            <div key={idx} className="bg-neutral-50 rounded-2xl p-4 border border-neutral-100/80 my-4" id={`interactive-preview-${idx}`}>
                                 <p className="text-[9px] text-neutral-400 font-extrabold uppercase tracking-widest text-center mb-1">
                                     Visual Interactive Simulation
                                 </p>

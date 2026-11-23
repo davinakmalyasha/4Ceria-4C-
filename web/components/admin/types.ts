@@ -77,7 +77,7 @@ export interface DisputeRow {
     resolution_notes?: string | null;
     resolved_at?: string | null;
     created_at?: string | null;
-    // opened_by is the numeric user id (legacy column); the joined
+    // opened_by is the numeric user id (previous column); the joined
     // opener carries the display name.
     opened_by?: number | null;
     opener?: { id: number; name?: string | null; pic?: string | null } | null;

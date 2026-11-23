@@ -49,16 +49,19 @@ export function ForgotForm() {
     return (
         <form className="space-y-6" action={action}>
             {state.error !== '' && (
-                <div className="p-4 rounded-xl bg-red-50 text-red-600 text-sm border border-red-100 flex items-start gap-3">
+                <div role="alert" className="p-4 rounded-xl bg-red-50 text-red-600 text-sm border border-red-100 flex items-start gap-3">
                     <div className="w-1.5 h-1.5 mt-1.5 rounded-full bg-red-600 shrink-0" />
                     {state.error}
                 </div>
             )}
 
             <div>
-                <label className="block text-sm font-semibold text-neutral-700 mb-2">Email Address</label>
+                <label htmlFor="forgot-email" className="block text-sm font-semibold text-neutral-700 mb-2">Email Address</label>
                 <input
+                    id="forgot-email"
                     type="email"
+                    autoComplete="email"
+                    autoCapitalize="none"
                     name="email"
                     required
                     placeholder="your@email.com"

@@ -1,25 +1,7 @@
 'use server';
 
-/**
- * The login action.
- *
- * WHAT MOVED OFF THE CLIENT
- * -------------------------
- * The legacy handler POSTs `/login` from the browser, receives an
- * `access_token`, writes it to `localStorage` and navigates. Every one of those
- * steps is a thing an attacker who can run script on the page can also do.
- *
- * Here the form posts to a server action: the token is exchanged on the server,
- * stored in an httpOnly cookie, and the browser is redirected. The token is
- * never in the document.
- *
- * The error message is the API's own — "These credentials do not match our
- * records." — because the port must not invent copy the baseline does not have.
- */
-
 import { redirect } from 'next/navigation';
-import { apiOrigin } from '@/lib/session';
-import { setSession } from '@/lib/session';
+import { apiOrigin, setSession } from '@/lib/session';
 
 export type LoginState = {
     error: string;
@@ -30,9 +12,16 @@ type LoginResponse = {
     user: { id: number; role_type: string };
 };
 
+function safeNext(value: FormDataEntryValue | null): string {
+    const next = String(value ?? '');
+
+    return next.startsWith('/') && !next.startsWith('//') ? next : '/dashboard';
+}
+
 export async function login(_previous: LoginState, formData: FormData): Promise<LoginState> {
-    const email = String(formData.get('email') ?? '');
+    const email = String(formData.get('email') ?? '').trim().toLowerCase();
     const password = String(formData.get('password') ?? '');
+    const next = safeNext(formData.get('next'));
 
     const response = await fetch(`${apiOrigin()}/api/login`, {
         method: 'POST',
@@ -62,5 +51,5 @@ export async function login(_previous: LoginState, formData: FormData): Promise<
 
     await setSession(body.access_token);
 
-    redirect('/dashboard');
+    redirect(next);
 }

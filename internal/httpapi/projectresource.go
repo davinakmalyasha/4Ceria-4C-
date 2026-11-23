@@ -844,7 +844,7 @@ func projectCanViewPhone(ctx context.Context, pool *pgxpool.Pool, viewer *projec
 		// `$user->id === $this->pm_id`, which matches the CALLER's USER
 		// id against a column that holds a PROFILE id. `Hire::isAssignedPm`
 		// (used by the pii gate) compares profile ids instead — the two
-		// rules genuinely disagree in the legacy code, and parity means
+		// rules genuinely disagree in the previous code, and contract means
 		// reproducing the disagreement, not resolving it.
 		if viewer.id == *pmID {
 			return true, nil

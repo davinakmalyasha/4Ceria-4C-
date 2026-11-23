@@ -57,7 +57,7 @@ export const adminDocs: DocArticle[] = [
                     'SIUP (Surat Izin Usaha Perdagangan / Business License): Confirm the license is current and matches the claimed business type.',
                     'KTP (Kartu Tanda Penduduk / National ID Card): Verify the photo matches the profile photo and the name is consistent.',
                     'NIB (Nomor Induk Berusaha / Business Registration Number): For company registrations, verify the NIB is valid.',
-                    'Portfolio: Ensure the portfolio contains genuine past projects with realistic photos and descriptions.'
+                    'Portfolio: Ensure this buildfolio contains genuine past projects with realistic photos and descriptions.'
                 ]
             },
             {

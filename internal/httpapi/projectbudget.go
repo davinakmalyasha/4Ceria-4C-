@@ -350,7 +350,7 @@ func nullableTeamMember(ctx context.Context, pool *pgxpool.Pool, memberID *int64
 	return entry, nil
 }
 
-// budgetAcceptedBids renders the per-role accepted bid (legacy order,
+// budgetAcceptedBids renders the per-role accepted bid (previous order,
 // price restated as a string) with the professional tree, plus the PM
 // block. Roles without an accepted bid render null.
 func budgetAcceptedBids(ctx context.Context, pool *pgxpool.Pool, projectID int64, pmID *int64) (any, error) {

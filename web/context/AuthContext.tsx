@@ -13,18 +13,18 @@ import { signOut } from '@/lib/actions';
  * briefly paint a guest.
  *
  * HERE THE ANSWER IS ALREADY KNOWN. The server resolved the cookie, fetched the
- * profile once, and passed it in. `isLoading` exists only because the ported
+ * profile once, and passed it in. `isLoading` exists only because this builded
  * components read it: it is always `false`.
  *
  * `logout` is a server action. It revokes the token before redirecting, which
- * the legacy version could not do — it set `window.location.href` immediately,
- * cancelling its own revoke request (the legacy code documents this).
+ * the previous version could not do — it set `window.location.href` immediately,
+ * cancelling its own revoke request (the previous code documents this).
  */
 
 /**
- * The profile shape the ported components expect.
+ * The profile shape this builded components expect.
  *
- * `User` is the legacy name, kept because the synced components import it. The
+ * `User` is the previous name, kept because the components import it. The
  * index signature is `any` on purpose: the API returns role-specific relations
  * (`arsitek`, `kontraktor`, `supplier`, …) that a component reads directly, and
  * a narrower type here would only push a cast into every one of them.
@@ -42,50 +42,12 @@ export type User = {
 
 export type SessionUser = User;
 
-/**
- * The two storage helpers the legacy context exports, kept with the same
- * signatures because ported drafts (a signature image, bank details, a
- * negotiated fee) are keyed through them.
- *
- * A DRAFT IS USER-SCOPED: `prefixu<id>_parts`. The key includes the user id so
- * the next person on the same device cannot open the previous user's
- * half-filled contract — the defect the legacy comments record.
- */
-export const userScopedStorageKey = (
-    prefix: string,
-    userId: number | string | null | undefined,
-    ...parts: (string | number)[]
-): string => `${prefix}u${userId ?? 'anon'}_${parts.join('_')}`;
-
-export const adoptLegacyDraft = (legacyKey: string, scopedKey: string, storage: Storage): void => {
-    try {
-        if (legacyKey === scopedKey) {
-            return;
-        }
-
-        const legacy = storage.getItem(legacyKey);
-
-        if (legacy === null) {
-            return;
-        }
-
-        if (storage.getItem(scopedKey) === null) {
-            storage.setItem(scopedKey, legacy);
-        }
-
-        storage.removeItem(legacyKey);
-    } catch {
-        // Storage unavailable (private mode, quota): the draft stays where it
-        // is, which is exactly where it was before this call.
-    }
-};
-
 type AuthValue = {
     user: SessionUser | null;
     isLoading: false;
     logout: () => void;
     /**
-     * The synced edit forms call `refreshUser()` after a successful save. The
+     * The edit forms call `refreshUser()` after a successful save. The
      * server owns the session here, so the honest equivalent is a route
      * refresh: it re-runs the page's `/me` fetch and streams the updated user
      * back into this provider. Without it the forms threw after saving.

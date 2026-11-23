@@ -59,7 +59,7 @@ func TestSplitRetentionPutsTheRemainderOnTheNet(t *testing.T) {
 // port and the obvious implementation.
 //
 // Rp 10.19 at 5 % is 0.5095 sen past the truncation point: truncation keeps
-// 50 minor units, rounding would take 51. The legacy code divides with
+// 50 minor units, rounding would take 51. The previous code divides with
 // `intdiv`, so 50 is the answer that reconciles.
 func TestSplitRetentionTruncatesRatherThanRounds(t *testing.T) {
 	gross := minor(1019)
@@ -183,7 +183,7 @@ func TestForTerminLegacyRowsPayTheGross(t *testing.T) {
 }
 
 // TestForTerminHoldsBackAHalfWrittenSplit is MONEY.md I24 — the row that had no
-// test in the legacy suite.
+// test in the previous suite.
 func TestForTerminHoldsBackAHalfWrittenSplit(t *testing.T) {
 	split, err := ForTermin(minor(100_000_000), minor(0), minor(5_000_000))
 	if err != nil {

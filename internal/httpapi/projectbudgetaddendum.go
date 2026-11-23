@@ -29,7 +29,7 @@ import (
 // is open — and never their own fee. The state machine is
 // pending_approval → negotiating ↔ accepted_by_pro → approved_unpaid,
 // with rejected terminal; amounts bind once the item leaves negotiation.
-// Every terminal message, notification and activity line is the oracle's
+// Every terminal message, notification and activity line is the reference's
 // verbatim, including the actor label (Owner vs Project Manager).
 
 // addendumAttachmentMimes is the `mimes:` vocabulary in rule order.

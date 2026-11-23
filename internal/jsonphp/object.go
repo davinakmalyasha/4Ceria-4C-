@@ -13,7 +13,7 @@ import "strings"
 // different bytes, and the rewrite's contract is about bytes. So the type
 // that carries a response body is this one, not a map.
 //
-// The legacy API is full of bodies whose key order is part of the contract:
+// The previous API is full of bodies whose key order is part of the contract:
 // every `response()->json(['message' => ..., 'data' => ...])` puts `message`
 // first, and the SPA reads the body as an object so it does not care — but
 // the golden files compare bytes, and the bytes are what a client sees.

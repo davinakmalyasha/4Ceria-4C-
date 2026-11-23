@@ -61,7 +61,7 @@ export function AiLauncher({ activeTab, viewerId }: { activeTab: string; viewerI
             </button>
 
             {open && (
-                <div className="absolute bottom-[72px] right-0 w-[360px] sm:w-[420px] h-[560px] max-h-[calc(100vh-96px)] rounded-3xl border border-neutral-100 shadow-[0_20px_50px_rgba(0,0,0,0.15)] overflow-hidden flex flex-col bg-neutral-50">
+                <div className="absolute bottom-[72px] right-0 w-[min(360px,calc(100vw-7rem))] sm:w-[420px] h-[560px] max-h-[calc(100dvh-96px)] rounded-3xl border border-neutral-100 shadow-[0_20px_50px_rgba(0,0,0,0.15)] overflow-hidden flex flex-col bg-neutral-50">
                     <div className="flex items-center justify-between px-3 py-1.5 bg-neutral-50">
                         <button
                             type="button"

@@ -125,19 +125,19 @@ func projectBudgetSummary(ctx context.Context, pool *pgxpool.Pool, projectID int
 	ceilingMinor, _ := parseMinor(orEmptyString(budget))
 
 	var paidMinor int64
-	if err := pool.QueryRow(ctx, `SELECT COALESCE((SUM(amount) * 100)::bigint, 0) FROM project_budget_transactions WHERE project_id = $1 AND transaction_type::text IN ('payment','refund','platform_fee','retention_release')`,
+	if err := pool.QueryRow(ctx, `SELECT COALESCE(trunc(SUM(amount) * 100)::bigint, 0) FROM project_budget_transactions WHERE project_id = $1 AND transaction_type::text IN ('payment','refund','platform_fee','retention_release')`,
 		projectID).Scan(&paidMinor); err != nil {
 		return nil, err
 	}
 
 	var addendumMinor int64
-	if err := pool.QueryRow(ctx, `SELECT COALESCE((SUM(amount) * 100)::bigint, 0) FROM project_addendums WHERE project_id = $1 AND status::text IN ('approved_unpaid','pending_approval','verifying')`,
+	if err := pool.QueryRow(ctx, `SELECT COALESCE(trunc(SUM(amount) * 100)::bigint, 0) FROM project_addendums WHERE project_id = $1 AND status::text IN ('approved_unpaid','pending_approval','verifying')`,
 		projectID).Scan(&addendumMinor); err != nil {
 		return nil, err
 	}
 
 	var terminMinor int64
-	if err := pool.QueryRow(ctx, `SELECT COALESCE((SUM(amount) * 100)::bigint, 0) FROM project_payment_termins WHERE project_id = $1 AND status::text IN ('locked','pending','invoice_sent')`,
+	if err := pool.QueryRow(ctx, `SELECT COALESCE(trunc(SUM(amount) * 100)::bigint, 0) FROM project_payment_termins WHERE project_id = $1 AND status::text IN ('locked','pending','invoice_sent')`,
 		projectID).Scan(&terminMinor); err != nil {
 		return nil, err
 	}

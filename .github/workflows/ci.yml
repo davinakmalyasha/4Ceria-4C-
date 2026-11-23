@@ -1,18 +1,14 @@
 # CI for 4Ceria.
 #
-# The stack is Go (API + ETL), PostgreSQL (all application data), MySQL
-# (identity: users, tokens and the role tables — ADR-0018) and Next.js (the
-# SPA). The Laravel application and the Vite SPA it served are gone; the
-# legacy MySQL schema is frozen in `db/mysql/`.
+# Go (API), PostgreSQL (all data, including identity) and Next.js (the PWA).
+# The database job is the important one: it builds PostgreSQL from scratch with
+# C collation, applies every migration, loads the demo seed, runs the SQL
+# behaviour suites, then runs the Go suites against that fresh database. A green
+# build that never executed a query is exactly the failure mode a build-only
+# pipeline hides.
 #
-# Every action is pinned to a full commit SHA and every image to a digest.
-# `scripts/ci/action-policy.sh` enforces that and is itself a job: a policy
-# that is only written down is not a policy.
-#
-# The database job is the important one. It builds PostgreSQL from scratch,
-# diffs the result against the live MySQL schema, loads the ETL, and asserts
-# that both engines hold the same number of rows — because a green build that
-# copied nothing is exactly the failure mode a build-only pipeline hides.
+# Every action is pinned to a full commit SHA and every workflow image to a
+# digest; `scripts/ci/action-policy.sh` enforces it as its own job.
 
 name: CI
 
@@ -29,9 +25,6 @@ concurrency:
 permissions:
   contents: read
 
-env:
-  GOEXPERIMENT: nojsonv2
-
 jobs:
   action-policy:
     name: Action policy
@@ -40,7 +33,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Assert every action and image is pinned
-        run: bash scripts/ci/action-policy.sh
+        run: node scripts/ci/action-policy.mjs
 
   secrets:
     name: Secret scan
@@ -49,12 +42,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      # The TREE, not the history. The pre-rewrite history contains findings
-      # that were committed before this pipeline existed (old Blade templates
-      # and a local tool's virtualenv). Scanning all of history would fail
-      # every run on commits nobody can change without rewriting the
-      # repository. What must be true is that the tree being shipped carries
-      # no secret — that is what this checks.
+      # The tree being shipped, not the pre-rewrite history.
       - name: Scan the shipped tree for secrets
         run: |
           docker run --rm -v "$PWD:/repo" \
@@ -64,8 +52,6 @@ jobs:
 
       - name: Assert no VAPID private key is tracked
         run: |
-          # The web-push VAPID private key is a live secret: anyone holding it
-          # can push arbitrary notifications to every subscribed user.
           if git grep -nE 'VAPID_PRIVATE_KEY=[A-Za-z0-9_-]{20,}' -- . \
             ':!.github/workflows/*'; then
             echo "::error::A VAPID private key appears to be committed. Rotate the keypair and purge it from history."
@@ -126,25 +112,11 @@ jobs:
         run: npm run build
 
   database:
-    name: PostgreSQL + ETL
+    name: PostgreSQL baseline, seed and DB tests
     runs-on: ubuntu-latest
     timeout-minutes: 25
 
     services:
-      mysql:
-        image: mysql:9.6@sha256:c5df04bee1a42b74a5841c6409e669cf62126cd0416f00c1cea8ab933b9361b9
-        env:
-          MYSQL_ROOT_PASSWORD: root
-          MYSQL_ROOT_HOST: '%'
-          MYSQL_DATABASE: 4ceria
-        ports: ['3306:3306']
-        options: >-
-          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot --silent"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=15
-          --health-start-period=30s
-
       postgres:
         image: postgres:17@sha256:a63c1ea3f6a3a5a1621f97d2aba3b30faecfab4224c1b0000cc85ced57bb1939
         env:
@@ -160,17 +132,11 @@ jobs:
           --health-start-period=30s
 
     env:
-      MYSQL_DSN: root:root@tcp(127.0.0.1:3306)/4ceria?parseTime=false
-      MYSQL_HOST: 127.0.0.1
-      MYSQL_PORT: '3306'
-      MYSQL_USER: root
-      MYSQL_PASSWORD: root
-      MYSQL_DATABASE: 4ceria
-      DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/4ceria_pgcheck
       PGHOST: 127.0.0.1
       PGPORT: '5432'
       PGUSER: postgres
       PGPASSWORD: postgres
+      DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/4ceria_pgcheck
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -184,23 +150,17 @@ jobs:
           go-version: '1.27.3'
           cache: true
 
-      # MySQL owns identity (ADR-0018). The schema is frozen in `db/mysql/`,
-      # and the demo rows are what make the ETL row-count check meaningful:
-      # on an empty database both sides are zero and the comparison passes
-      # without exercising anything.
-      - name: Restore the frozen MySQL schema and demo rows
-        run: |
-          mysql -h 127.0.0.1 -uroot -proot 4ceria < db/mysql/schema.sql
-          mysql -h 127.0.0.1 -uroot -proot 4ceria < db/mysql/demo.sql
+      - name: Build PostgreSQL from scratch (C collation, migrations, seed, SQL suites)
+        run: node tools/db/verify-postgres-baseline.mjs --database=4ceria_pgcheck
 
-      - name: The PostgreSQL baseline must build from scratch and match MySQL
-        run: node tools/db/verify-postgres-baseline.mjs --database=4ceria_pgcheck --pg-dsn=postgres://postgres:postgres@127.0.0.1:5432/4ceria_pgcheck
+      - name: Go suites against the fresh database
+        run: go test ./...
 
-      # THE SHAPE IS CHECKED ABOVE. This checks the CONTENT: the ETL has to be
-      # able to put the live rows into that shape, and the two databases have
-      # to agree on how many there are.
-      - name: The ETL must reproduce the MySQL rows in PostgreSQL
-        run: go run ./cmd/etl -all -truncate
-
-      - name: The two databases must hold the same number of rows
-        run: go run ./cmd/etl -all -verify
+  docker:
+    name: API image
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build the gateway image
+        run: docker build -t 4ceria-api:ci .

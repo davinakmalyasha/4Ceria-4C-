@@ -14,21 +14,21 @@ import (
 
 // HOUSE WRITES — create, update, delete, add a room, and the Q&A pair.
 //
-// The oracle fixes several behaviours that the port must copy exactly:
+// The reference fixes several behaviours that this service must copy exactly:
 //   - `lat`/`lng` are REQUEST fields folded into `coordinate`; they are not
-//     columns, so they must never reach the insert/update (the oracle threw
+//     columns, so they must never reach the insert/update (the reference threw
 //     MassAssignmentException on every create before this was fixed).
 //   - the created/updated answer is built from a REFRESHED row: DB defaults
 //     (`views`) and the stored decimal/varchar shapes appear, and only the
 //     relations the controller loaded (`housePic`, `room`) are present —
 //     NO `owner` on these endpoints (unlike list/show).
-//   - `price` has every '.' stripped before storage (the legacy client sends
+//   - `price` has every '.' stripped before storage (the previous client sends
 //     thousands separators); `coordinate` is "<lat>, <lng>" string
 //     concatenation.
-//   - store answers 201 (Laravel's ResourceResponse sees `wasRecentlyCreated`),
+//   - store answers 201 (the original API's ResourceResponse sees `wasRecentlyCreated`),
 //     update and room-store answer 200.
 
-// houseAttrName renders Laravel's attribute label: top-level keys become
+// houseAttrName renders the original API's attribute label: top-level keys become
 // spaces; nested paths keep their raw form.
 func houseAttrName(key string) string {
 	if strings.Contains(key, ".") {

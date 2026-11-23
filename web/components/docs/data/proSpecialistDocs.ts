@@ -155,7 +155,7 @@ export const proSpecialistDocs: DocArticle[] = [
                 type: 'step',
                 title: 'How to Join a Firm:',
                 steps: [
-                    { stepNumber: 1, title: 'Browse available firms', description: 'Go to My Firms in your sidebar to see firms you can join or have been invited to.' },
+                    { stepNumber: 1, title: 'Browse available firms', description: 'Go to My Firms in the dashboard navigation to see firms you can join or have been invited to.' },
                     { stepNumber: 2, title: 'Review firm profiles', description: 'Check the firm\'s portfolio, team size, active projects, and member list.' },
                     { stepNumber: 3, title: 'Send a join request', description: 'Click "Request to Join" on a firm that matches your specialization and interests.' },
                     { stepNumber: 4, title: 'Wait for approval', description: 'The firm owner reviews your profile and accepts or declines your request.' }

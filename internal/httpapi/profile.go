@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"math/big"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 
@@ -23,20 +25,20 @@ import (
 //
 // WHAT IS REPRODUCED, AND WHAT IS DELIBERATELY NOT
 // ------------------------------------------------
-//   - Every validation message is Laravel's verbatim, because the 422 contract
+//   - Every validation message is the original API's verbatim, because the 422 contract
 //     names them (`post.api.me.avatar.json` pins "The pic field is required.").
-//     The 422 envelope carries the FIRST error as `message`, not Laravel's
+//     The 422 envelope carries the FIRST error as `message`, not the original API's
 //     default — that is this application's shape, observed, not assumed.
 //   - Phone sync is `syncPhoneNumbers` line for line: array or JSON string,
 //     trim, drop empties, an EMPTY input means NO-OP (not "delete all"), delete
 //     the missing, add the new, and stamp `no_telp`/`no_telepon` with the first.
-//   - A `pic` upload is VALIDATED and then left alone. Laravel deletes the old
+//   - A `pic` upload is VALIDATED and then left alone. the original API deletes the old
 //     file, stores a temp copy and dispatches an async conversion job — the
 //     response still carries the OLD pic, because the job has not run. The Go
 //     handler does the same minus the job: the response is identical, and the
 //     conversion pipeline is a separate port.
 //   - Verification documents (`foto`, `file_portofolio`, …) are VALIDATED and
-//     their text metadata stored, but files are not persisted: Laravel writes
+//     their text metadata stored, but files are not persisted: the original API writes
 //     them to the private railway disk under a RANDOM name, so no byte-identical
 //     port can reproduce the stored path. Text-only professional updates —
 //     which is what the shadow tests send — are fully identical.
@@ -51,7 +53,7 @@ type fieldError struct {
 }
 
 // errorBag accumulates failures in FIELD ORDER and renders the 422 the
-// application renders: `message` is Laravel 13's summary (the first
+// application renders: `message` is the original API 13's summary (the first
 // message, plus " (and N more error(s))"), `errors` the full bag.
 type errorBag struct {
 	fields []string
@@ -137,7 +139,7 @@ type uploadedFile struct {
 
 // requestFields reads a JSON or multipart body into text fields.
 //
-// Multipart text parts arrive as strings — exactly what Laravel sees — and files
+// Multipart text parts arrive as strings — exactly what the original API sees — and files
 // are collected separately. A JSON body keeps its types, because `nullable` and
 // `numeric` behave differently for 12.5 and "12.5".
 func requestFields(r *http.Request) (map[string]any, map[string]*uploadedFile, error) {
@@ -174,16 +176,43 @@ func requestFields(r *http.Request) (map[string]any, map[string]*uploadedFile, e
 
 			ext := strings.ToLower(strings.TrimPrefix(extensionOf(headers[0].Filename), "."))
 
+			// Files are kept in memory because the handlers persist bytes
+			// directly (`upload.data`). The 64 MB ceiling matches the largest
+			// per-file validator, and the global request limit bounds it.
+			var data []byte
+			if headers[0].Size > 0 && headers[0].Size <= 64<<20 {
+				if full, err := headers[0].Open(); err == nil {
+					data, _ = io.ReadAll(full)
+					_ = full.Close()
+				}
+			}
+
 			files[key] = &uploadedFile{
 				filename: headers[0].Filename,
 				size:     headers[0].Size,
 				ext:      ext,
 				mime:     detectContentType(head[:n]),
 				isImage:  strings.HasPrefix(detectContentType(head[:n]), "image/"),
+				data:     data,
 			}
 		}
 
 		return fields, files, nil
+	}
+
+	if strings.HasPrefix(contentType, "application/x-www-form-urlencoded") {
+		if err := r.ParseForm(); err != nil {
+			return nil, nil, err
+		}
+
+		fields := map[string]any{}
+		for key, values := range r.PostForm {
+			if len(values) > 0 {
+				fields[key] = values[0]
+			}
+		}
+
+		return fields, map[string]*uploadedFile{}, nil
 	}
 
 	var fields map[string]any
@@ -321,7 +350,7 @@ func requireText(fields map[string]any, key string, max int, failures *errorBag)
 }
 
 // optionalText enforces nullable|string|max:255. Absent, null or EMPTY means
-// "not present" — Laravel's `$request->has()` is false for empty strings, so
+// "not present" — the original API's `$request->has()` is false for empty strings, so
 // an empty string is SKIPPED, not stored.
 func optionalText(fields map[string]any, key string, max int, failures *errorBag) (string, bool) {
 	value, ok := fields[key]
@@ -387,7 +416,7 @@ func validateFile(key string, file *uploadedFile, image bool, mimes []string, ma
 		}
 	}
 
-	// jpg is accepted for jpeg and the other way round — Laravel's `mimes`
+	// jpg is accepted for jpeg and the other way round — the original API's `mimes`
 	// rule reads the CONTENT, and a JPEG is a JPEG whatever the suffix says.
 	if file.isImage {
 		for _, mime := range mimes {
@@ -408,7 +437,7 @@ func validateFile(key string, file *uploadedFile, image bool, mimes []string, ma
 // updateRelations is ProfileController@update's load list.
 //
 // It OMITS structural_engineer, mep_engineer and supplier — unlike show() and
-// unlike updateProfessional(). The golden files show the omission, so the port
+// unlike updateProfessional(). The golden files show the omission, so this service
 // keeps it.
 func updateRelations(role string) []string {
 	relations := []string{
@@ -585,8 +614,12 @@ func UpdateMeHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		email, emailOK := requireText(fields, "email", 255, failures)
 		username, usernameOK := requireText(fields, "username", 255, failures)
 
-		if emailOK && !strings.Contains(email, "@") {
+		if emailOK && !validEmail(email) {
 			failures.add("email", "The email field must be a valid email address.")
+			emailOK = false
+		}
+		if emailOK && email != strings.ToLower(email) {
+			failures.add("email", "The email field must be lowercase.")
 			emailOK = false
 		}
 
@@ -614,6 +647,20 @@ func UpdateMeHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		validateFile("pic", files["pic"], false, []string{"jpeg", "png", "jpg", "gif", "webp"}, 5120, failures)
 
+		bankName, bankNamePresent := stringField(fields, "bank_name")
+		bankNumber, bankNumberPresent := stringField(fields, "bank_account_number")
+		bankHolder, bankHolderPresent := stringField(fields, "bank_account_name")
+		if len([]rune(bankName)) > 255 {
+			failures.add("bank_name", "The bank name field must not be greater than 255 characters.")
+		}
+		if len([]rune(bankNumber)) > 64 {
+			failures.add("bank_account_number", "The bank account number field must not be greater than 64 characters.")
+		}
+		if len([]rune(bankHolder)) > 255 {
+			failures.add("bank_account_name", "The bank account name field must not be greater than 255 characters.")
+		}
+		bankPresent := bankNamePresent || bankNumberPresent || bankHolderPresent
+
 		if !failures.empty() {
 			failures.write(w)
 			return
@@ -628,7 +675,20 @@ func UpdateMeHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		// A `pic` upload is validated above and then left alone: Laravel
+		if bankPresent {
+			if _, err := pool.Exec(ctx,
+				`UPDATE users SET bank_name = NULLIF($1, ''), bank_account_number = NULLIF($2, ''),
+				                  bank_account_name = NULLIF($3, ''), updated_at = date_trunc('second', now())
+				 WHERE id = $4`,
+				bankName, bankNumber, bankHolder, caller.UserID(),
+			); err != nil {
+				slog.Error("me.update: bank", "error", err)
+				serverError(w)
+				return
+			}
+		}
+
+		// A `pic` upload is validated above and then left alone: the original API
 		// deletes the old file, stores a temp copy and dispatches the
 		// conversion job, and the response still carries the OLD pic.
 
@@ -693,13 +753,41 @@ func UpdateAvatarHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		// Validated and left alone: the conversion job is async, and the
-		// response names no file.
-		_ = caller
-		_ = pool
+		contents, err := readUploadedFileByName(files, "pic")
+		if err != nil {
+			slog.Error("me.avatar: read", "error", err)
+			serverError(w)
+			return
+		}
+
+		stored, err := storeVaultFile("avatars", pic.filename, contents)
+		if err != nil {
+			slog.Error("me.avatar: store", "error", err)
+			serverError(w)
+			return
+		}
+
+		var previous *string
+		_ = pool.QueryRow(r.Context(), `SELECT pic FROM users WHERE id = $1`, caller.UserID()).Scan(&previous)
+
+		if _, err := pool.Exec(r.Context(),
+			`UPDATE users SET pic = $2, updated_at = date_trunc('second', now()) WHERE id = $1`,
+			caller.UserID(), stored,
+		); err != nil {
+			slog.Error("me.avatar: update", "error", err)
+			serverError(w)
+			return
+		}
+
+		if previous != nil && *previous != "" && *previous != stored {
+			if full, err := safeStorageJoin(publicDiskRoot(), strings.TrimPrefix(*previous, "/storage/")); err == nil {
+				_ = os.Remove(full)
+			}
+		}
 
 		payload := jsonphp.NewObject()
-		payload.Set("message", "Avatar is being processed and will be updated shortly.")
+		payload.Set("message", "Avatar updated successfully")
+		payload.Set("pic", stored)
 
 		writeJSON(w, http.StatusOK, payload)
 	}
@@ -714,6 +802,9 @@ func DeleteAvatarHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
+		var previous *string
+		_ = pool.QueryRow(r.Context(), `SELECT pic FROM users WHERE id = $1`, caller.UserID()).Scan(&previous)
+
 		// The file deletion on the public disk is unobservable in the
 		// response; the row update is the contract.
 		if _, err := pool.Exec(r.Context(),
@@ -723,6 +814,12 @@ func DeleteAvatarHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			slog.Error("me.avatar.delete", "error", err)
 			serverError(w)
 			return
+		}
+
+		if previous != nil && *previous != "" {
+			if full, err := safeStorageJoin(publicDiskRoot(), strings.TrimPrefix(*previous, "/storage/")); err == nil {
+				_ = os.Remove(full)
+			}
 		}
 
 		payload := jsonphp.NewObject()

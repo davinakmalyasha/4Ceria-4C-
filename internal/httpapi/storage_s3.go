@@ -28,10 +28,7 @@ func s3Configured() bool {
 }
 
 func storageHMACKey() []byte {
-	if k := os.Getenv("APP_KEY"); k != "" {
-		return []byte(k)
-	}
-	return []byte("4ceria-dev-storage-key")
+	return storageKey()
 }
 
 // signStorageURL signs a relative storage path with an expiry unix timestamp.

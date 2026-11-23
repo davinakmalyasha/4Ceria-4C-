@@ -6,7 +6,7 @@ import { ChevronDown } from 'lucide-react';
 /**
  * The FAQ accordion — the one piece of the landing page that is interactive.
  *
- * The legacy version wraps the answer in framer-motion's `AnimatePresence` and
+ * The previous version wraps the answer in framer-motion's `AnimatePresence` and
  * animates height. Here the open answer is plain markup with the same classes,
  * because the visual contract compares SETTLED screens and an entry animation
  * is not part of the design. The rotation of the chevron IS part of it and is
@@ -28,7 +28,9 @@ export function LandingFaq({ faqs }: { faqs: { q: string; a: string }[] }) {
                         <button
                             type="button"
                             onClick={() => setOpenFaq(isOpen ? null : index)}
-                            className="w-full px-6 py-5 text-left flex justify-between items-center gap-4 focus:outline-none"
+                            aria-expanded={isOpen}
+                            aria-controls={`faq-answer-${index}`}
+                            className="w-full px-6 py-5 text-left flex justify-between items-center gap-4"
                         >
                             <span className="font-bold text-neutral-800 text-sm sm:text-base">{faq.q}</span>
                             <ChevronDown
@@ -37,7 +39,7 @@ export function LandingFaq({ faqs }: { faqs: { q: string; a: string }[] }) {
                         </button>
 
                         {isOpen && (
-                            <div className="px-6 pb-5 pt-0 border-t border-neutral-100 text-neutral-500 text-sm leading-relaxed">
+                            <div id={`faq-answer-${index}`} className="px-6 pb-5 pt-0 border-t border-neutral-100 text-neutral-500 text-sm leading-relaxed">
                                 {faq.a}
                             </div>
                         )}

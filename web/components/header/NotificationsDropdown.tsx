@@ -29,17 +29,17 @@ import {
 import { usePushNotifications } from './usePushNotifications';
 
 /**
- * The notification inbox — a native port of the synced `NotificationsDropdown`.
+ * The notification inbox — a native version of the `NotificationsDropdown`.
  *
  * THE LIST IS SERVER-FED. The dashboard page awaits `GET /notifications` and
  * `/me/unread-summary` and passes the rows down, so the badge is correct on the
- * first paint (the legacy component fetched on mount and polled through a shared
+ * first paint (the previous component fetched on mount and polled through a shared
  * heartbeat). Mark-read and mark-all are server actions followed by
  * `router.refresh()`; a click on a row also navigates, which is the behaviour the
- * legacy custom-event bridge had to emulate.
+ * previous custom-event bridge had to emulate.
  *
  * Push preferences are read through the BFF on open, and the device
- * subscription is the ported `usePushNotifications` hook (service worker +
+ * subscription is this builded `usePushNotifications` hook (service worker +
  * VAPID key). Money/arbitration types are absent from the mute list on purpose:
  * the API refuses to disable them.
  */

@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 /**
  * Native "Post a House" form.
  *
- * The legacy form built a `FormData` payload in the browser and posted it with
+ * The previous form built a `FormData` payload in the browser and posted it with
  * axios. This one does the same thing against the BFF (`/api/houses`), which
  * attaches the httpOnly token server-side — the browser still never sees it.
  * The room repeater and the file inputs are the only reason this is a client
@@ -68,7 +68,7 @@ export function PostHouseForm() {
         const form = event.currentTarget;
         const data = new FormData(form);
 
-        // The API wants bare digits for the price, exactly like the legacy
+        // The API wants bare digits for the price, exactly like the previous
         // `String(value).replace(/\D/g, '')`.
         const rawPrice = String(data.get('price') ?? '');
         data.set('price', rawPrice.replace(/\D/g, ''));

@@ -1,4 +1,4 @@
-// Package escrow is the port of App\Services\ProjectFinancialService — the one
+// Package escrow implements App\Services\ProjectFinancialService — the one
 // writer of the project ledger.
 //
 // THE MODEL, IN ONE PARAGRAPH
@@ -14,7 +14,7 @@
 // -------------------------------------------
 // The PHP original exposed them as `public const` arrays, which is immutable in
 // PHP. A Go `var []TxType` is appendable by any importer, and the whole point of
-// these three lists is that they are agreed everywhere. Here they are unexported
+// these three lists is that they are agreed everywhere. Here they are uneximplemented
 // and read through predicates, so no caller can widen them by accident.
 //
 // THE THREE LISTS ANSWER THREE DIFFERENT QUESTIONS, and conflating them is how
@@ -79,11 +79,11 @@ var disbursementTypes = map[TxType]struct{}{
 
 // ceilingNeutralTypes spend the escrow without moving `projects.budget`.
 //
-// THIS IS THE LIST THAT PREVENTS THE DOUBLE CHARGE. The legacy test was
+// THIS IS THE LIST THAT PREVENTS THE DOUBLE CHARGE. The previous test was
 // `$type !== 'payment'`, which sent `platform_fee` and `retention_release` down
 // the ceiling-decrement branch — and because both are also disbursements, the
 // same rupiah was subtracted twice. A 1 % fee on a Rp 100 M project dropped the
-// reported ceiling to Rp 99 M and the available balance to Rp 98 M.
+// reimplemented ceiling to Rp 99 M and the available balance to Rp 98 M.
 var ceilingNeutralTypes = map[TxType]struct{}{
 	TxPayment:          {},
 	TxRefund:           {},
@@ -104,7 +104,7 @@ var professionalEarningsTypes = map[TxType]struct{}{
 	TxRetentionRelease: {},
 }
 
-// AllTypes returns the six types, in the legacy enum's order.
+// AllTypes returns the six types, in the previous enum's order.
 func AllTypes() []TxType {
 	return []TxType{
 		TxDeposit, TxAdjustmentDown, TxPayment,
@@ -149,10 +149,10 @@ func (t TxType) IsStructural() bool {
 
 // ReferenceType names the thing a ledger row is ABOUT.
 //
-// It replaces the legacy `reference_model` VARCHAR, whose two spellings of the
+// It replaces the previous `reference_model` VARCHAR, whose two spellings of the
 // same model — `ProjectAddendum` and `App\Models\ProjectAddendum` — put the same
 // Rp 5 500 000 payment in the ledger twice and understated a live escrow by
-// exactly that amount. A registry key cannot be spelled two ways (ADR-0013).
+// exactly that amount. A registry key cannot be spelled two ways (the reference registry).
 type ReferenceType string
 
 const (
@@ -287,7 +287,7 @@ type Summary struct {
 
 var (
 	// ErrInsufficientFunds is returned when the escrow cannot cover a movement.
-	// The HTTP layer renders it as the legacy 422.
+	// The HTTP layer renders it as the previous 422.
 	ErrInsufficientFunds = errors.New("the escrow cannot cover this movement")
 
 	// ErrInvalidMovement is returned before anything is written.
@@ -297,7 +297,7 @@ var (
 	ErrProjectNotFound = errors.New("project not found")
 
 	// ErrFrozen is returned by the freeze gate while a dispute is open. The
-	// gate's message carries the dispute id and title, as the legacy 422 does.
+	// gate's message carries the dispute id and title, as the previous 422 does.
 	ErrFrozen = errors.New("payments are frozen by an open dispute")
 
 	// ErrNotAPayment is returned by RecordPayment for a movement that is not a
@@ -311,7 +311,7 @@ var (
 //
 // The database still enforces all of this — pbt_amount_sign, pbt_reference_required,
 // pbt_structural_no_reference, pbt_refund_reverses — and it must, because a
-// privilege is what makes "never write a ledger row directly" true (ADR-0020).
+// privilege is what makes "never write a ledger row directly" true (the database ledger design).
 // This is the readable error, not the only check.
 func Validate(m Movement) error {
 	if m.ProjectID <= 0 {

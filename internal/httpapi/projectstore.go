@@ -45,7 +45,7 @@ func jsonDocument(raw any) (any, bool) {
 	return decoded, true
 }
 
-// parseDeadline accepts the shapes Laravel's `date` rule accepts here.
+// parseDeadline accepts the shapes the original API's `date` rule accepts here.
 func parseDeadline(value string) (time.Time, bool) {
 	for _, layout := range []string{
 		"2006-01-02", "2006-01-02 15:04:05", time.RFC3339,
@@ -123,7 +123,7 @@ func StoreProjectHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			}
 		}
 
-		// The column is NOT NULL with a legacy default of `arsitek`.
+		// The column is NOT NULL with a previous default of `arsitek`.
 		targetRole := "arsitek"
 		targetProvided := false
 		if raw, present := fields["target_role"]; present && raw != nil {
@@ -172,7 +172,7 @@ func StoreProjectHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		wantsPM := false
 		if raw, present := fields["wants_project_manager"]; present && raw != nil {
-			if value, valid := parseLaravelBoolean(raw); valid {
+			if value, valid := parseBooleanFlag(raw); valid {
 				wantsPM = value
 			} else {
 				failures.add("wants_project_manager", "The wants project manager field must be true or false.")
@@ -180,7 +180,7 @@ func StoreProjectHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		wantsDiscuss := false
 		if raw, present := fields["wants_to_discuss_later"]; present && raw != nil {
-			if value, valid := parseLaravelBoolean(raw); valid {
+			if value, valid := parseBooleanFlag(raw); valid {
 				wantsDiscuss = value
 			} else {
 				failures.add("wants_to_discuss_later", "The wants to discuss later field must be true or false.")
@@ -445,14 +445,17 @@ func nullableOptional(values map[string]string, key string) any {
 }
 
 // storeUploadTo persists one multipart file under the public disk and returns
-// its relative path. The stored name is 40 alphanumerics (Laravel Str::random).
+// its relative path. The stored name is 40 alphanumerics (the original API Str::random).
 func storeUploadTo(r *http.Request, header *multipart.FileHeader, folder, ext string) (string, error) {
 	name, err := randomAlphaNumeric(40)
 	if err != nil {
 		return "", err
 	}
 	rel := folder + "/" + name + "." + ext
-	full := filepath.Join(publicDiskRoot(), filepath.FromSlash(rel))
+	full, err := safeStorageJoin(publicDiskRoot(), rel)
+	if err != nil {
+		return "", err
+	}
 	if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
 		return "", err
 	}

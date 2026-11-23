@@ -311,7 +311,7 @@ func StoreSnagItemHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			photos = append(photos, stored)
 		}
 
-		// The oracle's column keeps whole seconds: the response shows .000000.
+		// The reference's column keeps whole seconds: the response shows .000000.
 		dueAt := time.Now().UTC().Truncate(time.Second).AddDate(0, 0, int(snagSLA[input.severity]))
 		encoded, err := jsonphp.Marshal(photos)
 		if err != nil {
@@ -434,7 +434,7 @@ func validateSnagStore(fields map[string]any, r *http.Request, failures *errorBa
 	}
 	input.photos = photos
 
-	// A JSON `photos` array cannot contain uploads: Laravel's image rule fails
+	// A JSON `photos` array cannot contain uploads: the original API's image rule fails
 	// every string entry.
 	if raw, present := fields["photos"]; present && raw != nil {
 		if list, ok := raw.([]any); ok {

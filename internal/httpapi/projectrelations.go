@@ -1162,6 +1162,12 @@ func projectRawValue(value any) any {
 // with their phoneNumber rows when the endpoint loaded them (show), and
 // without the key at all when it did not (accept).
 func fullProfileUser(ctx context.Context, pool *pgxpool.Pool, userID int64, withPhones bool) (any, error) {
+	return fullProfileUserContact(ctx, pool, userID, withPhones, true)
+}
+
+// fullProfileUserContact controls whether account contact fields are included.
+// A counterpart's chat sender block gets the display profile, not their email.
+func fullProfileUserContact(ctx context.Context, pool *pgxpool.Pool, userID int64, withPhones, withEmail bool) (any, error) {
 	if userID == 0 {
 		return nil, nil
 	}
@@ -1192,6 +1198,9 @@ func fullProfileUser(ctx context.Context, pool *pgxpool.Pool, userID int64, with
 		"password": true, "remember_token": true,
 		"bank_name": true, "bank_account_number": true, "bank_account_name": true,
 		"unique_code": true,
+	}
+	if !withEmail {
+		hidden["email"] = true
 	}
 
 	user := jsonphp.NewObject()

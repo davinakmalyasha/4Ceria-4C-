@@ -10,9 +10,9 @@ import { DocsArticle, slugify } from './DocsArticle';
 import { DocsSidebar } from './DocsSidebar';
 
 /**
- * The Help Centre — ported from the legacy SPA's help centre.
+ * The Help Centre — adapted from the original SPA's help centre.
  *
- * THE SELECTION MOVED INTO THE URL. The legacy keeps the selected article in
+ * THE SELECTION MOVED INTO THE URL. The previous keeps the selected article in
  * `useState`, seeded from `?article=` once on mount and never written back, so
  * a reader can never link to what they are reading and the back button leaves
  * the page. Here `?article=` is the state: the sidebar navigates with a link,
@@ -48,11 +48,11 @@ export function HelpShell({ articleId, authed }: { articleId?: string; authed: b
     const toc = useMemo(
         () =>
             (selectedArticle?.sections
-                .map((s) =>
+                .map((s, index) =>
                     s.title
                         ? { label: s.title, id: slugify(s.title) }
                         : s.type === 'widget'
-                            ? { label: 'Interactive Preview', id: 'interactive-preview' }
+                            ? { label: 'Interactive Preview', id: `interactive-preview-${index}` }
                             : null,
                 )
                 .filter(Boolean) as { label: string; id: string }[]) ?? [],

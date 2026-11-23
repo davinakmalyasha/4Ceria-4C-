@@ -86,7 +86,7 @@ func StoreSavedSearchHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		alert := false
 		if raw, present := fields["alert_enabled"]; present && raw != nil {
-			if b, ok := parseLaravelBoolean(raw); ok {
+			if b, ok := parseBooleanFlag(raw); ok {
 				alert = b
 			}
 		}

@@ -32,7 +32,7 @@ import (
 // All five answer the LEAN ProjectResource (`new ProjectResource($project)`
 // on an unloaded model), so `projectLoad{budgetSummary: true}` renders
 // them. Attachment uploads are validated and stored on the public disk
-// under projects/{id}/pm_audits (at most three), exactly like the oracle.
+// under projects/{id}/pm_audits (at most three), exactly like the reference.
 
 // planningLoad is the lean resource these five verbs answer with.
 func planningLoad() projectLoad { return projectLoad{budgetSummary: true} }
@@ -488,6 +488,12 @@ func planningAuditUpdate(ctx context.Context, pool *pgxpool.Pool, w http.Respons
 		_ = file
 	}
 	if file, ok := files["attachments"]; ok && file != nil && len(existing) < 3 {
+		if (!file.isImage && file.mime != "application/pdf") || file.size > 10<<20 {
+			validationError(w, "The given data was invalid.", map[string][]string{
+				"attachments": {"The attachments must be an image or PDF no larger than 10240 kilobytes."},
+			})
+			return notes, "", false
+		}
 		contents, err := readUploadedFileByName(files, "attachments")
 		if err != nil {
 			slog.Error("planning: read attachment", "error", err)

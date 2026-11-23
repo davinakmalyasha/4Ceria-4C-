@@ -18,7 +18,7 @@
 -- spellings do not collide, so the index could not see them as duplicates,
 -- and the escrow on that project was understated by exactly Rp 5 500 000.
 -- This is REWRITE-PLAN defect B4, and it is the reason the vocabulary is a
--- REGISTRY and not a string (ADR-0013).
+-- REGISTRY and not a string (the reference registry).
 --
 -- A smallint key cannot be spelled two ways. That is the whole fix.
 --
@@ -30,14 +30,14 @@
 -- above: it is the only place that says "these two strings meant the same
 -- thing and the schema did not know it".
 --
--- The fourteenth ('change_order') is reserved by ADR-0013, which lists a change
+-- The fourteenth ('change_order') is reserved by the reference registry, which lists a change
 -- order among the things a ledger row can be about. No writer in the legacy
 -- code references one today — a change order's payment is booked against its
 -- payment stage, not against the change order — so the row is there for the
 -- next writer rather than for the past one.
 --
 -- The seven bid rows all point at 'bids': the legacy seven bid tables become
--- ONE table (ADR-0014), so 'target_table' is the PostgreSQL table and
+-- ONE table (the unified bids table), so 'target_table' is the PostgreSQL table and
 -- 'type_key' carries the role that disambiguates them.
 
 CREATE TABLE ledger_reference_types (
@@ -53,7 +53,7 @@ CREATE TABLE ledger_reference_types (
 COMMENT ON TABLE ledger_reference_types IS
     'The canonical vocabulary of things a ledger row can be about. Replaces the '
     'polymorphic reference_model VARCHAR, whose two spellings of the same model '
-    'understated a live escrow by Rp 5 500 000 (ADR-0013, REWRITE-PLAN defect B4).';
+    'understated a live escrow by Rp 5 500 000 (the reference registry, REWRITE-PLAN defect B4).';
 
 COMMENT ON COLUMN ledger_reference_types.legacy_aliases IS
     'Every spelling the legacy code has ever written for this model: the short '

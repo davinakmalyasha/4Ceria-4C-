@@ -10,7 +10,7 @@ import type { AdminStats, DisputesPayload } from '@/components/admin/types';
  *
  * A LAYOUT, not a per-page check: the session is resolved once, on the server,
  * before any admin markup exists, and a non-admin never sees the shell. The two
- * badge counts come from the same endpoints the legacy layout called after
+ * badge counts come from the same endpoints the previous layout called after
  * mount, so the sidebar is correct on first paint.
  */
 export default async function AdminLayoutPage({ children }: { children: React.ReactNode }) {
@@ -25,7 +25,7 @@ export default async function AdminLayoutPage({ children }: { children: React.Re
         user = me.data;
     } catch (error) {
         if (error instanceof ApiFailure && error.status === 401) {
-            redirect('/login');
+            redirect('/auth/expire?next=/login');
         }
 
         throw error;

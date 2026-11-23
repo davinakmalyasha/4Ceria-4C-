@@ -7,6 +7,54 @@ const root = fileURLToPath(new URL('.', import.meta.url));
 
 const config: NextConfig = {
     reactStrictMode: true,
+    poweredByHeader: false,
+    compress: true,
+
+    // The dev server is opened as both localhost and 127.0.0.1 in local work.
+    allowedDevOrigins: ['127.0.0.1', 'localhost'],
+
+    async headers() {
+        const security = [
+            { key: 'X-Content-Type-Options', value: 'nosniff' },
+            { key: 'X-Frame-Options', value: 'DENY' },
+            { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+            { key: 'X-DNS-Prefetch-Control', value: 'off' },
+            {
+                key: 'Permissions-Policy',
+                value: 'camera=(), microphone=(), geolocation=(self), payment=(), usb=()',
+            },
+            {
+                key: 'Content-Security-Policy',
+                value: [
+                    "default-src 'self'",
+                    "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+                    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+                    "font-src 'self' https://fonts.gstatic.com",
+                    "img-src 'self' data: blob: https://images.unsplash.com https://*.unsplash.com",
+                    "connect-src 'self' ws: wss:",
+                    "object-src 'none'",
+                    "base-uri 'self'",
+                    "form-action 'self'",
+                    "frame-ancestors 'none'",
+                ].join('; '),
+            },
+        ];
+
+        return [
+            { source: '/:path*', headers: security },
+            {
+                source: '/sw.js',
+                headers: [
+                    { key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' },
+                    { key: 'Service-Worker-Allowed', value: '/' },
+                ],
+            },
+            {
+                source: '/manifest.webmanifest',
+                headers: [{ key: 'Cache-Control', value: 'public, max-age=3600' }],
+            },
+        ];
+    },
 
     // The API's origin is read at RUNTIME (`lib/session.ts`), not inlined here.
     //
@@ -32,13 +80,6 @@ const config: NextConfig = {
     },
     turbopack: {
         root,
-
-        // The ported pages keep `react-router-dom`'s vocabulary (`<Link to>`,
-        // `navigate`, `useLocation`) and get Next's router underneath. See
-        // `lib/react-router-shim.tsx` for what is deliberately NOT shimmed.
-        resolveAlias: {
-            'react-router-dom': './lib/react-router-shim.tsx',
-        },
     },
     outputFileTracingRoot: root,
 };

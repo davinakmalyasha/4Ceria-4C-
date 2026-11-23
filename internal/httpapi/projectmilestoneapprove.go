@@ -420,9 +420,9 @@ func rawProjectModel(ctx context.Context, pool *pgxpool.Pool, projectID int64) (
 }
 
 // decodeOrderedJSON parses JSON while PRESERVING object key order. The
-// oracle serializes the stored content array verbatim, so `gallery`
+// reference serializes the stored content array verbatim, so `gallery`
 // precedes `file_names` exactly as it was written; a Go map would sort
-// the keys and break byte parity.
+// the keys and break byte contract.
 func decodeOrderedJSON(text string) any {
 	decoder := json.NewDecoder(strings.NewReader(text))
 	decoder.UseNumber()
@@ -676,7 +676,7 @@ type milestoneRenderFlags struct {
 
 func milestoneApproveObject(ctx context.Context, pool *pgxpool.Pool, projectID, milestoneID int64, flags milestoneRenderFlags) (*jsonphp.Object, error) {
 	// `content` must be selected as TEXT: pgx decodes jsonb into a Go map,
-	// which loses the stored key order the oracle preserves.
+	// which loses the stored key order the reference preserves.
 	columns := make([]string, 0, len(milestoneApproveColumns))
 	for _, column := range milestoneApproveColumns {
 		if column == "content" {

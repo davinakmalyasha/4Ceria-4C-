@@ -7,7 +7,7 @@ import { CoverImage } from '@/components/CoverImage';
 /**
  * Native "Hire Sub-Contractors" panel.
  *
- * The legacy tab rendered the constructor directory (`/kontraktor`) under a
+ * The previous tab rendered the constructor directory (`/kontraktor`) under a
  * hiring heading. The rows are fetched on the server; each card links to the
  * full constructor directory, which is already a native panel.
  */

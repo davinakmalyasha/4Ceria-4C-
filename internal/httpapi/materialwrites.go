@@ -109,7 +109,7 @@ func materialValidation(fields map[string]any, failures *errorBag, update bool) 
 	}
 
 	if raw, present := fields["specifications"]; present && raw != nil {
-		// Laravel's `array` rule is is_array(): a JSON OBJECT passes as an
+		// the original API's `array` rule is is_array(): a JSON OBJECT passes as an
 		// associative array, so both shapes are valid here.
 		switch raw.(type) {
 		case []any, map[string]any:

@@ -466,7 +466,7 @@ func (noUploadError) Error() string { return "no uploaded file" }
 
 // storeVaultFile persists upload bytes under a hash name and returns
 // the vault-relative path. The name is 40 hex chars, the shape of
-// Laravel's Str::random(40) hash names — the VALUE is random either way,
+// the original API's Str::random(40) hash names — the VALUE is random either way,
 // so the two stacks never emit the same bytes here; the shadow only
 // covers the file-less paths.
 func storeVaultFile(directory, filename string, data []byte) (string, error) {
@@ -475,10 +475,16 @@ func storeVaultFile(directory, filename string, data []byte) (string, error) {
 		return "", err
 	}
 
-	ext := strings.ToLower(strings.TrimPrefix(extensionOf(filename), "."))
+	// The client's extension is a hint, never a path suffix.
+	ext := sanitiseExtension(filename)
 	name := hex.EncodeToString(random[:])
 	if ext != "" {
 		name += "." + ext
+	}
+
+	directory = strings.Trim(strings.ReplaceAll(directory, "\\", "/"), "/")
+	if directory == "" {
+		directory = "uploads"
 	}
 
 	rel := directory + "/" + name

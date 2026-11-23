@@ -25,7 +25,7 @@ import (
 //
 // The answer is the lean ProjectResource: base attributes, the owner
 // block, zeroed counts and the budget summary — no bid, milestone or
-// termin relations are ever loaded, exactly like the oracle, which
+// termin relations are ever loaded, exactly like the reference, which
 // returns the binding-fresh model with nothing eager-loaded.
 
 // VerifyPaymentHandler serves

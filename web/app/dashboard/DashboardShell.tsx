@@ -1,8 +1,9 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { DashboardHeader } from '@/components/DashboardHeader';
+import { MobileNav } from '@/components/header/MobileNav';
 import { VerificationAlert } from '@/components/header/VerificationAlert';
 import { useAuth } from '@/context/AuthContext';
 import { ChatLauncher } from './ChatLauncher';
@@ -13,33 +14,14 @@ import type { NotificationRow } from '@/components/header/NotificationsDropdown'
 /**
  * The dashboard shell.
  *
- * IT OWNS THE TAB, THE SELECTIONS AND NOTHING ELSE. Every tab body is now a
- * native panel rendered by the server; `nativeTab` is the slot that receives it.
- * The synced `DashboardTabs` tree is no longer mounted by the dashboard, so the
- * legacy bundle (and its `Loading module...` boundary) is not part of the route.
- *
- * `setActiveTab` pushes a URL rather than setting state, so every tab is a
- * location: the back button works, a notification can deep-link to it, and the
- * server renders the page the URL names.
+ * The page computes the navigation counts on the server, so the shell receives
+ * four numbers instead of four whole collections. `setActiveTab` pushes a URL
+ * rather than setting state: every tab is a location, the back button works,
+ * and a notification can deep-link to it.
  */
-
-/**
- * The API's payloads, typed as `never[]` AT THE BOUNDARY.
- *
- * The synced tab components declare their own `Project` / `House` / directory
- * types, and `never[]` is assignable to every one of them — while an
- * `unknown[]` is assignable to none. The shapes are asserted by the components
- * that consume them, and by the golden files at the API level.
- */
-type Rows = never[];
-
 export function DashboardShell({
     activeTab,
-    projects,
-    projectFeed,
-    myBids,
-    hiredProfessionals,
-    collection,
+    counts,
     conversations,
     notifications,
     unreadNotifications,
@@ -47,33 +29,18 @@ export function DashboardShell({
     nativeTab,
 }: {
     activeTab: string;
-    projects: Rows;
-    projectFeed: Rows;
-    myBids: Rows;
-    hiredProfessionals: Rows;
-    collection: Rows;
+    counts?: Record<string, number>;
     conversations: ConversationRow[];
     notifications: NotificationRow[];
     unreadNotifications: number;
     storageBase: string;
-    /** A server-rendered panel; when present the legacy tab tree is not mounted. */
+    /** A server-rendered panel for the active tab. */
     nativeTab?: ReactNode;
 }) {
     const router = useRouter();
     const { user } = useAuth();
     const [sidebarOpen, setSidebarOpen] = useState(false);
-    const [activeSubTab, setActiveSubTab] = useState<string | null>(null);
-    const [selectedProfessional, setSelectedProfessional] = useState<unknown>(null);
-    const [selectedProject, setSelectedProject] = useState<unknown>(null);
-    const [selectedStoreId, setSelectedStoreId] = useState<number | null>(null);
-    const [selectedMaterial, setSelectedMaterial] = useState<unknown>(null);
-    const [projectToEdit, setProjectToEdit] = useState<unknown>(null);
-    const [projectToDelete, setProjectToDelete] = useState<unknown>(null);
-    const [chatUserId, setChatUserId] = useState<number | null>(null);
 
-    /**
-     * Admin nav ids are portal pages, not dashboard tabs.
-     */
     const ADMIN_ROUTES: Record<string, string> = {
         users: '/admin',
         verifications: '/admin/verification',
@@ -83,9 +50,6 @@ export function DashboardShell({
 
     const setActiveTab = (tab: string) => {
         setSidebarOpen(false);
-        // The admin screens live under /admin/*, not /dashboard/*. Routing an
-        // admin nav id into /dashboard/<id> 404s (isDashboardTab rejects it),
-        // so admin ids jump straight to their portal page.
         const adminRoute = ADMIN_ROUTES[tab];
         if (adminRoute) {
             router.push(adminRoute);
@@ -94,24 +58,9 @@ export function DashboardShell({
         router.push(tab === 'overview' ? '/dashboard' : `/dashboard/${tab}`);
     };
 
-    const counts = useMemo(() => {
-        const rows = projects as { status?: string }[];
-        const activeProjects = rows.filter((p) => p.status !== 'completed' && p.status !== 'cancelled').length;
-
-        return {
-            projects: user?.role_type === 'user' ? activeProjects : projectFeed.length,
-            management: activeProjects,
-            'my-bids': (myBids as { status?: string }[]).filter((b) => b.status === 'pending' || b.status === 'invited').length,
-            'my-houses': 0,
-        } as Record<string, number>;
-    }, [projects, projectFeed, myBids, user?.role_type]);
-
-    // The directory a tab needs, delivered by the page for the ACTIVE tab.
-    const directory = (tab: string): Rows => (activeTab === tab ? collection : []);
-
     return (
-        <div className="min-h-screen bg-neutral-100 flex overflow-hidden font-sans">
-            <main className="flex-1 flex flex-col h-screen overflow-hidden">
+        <div className="flex min-h-dvh overflow-hidden bg-neutral-100 font-sans">
+            <main className="flex h-dvh flex-1 flex-col overflow-hidden">
                 <DashboardHeader
                     activeTab={activeTab}
                     setActiveTab={setActiveTab}
@@ -122,10 +71,18 @@ export function DashboardShell({
                     storageBase={storageBase}
                 />
 
-                <div className={`flex-1 overflow-y-auto px-4 sm:px-8 relative ${activeTab === 'houses' ? 'py-3 sm:py-4' : 'py-4 sm:py-8'}`}>
-                    <div className="max-w-7xl mx-auto">
+                <div
+                    className={`relative flex-1 overflow-y-auto px-4 sm:px-8 ${
+                        activeTab === 'houses' ? 'py-3 sm:py-4' : 'py-4 sm:py-8'
+                    }`}
+                >
+                    <div className="mx-auto max-w-7xl">
                         {user && (
-                            <VerificationAlert user={user} activeTab={activeTab} setActiveTab={setActiveTab} />
+                            <VerificationAlert
+                                user={user}
+                                activeTab={activeTab}
+                                setActiveTab={setActiveTab}
+                            />
                         )}
 
                         {nativeTab}
@@ -133,7 +90,15 @@ export function DashboardShell({
                 </div>
             </main>
 
-            {/* The floating messenger: server-fed inbox, BFF thread, native composer. */}
+            <MobileNav
+                open={sidebarOpen}
+                activeTab={activeTab}
+                counts={counts}
+                storageBase={storageBase}
+                onClose={() => setSidebarOpen(false)}
+                onNavigate={setActiveTab}
+            />
+
             <ChatLauncher
                 conversations={conversations}
                 viewerId={user?.id ?? 0}
@@ -141,12 +106,7 @@ export function DashboardShell({
                 storageBase={storageBase}
             />
 
-            {/* Ceria, the AI assistant: compact chat on every tab but its own. */}
             <AiLauncher activeTab={activeTab} viewerId={user?.id ?? 0} />
-
-            {/* The shell keeps the tab's modals unmounted until they are used;
-                these two carry state the tabs own. */}
-            <span hidden data-modals={String(!!projectToEdit || !!projectToDelete)} />
         </div>
     );
 }

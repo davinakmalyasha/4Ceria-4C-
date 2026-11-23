@@ -1,4 +1,7 @@
 import Link from 'next/link';
+import { approveMilestone, clientSignContract } from './process-actions';
+import { SubmitButton } from '@/app/dashboard/SubmitButton';
+import { SignaturePad } from '@/app/dashboard/SignaturePad';
 import type { ReactNode } from 'react';
 import { PROJECT_TABS, type ProjectTab } from './tabs';
 import { formatIDR, titleCase } from '@/lib/format';
@@ -8,7 +11,7 @@ import { formatIDR, titleCase } from '@/lib/format';
  *
  * The first two panels (overview, budget) are PORTED: they fetch on the server
  * and render markup, so the content is in the first response. The remaining
- * tabs still mount the synced legacy workspace (`ProjectDetailPage`); each one
+ * tabs still mount the previous workspace (`ProjectDetailPage`); each one
  * moves here as it is rewritten.
  */
 
@@ -143,7 +146,7 @@ export function ProjectShell({
     );
 }
 
-export function OverviewPanel({ project }: { project: ProjectPayload }) {
+export function OverviewPanel({ project, bidSlot }: { project: ProjectPayload; bidSlot?: ReactNode }) {
     const summary = project.budget_summary;
 
     return (
@@ -208,6 +211,7 @@ export function OverviewPanel({ project }: { project: ProjectPayload }) {
                         </ul>
                     )}
                 </section>
+                {bidSlot}
             </aside>
         </div>
     );
@@ -362,7 +366,7 @@ export function bidPriceLabel(bid: BidRow): string {
     return formatIDR(bid.calculated_total ?? bid.price);
 }
 
-function BidCard({ bid, projectId }: { bid: BidRow; projectId: number }) {
+function BidCard({ bid, projectId, bidType }: { bid: BidRow; projectId: number; bidType: string }) {
     const name = bid.bidder?.name ?? bid.bidder?.user?.name ?? `Bid #${bid.id}`;
     const specialization = bid.bidder?.spesialisasi ?? bid.bidder?.specialization;
     const location = bid.bidder?.location ?? bid.bidder?.lokasi;
@@ -410,6 +414,24 @@ function BidCard({ bid, projectId }: { bid: BidRow; projectId: number }) {
                 )}
             </div>
 
+            {bid.status === 'contract_pending' && (
+                <form action={clientSignContract} className="mt-4 space-y-2 border-t border-neutral-100 pt-3">
+                    <input type="hidden" name="project_id" value={projectId} />
+                    <input type="hidden" name="bid_id" value={bid.id} />
+                    <input type="hidden" name="bid_type" value={bidType} />
+                    <p className="text-[10px] font-black uppercase tracking-wider text-amber-600">
+                        The professional signed. Countersign to activate the contract.
+                    </p>
+                    <SignaturePad />
+                    <SubmitButton
+                        pendingLabel="Signing…"
+                        className="rounded-lg bg-neutral-900 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-white hover:bg-neutral-700"
+                    >
+                        Countersign contract
+                    </SubmitButton>
+                </form>
+            )}
+
             <div className="mt-4 pt-3 border-t border-neutral-100">
                 <Link
                     href={`/projects/${projectId}/interviews`}
@@ -422,8 +444,9 @@ function BidCard({ bid, projectId }: { bid: BidRow; projectId: number }) {
     );
 }
 
-export function ProposalsPanel({ bids, projectId, error }: { bids: BidsPayload; projectId: number; error?: string }) {
+export function ProposalsPanel({ bids, projectId, error, updated }: { bids: BidsPayload; projectId: number; error?: string; updated?: string }) {
     const groups = BID_ROLES.map((role) => ({
+        key: role.key,
         label: role.label,
         rows: (bids[role.key] as BidRow[] | undefined) ?? [],
     })).filter((group) => group.rows.length > 0);
@@ -442,7 +465,12 @@ export function ProposalsPanel({ bids, projectId, error }: { bids: BidsPayload; 
             </div>
 
             {error && (
-                <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700">{error}</div>
+                <div role="alert" className="mb-5 rounded-2xl border border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700">{error}</div>
+            )}
+            {updated === 'signed' && (
+                <div className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-sm text-emerald-800">
+                    Contract countersigned. The payment stages are now on the Payments tab.
+                </div>
             )}
 
             {total === 0 ? (
@@ -468,7 +496,7 @@ export function ProposalsPanel({ bids, projectId, error }: { bids: BidsPayload; 
                             </h2>
                             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                                 {group.rows.map((bid) => (
-                                    <BidCard key={bid.id} bid={bid} projectId={projectId} />
+                                    <BidCard key={bid.id} bid={bid} projectId={projectId} bidType={String(group.key).replace('bids_', '')} />
                                 ))}
                             </div>
                         </div>
@@ -519,10 +547,16 @@ export function ProcessPanel({
     project,
     milestones,
     bids,
+    viewerRole,
+    error,
+    updated,
 }: {
     project: ProjectPayload;
     milestones: MilestoneRow[];
     bids: BidsPayload | null;
+    viewerRole: string;
+    error?: string;
+    updated?: string;
 }) {
     const ordered = [...milestones].sort(
         (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.id - b.id,
@@ -556,6 +590,17 @@ export function ProcessPanel({
                     </p>
                 </div>
             </div>
+
+            {error && (
+                <div role="alert" className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {error}
+                </div>
+            )}
+            {updated === 'approved' && (
+                <div className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                    Milestone approved. Any linked payment stage is now unlocked.
+                </div>
+            )}
 
             {neededPhases.length > 0 && (
                 <div className="flex flex-wrap gap-2 mb-6">
@@ -657,6 +702,21 @@ export function ProcessPanel({
                                                     {milestone.review_note}
                                                 </p>
                                             )}
+
+                                            {['user', 'project_manager', 'arsitek', 'kontraktor'].includes(viewerRole) &&
+                                                !milestone.is_completed &&
+                                                (milestone.approval_status === 'pending' || milestone.approval_status === 'reviewed') && (
+                                                    <form action={approveMilestone} className="mt-4 border-t border-neutral-100 pt-4">
+                                                        <input type="hidden" name="project_id" value={project.id} />
+                                                        <input type="hidden" name="milestone_id" value={milestone.id} />
+                                                        <SubmitButton
+                                                            pendingLabel="Approving…"
+                                                            className="rounded-lg bg-neutral-900 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-white hover:bg-neutral-700"
+                                                        >
+                                                            Approve milestone
+                                                        </SubmitButton>
+                                                    </form>
+                                                )}
                                         </article>
                                     ))}
                                 </div>

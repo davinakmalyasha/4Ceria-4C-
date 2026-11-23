@@ -1,24 +1,20 @@
 # The Go API image.
 #
-# Two stages: the module is built with the toolchain that matches `go.mod`,
-# and the runtime image carries the binary, the route manifest and CA
-# certificates — nothing else. There is no PHP, no web server and no queue
-# worker: the gateway is one process, and the database is external.
+# Two stages: build with the toolchain from go.mod, then run a single static
+# binary with the route manifest, CA certificates and a writable upload
+# directory. There is no PHP, no web server and no queue worker.
 
 FROM golang:1.27-alpine AS build
 
 WORKDIR /src
 
-# Cache the module download separately from the source.
 COPY go.mod go.sum ./
 RUN go mod download
 
 COPY cmd ./cmd
 COPY internal ./internal
 
-# GOEXPERIMENT=nojsonv2: the wire contract is PHP-compatible JSON, and Go
-# 1.27's encoding/json/v2 may encode differently (AGENTS.md trap 1).
-RUN GOEXPERIMENT=nojsonv2 CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o /out/gateway ./cmd/gateway
+RUN CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o /out/gateway ./cmd/gateway
 
 FROM alpine:3.21
 
@@ -30,9 +26,13 @@ WORKDIR /app
 COPY --from=build /out/gateway /app/gateway
 COPY routing/routes.yaml /app/routing/routes.yaml
 
-RUN chown -R app:app /app
+RUN mkdir -p /app/storage/app/public /app/storage/app/private && \
+    chown -R app:app /app
 
-ENV TZ=UTC
+ENV TZ=UTC \
+    PUBLIC_STORAGE_ROOT=/app/storage/app/public \
+    EVIDENCE_DIR=/app/storage/app/private
+
 EXPOSE 8080
 
 USER app

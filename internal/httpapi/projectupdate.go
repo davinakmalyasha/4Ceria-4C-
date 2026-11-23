@@ -268,7 +268,7 @@ func UpdateProjectHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		for _, key := range []string{"wants_project_manager", "requires_structural", "requires_mep"} {
 			if raw, present := body[key]; present {
-				if value, valid := parseLaravelBoolean(raw); valid {
+				if value, valid := parseBooleanFlag(raw); valid {
 					body[key] = value
 				}
 			}

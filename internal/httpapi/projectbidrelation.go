@@ -6,7 +6,7 @@ import ()
 //
 // getBidderName touches exactly one relation (the bid's own role), and
 // Eloquent serializes every loaded relation — so the confirm/sign
-// responses carry that one nested block behind the legacy columns. The
+// responses carry that one nested block behind the previous columns. The
 // key follows getBidProfileRelationName, not the table name.
 
 // bidRelationKey resolves the nested relation key, profile table and

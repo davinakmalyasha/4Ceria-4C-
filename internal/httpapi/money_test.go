@@ -71,7 +71,7 @@ func TestFormatMinorMirrorsToDecimal(t *testing.T) {
 
 // TestAmountStringRendersJSONNumbers pins the validation input: a JSON
 // number renders canonically, so `4000000` and `"4000000"` parse to the
-// same minor units Laravel's `numeric` rule compares.
+// same minor units the original API's `numeric` rule compares.
 func TestAmountStringRendersJSONNumbers(t *testing.T) {
 	if got := amountString(float64(4000000)); got != "4000000" {
 		t.Errorf("amountString(4000000.0) = %q", got)

@@ -47,7 +47,7 @@ func numericArrayItem(raw any) (map[string]any, bool) {
 }
 
 // validateFeeProposal enforces the rules in declaration order. Nested errors
-// use Laravel's dotted keys (`proposed_termins.0.percentage`).
+// use the original API's dotted keys (`proposed_termins.0.percentage`).
 func validateFeeProposal(fields map[string]any, failures *errorBag) feeProposal {
 	var input feeProposal
 
@@ -391,9 +391,9 @@ func ProposeFeeHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		// Keep the caller's JSON documents for the response: the oracle's
+		// Keep the caller's JSON documents for the response: the reference's
 		// in-memory cast preserves REQUEST key order, while a re-read from
-		// jsonb sorts keys. Laravel answers the just-updated model.
+		// jsonb sorts keys. the original API answers the just-updated model.
 		var rawFields map[string]json.RawMessage
 		if strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
 			rawBody, _ := io.ReadAll(r.Body)
@@ -667,7 +667,7 @@ func ProposeFeeHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		args := []any{intPtrDeref(bid["id"]), input.priceText, feeType, formatFloatPHP(grandTotal),
 			string(terminsJSON), milestonesArg, caller.UserID()}
-		// Only columns the role's legacy model can fill are written; the oracle
+		// Only columns the role's previous model can fill are written; the reference
 		// strips the rest to avoid MassAssignmentException.
 		if bidLegacyHasColumn(input.bidType, "selected_services") {
 			args = append(args, servicesArg)
@@ -722,7 +722,7 @@ func ProposeFeeHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	}
 }
 
-// bidLegacyHasColumn reports whether the role's legacy bid model owns a
+// bidLegacyHasColumn reports whether the role's previous bid model owns a
 // proposal column (selected_services is notaris-only; proposed_team is absent
 // from notaris, interior and project_manager).
 func bidLegacyHasColumn(role, column string) bool {

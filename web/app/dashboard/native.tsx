@@ -6,8 +6,8 @@ import { formatIDR, titleCase } from '@/lib/format';
  *
  * `projects` and the professional directories are PORTED: their rows were
  * already fetched on the server by `DashboardView`, and these components render
- * them without mounting the synced legacy tab tree. Every other tab still
- * renders the legacy `DashboardTabs`.
+ * them without mounting the previous tab tree. Every other tab still
+ * renders the previous `DashboardTabs`.
  */
 
 export function ProjectsPanel({

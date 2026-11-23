@@ -10,7 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// RETENTION RELEASE — the port of `escrow:release-retention`.
+// RETENTION RELEASE — this service of `escrow:release-retention`.
 //
 // WHY A SWEEPER, NOT A REQUEST HOOK
 // ----------------------------------
@@ -19,12 +19,12 @@ import (
 // stranded until someone loads the right page. So it is a scheduled sweep,
 // re-runnable: if the app was down on expiry day, the next run picks it up.
 //
-// RULES, IN ORDER (mirrors the legacy command):
+// RULES, IN ORDER (mirrors the previous command):
 //  1. Warranty must have EXPIRED (projects.warranty_end_at < now()).
 //     Read from the recorded date, never recomputed.
 //  2. No warranty claim may still contest it: `open`/`fixing` block,
 //     `resolved`/`closed` do not.
-//  3. No open project dispute may exist (improvement over legacy: the legacy
+//  3. No open project dispute may exist (improvement over legacy: the previous
 //     command did not check disputes, but every other disbursement is frozen
 //     while a dispute is open, and a retention payout is a disbursement).
 //  4. The write is a `retention_release` ledger row (never `payment` — reusing
@@ -224,7 +224,7 @@ func releaseOneRetention(ctx context.Context, pool *pgxpool.Pool, projectID, sta
 		return false, nil
 	}
 
-	// THE TYPE MUST BE retention_release, NOT payment (legacy silent no-op).
+	// THE TYPE MUST BE retention_release, NOT payment (previous silent no-op).
 	title := "Retention released: " + label + " (warranty expired)"
 	if terminRegistryID != 0 {
 		var exists bool
@@ -284,7 +284,7 @@ func AdminRetentionReleaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		dryRun := false
 		if raw, present := fields["dry_run"]; present && raw != nil {
-			if b, ok := parseLaravelBoolean(raw); ok {
+			if b, ok := parseBooleanFlag(raw); ok {
 				dryRun = b
 			} else if s, ok := raw.(string); ok && (s == "1" || s == "true") {
 				dryRun = true

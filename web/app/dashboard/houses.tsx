@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { assetUrl } from '@/lib/assets';
 import { formatIDR, titleCase } from '@/lib/format';
-import { deleteHouse } from './houses-actions';
+import { askHouseQuestion, deleteHouse } from './houses-actions';
 import { updateHouse } from './house-actions';
 import { ConfirmSubmit } from './confirmSubmit';
 import type { HouseRow } from './explore';
@@ -23,7 +23,7 @@ function HouseCard({ house }: { house: HouseRow }) {
         <article data-native-house={house.id} className="bg-white rounded-2xl border border-neutral-200 overflow-hidden">
             <Link href={`/dashboard/houses/${house.id}`} aria-label={house.name ?? `House #${house.id}`}>
                 {cover ? (
-                    <CoverImage src={cover} alt="" className="h-44" />
+                    <CoverImage src={cover} alt={house.name ?? `House #${house.id}`} className="h-44" />
                 ) : (
                     <div className="h-44 w-full bg-neutral-100 flex items-center justify-center text-[10px] font-black uppercase tracking-wider text-neutral-400">
                         No photo
@@ -366,7 +366,27 @@ export function MyHousesPanel({
  * call that counts the view (once per viewer per six hours), so opening a
  * card is what makes the view counter move.
  */
-export function HouseDetailPanel({ house }: { house: HouseRow }) {
+export interface HouseQuestionRow {
+    id: number;
+    question: string;
+    created_at?: string;
+    user?: { name?: string } | null;
+    answers?: { id: number; answer: string; created_at?: string; user?: { name?: string } | null }[];
+}
+
+export function HouseDetailPanel({
+    house,
+    questions = [],
+    signedIn = false,
+    error,
+    asked,
+}: {
+    house: HouseRow;
+    questions?: HouseQuestionRow[];
+    signedIn?: boolean;
+    error?: string;
+    asked?: boolean;
+}) {
     const pics = house.housePic ?? [];
     const cover = assetUrl(pics[0]?.dir ?? null);
     const address = [
@@ -390,7 +410,7 @@ export function HouseDetailPanel({ house }: { house: HouseRow }) {
             <div className="grid gap-5 lg:grid-cols-3">
                 <div className="lg:col-span-2 space-y-4">
                     {cover ? (
-                        <CoverImage src={cover} alt="" className="h-72 w-full rounded-2xl" />
+                        <CoverImage src={cover} alt={house.name ?? `House #${house.id}`} className="h-72 w-full rounded-2xl" />
                     ) : (
                         <div className="h-72 w-full rounded-2xl bg-neutral-100 flex items-center justify-center text-[10px] font-black uppercase tracking-wider text-neutral-400">
                             No photo
@@ -401,7 +421,7 @@ export function HouseDetailPanel({ house }: { house: HouseRow }) {
                             {pics.slice(1, 7).map((pic) => {
                                 const src = assetUrl(pic.dir ?? null);
                                 return src ? (
-                                    <CoverImage key={pic.id} src={src} alt="" className="h-24" />
+                                    <CoverImage key={pic.id} src={src} alt={`${house.name ?? `House #${house.id}`} photo`} className="h-24" />
                                 ) : null;
                             })}
                         </div>
@@ -451,11 +471,81 @@ export function HouseDetailPanel({ house }: { house: HouseRow }) {
                     </section>
 
                     <Link
+                        href={signedIn ? `#questions` : `/login?next=${encodeURIComponent(`/dashboard/houses/${house.id}`)}`}
+                        className="block text-center px-4 py-2.5 rounded-xl bg-neutral-900 text-[10px] font-black uppercase tracking-wider text-white transition hover:bg-neutral-800"
+                    >
+                        {signedIn ? 'Ask the owner' : 'Sign in to contact'}
+                    </Link>
+                    <Link
                         href="/dashboard/my-houses"
                         className="block text-center px-4 py-2.5 rounded-xl border border-neutral-200 bg-white text-[10px] font-black uppercase tracking-wider text-neutral-600 hover:text-neutral-900"
                     >
                         Manage my properties
                     </Link>
+
+                    <section id="questions" className="scroll-mt-24 rounded-2xl border border-neutral-200 bg-white p-5">
+                        <h2 className="text-[10px] font-black uppercase tracking-widest text-neutral-400">
+                            Questions · {questions.length}
+                        </h2>
+
+                        {error && (
+                            <p role="alert" className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-[11px] text-red-700">
+                                {error}
+                            </p>
+                        )}
+                        {asked && (
+                            <p className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-[11px] text-emerald-700">
+                                Question sent to the owner.
+                            </p>
+                        )}
+
+                        <div className="mt-3 space-y-3">
+                            {questions.length === 0 ? (
+                                <p className="text-[11px] text-neutral-500">No questions yet.</p>
+                            ) : (
+                                questions.slice(0, 5).map((item) => (
+                                    <div key={item.id} className="rounded-xl bg-neutral-50 px-3 py-2">
+                                        <p className="text-[11px] font-semibold text-neutral-700">{item.question}</p>
+                                        <p className="mt-1 text-[9px] font-bold uppercase tracking-wider text-neutral-400">
+                                            {item.user?.name ?? 'Visitor'}
+                                        </p>
+                                        {(item.answers ?? []).map((answer) => (
+                                            <p key={answer.id} className="mt-2 border-l-2 border-emerald-200 pl-2 text-[11px] text-neutral-600">
+                                                {answer.answer}
+                                            </p>
+                                        ))}
+                                    </div>
+                                ))
+                            )}
+                        </div>
+
+                        {signedIn ? (
+                            <form action={askHouseQuestion} className="mt-4 space-y-2">
+                                <input type="hidden" name="house_id" value={house.id} />
+                                <textarea
+                                    name="question"
+                                    required
+                                    maxLength={1000}
+                                    rows={3}
+                                    placeholder="Ask about the condition, documents or viewing…"
+                                    className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-xs outline-none focus:border-[#FD1D1D]"
+                                />
+                                <button
+                                    type="submit"
+                                    className="w-full rounded-xl bg-neutral-900 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-white hover:bg-neutral-700"
+                                >
+                                    Send question
+                                </button>
+                            </form>
+                        ) : (
+                            <Link
+                                href={signedIn ? `#questions` : `/login?next=${encodeURIComponent(`/dashboard/houses/${house.id}`)}`}
+                                className="mt-4 block rounded-xl border border-neutral-200 px-3 py-2 text-center text-[10px] font-black uppercase tracking-wider text-neutral-600 hover:text-neutral-900"
+                            >
+                                Sign in to ask
+                            </Link>
+                        )}
+                    </section>
                 </aside>
             </div>
         </div>

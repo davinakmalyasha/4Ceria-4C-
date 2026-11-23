@@ -537,9 +537,8 @@ func firmBoolFilter(value any) bool {
 // FirmMembersUpdateProfileHandler serves
 // `POST /api/firm-members/update-profile`.
 //
-// Identity (`users`) is MySQL-owned: the write goes to MySQL and re-syncs the
-// mirror. The professional profile (`arsiteks`/`kontraktors`) is written to
-// PostgreSQL, which is the read source.
+// Identity (`users`) and the professional profile (`arsiteks`/`kontraktors`)
+// are both PostgreSQL-native and are written to the same store the reads use.
 func FirmMembersUpdateProfileHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		caller, ok := CallerFrom(r.Context())

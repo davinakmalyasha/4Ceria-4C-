@@ -84,7 +84,7 @@ export function DashboardHeader({
     };
 
     return (
-        <header className="h-14 bg-white/80 backdrop-blur-md border-b border-neutral-100 flex items-center justify-between px-6 z-100 shrink-0">
+        <header className="h-[calc(3.5rem+env(safe-area-inset-top))] pt-[env(safe-area-inset-top)] bg-white/80 backdrop-blur-md border-b border-neutral-100 flex items-center justify-between px-6 z-100 shrink-0">
             <div className="flex items-center gap-6 min-w-0 h-full">
                 <button
                     type="button"

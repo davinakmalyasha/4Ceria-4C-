@@ -266,7 +266,7 @@ func InviteProfessionalHandler(pool *pgxpool.Pool) http.HandlerFunc {
 }
 
 // validateInvite enforces professional_id required|integer and role_type
-// required|in:7 (integer text and integral floats pass, like Laravel).
+// required|in:7 (integer text and integral floats pass, like the original API).
 func validateInvite(fields map[string]any, failures *errorBag) (professionalID int64, roleType string) {
 	rawID, present := fields["professional_id"]
 	if !present || rawID == nil {

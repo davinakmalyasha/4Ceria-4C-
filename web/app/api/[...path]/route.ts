@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { apiOrigin, clearSession, sessionToken } from '@/lib/session';
 
 /**
@@ -6,8 +6,8 @@ import { apiOrigin, clearSession, sessionToken } from '@/lib/session';
  *
  * WHY THIS EXISTS
  * ---------------
- * The legacy SPA calls `/api/...` with a bearer token it read from
- * `localStorage`. The port has no bearer token in the browser — it has an
+ * The original SPA calls `/api/...` with a bearer token it read from
+ * `localStorage`. This build has no bearer token in the browser — it has an
  * httpOnly cookie — so a client component that fetches `/api/unread-counts`
  * would arrive at the API anonymous and get a 401.
  *
@@ -22,7 +22,7 @@ import { apiOrigin, clearSession, sessionToken } from '@/lib/session';
  * WHAT IT DOES NOT DO
  * -------------------
  * It does not merge, reshape, cache or retry. A proxy that "helps" is a proxy
- * whose behaviour nobody can predict from the API's own contract — the port is
+ * whose behaviour nobody can predict from the API's own contract — this build is
  * supposed to make the wire format identical, not introduce a second one.
  *
  * A 401 from the API clears the session cookie: the token is dead, and leaving
@@ -38,6 +38,11 @@ const METHODS_WITHOUT_BODY = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 async function forward(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
     const { path } = await context.params;
+
+    const declared = Number.parseInt(request.headers.get('content-length') ?? '0', 10);
+    if (Number.isFinite(declared) && declared > 80 * 1024 * 1024) {
+        return NextResponse.json({ message: 'The request body is too large.' }, { status: 413 });
+    }
     const target = new URL(`/api/${path.join('/')}`, apiOrigin());
     target.search = request.nextUrl.search;
 
@@ -71,7 +76,11 @@ async function forward(request: NextRequest, context: { params: Promise<{ path: 
         init.body = await request.arrayBuffer();
     }
 
-    const response = await fetch(target, init);
+    const streaming = target.pathname.endsWith('/api/ai/chat/stream');
+    const response = await fetch(target, {
+        ...init,
+        ...(streaming ? {} : { signal: AbortSignal.timeout(30_000) }),
+    });
 
     if (response.status === 401 && token) {
         await clearSession();

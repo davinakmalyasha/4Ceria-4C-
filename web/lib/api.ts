@@ -3,11 +3,8 @@
  *
  * ONE PLACE THAT KNOWS WHERE THE API IS AND WHO IS ASKING.
  *
- * The legacy client spreads that knowledge over 416 call sites: `axios` in most
- * of them, a hardcoded `fetch('/api/geocode/…')` in others (defect B14), and a
- * token attached from `localStorage` at request time. Here a server component
- * calls `apiFetch('/projects')` and the origin, the token and the JSON headers
- * are decided once.
+ * A server component calls `apiFetch('/projects')` and the origin, the token
+ * and the JSON headers are decided once.
  *
  * `cache: 'no-store'` on every call is deliberate: the data is per-user and
  * money-shaped, and Next's default fetch cache is a cache of someone else's
@@ -19,7 +16,7 @@ import { apiOrigin, sessionToken } from './session';
 export type ApiError = {
     status: number;
     message: string;
-    /** The validation bag, when Laravel answered 422. */
+    /** The validation bag, when the API answered 422. */
     errors?: Record<string, string[]>;
 };
 
@@ -40,9 +37,8 @@ export class ApiFailure extends Error {
  *
  * A 401 is re-thrown as an ApiFailure so the caller can decide: a page can
  * render an empty state, a server action can send the user to /login. What it
- * must NOT do is redirect from inside the client, which is defect B30 — a 401
- * from an unrelated panel threw the visitor out of a page they were allowed to
- * read.
+ * must NOT do is redirect from inside the client: a 401 from an unrelated
+ * panel must not throw the visitor out of a page they were allowed to read.
  */
 export async function apiFetch<T>(
     path: string,
@@ -69,14 +65,21 @@ export async function apiFetch<T>(
         headers.set('Authorization', `Bearer ${token}`);
     }
 
+    // Next's data cache is keyed by URL, not by Authorization. A personalized
+    // response must never be reused for another visitor, so a request with a
+    // session is always `no-store`.
+    const cacheMode =
+        token !== null
+            ? { cache: 'no-store' as const }
+            : revalidateSeconds === undefined
+              ? { cache: 'no-store' as const }
+              : { next: { revalidate: revalidateSeconds } };
+
     const response = await fetch(`${apiOrigin()}/api${path}`, {
         ...init,
         headers,
-        // Public directories may opt into timed caching; everything else
-        // stays `no-store` so one user's ledger never renders for another.
-        ...(revalidateSeconds === undefined
-            ? { cache: 'no-store' as const }
-            : { next: { revalidate: revalidateSeconds } }),
+        signal: init.signal ?? AbortSignal.timeout(30_000),
+        ...cacheMode,
     });
 
     if (!response.ok) {

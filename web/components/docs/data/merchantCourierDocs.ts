@@ -105,7 +105,7 @@ export const merchantCourierDocs: DocArticle[] = [
                 type: 'step',
                 title: 'Claiming a Delivery Job:',
                 steps: [
-                    { stepNumber: 1, title: 'Open the Job Radar', description: 'Navigate to the Job Radar tab in your dashboard sidebar to see available delivery jobs.' },
+                    { stepNumber: 1, title: 'Open the Job Radar', description: 'Navigate to the Job Radar tab in the dashboard navigation to see available delivery jobs.' },
                     { stepNumber: 2, title: 'Review job details', description: 'Each job shows the pickup location (supplier store), delivery location (project site), material type, weight, and estimated distance.' },
                     { stepNumber: 3, title: 'Check vehicle requirements', description: 'Ensure your vehicle matches the required type based on the material dimensions and weight.' },
                     { stepNumber: 4, title: 'Claim the job', description: 'Click "Claim Job" to accept the delivery. The supplier and buyer are both notified.' }

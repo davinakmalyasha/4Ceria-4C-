@@ -10,7 +10,7 @@ import (
 
 // THE PAGINATOR
 // -------------
-// Seven endpoints return Laravel's raw `LengthAwarePaginator`, and five more
+// Seven endpoints return the original API's raw `LengthAwarePaginator`, and five more
 // return its `PaginatedResourceResponse` sibling. The shape is the contract:
 // thirteen keys in a fixed order, a `links` window, and URLs built from the
 // CALLER's request — not from configuration.
@@ -26,7 +26,7 @@ import (
 //	ellipsis: {"url":null,"label":"...","active":false} — three dots, and NO
 //	  `page` key at all (the source omits it; a null would be different bytes)
 //	prev/next: always carry `page` (possibly null), labels "&laquo; Previous"
-//	  and "Next &raquo;" with the entities UNESCAPED (Laravel does not
+//	  and "Next &raquo;" with the entities UNESCAPED (the original API does not
 //	  entity-encode them inside JSON)
 //	query: preserved in request order, page LAST, RFC 3986 (`a%20b`, not `a+b`)
 //	last_page: max(ceil(total/perPage), 1); invalid current page reads as 1
@@ -177,7 +177,7 @@ func nextURL(current, last int, basePath, rawQuery string) any {
 }
 
 // windowPages returns the page numbers of the window, with 0 marking an
-// ellipsis. It is `UrlWindow` with `onEachSide = 3`, ported literally.
+// ellipsis. It is `UrlWindow` with `onEachSide = 3`, implemented literally.
 func windowPages(current, last int) []int {
 	const onEachSide = 3
 

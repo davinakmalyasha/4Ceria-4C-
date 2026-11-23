@@ -21,9 +21,9 @@ import {
 /**
  * The dashboard navigation tree.
  *
- * A native copy of the synced `navConfig.ts`: the same ids, labels, icons,
+ * A native copy of the `navConfig.ts`: the same ids, labels, icons,
  * grouping and role rules. The header renders it, so it must live in the app
- * tree rather than behind the synced content boundary.
+ * tree rather than behind the content boundary.
  */
 export interface NavItem {
     id: string;
@@ -65,6 +65,7 @@ const USER_NAV: NavItem[] = [
         children: [
             { id: 'marketplace-materials', label: 'Construction Materials', icon: ShoppingBag },
             { id: 'marketplace-furniture', label: 'Furniture & Decor', icon: Paintbrush },
+            { id: 'quotes', label: 'My Quotes', icon: FileText },
             { id: 'material-orders', label: 'My Orders', icon: Package },
         ],
     },

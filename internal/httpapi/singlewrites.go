@@ -19,7 +19,7 @@ import (
 
 // SupplierDeliveryJobsHandler serves `GET /api/delivery-jobs`.
 //
-// Supplier-only. The oracle runs one query-builder join and returns the raw
+// Supplier-only. The reference runs one query-builder join and returns the raw
 // rows, so there are no Eloquent casts: timestamps stay `Y-m-d H:i:s` strings,
 // decimals stay strings, and the JSON columns stay the JSON TEXT they were
 // stored as (json_encode would quote them).
@@ -196,7 +196,7 @@ var verificationFields = map[string]bool{
 // admin or the profile's owner may ask; the response is `{"url": ...}`.
 //
 // LOCALLY the vault disk is `railway` (S3) with empty credentials, so
-// `temporaryUrl` throws and the oracle answers the catch-all 500. The port
+// `temporaryUrl` throws and the reference answers the catch-all 500. This service
 // mirrors that: the signer is not configured in this environment, and a
 // missing S3 configuration must never silently emit an unsigned URL.
 func VerificationDocumentHandler(pool *pgxpool.Pool) http.HandlerFunc {
@@ -252,32 +252,28 @@ func VerificationDocumentHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		// Secure local serve: the vault disk is S3-backed in production, but
-		// this build serves the same bytes from the local public disk behind
-		// the same auth gate (owner or admin). Private, no-store, content
-		// sniffed — never a world-readable redirect.
+		// Private documents are never world-readable: answer a short-lived
+		// signed URL instead of streaming bytes, so the admin viewer and the
+		// API agree on one contract.
 		rel := strings.TrimPrefix(strings.TrimPrefix(*path, "/storage/"), "/")
-		// Strip any absolute S3 prefix the legacy rows may carry.
+		// Strip any absolute S3 prefix previous rows may carry.
 		if idx := strings.Index(rel, "/storage/"); idx >= 0 {
 			rel = rel[idx+len("/storage/"):]
 		}
-		full := filepath.Join(publicDiskRoot(), filepath.FromSlash(rel))
+		full, err := safeStorageJoin(storageRootFor(rel), rel)
+		if err != nil {
+			message(w, http.StatusNotFound, "No document uploaded for this field.")
+			return
+		}
 		info, err := os.Stat(full)
 		if err != nil || info.IsDir() {
 			message(w, http.StatusNotFound, "No document uploaded for this field.")
 			return
 		}
-		f, err := os.Open(full)
-		if err != nil {
-			slog.Error("verification doc: open", "error", err)
-			serverError(w)
-			return
-		}
-		defer f.Close()
-		w.Header().Set("Cache-Control", "private, no-store")
-		w.Header().Set("X-Content-Type-Options", "nosniff")
-		// Content-Type from extension; ServeContent sniffs when empty.
-		http.ServeContent(w, r, info.Name(), info.ModTime(), f)
+
+		payload := jsonphp.NewObject()
+		payload.Set("url", storageSignedURLFor(ctx, rel))
+		writeJSON(w, http.StatusOK, payload)
 	}
 }
 
@@ -396,7 +392,7 @@ func StoreHouseAnswerHandler(pool *pgxpool.Pool) http.HandlerFunc {
 // DestroyRoomHandler serves `DELETE /api/rooms/{room}`.
 //
 // The photos are removed from the local public disk (the S3 cutover is not
-// part of the port yet), the row is deleted, and the answer carries the
+// part of this service yet), the row is deleted, and the answer carries the
 // refreshed house with its remaining rooms and pictures.
 func DestroyRoomHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -466,7 +462,10 @@ func DestroyRoomHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		picRows.Close()
 
 		for _, dir := range pics {
-			full := filepath.Join(publicDiskRoot(), filepath.FromSlash(dir))
+			full, err := safeStorageJoin(publicDiskRoot(), dir)
+			if err != nil {
+				continue
+			}
 			if info, err := os.Stat(full); err == nil && !info.IsDir() {
 				_ = os.Remove(full)
 			}
@@ -499,7 +498,7 @@ func DestroyRoomHandler(pool *pgxpool.Pool) http.HandlerFunc {
 // `chat_images/`) must not be squattable. An unknown folder silently falls
 // back to `project_assets`.
 //
-// The stored name is 40 random alphanumerics (Laravel's `Str::random(40)`), so
+// The stored name is 40 random alphanumerics (the original API's `Str::random(40)`), so
 // the two stacks can never produce the same path; the gate covers the failure
 // paths and the live proof normalises the name.
 func UploadHandler(pool *pgxpool.Pool) http.HandlerFunc {
@@ -561,7 +560,12 @@ func UploadHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 		path := folder + "/" + name + "." + file.ext
-		full := filepath.Join(publicDiskRoot(), filepath.FromSlash(path))
+		full, err := safeStorageJoin(publicDiskRoot(), path)
+		if err != nil {
+			slog.Error("upload: unsafe path", "error", err)
+			serverError(w)
+			return
+		}
 		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
 			slog.Error("upload: mkdir", "error", err)
 			serverError(w)
@@ -605,7 +609,7 @@ func publicDiskRoot() string {
 	return filepath.Join("storage", "app", "public")
 }
 
-// uploadExtension is Laravel's guessed extension: the CONTENT decides for the
+// uploadExtension is the original API's guessed extension: the CONTENT decides for the
 // four signatures the validator accepts, and the suffix is the fallback.
 func uploadExtension(file *uploadedFile) string {
 	switch file.mime {
@@ -624,7 +628,7 @@ func uploadExtension(file *uploadedFile) string {
 	return file.ext
 }
 
-// randomAlphaNumeric draws n characters from Laravel's default alphabet.
+// randomAlphaNumeric draws n characters from the original API's default alphabet.
 func randomAlphaNumeric(n int) (string, error) {
 	const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
 	buf := make([]byte, n)

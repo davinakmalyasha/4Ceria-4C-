@@ -30,7 +30,7 @@ export async function loadProjectPage(id: string): Promise<{ project: unknown; u
     } catch (error) {
         if (error instanceof ApiFailure) {
             if (error.status === 401) {
-                redirect(`/login?next=/projects/${id}`);
+                redirect(`/auth/expire?next=/login`);
             }
             if (error.status === 403 || error.status === 404) {
                 notFound();

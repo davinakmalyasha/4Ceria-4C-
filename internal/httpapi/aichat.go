@@ -111,6 +111,10 @@ func AISessionHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		if id == "" {
 			id = lastPathSegment(r.URL.Path)
 		}
+		if !isUUIDString(id) {
+			message(w, http.StatusNotFound, "Chat not found.")
+			return
+		}
 		switch r.Method {
 		case http.MethodGet:
 			s, err := ai.GetSession(r.Context(), pool, caller.UserID(), id)
@@ -281,6 +285,7 @@ func AIStreamHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		})
 		if full == "" {
 			writeSSE(w, map[string]any{"error": "The assistant hit a snag. Please try again."})
+			writeSSE(w, map[string]any{"done": true, "refused": false})
 			return
 		}
 		if _, err := ai.AppendMessage(r.Context(), pool, caller.UserID(), prepared.sessionID, "assistant", full); err != nil {
@@ -322,6 +327,8 @@ func aiPrepareTurn(r *http.Request, pool *pgxpool.Pool, caller Caller, req aiCha
 			return nil, serverErrorObject(), http.StatusInternalServerError
 		}
 		sessionID = s.ID
+	} else if !isUUIDString(sessionID) {
+		return nil, messageObject("Chat not found."), http.StatusNotFound
 	} else if _, err := ai.GetSession(r.Context(), pool, caller.UserID(), sessionID); err != nil {
 		if isNoRows(err) {
 			return nil, messageObject("Chat not found."), http.StatusNotFound
@@ -454,4 +461,25 @@ func writeSSE(w http.ResponseWriter, payload map[string]any) {
 		return
 	}
 	_, _ = fmt.Fprintf(w, "data: %s\n\n", encoded)
+}
+
+// isUUIDString accepts the canonical 8-4-4-4-12 hexadecimal form. A malformed
+// id must be a 404, not a PostgreSQL `22P02` that surfaces as a 500.
+func isUUIDString(value string) bool {
+	if len(value) != 36 {
+		return false
+	}
+	for i := 0; i < len(value); i++ {
+		if i == 8 || i == 13 || i == 18 || i == 23 {
+			if value[i] != '-' {
+				return false
+			}
+			continue
+		}
+		ch := value[i]
+		if (ch < '0' || ch > '9') && (ch < 'a' || ch > 'f') && (ch < 'A' || ch > 'F') {
+			return false
+		}
+	}
+	return true
 }

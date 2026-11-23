@@ -1,4 +1,6 @@
 import { formatIDR, titleCase } from '@/lib/format';
+import { uploadTerminProof, verifyTerminProof } from './payments-actions';
+import { SubmitButton } from '@/app/dashboard/SubmitButton';
 
 /**
  * Native payments panel.
@@ -84,7 +86,19 @@ function formatMinor(minor: bigint): string {
     return (neg ? '-Rp ' : 'Rp ') + grouped;
 }
 
-export function PaymentsPanel({ termins }: { termins: TerminRow[] }) {
+export function PaymentsPanel({
+    termins,
+    projectId,
+    viewerRole,
+    error,
+    updated,
+}: {
+    termins: TerminRow[];
+    projectId: number;
+    viewerRole: string;
+    error?: string;
+    updated?: string;
+}) {
     // Exact header totals in minor units (no floats). Paid uses the NET that
     // was actually disbursed (the gross was never paid out); retained shows
     // what is still HELD (retention minus what the release sweeper paid out).
@@ -100,7 +114,7 @@ export function PaymentsPanel({ termins }: { termins: TerminRow[] }) {
         releasedMinor += released;
         if (termin.status === 'paid') {
             // Prefer the persisted net; fall back to gross minus retention
-            // for legacy rows with no split.
+            // for previous rows with no split.
             const net = termin.net_amount != null && String(termin.net_amount).trim() !== '' && minorOf(termin.net_amount) > 0n
                 ? minorOf(termin.net_amount)
                 : minorOf(termin.amount) - retention;
@@ -130,6 +144,21 @@ export function PaymentsPanel({ termins }: { termins: TerminRow[] }) {
                     {termins.length} {termins.length === 1 ? 'stage' : 'stages'}
                 </span>
             </div>
+
+            {error && (
+                <div role="alert" className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {error}
+                </div>
+            )}
+            {updated && (
+                <div className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                    {updated === 'accept'
+                        ? 'Transfer accepted. The escrow ledger has been updated.'
+                        : updated === 'reject'
+                          ? 'Transfer rejected. The owner can upload a corrected receipt.'
+                          : 'Proof uploaded. The professional will verify it.'}
+                </div>
+            )}
 
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-8">
                 <div className="bg-white rounded-2xl border border-neutral-200 p-5">
@@ -219,6 +248,67 @@ export function PaymentsPanel({ termins }: { termins: TerminRow[] }) {
                                             <p className="mt-3 text-[10px] font-black uppercase tracking-wider text-emerald-600">
                                                 Paid {termin.paid_at.slice(0, 10)}
                                             </p>
+                                        )}
+
+                                        {(viewerRole === 'user' || viewerRole === 'project_manager') &&
+                                            (termin.status === 'pending' || termin.status === 'invoice_sent') && (
+                                                <form action={uploadTerminProof} className="mt-4 space-y-2 border-t border-neutral-100 pt-4">
+                                                    <input type="hidden" name="project_id" value={projectId} />
+                                                    <input type="hidden" name="termin_id" value={termin.id} />
+                                                    <label className="block">
+                                                        <span className="text-[9px] font-black uppercase tracking-wider text-neutral-400">
+                                                            Transfer receipt (JPG, PNG or PDF)
+                                                        </span>
+                                                        <input
+                                                            type="file"
+                                                            name="proof"
+                                                            accept="image/jpeg,image/png,image/jpg,application/pdf"
+                                                            required
+                                                            className="mt-1 block w-full text-[11px] text-neutral-600 file:mr-2 file:rounded-lg file:border-0 file:bg-neutral-100 file:px-3 file:py-1.5 file:text-[10px] file:font-bold"
+                                                        />
+                                                    </label>
+                                                    <SubmitButton
+                                                        pendingLabel="Uploading…"
+                                                        className="rounded-lg bg-neutral-900 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-white hover:bg-neutral-700"
+                                                    >
+                                                        Upload proof
+                                                    </SubmitButton>
+                                                </form>
+                                            )}
+
+                                        {viewerRole === termin.role_type && termin.status === 'verifying' && (
+                                            <div className="mt-4 space-y-2 border-t border-neutral-100 pt-4">
+                                                <p className="text-[10px] font-black uppercase tracking-wider text-amber-600">
+                                                    The owner uploaded a transfer receipt.
+                                                </p>
+                                                <form action={verifyTerminProof} className="flex flex-wrap gap-2">
+                                                    <input type="hidden" name="project_id" value={projectId} />
+                                                    <input type="hidden" name="termin_id" value={termin.id} />
+                                                    <input type="hidden" name="action" value="accept" />
+                                                    <SubmitButton
+                                                        pendingLabel="Verifying…"
+                                                        className="rounded-lg bg-emerald-600 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-white hover:bg-emerald-700"
+                                                    >
+                                                        Accept transfer
+                                                    </SubmitButton>
+                                                </form>
+                                                <form action={verifyTerminProof} className="flex flex-wrap gap-2">
+                                                    <input type="hidden" name="project_id" value={projectId} />
+                                                    <input type="hidden" name="termin_id" value={termin.id} />
+                                                    <input type="hidden" name="action" value="reject" />
+                                                    <input
+                                                        name="notes"
+                                                        placeholder="Why is the receipt rejected?"
+                                                        className="min-w-0 flex-1 rounded-lg border border-neutral-200 px-2 py-1.5 text-[11px]"
+                                                    />
+                                                    <SubmitButton
+                                                        pendingLabel="Rejecting…"
+                                                        className="rounded-lg border border-red-200 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-red-600 hover:bg-red-50"
+                                                    >
+                                                        Reject
+                                                    </SubmitButton>
+                                                </form>
+                                            </div>
                                         )}
                                     </article>
                                 ))}

@@ -5,9 +5,9 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 /**
- * Native "Post a Project" form — the last synced dashboard tab.
+ * Native "Post a Project" form — the last dashboard tab.
  *
- * The legacy wizard walked the same fields across steps. This is a single-page
+ * The previous wizard walked the same fields across steps. This is a single-page
  * compose form that posts the SAME multipart payload to the BFF `/api/projects`
  * (so the token stays server-side) and opens the newly created project. The
  * wizard's easy/advanced branching only changed which questions were asked;

@@ -12,8 +12,8 @@ import (
 //
 // pgx decodes a stored 0.00 as {Int 0, Exp 0} — the scale PostgreSQL holds
 // is lost in the binary transfer — while Eloquent reads MySQL's "0.00"
-// string verbatim. Without the zero branch the port emits "0" where the
-// oracle emits "0.00" (found live: a fresh professional's rate_harga).
+// string verbatim. Without the zero branch this service emits "0" where the
+// reference emits "0.00" (found live: a fresh professional's rate_harga).
 func TestNumericTextKeepsTwoDecimals(t *testing.T) {
 	zero := pgtype.Numeric{Int: big.NewInt(0), Exp: 0, Valid: true}
 	if got := numericText(zero); got != "0.00" {

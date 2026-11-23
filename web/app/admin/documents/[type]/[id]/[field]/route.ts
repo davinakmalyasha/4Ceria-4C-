@@ -10,7 +10,7 @@ import { apiFetch, ApiFailure } from '@/lib/api';
  * the URL server-side — with the httpOnly session — and redirects.
  */
 export async function GET(
-    _request: Request,
+    request: Request,
     { params }: { params: Promise<{ type: string; id: string; field: string }> },
 ) {
     const { type, id, field } = await params;
@@ -22,7 +22,7 @@ export async function GET(
             return NextResponse.json({ message: 'Document not found.' }, { status: 404 });
         }
 
-        return NextResponse.redirect(body.url);
+        return NextResponse.redirect(new URL(body.url, request.url));
     } catch (error) {
         if (error instanceof ApiFailure) {
             return NextResponse.json({ message: error.message }, { status: error.status });

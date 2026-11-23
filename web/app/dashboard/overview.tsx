@@ -7,7 +7,7 @@ import { CoverImage } from '@/components/CoverImage';
 /**
  * Native dashboard overview.
  *
- * The legacy OverviewContent mounted a client hook that fired the dashboard's
+ * The previous OverviewContent mounted a client hook that fired the dashboard's
  * whole request set on mount. Here the page already awaited `/projects`,
  * `/projects?feed`, `/my-bids`|`/hire-history` and (for specialists) the firm
  * invitations, so this panel is pure markup — the first paint is the numbers.

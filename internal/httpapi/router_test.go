@@ -34,8 +34,8 @@ func TestLoadManifest(t *testing.T) {
 		t.Errorf("the manifest declares %d routes in its metadata but holds %d", manifest.Meta.APICount, got)
 	}
 
-	if manifest.Meta.LaravelCommit == "" {
-		t.Error("the manifest records no laravel_commit")
+	if manifest.Meta.UpdatedAt == "" {
+		t.Error("the manifest records no updated_at")
 	}
 }
 
@@ -55,7 +55,7 @@ func TestEveryRouteIsRegistered(t *testing.T) {
 		}
 	}
 
-	// The router's own list of route ids is what the parity gate compares
+	// The router's own list of route ids is what the contract gate compares
 	// against the manifest, so it must be the same set.
 	if got, want := len(router.RouteIDs()), len(manifest.Routes); got != want {
 		t.Errorf("the router serves %d routes and the manifest holds %d", got, want)
@@ -63,11 +63,15 @@ func TestEveryRouteIsRegistered(t *testing.T) {
 }
 
 func TestInternalRoutesReportsTheManifest(t *testing.T) {
+	t.Setenv("INTERNAL_ROUTES_TOKEN", "")
+
 	manifest := loadManifest(t)
 	router := NewRouter(manifest, Gates{})
 
 	recorder := httptest.NewRecorder()
-	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/internal/routes", nil))
+	req := httptest.NewRequest(http.MethodGet, "/internal/routes", nil)
+	req.RemoteAddr = "127.0.0.1:1234"
+	router.ServeHTTP(recorder, req)
 
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("GET /internal/routes answered %d", recorder.Code)
@@ -92,7 +96,7 @@ func TestInternalRoutesReportsTheManifest(t *testing.T) {
 	}
 
 	// The URI is the MANIFEST's form — without a leading slash — because the
-	// parity gate compares the two directly.
+	// contract gate compares the two directly.
 	for _, route := range payload.Routes {
 		if strings.HasPrefix(route.URI, "/") {
 			t.Errorf("route %s reports the uri %q with a leading slash", route.ID, route.URI)
@@ -111,7 +115,7 @@ func TestUnmatchedAPIPathAnswersTheJSON404(t *testing.T) {
 		t.Fatalf("an unmatched API path answered %d", recorder.Code)
 	}
 
-	// The exact body the legacy catch-all produces.
+	// The exact body the previous catch-all produces.
 	//
 	// The slashes are escaped, because PHP's `json_encode` escapes them and
 	// the rewrite's contract is about BYTES. A body that parsed to the same
@@ -227,7 +231,7 @@ func TestThrottleSpec(t *testing.T) {
 }
 
 // TestTheManifestIsCommitted guards against a build that silently serves a
-// different route table than the one the parity gate reads.
+// different route table than the one the contract gate reads.
 func TestTheManifestIsCommitted(t *testing.T) {
 	if _, err := os.Stat(filepath.Clean(manifestPath)); err != nil {
 		t.Fatalf("the route manifest is not readable at %s: %v", manifestPath, err)

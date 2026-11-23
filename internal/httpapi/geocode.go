@@ -23,8 +23,8 @@ import (
 //
 // `GET /api/geocode/reverse` and `/api/geocode/search` proxy Nominatim and
 // cache the result. The response body is Nominatim's JSON re-encoded the
-// way Laravel re-encodes it (`response()->json($data)` decodes then
-// re-encodes), so byte parity reduces to two facts: the same upstream
+// way the original API re-encodes it (`response()->json($data)` decodes then
+// re-encodes), so byte contract reduces to two facts: the same upstream
 // parameters, and the same re-encoding.
 //
 // UPSTREAM PARAMETERS (read off GeocodeController, not assumed):
@@ -39,7 +39,7 @@ import (
 // spacing — so the body is decoded order-preservingly and re-encoded
 // through `jsonphp`, which mimics PHP's encoder.
 //
-// CACHE: a 7-day success cache keyed exactly like Laravel's
+// CACHE: a 7-day success cache keyed exactly like the original API's
 // (`geocode:reverse:lat:{lat}:lng:{lng}`, `geocode:search:{md5}`). The
 // short-TTL-then-promote dance in the controller nets out to the same
 // observable behaviour; failures are not cached. A process-local map: two
@@ -90,6 +90,22 @@ func (c *geocodeCache) get(key string) ([]byte, bool) {
 func (c *geocodeCache) set(key string, body []byte, ttl time.Duration) {
 	c.Lock()
 	defer c.Unlock()
+
+	const maxEntries = 2048
+	if len(c.entries) >= maxEntries {
+		now := time.Now()
+		for existing, entry := range c.entries {
+			if !now.Before(entry.expires) {
+				delete(c.entries, existing)
+			}
+		}
+		for existing := range c.entries {
+			if len(c.entries) < maxEntries {
+				break
+			}
+			delete(c.entries, existing)
+		}
+	}
 
 	c.entries[key] = geocodeEntry{body: body, expires: time.Now().Add(ttl)}
 }
@@ -200,7 +216,7 @@ func GeocodeSearchHandler(_ *pgxpool.Pool) http.HandlerFunc {
 }
 
 // geocodeNumber validates one coordinate: required, numeric, between.
-// A non-numeric value fails ONLY the numeric rule: Laravel's `between`
+// A non-numeric value fails ONLY the numeric rule: the original API's `between`
 // reads its string length (which passes), so no second message appears.
 func geocodeNumber(raw, field string, min, max float64, failures *errorBag) (float64, bool) {
 	if raw == "" {
@@ -233,7 +249,7 @@ func formatCoord(value float64) string {
 }
 
 // geocodeFetch GETs the upstream with the controller's headers and timeout,
-// returning the re-encoded body. False means "503", exactly when Laravel's
+// returning the re-encoded body. False means "503", exactly when the original API's
 // `$response->successful()` is false or the request throws.
 func geocodeFetch(r *http.Request, target string) ([]byte, bool) {
 	request, err := http.NewRequestWithContext(r.Context(), http.MethodGet, target, nil)
@@ -256,7 +272,7 @@ func geocodeFetch(r *http.Request, target string) ([]byte, bool) {
 		return nil, false
 	}
 
-	raw, err := io.ReadAll(response.Body)
+	raw, err := io.ReadAll(io.LimitReader(response.Body, 1<<20))
 	if err != nil {
 		slog.Error("geocode: body", "error", err)
 		return nil, false

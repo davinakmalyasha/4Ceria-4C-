@@ -10,34 +10,70 @@ import { FilesPanel, type DocumentRow } from '../files';
 import { InterviewsPanel, type SubProfessionalRow } from '../interviews';
 import { LegalPanel } from '../legal';
 import { EngineeringPanel, type EngineeringRequest } from '../engineering';
+import { BidForm } from '../bidForm';
 
 /**
  * `/projects/<id>/<tab>` — one route per project panel.
  *
  * PORTED PANELS ARE SERVER COMPONENTS. EVERY project panel now fetches its own
- * data on the server and renders native markup; the synced
- * `ProjectDetailPage` is no longer mounted by any project route.
+ * data on the server and renders native markup; the  * `ProjectDetailPage` is no longer mounted by any project route.
  */
 export default async function ProjectTabPage({
     params,
     searchParams,
 }: {
     params: Promise<{ id: string; tab: string }>;
-    searchParams: Promise<{ error?: string }>;
+    searchParams: Promise<{ error?: string; submitted?: string; updated?: string }>;
 }) {
     const { id, tab } = await params;
-    const { error } = await searchParams;
+    const { error, submitted, updated } = await searchParams;
 
     if (!isProjectTab(tab)) {
         notFound();
     }
 
     if (tab === 'overview') {
-        const { project } = await loadProjectPage(id);
+        const { project, user } = await loadProjectPage(id);
+        const payload = project as ProjectPayload;
+
+        let myBid: { id: number; status?: string | null; role_type?: string | null; price?: string | null; proposal?: string | null } | null = null;
+
+        if (user.role_type !== 'user' && user.role_type !== 'admin' && user.role_type !== 'supplier' && user.role_type !== 'logistics') {
+            try {
+                const response = await apiFetch<{ data: { id: number; project_id?: number; project?: { id?: number } | null; role_type?: string | null; status?: string | null; price?: string | null; proposal?: string | null }[] }>('/my-bids');
+                myBid =
+                    (response.data ?? []).find(
+                        (bid) =>
+                            (bid.project?.id ?? bid.project_id) === Number.parseInt(id, 10) &&
+                            (bid.role_type ?? '') === user.role_type,
+                    ) ?? null;
+            } catch {
+                // A failed proposal lookup hides the form; the rest of the
+                // overview still renders.
+            }
+        }
+
+        const canBid =
+            !myBid &&
+            ['arsitek', 'kontraktor', 'notaris', 'interior', 'structural', 'mep', 'project_manager'].includes(user.role_type) &&
+            ['open', 'accepted_arsitek', 'accepted_kontraktor', 'procurement', 'in_progress', 'completed_build', 'awaiting_payment'].includes(
+                payload.status ?? '',
+            );
 
         return (
-            <ProjectShell project={project as ProjectPayload} activeTab={tab}>
-                <OverviewPanel project={project as ProjectPayload} />
+            <ProjectShell project={payload} activeTab={tab}>
+                <OverviewPanel
+                    project={payload}
+                    bidSlot={
+                        <BidForm
+                            projectId={Number.parseInt(id, 10)}
+                            bid={myBid}
+                            canBid={canBid || Boolean(myBid)}
+                            error={error}
+                            submitted={submitted === '1'}
+                        />
+                    }
+                />
             </ProjectShell>
         );
     }
@@ -88,7 +124,7 @@ export default async function ProjectTabPage({
         return (
             <ProjectShell project={project as ProjectPayload} activeTab={tab}>
                 {bids ? (
-                    <ProposalsPanel bids={bids} projectId={Number.parseInt(id, 10)} error={error} />
+                    <ProposalsPanel bids={bids} projectId={Number.parseInt(id, 10)} error={error} updated={updated} />
                 ) : (
                     <div className="bg-white rounded-2xl border border-neutral-200 p-6 text-sm text-neutral-500">
                         Proposals are visible to the project team; bidders see only
@@ -100,7 +136,7 @@ export default async function ProjectTabPage({
     }
 
     if (tab === 'process') {
-        const { project } = await loadProjectPage(id);
+        const { project, user } = await loadProjectPage(id);
 
         let milestones: MilestoneRow[] = [];
         let denied = false;
@@ -131,14 +167,21 @@ export default async function ProjectTabPage({
                         The delivery process is visible to the project team only.
                     </div>
                 ) : (
-                    <ProcessPanel project={project as ProjectPayload} milestones={milestones} bids={bids} />
+                    <ProcessPanel
+                        project={project as ProjectPayload}
+                        milestones={milestones}
+                        bids={bids}
+                        viewerRole={user.role_type}
+                        error={error}
+                        updated={updated}
+                    />
                 )}
             </ProjectShell>
         );
     }
 
     if (tab === 'payments') {
-        const { project } = await loadProjectPage(id);
+        const { project, user } = await loadProjectPage(id);
 
         let termins: TerminRow[] = [];
         let denied = false;
@@ -159,7 +202,13 @@ export default async function ProjectTabPage({
                         Payment stages are visible to the project team only.
                     </div>
                 ) : (
-                    <PaymentsPanel termins={termins} />
+                    <PaymentsPanel
+                        termins={termins}
+                        projectId={Number.parseInt(id, 10)}
+                        viewerRole={user.role_type}
+                        error={error}
+                        updated={updated}
+                    />
                 )}
             </ProjectShell>
         );

@@ -2,16 +2,16 @@ import { sessionToken } from '@/lib/session';
 import { HelpShell } from '@/components/docs/HelpShell';
 
 /**
- * The Help Centre — ported from the legacy SPA's help centre.
+ * The Help Centre — adapted from the original SPA's help centre.
  *
  * THE ARTICLE IS IN THE URL. `/help?article=welcome-platform` is a real
  * location: it can be linked, shared and reloaded, and the sidebar navigates
- * with links. The legacy page reads `?article=` once on mount and then keeps
+ * with links. The previous page reads `?article=` once on mount and then keeps
  * the selection in `useState`, so the URL never changes and the back button
  * leaves the page.
  *
- * THE HELP CENTRE KEEPS THE PUBLIC SHELL for signed-in visitors. The legacy
- * swaps in the dashboard sidebar + header here; the port renders the public
+ * THE HELP CENTRE KEEPS THE PUBLIC SHELL for signed-in visitors. The previous
+ * swaps in the dashboard sidebar + header here; this build renders the public
  * navbar instead because the dashboard chrome is tab-scoped (its header needs
  * the tab, counts and inbox) and the help centre is not a dashboard tab. The
  * content is identical either way, and `Navbar authed` keeps the account menu.

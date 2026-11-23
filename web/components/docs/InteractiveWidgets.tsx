@@ -21,7 +21,7 @@ import NotificationWidget from './widgets/NotificationWidget';
 /**
  * The widget switch.
  *
- * The seventeen widgets are native copies of the legacy simulations (same
+ * The seventeen widgets are native copies of the previous simulations (same
  * markup, same classes, same state machines). This switch names them.
  */
 export function InteractiveWidgets({ name }: { name: string }) {

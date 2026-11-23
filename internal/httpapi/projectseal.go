@@ -24,7 +24,7 @@ import (
 // `design_handover_submitted`, notifies the owner and the PM
 // (`verification_required`), and answers the FULL resource.
 //
-// THE FULL LOAD is the widest project read in the port: every hired and
+// THE FULL LOAD is the widest project read in this service: every hired and
 // bid relation with phones and ratings, documents with their uploader,
 // comments, addendums, requirements, the termins with milestones, images
 // and all seven counts. `fullSealLoad` carries it.

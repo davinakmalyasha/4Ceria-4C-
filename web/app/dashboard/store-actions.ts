@@ -8,7 +8,7 @@ import { apiFetch, ApiFailure } from '@/lib/api';
  * Update the authenticated supplier's store profile.
  *
  * The route is PUT, but the photo makes the body multipart — PHP does not parse
- * multipart on a real PUT, so the action POSTs with `_method=PUT` (the legacy
+ * multipart on a real PUT, so the action POSTs with `_method=PUT` (the previous
  * screen sent the same override as a query parameter). The controller requires
  * `store_name` and scopes the row to the caller's supplier.
  */

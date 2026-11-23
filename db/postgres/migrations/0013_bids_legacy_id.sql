@@ -3,7 +3,7 @@
 --
 -- WHY THIS FILE EXISTS
 -- --------------------
--- ADR-0014 folds seven bid tables into one, carrying `bidder_user_id` and
+-- the unified bids table folds seven bid tables into one, carrying `bidder_user_id` and
 -- `bidder_profile_id` verbatim and allocating fresh `bids.id` values. That
 -- leaves one dangling end: every existing reference to a bid — the ledger's
 -- (`reference_model`, `reference_id`), a dispute's (`payment_type`,

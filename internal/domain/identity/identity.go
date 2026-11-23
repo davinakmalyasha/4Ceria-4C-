@@ -7,7 +7,7 @@
 //
 // The two spaces OVERLAP: architect profile 42 and user 42 are different rows
 // belonging to different people, and there is nothing in the numbers that says
-// so. The legacy application had this asymmetry recorded in three places — a
+// so. The original application had this asymmetry recorded in three places — a
 // config key, a model relation and a branch in an authorisation rule — and
 // every one of them was a place to compare the wrong two numbers.
 //
@@ -82,7 +82,7 @@ func (id ProfileID) MarshalJSON() ([]byte, error) {
 
 // ProfileTable is the table a role's profiles live in.
 //
-// It is the same table the legacy `config/bids.php` named, and the same one
+// It is the same table the previous `config/bids.php` named, and the same one
 // the PostgreSQL schema uses.
 type ProfileTable string
 
@@ -99,8 +99,8 @@ const (
 
 // Profile is a person's professional profile.
 //
-// The legacy application models this as a `users` row with one of seven
-// optional profile relations. The port keeps that shape — a user has AT MOST
+// The original application models this as a `users` row with one of seven
+// optional profile relations. This service keeps that shape — a user has AT MOST
 // ONE profile per role — and the role is what selects the relation.
 type Profile struct {
 	// User is the person the profile belongs to.
@@ -132,7 +132,7 @@ const (
 
 // Roles is every licensed role, in the registry's order.
 //
-// The ORDER is not cosmetic: it is the order the legacy `config/bids.php`
+// The ORDER is not cosmetic: it is the order the previous `config/bids.php`
 // used, and the order the `bids` table's role enum was built from.
 func Roles() []Role {
 	return []Role{
@@ -148,7 +148,7 @@ func Roles() []Role {
 
 // ProfileTableFor is the table a role's profiles live in.
 //
-// This is the ONE place the role-to-table mapping is stated. The legacy
+// This is the ONE place the role-to-table mapping is stated. The previous
 // application had it in `config/bids.php` AND in the `Hire` class's relation
 // map, and the two had to be kept in sync by hand.
 func ProfileTableFor(role Role) (ProfileTable, bool) {

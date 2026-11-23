@@ -1,3 +1,15 @@
 
 @import './app.css';
 @import './index.css';
+
+/* A visible keyboard affordance everywhere; components may opt into a
+   stronger ring, but focus must never disappear. */
+:focus-visible {
+  outline: 2px solid #fd1d1d;
+  outline-offset: 2px;
+}
+
+/* Keep the viewport from jumping when a dialog locks the body. */
+html {
+  scrollbar-gutter: stable;
+}

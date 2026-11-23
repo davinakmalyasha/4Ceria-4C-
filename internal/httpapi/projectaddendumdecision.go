@@ -290,7 +290,7 @@ func addendumDecision(pool *pgxpool.Pool, approve bool) http.HandlerFunc {
 
 // inviteSpecialist mints (or refreshes) the invited sub-professional row
 // for a specialist addendum, with the AUTHOR as `assigned_by` — the
-// oracle records who proposed the hire here, not who approved it.
+// reference records who proposed the hire here, not who approved it.
 func inviteSpecialist(ctx context.Context, tx pgx.Tx, projectID, addID int64, addType string, roleType, specialistType *string, teamMemberID, assignedUserID, authorUserID *int64, authorRole *string, amount *int64) error {
 	subRole := ""
 	if specialistType != nil && *specialistType != "" {

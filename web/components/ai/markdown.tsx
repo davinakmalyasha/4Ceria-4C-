@@ -35,10 +35,18 @@ function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
         const link = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(part);
         if (link) {
             const href = link[2];
-            // Only in-product or https links; everything else is plain text.
-            if (href.startsWith('/') || href.startsWith('https://')) {
+            // Only in-product paths or explicit https links; `//evil.example`
+            // is protocol-relative and must not be treated as internal.
+            const internal = href.startsWith('/') && !href.startsWith('//');
+            const external = href.startsWith('https://');
+            if (internal || external) {
                 return (
-                    <a key={key} href={href} className="text-red-600 underline underline-offset-2 hover:text-red-700">
+                    <a
+                        key={key}
+                        href={href}
+                        {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+                        className="text-red-600 underline underline-offset-2 hover:text-red-700"
+                    >
                         {link[1]}
                     </a>
                 );

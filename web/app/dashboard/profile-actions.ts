@@ -11,7 +11,7 @@ import { apiFetch, ApiFailure } from '@/lib/api';
  *   - `user`         → `PUT /me` (multipart with `_method=PUT`, because the
  *                      avatar makes the body multipart and PHP does not parse
  *                      multipart on a real PUT).
- *   - `professional` → `POST /me/professional`, the endpoint every legacy
+ *   - `professional` → `POST /me/professional`, the endpoint every previous
  *                      role form used. The controller validates ONLY the field
  *                      list for the caller's `role_type`, so forwarding every
  *                      field the form rendered is safe: keys outside that
@@ -41,6 +41,10 @@ const TEXT_FIELDS = [
     'nama',
     'nomor_sk',
     'wilayah_kerja',
+    // Payout details (accepted by both profile endpoints).
+    'bank_name',
+    'bank_account_number',
+    'bank_account_name',
 ];
 
 const FILE_FIELDS = ['foto'];
@@ -68,6 +72,12 @@ export async function saveProfile(formData: FormData): Promise<void> {
 
     if (mode === 'user') {
         body.set('_method', 'PUT');
+
+        for (const key of ['bank_name', 'bank_account_number', 'bank_account_name']) {
+            if (formData.has(key)) {
+                body.set(key, String(formData.get(key) ?? '').trim());
+            }
+        }
 
         const avatar = formData.get('pic');
         if (avatar instanceof File && avatar.size > 0) {

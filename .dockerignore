@@ -1,26 +1,30 @@
-# Git
+# Git and editor state
 .git
 .gitignore
 .gitattributes
-
-# Local environment and caches
-.env
-.env*.local
-.env.backup
 .idea
 .vscode
-.agents
-README.md
-docs
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+*.log
+
+# Local tooling and build output
 .tmp
 .playwright-mcp
+storage
+*.exe
+*.test
 
-# Frontend — built and deployed separately on Vercel
+# The frontend is built and deployed separately
 web
 node_modules
-npm-debug.log
 
-# Tests and local databases
-db/mysql/demo.sql
-*.log
-*.exe
+# Documentation is not needed in the runtime image
+docs
+README.md
+AGENTS.md
+CONTRIBUTING.md
+SECURITY.md

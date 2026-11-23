@@ -90,7 +90,7 @@ export async function updateFirmProfile(formData: FormData): Promise<void> {
 
     const needed = [...roleTags, ...jobPostings];
 
-    // The legacy screen derives the hiring flag from the list itself, so an
+    // The previous screen derives the hiring flag from the list itself, so an
     // empty list always means "not hiring".
     body.set('firm_is_hiring', needed.length > 0 ? '1' : '0');
     body.set('firm_needed_roles', JSON.stringify(needed));

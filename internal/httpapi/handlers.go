@@ -16,7 +16,7 @@ import (
 // WHY THIS ONE FIRST
 // ------------------
 // It is small (219 bytes), it is TIER 1 (admin), and every number it returns is
-// an aggregate — so it exercises the whole path the rest of the port needs:
+// an aggregate — so it exercises the whole path the rest of this service needs:
 // the auth gate reading Sanctum's token, a query against PostgreSQL, and a body
 // encoded to PHP's exact bytes.
 //
@@ -89,10 +89,10 @@ func StatsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		// procurement, completed_build, completed, cancelled} — there is no
 		// `terminated`.
 		//
-		// MySQL coerces the unknown literal and ignores it, so the legacy query
+		// MySQL coerces the unknown literal and ignores it, so the previous query
 		// has always meant "not completed and not cancelled". PostgreSQL REJECTS
 		// the literal outright (`invalid input value for enum project_status`),
-		// which is how the port found it: the same filter, ported literally,
+		// which is how this service found it: the same filter, implemented literally,
 		// stops answering at all.
 		//
 		// The filter is written with the values the ENUM has, so the two
@@ -169,7 +169,7 @@ func StatsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	}
 }
 
-// serverError is the 500 the legacy application returns with `APP_DEBUG=false`.
+// serverError is the 500 the original application returns with `APP_DEBUG=false`.
 //
 // The CAUSE is logged, with the query's own message, and never returned.
 //
@@ -239,7 +239,7 @@ func NotificationsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			// the DOCUMENT, not a string containing one.
 			//
 			// Compacted, because MySQL stores `{"a": 1}` and PHP writes
-			// `{"a":1}` — the decode/re-encode the legacy does on the way out.
+			// `{"a":1}` — the decode/re-encode the previous does on the way out.
 			row.Set("data", jsonphp.Raw(jsonphp.CompactJSON(data)))
 
 			row.Set("read_at", carbon(readAt))
@@ -278,14 +278,14 @@ func carbon(value *time.Time) any {
 // ActiveProjectsHandler serves `GET /api/user/active-projects`.
 //
 // IT IS THE THIRD PORTED ENDPOINT, and it is the one that found a live data
-// leak in the legacy controller (B32): `orWhere($column, null)` is
+// leak in the previous controller (B32): `orWhere($column, null)` is
 // `orWhereNull($column)`, so a user with no profile for a role matched EVERY
 // project whose column for that role was empty. An administrator with no
 // profiles saw the id and title of projects they neither owned nor worked on.
 //
-// The port cannot reproduce that and still be a valid replacement, so this
+// This service cannot reproduce that and still be a valid replacement, so this
 // handler implements the INTENDED filter — a clause is added only for a profile
-// the user actually has — and the legacy controller was corrected to match. A
+// the user actually has — and the previous controller was corrected to match. A
 // deliberate divergence is documented; a silent one is a defect.
 func ActiveProjectsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -295,7 +295,7 @@ func ActiveProjectsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			writeJSON(w, http.StatusOK, payload)
 		}
 
-		// The legacy controller answers `{"data":[]}` for an anonymous caller
+		// The previous controller answers `{"data":[]}` for an anonymous caller
 		// rather than 401 — the route has no `auth` middleware.
 		caller, ok := CallerFrom(r.Context())
 
@@ -354,7 +354,7 @@ func ActiveProjectsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			where = append(where, fmt.Sprintf("%s = $%d", role.column, len(args)))
 		}
 
-		// The statuses are the values the ENUM has. The legacy list also names
+		// The statuses are the values the ENUM has. The previous list also names
 		// `planning`, which is not a member: MySQL ignores it, PostgreSQL would
 		// raise `invalid input value for enum project_status`.
 		query := `

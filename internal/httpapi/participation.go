@@ -12,7 +12,7 @@ import (
 // ------------
 // The project routes guard themselves with "is this caller a participant of
 // this project": the owner, or the hired professional for any of the seven
-// roles. The legacy spelling is `DisputeService::authorizeParticipant` (and
+// roles. The previous spelling is `DisputeService::authorizeParticipant` (and
 // behind it `App\Support\Hire`), and the Go spelling is `authz.Matches` —
 // the package that already pins the null-safe rule and the profile-id
 // spaces. This file is the adapter between the database rows and those

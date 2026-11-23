@@ -23,7 +23,7 @@ import (
 // AdminDisputesHandler serves `GET /api/admin/disputes`.
 //
 // THE FIRST PAGINATED ENDPOINT. It introduces the one shape the previous
-// handlers did not have: Laravel's `LengthAwarePaginator` — thirteen keys in
+// handlers did not have: the original API's `LengthAwarePaginator` — thirteen keys in
 // a fixed order, with the `UrlWindow` links. The paginator itself lives in
 // `paginator.go` (verified against `artisan tinker`); this handler is the
 // query and the row.
@@ -49,7 +49,7 @@ import (
 //     PostgreSQL formats (`"500000000.00"`).
 //   - `payment_type` in MySQL is the free text the opener wrote. PostgreSQL
 //     stores the registry id instead, and the response resolves it back to
-//     the legacy short code through the same alias table the validator
+//     the previous short code through the same alias table the validator
 //     reads (migration 0011 backfilled the three missing aliases).
 func AdminDisputesHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -203,7 +203,7 @@ func AdminDisputesHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		// The controller never calls `appends()` or `withQueryString()`, so
 		// the page URLs carry ONLY `?page=` — the `?status=` filter is read
 		// for the query but dropped from the URLs. Verified live: with
-		// `?status=open` Laravel still answers `?page=1` bare.
+		// `?status=open` the original API still answers `?page=1` bare.
 		payload.Set("data", Paginate(total, perPage, currentPage, requestBaseURL(r), "", items))
 		payload.Set("open_count", openCount)
 
@@ -211,7 +211,7 @@ func AdminDisputesHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	}
 }
 
-// pageParam reads `?page=` the way Laravel does: a positive integer, or 1
+// pageParam reads `?page=` the way the original API does: a positive integer, or 1
 // for anything missing, zero, negative or non-numeric.
 func pageParam(r *http.Request) int {
 	raw := r.URL.Query().Get("page")
@@ -227,7 +227,7 @@ func pageParam(r *http.Request) int {
 	return page
 }
 
-// requestBaseURL is the caller's scheme://host/path — the value Laravel's
+// requestBaseURL is the caller's scheme://host/path — the value the original API's
 // paginator builds its URLs from. The host is the caller's (shadow-lib
 // normalises the two origins before comparing); the scheme honours the
 // forwarded proto so a proxied request keeps `https`.
@@ -270,7 +270,7 @@ func nullableString(value *string) any {
 //	]);
 //	return response()->json(['data' => $dispute]);
 //
-// A missing id answers 404 with Laravel's model-not-found body,
+// A missing id answers 404 with the original API's model-not-found body,
 // `{"message":"No query results for model [App\\Models\\ProjectDispute] <id>"}`.
 // The id segment binds by primary key; a non-numeric segment 404s the same
 // way with the raw value in the message.
@@ -450,9 +450,9 @@ func AdminDisputeShowHandler(pool *pgxpool.Pool) http.HandlerFunc {
 // disputeRow builds the seventeen base keys of a dispute, in the table's
 // column order — the shape the index and the show share.
 //
-// paymentType is the legacy short code (`termin`, `arsitek_bid`, …)
+// paymentType is the previous short code (`termin`, `arsitek_bid`, …)
 // resolved from the dispute's `payment_type_id` via the registry. The
-// legacy application stores the raw text the opener wrote; PostgreSQL
+// previous application stores the raw text the opener wrote; PostgreSQL
 // stores the registry id, and the short code is what the two spellings
 // share (migration 0011 backfilled the three missing aliases). A dispute
 // with no link reads null on both stacks.
@@ -488,8 +488,8 @@ func isNoRows(err error) bool {
 }
 
 // evidenceMimes and evidenceMaxKB mirror DisputeService::EVIDENCE_MIMES and
-// ::EVIDENCE_MAX_KB. The messages come from Laravel's validator verbatim —
-// verified live against the legacy app.
+// ::EVIDENCE_MAX_KB. The messages come from the original API's validator verbatim —
+// verified live against the previous app.
 var evidenceMimes = []string{"jpg", "jpeg", "png", "webp", "pdf"}
 
 const evidenceMaxKB = 10240
@@ -513,7 +513,7 @@ const evidenceMaxKB = 10240
 // WHAT IS DETERMINISTIC AND WHAT IS NOT
 // -------------------------------------
 // Without an evidence file every byte is determined by the row: the shadow
-// compares that path. With a file, Laravel stores under a RANDOM name
+// compares that path. With a file, the original API stores under a RANDOM name
 // (`Str::random(40)`), so two stacks can never emit the same
 // `evidence_path` — the same reason avatar/KYC uploads are validated but
 // their file bytes are not compared. The file path is still fully
@@ -549,7 +549,7 @@ func AdminDisputeReplyHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		failures := &errorBag{}
 
 		// `body` is required|string|max:5000, validated in rule order.
-		// An empty string fails `required`: Laravel's
+		// An empty string fails `required`: the original API's
 		// ConvertEmptyStringsToNull turns "" into null first. A present
 		// non-string fails `string` (verified live with `{"body": 123}`).
 		bodyText, bodyOK := bodyString(fields["body"])
@@ -651,7 +651,7 @@ func AdminDisputeReplyHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		// The fan-out must not fail the 201: Laravel wraps it in a
+		// The fan-out must not fail the 201: the original API wraps it in a
 		// try/catch that logs and continues.
 		title := "New Dispute Message"
 		body := senderName + " replied on dispute \"" + disputeTitle + "\" (" + projectTitle + ")."
@@ -684,7 +684,7 @@ func AdminDisputeReplyHandler(pool *pgxpool.Pool) http.HandlerFunc {
 }
 
 // bodyPresent reports whether `body` was sent at all: absent and null read
-// as missing (Laravel's ConvertEmptyStringsToNull runs before validation),
+// as missing (the original API's ConvertEmptyStringsToNull runs before validation),
 // and so does the empty string.
 func bodyPresent(raw any) bool {
 	if raw == nil {
@@ -723,7 +723,7 @@ func stringOf(value any) string {
 // The directory honours EVIDENCE_DIR and defaults to the local vault mirror
 // (`storage/app/public`, matching the local VAULT_DISK=public): the relative
 // path is what the row records, so a later S3-backed store keeps the rows
-// valid. The name is 40 hex chars, the shape of Laravel's `Str::random(40)`
+// valid. The name is 40 hex chars, the shape of the original API's `Str::random(40)`
 // hash names — the VALUE is random either way, so the two stacks can never
 // emit the same bytes for a file upload, and the shadow only covers the
 // file-less path.
@@ -740,7 +740,12 @@ func storeEvidence(r *http.Request, disputeID int64, evidence *uploadedFile) (st
 
 	rel := "disputes/" + strconv.FormatInt(disputeID, 10) + "/" + hex.EncodeToString(random[:]) + "." + evidence.ext
 
-	if err := os.MkdirAll(filepath.Join(base, "disputes", strconv.FormatInt(disputeID, 10)), 0o755); err != nil {
+	full, err := safeStorageJoin(base, rel)
+	if err != nil {
+		return "", "", err
+	}
+
+	if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
 		return "", "", err
 	}
 
@@ -750,7 +755,7 @@ func storeEvidence(r *http.Request, disputeID int64, evidence *uploadedFile) (st
 	}
 	defer src.Close()
 
-	dst, err := os.OpenFile(filepath.Join(base, filepath.FromSlash(rel)), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+	dst, err := os.OpenFile(full, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
 	if err != nil {
 		return "", "", err
 	}
@@ -893,7 +898,7 @@ func disputeRecipientIDs(ctx context.Context, pool *pgxpool.Pool, projectID, sen
 }
 
 // insertDisputeNotifications writes one row per recipient. A failure stops
-// the loop — mirroring the legacy try/catch, which exits the fan-out on the
+// the loop — mirroring the previous try/catch, which exits the fan-out on the
 // first throw — and the caller's 2xx stands either way.
 func insertDisputeNotifications(ctx context.Context, pool *pgxpool.Pool, projectID int64,
 	kind, title, body, data string, senderID int64) {
@@ -908,13 +913,13 @@ func insertDisputeNotifications(ctx context.Context, pool *pgxpool.Pool, project
 	}
 }
 
-// modelNotFound answers Laravel's route-model-binding 404 verbatim.
+// modelNotFound answers the original API's route-model-binding 404 verbatim.
 func modelNotFound(w http.ResponseWriter, model, id string) {
 	message(w, http.StatusNotFound, "No query results for model ["+model+"] "+id)
 }
 
 // scopedNotFound is a SCOPED firstOrFail: no ids reach the exception, so
-// Laravel appends a PERIOD instead of the id.
+// the original API appends a PERIOD instead of the id.
 func scopedNotFound(w http.ResponseWriter, model string) {
 	message(w, http.StatusNotFound, "No query results for model ["+model+"].")
 }
@@ -943,7 +948,7 @@ var actMessages = map[string]string{
 //
 // WHAT IS PORTED AND WHAT IS NOT
 // ------------------------------
-// `dismiss`, `custom` and `terminate_project` move no money: they are ported
+// `dismiss`, `custom` and `terminate_project` move no money: they are implemented
 // line for line and verified live byte-identical. `record_refund` runs the
 // full ledger-reversal block on exact minor units (see money.go), and
 // `release_payment` runs the full verify-accept path (see release.go) —
@@ -1111,7 +1116,7 @@ func AdminDisputeActHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		if refundMode {
 			var bySpelling map[string]int64
-			bySpelling, _, err = registryIDs(r.Context(), pool)
+			bySpelling, _, err = registryIDs(r.Context(), tx)
 			if err != nil {
 				slog.Error("admin dispute act: registry", "error", err)
 				serverError(w)
@@ -1236,7 +1241,7 @@ func AdminDisputeActHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 
-			bySpelling, _, err := registryIDs(r.Context(), pool)
+			bySpelling, _, err := registryIDs(r.Context(), tx)
 			if err != nil {
 				slog.Error("admin dispute act: registry", "error", err)
 				serverError(w)
@@ -1399,7 +1404,7 @@ func AdminDisputeActHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	}
 }
 
-// paymentShortCode maps a registry type_key back to the legacy short code
+// paymentShortCode maps a registry type_key back to the previous short code
 // the API exposes (`termin`, `arsitek_bid`, …). Unknown or absent keys read
 // null, like a dispute with no linked payment.
 func paymentShortCode(typeKey *string) *string {
@@ -1554,7 +1559,7 @@ func evidenceContentType(extension string) string {
 //
 // The endpoint answers a JSON body with the file's URL, not the bytes:
 // locally the vault disk is the public disk, so the URL is the public
-// one Laravel's `Vault::url` falls back to; in production it is the
+// one the original API's `Vault::url` falls back to; in production it is the
 // 15-minute presigned S3 URL. Either way the URL carries a signature and
 // an expiry, so two stacks never emit the same bytes here — the shape is
 // the contract (`{"url": ...}`), and the 404s are byte-identical:
@@ -1586,7 +1591,7 @@ func ProjectDisputeEvidenceHandler(pool *pgxpool.Pool) http.HandlerFunc {
 // route runs (no project binding, no participant gate); otherwise the
 // project route binds `{project}` and enforces participation.
 //
-// THE ORDER IS THE CONTRACT. Laravel binds route models before the
+// THE ORDER IS THE CONTRACT. the original API binds route models before the
 // controller runs, so a missing id 404s before any gate: project, then
 // dispute, then message, then the participant check, then the mismatch
 // checks. Verified live: a non-participant asking for a missing dispute
@@ -1704,7 +1709,12 @@ func serveEvidence(w http.ResponseWriter, r *http.Request, pool *pgxpool.Pool, p
 		return
 	}
 
-	if _, err := os.Stat(filepath.Join(evidenceBaseDir(), filepath.FromSlash(*evidencePath))); err != nil {
+	full, joinErr := safeStorageJoin(evidenceBaseDir(), *evidencePath)
+	if joinErr != nil {
+		message(w, http.StatusNotFound, "Evidence not found.")
+		return
+	}
+	if _, err := os.Stat(full); err != nil {
 		message(w, http.StatusNotFound, "Evidence file not found.")
 		return
 	}
@@ -1712,10 +1722,8 @@ func serveEvidence(w http.ResponseWriter, r *http.Request, pool *pgxpool.Pool, p
 	_ = evidenceName
 	_ = evidenceContentType
 
-	url := forwardedProto(r) + "://" + r.Host + "/storage/" + *evidencePath
-
 	payload := jsonphp.NewObject()
-	payload.Set("url", url)
+	payload.Set("url", storageSignedURLFor(r.Context(), *evidencePath))
 
 	writeJSON(w, http.StatusOK, payload)
 }

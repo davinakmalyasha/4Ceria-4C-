@@ -25,7 +25,7 @@ export function formatIDR(value: string | number | null | undefined): string {
             text = text.slice(1);
         }
         // Split decimals; drop sen for display (whole rupiah, like the
-        // legacy `number_format(..., 0, ',', '.')` receipt figure).
+        // previous `number_format(..., 0, ',', '.')` receipt figure).
         const dot = text.indexOf('.');
         let whole = dot >= 0 ? text.slice(0, dot) : text;
         whole = whole.replace(/^0+(?=\d)/, '');

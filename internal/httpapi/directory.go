@@ -53,7 +53,7 @@ func directoryColumns(table string) string {
 //
 // Pagination: `?per_page=` defaults 24, clamped to [1,100]; `?page=`
 // invalid reads as 1. The controller never calls `appends()`, so page URLs
-// are bare `?page=`. Laravel caches the page for 600s; Go answers fresh —
+// are bare `?page=`. the original API caches the page for 600s; Go answers fresh —
 // the same bytes on stable data, and fresher the moment something changes.
 //
 // THE ROW SHAPE (`PublicProfessionalResource::toArray`)
@@ -442,7 +442,7 @@ func pageSize(r *http.Request, fallback, max int) int {
 
 	size, err := strconv.Atoi(raw)
 	if err != nil || size < 1 {
-		return 1
+		return fallback
 	}
 
 	if size > max {

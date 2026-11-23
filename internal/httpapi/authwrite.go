@@ -17,7 +17,7 @@ import (
 // token randomness, the `$2y$` bcrypt spelling, email validation,
 // JSON-scalar helpers and the CRC suffix for token display.
 
-// tokenAlphabet is Laravel's `Str::random` alphabet.
+// tokenAlphabet is the original API's `Str::random` alphabet.
 const tokenAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
 
 // randomTokenString draws n characters from the token alphabet.
@@ -39,12 +39,12 @@ func randomTokenString(n int) (string, error) {
 // uniqueCodeAlphabet is `User::generateUniqueCode`'s unambiguous alphabet.
 const uniqueCodeAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
-// bcryptHash hashes with Laravel's settings: cost 12, `$2y$` prefix.
+// bcryptHash hashes with the original API's settings: cost 12, `$2y$` prefix.
 //
 // x/crypto emits `$2a$`, which verifies identically at the C level — but
-// Laravel's BcryptHasher rejects anything `password_get_info` does not
+// the original API's BcryptHasher rejects anything `password_get_info` does not
 // recognise as bcrypt, and PHP only recognises `$2y$`. Hashing with Go and
-// checking with Laravel (or the reverse) therefore requires the `$2y$`
+// checking with the original API (or the reverse) therefore requires the `$2y$`
 // spelling; the remaining 60-char body is format-identical.
 func bcryptHash(password string) (string, error) {
 	hashed, err := bcrypt.GenerateFromPassword([]byte(password), 12)
@@ -62,8 +62,8 @@ func bcryptHash(password string) (string, error) {
 
 // itoaString renders an int64 without importing anything new.
 
-// validEmail mirrors the `email` rule closely enough for wire parity: a
-// display name plus an addr-spec with an @. Laravel's egulias validator is
+// validEmail mirrors the `email` rule closely enough for wire contract: a
+// display name plus an addr-spec with an @. the original API's egulias validator is
 // stricter in exotic corners; the golden contracts pin the common shapes.
 func validEmail(value string) bool {
 	address, err := mail.ParseAddress(value)

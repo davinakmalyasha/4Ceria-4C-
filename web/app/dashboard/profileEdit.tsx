@@ -6,7 +6,7 @@ import { saveProfile } from './profile-actions';
 /**
  * Native profile editor.
  *
- * Replaces the seven synced role forms (`EditProfileForm` dispatched to
+ * Replaces the seven role forms (`EditProfileForm` dispatched to
  * Architect/Constructor/Interior/Notary/Supplier/Enterprise/User forms). The
  * fields are grouped exactly as the controller validates them: account
  * identity for everyone, a role-specific professional block, and the photo.
@@ -14,7 +14,7 @@ import { saveProfile } from './profile-actions';
  * already writes them.
  *
  * Everything is one server-rendered form — the phone rows and notary service
- * rows are repeated inputs, not client state — so the screen has no legacy
+ * rows are repeated inputs, not client state — so the screen has no previous
  * island and no hydration cost.
  */
 
@@ -228,6 +228,27 @@ export function ProfileEditPanel({ user, error }: { user: User; error?: string }
                         <input type="file" name="pic" accept="image/jpeg,image/png,image/gif,image/webp" className={fileClass} />
                     </label>
                 )}
+            </Section>
+
+            <Section title="Payout details">
+                <p className="text-xs leading-relaxed text-neutral-500">
+                    Payments are settled to this account. It is visible only to you and the platform
+                    administrator.
+                </p>
+                <div className="grid gap-3 sm:grid-cols-3">
+                    <Field label="Bank" name="bank_name" defaultValue={(user.bank_name ?? '') as string} />
+                    <Field
+                        label="Account number"
+                        name="bank_account_number"
+                        defaultValue={(user.bank_account_number ?? '') as string}
+                        inputMode="numeric"
+                    />
+                    <Field
+                        label="Account holder"
+                        name="bank_account_name"
+                        defaultValue={(user.bank_account_name ?? '') as string}
+                    />
+                </div>
             </Section>
 
             {isProfessional && (

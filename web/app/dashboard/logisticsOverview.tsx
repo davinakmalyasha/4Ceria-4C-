@@ -6,7 +6,7 @@ import { formatIDR, titleCase } from '@/lib/format';
  *
  * `GET /logistics/dashboard-stats` returns the courier's counters and the five
  * most recent jobs (their own + any pending). This replaces the last
- * role-specific legacy overview, so every dashboard tab now has a native panel.
+ * role-specific previous overview, so every dashboard tab now has a native panel.
  */
 
 export interface LogisticsStats {

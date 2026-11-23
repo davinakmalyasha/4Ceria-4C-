@@ -70,7 +70,7 @@ func parseAuditItems(ctx context.Context, pool *pgxpool.Pool, raw any, key strin
 		} else {
 			id = parsed
 			// `exists:` is part of the id rule and runs before `status`, so the
-			// error bag keeps Laravel's field order.
+			// error bag keeps the original API's field order.
 			table := "project_milestones"
 			if key == "documents" {
 				table = "project_documents"

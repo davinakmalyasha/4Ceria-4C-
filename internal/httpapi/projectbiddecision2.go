@@ -101,7 +101,7 @@ func syncLegalScopeTx(ctx context.Context, tx pgx.Tx, projectID int64, serviceID
 // on a project with no hired subs, documents, milestones or locked termins:
 // stamp the three design timestamps, mark the phase complete, log it. Every
 // other branch reads rows that are empty on the projects this port accepts
-// on, so each is a no-op here exactly as in the oracle.
+// on, so each is a no-op here exactly as in the reference.
 func implicitVerifyDesignTx(ctx context.Context, tx pgx.Tx, projectID, actorID int64) error {
 	var doneAt *time.Time
 	_ = tx.QueryRow(ctx, `SELECT owner_design_approved_at FROM projects WHERE id = $1`, projectID).Scan(&doneAt)
@@ -157,7 +157,7 @@ func insertBudgetAddendumTx(ctx context.Context, tx pgx.Tx, projectID int64, rol
 }
 
 // kickoffMilestoneTx mirrors firstOrCreate(['project_id','Project Kickoff']).
-// The `status` attribute has no column and is discarded by the oracle too.
+// The `status` attribute has no column and is discarded by the reference too.
 func kickoffMilestoneTx(ctx context.Context, tx pgx.Tx, projectID int64) error {
 	var exists bool
 	if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM project_milestones WHERE project_id = $1 AND title = 'Project Kickoff')`, projectID).Scan(&exists); err != nil {
@@ -680,7 +680,7 @@ func DeclineBidHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		bid := bidMap(bidFields, bidValues)
 		physicalID := bidPhysicalID(bid)
 
-		// The oracle wrote `rejection_reason` here, which is neither fillable
+		// The reference wrote `rejection_reason` here, which is neither fillable
 		// nor a column — every success 500'd. Status only.
 		if _, err := tx.Exec(ctx, `UPDATE bids SET status = 'rejected', updated_at = date_trunc('second', now()) WHERE id = $1`, physicalID); err != nil {
 			slog.Error("decline-bid: update", "error", err)

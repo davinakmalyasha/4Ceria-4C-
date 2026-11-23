@@ -13,7 +13,7 @@ import (
 
 // ADMIN PROJECT EXPORT — a streamed CSV of the projects list.
 //
-// The oracle's `streamDownload` sends three headers: the default
+// The reference's `streamDownload` sends three headers: the default
 // `Cache-Control: no-cache, private`, `Content-Type: text/csv; charset=UTF-8`
 // and `Content-Disposition: attachment; filename=projects-export-Ymd-His.csv`
 // (the stamp is UTC). The body starts with a UTF-8 BOM so Excel reads

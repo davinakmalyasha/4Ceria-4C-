@@ -8,9 +8,9 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// SCHEDULED WORK — the Go replacement for Laravel's `routes/console.php`.
+// SCHEDULED WORK — the Go replacement for the original API's `routes/console.php`.
 //
-// The legacy stack ran four daily jobs under `onOneServer()` (one replica
+// The previous stack ran four daily jobs under `onOneServer()` (one replica
 // wins via the Redis lock): auto-complete orders, snag escalation, retention
 // release, and the prune trio. This gateway has no Redis, so the lock is a
 // PostgreSQL advisory lock (`pg_try_advisory_lock`) held per job key — same
@@ -26,6 +26,7 @@ const (
 	schedLockAutoComplete = int64(4102)
 	schedLockSnagEscalate = int64(4103)
 	schedLockPrune        = int64(4104)
+	schedLockPush         = int64(4105)
 )
 
 // StartScheduler launches the daily sweepers. It returns immediately; the
@@ -51,13 +52,29 @@ func schedulerLoop(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger)
 	runWithLock(ctx, pool, logger, schedLockPrune, "mail", func(ctx context.Context) error {
 		return SendQueuedMail(ctx, pool, logger)
 	})
+	runWithLock(ctx, pool, logger, schedLockPush, "push", func(ctx context.Context) error {
+		return SendPendingPushes(ctx, pool, logger)
+	})
 
+	pushTicker := time.NewTicker(30 * time.Second)
+	mailTicker := time.NewTicker(5 * time.Minute)
 	ticker := time.NewTicker(24 * time.Hour)
+	defer pushTicker.Stop()
+	defer mailTicker.Stop()
 	defer ticker.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
 			return
+		case <-pushTicker.C:
+			runWithLock(ctx, pool, logger, schedLockPush, "push", func(ctx context.Context) error {
+				return SendPendingPushes(ctx, pool, logger)
+			})
+		case <-mailTicker.C:
+			runWithLock(ctx, pool, logger, schedLockPrune, "mail", func(ctx context.Context) error {
+				return SendQueuedMail(ctx, pool, logger)
+			})
 		case <-ticker.C:
 			runWithLock(ctx, pool, logger, schedLockRetention, "retention", func(ctx context.Context) error {
 				res, err := ReleaseExpiredRetentions(ctx, pool, nil, false, logger)
@@ -76,16 +93,23 @@ func schedulerLoop(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger)
 			runWithLock(ctx, pool, logger, schedLockPrune, "prune", func(ctx context.Context) error {
 				return PruneExpired(ctx, pool, logger)
 			})
-			runWithLock(ctx, pool, logger, schedLockPrune, "mail", func(ctx context.Context) error {
-				return SendQueuedMail(ctx, pool, logger)
-			})
 		}
 	}
 }
 
 func runWithLock(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger, key int64, name string, fn func(context.Context) error) {
+	// Advisory locks are session-scoped. Taking the lock through the pool and
+	// releasing it through a different pooled connection leaves it held until
+	// that connection expires, so the whole job runs on one acquired conn.
+	conn, err := pool.Acquire(ctx)
+	if err != nil {
+		logger.Error("scheduler: acquire", "job", name, "error", err)
+		return
+	}
+	defer conn.Release()
+
 	var locked bool
-	if err := pool.QueryRow(ctx, `SELECT pg_try_advisory_lock($1)`, key).Scan(&locked); err != nil {
+	if err := conn.QueryRow(ctx, `SELECT pg_try_advisory_lock($1)`, key).Scan(&locked); err != nil {
 		logger.Error("scheduler: lock query", "job", name, "error", err)
 		return
 	}
@@ -93,7 +117,7 @@ func runWithLock(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger, k
 		return
 	}
 	defer func() {
-		_, _ = pool.Exec(context.Background(), `SELECT pg_advisory_unlock($1)`, key)
+		_, _ = conn.Exec(context.Background(), `SELECT pg_advisory_unlock($1)`, key)
 	}()
 
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
@@ -139,6 +163,12 @@ func EscalateOverdueSnags(ctx context.Context, pool *pgxpool.Pool, logger *slog.
 func PruneExpired(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger) error {
 	if _, err := pool.Exec(ctx, `DELETE FROM notifications WHERE created_at < now() - interval '90 days'`); err != nil {
 		logger.Info("scheduler: prune notifications skipped", "error", err.Error())
+	}
+	if _, err := pool.Exec(ctx, `DELETE FROM personal_access_tokens WHERE expires_at IS NOT NULL AND expires_at <= now()`); err != nil {
+		logger.Info("scheduler: prune tokens skipped", "error", err.Error())
+	}
+	if _, err := pool.Exec(ctx, `DELETE FROM rate_limit_hits WHERE hit_at < now() - interval '1 hour'`); err != nil {
+		logger.Info("scheduler: prune rate limits skipped", "error", err.Error())
 	}
 	return nil
 }

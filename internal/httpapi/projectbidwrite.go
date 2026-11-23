@@ -157,7 +157,7 @@ func canAccessBids(ctx context.Context, pool *pgxpool.Pool, viewer *projectViewe
 
 	if pmID != nil && *pmID != 0 {
 		if own, ok := viewer.profiles["project_manager"]; ok && own == *pmID {
-			// The legacy gate reads Hire::isAssignedPm (profile match),
+			// The previous gate reads Hire::isAssignedPm (profile match),
 			// not the user-id comparison — mirrored here.
 			return true, nil
 		}

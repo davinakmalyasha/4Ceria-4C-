@@ -176,7 +176,7 @@ func materialQuoteRelations(ctx context.Context, pool *pgxpool.Pool, entry *json
 }
 
 // quoteSelectList renders the SELECT list with the money columns as TEXT so
-// every consumer sees the decimal string Laravel's decimal cast produces.
+// every consumer sees the decimal string the original API's decimal cast produces.
 func quoteSelectList() string {
 	parts := make([]string, 0, len(materialQuoteColumns))
 	for _, column := range materialQuoteColumns {
@@ -490,7 +490,7 @@ type materialQuoteInput struct {
 }
 
 // validateMaterialQuote mirrors the controller's nested rules, in the order
-// Laravel expands wildcard rules (per FIELD across items).
+// the original API expands wildcard rules (per FIELD across items).
 func validateMaterialQuote(ctx context.Context, pool *pgxpool.Pool, fields map[string]any, failures *errorBag) materialQuoteInput {
 	var input materialQuoteInput
 	input.deliveryMethod = "Supplier Fleet"
@@ -548,7 +548,7 @@ func validateMaterialQuote(ctx context.Context, pool *pgxpool.Pool, fields map[s
 
 	input.itemsJSON = make([]any, 0, len(itemMaps))
 
-	// Nested rules, grouped per FIELD exactly as Laravel expands them.
+	// Nested rules, grouped per FIELD exactly as the original API expands them.
 	type nestedRule struct {
 		field string
 		check func(prefix string, index int, value any) bool
@@ -668,6 +668,32 @@ func validateMaterialQuote(ctx context.Context, pool *pgxpool.Pool, fields map[s
 				}
 			}
 			input.items = append(input.items, line)
+		}
+
+		// A material's price, name and unit come from the catalogue, never
+		// from the request. Otherwise a client could quote cement at Rp 1.
+		if failures.empty() {
+			for index := range input.items {
+				item := &input.items[index]
+				if item.materialID <= 0 {
+					continue
+				}
+
+				var name, price, unit string
+				err := pool.QueryRow(ctx, `
+					SELECT name, price::text, unit
+					  FROM materials
+					 WHERE id = $1 AND supplier_id = $2 AND is_available = true`,
+					item.materialID, input.supplierID).Scan(&name, &price, &unit)
+				if err != nil {
+					failures.add("items."+strconv.Itoa(index)+".material_id", "The selected material is invalid.")
+					continue
+				}
+
+				item.name = name
+				item.priceAtQuote = price
+				item.unit = unit
+			}
 		}
 
 		// The JSON the database stores: the validated line shape.

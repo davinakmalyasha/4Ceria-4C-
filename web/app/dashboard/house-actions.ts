@@ -9,7 +9,7 @@ import { apiFetch, ApiFailure } from '@/lib/api';
  *
  * The route is PUT, but the gallery makes the body multipart — PHP does not
  * parse multipart on a real PUT, so the action POSTs with `_method=PUT` (the
- * legacy modal sends the same override in the body). Gallery changes use
+ * previous modal sends the same override in the body). Gallery changes use
  * `house_pics[]` for new files and `deleted_house_pics[]` for removed rows; the
  * controller deletes the physical files and scopes every id to this house.
  */

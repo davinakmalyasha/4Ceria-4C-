@@ -69,7 +69,7 @@ func chatMessageObject(ctx context.Context, pool *pgxpool.Pool, byName map[strin
 	}
 	entry.Set("image_url", chatMessageImageURL(byName["image"]))
 	if withSender {
-		sender, err := fullProfileUser(ctx, pool, intPtrDeref(byName["sender_id"]), false)
+		sender, err := fullProfileUserContact(ctx, pool, intPtrDeref(byName["sender_id"]), false, false)
 		if err != nil {
 			return nil, err
 		}
@@ -528,9 +528,17 @@ func SendMessageHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			imagePath = stored
 		}
 
+		tx, err := pool.Begin(ctx)
+		if err != nil {
+			slog.Error("message send: begin", "error", err)
+			serverError(w)
+			return
+		}
+		defer tx.Rollback(ctx)
+
 		var messageID int64
 		var createdAt, updatedAt any
-		if err := pool.QueryRow(ctx, `INSERT INTO chat_messages
+		if err := tx.QueryRow(ctx, `INSERT INTO chat_messages
 			(conversation_id, sender_id, content, image, is_read, created_at, updated_at)
 			VALUES ($1, $2, $3, $4, false, date_trunc('second', now()), date_trunc('second', now()))
 			RETURNING id, created_at, updated_at`,
@@ -540,9 +548,15 @@ func SendMessageHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		if _, err := pool.Exec(ctx, `UPDATE conversations SET last_message_at = date_trunc('second', now()),
+		if _, err := tx.Exec(ctx, `UPDATE conversations SET last_message_at = date_trunc('second', now()),
 			updated_at = date_trunc('second', now()) WHERE id = $1`, id); err != nil {
 			slog.Error("message send: touch", "error", err)
+			message(w, http.StatusInternalServerError, "Failed to send message.")
+			return
+		}
+
+		if err := tx.Commit(ctx); err != nil {
+			slog.Error("message send: commit", "error", err)
 			message(w, http.StatusInternalServerError, "Failed to send message.")
 			return
 		}
@@ -589,7 +603,7 @@ func SendMessageHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		entry.Set("created_at", projectTimeValue(createdAt))
 		entry.Set("id", messageID)
 		entry.Set("image_url", chatMessageImageURL(imagePath))
-		sender, err := fullProfileUser(ctx, pool, caller.UserID(), false)
+		sender, err := fullProfileUserContact(ctx, pool, caller.UserID(), false, false)
 		if err != nil {
 			slog.Error("message send: sender", "error", err)
 			serverError(w)

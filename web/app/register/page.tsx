@@ -4,7 +4,7 @@ import { sessionToken } from '@/lib/session';
 import { RegisterForm } from './RegisterForm';
 
 /**
- * The registration screen — ported from the legacy SPA's registration screen.
+ * The registration screen — adapted from the original SPA's registration screen.
  *
  * The two decorative blurs, the glass card and the two secondary links are
  * reproduced class for class. The framer-motion wrappers are gone: they

@@ -11,7 +11,7 @@
 --               (utf8mb4_0900_ai_ci) compares strings case-insensitively, and
 --               PostgreSQL's default does not. Login, every Sanctum token
 --               lookup, the public brief link and the firm invite codes all
---               depend on that. ADR-0008 decides the treatment PER COLUMN
+--               depend on that. the collation decision decides the treatment PER COLUMN
 --               FAMILY; citext is the type-level expression of the
 --               "case-insensitive by requirement" family.
 --
@@ -39,7 +39,7 @@
 -- are created here, as NOLOGIN group roles, because 0006 REVOKEs
 -- INSERT/UPDATE/DELETE on the ledger from 'app_rw' and GRANTs EXECUTE on
 -- 'escrow.record_movement()' instead. "Never write a ledger row directly"
--- becomes a DATABASE PRIVILEGE rather than a code convention (ADR-0020), and
+-- becomes a DATABASE PRIVILEGE rather than a code convention (the database ledger design), and
 -- a privilege cannot be revoked from a role that does not exist.
 --
 -- The roles are created with a guard so the file is idempotent: the same
@@ -48,7 +48,7 @@
 -- THE DATABASE COLLATION
 -- ----------------------
 -- The target database is created with LC_COLLATE=C LC_CTYPE=C. That is the
--- "keep the default C collation" half of ADR-0008: under C, every comparison
+-- "keep the default C collation" half of the collation decision: under C, every comparison
 -- that this schema does NOT explicitly mark as case-insensitive is byte-exact,
 -- which is the STRICTEST reading and the one that makes an accidental
 -- case-insensitive match impossible.
@@ -82,7 +82,7 @@ $$;
 COMMENT ON ROLE app_rw IS
     'The application role. It may read everything and write everything EXCEPT '
     'project_budget_transactions, whose writes go exclusively through '
-    'escrow.record_movement() (ADR-0020).';
+    'escrow.record_movement() (the database ledger design).';
 
 COMMENT ON ROLE app_ro IS
     'The reporting role. Read-only. Used by the reconciliation jobs and by the '

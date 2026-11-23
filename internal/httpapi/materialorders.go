@@ -51,7 +51,7 @@ var deliveryJobColumns = []string{
 }
 
 // materialOrderSelectList casts money/coordinates so every consumer sees the
-// decimal strings and JSON floats Laravel's casts produce.
+// decimal strings and JSON floats the original API's casts produce.
 func materialOrderSelectList() string {
 	parts := make([]string, 0, len(materialOrderColumns))
 	for _, column := range materialOrderColumns {
@@ -596,7 +596,7 @@ func UploadOrderPaymentProofHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			}
 		}
 
-		// The oracle reads `->user_id` for the
+		// The reference reads `->user_id` for the
 		// notification, which leaves that relation loaded on the response.
 		entry := materialOrderObject(byName)
 		if err := materialOrderRelations(ctx, pool, entry, byName, []string{"supplier"}); err != nil {

@@ -5,7 +5,6 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -239,7 +238,7 @@ func validateProofFile(fields map[string]any, files map[string]*uploadedFile, fa
 }
 
 // storePaymentProof runs the upload inside the caller's transaction and
-// renders the 200 data. A proofErrorValue carries the oracle's own
+// renders the 200 data. A proofErrorValue carries the reference's own
 // 4xx message and status.
 func storePaymentProof(ctx context.Context, tx pgx.Tx, pool *pgxpool.Pool, projectID int64, paymentType, rawID string, viewer *projectViewer, upload *uploadedFile, contents []byte) (string, *jsonphp.Object, error) {
 	id, err := strconv.ParseInt(rawID, 10, 64)
@@ -269,7 +268,7 @@ func storePaymentProof(ctx context.Context, tx pgx.Tx, pool *pgxpool.Pool, proje
 }
 
 // proofBidRole maps a *_bid payment type to its bid role and profile
-// table. pm_bid is the project_manager role under its legacy name.
+// table. pm_bid is the project_manager role under its previous name.
 func proofBidRole(paymentType string) (role, table string, ok bool) {
 	switch paymentType {
 	case "arsitek_bid":
@@ -291,7 +290,7 @@ func proofBidRole(paymentType string) (role, table string, ok bool) {
 	}
 }
 
-// proofSettled rejects an already-settled payment with the oracle's
+// proofSettled rejects an already-settled payment with the reference's
 // per-state sentence. `current` is the settlement state
 // (payment_status when set, else status); `lifecycle` is the row's
 // own status column.
@@ -322,7 +321,10 @@ func proofSettled(current *string, lifecycle *string) *proofErrorValue {
 
 // removeVaultFile deletes a vault-relative file when it exists.
 func removeVaultFile(rel string) error {
-	full := vaultFullPath(rel)
+	full, err := vaultFullPath(rel)
+	if err != nil {
+		return err
+	}
 	if err := os.Remove(full); err != nil && !os.IsNotExist(err) {
 		return err
 	}
@@ -330,8 +332,8 @@ func removeVaultFile(rel string) error {
 }
 
 // vaultFullPath resolves a vault-relative path on local disk.
-func vaultFullPath(rel string) string {
-	return filepath.Join(vaultBaseDir(), filepath.FromSlash(rel))
+func vaultFullPath(rel string) (string, error) {
+	return safeStorageJoin(vaultBaseDir(), rel)
 }
 
 // storeProofFile writes the receipt and drops the previous one when it
@@ -349,7 +351,7 @@ func storeProofFile(filename string, contents []byte, oldPath *string) (string, 
 	return stored, nil
 }
 
-// terminSubProfessional mirrors the oracle's carve-out: a milestone of
+// terminSubProfessional mirrors the reference's carve-out: a milestone of
 // type sub_professional, or any role outside the five core licensed
 // ones, skips the previous-stage ordering check.
 func terminSubProfessional(ctx context.Context, tx pgx.Tx, milestoneID *int64, role string) (bool, error) {
@@ -371,7 +373,7 @@ func terminSubProfessional(ctx context.Context, tx pgx.Tx, milestoneID *int64, r
 	return milestoneType != nil && *milestoneType == "sub_professional", nil
 }
 
-// terminUnpaidPrevious mirrors the oracle's ordering guard: an earlier
+// terminUnpaidPrevious mirrors the reference's ordering guard: an earlier
 // stage of the same project and role that is neither paid nor
 // verifying blocks the upload — with the percentage-0 change-order
 // carve-out that only looks at earlier-or-equal milestones.

@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 /**
  * Native verification submission form.
  *
- * Mirrors the legacy multipart payload (`entity_type`, company/identity fields
+ * Mirrors the previous multipart payload (`entity_type`, company/identity fields
  * and the three document slots) and posts to the BFF, which attaches the
  * httpOnly token server-side. A successful submission moves the profile to
  * PENDING, so the route is refreshed to re-render the status card.

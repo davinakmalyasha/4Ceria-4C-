@@ -1,43 +1,73 @@
 import type { Metadata, Viewport } from 'next';
 import '@/styles/globals.css';
+import { PwaProvider } from '@/components/pwa/PwaProvider';
+import { PwaStatus } from '@/components/pwa/PwaStatus';
 
 /**
  * The document shell.
  *
- * IT REPRODUCES THE LEGACY SHELL, because the body's `antialiased` class is
- * part of the design: it switches the whole page to grayscale antialiasing, and
- * dropping it changes every glyph edge on every screen.
- *
- * `lang` matches `resources/views/app.blade.php`. The title is the legacy one —
- * the port is not an opportunity to rename the product.
- *
- * THE FONT. Plus Jakarta Sans, from the same stylesheet URL and the same five
- * weights as the legacy template. `next/font` would self-host it, which is
- * better for latency and privacy — but it ships ITS copy of the files, and the
- * port's contract is that the glyphs are the ones the baseline was captured
- * from. Moving the font is a design change (ADR-0021), not a porting decision.
- *
- * The visual harness fulfils this request from the files committed under
- * `tools/visual/fixtures/fonts`, so the gate does not depend on the CDN.
+ * The metadata describes the installed application as well as the web page:
+ * 4Ceria is a PWA, so the manifest, icons, theme colour and standalone display
+ * mode are part of the product surface, not decoration.
  */
 export const metadata: Metadata = {
-    title: '4C Project',
-    description: 'Construction coordination and real estate marketplace.',
+    metadataBase: new URL(process.env.SITE_URL ?? 'http://127.0.0.1:3000'),
+    applicationName: '4Ceria',
+    title: {
+        default: '4Ceria — Construction, coordinated',
+        template: '%s · 4Ceria',
+    },
+    description:
+        'One workspace for construction: verified professionals, escrow-protected milestones, building materials, logistics and a project ledger.',
     manifest: '/manifest.webmanifest',
+    keywords: [
+        'construction marketplace',
+        'contractor bidding',
+        'escrow',
+        'project management',
+        'building materials',
+        'Indonesia construction',
+    ],
+    icons: {
+        icon: [
+            { url: '/favicon.ico', sizes: 'any' },
+            { url: '/pwa-192x192.png', type: 'image/png', sizes: '192x192' },
+            { url: '/pwa-512x512.png', type: 'image/png', sizes: '512x512' },
+        ],
+        apple: [{ url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }],
+    },
     appleWebApp: {
         capable: true,
         title: '4Ceria',
         statusBarStyle: 'default',
     },
+    openGraph: {
+        type: 'website',
+        siteName: '4Ceria',
+        title: '4Ceria — Construction, coordinated',
+        description:
+            'Bidding, escrow, materials and logistics in one workspace for owners and verified professionals.',
+        images: [{ url: '/og.png', width: 1200, height: 630, alt: '4Ceria Portal' }],
+    },
+    twitter: {
+        card: 'summary_large_image',
+        title: '4Ceria — Construction, coordinated',
+        description:
+            'Bidding, escrow, materials and logistics in one workspace for owners and verified professionals.',
+        images: ['/og.png'],
+    },
+    formatDetection: { telephone: false, email: false, address: false },
 };
 
 export const viewport: Viewport = {
     themeColor: '#0f172a',
+    colorScheme: 'light',
+    viewportFit: 'cover',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
     return (
-        <html lang="en">
+        <html lang="id" data-scroll-behavior="smooth">
             <head>
                 <link rel="preconnect" href="https://fonts.googleapis.com" />
                 <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -47,9 +77,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 />
             </head>
             <body className="antialiased">
-                {/* THE TOAST HOST IS GONE: nothing in the app raises a toast any
-                    more. Feedback is inline next to the action that caused it. */}
-                {children}
+                <PwaProvider>
+                    {children}
+                    <PwaStatus />
+                </PwaProvider>
             </body>
         </html>
     );

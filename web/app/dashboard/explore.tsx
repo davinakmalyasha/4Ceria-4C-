@@ -6,7 +6,7 @@ import { CoverImage } from '@/components/CoverImage';
 /**
  * Native dashboard "Explore" panel.
  *
- * The legacy ExploreTab held four sections in client state and mounted every
+ * The previous ExploreTab held four sections in client state and mounted every
  * directory at once. Here the section is a URL (`/dashboard/explore?section=…`)
  * and only that section's data is fetched on the server, so a page view costs
  * one request (or one parallel batch for professionals) instead of nine.
@@ -142,7 +142,7 @@ function HousesSection({ houses }: { houses: HouseRow[] }) {
                     <article key={house.id} className="bg-white rounded-2xl border border-neutral-200 overflow-hidden">
                         <Link href={`/dashboard/houses/${house.id}`} aria-label={house.name ?? `House #${house.id}`}>
                             {cover ? (
-                                <CoverImage src={cover} alt="" className="h-40" />
+                                <CoverImage src={cover} alt={house.name ?? `House #${house.id}`} className="h-40" />
                             ) : (
                                 <div className="h-40 w-full bg-neutral-100 flex items-center justify-center text-[10px] font-black uppercase tracking-wider text-neutral-400">
                                     No photo
@@ -264,7 +264,7 @@ function MarketplaceSection({ materials, suppliers }: { materials: MaterialRow[]
                         {materials.map((material) => (
                             <article key={material.id} className="bg-white rounded-2xl border border-neutral-200 overflow-hidden">
                                 {assetUrl(material.image_path) ? (
-                                    <CoverImage src={assetUrl(material.image_path) ?? ''} alt="" className="h-36" />
+                                    <CoverImage src={assetUrl(material.image_path) ?? ''} alt={material.name ?? 'Material'} className="h-36" />
                                 ) : (
                                     <div className="h-36 w-full bg-neutral-100" />
                                 )}

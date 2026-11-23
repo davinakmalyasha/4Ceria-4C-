@@ -17,11 +17,11 @@ import (
 // BID ACTIONS — accept-invite, reject-invite, negotiate, confirm-fee.
 //
 // These four mutate ONE bid row and answer `{"message": ..., "bid": ...}`
-// where `bid` is the legacy model's `toArray`: keys in the legacy TABLE
+// where `bid` is the previous model's `toArray`: keys in the previous TABLE
 // column order (not the unified table's), decimals as 2dp strings, the
-// wire id (legacy id for migrated rows), datetimes as Carbon.
+// wire id (previous id for migrated rows), datetimes as Carbon.
 //
-// Defects fixed in the oracle first (never smuggled into the port):
+// Defects fixed in the reference first (never smuggled into this service):
 //   - rejectInvite's closure missed `use ($request)` → every success 500'd.
 //   - rejectInvite wrote `rejection_reason`, which is neither fillable nor
 //     a column on any bid table → MassAssignmentException. The update now
@@ -47,7 +47,7 @@ var bidLegacyModels = map[string]string{
 // bidTypeOrder is the `in:` vocabulary order (config/bids.php key order).
 var bidTypeOrder = []string{"arsitek", "kontraktor", "notaris", "interior", "structural", "mep", "project_manager"}
 
-// bidLegacyColumns is the legacy TABLE column order per role — the wire
+// bidLegacyColumns is the previous TABLE column order per role — the wire
 // key order for the raw bid JSON.
 var bidLegacyColumns = map[string][]string{
 	"arsitek":         {"id", "project_id", "arsitek_id", "price", "price_max", "negotiation_count", "fee_type", "unit_price", "quantity", "calculated_total", "proposal", "status", "is_recommended", "estimated_duration", "duration_unit", "attachment_1", "attachment_2", "attachment_3", "payment_status", "paid_at", "scopes", "deliverables", "style", "created_at", "updated_at", "offered_by_id", "fee_agreed_at", "payment_proof_path", "verification_notes", "proposed_termins", "proposed_milestones", "proposed_team", "refunded_amount"},
@@ -64,7 +64,7 @@ var bidArrayCols = map[string]bool{"scopes": true, "deliverables": true, "cost_b
 var bidTimeCols = map[string]bool{"paid_at": true, "created_at": true, "updated_at": true, "fee_agreed_at": true}
 var bidProfileIDCols = map[string]bool{"arsitek_id": true, "kontraktor_id": true, "notaris_id": true, "interior_id": true, "pm_id": true, "structural_id": true, "mep_id": true}
 
-// rawBidObject renders one unified bid row as the legacy model's toArray.
+// rawBidObject renders one unified bid row as the previous model's toArray.
 func rawBidObject(role string, fields []string, values []any) *jsonphp.Object {
 	byName := map[string]any{}
 	for i, column := range fields {
@@ -97,7 +97,7 @@ func rawBidObject(role string, fields []string, values []any) *jsonphp.Object {
 	return entry
 }
 
-// bidDurationRaw mirrors the legacy column types: varchar on notaris and
+// bidDurationRaw mirrors the previous column types: varchar on notaris and
 // interior (a string on the wire), integer everywhere else.
 func bidDurationRaw(value any, role string) any {
 	ptr := intPtrOf(value)
@@ -167,7 +167,7 @@ func validateBidTypeIn(fields map[string]any, failures *errorBag) (string, bool)
 }
 
 // findBid loads one unified bid by (project, role, wire id), preferring
-// the legacy hit — the same reference every existing caller names.
+// the previous hit — the same reference every existing caller names.
 func findBid(ctx context.Context, pool *pgxpool.Pool, projectID int64, role, bidRaw string) (fields []string, values []any, found bool, err error) {
 	bidID, parseErr := strconv.ParseInt(bidRaw, 10, 64)
 	if parseErr != nil {
@@ -431,9 +431,9 @@ func (bidGoneError) Error() string { return "bid row vanished mid-request" }
 
 // RejectInviteHandler serves `POST /api/projects/{project}/bids/{bid}/reject-invite`.
 //
-// The oracle's closure missed `use ($request)` and wrote a `rejection_reason`
+// The reference's closure missed `use ($request)` and wrote a `rejection_reason`
 // that is neither fillable nor a column — every success 500'd. Both are
-// fixed in the oracle first; the port writes status only.
+// fixed in the reference first; this service writes status only.
 func RejectInviteHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		r = r.WithContext(withAssetBase(r.Context(), requestOrigin(r)))
@@ -700,7 +700,7 @@ func NegotiateBidFeeHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		// The team total runs only where the column exists (arsitek,
-		// kontraktor) — everywhere else the oracle reads null.
+		// kontraktor) — everywhere else the reference reads null.
 		teamTotal := 0.0
 		if role == "arsitek" || role == "kontraktor" {
 			if team := jsonOrNil(bid["proposed_team"]); team != nil {
@@ -787,7 +787,7 @@ func NegotiateBidFeeHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	}
 }
 
-// rawProjectColumns is the legacy projects table column order — the wire
+// rawProjectColumns is the previous projects table column order — the wire
 // key order for a lazily-loaded nested project (confirm-fee touches
 // `$bid->project`, which appends the whole model to the bid JSON).
 var rawProjectColumns = []string{"id", "user_id", "title", "description", "budget", "lokasi", "jenis_proyek", "owner_id", "selected_arsitek_id", "selected_kontraktor_id", "selected_notaris_id", "selected_interior_id", "pm_id", "structural_id", "mep_id", "structural_approved_at", "mep_approved_at", "status", "published_bidding_roles", "bidding_choices", "target_role", "needed_phases", "completed_phases", "wants_project_manager", "requires_structural", "requires_mep", "requires_interior", "latitude", "longitude", "province", "city", "kecamatan", "kelurahan", "postal_code", "street_name", "design_details", "design_completed_at", "design_authorized_at", "materials_authorized_at", "design_locked_at", "legal_completed_at", "pbg_verified_at", "slf_verified_at", "legal_locked_at", "construction_details", "construction_completed_at", "construction_authorized_at", "construction_locked_at", "construction_brief_status", "construction_brief_revision_notes", "interior_details", "interior_locked_at", "interior_completed_at", "planning_status", "negotiated_fee", "payment_instructions", "planning_submitted_at", "planning_approved_at", "design_payment_verified_at", "construction_payment_verified_at", "interior_payment_verified_at", "arsitek_kickoff_at", "kontraktor_kickoff_at", "pm_audit_notes", "pm_audit_attachments", "architect_notes", "planning_iteration", "project_category", "project_dimensions", "legal_detail", "wants_to_discuss_later", "legal_requirements", "share_token", "attachment", "deadline", "created_at", "updated_at", "design_handover_submitted_at", "construction_handover_submitted_at", "interior_handover_submitted_at", "design_handover_notes", "construction_handover_notes", "interior_handover_notes", "legal_handover_submitted_at", "legal_handover_notes", "final_walkthrough_at", "walkthrough_status", "completed_at", "owner_accepted_at", "owner_acceptance_notes", "owner_design_approved_at", "owner_build_approved_at", "owner_interior_approved_at", "owner_legal_approved_at", "warranty_start_at", "warranty_end_at", "deleted_at"}

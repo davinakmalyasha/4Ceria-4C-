@@ -5,7 +5,7 @@ import { OverviewPanel, ProjectShell, type ProjectPayload } from './panels';
  * `/projects/<id>` — the NATIVE overview.
  *
  * The panel is a server component: the brief, the escrow summary and the
- * milestones are in the first response. The legacy workspace is no longer
+ * milestones are in the first response. The previous workspace is no longer
  * mounted for this route; the remaining panels still use it until each is
  * ported.
  */

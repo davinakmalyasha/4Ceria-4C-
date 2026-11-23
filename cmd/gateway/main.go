@@ -2,17 +2,13 @@
 //
 // WHAT IT IS FOR
 // --------------
-// The gateway serves all 296 API endpoints. The first thing it does is
-// serve the ROUTE TABLE — because "every endpoint is registered" is not
-// something a person can check by reading.
-//
-// A route in the manifest without a handler is a 404 in production that no
-// test caught, because the test called the handler directly.
+// The gateway serves every endpoint declared in `routing/routes.yaml`. The
+// manifest is the contract: a route with no handler is a bug the router makes
+// visible as a deliberate 501, not a silent 404.
 //
 // So the gateway:
 //
-//   - reads the route manifest (`routing/routes.yaml`) and registers every
-//     entry with its gates;
+//   - reads the route manifest and registers every entry with its gates;
 //   - answers a deliberate 501 stub for a manifest route with no handler;
 //   - reports its own route table at `GET /internal/routes`;
 //   - answers `GET /healthz` and `GET /readyz`.
@@ -48,8 +44,8 @@ func main() {
 	shutdownTimeout := flag.Duration("shutdown-timeout", 20*time.Second, "how long to wait for in-flight requests")
 	flag.Parse()
 
-	// Development secrets live in .env, exactly like Laravel reads them.
-	// Production injects the environment directly and has no .env file.
+	// Local development reads `.env`; production injects the environment
+	// directly and has no `.env` file.
 	httpapi.LoadDotEnv(".env")
 
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
@@ -60,10 +56,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	// The gates are declared from the manifest and enforced through
-	// interfaces that are not implemented yet. The readiness probe reports
-	// that, so a load balancer never sends traffic to a gateway that would
-	// answer 200 on a route it does not actually protect.
+	// The gates are declared by the manifest and enforced through interfaces.
+	// The readiness probe reports any gate a build did not wire, so a load
+	// balancer never sends traffic to a gateway that would answer 200 on a
+	// route it does not actually protect.
 	gates := httpapi.Gates{
 		Handlers: map[string]http.HandlerFunc{},
 		// The rate limiter needs no database: it counts in memory, so it is
@@ -75,19 +71,14 @@ func main() {
 		Limiter: httpapi.NewMemoryLimiter(),
 	}
 
-	// IDENTITY LIVES IN POSTGRESQL.
+	// IDENTITY AND ALL APPLICATION DATA LIVE IN POSTGRESQL.
 	//
-	// Local/portfolio default: all-PostgreSQL (authpg.go, Sanctum semantics
-	// preserved). MySQL remains only as the one-time legacy seed
-	// (`db/mysql/` + `cmd/etl`); the gateway has no MySQL runtime dependency.
-	// (ADR-0018 described the transition window; the cutover is done.)
-
-	// POSTGRES IS OPTIONAL, AND SAYS SO WHEN IT IS ABSENT.
+	// POSTGRES IS OPTIONAL AT STARTUP, AND SAYS SO WHEN IT IS ABSENT.
 	//
-	// The gateway must be runnable without a database — the route-parity gate
-	// starts it and compares route tables, which needs no data. With
-	// DATABASE_URL set, the ported handlers and the Sanctum authenticator are
-	// wired; without it they stay stubs and `/readyz` reports the reason.
+	// The gateway must be runnable without a database for the route-contract
+	// probe, which needs no data. With DATABASE_URL set, the handlers and the
+	// Sanctum authenticator are wired; without it they stay stubs and
+	// `/readyz` reports the reason.
 	//
 	// The scheduler lives as long as the process: schedStop fires on shutdown
 	// so in-flight sweeps, not the process exit, bound the wait.
@@ -102,7 +93,7 @@ func main() {
 		}
 
 		// Every session parses wall-clock text as UTC. The ETL copies
-		// MySQL walls under SET TIME ZONE 'UTC', and Laravel reads those
+		// MySQL walls under SET TIME ZONE 'UTC', and the original API reads those
 		// same walls as UTC — so a timestamp round-tripped through a text
 		// literal (syncRow, ad-hoc fixes) lands on the identical instant
 		// on both stacks. Without this the pool inherits the server
@@ -475,7 +466,7 @@ func main() {
 
 		// Background sweepers (retention, auto-complete, snag escalation,
 		// prune). Disabled in tests via DISABLE_SCHEDULER=1. Advisory locks
-		// elect one winner across replicas (legacy onOneServer). The
+		// elect one winner across replicas (previous onOneServer). The
 		// scheduler dies with the process via schedStop on shutdown.
 		if os.Getenv("DISABLE_SCHEDULER") != "1" {
 			httpapi.StartScheduler(schedCtx, pool, logger)
@@ -497,6 +488,8 @@ func main() {
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       *readTimeout,
 		WriteTimeout:      *writeTimeout,
+		IdleTimeout:       2 * time.Minute,
+		MaxHeaderBytes:    1 << 20,
 	}
 
 	// The graceful shutdown: a request in flight is a request that may be

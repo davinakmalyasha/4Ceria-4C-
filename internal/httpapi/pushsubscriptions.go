@@ -196,27 +196,21 @@ func PushSubscribeHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			userAgent = string(runes[:500])
 		}
 
-		var id int64
-		err := pool.QueryRow(ctx, `SELECT id FROM push_subscriptions
-			WHERE user_id = $1 AND endpoint = $2`, caller.UserID(), endpoint).Scan(&id)
-		if err == nil {
-			if _, err := pool.Exec(ctx, `UPDATE push_subscriptions
-				SET p256dh = $2, auth = $3, content_encoding = $4, user_agent = $5,
-				    updated_at = date_trunc('second', now())
-				WHERE id = $1`, id, p256dh, auth, contentEncoding, userAgent); err != nil {
-				slog.Error("push subscribe: update", "error", err)
-				serverError(w)
-				return
-			}
-		} else {
-			if _, err := pool.Exec(ctx, `INSERT INTO push_subscriptions
-				(user_id, endpoint, p256dh, auth, content_encoding, user_agent, created_at, updated_at)
-				VALUES ($1, $2, $3, $4, $5, $6, date_trunc('second', now()), date_trunc('second', now()))`,
-				caller.UserID(), endpoint, p256dh, auth, contentEncoding, userAgent); err != nil {
-				slog.Error("push subscribe: insert", "error", err)
-				serverError(w)
-				return
-			}
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO push_subscriptions
+			    (user_id, endpoint, p256dh, auth, content_encoding, user_agent, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, $5, $6, date_trunc('second', now()), date_trunc('second', now()))
+			ON CONFLICT (endpoint) DO UPDATE
+			   SET user_id = EXCLUDED.user_id,
+			       p256dh = EXCLUDED.p256dh,
+			       auth = EXCLUDED.auth,
+			       content_encoding = EXCLUDED.content_encoding,
+			       user_agent = EXCLUDED.user_agent,
+			       updated_at = EXCLUDED.updated_at`,
+			caller.UserID(), endpoint, p256dh, auth, contentEncoding, userAgent); err != nil {
+			slog.Error("push subscribe: upsert", "error", err)
+			serverError(w)
+			return
 		}
 
 		message(w, http.StatusOK, "Push subscription saved")

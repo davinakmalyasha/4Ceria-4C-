@@ -70,16 +70,16 @@ export const clientDocs: DocArticle[] = [
                 type: 'step',
                 title: 'How to Browse Properties:',
                 steps: [
-                    { stepNumber: 1, title: 'Open the Explore tab', description: 'Navigate to Properties → Browse Houses in your dashboard sidebar to access the marketplace.' },
+                    { stepNumber: 1, title: 'Open the Explore tab', description: 'Navigate to Properties → Browse Houses in the dashboard navigation to access the marketplace.' },
                     { stepNumber: 2, title: 'Use the Filter Panel', description: 'Filter by province, city/regency, price range, number of bedrooms/bathrooms, and building size.' },
-                    { stepNumber: 3, title: 'Browse the Map View', description: 'Switch between list and map views to see property locations plotted on an interactive map.' },
+                    { stepNumber: 3, title: 'Use the filters', description: 'Narrow the list by city, price, bedrooms and sort order. Every card links to the full listing.' },
                     { stepNumber: 4, title: 'View House Details', description: 'Click any property card to open the full detail modal with room specs, photos, certificate info, and seller contact.' }
                 ]
             },
             {
                 type: 'alert',
                 alertType: 'tip',
-                body: 'Use the map view to discover properties near specific locations. You can also save properties to your favorites for later comparison.'
+                body: 'Use the city and price filters to narrow the feed, then open a listing for its rooms, photos and location. Saved properties stay in the Saved tab.'
             }
         ]
     },
@@ -171,7 +171,7 @@ export const clientDocs: DocArticle[] = [
                 type: 'step',
                 title: 'Managing a Listed Property:',
                 steps: [
-                    { stepNumber: 1, title: 'Go to Properties → My Properties', description: 'Navigate to the My Properties tab in your dashboard sidebar.' },
+                    { stepNumber: 1, title: 'Go to Properties → My Properties', description: 'Navigate to the My Properties tab in the dashboard navigation.' },
                     { stepNumber: 2, title: 'Select a property', description: 'Click on any listed property to open the detail view with edit options.' },
                     { stepNumber: 3, title: 'Edit details', description: 'Update prices, descriptions, room configurations, or upload new photos.' },
                     { stepNumber: 4, title: 'Manage room details', description: 'Add, edit, or remove rooms with specific dimensions and photos.' }

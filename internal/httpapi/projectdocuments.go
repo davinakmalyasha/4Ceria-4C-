@@ -160,6 +160,13 @@ func DocumentsIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 // documentAccess mirrors the controller's canAccess: owner, assigned PM,
 // any hired professional, or an active sub-professional.
 func documentAccess(ctx context.Context, pool *pgxpool.Pool, viewer *projectViewer, projectID int64) (bool, error) {
+	if viewer == nil || viewer.id == 0 {
+		return false, nil
+	}
+	if viewer.isAdmin {
+		return true, nil
+	}
+
 	fields, values, err := projectRowByID(ctx, pool, projectID)
 	if err != nil {
 		return false, err

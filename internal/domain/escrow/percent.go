@@ -6,7 +6,7 @@ import (
 )
 
 // basisPoints converts a configured percentage into integer basis points, the
-// way the legacy code does: `(int) round($percent * 100)`.
+// way the previous code does: `(int) round($percent * 100)`.
 //
 // The rounding is HALF AWAY FROM ZERO at the third decimal, which is what PHP's
 // `round()` does. It is stated because the alternative (`math.Round` and

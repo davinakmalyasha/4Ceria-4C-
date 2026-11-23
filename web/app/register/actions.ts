@@ -7,13 +7,13 @@
  *
  * `Register.tsx:35-43` checks the password length and the confirmation in the
  * BROWSER, before the request, with its own two messages. That looks like
- * duplication — Laravel validates both — but it is a deliberate round-trip
+ * duplication — the API validates both — but it is a deliberate round-trip
  * saving: a mismatched confirmation is refused without a request, and the user
- * sees the message instantly. The port keeps the same two checks and the same
+ * sees the message instantly. This build keeps the same two checks and the same
  * two sentences, so the screen behaves the way the baseline says it does.
  *
  * The API's own `errors` bag is still the source for everything else, and the
- * FIRST message is shown — as the legacy does.
+ * FIRST message is shown — as the previous does.
  */
 
 import { redirect } from 'next/navigation';

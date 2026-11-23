@@ -1,92 +1,93 @@
-# Portfolio guide
+# Portfolio
 
-What this project is, what to look at, and how to demo it in two minutes.
+**4Ceria is one workspace for the whole construction chain**: an owner posts a
+project, seven kinds of verified professional bid, the chosen team signs a
+milestone contract, suppliers and couriers move materials, and PostgreSQL keeps
+an escrow ledger that both sides can inspect.
 
-## The one-paragraph pitch
+It is a full-stack reference implementation, not a landing-page mockup: 320 API
+routes, real authentication, real uploads, a real ledger and a database-enforced
+set of money invariants.
 
-4Ceria is a construction-coordination and real-estate marketplace: owners post
-projects, professionals bid per role, payments move through an escrow ledger,
-and disputes are arbitrated by an admin. It was rewritten from a Laravel + MySQL
-+ React SPA into **Go + PostgreSQL + Next.js** while the old application stayed
-deployed as a byte-parity oracle. The port is finished; the legacy app is
-preserved on the `laravel-final` tag.
+## The two-minute demo
 
-## The interesting parts
-
-| What | Where | Why it matters |
-|---|---|---|
-| Byte-identical port | `internal/jsonphp`, `spec/` history | The API's JSON is a wire contract: key order, number formatting and escaping were reproduced, not approximated. |
-| Escrow arithmetic | `internal/domain/money`, `internal/domain/escrow` | Integer minor units, one formula for "how much is left", retention split, platform fee, refunds. |
-| Database invariants | `db/postgres/migrations`, `db/postgres/tests/escrow_behaviour.sql` | The ledger's `CHECK` constraints make an invalid state impossible, not merely unlikely. |
-| Route manifest | `routing/routes.yaml`, `internal/httpapi` | 312 endpoints, every one registered; a manifest route without a handler fails the build. |
-| All-PostgreSQL auth | `internal/httpapi/authpg.go`, `cmd/gateway` | Login, register, tokens and roles run from PostgreSQL (Sanctum semantics preserved); MySQL is only the one-time seed. |
-| Decisions | `docs/adr/` | 22 ADRs with context, consequences and rejected alternatives — including the ones that were wrong. |
+1. **Sign in as the owner** (`client@example.test` / `123456`).
+2. The dashboard shows active projects, proposals received and hire records.
+   Open *Demo: Two-storey house*.
+3. In the workspace, show the brief, the proposal inbox and the milestone
+   process. The escrow card shows total / paid / committed / available.
+4. Open **Browse houses** in the same session, then the property detail. The
+   listing is public; the contact action asks for a sign-in.
+5. Sign out, and sign in as the contractor (`anindia@example.test`).
+   *My Proposals* shows the bid pipeline and any invitation; accept one and the
+   interview room opens.
+6. Sign in as the admin (`admin@4c.id`) and open *Dispute Center* to show the
+   moderation surface that freezes payments.
+7. Install the PWA from the install card, then go offline: the offline shell
+   and cached assets still open.
 
 ## Screenshots
 
 | | |
 |---|---|
-| ![Landing](screenshots/01-landing.png) | ![Login](screenshots/02-login.png) |
-| Public landing page | Sign in |
-| ![Dashboard](screenshots/03-dashboard.png) | ![Project](screenshots/04-project.png) |
-| Owner dashboard | Project workspace: brief, escrow, milestones, phase tabs |
-| ![Professionals](screenshots/05-professionals.png) | ![Help centre](screenshots/06-help.png) |
-| Verified professional directory | Help centre (17 interactive widgets) |
-| ![Admin](screenshots/07-admin.png) | ![Admin projects](screenshots/08-admin-projects.png) |
-| Admin dashboard | Project audit and force-termination |
+| ![Landing](screenshots/landing.png) | ![Owner dashboard](screenshots/dashboard.png) |
+| Public landing page | Owner dashboard |
+| ![Project workspace](screenshots/project.png) | ![Marketplace](screenshots/marketplace.png) |
+| Project workspace | Material marketplace |
+| ![Houses](screenshots/houses.png) | ![Mobile](screenshots/mobile.png) |
+| Public property feed | Mobile layout (installable PWA) |
+| ![Assistant](screenshots/assistant.png) | ![Admin](screenshots/admin.png) |
+| Ceria AI assistant | Admin dashboard |
+
+## What is implemented
+
+| Area | Evidence |
+|---|---|
+| Auth | PostgreSQL Sanctum-compatible tokens, httpOnly cookie, reset flow, timing equalisation |
+| Project lifecycle | 48 workspace handlers across brief, bids, contract, budget, milestones, documents, snags, handover |
+| Money | Integer minor units, escrow ledger, retention, platform fee, dispute freeze, SQL invariants |
+| Marketplace | Supplier catalogue, quotes, orders, payment proof, delivery jobs and reviews |
+| Directory | Seven professional roles, verification status, portfolios, firm workspace |
+| Property | Listings, rooms, photos, filters, favourites, questions |
+| AI | Session history, project tools, memory, quotas, SSE stream |
+| PWA | Manifest, install prompt, offline shell, update flow, push |
+| Security | Path-safe uploads, body limits, scoped rate limits, signed private URLs, no secrets in the seed |
+
+## Engineering decisions worth a look
+
+- **The route manifest is the contract.** `routing/routes.yaml` drives the
+  router and a test fails when a route has no handler.
+- **One money model.** `internal/domain/money` and `internal/domain/escrow`
+  own every calculation; the database function is the only ledger writer.
+- **The database is the second test suite.** `db/postgres/tests/escrow_behaviour.sql`
+  drives the real function, so the Go mirror cannot agree with itself.
+- **The API token never reaches JavaScript.** Server actions and two proxy
+  routes attach it; the browser sees only an httpOnly cookie.
+- **The PWA is conservative.** API responses and uploaded files are never
+  cached, so a shared device cannot show one account's data to the next person.
+
+## Deliberate limits
+
+- The demo data is fictional; there is no payment gateway, e-signature
+  provider or KYC vendor connected.
+- The platform fee and retention rates are configuration, not a live pricing
+  decision.
+- The repository is not deployed; the demo accounts are intentionally public.
 
 ## Demo accounts
 
-Local only — seeded by `db/mysql/demo.sql`. Every account uses the password
-`123456`.
+All accounts use `123456`.
 
 | Role | Email |
 |---|---|
-| Owner / client | `client@example.test` |
-| Admin | `admin@4c.id` |
+| Owner | `client@example.test` |
 | Architect | `giska@example.test` |
 | Contractor | `anindia@example.test` |
-| Supplier | `akmal@example.test` |
+| Interior | `abel@example.test` |
 | Notary | `rede@example.test` |
-| Project manager | `aisha@example.test` |
+| Project manager | `pm@4c.id` |
+| Supplier | `akmal@example.test` |
+| Courier | `fariz@example.test` |
+| Admin | `admin@4c.id` |
 
-## Two-minute screen recording script
-
-Record at 1440×900, browser at 100 %, no audio needed (captions in the edit).
-
-| Time | Screen | Say / show |
-|---|---|---|
-| 0:00–0:10 | `README.md` on GitHub | "4Ceria — a construction marketplace rewritten from Laravel to Go and Next.js." |
-| 0:10–0:25 | Landing page | Scroll the hero, the three pillars, the footer. |
-| 0:25–0:45 | Log in as `client@example.test` | Dashboard: active projects, open tenders, bids received, quick actions. |
-| 0:45–1:10 | `/projects/14976` | Point at the escrow panel (total, paid, committed, available), then the phase tabs: Proposals, Budget, Payments, Files. |
-| 1:10–1:25 | `/dashboard/architects` | Verified professionals, the profile card, the price range. |
-| 1:25–1:40 | `/help` | Search a guide; expand a category. |
-| 1:40–1:55 | Log out, log in as `admin@4c.id` | Admin dashboard: counts, role breakdown, user directory; then Projects Audit. |
-| 1:55–2:00 | `docs/adr/` | "The decisions are written down — including what was rejected." |
-
-## What is deliberately not here
-
-- **No live deployment.** The app handles real money and file uploads; a public
-  demo would be an attack surface, not a portfolio. The screenshots and the
-  recording are the demo.
-- **No real credentials or data.** Every account is a seeded fixture; every
-  project is demo data.
-
-## Known gaps, stated rather than hidden
-
-These are the things a reviewer should hear from the author before finding them:
-
-| Gap | Where it is documented |
-|---|---|
-| Live mail/push/S3 need credentials (`RESEND_API_KEY`, `VAPID_PRIVATE_KEY`, `S3_*`) — local runs log-and-keep | `.env.example`, `mailoutbox.go`, `pushfanout.go`, `storage_s3.go` |
-| The pre-rewrite git history contains credentials that should be revoked | `SECURITY.md` |
-
-The honest list is part of the work. A portfolio that claims a finished money
-system without naming its gaps is a portfolio nobody should trust with money.
-
-## Running it
-
-See [`../README.md`](../README.md). Short version: PostgreSQL only at runtime — apply
-`db/postgres/migrations`, seed once via ETL from `db/mysql/`, then
-`go run ./cmd/gateway` and `cd web && npm run dev`.
+Regenerate the data with `node tools/db/reset-demo.mjs`.

@@ -1,10 +1,10 @@
-// Package authz is the port of App\Support\Hire.
+// Package authz implements App\Support\Hire.
 //
 // ONE RULE, STATED ONCE
 // ----------------------
 // "Is this user the hired professional for this role on this project?"
 //
-// The legacy application answered that question in roughly eighty places
+// The original application answered that question in roughly eighty places
 // across twenty-five controllers, written a dozen different ways:
 //
 //	(int) $project->selected_arsitek_id === (int) $user->arsitek?->id
@@ -56,7 +56,7 @@ import (
 //
 // It is an INTERFACE rather than a concrete user struct, because the rule
 // needs one thing from a user — the profile for a role — and the storage
-// layer is not the rule's business. The legacy `Hire` class reached into
+// layer is not the rule's business. The previous `Hire` class reached into
 // Eloquent relations (`$user->arsitek`, `$user->project_manager`), which
 // meant the authorisation rule could not be tested without a database.
 type Subject interface {

@@ -11,7 +11,7 @@ import { CoverImage } from '@/components/CoverImage';
  * contact, payout details and the role-specific profile relation. The editor
  * below is `ProfileEditPanel`, also native — it writes `/me` for a plain
  * account and `/me/professional` for a professional one, so the screen mounts
- * no synced component at all.
+ * no component at all.
  */
 
 const PROFILE_KEYS: Record<string, string> = {

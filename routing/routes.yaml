@@ -1,16 +1,14 @@
 # 4Ceria route manifest — the single source of truth for the API surface.
 #
-# FROZEN at the end of the Laravel -> Go port. Every route is served by the Go
-# gateway; the legacy middleware list is retained because the router maps
-# those names to its gates (auth, admin, freeze_termination) and the
-# /internal/routes report exposes the normalised set.
+# Every route is served by the Go gateway. `gates.middleware` names the
+# enforcement points the router maps to (auth, admin, freeze_termination) and
+# the /internal/routes report exposes the normalised set.
 #
 # Do not add a route here without a handler: TestEveryRouteIsRegistered fails
 # when the manifest and the registered handlers disagree.
 
 'meta':
-  'generated_at': '2026-10-23T01:05:59+00:00'
-  'laravel_commit': '4b610b7'
+  'updated_at': '2026-11-23T00:00:00+00:00'
   'api_route_count': 320
   'public_route_count': 20
   'admin_route_count': 18
@@ -21,10 +19,7 @@
     'uri': 'api/admin/disputes'
     'auth': 'admin'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\Admin\AdminDisputeController@index'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -36,10 +31,7 @@
     'uri': 'api/admin/disputes/{dispute}'
     'auth': 'admin'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\Admin\AdminDisputeController@show'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -51,10 +43,7 @@
     'uri': 'api/admin/disputes/{dispute}/act'
     'auth': 'admin'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\Admin\AdminDisputeController@act'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -66,10 +55,7 @@
     'uri': 'api/admin/disputes/{dispute}/messages/{message}/evidence'
     'auth': 'admin'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\Admin\AdminDisputeController@evidence'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -81,10 +67,7 @@
     'uri': 'api/admin/disputes/{dispute}/reply'
     'auth': 'admin'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\Admin\AdminDisputeController@reply'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -96,10 +79,7 @@
     'uri': 'api/admin/retention/release'
     'auth': 'admin'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Console\Commands\ReleaseExpiredRetentionCommand'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -111,10 +91,7 @@
     'uri': 'api/admin/houses'
     'auth': 'admin'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\Admin\AdminDashboardController@houses'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -126,10 +103,7 @@
     'uri': 'api/admin/houses/{id}/suspend'
     'auth': 'admin'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\Admin\AdminDashboardController@toggleHouseSuspend'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -141,10 +115,7 @@
     'uri': 'api/admin/professionals'
     'auth': 'admin'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\Admin\VerificationController@index'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -156,10 +127,7 @@
     'uri': 'api/admin/professionals/history'
     'auth': 'admin'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\Admin\VerificationController@history'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -171,10 +139,7 @@
     'uri': 'api/admin/professionals/{type}/{id}/status'
     'auth': 'admin'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\Admin\VerificationController@updateStatus'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -186,10 +151,7 @@
     'uri': 'api/admin/projects'
     'auth': 'admin'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\Admin\AdminDashboardController@projects'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -201,10 +163,7 @@
     'uri': 'api/admin/projects/export'
     'auth': 'admin'
     'throttle': '10,1'
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\Admin\AdminDashboardController@exportProjects'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -217,10 +176,7 @@
     'uri': 'api/admin/projects/{project}/force-terminate'
     'auth': 'admin'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\Admin\AdminDashboardController@terminateProject'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -232,10 +188,7 @@
     'uri': 'api/admin/stats'
     'auth': 'admin'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\Admin\AdminDashboardController@stats'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -247,10 +200,7 @@
     'uri': 'api/admin/users'
     'auth': 'admin'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\Admin\AdminUserController@index'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -262,10 +212,7 @@
     'uri': 'api/admin/users/{user}/role'
     'auth': 'admin'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\Admin\AdminUserController@updateRole'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -277,10 +224,7 @@
     'uri': 'api/admin/users/{user}/suspend'
     'auth': 'admin'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\Admin\AdminUserController@toggleSuspend'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -292,10 +236,7 @@
     'uri': 'api/ai/status'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\AiChatController@status'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -306,10 +247,7 @@
     'uri': 'api/ai/sessions'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\AiChatController@sessions'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -320,10 +258,7 @@
     'uri': 'api/ai/sessions'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\AiChatController@storeSession'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -334,10 +269,7 @@
     'uri': 'api/ai/sessions/{session}'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\AiChatController@showSession'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -348,10 +280,7 @@
     'uri': 'api/ai/sessions/{session}'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\AiChatController@renameSession'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -362,10 +291,7 @@
     'uri': 'api/ai/sessions/{session}'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\AiChatController@destroySession'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -376,10 +302,7 @@
     'uri': 'api/ai/chat'
     'auth': 'authenticated'
     'throttle': '30,1'
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\AiChatController@chat'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -391,10 +314,7 @@
     'uri': 'api/ai/chat/stream'
     'auth': 'authenticated'
     'throttle': '30,1'
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\AiChatController@stream'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -406,10 +326,7 @@
     'uri': 'api/arsitek'
     'auth': 'public'
     'throttle': null
-    'tier': 3
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\PublicProfessionalController@getArsiteks'
+    'gates':
       'middleware':
         - 'api'
   - 'id': 'get.api.brief.token'
@@ -418,10 +335,7 @@
     'uri': 'api/brief/{token}'
     'auth': 'public'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectController@getPublicBrief'
+    'gates':
       'middleware':
         - 'api'
   - 'id': 'get.api.consultations'
@@ -430,10 +344,7 @@
     'uri': 'api/consultations'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 3
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ConsultationController@index'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -443,10 +354,7 @@
     'uri': 'api/consultations'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 3
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ConsultationController@store'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -456,10 +364,7 @@
     'uri': 'api/consultations/{consultation}/respond'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 3
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ConsultationController@respond'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -469,10 +374,7 @@
     'uri': 'api/contractor-subspecialties'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 3
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ContractorSubspecialtyController@index'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -483,10 +385,7 @@
     'uri': 'api/conversations'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 3
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ChatController@index'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -497,10 +396,7 @@
     'uri': 'api/conversations'
     'auth': 'authenticated'
     'throttle': '10,1'
-    'tier': 3
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ChatController@store'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -512,10 +408,7 @@
     'uri': 'api/conversations/{conversation}'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 3
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ChatController@show'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -526,10 +419,7 @@
     'uri': 'api/conversations/{conversation}/messages'
     'auth': 'authenticated'
     'throttle': '30,1'
-    'tier': 3
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ChatController@sendMessage'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -541,10 +431,7 @@
     'uri': 'api/delivery-jobs'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\MaterialQuoteController@getDeliveryJobs'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -555,10 +442,7 @@
     'uri': 'api/favorites'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\FavoriteController@index'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -569,10 +453,7 @@
     'uri': 'api/favorites/merge'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\FavoriteController@merge'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -583,10 +464,7 @@
     'uri': 'api/favorites/toggle'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\FavoriteController@toggle'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -597,10 +475,7 @@
     'uri': 'api/favorites/{favorite}'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\FavoriteController@destroy'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -611,10 +486,7 @@
     'uri': 'api/firm-members/browse-owners'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\FirmMemberController@browseFirmOwners'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -625,10 +497,7 @@
     'uri': 'api/firm-members/invitations'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\FirmMemberController@invitations'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -639,10 +508,7 @@
     'uri': 'api/firm-members/invite'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\FirmMemberController@invite'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -653,10 +519,7 @@
     'uri': 'api/firm-members/my-firms'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\FirmMemberController@myFirms'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -667,10 +530,7 @@
     'uri': 'api/firm-members/profile/{ownerId}'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\FirmMemberController@getProfile'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -681,10 +541,7 @@
     'uri': 'api/firm-members/quick-assign'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\FirmMemberController@quickAssign'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -695,10 +552,7 @@
     'uri': 'api/firm-members/request-join'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\FirmMemberController@requestJoin'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -709,10 +563,7 @@
     'uri': 'api/firm-members/roster'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\FirmMemberController@index'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -723,10 +574,7 @@
     'uri': 'api/firm-members/search'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\FirmMemberController@search'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -737,10 +585,7 @@
     'uri': 'api/firm-members/suggestions'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\FirmMemberController@suggestions'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -751,10 +596,7 @@
     'uri': 'api/firm-members/update-profile'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\FirmMemberController@updateProfile'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -765,10 +607,7 @@
     'uri': 'api/firm-members/{firmMember}'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\FirmMemberController@remove'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -779,10 +618,7 @@
     'uri': 'api/firm-members/{firmMember}/cancel'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\FirmMemberController@cancel'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -793,10 +629,7 @@
     'uri': 'api/firm-members/{firmMember}/respond'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\FirmMemberController@respond'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -807,10 +640,7 @@
     'uri': 'api/forgot-password'
     'auth': 'public'
     'throttle': '5,1'
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\AuthController@forgotPassword'
+    'gates':
       'middleware':
         - 'api'
         - 'throttle:5,1'
@@ -820,10 +650,7 @@
     'uri': 'api/geocode/reverse'
     'auth': 'public'
     'throttle': '30,1'
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\GeocodeController@reverse'
+    'gates':
       'middleware':
         - 'api'
         - 'throttle:30,1'
@@ -833,10 +660,7 @@
     'uri': 'api/geocode/search'
     'auth': 'public'
     'throttle': '30,1'
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\GeocodeController@search'
+    'gates':
       'middleware':
         - 'api'
         - 'throttle:30,1'
@@ -846,10 +670,7 @@
     'uri': 'api/hire-history'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\HireHistoryController@index'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -860,10 +681,7 @@
     'uri': 'api/houses'
     'auth': 'public'
     'throttle': null
-    'tier': 3
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\HouseController@index'
+    'gates':
       'middleware':
         - 'api'
   - 'id': 'houses.store'
@@ -872,10 +690,7 @@
     'uri': 'api/houses'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 3
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\HouseController@store'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -886,10 +701,7 @@
     'uri': 'api/houses/{house}'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 3
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\HouseController@destroy'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -900,10 +712,7 @@
     'uri': 'api/houses/{house}'
     'auth': 'public'
     'throttle': null
-    'tier': 3
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\HouseController@show'
+    'gates':
       'middleware':
         - 'api'
   - 'id': 'houses.update'
@@ -913,10 +722,7 @@
     'uri': 'api/houses/{house}'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 3
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\HouseController@update'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -927,10 +733,7 @@
     'uri': 'api/houses/{house}/questions'
     'auth': 'public'
     'throttle': null
-    'tier': 3
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\HouseQAController@index'
+    'gates':
       'middleware':
         - 'api'
   - 'id': 'post.api.houses.house.questions'
@@ -939,10 +742,7 @@
     'uri': 'api/houses/{house}/questions'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 3
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\HouseQAController@storeQuestion'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -953,10 +753,7 @@
     'uri': 'api/houses/{house}/rooms'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 3
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\RoomController@store'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -967,10 +764,7 @@
     'uri': 'api/interior'
     'auth': 'public'
     'throttle': null
-    'tier': 3
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\PublicProfessionalController@getInteriors'
+    'gates':
       'middleware':
         - 'api'
   - 'id': 'get.api.kontraktor'
@@ -979,10 +773,7 @@
     'uri': 'api/kontraktor'
     'auth': 'public'
     'throttle': null
-    'tier': 3
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\PublicProfessionalController@getKontraktors'
+    'gates':
       'middleware':
         - 'api'
   - 'id': 'post.api.login'
@@ -991,10 +782,7 @@
     'uri': 'api/login'
     'auth': 'public'
     'throttle': '10,1'
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\AuthController@login'
+    'gates':
       'middleware':
         - 'api'
         - 'throttle:10,1'
@@ -1004,10 +792,7 @@
     'uri': 'api/logistics/available-jobs'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\LogisticsJobController@availableJobs'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1018,10 +803,7 @@
     'uri': 'api/logistics/dashboard-stats'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\LogisticsJobController@dashboardStats'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1032,10 +814,7 @@
     'uri': 'api/logistics/jobs/{id}/accept'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\LogisticsJobController@acceptJob'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1046,10 +825,7 @@
     'uri': 'api/logistics/jobs/{id}/status'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\LogisticsJobController@updateStatus'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1060,10 +836,7 @@
     'uri': 'api/logistics/my-jobs'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\LogisticsJobController@myJobs'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1074,10 +847,7 @@
     'uri': 'api/logout'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\AuthController@logout'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1088,10 +858,7 @@
     'uri': 'api/marketplace/materials'
     'auth': 'public'
     'throttle': null
-    'tier': 3
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\MaterialController@index'
+    'gates':
       'middleware':
         - 'api'
   - 'id': 'get.api.marketplace.suppliers'
@@ -1100,10 +867,7 @@
     'uri': 'api/marketplace/suppliers'
     'auth': 'public'
     'throttle': null
-    'tier': 3
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\SupplierController@index'
+    'gates':
       'middleware':
         - 'api'
   - 'id': 'get.api.marketplace.suppliers.id'
@@ -1112,10 +876,7 @@
     'uri': 'api/marketplace/suppliers/{id}'
     'auth': 'public'
     'throttle': null
-    'tier': 3
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\SupplierController@show'
+    'gates':
       'middleware':
         - 'api'
   - 'id': 'post.api.material-order-reviews'
@@ -1124,10 +885,7 @@
     'uri': 'api/material-order-reviews'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\MaterialOrderReviewController@store'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1138,10 +896,7 @@
     'uri': 'api/material-order-reviews/{material_order_review}'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\MaterialOrderReviewController@destroy'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1152,10 +907,7 @@
     'uri': 'api/material-order-reviews/{material_order_review}'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\MaterialOrderReviewController@update'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1166,10 +918,7 @@
     'uri': 'api/material-orders'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\MaterialOrderController@index'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1180,10 +929,7 @@
     'uri': 'api/material-orders/{material_order}'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\MaterialOrderController@show'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1195,10 +941,7 @@
     'uri': 'api/material-orders/{material_order}'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\MaterialOrderController@update'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1209,10 +952,7 @@
     'uri': 'api/material-orders/{material_order}/payment-proof'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\MaterialOrderController@uploadPaymentProof'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1223,10 +963,7 @@
     'uri': 'api/material-orders/{material_order}/verify-payment'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\MaterialOrderController@verifyPayment'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1237,10 +974,7 @@
     'uri': 'api/material-orders/{material_order}/confirm-receipt'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\MaterialOrderController@confirmReceipt'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1251,10 +985,7 @@
     'uri': 'api/material-quotes'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\MaterialQuoteController@index'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1265,10 +996,7 @@
     'uri': 'api/material-quotes'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\MaterialQuoteController@store'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1279,10 +1007,7 @@
     'uri': 'api/material-quotes/{quote}/approve'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\MaterialQuoteController@approve'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1293,10 +1018,7 @@
     'uri': 'api/material-quotes/{quote}/mark-paid'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\MaterialQuoteController@markAsPaid'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1307,10 +1029,7 @@
     'uri': 'api/material-quotes/{quote}/payment-proof'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\MaterialQuoteController@uploadPaymentProof'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1321,10 +1040,7 @@
     'uri': 'api/material-quotes/{quote}/post-delivery-job'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\MaterialQuoteController@postDeliveryJob'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1335,10 +1051,7 @@
     'uri': 'api/material-quotes/{quote}/request-payment'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\MaterialQuoteController@requestPayment'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1349,10 +1062,7 @@
     'uri': 'api/me'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProfileController@show'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1363,10 +1073,7 @@
     'uri': 'api/me'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProfileController@update'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1377,10 +1084,7 @@
     'uri': 'api/me/avatar'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProfileController@deleteAvatar'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1391,10 +1095,7 @@
     'uri': 'api/me/avatar'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProfileController@updateAvatar'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1405,10 +1106,7 @@
     'uri': 'api/me/professional'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProfileController@updateProfessional'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1419,10 +1117,7 @@
     'uri': 'api/me/unread-summary'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\UnreadSummaryController'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1433,10 +1128,7 @@
     'uri': 'api/mep-engineers'
     'auth': 'public'
     'throttle': null
-    'tier': 3
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\PublicProfessionalController@getMepEngineers'
+    'gates':
       'middleware':
         - 'api'
   - 'id': 'get.api.merchant.materials'
@@ -1445,10 +1137,7 @@
     'uri': 'api/merchant/materials'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\MaterialController@merchantIndex'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1459,10 +1148,7 @@
     'uri': 'api/merchant/materials'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\MaterialController@store'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1473,10 +1159,7 @@
     'uri': 'api/merchant/materials/{material}'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\MaterialController@destroy'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1488,10 +1171,7 @@
     'uri': 'api/merchant/materials/{material}'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\MaterialController@update'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1502,10 +1182,7 @@
     'uri': 'api/merchant/profile'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\SupplierController@getProfile'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1516,10 +1193,7 @@
     'uri': 'api/merchant/profile'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\SupplierController@updateProfile'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1530,10 +1204,7 @@
     'uri': 'api/my-bids'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectController@myBids'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1544,10 +1215,7 @@
     'uri': 'api/notaris'
     'auth': 'public'
     'throttle': null
-    'tier': 3
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\PublicProfessionalController@getNotarises'
+    'gates':
       'middleware':
         - 'api'
   - 'id': 'delete.api.notification-preferences'
@@ -1556,10 +1224,7 @@
     'uri': 'api/notification-preferences'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 3
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\NotificationPreferenceController@destroy'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1570,10 +1235,7 @@
     'uri': 'api/notification-preferences'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 3
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\NotificationPreferenceController@index'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1584,10 +1246,7 @@
     'uri': 'api/notification-preferences'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 3
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\NotificationPreferenceController@update'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1598,10 +1257,7 @@
     'uri': 'api/notifications'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 3
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\NotificationController@index'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1612,10 +1268,7 @@
     'uri': 'api/notifications/read-all'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 3
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\NotificationController@markAllAsRead'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1626,10 +1279,7 @@
     'uri': 'api/notifications/{notification}/read'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 3
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\NotificationController@markAsRead'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1640,10 +1290,7 @@
     'uri': 'api/portfolios'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 3
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\PortfolioController@index'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1654,10 +1301,7 @@
     'uri': 'api/portfolios'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 3
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\PortfolioController@store'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1668,10 +1312,7 @@
     'uri': 'api/portfolios/{id}'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 3
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\PortfolioController@destroy'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1682,10 +1323,7 @@
     'uri': 'api/portfolios/{id}'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 3
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\PortfolioController@update'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1696,10 +1334,7 @@
     'uri': 'api/project-manager'
     'auth': 'public'
     'throttle': null
-    'tier': 3
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\PublicProfessionalController@getProjectManagers'
+    'gates':
       'middleware':
         - 'api'
   - 'id': 'get.api.projects'
@@ -1708,10 +1343,7 @@
     'uri': 'api/projects'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectController@index'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1722,10 +1354,7 @@
     'uri': 'api/projects'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectController@store'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1736,10 +1365,7 @@
     'uri': 'api/projects/{project}'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectController@destroy'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1750,10 +1376,7 @@
     'uri': 'api/projects/{project}'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectController@show'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1765,10 +1388,7 @@
     'uri': 'api/projects/{project}'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectController@update'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1779,10 +1399,7 @@
     'uri': 'api/projects/{project}/accept-bid'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectController@acceptBid'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1793,10 +1410,7 @@
     'uri': 'api/projects/{project}/activity'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectActivityController@getActivity'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1807,10 +1421,7 @@
     'uri': 'api/projects/{project}/addendums/{addendum}/approve'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectAddendumController@approveAddendum'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1821,10 +1432,7 @@
     'uri': 'api/projects/{project}/addendums/{addendum}/reject'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectAddendumController@rejectAddendum'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1835,10 +1443,7 @@
     'uri': 'api/projects/{project}/approve-construction-brief'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectController@approveConstructionBrief'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1849,10 +1454,7 @@
     'uri': 'api/projects/{project}/approve-engineering'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectEngineeringController@approveEngineeringIntegration'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1863,10 +1465,7 @@
     'uri': 'api/projects/{project}/approve-engineering-hire/{addendum}'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectEngineeringController@approveEngineeringHire'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1877,10 +1476,7 @@
     'uri': 'api/projects/{project}/approve-planning'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectController@approvePlanning'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1891,10 +1487,7 @@
     'uri': 'api/projects/{project}/authorize-phase'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectPhaseController@authorizePhase'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1905,10 +1498,7 @@
     'uri': 'api/projects/{project}/authorize-specialist'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectEngineeringController@authorizeSpecialist'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1919,10 +1509,7 @@
     'uri': 'api/projects/{project}/bast'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectHandoverController@getBASTData'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1933,10 +1520,7 @@
     'uri': 'api/projects/{project}/bids'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectController@getBids'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1947,10 +1531,7 @@
     'uri': 'api/projects/{project}/bids'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectController@submitBid'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1961,10 +1542,7 @@
     'uri': 'api/projects/{project}/bids/{bid}/accept-invite'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectController@acceptInvite'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1975,10 +1553,7 @@
     'uri': 'api/projects/{project}/bids/{bid}/client-sign-contract'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectController@clientSignContract'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -1989,10 +1564,7 @@
     'uri': 'api/projects/{project}/bids/{bid}/confirm-fee'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectController@confirmBidFee'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2003,10 +1575,7 @@
     'uri': 'api/projects/{project}/bids/{bid}/negotiate'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectController@negotiateBidFee'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2017,10 +1586,7 @@
     'uri': 'api/projects/{project}/bids/{bid}/reject-invite'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectController@rejectInvite'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2031,10 +1597,7 @@
     'uri': 'api/projects/{project}/bids/{bid}/sign-contract'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectController@signContract'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2045,10 +1608,7 @@
     'uri': 'api/projects/{project}/broadcast-phase'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectController@broadcastPhase'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2059,10 +1619,7 @@
     'uri': 'api/projects/{project}/budget'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectBudgetController@getDashboard'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2073,10 +1630,7 @@
     'uri': 'api/projects/{project}/budget/addendums'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectBudgetController@createAddendum'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2087,10 +1641,7 @@
     'uri': 'api/projects/{project}/budget/addendums/{id}'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectBudgetController@handleAddendumStatus'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2101,10 +1652,7 @@
     'uri': 'api/projects/{project}/budget/mark-paid'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectBudgetController@markPaid'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2115,10 +1663,7 @@
     'uri': 'api/projects/{project}/budget/sandbox'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectBudgetController@addSandboxItem'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2129,10 +1674,7 @@
     'uri': 'api/projects/{project}/budget/sandbox/{id}'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectBudgetController@deleteSandboxItem'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2143,10 +1685,7 @@
     'uri': 'api/projects/{project}/budget/sandbox/{id}'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectBudgetController@toggleSandboxItem'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2157,10 +1696,7 @@
     'uri': 'api/projects/{project}/budget/sandbox/{id}/update'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectBudgetController@updateSandboxItem'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2171,10 +1707,7 @@
     'uri': 'api/projects/{project}/budget/transactions'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectBudgetController@addTransaction'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2185,10 +1718,7 @@
     'uri': 'api/projects/{project}/change-orders'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectChangeOrderController@index'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2199,10 +1729,7 @@
     'uri': 'api/projects/{project}/change-orders'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectChangeOrderController@store'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2213,10 +1740,7 @@
     'uri': 'api/projects/{project}/change-orders/{changeOrder}/owner-decide'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectChangeOrderController@ownerDecide'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2227,10 +1751,7 @@
     'uri': 'api/projects/{project}/change-orders/{changeOrder}/pm-review'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectChangeOrderController@pmReview'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2241,10 +1762,7 @@
     'uri': 'api/projects/{project}/comments'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectCommentController@index'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2255,10 +1773,7 @@
     'uri': 'api/projects/{project}/comments'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectCommentController@store'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2269,10 +1784,7 @@
     'uri': 'api/projects/{project}/comments/{comment}'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectCommentController@destroy'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2283,10 +1795,7 @@
     'uri': 'api/projects/{project}/comments/{comment}'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectCommentController@update'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2297,10 +1806,7 @@
     'uri': 'api/projects/{project}/daily-logs'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectDailyLogController@index'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2311,10 +1817,7 @@
     'uri': 'api/projects/{project}/daily-logs'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectDailyLogController@store'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2325,10 +1828,7 @@
     'uri': 'api/projects/{project}/daily-logs/{dailyLog}'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectDailyLogController@destroy'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2339,10 +1839,7 @@
     'uri': 'api/projects/{project}/decline-bid'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectController@declineBid'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2353,10 +1850,7 @@
     'uri': 'api/projects/{project}/delays'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectScheduleController@logDelay'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2367,10 +1861,7 @@
     'uri': 'api/projects/{project}/disputes'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectDisputeController@index'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2381,10 +1872,7 @@
     'uri': 'api/projects/{project}/disputes'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectDisputeController@store'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2395,10 +1883,7 @@
     'uri': 'api/projects/{project}/disputes/{dispute}'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectDisputeController@show'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2409,10 +1894,7 @@
     'uri': 'api/projects/{project}/disputes/{dispute}/messages/{message}/evidence'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectDisputeController@evidence'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2423,10 +1905,7 @@
     'uri': 'api/projects/{project}/disputes/{dispute}/reply'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectDisputeController@reply'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2437,10 +1916,7 @@
     'uri': 'api/projects/{project}/disputes/{dispute}/withdraw'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectDisputeController@withdraw'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2451,10 +1927,7 @@
     'uri': 'api/projects/{project}/documents'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectDocumentController@index'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2465,10 +1938,7 @@
     'uri': 'api/projects/{project}/documents'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectDocumentController@store'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2479,10 +1949,7 @@
     'uri': 'api/projects/{project}/documents/approve-design'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\TechnicalDesignReviewController@approveDesign'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2493,10 +1960,7 @@
     'uri': 'api/projects/{project}/documents/revise-design'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\TechnicalDesignReviewController@reviseDesign'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2507,10 +1971,7 @@
     'uri': 'api/projects/{project}/documents/submit-design'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\TechnicalDesignReviewController@submitDesign'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2521,10 +1982,7 @@
     'uri': 'api/projects/{project}/documents/{document}'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectDocumentController@destroy'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2535,10 +1993,7 @@
     'uri': 'api/projects/{project}/documents/{document}'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectDocumentController@update'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2549,10 +2004,7 @@
     'uri': 'api/projects/{project}/documents/{document}/verify'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectDocumentController@verify'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2563,10 +2015,7 @@
     'uri': 'api/projects/{project}/engineering-logs'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectEngineeringController@storeLog'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2577,10 +2026,7 @@
     'uri': 'api/projects/{project}/engineering-logs/{milestone}'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectEngineeringController@deleteLog'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2591,10 +2037,7 @@
     'uri': 'api/projects/{project}/extensions'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectExtensionController@index'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2605,10 +2048,7 @@
     'uri': 'api/projects/{project}/extensions'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectExtensionController@store'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2619,10 +2059,7 @@
     'uri': 'api/projects/{project}/extensions/{extension}/owner-decide'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectExtensionController@ownerDecide'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2633,10 +2070,7 @@
     'uri': 'api/projects/{project}/extensions/{extension}/pm-review'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectExtensionController@pmReview'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2647,10 +2081,7 @@
     'uri': 'api/projects/{project}/handover/approve'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectHandoverController@approveHandover'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2661,10 +2092,7 @@
     'uri': 'api/projects/{project}/handover/reject'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectHandoverController@requestHandoverRevision'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2675,10 +2103,7 @@
     'uri': 'api/projects/{project}/import-external-vendor'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectController@importExternalVendor'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2689,10 +2114,7 @@
     'uri': 'api/projects/{project}/initiate-walkthrough'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectHandoverController@initiateWalkthrough'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2703,10 +2125,7 @@
     'uri': 'api/projects/{project}/invite'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectController@inviteProfessional'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2717,10 +2136,7 @@
     'uri': 'api/projects/{project}/kickoff'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectPhaseController@issueKickoff'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2731,10 +2147,7 @@
     'uri': 'api/projects/{project}/legal-financials'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectLegalController@getFinancials'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2745,10 +2158,7 @@
     'uri': 'api/projects/{project}/lock-brief'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectController@lockPhaseBrief'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2759,10 +2169,7 @@
     'uri': 'api/projects/{project}/mark-complete'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectController@markComplete'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2773,10 +2180,7 @@
     'uri': 'api/projects/{project}/material-folders'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectMaterialFolderController@index'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2787,10 +2191,7 @@
     'uri': 'api/projects/{project}/material-folders'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectMaterialFolderController@store'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2801,10 +2202,7 @@
     'uri': 'api/projects/{project}/material-folders/{folder}'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectMaterialFolderController@destroy'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2815,10 +2213,7 @@
     'uri': 'api/projects/{project}/material-folders/{folder}'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectMaterialFolderController@update'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2829,10 +2224,7 @@
     'uri': 'api/projects/{project}/milestones'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectMilestoneController@index'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2843,10 +2235,7 @@
     'uri': 'api/projects/{project}/milestones'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectMilestoneController@store'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2857,10 +2246,7 @@
     'uri': 'api/projects/{project}/milestones/{milestone}'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectMilestoneController@destroy'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2871,10 +2257,7 @@
     'uri': 'api/projects/{project}/milestones/{milestone}'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectMilestoneController@update'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2885,10 +2268,7 @@
     'uri': 'api/projects/{project}/milestones/{milestone}/approve'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectMilestoneController@approve'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2899,10 +2279,7 @@
     'uri': 'api/projects/{project}/mutual-termination'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectMutualTerminationController@index'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2913,10 +2290,7 @@
     'uri': 'api/projects/{project}/mutual-termination/initiate'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectMutualTerminationController@initiate'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2927,10 +2301,7 @@
     'uri': 'api/projects/{project}/mutual-termination/{termination}/escalate'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectMutualTerminationController@escalate'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2941,10 +2312,7 @@
     'uri': 'api/projects/{project}/mutual-termination/{termination}/respond'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectMutualTerminationController@respond'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2955,10 +2323,7 @@
     'uri': 'api/projects/{project}/owner-accept'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectHandoverController@ownerAcceptProject'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2969,10 +2334,7 @@
     'uri': 'api/projects/{project}/payment-termins'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectPaymentTerminController@getPaymentTermins'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2983,10 +2345,7 @@
     'uri': 'api/projects/{project}/payment-termins'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectPaymentTerminController@storePaymentTermin'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -2997,10 +2356,7 @@
     'uri': 'api/projects/{project}/payment-termins/{termin}'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectPaymentTerminController@deletePaymentTermin'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3011,10 +2367,7 @@
     'uri': 'api/projects/{project}/payment-termins/{termin}'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectPaymentTerminController@updatePaymentTermin'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3025,10 +2378,7 @@
     'uri': 'api/projects/{project}/payment-termins/{termin}/link-milestone'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectPaymentTerminController@linkMilestone'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3039,10 +2389,7 @@
     'uri': 'api/projects/{project}/payment-termins/{termin}/unlink-milestone'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectPaymentTerminController@unlinkMilestone'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3053,10 +2400,7 @@
     'uri': 'api/projects/{project}/payments/{type}/{id}/upload-proof'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\PaymentVerificationController@uploadProof'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3067,10 +2411,7 @@
     'uri': 'api/projects/{project}/payments/{type}/{id}/verify-proof'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\PaymentVerificationController@verifyProof'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3081,10 +2422,7 @@
     'uri': 'api/projects/{project}/pm-bids'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\BidProjectManagerController@store'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3095,10 +2433,7 @@
     'uri': 'api/projects/{project}/pm-bids/{bid}/accept'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\BidProjectManagerController@accept'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3109,10 +2444,7 @@
     'uri': 'api/projects/{project}/pm-bids/{bid}/decline'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\BidProjectManagerController@decline'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3123,10 +2455,7 @@
     'uri': 'api/projects/{project}/pm-bids/{bid}/shortlist'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\BidProjectManagerController@shortlist'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3137,10 +2466,7 @@
     'uri': 'api/projects/{project}/procurement-requests'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectRequirementController@getProcurementRequests'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3151,10 +2477,7 @@
     'uri': 'api/projects/{project}/procurement-requests/{procurementRequest}/reject'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectFeatureController@pmRejectProcurement'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3165,10 +2488,7 @@
     'uri': 'api/projects/{project}/procurement-requests/{procurementRequest}/verify'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectFeatureController@pmVerifyProcurement'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3179,10 +2499,7 @@
     'uri': 'api/projects/{project}/propose-fee'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectController@proposeFeeAndTermins'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3193,10 +2510,7 @@
     'uri': 'api/projects/{project}/reject-engineering-bid/{bidId}'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectEngineeringController@rejectEngineeringBid'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3207,10 +2521,7 @@
     'uri': 'api/projects/{project}/reject-engineering-hire/{addendum}'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectEngineeringController@rejectEngineeringHire'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3221,10 +2532,7 @@
     'uri': 'api/projects/{project}/reject-planning'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectController@rejectPlanning'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3235,10 +2543,7 @@
     'uri': 'api/projects/{project}/reject-specialist'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectEngineeringController@rejectSpecialist'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3249,10 +2554,7 @@
     'uri': 'api/projects/{project}/reports'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectReportController@index'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3263,10 +2565,7 @@
     'uri': 'api/projects/{project}/reports'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectReportController@store'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3277,10 +2576,7 @@
     'uri': 'api/projects/{project}/reports/{report}'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectReportController@destroy'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3291,10 +2587,7 @@
     'uri': 'api/projects/{project}/reports/{report}'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectReportController@update'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3305,10 +2598,7 @@
     'uri': 'api/projects/{project}/request-engineering'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectEngineeringController@requestEngineeringRole'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3319,10 +2609,7 @@
     'uri': 'api/projects/{project}/requirements'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectRequirementController@index'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3333,10 +2620,7 @@
     'uri': 'api/projects/{project}/requirements'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectRequirementController@store'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3347,10 +2631,7 @@
     'uri': 'api/projects/{project}/requirements-history'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectRequirementController@getHistory'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3361,10 +2642,7 @@
     'uri': 'api/projects/{project}/requirements/{requirement}'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectRequirementController@destroy'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3375,10 +2653,7 @@
     'uri': 'api/projects/{project}/requirements/{requirement}'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectRequirementController@update'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3389,10 +2664,7 @@
     'uri': 'api/projects/{project}/requirements/{requirement}/history'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectRequirementHistoryController@index'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3403,10 +2675,7 @@
     'uri': 'api/projects/{project}/requirements/{requirement}/request-procurement'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectRequirementController@requestProcurement'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3417,10 +2686,7 @@
     'uri': 'api/projects/{project}/requirements/{requirement}/restock'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectRequirementHistoryController@restock'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3431,10 +2697,7 @@
     'uri': 'api/projects/{project}/requirements/{requirement}/usage'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectRequirementController@logUsage'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3445,10 +2708,7 @@
     'uri': 'api/projects/{project}/requirements/{requirement}/use'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectRequirementHistoryController@use'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3459,10 +2719,7 @@
     'uri': 'api/projects/{project}/resign'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectTerminationController@resignFromProject'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3473,10 +2730,7 @@
     'uri': 'api/projects/{project}/review'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ReviewController@store'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3487,10 +2741,7 @@
     'uri': 'api/projects/{project}/revise-construction-brief'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectController@reviseConstructionBrief'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3501,10 +2752,7 @@
     'uri': 'api/projects/{project}/schedules'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectScheduleController@index'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3515,10 +2763,7 @@
     'uri': 'api/projects/{project}/schedules/{schedule}'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectScheduleController@update'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3529,10 +2774,7 @@
     'uri': 'api/projects/{project}/seal-construction'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectPhaseController@sealConstruction'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3543,10 +2785,7 @@
     'uri': 'api/projects/{project}/seal-design'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectPhaseController@sealDesign'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3557,10 +2796,7 @@
     'uri': 'api/projects/{project}/seal-interior'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectPhaseController@sealInterior'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3571,10 +2807,7 @@
     'uri': 'api/projects/{project}/seal-legal'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectPhaseController@sealLegal'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3585,10 +2818,7 @@
     'uri': 'api/projects/{project}/share-token'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectController@revokeShareToken'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3599,10 +2829,7 @@
     'uri': 'api/projects/{project}/share-token'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectController@generateShareToken'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3613,10 +2840,7 @@
     'uri': 'api/projects/{project}/shortlist-bid'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectController@shortlistBid'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3627,10 +2851,7 @@
     'uri': 'api/projects/{project}/snag-items'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectHandoverController@getSnagItems'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3641,10 +2862,7 @@
     'uri': 'api/projects/{project}/snag-items'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectHandoverController@storeSnagItem'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3655,10 +2873,7 @@
     'uri': 'api/projects/{project}/snag-items/{snagItem}'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectHandoverController@updateSnagItemStatus'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3669,10 +2884,7 @@
     'uri': 'api/projects/{project}/snag-items/{snagItem}/accept'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectHandoverController@acceptSnagResolution'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3683,10 +2895,7 @@
     'uri': 'api/projects/{project}/sticky-notes'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\StickyNoteController@index'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3697,10 +2906,7 @@
     'uri': 'api/projects/{project}/sticky-notes'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\StickyNoteController@store'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3711,10 +2917,7 @@
     'uri': 'api/projects/{project}/sticky-notes/{stickyNote}'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\StickyNoteController@destroy'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3725,10 +2928,7 @@
     'uri': 'api/projects/{project}/sticky-notes/{stickyNote}'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\StickyNoteController@update'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3739,10 +2939,7 @@
     'uri': 'api/projects/{project}/sub-professionals'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\SubProfessionalController@index'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3753,10 +2950,7 @@
     'uri': 'api/projects/{project}/sub-professionals'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\SubProfessionalController@assign'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3767,10 +2961,7 @@
     'uri': 'api/projects/{project}/sub-professionals/shortlist-bid/{role}/{bidId}'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\SubProfessionalController@shortlistBid'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3781,10 +2972,7 @@
     'uri': 'api/projects/{project}/sub-professionals/{id}'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\SubProfessionalController@remove'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3795,10 +2983,7 @@
     'uri': 'api/projects/{project}/sub-professionals/{id}/accept'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\SubProfessionalController@accept'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3809,10 +2994,7 @@
     'uri': 'api/projects/{project}/sub-professionals/{id}/decline'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\SubProfessionalController@decline'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3823,10 +3005,7 @@
     'uri': 'api/projects/{project}/sub-professionals/{id}/hire'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\SubProfessionalController@hire'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3837,10 +3016,7 @@
     'uri': 'api/projects/{project}/sub-professionals/{id}/interview'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\SubProfessionalController@interview'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3851,10 +3027,7 @@
     'uri': 'api/projects/{project}/sub-professionals/{id}/recommend'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\SubProfessionalController@recommend'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3865,10 +3038,7 @@
     'uri': 'api/projects/{project}/submit-engineering-interview'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\EngineeringProcurementController@submitInterview'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3879,10 +3049,7 @@
     'uri': 'api/projects/{project}/submit-planning'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectController@submitPlanning'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3893,10 +3060,7 @@
     'uri': 'api/projects/{project}/technical-audit-submit'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectMilestoneController@submitTechnicalAudit'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3907,10 +3071,7 @@
     'uri': 'api/projects/{project}/terminate'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectTerminationController@fireProfessional'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3921,10 +3082,7 @@
     'uri': 'api/projects/{project}/update'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectController@update'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3935,10 +3093,7 @@
     'uri': 'api/projects/{project}/update-planning-audit'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectController@updatePlanningAudit'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3949,10 +3104,7 @@
     'uri': 'api/projects/{project}/verify-engineering/{addendum}'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectEngineeringController@verifyEngineeringRequest'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3963,10 +3115,7 @@
     'uri': 'api/projects/{project}/verify-legal'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectPhaseController@verifyLegal'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3977,10 +3126,7 @@
     'uri': 'api/projects/{project}/verify-payment'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectController@verifyDesignPayment'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -3991,10 +3137,7 @@
     'uri': 'api/projects/{project}/verify-pbg'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectController@verifyPBG'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -4005,10 +3148,7 @@
     'uri': 'api/projects/{project}/verify-planning-pm'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectController@verifyPlanningPM'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -4019,10 +3159,7 @@
     'uri': 'api/projects/{project}/verify-slf'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectController@verifySLF'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -4033,10 +3170,7 @@
     'uri': 'api/projects/{project}/warranty-claims'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectWarrantyController@index'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -4047,10 +3181,7 @@
     'uri': 'api/projects/{project}/warranty-claims'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectWarrantyController@store'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -4061,10 +3192,7 @@
     'uri': 'api/projects/{project}/warranty-claims/{claim}/status'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectWarrantyController@updateStatus'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -4075,10 +3203,7 @@
     'uri': 'api/push/public-key'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 3
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\PushSubscriptionController@publicKey'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -4089,10 +3214,7 @@
     'uri': 'api/push/subscribe'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 3
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\PushSubscriptionController@store'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -4103,10 +3225,7 @@
     'uri': 'api/push/unsubscribe'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 3
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\PushSubscriptionController@destroy'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -4117,10 +3236,7 @@
     'uri': 'api/questions/{question}/answers'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 3
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\HouseQAController@storeAnswer'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -4131,10 +3247,7 @@
     'uri': 'api/register'
     'auth': 'public'
     'throttle': '5,1'
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\AuthController@register'
+    'gates':
       'middleware':
         - 'api'
         - 'throttle:5,1'
@@ -4144,10 +3257,7 @@
     'uri': 'api/reset-password'
     'auth': 'public'
     'throttle': '5,1'
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\AuthController@resetPassword'
+    'gates':
       'middleware':
         - 'api'
         - 'throttle:5,1'
@@ -4157,10 +3267,7 @@
     'uri': 'api/rooms/{room}'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 3
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\RoomController@destroy'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -4171,10 +3278,7 @@
     'uri': 'api/structural-engineers'
     'auth': 'public'
     'throttle': null
-    'tier': 3
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\PublicProfessionalController@getStructuralEngineers'
+    'gates':
       'middleware':
         - 'api'
   - 'id': 'get.api.suppliers.supplier.reviews'
@@ -4183,10 +3287,7 @@
     'uri': 'api/suppliers/{supplier}/reviews'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 3
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\MaterialOrderReviewController@getBySupplier'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -4197,10 +3298,7 @@
     'uri': 'api/team-members'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\TeamMemberController@index'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -4211,10 +3309,7 @@
     'uri': 'api/team-members'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\TeamMemberController@store'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -4225,10 +3320,7 @@
     'uri': 'api/team-members/{id}'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\TeamMemberController@destroy'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -4239,10 +3331,7 @@
     'uri': 'api/team-members/{id}'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\TeamMemberController@update'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -4253,10 +3342,7 @@
     'uri': 'api/upload'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectController@uploadFile'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -4267,10 +3353,7 @@
     'uri': 'api/user/active-projects'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 2
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\ProjectController@getActiveProjects'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -4281,10 +3364,7 @@
     'uri': 'api/verifications/documents/{type}/{id}/{field}'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'App\Http\Controllers\Api\SecureVerificationDocumentController@getSignedUrl'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -4295,10 +3375,7 @@
     'uri': 'api/saved-searches'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'SavedSearchController@index'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -4309,10 +3386,7 @@
     'uri': 'api/saved-searches'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'SavedSearchController@store'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -4323,10 +3397,7 @@
     'uri': 'api/saved-searches/{id}'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'SavedSearchController@destroy'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -4337,10 +3408,7 @@
     'uri': 'api/projects/{project}/finance-ledger'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'ProjectFinanceLedgerController@index'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -4351,10 +3419,7 @@
     'uri': 'api/me/analytics'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'AnalyticsController@me'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -4365,10 +3430,7 @@
     'uri': 'api/projects/{project}/reports/export'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'ProjectReportController@export'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -4379,10 +3441,7 @@
     'uri': 'api/projects/{project}/progress'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'ProjectProgressController@index'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -4393,10 +3452,7 @@
     'uri': 'api/projects/{project}/milestones/{milestone}/weight'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'ProjectMilestoneController@updateWeight'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -4407,10 +3463,7 @@
     'uri': 'api/procurement-requests/{id}/purchase'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'ProcurementController@bridge'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -4421,10 +3474,7 @@
     'uri': 'api/projects/{project}/owner-reviews'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'OwnerReviewController@index'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -4435,10 +3485,7 @@
     'uri': 'api/projects/{project}/owner-reviews'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'OwnerReviewController@store'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -4449,10 +3496,7 @@
     'uri': 'api/projects/{project}/snags/sla'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'SnagController@sla'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -4463,10 +3507,7 @@
     'uri': 'api/tools/kpr'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'ToolController@kpr'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'
@@ -4477,10 +3518,7 @@
     'uri': 'api/me/export'
     'auth': 'authenticated'
     'throttle': null
-    'tier': 1
-    'upstream': 'go'
-    'laravel':
-      'action': 'ProfileController@export'
+    'gates':
       'middleware':
         - 'api'
         - 'auth:sanctum'

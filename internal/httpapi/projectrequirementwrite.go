@@ -33,7 +33,7 @@ import (
 //   - bom: same shape — any present non-empty value logs, even the same
 //     one, and the new name is computed as `(value ?? (null==='raw'))`
 //     which is the truthy value itself, so it is ALWAYS 'Bahan Baku'.
-// The port replicates both byte-for-byte, including the wrong names.
+// This service replicates both byte-for-byte, including the wrong names.
 
 // UpdateRequirementHandler serves
 // `PUT /api/projects/{project}/requirements/{requirement}`.

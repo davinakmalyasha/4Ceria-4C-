@@ -11,7 +11,7 @@ import { requestQuote } from './quotes-actions';
  * `GET /marketplace/materials` + `GET /marketplace/suppliers` feed all three
  * routes. The type, category and search live in the URL (`?type=&category=&q=`),
  * so filtering is server-side and bookmarkable instead of client state. The
- * type split reproduces the legacy rule exactly, including its quirk: the
+ * type split reproduces the previous rule exactly, including its quirk: the
  * FURNITURE catalogue is the subcategory list plus `Furniture & Decor`, so a
  * row stored with the flat category `Furniture` stays in Materials.
  */
@@ -78,6 +78,7 @@ export function MarketplacePanel({
     q,
     category,
     fixedType,
+    canQuote = true,
 }: {
     mode: MarketplaceMode;
     materials: MaterialRow[];
@@ -85,6 +86,7 @@ export function MarketplacePanel({
     q?: string;
     category?: string;
     fixedType: boolean;
+    canQuote?: boolean;
 }) {
     const activeCategory = category && category !== '' ? category : 'All';
     const search = (q ?? '').trim().toLowerCase();
@@ -259,8 +261,12 @@ export function MarketplacePanel({
                                                 {material.stock} in stock
                                             </p>
                                         )}
-                                        {material.supplier?.id ? (
-                                            <form action={requestQuote} className="mt-3 border-t border-neutral-100 pt-3">
+                                        {material.supplier?.id && canQuote ? (
+                                            <details className="group mt-3 border-t border-neutral-100 pt-3">
+                                                <summary className="cursor-pointer list-none text-[10px] font-black uppercase tracking-wider text-neutral-600 transition hover:text-neutral-900">
+                                                    Request a quote <span className="font-semibold text-neutral-400">from {material.supplier.store_name ?? 'the supplier'}</span>
+                                                </summary>
+                                            <form action={requestQuote} className="mt-3">
                                                 <input type="hidden" name="supplier_id" value={material.supplier.id} />
                                                 <input type="hidden" name="material_id" value={material.id} />
                                                 <input type="hidden" name="name" value={material.name ?? `Material #${material.id}`} />
@@ -298,9 +304,17 @@ export function MarketplacePanel({
                                                     type="submit"
                                                     className="mt-2 w-full px-3 py-1.5 rounded-lg bg-neutral-900 text-white text-[10px] font-black uppercase tracking-wider hover:bg-neutral-700"
                                                 >
-                                                    Request quote
+                                                    Send request
                                                 </button>
                                             </form>
+                                            </details>
+                                        ) : material.supplier?.id ? (
+                                            <Link
+                                                href={`/login?next=${encodeURIComponent('/dashboard/marketplace-materials')}`}
+                                                className="mt-3 block border-t border-neutral-100 pt-3 text-[10px] font-black uppercase tracking-wider text-neutral-600 hover:text-neutral-900"
+                                            >
+                                                Sign in to request a quote
+                                            </Link>
                                         ) : (
                                             <p className="mt-3 border-t border-neutral-100 pt-3 text-[10px] font-bold uppercase tracking-wider text-neutral-400">
                                                 Supplier unavailable — quoting disabled

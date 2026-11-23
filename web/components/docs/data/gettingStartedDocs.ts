@@ -104,7 +104,7 @@ export const gettingStartedDocs: DocArticle[] = [
         id: 'dashboard-navigation',
         title: 'Navigating Your Dashboard',
         role: 'getting-started',
-        summary: 'How to navigate the sidebar, tabs, and key areas of your personalized dashboard.',
+        summary: 'How to navigate the header, tabs, and key areas of your personalized dashboard.',
         sections: [
             {
                 type: 'text',
@@ -114,19 +114,19 @@ export const gettingStartedDocs: DocArticle[] = [
                 type: 'list',
                 title: 'Dashboard Layout:',
                 items: [
-                    'Sidebar Navigation: The left sidebar contains your main navigation tabs — Dashboard, Projects, Properties, Hire Professionals, Marketplace, etc.',
+                    'Top navigation: The header contains your main navigation tabs — Dashboard, Projects, Properties, Hire Professionals, Marketplace, etc.',
                     'Header Bar: The top header shows the current page title, search functionality, notifications bell, and your profile dropdown.',
                     'Main Content Area: The central area displays the active tab content — projects, properties, marketplace, etc.',
-                    'Mobile Menu: On mobile devices, the sidebar collapses into a hamburger menu accessible from the header.'
+                    'Mobile menu: On small screens the header opens a drawer with the same destinations.'
                 ]
             },
             {
                 type: 'step',
                 title: 'Quick Navigation Tips:',
                 steps: [
-                    { stepNumber: 1, title: 'Use the sidebar', description: 'Click any tab in the left sidebar to navigate to that section. Expandable groups (like Properties, Marketplace) have sub-tabs.' },
+                    { stepNumber: 1, title: 'Use the navigation', description: 'Click any tab in the dashboard navigation to navigate to that section. Expandable groups (like Properties, Marketplace) have sub-tabs.' },
                     { stepNumber: 2, title: 'Check notifications', description: 'Click the bell icon in the header to view recent notifications — bid updates, messages, milestone approvals.' },
-                    { stepNumber: 3, title: 'Use the search bar', description: 'The header search lets you quickly find projects, professionals, or materials across the platform.' },
+                    { stepNumber: 3, title: 'Use the search bar', description: 'Each collection has its own search and filters; the results stay on the page you are reading.' },
                     { stepNumber: 4, title: 'Access profile settings', description: 'Click your avatar in the header to access profile settings, edit your information, or log out.' }
                 ]
             }

@@ -5,10 +5,10 @@ import type { ProjectPayload } from './panels';
 /**
  * Native legal hub (`pm_legal`).
  *
- * The legacy PMLegalHub maps three government clearances to document
+ * The previous PMLegalHub maps three government clearances to document
  * categories (`legal_land`, `legal_pbg`, `legal_slf`) and shows the vault plus
  * the legal phase state. Both the project and its documents are fetched on the
- * server; verification/upload actions stay legacy until their write flows are
+ * server; verification/upload actions stay previous until their write flows are
  * ported.
  */
 

@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { apiFetch, ApiFailure } from '@/lib/api';
-import { apiOrigin, sessionToken } from '@/lib/session';
+import { sessionToken } from '@/lib/session';
 import { AuthProvider, type User } from '@/context/AuthContext';
 import { DashboardShell } from './DashboardShell';
 import { DirectoryPanel, ProjectsPanel } from './native';
@@ -100,8 +100,8 @@ export async function DashboardView({
     /**
      * THE TABS A SIGNED-OUT VISITOR MAY READ.
      *
-     * The legacy page lists exactly these and sends every other tab to /login.
-     * The port reproduces the list rather than closing the door: the product
+     * The previous page lists exactly these and sends every other tab to /login.
+     * This build reproduces the list rather than closing the door: the product
      * advertises a public marketplace and a public directory, and the screens
      * already render correctly with `user === null`.
      */
@@ -120,22 +120,113 @@ export async function DashboardView({
 
     if (!(await sessionToken())) {
         if (!PUBLIC_TABS.includes(activeTab)) {
-            redirect('/login');
+            redirect('/login?next=' + encodeURIComponent(`/dashboard/${activeTab}`));
+        }
+
+        let guestCollection: unknown[] = [];
+        let guestMeta: { total: number; current_page: number; last_page: number } | null = null;
+        let guestMaterials: MaterialRow[] = [];
+        let guestSuppliers: SupplierRow[] = [];
+
+        try {
+            if (activeTab === 'houses') {
+                const params = new URLSearchParams();
+                if (q) params.set('search', q);
+                if (city) params.set('city', city);
+                if (price_min) params.set('price_min', price_min);
+                if (price_max) params.set('price_max', price_max);
+                if (bedrooms) params.set('bedrooms', bedrooms);
+                if (sort) params.set('sort', sort);
+                params.set('page', String(Math.max(1, Number.parseInt(page ?? '1', 10) || 1)));
+
+                const response = await apiFetch<{
+                    data: unknown[];
+                    meta?: { total?: number; current_page?: number; last_page?: number };
+                }>(`/houses?${params.toString()}`, {}, 60);
+                guestCollection = response.data ?? [];
+                if (response.meta && typeof response.meta.total === 'number') {
+                    guestMeta = {
+                        total: response.meta.total,
+                        current_page: response.meta.current_page ?? 1,
+                        last_page: response.meta.last_page ?? 1,
+                    };
+                }
+            } else if (activeTab === 'marketplace-materials' || activeTab === 'marketplace-furniture') {
+                const [materials, suppliers] = await Promise.all([
+                    apiFetch<{ data: MaterialRow[] }>('/marketplace/materials', {}, 60),
+                    apiFetch<{ data: SupplierRow[] }>('/marketplace/suppliers', {}, 60),
+                ]);
+                guestMaterials = materials.data ?? [];
+                guestSuppliers = suppliers.data ?? [];
+            } else {
+                const publicPaths: Record<string, string> = {
+                    architects: '/arsitek',
+                    constructors: '/kontraktor',
+                    interior: '/interior',
+                    notaris: '/notaris',
+                    project_manager: '/project-manager',
+                    structural: '/structural-engineers',
+                    mep: '/mep-engineers',
+                };
+                const path = publicPaths[activeTab];
+                if (path) {
+                    const response = await apiFetch<{ data: unknown[] }>(path, {}, 60);
+                    guestCollection = response.data ?? [];
+                }
+            }
+        } catch {
+            // A public section that cannot load renders its empty state; the
+            // rest of the page still paints.
+        }
+
+        let guestTab: ReactNode;
+        if (activeTab === 'houses') {
+            guestTab = (
+                <HousesPanel
+                    houses={guestCollection as HouseRow[]}
+                    filters={{ q, city, price_min, price_max, bedrooms, sort }}
+                    pageMeta={guestMeta}
+                />
+            );
+        } else if (activeTab === 'marketplace-materials' || activeTab === 'marketplace-furniture') {
+            guestTab = (
+                <MarketplacePanel
+                    mode={activeTab === 'marketplace-furniture' ? 'furniture' : 'materials'}
+                    materials={guestMaterials}
+                    suppliers={guestSuppliers}
+                    q={q}
+                    category={category}
+                    fixedType
+                    canQuote={false}
+                />
+            );
+        } else if (activeTab === 'architects' || activeTab === 'constructors' || activeTab === 'interior' ||
+            activeTab === 'notaris' || activeTab === 'project_manager' || activeTab === 'structural' || activeTab === 'mep') {
+            guestTab = <DirectoryPanel rows={guestCollection as never[]} title={titleCase(activeTab)} />;
+        } else {
+            guestTab = (
+                <div className="rounded-2xl border border-neutral-200 bg-white p-8 text-center">
+                    <h1 className="text-xl font-black">Sign in to continue</h1>
+                    <p className="mt-2 text-sm text-neutral-500">
+                        This area is part of your project workspace.
+                    </p>
+                    <a href={`/login?next=${encodeURIComponent(`/dashboard/${activeTab}`)}`} className="mt-5 inline-block rounded-xl bg-neutral-900 px-5 py-2.5 text-sm font-bold text-white">
+                        Sign in
+                    </a>
+                </div>
+            );
         }
 
         return (
             <AuthProvider user={null}>
                 <DashboardShell
                     activeTab={activeTab}
-                    projects={[]}
-                    projectFeed={[]}
-                    myBids={[]}
-                    hiredProfessionals={[]}
-                    collection={[]}
+                    counts={{}}
                     conversations={[]}
                     notifications={[]}
                     unreadNotifications={0}
-                    storageBase={apiOrigin()}
+                    storageBase=""
+                    nativeTab={guestTab}
                 />
             </AuthProvider>
         );
@@ -222,31 +313,35 @@ export async function DashboardView({
         user = me.data;
 
         // The header renders on every authenticated dashboard route, so its
-        // inbox is one page-wide pair of calls rather than a post-hydration
-        // fetch plus poll.
-        try {
-            const [notificationList, unreadSummary] = await Promise.all([
-                apiFetch<{ data: NotificationRow[] }>('/notifications'),
-                apiFetch<{ unread_notifications?: number }>('/me/unread-summary'),
-            ]);
-            headerNotifications = notificationList.data ?? [];
-            unreadNotifications = unreadSummary.unread_notifications ?? 0;
-        } catch {
-            // The bell renders empty when the inbox cannot be read.
-        }
-
+        // inbox and the shell's conversation list are page-wide calls rather
+        // than post-hydration fetches. Everything the shell needs starts at
+        // once; only tab-specific data waits behind this batch.
         const isPlainUser = user.role_type === 'user';
         // `my-bids` is a professional screen, but a plain user who opens it must
         // still get the pipeline call rather than the hire-history one.
         const wantsBids = !isPlainUser || activeTab === 'my-bids';
 
-        const [projectsResponse, feedResponse, third] = await Promise.all([
-            apiFetch<{ data: unknown[] }>('/projects?all=true'),
-            apiFetch<{ data: unknown[] }>('/projects?feed=true'),
-            wantsBids
-                ? apiFetch<{ data: unknown[] }>('/my-bids')
-                : apiFetch<{ data: unknown[] }>('/hire-history'),
-        ]);
+        const [notificationResult, projectsResponse, feedResponse, third, inboxResult] =
+            await Promise.all([
+                Promise.all([
+                    apiFetch<{ data: NotificationRow[] }>('/notifications'),
+                    apiFetch<{ unread_notifications?: number }>('/me/unread-summary'),
+                ]).catch(() => null),
+                apiFetch<{ data: unknown[] }>('/projects?all=true'),
+                apiFetch<{ data: unknown[] }>('/projects?feed=true'),
+                wantsBids
+                    ? apiFetch<{ data: unknown[] }>('/my-bids')
+                    : apiFetch<{ data: unknown[] }>('/hire-history'),
+                apiFetch<{ data: ConversationRow[] }>('/conversations').catch(() => null),
+            ]);
+
+        if (notificationResult) {
+            headerNotifications = notificationResult[0].data ?? [];
+            unreadNotifications = notificationResult[1].unread_notifications ?? 0;
+        }
+        if (inboxResult) {
+            chatConversations = inboxResult.data ?? [];
+        }
 
         projects = projectsResponse.data ?? [];
         projectFeed = feedResponse.data ?? [];
@@ -262,27 +357,20 @@ export async function DashboardView({
         if (collectionUrl) {
             try {
                 if (activeTab === 'my-houses') {
-                    // `?mine=` is dead server-side (anonymous caller, parity
-                    // with the oracle which answers everybody's rows), so
-                    // aggregate every public page here and let MyHousesPanel
-                    // client-filter by viewerId — the same rows, just all of
-                    // them. The 20-page cap bounds this at 240 listings;
-                    // no-store because the panel renders a per-viewer slice.
-                    const mine: unknown[] = [];
-                    for (let wanted = 1; wanted <= 20; wanted++) {
-                        const minePage = await apiFetch<{
-                            data: unknown[];
-                            meta?: { last_page?: number };
-                        }>(`/houses?mine=true&page=${wanted}`);
-                        mine.push(...(minePage.data ?? []));
-                        if (
-                            wanted >= (minePage.meta?.last_page ?? 1) ||
-                            (minePage.data ?? []).length === 0
-                        ) {
-                            break;
-                        }
+                    // The list is scoped server-side now; no client-side
+                    // filtering and no 20-page crawl.
+                    const response = await apiFetch<{
+                        data: unknown[];
+                        meta?: { total?: number; current_page?: number; last_page?: number };
+                    }>('/houses?mine=true');
+                    collection = response.data ?? [];
+                    if (response.meta && typeof response.meta.total === 'number') {
+                        collectionMeta = {
+                            total: response.meta.total,
+                            current_page: response.meta.current_page ?? 1,
+                            last_page: response.meta.last_page ?? 1,
+                        };
                     }
-                    collection = mine;
                 } else {
                     // Houses carry the listing filters into the API call, so the
                     // filter form narrows server-side (search/city/price/bedrooms/
@@ -318,7 +406,7 @@ export async function DashboardView({
                 }
             } catch {
                 // A directory that cannot be fetched renders empty, exactly as
-                // the legacy hook leaves it after a failed lazy load.
+                // the previous hook leaves it after a failed lazy load.
             }
         }
 
@@ -328,7 +416,7 @@ export async function DashboardView({
                 invitations = response.data ?? [];
             } catch {
                 // An invitation list that cannot be fetched renders as no
-                // banner, exactly like the legacy component's empty state.
+                // banner, exactly like the previous component's empty state.
             }
         }
 
@@ -423,23 +511,8 @@ export async function DashboardView({
             }
         }
 
-        // The floating launcher is mounted on every tab, so the inbox is one
-        // dashboard-wide call; the full chat route fetches it (and its thread)
-        // below instead of paying for it twice.
-        if (activeTab !== 'chat') {
-            try {
-                const inbox = await apiFetch<{ data: ConversationRow[] }>('/conversations');
-                chatConversations = inbox.data ?? [];
-            } catch {
-                // An inbox that cannot be fetched renders an empty launcher list.
-            }
-        }
-
         if (activeTab === 'chat') {
             try {
-                const inbox = await apiFetch<{ data: ConversationRow[] }>('/conversations');
-                chatConversations = inbox.data ?? [];
-
                 const requested = Number.parseInt(conversation ?? '', 10);
                 if (Number.isInteger(requested) && requested > 0) {
                     try {
@@ -669,7 +742,7 @@ export async function DashboardView({
         }
     } catch (error) {
         if (error instanceof ApiFailure && error.status === 401) {
-            redirect('/login');
+            redirect('/auth/expire?next=/login');
         }
 
         throw error;
@@ -677,7 +750,7 @@ export async function DashboardView({
 
     /**
      * THE PANELS ALREADY PORTED are rendered HERE, as server components, and
-     * the synced tab tree is not mounted for them. The rest still use it.
+     * the tab tree is not mounted for them. The rest still use it.
      */
     const DIRECTORY_TABS = new Set([
         'architects', 'constructors', 'interior', 'notaris',
@@ -837,26 +910,35 @@ export async function DashboardView({
         const board = user.role_type !== 'user';
         nativeTab = <ProjectsPanel rows={(board ? projectFeed : projects) as never[]} board={board} />;
     } else if (activeTab === 'my-bids') {
-        nativeTab = <MyBidsPanel bids={myBids as MyBidRow[]} />;
+        nativeTab = <MyBidsPanel bids={myBids as MyBidRow[]} error={error} user={user} />;
     } else if (activeTab === 'hire-history') {
         nativeTab = <HireHistoryPanel rows={hiredProfessionals as HireRow[]} />;
     } else if (DIRECTORY_TABS.has(activeTab)) {
         nativeTab = <DirectoryPanel rows={collection as never[]} title={titleCase(activeTab)} />;
     }
 
+    const activeProjectCount = (projects as { status?: string }[]).filter(
+        (project) => project.status !== 'completed' && project.status !== 'cancelled',
+    ).length;
+    const isPlainUser = user.role_type === 'user';
+    const navCounts: Record<string, number> = {
+        projects: isPlainUser ? activeProjectCount : projectFeed.length,
+        management: activeProjectCount,
+        'my-bids': (myBids as { status?: string }[]).filter(
+            (bid) => bid.status === 'pending' || bid.status === 'invited',
+        ).length,
+        'my-houses': activeTab === 'my-houses' ? collection.length : 0,
+    };
+
     return (
         <AuthProvider user={user}>
             <DashboardShell
                 activeTab={activeTab}
-                projects={projects as never[]}
-                projectFeed={projectFeed as never[]}
-                myBids={myBids as never[]}
-                hiredProfessionals={hiredProfessionals as never[]}
-                collection={collection as never[]}
+                counts={navCounts}
                 conversations={chatConversations}
                 notifications={headerNotifications}
                 unreadNotifications={unreadNotifications}
-                storageBase={apiOrigin()}
+                storageBase=""
                 nativeTab={nativeTab}
             />
         </AuthProvider>

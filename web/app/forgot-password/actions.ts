@@ -15,12 +15,12 @@ import { apiOrigin } from '@/lib/session';
 export type ForgotState = {
     sent: boolean;
     error: string;
-    /** Echoed back so the confirmation can name the address, as the legacy does. */
+    /** Echoed back so the confirmation can name the address, as the previous does. */
     email: string;
 };
 
 export async function requestReset(_previous: ForgotState, formData: FormData): Promise<ForgotState> {
-    const email = String(formData.get('email') ?? '');
+    const email = String(formData.get('email') ?? '').trim().toLowerCase();
 
     const response = await fetch(`${apiOrigin()}/api/forgot-password`, {
         method: 'POST',

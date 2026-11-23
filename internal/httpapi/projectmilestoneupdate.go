@@ -36,7 +36,7 @@ import (
 //   3. uploaded files append to both arrays under `milestone_files/`.
 //
 // The vault sync runs TWICE in the approval path (before and after the
-// status flips to approved), matching the oracle's verified document
+// status flips to approved), matching the reference's verified document
 // rows.
 
 // galleryUpload is one uploaded image.
@@ -517,7 +517,7 @@ func validateMilestoneUpdate(fields map[string]any, files []*galleryUpload, fail
 // sizeBytes reports the upload size.
 func (g *galleryUpload) sizeBytes() int64 { return int64(len(g.data)) }
 
-// laravelBoolean accepts the boolean spellings Laravel does.
+// laravelBoolean accepts the boolean spellings the original API does.
 func laravelBoolean(value any) (bool, bool) {
 	switch typed := value.(type) {
 	case bool:

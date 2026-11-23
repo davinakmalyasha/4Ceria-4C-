@@ -20,7 +20,7 @@ import (
 // it the most common real flow and the one that must share deductBudget's
 // guarantees: project row lock, affordability, one row per reference.
 //
-// The request names the legacy bid spellings (`bid_arsitek`, …), which
+// The request names the previous bid spellings (`bid_arsitek`, …), which
 // the unified `bids` table resolves by (role, legacy-or-physical id).
 // Validation answers the standard bag, but every service throw answers
 // the bare `{"message"}` envelope — including a missing row, which
@@ -271,7 +271,7 @@ func validateMarkPaid(fields map[string]any, failures *errorBag) (payType string
 
 // markPaidApply runs the whole decision inside the caller's transaction.
 // Anything unexpected is a plain error (the 500 generic); only the
-// oracle's business sentences carry a status.
+// reference's business sentences carry a status.
 func markPaidApply(ctx context.Context, tx pgx.Tx, pool *pgxpool.Pool, bySpelling map[string]int64, projectID, ownerID int64, viewer *projectViewer, payType string, payID int64) error {
 	fqcn := markPaidFQCNs[payType]
 	registryID, ok := bySpelling[fqcn]
@@ -405,7 +405,7 @@ func markPaidBidRole(payType string) string {
 
 // markPaidBranch flips the row, applies the side effects, and returns
 // the ledger amount, title, reference id and payee. A missing row is
-// the oracle's 500 generic, never a 404.
+// the reference's 500 generic, never a 404.
 func markPaidBranch(ctx context.Context, tx pgx.Tx, pool *pgxpool.Pool, projectID int64, viewer *projectViewer, payType string, payID int64) (int64, string, int64, int64, error) {
 	_ = pool
 
@@ -804,7 +804,7 @@ func markPaidRecommended(ctx context.Context, tx pgx.Tx, pool *pgxpool.Pool, pro
 	return nil
 }
 
-// errMarkPaidGone reports a missing payment row: the oracle answers its
+// errMarkPaidGone reports a missing payment row: the reference answers its
 // 500 generic, never a 404.
 type errMarkPaidGoneT struct{}
 

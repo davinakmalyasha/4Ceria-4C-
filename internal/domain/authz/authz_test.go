@@ -7,7 +7,7 @@ import (
 )
 
 // The test doubles implement the two interfaces, so the rule can be exercised
-// WITHOUT A DATABASE — which the legacy `Hire` class could not be, because it
+// WITHOUT A DATABASE — which the previous `Hire` class could not be, because it
 // reached into Eloquent relations.
 //
 // That is the point of the interfaces: an authorisation rule that needs a
@@ -63,7 +63,7 @@ func subjectWith(role identity.Role, profileID identity.ProfileID) testSubject {
 func TestItIsFalseWhenTheSubjectHasNoProfile(t *testing.T) {
 	// THE BYPASS.
 	//
-	// The legacy spellings were:
+	// The previous spellings were:
 	//
 	//	(int) $project->selected_arsitek_id === (int) $user->arsitek?->id
 	//

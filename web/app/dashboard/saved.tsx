@@ -10,7 +10,7 @@ import { CoverImage } from '@/components/CoverImage';
  *
  * `GET /favorites` answers two maps: `data` (type → ids) and `items` (type →
  * resolved cards: title, subtitle, image, price). The resolved map is the one
- * that renders here, grouped by type in the same order the legacy tabs used.
+ * that renders here, grouped by type in the same order the previous tabs used.
  */
 
 const GROUPS: { type: string; label: string; browseHref: string }[] = [

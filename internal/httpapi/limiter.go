@@ -1,40 +1,31 @@
 package httpapi
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"net/http"
-	"strings"
+	"strconv"
 	"sync"
 	"time"
 )
 
 // THE RATE LIMITER
 // ----------------
-// The legacy routes declare `throttle:5,1` on register and the password
-// resets, `throttle:10,1` on login, the conversation endpoints and the admin
-// CSV export, and `throttle:30,1` on the geocode proxies and the message
-// endpoint. The `api` group carries a second, coarser limit (60/min
-// anonymous, 200/min authenticated).
+// Routes declare limits (`throttle:10,1` on login, `30,1` on geocode, ...),
+// and every route also passes through a coarse 300/minute API ceiling. A
+// signed-in caller is keyed by user id; anonymous traffic by the client
+// address, with `X-Forwarded-For` trusted only from `TRUSTED_PROXIES`.
+// A bearer token sent to a public route is not an identity: otherwise
+// `/login` would hand out one bucket per guessed token.
 //
-// The legacy limiter keys authenticated traffic on the SHA-256 of the bearer
-// token — available before auth runs, tied to a credential the caller must
-// hold, and never the raw token (a live credential must not appear in a key
-// space). Anonymous traffic keys on the client IP. `tests/RateLimitSpoofingTest.php`
-// pins all of that, including the refusal to treat an empty `Authorization`
-// header as a token.
-//
-// This is the in-memory implementation: a fixed window per key, safe for
-// concurrent use. A multi-replica deployment uses the shared PgLimiter
-// (`rate_pg.go`, same interface) instead of this per-process map — no Redis
-// to operate. The interface (`RateLimiter`) is what the gate depends on, so
-// the store can move without touching the router.
+// This is the in-memory implementation: a fixed window per scope, safe for
+// concurrent use, with idle buckets swept once a minute. A multi-replica
+// deployment uses the shared PgLimiter (`rate_pg.go`, same interface).
 
 // MemoryLimiter counts calls per key in memory.
 type MemoryLimiter struct {
-	mu   sync.Mutex
-	hits map[string][]time.Time
-	now  func() time.Time
+	mu        sync.Mutex
+	hits      map[string][]time.Time
+	now       func() time.Time
+	lastSweep time.Time
 }
 
 // NewMemoryLimiter builds an empty limiter.
@@ -46,15 +37,23 @@ func NewMemoryLimiter() *MemoryLimiter {
 }
 
 // Allow reports whether the call may proceed.
-//
-// The key is the hashed bearer token when the request carries one, and the
-// client IP otherwise — the same rule the legacy `api` limiter applies.
 func (l *MemoryLimiter) Allow(r *http.Request, limit int, window time.Duration) (bool, time.Duration) {
-	key := limiterKey(r)
+	key := limiterBucket(r, limit, window)
 	now := l.now()
 
 	l.mu.Lock()
 	defer l.mu.Unlock()
+
+	// A rotating address must not grow the map forever. Once a minute, drop
+	// buckets that have been idle for an hour.
+	if now.Sub(l.lastSweep) > time.Minute {
+		for bucket, hits := range l.hits {
+			if len(hits) == 0 || hits[len(hits)-1].Before(now.Add(-time.Hour)) {
+				delete(l.hits, bucket)
+			}
+		}
+		l.lastSweep = now
+	}
 
 	cutoff := now.Add(-window)
 	kept := l.hits[key][:0]
@@ -82,7 +81,7 @@ func (l *MemoryLimiter) Allow(r *http.Request, limit int, window time.Duration) 
 // Remaining reports how many attempts are left in the current window.
 // It is what the `X-RateLimit-Remaining` header carries.
 func (l *MemoryLimiter) Remaining(r *http.Request, limit int, window time.Duration) int {
-	key := limiterKey(r)
+	key := limiterBucket(r, limit, window)
 	now := l.now()
 
 	l.mu.Lock()
@@ -107,19 +106,21 @@ func (l *MemoryLimiter) Remaining(r *http.Request, limit int, window time.Durati
 
 // limiterKey is the bucket a request counts against.
 //
-// A request with a usable bearer token keys on `token:<sha256(token)>` — the
-// hash, never the raw token — so rotating `X-Forwarded-For` cannot rotate the
-// bucket. Anything else keys on `ip:<client>`, where the client is the
-// forwarded chain's first entry when present, else the peer address. An
-// empty or malformed `Authorization` header is anonymous: keying on the hash
-// of an empty string would put every malformed caller in one bucket.
+// An authenticated caller keys on their user id: rotating a bearer token or an
+// `X-Forwarded-For` header cannot buy a fresh budget. Everything else keys on
+// the client address. A token is never a key — and a token sent to a public
+// route is not an identity, or `/login` would hand out one bucket per guess.
 func limiterKey(r *http.Request) string {
-	if token, ok := bearerToken(r.Header.Get("Authorization")); ok {
-		if strings.TrimSpace(token) != "" {
-			sum := sha256.Sum256([]byte(token))
-			return "token:" + hex.EncodeToString(sum[:])
-		}
+	if caller, ok := CallerFrom(r.Context()); ok {
+		return "user:" + formatInt(caller.UserID())
 	}
 
 	return "ip:" + clientIP(r)
+}
+
+// limiterBucket separates the coarse API budget from a route's own throttle.
+// Both run for the same caller, and without the scope suffix the route would
+// spend its budget twice as fast.
+func limiterBucket(r *http.Request, limit int, window time.Duration) string {
+	return limiterKey(r) + "|" + strconv.Itoa(limit) + "|" + strconv.FormatInt(int64(window/time.Second), 10)
 }
