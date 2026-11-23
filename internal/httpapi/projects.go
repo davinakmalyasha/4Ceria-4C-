@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/davinakmalyasha/4ceria/internal/domain/identity"
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -330,7 +330,7 @@ func ProjectsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 
-			payload := jsonphp.NewObject()
+			payload := jsonwire.NewObject()
 			payload.Set("data", items)
 			writeJSON(w, http.StatusOK, payload)
 			return
@@ -364,7 +364,7 @@ func ProjectsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		baseURL := requestBaseURL(r)
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", items)
 		payload.Set("links", pageLinksSummary(baseURL, "", currentPage, lastPage(total, perPage)))
 		payload.Set("meta", directoryMeta(total, perPage, currentPage, basePathOf(baseURL), "", items))
@@ -566,7 +566,7 @@ func ProjectShowHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", row)
 
 		writeJSON(w, http.StatusOK, payload)

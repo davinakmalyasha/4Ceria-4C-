@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -114,13 +114,13 @@ func ProjectProgressHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		if totalW > 0 {
 			pct = doneW / totalW * 100
 		}
-		out := jsonphp.NewObject()
+		out := jsonwire.NewObject()
 		out.Set("total", total)
 		out.Set("completed", done)
 		out.Set("total_weight", totalW)
 		out.Set("completed_weight", doneW)
 		out.Set("percent", pct)
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", out)
 		writeJSON(w, http.StatusOK, payload)
 	}
@@ -190,7 +190,7 @@ func UpdateMilestoneWeightHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			modelNotFound(w, `App\Models\ProjectMilestone`, rawM)
 			return
 		}
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Weight updated.")
 		writeJSON(w, http.StatusOK, payload)
 	}
@@ -250,7 +250,7 @@ func PurchaseBridgeHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 		if existingOrder != nil {
-			payload := jsonphp.NewObject()
+			payload := jsonwire.NewObject()
 			payload.Set("message", "Already bridged.")
 			payload.Set("material_order_id", *existingOrder)
 			writeJSON(w, http.StatusOK, payload)
@@ -270,7 +270,7 @@ func PurchaseBridgeHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 		_, _ = pool.Exec(ctx, `UPDATE project_procurement_requests SET material_order_id = $2, updated_at = date_trunc('second', now()) WHERE id = $1`, reqID, orderID)
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Purchase created from procurement request.")
 		payload.Set("material_order_id", orderID)
 		writeJSON(w, http.StatusOK, payload)
@@ -334,7 +334,7 @@ func StoreOwnerReviewHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			serverError(w)
 			return
 		}
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Owner reviewed.")
 		writeJSON(w, http.StatusOK, payload)
 	}
@@ -375,7 +375,7 @@ func OwnerReviewsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			if err := rows.Scan(&uid, &role, &rating, &comment, &created, &updated); err != nil {
 				continue
 			}
-			e := jsonphp.NewObject()
+			e := jsonwire.NewObject()
 			e.Set("reviewer_user_id", uid)
 			e.Set("reviewer_role", role)
 			e.Set("rating", rating)
@@ -384,7 +384,7 @@ func OwnerReviewsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			e.Set("updated_at", projectTimeValue(updated))
 			items = append(items, e)
 		}
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", items)
 		writeJSON(w, http.StatusOK, payload)
 	}
@@ -424,7 +424,7 @@ func SnagSLAHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			if err := rows.Scan(&id, &title, &severity, &status, &due, &esc); err != nil {
 				continue
 			}
-			e := jsonphp.NewObject()
+			e := jsonwire.NewObject()
 			e.Set("id", id)
 			e.Set("title", title)
 			e.Set("severity", severity)
@@ -435,7 +435,7 @@ func SnagSLAHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			e.Set("escalated", esc != nil)
 			items = append(items, e)
 		}
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", items)
 		writeJSON(w, http.StatusOK, payload)
 	}
@@ -463,10 +463,10 @@ func KPRHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		monthlyRate := rf / 100 / 12
 		n := yf * 12
 		m := pf * monthlyRate / (1 - powNeg(n, monthlyRate))
-		out := jsonphp.NewObject()
+		out := jsonwire.NewObject()
 		out.Set("monthly", m)
 		out.Set("months", int(n))
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", out)
 		writeJSON(w, http.StatusOK, payload)
 	}
@@ -487,14 +487,14 @@ func AccountExportHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		_ = pool.QueryRow(ctx, `SELECT count(*) FROM saved_searches WHERE user_id = $1`, caller.UserID()).Scan(&saved)
 		_ = pool.QueryRow(ctx, `SELECT count(*) FROM push_subscriptions WHERE user_id = $1`, caller.UserID()).Scan(&subs)
 		_ = pool.QueryRow(ctx, `SELECT count(*) FROM notifications WHERE user_id = $1`, caller.UserID()).Scan(&notifs)
-		out := jsonphp.NewObject()
+		out := jsonwire.NewObject()
 		out.Set("id", caller.UserID())
 		out.Set("name", name)
 		out.Set("email", email)
 		out.Set("saved_searches", saved)
 		out.Set("push_subscriptions", subs)
 		out.Set("notifications", notifs)
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", out)
 		writeJSON(w, http.StatusOK, payload)
 	}

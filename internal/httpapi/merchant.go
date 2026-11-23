@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -29,8 +29,8 @@ var supplierColumns = []string{
 }
 
 // supplierObject renders a hydrated Supplier (float coordinates, Carbon dates).
-func supplierObject(byName map[string]any) *jsonphp.Object {
-	entry := jsonphp.NewObject()
+func supplierObject(byName map[string]any) *jsonwire.Object {
+	entry := jsonwire.NewObject()
 	for _, column := range supplierColumns {
 		switch column {
 		case "latitude", "longitude":
@@ -46,8 +46,8 @@ func supplierObject(byName map[string]any) *jsonphp.Object {
 
 // supplierCreatedObject renders Eloquent's CREATED model: payload order,
 // then updated_at BEFORE created_at, then id. Unset columns are ABSENT.
-func supplierCreatedObject(byName map[string]any, payloadKeys []string) *jsonphp.Object {
-	entry := jsonphp.NewObject()
+func supplierCreatedObject(byName map[string]any, payloadKeys []string) *jsonwire.Object {
+	entry := jsonwire.NewObject()
 	for _, column := range payloadKeys {
 		entry.Set(column, projectRawValue(byName[column]))
 	}
@@ -121,7 +121,7 @@ func MerchantProfileHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				"id": id, "user_id": caller.UserID(), "store_name": storeName,
 				"verification_status": "pending", "created_at": createdAt, "updated_at": updatedAt,
 			}
-			payload := jsonphp.NewObject()
+			payload := jsonwire.NewObject()
 			payload.Set("status", "success")
 			payload.Set("data", supplierCreatedObject(created, []string{
 				"user_id", "store_name", "verification_status",
@@ -130,7 +130,7 @@ func MerchantProfileHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("status", "success")
 		payload.Set("data", supplierObject(byName))
 		writeJSON(w, http.StatusOK, payload)
@@ -291,7 +291,7 @@ func MerchantUpdateProfileHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("status", "success")
 		payload.Set("message", "Profile updated successfully")
 		payload.Set("data", supplierObject(fresh))
@@ -300,8 +300,8 @@ func MerchantUpdateProfileHandler(pool *pgxpool.Pool) http.HandlerFunc {
 }
 
 // materialObject renders a hydrated Material with its images.
-func materialObject(ctx context.Context, pool *pgxpool.Pool, byName map[string]any) (*jsonphp.Object, error) {
-	entry := jsonphp.NewObject()
+func materialObject(ctx context.Context, pool *pgxpool.Pool, byName map[string]any) (*jsonwire.Object, error) {
+	entry := jsonwire.NewObject()
 	for _, column := range []string{
 		"id", "supplier_id", "name", "description", "price", "unit", "category",
 		"stock", "is_available", "image_path", "specifications", "created_at", "updated_at",
@@ -343,7 +343,7 @@ func materialObject(ctx context.Context, pool *pgxpool.Pool, byName map[string]a
 		if err := rows.Scan(&id, &material, &imagePath, &createdAt, &updatedAt); err != nil {
 			return nil, err
 		}
-		image := jsonphp.NewObject()
+		image := jsonwire.NewObject()
 		image.Set("id", id)
 		image.Set("material_id", material)
 		image.Set("image_path", nullableString(imagePath))
@@ -421,7 +421,7 @@ func MerchantMaterialsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			out = append(out, entry)
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("status", "success")
 		payload.Set("data", out)
 		writeJSON(w, http.StatusOK, payload)

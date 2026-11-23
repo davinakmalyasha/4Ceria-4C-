@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -33,8 +33,8 @@ import (
 //     column → strict-mode 500 in development (production read null).
 //     The team total now runs only where the column exists.
 
-// bidLegacyModels names the Eloquent model per role for firstOrFail 404s.
-var bidLegacyModels = map[string]string{
+// bidModelNames names the Eloquent model per role for firstOrFail 404s.
+var bidModelNames = map[string]string{
 	"arsitek":         `App\Models\BidArsitek`,
 	"kontraktor":      `App\Models\BidKontraktor`,
 	"notaris":         `App\Models\BidNotaris`,
@@ -65,13 +65,13 @@ var bidTimeCols = map[string]bool{"paid_at": true, "created_at": true, "updated_
 var bidProfileIDCols = map[string]bool{"arsitek_id": true, "kontraktor_id": true, "notaris_id": true, "interior_id": true, "pm_id": true, "structural_id": true, "mep_id": true}
 
 // rawBidObject renders one unified bid row as the previous model's toArray.
-func rawBidObject(role string, fields []string, values []any) *jsonphp.Object {
+func rawBidObject(role string, fields []string, values []any) *jsonwire.Object {
 	byName := map[string]any{}
 	for i, column := range fields {
 		byName[column] = values[i]
 	}
 
-	entry := jsonphp.NewObject()
+	entry := jsonwire.NewObject()
 
 	for _, column := range bidLegacyColumns[role] {
 		switch {
@@ -199,7 +199,7 @@ func findBid(ctx context.Context, pool *pgxpool.Pool, projectID int64, role, bid
 
 // bidNotFound answers firstOrFail's 404 verbatim (no id suffix).
 func bidNotFound(w http.ResponseWriter, role string) {
-	model, ok := bidLegacyModels[role]
+	model, ok := bidModelNames[role]
 	if !ok {
 		model = `App\Models\Bid`
 	}
@@ -372,7 +372,7 @@ func AcceptInviteHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Invitation accepted. You are now in the interview phase.")
 		payload.Set("bid", rawBidObject(role, refreshed.fields, refreshed.values))
 
@@ -510,7 +510,7 @@ func RejectInviteHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Invitation rejected.")
 		payload.Set("bid", rawBidObject(role, refreshed.fields, refreshed.values))
 
@@ -779,7 +779,7 @@ func NegotiateBidFeeHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			}
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Fee proposal submitted ("+strconv.FormatInt(newCount, 10)+"/5).")
 		payload.Set("bid", rawBidObject(role, refreshed.fields, refreshed.values))
 
@@ -805,13 +805,13 @@ var rawProjectCarbons = map[string]bool{"design_locked_at": true, "construction_
 var rawProjectWalls = map[string]bool{"design_completed_at": true, "design_authorized_at": true, "construction_completed_at": true, "construction_authorized_at": true, "interior_completed_at": true, "construction_payment_verified_at": true, "interior_payment_verified_at": true, "arsitek_kickoff_at": true, "kontraktor_kickoff_at": true}
 
 // rawProjectObject renders one project row as the model's toArray.
-func rawProjectObject(fields []string, values []any) *jsonphp.Object {
+func rawProjectObject(fields []string, values []any) *jsonwire.Object {
 	byName := map[string]any{}
 	for i, column := range fields {
 		byName[column] = values[i]
 	}
 
-	entry := jsonphp.NewObject()
+	entry := jsonwire.NewObject()
 
 	for _, column := range rawProjectColumns {
 		value, present := byName[column]
@@ -844,9 +844,9 @@ func rawProjectObject(fields []string, values []any) *jsonphp.Object {
 		case rawProjectCarbons[column]:
 			entry.Set(column, timeOrNilBid(byName, column))
 		case rawProjectWalls[column]:
-			entry.Set(column, mysqlWallTime(value))
+			entry.Set(column, wallTime(value))
 		case column == "deadline":
-			entry.Set(column, mysqlDate(value))
+			entry.Set(column, dateString(value))
 		default:
 			entry.Set(column, stringOrNil(value))
 		}
@@ -855,8 +855,9 @@ func rawProjectObject(fields []string, values []any) *jsonphp.Object {
 	return entry
 }
 
-// mysqlWallTime renders a timestamptz as a MySQL wall string.
-func mysqlWallTime(value any) any {
+// wallTime renders a timestamptz as a UTC wall-clock string without an
+// offset, which is the shape these columns use in this response.
+func wallTime(value any) any {
 	if value == nil {
 		return nil
 	}
@@ -866,8 +867,8 @@ func mysqlWallTime(value any) any {
 	return stringOrNil(value)
 }
 
-// mysqlDate renders a date as Y-m-d.
-func mysqlDate(value any) any {
+// dateString renders a date as Y-m-d.
+func dateString(value any) any {
 	if value == nil {
 		return nil
 	}
@@ -1008,7 +1009,7 @@ func ConfirmBidFeeHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		bidObject := rawBidObject(role, refreshed.fields, refreshed.values)
 		bidObject.Set("project", rawProjectObject(projectFields, projectValues))
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Fee agreement confirmed.")
 		payload.Set("bid", bidObject)
 

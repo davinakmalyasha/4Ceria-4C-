@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -126,14 +126,14 @@ func SupplierDeliveryJobsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				vehicleType, licensePlate,
 			}
 
-			entry := jsonphp.NewObject()
+			entry := jsonwire.NewObject()
 			for i, key := range keys {
 				entry.Set(key, deliveryJobValue(values[i]))
 			}
 			list = append(list, entry)
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("success", true)
 		payload.Set("data", list)
 		writeJSON(w, http.StatusOK, payload)
@@ -271,7 +271,7 @@ func VerificationDocumentHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("url", storageSignedURLFor(ctx, rel))
 		writeJSON(w, http.StatusOK, payload)
 	}
@@ -377,13 +377,13 @@ func StoreHouseAnswerHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		entry := jsonphp.NewObject()
+		entry := jsonwire.NewObject()
 		entry.Set("id", answerID)
 		entry.Set("answer", answer)
 		entry.Set("user", user)
 		entry.Set("created_at", projectTimeValue(createdAt))
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", entry)
 		writeJSON(w, http.StatusCreated, payload)
 	}
@@ -485,7 +485,7 @@ func DestroyRoomHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Room deleted successfully")
 		payload.Set("house", updated)
 		writeJSON(w, http.StatusOK, payload)
@@ -594,7 +594,7 @@ func UploadHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		dst.Close()
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("url", "/storage/"+path)
 		payload.Set("path", path)
 		writeJSON(w, http.StatusOK, payload)

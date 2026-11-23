@@ -10,27 +10,28 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/crypto/bcrypt"
 )
 
-// PG IDENTITY — all-PostgreSQL local mode.
+// PG IDENTITY
 //
-// The gateway authenticates against PostgreSQL directly (same Sanctum
-// semantics, same bcrypt `$2y$`, same 2-day expiry). No re-sync, no ETL
-// window, no second pool. There is no second database and no re-sync path.
+// The gateway authenticates against PostgreSQL directly: an opaque
+// `id|plain` bearer token, a SHA-256 lookup, the existing bcrypt `$2y$`
+// hashes, and a two-day expiry. There is no second database and no sync
+// path.
 
-type SanctumPG struct {
+type TokenAuthPG struct {
 	pool *pgxpool.Pool
 }
 
-func NewSanctumPG(pool *pgxpool.Pool) *SanctumPG {
-	return &SanctumPG{pool: pool}
+func NewTokenAuthPG(pool *pgxpool.Pool) *TokenAuthPG {
+	return &TokenAuthPG{pool: pool}
 }
 
-func (s *SanctumPG) Authenticate(r *http.Request) (Caller, error) {
+func (s *TokenAuthPG) Authenticate(r *http.Request) (Caller, error) {
 	header := r.Header.Get("Authorization")
 	if header == "" {
 		return nil, nil
@@ -74,7 +75,7 @@ func (s *SanctumPG) Authenticate(r *http.Request) (Caller, error) {
 	return Session{ID: userID, Role: role, IsAdmin_: role == "admin"}, nil
 }
 
-func mintSanctumTokenPG(ctx context.Context, pool *pgxpool.Pool, userID int64) (string, error) {
+func mintTokenPG(ctx context.Context, pool *pgxpool.Pool, userID int64) (string, error) {
 	entropy, err := randomTokenString(40)
 	if err != nil {
 		return "", err
@@ -154,7 +155,7 @@ func LoginPGHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			message(w, http.StatusForbidden, "Your account has been suspended by the administrator.")
 			return
 		}
-		token, err := mintSanctumTokenPG(r.Context(), pool, id)
+		token, err := mintTokenPG(r.Context(), pool, id)
 		if err != nil {
 			slog.Error("login-pg: token", "error", err)
 			serverError(w)
@@ -180,7 +181,7 @@ func LoginPGHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			serverError(w)
 			return
 		}
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("access_token", token)
 		payload.Set("token_type", "Bearer")
 		payload.Set("user", resource)
@@ -215,7 +216,7 @@ func LogoutPGHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			serverError(w)
 			return
 		}
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Logged out.")
 		writeJSON(w, http.StatusOK, payload)
 	}
@@ -401,7 +402,7 @@ func RegisterPGHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			serverError(w)
 			return
 		}
-		token, err := mintSanctumTokenPG(r.Context(), pool, userID)
+		token, err := mintTokenPG(r.Context(), pool, userID)
 		if err != nil {
 			serverError(w)
 			return
@@ -416,7 +417,7 @@ func RegisterPGHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			serverError(w)
 			return
 		}
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("access_token", token)
 		payload.Set("token_type", "Bearer")
 		payload.Set("user", resource)
@@ -463,7 +464,7 @@ func ForgotPasswordPGHandler(pool *pgxpool.Pool, mail *Mailer) http.HandlerFunc 
 				_ = mail.sendReset(r.Context(), email, plain)
 			}
 		}
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Kode reset telah dikirim ke email Anda.")
 		writeJSON(w, http.StatusOK, payload)
 	}
@@ -543,7 +544,7 @@ func ResetPasswordPGHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		_, _ = pool.Exec(r.Context(), `DELETE FROM password_reset_tokens WHERE email = $1`, email)
 		_, _ = pool.Exec(r.Context(), `DELETE FROM personal_access_tokens WHERE tokenable_id = (SELECT id FROM users WHERE email = $1)`, email)
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Password reset successfully.")
 		writeJSON(w, http.StatusOK, payload)
 	}

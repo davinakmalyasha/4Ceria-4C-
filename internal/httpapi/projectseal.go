@@ -8,7 +8,7 @@ import (
 
 	"github.com/davinakmalyasha/4ceria/internal/domain/authz"
 	"github.com/davinakmalyasha/4ceria/internal/domain/identity"
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -197,7 +197,7 @@ func SealDesignHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", entry)
 		writeJSON(w, http.StatusOK, payload)
 	}

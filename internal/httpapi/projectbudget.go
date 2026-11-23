@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -113,7 +113,7 @@ func BudgetDashboardHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("project_budget", projectDecimal(values, fields, "budget"))
 		payload.Set("transactions", transactions)
 		payload.Set("sandbox_items", sandbox)
@@ -145,7 +145,7 @@ func budgetTransactions(ctx context.Context, pool *pgxpool.Pool, projectID int64
 			return nil, err
 		}
 
-		entry := jsonphp.NewObject()
+		entry := jsonwire.NewObject()
 		entry.Set("id", nullableInt64(id))
 		entry.Set("project_id", nullableInt64(projectIDVal))
 		entry.Set("transaction_type", nullableString(transactionType))
@@ -194,7 +194,7 @@ func budgetSandbox(ctx context.Context, pool *pgxpool.Pool, projectID int64) ([]
 			return nil, err
 		}
 
-		entry := jsonphp.NewObject()
+		entry := jsonwire.NewObject()
 		entry.Set("id", nullableInt64(id))
 		entry.Set("project_id", nullableInt64(projectIDVal))
 		entry.Set("title", nullableString(title))
@@ -229,7 +229,7 @@ func budgetAddendums(ctx context.Context, pool *pgxpool.Pool, projectID int64) (
 			return nil, err
 		}
 
-		entry := jsonphp.NewObject()
+		entry := jsonwire.NewObject()
 		entry.Set("id", nullableInt64(id))
 		entry.Set("project_id", nullableInt64(projectIDVal))
 		entry.Set("type", nullableString(addType))
@@ -321,7 +321,7 @@ func nullableTeamMember(ctx context.Context, pool *pgxpool.Pool, memberID *int64
 		byName[column] = values[i]
 	}
 
-	entry := jsonphp.NewObject()
+	entry := jsonwire.NewObject()
 	for _, column := range fields {
 		value := byName[column]
 		switch column {
@@ -354,7 +354,7 @@ func nullableTeamMember(ctx context.Context, pool *pgxpool.Pool, memberID *int64
 // price restated as a string) with the professional tree, plus the PM
 // block. Roles without an accepted bid render null.
 func budgetAcceptedBids(ctx context.Context, pool *pgxpool.Pool, projectID int64, pmID *int64) (any, error) {
-	accepted := jsonphp.NewObject()
+	accepted := jsonwire.NewObject()
 
 	pmBlock := any(nil)
 	if pmID != nil && *pmID != 0 {
@@ -365,12 +365,12 @@ func budgetAcceptedBids(ctx context.Context, pool *pgxpool.Pool, projectID int64
 			name = *userName
 		}
 
-		user := jsonphp.NewObject()
+		user := jsonwire.NewObject()
 		user.Set("name", name)
-		pm := jsonphp.NewObject()
+		pm := jsonwire.NewObject()
 		pm.Set("user", user)
 
-		block := jsonphp.NewObject()
+		block := jsonwire.NewObject()
 		block.Set("id", *pmID)
 		block.Set("pm", pm)
 		block.Set("price", nil)
@@ -463,7 +463,7 @@ func relationKey(role string) string {
 // is_verified), then the owner user without phones. fullProfileBlock
 // cannot be reused: it appends the user first, which would order any
 // role extra after it.
-func budgetProfileBlock(ctx context.Context, pool *pgxpool.Pool, table string, profileID int64, role string) (*jsonphp.Object, error) {
+func budgetProfileBlock(ctx context.Context, pool *pgxpool.Pool, table string, profileID int64, role string) (*jsonwire.Object, error) {
 	rows, err := pool.Query(ctx, `SELECT `+profileRowColumns(table)+` FROM `+table+` WHERE id = $1`, profileID)
 	if err != nil {
 		return nil, err
@@ -494,7 +494,7 @@ func budgetProfileBlock(ctx context.Context, pool *pgxpool.Pool, table string, p
 	decimalCols := map[string]bool{"rate_harga": true}
 	intCols := map[string]bool{"reliability_score": true}
 
-	block := jsonphp.NewObject()
+	block := jsonwire.NewObject()
 	for _, column := range fields {
 		value := byName[column]
 		switch {
@@ -564,7 +564,7 @@ func budgetTermins(ctx context.Context, pool *pgxpool.Pool, projectID int64) ([]
 			return nil, err
 		}
 
-		entry := jsonphp.NewObject()
+		entry := jsonwire.NewObject()
 		entry.Set("id", nullableInt64(id))
 		entry.Set("project_id", nullableInt64(projectIDVal))
 		entry.Set("role_type", nullableString(roleType))

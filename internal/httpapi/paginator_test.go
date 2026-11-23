@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 )
 
 // TestThePaginatorMatchesTheGoldenShape pins the 13 keys in order and the
@@ -12,11 +12,11 @@ import (
 func TestThePaginatorMatchesTheGoldenShape(t *testing.T) {
 	items := make([]any, 0, 10)
 	for i := 0; i < 10; i++ {
-		items = append(items, jsonphp.NewObject())
+		items = append(items, jsonwire.NewObject())
 	}
 
 	body := Paginate(10, 15, 1, "http://localhost/api/admin/projects", "", items)
-	encoded, err := jsonphp.Marshal(body)
+	encoded, err := jsonwire.Marshal(body)
 	if err != nil {
 		t.Fatalf("Marshal failed: %v", err)
 	}
@@ -56,9 +56,8 @@ func TestThePaginatorMatchesTheGoldenShape(t *testing.T) {
 		}
 	}
 
-	// The slashes are escaped, because PHP's `json_encode` escapes them.
-	if !strings.Contains(got, `http:\/\/localhost\/api\/admin\/projects?page=1`) {
-		t.Errorf("the page URL is not PHP-escaped: %s", got)
+	if !strings.Contains(got, `http://localhost/api/admin/projects?page=1`) {
+		t.Errorf("the page URL is missing: %s", got)
 	}
 }
 
@@ -66,7 +65,7 @@ func TestThePaginatorMatchesTheGoldenShape(t *testing.T) {
 // from/to/next/prev null, one active link, last_page 1.
 func TestTheEmptyPageHasNullFromAndTo(t *testing.T) {
 	body := Paginate(0, 15, 1, "http://localhost/api/x", "", nil)
-	encoded, err := jsonphp.Marshal(body)
+	encoded, err := jsonwire.Marshal(body)
 	if err != nil {
 		t.Fatalf("Marshal failed: %v", err)
 	}
@@ -95,12 +94,12 @@ func TestTheEmptyPageHasNullFromAndTo(t *testing.T) {
 func TestTheEllipsisHasNoPageKey(t *testing.T) {
 	items := make([]any, 0, 15)
 	for i := 0; i < 15; i++ {
-		items = append(items, jsonphp.NewObject())
+		items = append(items, jsonwire.NewObject())
 	}
 
 	// 300 rows at 15 per page, on page 10: the full slider.
 	body := Paginate(300, 15, 10, "http://localhost/api/x", "", items)
-	encoded, err := jsonphp.Marshal(body)
+	encoded, err := jsonwire.Marshal(body)
 	if err != nil {
 		t.Fatalf("Marshal failed: %v", err)
 	}
@@ -131,11 +130,11 @@ func TestTheEllipsisHasNoPageKey(t *testing.T) {
 func TestTheSmallSliderShowsEveryPage(t *testing.T) {
 	items := make([]any, 0, 15)
 	for i := 0; i < 15; i++ {
-		items = append(items, jsonphp.NewObject())
+		items = append(items, jsonwire.NewObject())
 	}
 
 	body := Paginate(150, 15, 5, "http://localhost/api/x", "", items)
-	encoded, err := jsonphp.Marshal(body)
+	encoded, err := jsonwire.Marshal(body)
 	if err != nil {
 		t.Fatalf("Marshal failed: %v", err)
 	}
@@ -172,8 +171,8 @@ func TestTheQueryIsPreservedWithPageLast(t *testing.T) {
 // TestAnInvalidPageReadsAsOne pins `isValidPageNumber`: 0 and negatives are
 // page 1, not an empty result.
 func TestAnInvalidPageReadsAsOne(t *testing.T) {
-	body := Paginate(10, 15, 0, "http://localhost/api/x", "", []any{jsonphp.NewObject()})
-	encoded, err := jsonphp.Marshal(body)
+	body := Paginate(10, 15, 0, "http://localhost/api/x", "", []any{jsonwire.NewObject()})
+	encoded, err := jsonwire.Marshal(body)
 	if err != nil {
 		t.Fatalf("Marshal failed: %v", err)
 	}

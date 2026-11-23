@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -168,14 +168,14 @@ func AdminDisputesHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				paymentShortCode(refTypeKey), paymentID,
 				resolution, resolutionNotes, resolvedAt, createdAt, updatedAt)
 
-			project := jsonphp.NewObject()
+			project := jsonwire.NewObject()
 			project.Set("id", projID)
 			project.Set("title", projTitle)
 			project.Set("status", projStatus)
 			project.Set("budget", projBudget)
 			row.Set("project", project)
 
-			opener := jsonphp.NewObject()
+			opener := jsonwire.NewObject()
 			opener.Set("id", openerID)
 			opener.Set("name", openerName)
 			opener.Set("pic", nullableString(openerPic))
@@ -184,7 +184,7 @@ func AdminDisputesHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			if resolverID == nil {
 				row.Set("resolver", nil)
 			} else {
-				resolver := jsonphp.NewObject()
+				resolver := jsonwire.NewObject()
 				resolver.Set("id", *resolverID)
 				resolver.Set("name", nullableString(resolverName))
 				row.Set("resolver", resolver)
@@ -199,7 +199,7 @@ func AdminDisputesHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		// The controller never calls `appends()` or `withQueryString()`, so
 		// the page URLs carry ONLY `?page=` — the `?status=` filter is read
 		// for the query but dropped from the URLs. Verified live: with
@@ -353,7 +353,7 @@ func AdminDisputeShowHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			paymentShortCode(refTypeKey), paymentID,
 			resolution, resolutionNotes, resolvedAt, createdAt, updatedAt)
 
-		project := jsonphp.NewObject()
+		project := jsonwire.NewObject()
 		project.Set("id", projID)
 		project.Set("title", projTitle)
 		project.Set("status", projStatus)
@@ -362,7 +362,7 @@ func AdminDisputeShowHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		project.Set("user_id", nullableInt64(projUserID))
 		row.Set("project", project)
 
-		opener := jsonphp.NewObject()
+		opener := jsonwire.NewObject()
 		opener.Set("id", openerID)
 		opener.Set("name", openerName)
 		opener.Set("pic", nullableString(openerPic))
@@ -371,7 +371,7 @@ func AdminDisputeShowHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		if resolverID == nil {
 			row.Set("resolver", nil)
 		} else {
-			resolver := jsonphp.NewObject()
+			resolver := jsonwire.NewObject()
 			resolver.Set("id", *resolverID)
 			resolver.Set("name", nullableString(resolverName))
 			row.Set("resolver", resolver)
@@ -414,17 +414,17 @@ func AdminDisputeShowHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 
-			msg := jsonphp.NewObject()
+			msg := jsonwire.NewObject()
 			msg.Set("id", mID)
 			msg.Set("dispute_id", mDisputeID)
 			msg.Set("user_id", mUserID)
 			msg.Set("body", mBody)
 			msg.Set("evidence_path", nullableString(mEvidencePath))
 			msg.Set("evidence_original_name", nullableString(mEvidenceName))
-			msg.Set("created_at", carbon(mCreatedAt))
-			msg.Set("updated_at", carbon(mUpdatedAt))
+			msg.Set("created_at", apiTimestamp(mCreatedAt))
+			msg.Set("updated_at", apiTimestamp(mUpdatedAt))
 
-			author := jsonphp.NewObject()
+			author := jsonwire.NewObject()
 			author.Set("id", uID)
 			author.Set("name", uName)
 			author.Set("pic", nullableString(uPic))
@@ -440,7 +440,7 @@ func AdminDisputeShowHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		row.Set("messages", messages)
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", row)
 
 		writeJSON(w, http.StatusOK, payload)
@@ -459,8 +459,8 @@ func AdminDisputeShowHandler(pool *pgxpool.Pool) http.HandlerFunc {
 func disputeRow(id, projectID, openedBy int64, terminationID, resolvedBy *int64,
 	category, title, description, disputeStatus string, disputedAmount *float64,
 	paymentType *string, paymentID *int64, resolution, resolutionNotes *string,
-	resolvedAt, createdAt, updatedAt *time.Time) *jsonphp.Object {
-	row := jsonphp.NewObject()
+	resolvedAt, createdAt, updatedAt *time.Time) *jsonwire.Object {
+	row := jsonwire.NewObject()
 	row.Set("id", id)
 	row.Set("project_id", projectID)
 	row.Set("opened_by", openedBy)
@@ -475,9 +475,9 @@ func disputeRow(id, projectID, openedBy int64, terminationID, resolvedBy *int64,
 	row.Set("payment_id", nullableInt64(paymentID))
 	row.Set("resolution", nullableString(resolution))
 	row.Set("resolution_notes", nullableString(resolutionNotes))
-	row.Set("resolved_at", carbon(resolvedAt))
-	row.Set("created_at", carbon(createdAt))
-	row.Set("updated_at", carbon(updatedAt))
+	row.Set("resolved_at", apiTimestamp(resolvedAt))
+	row.Set("created_at", apiTimestamp(createdAt))
+	row.Set("updated_at", apiTimestamp(updatedAt))
 
 	return row
 }
@@ -659,23 +659,23 @@ func AdminDisputeReplyHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			`,"dispute_id":` + strconv.FormatInt(disputeID, 10) + `}`
 		insertDisputeNotifications(r.Context(), pool, projectID, "dispute_reply", title, body, data, caller.UserID())
 
-		msg := jsonphp.NewObject()
+		msg := jsonwire.NewObject()
 		msg.Set("dispute_id", disputeID)
 		msg.Set("user_id", caller.UserID())
 		msg.Set("body", bodyText)
 		msg.Set("evidence_path", nullableString(evidencePath))
 		msg.Set("evidence_original_name", nullableString(evidenceName))
-		msg.Set("updated_at", carbon(messageUpdated))
-		msg.Set("created_at", carbon(messageCreated))
+		msg.Set("updated_at", apiTimestamp(messageUpdated))
+		msg.Set("created_at", apiTimestamp(messageCreated))
 		msg.Set("id", messageID)
 
-		author := jsonphp.NewObject()
+		author := jsonwire.NewObject()
 		author.Set("id", caller.UserID())
 		author.Set("name", senderName)
 		author.Set("pic", nullableString(senderPic))
 		msg.Set("user", author)
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Message posted.")
 		payload.Set("data", msg)
 
@@ -768,7 +768,8 @@ func storeEvidence(r *http.Request, disputeID int64, evidence *uploadedFile) (st
 	return rel, truncateRunes(evidence.filename, 255), nil
 }
 
-// truncateRunes is PHP's `mb_substr($name, 0, 255)`.
+// truncateRunes caps a filename by runes, never bytes, so a multibyte name
+// cannot be cut mid-character.
 func truncateRunes(s string, max int) string {
 	runes := []rune(s)
 	if len(runes) <= max {
@@ -778,14 +779,12 @@ func truncateRunes(s string, max int) string {
 }
 
 // notifyDisputeRecipients fans one `dispute_reply` notification out to every
-// participant and every admin except the sender — DisputeService::
-// notifyRecipients line for line:
+// participant and every admin except the sender:
 //
-//   - the owner, the raw `pm_id`, every hired professional's user, every
-//     active sub-professional's user, every admin (by `role_type` or the
-//     Spatie `admin` role), unique, minus the sender;
-//   - `{"project_id":X,"dispute_id":Y}` in PHP's insertion order (the MySQL
-//     golden shows the keys sorted only because the JSON column sorts them);
+//   - the owner, the project manager, every hired professional's user, every
+//     active sub-professional's user, and every admin (by role or admin
+//     role), unique, minus the sender;
+//   - `{"project_id":X,"dispute_id":Y}` as the notification payload;
 //   - best-effort: any failure is logged and the 201 stands.
 func notifyDisputeRecipients(ctx context.Context, pool *pgxpool.Pool, projectID, disputeID int64,
 	projectTitle, disputeTitle, senderName string, senderID int64) {
@@ -1396,7 +1395,7 @@ func AdminDisputeActHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", actMessages[action])
 		payload.Set("data", fresh)
 
@@ -1420,7 +1419,7 @@ func paymentShortCode(typeKey *string) *string {
 
 // readDisputeRow re-reads the seventeen base keys — the controller's
 // `$dispute->fresh()`, without relations.
-func readDisputeRow(ctx context.Context, pool *pgxpool.Pool, disputeID int64) (*jsonphp.Object, error) {
+func readDisputeRow(ctx context.Context, pool *pgxpool.Pool, disputeID int64) (*jsonwire.Object, error) {
 	var (
 		id, projectID, openedBy          int64
 		terminationID, resolvedBy        *int64
@@ -1722,7 +1721,7 @@ func serveEvidence(w http.ResponseWriter, r *http.Request, pool *pgxpool.Pool, p
 	_ = evidenceName
 	_ = evidenceContentType
 
-	payload := jsonphp.NewObject()
+	payload := jsonwire.NewObject()
 	payload.Set("url", storageSignedURLFor(r.Context(), *evidencePath))
 
 	writeJSON(w, http.StatusOK, payload)
@@ -1904,7 +1903,7 @@ func ProjectDisputeWithdrawHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Dispute withdrawn. Payments are unfrozen.")
 		payload.Set("data", fresh)
 

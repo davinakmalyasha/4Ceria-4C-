@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -122,9 +122,9 @@ func jsonVal(value any) any {
 	case float32:
 		return float64(typed)
 	case time.Time:
-		return carbon(&typed)
+		return apiTimestamp(&typed)
 	case []byte:
-		return jsonphp.Raw(typed)
+		return jsonwire.Raw(typed)
 	case []any:
 		// pgx decodes a jsonb array into native values for an `any` target.
 		return typed
@@ -197,8 +197,8 @@ func numericText(value pgtype.Numeric) any {
 }
 
 // encodeRow builds an ordered object from parallel column names and values.
-func encodeRow(columns []string, values []any) *jsonphp.Object {
-	row := jsonphp.NewObject()
+func encodeRow(columns []string, values []any) *jsonwire.Object {
+	row := jsonwire.NewObject()
 
 	for i, column := range columns {
 		row.Set(column, jsonVal(values[i]))
@@ -266,7 +266,7 @@ var ratingTables = map[string][2]string{
 
 // encodeProfile encodes one profile row: every column in table order, then the
 // appends the model declares.
-func encodeProfile(ctx context.Context, pool *pgxpool.Pool, table string, columns []string, values []any) (*jsonphp.Object, error) {
+func encodeProfile(ctx context.Context, pool *pgxpool.Pool, table string, columns []string, values []any) (*jsonwire.Object, error) {
 	row := encodeRow(columns, values)
 
 	byName := map[string]any{}
@@ -305,7 +305,7 @@ func encodeProfile(ctx context.Context, pool *pgxpool.Pool, table string, column
 }
 
 // loadProfile fetches one profile row by user id, or (false, nil) when absent.
-func loadProfile(ctx context.Context, pool *pgxpool.Pool, table, columns string, userID int64) (bool, *jsonphp.Object, error) {
+func loadProfile(ctx context.Context, pool *pgxpool.Pool, table, columns string, userID int64) (bool, *jsonwire.Object, error) {
 	rows, err := pool.Query(ctx, fmt.Sprintf(
 		`SELECT %s FROM %s WHERE user_id = $1 LIMIT 1`, columns, table,
 	), userID)
@@ -354,7 +354,7 @@ func userResource(
 	viewerID int64,
 	viewerIsAdmin bool,
 	relations []string,
-) (*jsonphp.Object, error) {
+) (*jsonwire.Object, error) {
 	private := viewerID == user.ID || viewerIsAdmin
 
 	wanted := map[string]bool{}
@@ -369,7 +369,7 @@ func userResource(
 		wanted["notaris_profile"] = true
 	}
 
-	resource := jsonphp.NewObject()
+	resource := jsonwire.NewObject()
 	resource.Set("id", user.ID)
 	resource.Set("name", user.Name)
 	resource.Set("email", ternary(private, user.Email, nil))
@@ -457,7 +457,7 @@ func userResource(
 
 			profile, _ := resource.Get("notaris_profile")
 
-			if profileObject, ok := profile.(*jsonphp.Object); ok {
+			if profileObject, ok := profile.(*jsonwire.Object); ok {
 				profileObject.Set("services", services)
 			}
 		}
@@ -478,7 +478,7 @@ func userResource(
 		// `photo_url` is appended per row: absolute http passes through,
 		// anything else is served from /storage.
 		for _, member := range members {
-			row, ok := member.(*jsonphp.Object)
+			row, ok := member.(*jsonwire.Object)
 			if !ok {
 				continue
 			}
@@ -513,12 +513,12 @@ func userResource(
 
 		// The pivot rides along, AFTER the attributes, in Eloquent's order.
 		for _, role := range roles {
-			row, ok := role.(*jsonphp.Object)
+			row, ok := role.(*jsonwire.Object)
 			if !ok {
 				continue
 			}
 
-			pivot := jsonphp.NewObject()
+			pivot := jsonwire.NewObject()
 			pivot.Set("model_type", `App\Models\User`)
 			pivot.Set("model_id", user.ID)
 
@@ -582,7 +582,7 @@ func MeHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", resource)
 
 		writeJSON(w, http.StatusOK, payload)

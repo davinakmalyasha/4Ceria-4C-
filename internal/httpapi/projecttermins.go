@@ -11,7 +11,7 @@ import (
 	"github.com/davinakmalyasha/4ceria/internal/domain/escrow"
 	"github.com/davinakmalyasha/4ceria/internal/domain/money"
 	"github.com/davinakmalyasha/4ceria/internal/domain/terminplan"
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -102,7 +102,7 @@ func PaymentTerminsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", out)
 
 		writeJSON(w, http.StatusOK, payload)
@@ -111,7 +111,7 @@ func PaymentTerminsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 // scanTerminRow renders one termin row in MySQL column order with the
 // model casts, plus the milestone block (null when unlinked).
-func scanTerminRow(ctx context.Context, pool *pgxpool.Pool, rows pgxRows) (*jsonphp.Object, error) {
+func scanTerminRow(ctx context.Context, pool *pgxpool.Pool, rows pgxRows) (*jsonwire.Object, error) {
 	entry, milestoneRef, err := scanTerminColumns(rows)
 	if err != nil {
 		return nil, err
@@ -128,7 +128,7 @@ func scanTerminRow(ctx context.Context, pool *pgxpool.Pool, rows pgxRows) (*json
 
 // scanTerminColumns renders the row's OWN columns (table order) and
 // returns the milestone reference for the caller that wants the relation.
-func scanTerminColumns(rows pgxRows) (*jsonphp.Object, *int64, error) {
+func scanTerminColumns(rows pgxRows) (*jsonwire.Object, *int64, error) {
 	var id, projectID, recipientID, milestoneID, changeOrderID *int64
 	var roleType, label, percentage, amount, retention, retentionReleased, net, trigger, status, proofPath, verificationNotes, notes, retentionNotes, refunded *string
 	var paidAt, createdAt, updatedAt any
@@ -139,7 +139,7 @@ func scanTerminColumns(rows pgxRows) (*jsonphp.Object, *int64, error) {
 		return nil, nil, err
 	}
 
-	entry := jsonphp.NewObject()
+	entry := jsonwire.NewObject()
 	entry.Set("id", nullableInt64(id))
 	entry.Set("project_id", nullableInt64(projectID))
 	entry.Set("role_type", nullableString(roleType))
@@ -199,7 +199,7 @@ func nullableMilestone(ctx context.Context, pool *pgxpool.Pool, milestoneID *int
 		return nil, err
 	}
 
-	entry := jsonphp.NewObject()
+	entry := jsonwire.NewObject()
 	entry.Set("id", nullableInt64(id))
 	entry.Set("project_id", nullableInt64(projectID))
 	entry.Set("arsitek_id", nullableInt64(arsitekID))
@@ -217,8 +217,8 @@ func nullableMilestone(ctx context.Context, pool *pgxpool.Pool, milestoneID *int
 	entry.Set("review_status", nullableString(reviewStatus))
 	entry.Set("image", nullableString(image))
 	entry.Set("sort_order", nullableSortOrder(sortOrder))
-	entry.Set("start_date", mysqlDate(startDate))
-	entry.Set("due_date", mysqlDate(dueDate))
+	entry.Set("start_date", dateString(startDate))
+	entry.Set("due_date", dateString(dueDate))
 	entry.Set("is_completed", isCompleted != nil && *isCompleted)
 	entry.Set("approval_status", nullableString(approvalStatus))
 	entry.Set("revision_notes", nullableString(revisionNotes))
@@ -430,7 +430,7 @@ func StoreTerminHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		// The 201 echoes the create in input order — label first, id
 		// near-last, milestone last — not the table order. Build it from
 		// the inputs rather than re-reading the row.
-		created := jsonphp.NewObject()
+		created := jsonwire.NewObject()
 		created.Set("label", input.label)
 		percentageEcho, _ := money.FromColumn(input.percentageText, "IDR")
 		created.Set("percentage", percentageEcho.Decimal())
@@ -456,7 +456,7 @@ func StoreTerminHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		created.Set("milestone", milestone)
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", created)
 
 		writeJSON(w, http.StatusCreated, payload)

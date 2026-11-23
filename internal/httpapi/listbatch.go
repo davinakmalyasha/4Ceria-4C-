@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -158,12 +158,12 @@ func bidNegotiationLogsBatch(ctx context.Context, pool *pgxpool.Pool, projectIDs
 		if err := rows.Scan(&pid, &ref, &userID, &round, &note, &changes, &createdAt, &userName); err != nil {
 			return nil, err
 		}
-		entry := jsonphp.NewObject()
+		entry := jsonwire.NewObject()
 		entry.Set("user_name", userName)
 		entry.Set("round_number", round)
 		entry.Set("note", nullableString(note))
 		entry.Set("changes", jsonOrNil(changes))
-		entry.Set("created_at", carbon(createdAt))
+		entry.Set("created_at", apiTimestamp(createdAt))
 		key := negLogKey{projectID: pid, role: role, refID: ref}
 		out[key] = append(out[key], entry)
 	}
@@ -291,7 +291,7 @@ func projectSubProfessionalsBatch(ctx context.Context, pool *pgxpool.Pool, proje
 			&acceptedAt, &recommendedAt, &hiredAt, &completedAt); err != nil {
 			return nil, err
 		}
-		item := jsonphp.NewObject()
+		item := jsonwire.NewObject()
 		item.Set("id", id)
 		item.Set("user_id", subUserID)
 		item.Set("parent_role", nullableString(parentRole))
@@ -302,10 +302,10 @@ func projectSubProfessionalsBatch(ctx context.Context, pool *pgxpool.Pool, proje
 		item.Set("scope_notes", nullableString(scopeNotes))
 		item.Set("lead_pro_notes", nullableString(leadProNotes))
 		item.Set("suggested_fee", nullableString(suggestedFee))
-		item.Set("accepted_at", carbon(acceptedAt))
-		item.Set("recommended_at", carbon(recommendedAt))
-		item.Set("hired_at", carbon(hiredAt))
-		item.Set("completed_at", carbon(completedAt))
+		item.Set("accepted_at", apiTimestamp(acceptedAt))
+		item.Set("recommended_at", apiTimestamp(recommendedAt))
+		item.Set("hired_at", apiTimestamp(hiredAt))
+		item.Set("completed_at", apiTimestamp(completedAt))
 		item.Set("user", subProfessionalUserFromMaps(subUserID, users, phones))
 		out[subProjectID] = append(out[subProjectID], item)
 	}
@@ -331,7 +331,7 @@ func subProfessionalUserFromMaps(userID int64, users map[int64]map[string]any, p
 	name, _ := u["name"].(string)
 	email, _ := u["email"].(string)
 	role, _ := u["role_type"].(string)
-	user := jsonphp.NewObject()
+	user := jsonwire.NewObject()
 	user.Set("id", id)
 	user.Set("name", name)
 	user.Set("email", email)
@@ -506,7 +506,7 @@ func buildListBundle(ctx context.Context, pool *pgxpool.Pool, projectIDs []int64
 
 // projectOwnerBlockBundled serves the owner block from a bundle when
 // present, otherwise from the database — identical objects either way.
-func projectOwnerBlockBundled(ctx context.Context, pool *pgxpool.Pool, id, ownerID int64, canViewPhone, withPhones bool, bundle *listBundle) (*jsonphp.Object, error) {
+func projectOwnerBlockBundled(ctx context.Context, pool *pgxpool.Pool, id, ownerID int64, canViewPhone, withPhones bool, bundle *listBundle) (*jsonwire.Object, error) {
 	if bundle == nil {
 		return projectOwnerBlock(ctx, pool, ownerID, canViewPhone, withPhones)
 	}
@@ -537,7 +537,7 @@ func bundleNegLogs(bundle *listBundle) *negLogBatch {
 // projectOwnerBlockFromMaps replicates projectOwnerBlock from prefetched
 // maps: no queries, identical objects (missing owner reads as null, exactly
 // like the per-row no-rows branch).
-func projectOwnerBlockFromMaps(ownerID int64, canViewPhone, withPhones bool, bundle *listBundle) *jsonphp.Object {
+func projectOwnerBlockFromMaps(ownerID int64, canViewPhone, withPhones bool, bundle *listBundle) *jsonwire.Object {
 	if ownerID == 0 {
 		return nil
 	}
@@ -549,7 +549,7 @@ func projectOwnerBlockFromMaps(ownerID int64, canViewPhone, withPhones bool, bun
 	if canViewPhone && withPhones {
 		phone = nullableString(bundle.ownerPhones[ownerID])
 	}
-	owner := jsonphp.NewObject()
+	owner := jsonwire.NewObject()
 	owner.Set("id", ownerID)
 	owner.Set("name", name)
 	owner.Set("phone", phone)

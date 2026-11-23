@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -362,7 +362,7 @@ func UpdateMilestoneHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", entry)
 		writeJSON(w, http.StatusOK, payload)
 	}
@@ -439,7 +439,7 @@ func validateMilestoneUpdate(fields map[string]any, files []*galleryUpload, fail
 	}
 
 	if raw, present := fields["is_completed"]; present && raw != nil {
-		if parsed, ok := laravelBoolean(raw); ok {
+		if parsed, ok := booleanInputValue(raw); ok {
 			dup := parsed
 			input.isCompleted = &dup
 		} else {
@@ -517,8 +517,9 @@ func validateMilestoneUpdate(fields map[string]any, files []*galleryUpload, fail
 // sizeBytes reports the upload size.
 func (g *galleryUpload) sizeBytes() int64 { return int64(len(g.data)) }
 
-// laravelBoolean accepts the boolean spellings the original API does.
-func laravelBoolean(value any) (bool, bool) {
+// booleanInputValue accepts the boolean spellings the API has always accepted
+// (a JSON bool, 0/1, and the usual true/false strings).
+func booleanInputValue(value any) (bool, bool) {
 	switch typed := value.(type) {
 	case bool:
 		return typed, true
@@ -644,7 +645,7 @@ func stringList(value any) []string {
 
 // marshalOrderedContent writes the content object for jsonb.
 func marshalOrderedContent(content map[string]any) (string, error) {
-	encoded, err := jsonphp.Marshal(content)
+	encoded, err := jsonwire.Marshal(content)
 	if err != nil {
 		return "", err
 	}

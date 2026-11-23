@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -135,7 +135,7 @@ func DirectoryHandler(pool *pgxpool.Pool, table, base string, withServices bool)
 
 		baseURL := requestBaseURL(r)
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", items)
 		payload.Set("links", pageLinksSummary(baseURL, "", currentPage, lastPage(total, perPage)))
 		payload.Set("meta", directoryMeta(total, perPage, currentPage, basePathOf(baseURL), "", items))
@@ -147,7 +147,7 @@ func DirectoryHandler(pool *pgxpool.Pool, table, base string, withServices bool)
 // directoryRow builds one allowlisted row. Columns are read by presence:
 // a table without the column omits the key — which is how seven different
 // schemas share one emitter without `isset` explosions.
-func directoryRow(ctx context.Context, pool *pgxpool.Pool, table string, fields []string, values []any, withServices bool) (*jsonphp.Object, error) {
+func directoryRow(ctx context.Context, pool *pgxpool.Pool, table string, fields []string, values []any, withServices bool) (*jsonwire.Object, error) {
 	byName := map[string]any{}
 	for i, column := range fields {
 		byName[column] = values[i]
@@ -177,7 +177,7 @@ func directoryRow(ctx context.Context, pool *pgxpool.Pool, table string, fields 
 		return 0, false
 	}
 
-	row := jsonphp.NewObject()
+	row := jsonwire.NewObject()
 	setIf := func(key string, value any, ok bool) {
 		if ok {
 			row.Set(key, value)
@@ -314,7 +314,7 @@ func projectColumnForProfile(table string) (string, bool) {
 
 // directoryUser builds the minimal public user slice. No email, no banks,
 // no team members — ever.
-func directoryUser(ctx context.Context, pool *pgxpool.Pool, userID int64) (*jsonphp.Object, error) {
+func directoryUser(ctx context.Context, pool *pgxpool.Pool, userID int64) (*jsonwire.Object, error) {
 	var id int64
 	var name string
 	var pic *string
@@ -338,7 +338,7 @@ func directoryUser(ctx context.Context, pool *pgxpool.Pool, userID int64) (*json
 			phones.Close()
 			return nil, err
 		}
-		item := jsonphp.NewObject()
+		item := jsonwire.NewObject()
 		item.Set("contact", nullableString(contact))
 		item.Set("id_contact", nullableString(idContact))
 		list = append(list, item)
@@ -347,7 +347,7 @@ func directoryUser(ctx context.Context, pool *pgxpool.Pool, userID int64) (*json
 		return nil, err
 	}
 
-	user := jsonphp.NewObject()
+	user := jsonwire.NewObject()
 	user.Set("id", id)
 	user.Set("name", name)
 	user.Set("pic", nullableString(pic))
@@ -380,7 +380,7 @@ func directoryServices(ctx context.Context, pool *pgxpool.Pool, table string, pr
 		if err := rows.Scan(&id); err != nil {
 			return nil, err
 		}
-		item := jsonphp.NewObject()
+		item := jsonwire.NewObject()
 		item.Set("id", id)
 		item.Set("nama", nil)
 		item.Set("deskripsi", nil)
@@ -391,8 +391,8 @@ func directoryServices(ctx context.Context, pool *pgxpool.Pool, table string, pr
 }
 
 // pageLinksSummary is the four-way summary: first, last, prev, next.
-func pageLinksSummary(basePath, rawQuery string, currentPage, last int) *jsonphp.Object {
-	links := jsonphp.NewObject()
+func pageLinksSummary(basePath, rawQuery string, currentPage, last int) *jsonwire.Object {
+	links := jsonwire.NewObject()
 
 	first := buildPageURL(basePath, rawQuery, 1)
 	lastURL := buildPageURL(basePath, rawQuery, last)
@@ -418,8 +418,8 @@ func pageLinksSummary(basePath, rawQuery string, currentPage, last int) *jsonphp
 
 // directoryMeta is the `PaginatedResourceResponse` meta: the paginator's
 // keys minus the URLs the top-level `links` already carries.
-func directoryMeta(total, perPage, currentPage int, basePath, rawQuery string, items []any) *jsonphp.Object {
-	meta := jsonphp.NewObject()
+func directoryMeta(total, perPage, currentPage int, basePath, rawQuery string, items []any) *jsonwire.Object {
+	meta := jsonwire.NewObject()
 	meta.Set("current_page", currentPage)
 	meta.Set("from", pageFrom(total, perPage, currentPage, len(items)))
 	meta.Set("last_page", lastPage(total, perPage))

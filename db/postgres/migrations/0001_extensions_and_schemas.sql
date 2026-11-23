@@ -56,7 +56,7 @@
 -- The consequence is stated once, here, so nobody has to rediscover it:
 -- MySQL's utf8mb4_0900_ai_ci treats ß = ss and strips accents. PostgreSQL's C
 -- does neither. Every place the legacy schema leaned on that is enumerated in
--- docs/POSTGRES-SCHEMA.md, section "What C costs".
+-- the collation notes in this migration.
 
 CREATE EXTENSION IF NOT EXISTS citext;
 CREATE EXTENSION IF NOT EXISTS pg_trgm;

@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/davinakmalyasha/4ceria/internal/domain/money"
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -45,7 +45,7 @@ var supplierModelColumns = []string{
 }
 
 // supplierRelationObject renders the Supplier model (casts only — no appends).
-func supplierRelationObject(ctx context.Context, pool *pgxpool.Pool, supplierID int64) (*jsonphp.Object, error) {
+func supplierRelationObject(ctx context.Context, pool *pgxpool.Pool, supplierID int64) (*jsonwire.Object, error) {
 	rows, err := pool.Query(ctx, `SELECT `+strings.Join(supplierModelColumns, ", ")+`
 		FROM suppliers WHERE id = $1`, supplierID)
 	if err != nil {
@@ -61,7 +61,7 @@ func supplierRelationObject(ctx context.Context, pool *pgxpool.Pool, supplierID 
 		return nil, err
 	}
 
-	entry := jsonphp.NewObject()
+	entry := jsonwire.NewObject()
 	for i, column := range fields {
 		switch column {
 		case "latitude", "longitude":
@@ -78,8 +78,8 @@ func supplierRelationObject(ctx context.Context, pool *pgxpool.Pool, supplierID 
 // materialQuoteObject renders a quote in table order. `items` is the stored
 // JSON read as TEXT so its key order survives; the created response passes
 // the client's own ordered array instead.
-func materialQuoteObject(ctx context.Context, pool *pgxpool.Pool, byName map[string]any, createdItems any) *jsonphp.Object {
-	entry := jsonphp.NewObject()
+func materialQuoteObject(ctx context.Context, pool *pgxpool.Pool, byName map[string]any, createdItems any) *jsonwire.Object {
+	entry := jsonwire.NewObject()
 	for _, column := range materialQuoteColumns {
 		value := byName[column]
 		switch column {
@@ -126,7 +126,7 @@ func orderedJSONColumn(value any) any {
 
 // materialQuoteRelations attaches supplier/project/user in the endpoint's
 // load order.
-func materialQuoteRelations(ctx context.Context, pool *pgxpool.Pool, entry *jsonphp.Object, byName map[string]any, relations []string) error {
+func materialQuoteRelations(ctx context.Context, pool *pgxpool.Pool, entry *jsonwire.Object, byName map[string]any, relations []string) error {
 	for _, relation := range relations {
 		switch relation {
 		case "supplier":
@@ -289,7 +289,7 @@ func MaterialQuotesIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("success", true)
 		payload.Set("data", out)
 		writeJSON(w, http.StatusOK, payload)
@@ -324,7 +324,7 @@ func StoreMaterialQuoteHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			body, err := io.ReadAll(r.Body)
 			if err == nil {
 				r.Body = io.NopCloser(bytes.NewReader(body))
-				if root, ok := decodeOrderedJSON(string(body)).(*jsonphp.Object); ok {
+				if root, ok := decodeOrderedJSON(string(body)).(*jsonwire.Object); ok {
 					if items, present := root.Get("items"); present {
 						orderedItems = items
 					}
@@ -379,7 +379,7 @@ func StoreMaterialQuoteHandler(pool *pgxpool.Pool) http.HandlerFunc {
 					WHERE project_id = $1 AND user_id = $2 AND status::text = 'active')`,
 					*input.projectID, caller.UserID()).Scan(&subPro)
 				if !subPro {
-					payload := jsonphp.NewObject()
+					payload := jsonwire.NewObject()
 					payload.Set("success", false)
 					payload.Set("message", "You can only request quotes for your own projects.")
 					writeJSON(w, http.StatusForbidden, payload)
@@ -395,7 +395,7 @@ func StoreMaterialQuoteHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		if orderedItems != nil {
 			itemsToStore = orderedItems
 		}
-		encodedItems, err := jsonphp.Marshal(itemsToStore)
+		encodedItems, err := jsonwire.Marshal(itemsToStore)
 		if err != nil {
 			serverError(w)
 			return
@@ -440,7 +440,7 @@ func StoreMaterialQuoteHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		// Build in CREATE order rather than table order.
-		entry := jsonphp.NewObject()
+		entry := jsonwire.NewObject()
 		entry.Set("user_id", caller.UserID())
 		entry.Set("supplier_id", input.supplierID)
 		entry.Set("project_id", projectArg)
@@ -467,7 +467,7 @@ func StoreMaterialQuoteHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("success", true)
 		payload.Set("message", "Quote request recorded successfully.")
 		payload.Set("data", entry)
@@ -698,7 +698,7 @@ func validateMaterialQuote(ctx context.Context, pool *pgxpool.Pool, fields map[s
 
 		// The JSON the database stores: the validated line shape.
 		for _, item := range input.items {
-			line := jsonphp.NewObject()
+			line := jsonwire.NewObject()
 			line.Set("material_id", item.materialID)
 			line.Set("name", item.name)
 			line.Set("price_at_quote", item.priceAtQuote)

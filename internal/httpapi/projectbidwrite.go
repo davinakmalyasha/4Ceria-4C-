@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -127,7 +127,7 @@ func GetProjectBidsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", row)
 
 		writeJSON(w, http.StatusOK, payload)

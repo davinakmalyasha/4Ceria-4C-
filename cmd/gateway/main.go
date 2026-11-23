@@ -77,8 +77,8 @@ func main() {
 	//
 	// The gateway must be runnable without a database for the route-contract
 	// probe, which needs no data. With DATABASE_URL set, the handlers and the
-	// Sanctum authenticator are wired; without it they stay stubs and
-	// `/readyz` reports the reason.
+	// token authenticator are wired; without it they stay stubs and `/readyz`
+	// reports the reason.
 	//
 	// The scheduler lives as long as the process: schedStop fires on shutdown
 	// so in-flight sweeps, not the process exit, bound the wait.
@@ -92,12 +92,11 @@ func main() {
 			os.Exit(1)
 		}
 
-		// Every session parses wall-clock text as UTC. The ETL copies
-		// MySQL walls under SET TIME ZONE 'UTC', and the original API reads those
-		// same walls as UTC — so a timestamp round-tripped through a text
-		// literal (syncRow, ad-hoc fixes) lands on the identical instant
-		// on both stacks. Without this the pool inherits the server
-		// default (Asia/Bangkok), and every text timestamp shifts +7h.
+		// Every session parses wall-clock text as UTC. PostgreSQL stores
+		// timestamptz, but a value round-tripped through a text literal (an
+		// import, an ad-hoc fix, a test fixture) is interpreted in the session
+		// time zone. Pinning UTC makes that interpretation predictable and
+		// keeps every instant independent of the server's local zone.
 		config.AfterConnect = func(ctx context.Context, conn *pgx.Conn) error {
 			_, err := conn.Exec(ctx, "SET TIME ZONE 'UTC'")
 			return err
@@ -136,6 +135,11 @@ func main() {
 		gates.Handlers["delete.api.ai.sessions.session"] = httpapi.AISessionHandler(pool)
 		gates.Handlers["post.api.ai.chat"] = httpapi.AIChatHandler(pool)
 		gates.Handlers["post.api.ai.chat.stream"] = httpapi.AIStreamHandler(pool)
+		gates.Handlers["get.api.ai.memory"] = httpapi.AIMemoryHandler(pool)
+		gates.Handlers["put.api.ai.memory"] = httpapi.AIMemoryHandler(pool)
+		gates.Handlers["delete.api.ai.memory"] = httpapi.AIMemoryHandler(pool)
+		gates.Handlers["delete.api.ai.memory.memory"] = httpapi.AIMemoryItemHandler(pool)
+		gates.Handlers["post.api.mcp"] = httpapi.MCPHandler(pool)
 		gates.Handlers["get.api.me"] = httpapi.MeHandler(pool)
 		gates.Handlers["put.api.me"] = httpapi.UpdateMeHandler(pool)
 		gates.Handlers["post.api.me.avatar"] = httpapi.UpdateAvatarHandler(pool)
@@ -449,8 +453,9 @@ func main() {
 		gates.Handlers["post.api.projects.project.procurement-requests.procurementRequest.verify"] = httpapi.VerifyProcurementHandler(pool)
 		gates.Handlers["post.api.projects.project.procurement-requests.procurementRequest.reject"] = httpapi.RejectProcurementHandler(pool)
 
-		// Identity is PostgreSQL-native (authpg.go). No MySQL at runtime.
-		gates.Auth = httpapi.NewSanctumPG(pool)
+		// Identity is PostgreSQL-native (authpg.go); tokens are stored as
+		// SHA-256 hashes and resolved per request.
+		gates.Auth = httpapi.NewTokenAuthPG(pool)
 		gates.Handlers["post.api.login"] = httpapi.LoginPGHandler(pool)
 		gates.Handlers["post.api.register"] = httpapi.RegisterPGHandler(pool)
 		gates.Handlers["post.api.logout"] = httpapi.LogoutPGHandler(pool)

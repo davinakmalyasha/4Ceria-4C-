@@ -8,10 +8,9 @@ import (
 	"testing"
 )
 
-// The cases here are the PHP suite's cases, case for case: the Go package is a
-// PORT, and a port that computes the same answers for different reasons is
-// still a port. Where the PHP original had a rounding quirk, the Go code
-// states the rule it implements and the test pins it.
+// These cases pin the package's rounding and overflow rules. Each test names
+// the rule it protects, so a future "simplification" that changes an answer
+// fails here rather than in a ledger.
 
 func mustOf(t *testing.T, amount string) Money {
 	t.Helper()
@@ -120,8 +119,8 @@ func TestNormalisesTheCurrencyCode(t *testing.T) {
 }
 
 func TestAddsAndSubtractsExactlyAtMagnitudesThatOverflowAFloat(t *testing.T) {
-	// 2^53 is the last integer a float64 represents exactly. The previous code
-	// used PHP floats, so this is the magnitude where it started losing sen.
+	// 2^53 is the last integer a float64 represents exactly; a float-based
+	// ledger starts losing sen here.
 	const big = int64(1) << 53
 
 	sum, err := New(big, DefaultCurrency).Add(New(big, DefaultCurrency))
@@ -303,10 +302,9 @@ func TestDistributesTheRemainderToTheLargestWeightsFirst(t *testing.T) {
 }
 
 func TestAllocatesByNameDeterministicallyRegardlessOfMapOrder(t *testing.T) {
-	// The PHP original broke ties on the KEY. Go's map iteration order is
-	// randomised, so the Go version sorts the keys and breaks ties on the
-	// NAME — the same guarantee: the same plan produces the same stage
-	// amounts between two requests.
+	// Go's map iteration order is randomised, so the keys are sorted and ties
+	// break on the NAME: the same plan produces the same stage amounts between
+	// two requests.
 	total := mustOf(t, "0.03")
 
 	first, err := total.AllocateNamed(map[string]int64{"dp": 50, "mid": 50})
@@ -333,9 +331,8 @@ func TestAllocatesByNameDeterministicallyRegardlessOfMapOrder(t *testing.T) {
 }
 
 func TestAllocatesDeterministicallyRegardlessOfKeyOrder(t *testing.T) {
-	// The PHP original broke ties on the KEY. The Go version breaks them on
-	// the POSITION, which is the same guarantee: the result never depends on
-	// the order the caller passed the weights in.
+	// Ties break on the POSITION: the result never depends on the order the
+	// caller passed equal weights in.
 	total := mustOf(t, "100.00")
 
 	first, err := total.Allocate([]int64{1, 1, 1, 1, 1, 1, 1})
@@ -376,10 +373,9 @@ func TestHandlesANegativeAmountWhenAllocating(t *testing.T) {
 func TestRefusesToAllocateOverAZeroWeightTotal(t *testing.T) {
 	total := mustOf(t, "100.00")
 
-	// The PHP original refuses an EMPTY list and a ZERO TOTAL, and accepts
-	// everything else. This port matches it exactly: a weight list that sums
-	// to zero cannot be allocated, and a negative weight is unreachable from
-	// the application's own callers.
+	// An EMPTY list and a ZERO TOTAL are refused, and everything else is
+	// accepted: a weight list that sums to zero cannot be allocated, and a
+	// negative weight is unreachable from the application's own callers.
 	if _, err := total.Allocate([]int64{0, 0}); err == nil {
 		t.Fatal("a zero weight total was accepted")
 	}
@@ -429,15 +425,14 @@ func TestRoundsAPercentageHalfAwayFromZero(t *testing.T) {
 }
 
 func TestRoundsANegativePercentageAwayFromZeroNeverTowardIt(t *testing.T) {
-	// The PHP original was `intdiv($minor * bp + 5000, 10000)`, which is
-	// correct for positive amounts and BIASED for negative ones, because
-	// `intdiv` truncates toward zero and the `+ 5000` offset can then round
-	// the WRONG WAY entirely.
+	// A naive `(minor * bp + 5000) / 10000` is correct for positive amounts
+	// and BIASED for negative ones, because truncation toward zero lets the
+	// offset round the WRONG WAY:
 	//
 	//	-1000 minor x 50 bp = -50000; (-50000 + 5000) / 10000 = 0
 	//	expected -5, returned 0
 	//
-	// So `-1.00` at 5% gave `0` instead of `-0.05`. Refunds, reversals and
+	// `-1.00` at 5% would give `0` instead of `-0.05`. Refunds, reversals and
 	// negative adjustments are all real money movements.
 	// -Rp 1.00 is -100 sen; 5% is 500 basis points; the product is -50 000,
 	// and the half-way case is at 5 sen.
@@ -454,10 +449,8 @@ func TestRoundsANegativePercentageAwayFromZeroNeverTowardIt(t *testing.T) {
 		t.Fatalf("5%% of -1.00 = %s, want -0.05", half.Decimal())
 	}
 
-	// And the case the PHP original got WRONG: `intdiv(-50000 + 5000, 10000)`
-	// is `intdiv(-45000, 10000)` = -4, because `intdiv` truncates toward
-	// zero and the `+ 5000` half-up offset can then push the result the
-	// wrong way entirely. A one-sen understatement on every negative
+	// The naive formula gets this WRONG: truncation toward zero plus the
+	// `+ 5000` half-up offset produces a one-sen understatement on a negative
 	// percentage.
 	ten := mustOf(t, "-10.00")
 
@@ -577,8 +570,8 @@ func TestIsImmutableEveryOperationReturnsANewValue(t *testing.T) {
 }
 
 func TestMultiplyByRoundsHalfAwayFromZero(t *testing.T) {
-	// PHP's `round()` is half away from zero, and so is this.
-	// `math.RoundToEven` is NOT, and that is the other plausible choice.
+	// Half away from zero. `math.RoundToEven` is NOT, and that is the other
+	// plausible choice.
 	value := New(5, DefaultCurrency)
 
 	half, err := value.MultiplyBy(0.5)
@@ -600,11 +593,9 @@ func TestMultiplyByRoundsHalfAwayFromZero(t *testing.T) {
 }
 
 func TestRefusesAnAmountThatOverflowsRatherThanCorruptingIt(t *testing.T) {
-	// The differential corpus caught this: at 2^53 minor units the float64
-	// product loses its low bits, and the previous PHP implementation turns the
-	// integer overflow into a float and then CRASHES in `intdiv(float, int)`.
-	//
-	// A crash is bad. A wrong number is worse. So the Go port refuses.
+	// At 2^53 minor units a float64 product loses its low bits. A crash is
+	// bad; a wrong number is worse. The package refuses rather than wrapping
+	// or rounding into a different amount.
 	huge := New(1<<53+1, DefaultCurrency)
 
 	// A percentage whose RESULT passes the int64 ceiling. 11 % of 2^53 is

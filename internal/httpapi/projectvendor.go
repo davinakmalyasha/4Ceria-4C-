@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -235,7 +235,7 @@ func ImportExternalVendorHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			}
 			if budgetMinor-paid < feeMinor {
 				message(w, http.StatusUnprocessableEntity,
-					"Insufficient project budget to allocate the agreed fee of Rp "+phpNumberFormat(agreedFee)+
+					"Insufficient project budget to allocate the agreed fee of Rp "+numberFormat(agreedFee)+
 						" to "+contactPerson+". Reduce the fee, or raise the project budget first.")
 				return
 			}
@@ -278,7 +278,7 @@ func ImportExternalVendorHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		vendor := jsonphp.NewObject()
+		vendor := jsonwire.NewObject()
 		vendor.Set("project_id", projectID)
 		vendor.Set("team_member_id", nullableInt64(teamMemberID))
 		vendor.Set("phase_role", phaseRole)
@@ -309,7 +309,7 @@ func ImportExternalVendorHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "External professional imported successfully.")
 		payload.Set("vendor", vendor)
 		payload.Set("project", projectEntry)

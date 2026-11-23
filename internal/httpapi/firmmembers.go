@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -29,8 +29,8 @@ var firmMemberColumns = []string{
 }
 
 // firmMemberObject renders a firm_members row in table order.
-func firmMemberObject(byName map[string]any) *jsonphp.Object {
-	entry := jsonphp.NewObject()
+func firmMemberObject(byName map[string]any) *jsonwire.Object {
+	entry := jsonwire.NewObject()
 	for _, column := range firmMemberColumns {
 		switch column {
 		case "invited_at", "accepted_at", "requested_at", "created_at", "updated_at":
@@ -46,8 +46,8 @@ func firmMemberObject(byName map[string]any) *jsonphp.Object {
 // keys in the order they were passed to create(), then updated_at BEFORE
 // created_at (Eloquent stamps updated first), then the id. Columns that were
 // never set (e.g. accepted_at on an invite) are ABSENT, not null.
-func firmMemberCreatedObject(byName map[string]any, payloadKeys []string) *jsonphp.Object {
-	entry := jsonphp.NewObject()
+func firmMemberCreatedObject(byName map[string]any, payloadKeys []string) *jsonwire.Object {
+	entry := jsonwire.NewObject()
 	for _, column := range payloadKeys {
 		switch column {
 		case "invited_at", "accepted_at", "requested_at":
@@ -127,8 +127,8 @@ func firmAssetURL(ctx context.Context, value any) any {
 }
 
 // firmUserCard renders the selected user columns of search/suggestions.
-func firmUserCard(ctx context.Context, byName map[string]any) *jsonphp.Object {
-	entry := jsonphp.NewObject()
+func firmUserCard(ctx context.Context, byName map[string]any) *jsonwire.Object {
+	entry := jsonwire.NewObject()
 	entry.Set("id", projectRawValue(byName["id"]))
 	entry.Set("name", projectRawValue(byName["name"]))
 	// `unique_code` is in User:: (PII): Eloquent drops it.
@@ -231,7 +231,7 @@ func FirmMembersSearchHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			out = append(out, firmUserCard(ctx, byName))
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", out)
 		writeJSON(w, http.StatusOK, payload)
 	}
@@ -254,7 +254,7 @@ func FirmMembersSuggestionsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		if viewer.role != "arsitek" && viewer.role != "kontraktor" {
 			payload.Set("data", []any{})
 			writeJSON(w, http.StatusOK, payload)
@@ -444,7 +444,7 @@ func FirmMembersInviteHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				"firm_owner_id", "member_user_id", "role_in_firm", "status", "invited_at",
 			})
 			if index == 0 {
-				member := jsonphp.NewObject()
+				member := jsonwire.NewObject()
 				var name string
 				var id int64
 				_ = pool.QueryRow(ctx, `SELECT id, name FROM users WHERE id = $1`, memberID).Scan(&id, &name)
@@ -455,7 +455,7 @@ func FirmMembersInviteHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			items = append(items, entry)
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Invitations sent to "+memberName)
 		payload.Set("data", items)
 		writeJSON(w, http.StatusCreated, payload)
@@ -557,7 +557,7 @@ func FirmMembersRespondHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			text = "Invitation declined."
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", text)
 		payload.Set("data", firmMemberObject(fresh))
 		writeJSON(w, http.StatusOK, payload)
@@ -633,7 +633,7 @@ func FirmMembersRequestJoinHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Join request sent successfully.")
 		payload.Set("data", firmMemberCreatedObject(row, []string{
 			"firm_owner_id", "member_user_id", "role_in_firm", "status", "requested_at",
@@ -666,7 +666,7 @@ func firmOwnerCard(ctx context.Context, pool *pgxpool.Pool, ownerID int64) (any,
 		LEFT JOIN kontraktors k ON k.user_id = u.id
 		WHERE u.id = $1`, ownerID).Scan(&phone)
 
-	entry := jsonphp.NewObject()
+	entry := jsonwire.NewObject()
 	entry.Set("id", id)
 	entry.Set("name", name)
 	entry.Set("role_type", role)
@@ -679,7 +679,7 @@ func firmOwnerCard(ctx context.Context, pool *pgxpool.Pool, ownerID int64) (any,
 	}
 	if found {
 		average, count := profileRatingValue(ctx, pool, "arsiteks", profileID)
-		block := jsonphp.NewObject()
+		block := jsonwire.NewObject()
 		block.Set("id", profileID)
 		block.Set("user_id", ownerID)
 		block.Set("no_telp", nullableString(profilePhone))
@@ -696,7 +696,7 @@ func firmOwnerCard(ctx context.Context, pool *pgxpool.Pool, ownerID int64) (any,
 		ownerID).Scan(&kontraktorID, &kontraktorPhone, &kontraktorAlamat)
 	if kerr == nil {
 		average, count := profileRatingValue(ctx, pool, "kontraktors", kontraktorID)
-		block := jsonphp.NewObject()
+		block := jsonwire.NewObject()
 		// The previous model appends `lokasi` (its accessor reads `alamat`) and
 		// `no_telp` (its accessor reads `no_telepon`), so the raw `alamat`
 		// column is in the payload too, in select-then-append order.
@@ -782,7 +782,7 @@ func FirmMembersInvitationsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			serverError(w)
 			return
 		}
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", out)
 		writeJSON(w, http.StatusOK, payload)
 	}
@@ -804,7 +804,7 @@ func FirmMembersMyFirmsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			serverError(w)
 			return
 		}
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", out)
 		writeJSON(w, http.StatusOK, payload)
 	}
@@ -826,7 +826,7 @@ func FirmMembersRosterHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			serverError(w)
 			return
 		}
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		if viewer.role != "arsitek" && viewer.role != "kontraktor" {
 			payload.Set("data", []any{})
 			writeJSON(w, http.StatusOK, payload)
@@ -929,7 +929,7 @@ func FirmMembersRemoveHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			serverError(w)
 			return
 		}
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Member offboarded successfully.")
 		payload.Set("data", firmMemberObject(fresh))
 		writeJSON(w, http.StatusOK, payload)
@@ -994,7 +994,7 @@ func FirmMembersBrowseOwnersHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				serverError(w)
 				return
 			}
-			entry := jsonphp.NewObject()
+			entry := jsonwire.NewObject()
 			entry.Set("id", id)
 			entry.Set("name", name)
 			entry.Set("role_type", role)
@@ -1018,7 +1018,7 @@ func FirmMembersBrowseOwnersHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			out = append(out, entry)
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", out)
 		writeJSON(w, http.StatusOK, payload)
 	}

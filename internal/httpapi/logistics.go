@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -62,8 +62,8 @@ func dbTableTime(value any) any {
 // dbTableObject renders one raw row in SELECT order. `created_at` and
 // `updated_at` are the only columns the query builder treats specially; every
 // other value is already text/int because the SELECT list casts it.
-func dbTableObject(fields []string, values []any) *jsonphp.Object {
-	entry := jsonphp.NewObject()
+func dbTableObject(fields []string, values []any) *jsonwire.Object {
+	entry := jsonwire.NewObject()
 	for i, column := range fields {
 		switch column {
 		case "created_at", "updated_at":
@@ -141,7 +141,7 @@ func LogisticsAvailableJobsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("success", true)
 		payload.Set("data", out)
 		writeJSON(w, http.StatusOK, payload)
@@ -192,7 +192,7 @@ func LogisticsAcceptJobHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			}
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("success", true)
 		payload.Set("message", "Job accepted successfully.")
 		writeJSON(w, http.StatusOK, payload)
@@ -232,7 +232,7 @@ func LogisticsDashboardStatsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			}
 		}
 
-		stats := jsonphp.NewObject()
+		stats := jsonwire.NewObject()
 		stats.Set("available", available)
 		stats.Set("accepted", accepted)
 		stats.Set("completed", completed)
@@ -267,7 +267,7 @@ func LogisticsDashboardStatsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("success", true)
 		payload.Set("stats", stats)
 		payload.Set("recentJobs", recent)
@@ -326,7 +326,7 @@ func LogisticsMyJobsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("success", true)
 		payload.Set("data", out)
 		writeJSON(w, http.StatusOK, payload)
@@ -474,7 +474,7 @@ func LogisticsUpdateStatusHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		if len(storedPaths) > 0 {
-			encoded, err := jsonphp.Marshal(storedPaths)
+			encoded, err := jsonwire.Marshal(storedPaths)
 			if err != nil {
 				serverError(w)
 				return
@@ -495,7 +495,7 @@ func LogisticsUpdateStatusHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			}
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("success", true)
 		payload.Set("message", "Job status updated to "+newStatus)
 		if storedPaths == nil {

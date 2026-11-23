@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -44,11 +44,11 @@ func commentUserBlock(ctx context.Context, pool *pgxpool.Pool, userID int64) any
 	if err != nil || user == nil {
 		return nil
 	}
-	object, ok := user.(*jsonphp.Object)
+	object, ok := user.(*jsonwire.Object)
 	if !ok {
 		return user
 	}
-	clean := jsonphp.NewObject()
+	clean := jsonwire.NewObject()
 	for _, key := range object.Keys() {
 		if commentSensitiveUserKeys[key] {
 			continue
@@ -83,8 +83,8 @@ func commentRow(ctx context.Context, pool *pgxpool.Pool, commentID int64) (map[s
 }
 
 // commentObject renders a comment in table order.
-func commentObject(byName map[string]any) *jsonphp.Object {
-	entry := jsonphp.NewObject()
+func commentObject(byName map[string]any) *jsonwire.Object {
+	entry := jsonwire.NewObject()
 	for _, column := range commentColumns {
 		value := byName[column]
 		switch column {
@@ -98,7 +98,7 @@ func commentObject(byName map[string]any) *jsonphp.Object {
 }
 
 // commentFull adds the sanitized author and the parent subtree.
-func commentFull(ctx context.Context, pool *pgxpool.Pool, byName map[string]any) (*jsonphp.Object, error) {
+func commentFull(ctx context.Context, pool *pgxpool.Pool, byName map[string]any) (*jsonwire.Object, error) {
 	entry := commentObject(byName)
 	if err := commentRelations(ctx, pool, entry, byName, false); err != nil {
 		return nil, err
@@ -109,8 +109,8 @@ func commentFull(ctx context.Context, pool *pgxpool.Pool, byName map[string]any)
 // commentCreatedObject renders Eloquent\u0027s CREATED comment: the payload order
 // (user_id, message, parent_id), then the relation-stamped project_id, the
 // timestamps and id, then the loaded user/parent.
-func commentCreatedObject(ctx context.Context, pool *pgxpool.Pool, byName map[string]any) (*jsonphp.Object, error) {
-	entry := jsonphp.NewObject()
+func commentCreatedObject(ctx context.Context, pool *pgxpool.Pool, byName map[string]any) (*jsonwire.Object, error) {
+	entry := jsonwire.NewObject()
 	entry.Set("user_id", projectRawValue(byName["user_id"]))
 	entry.Set("message", projectRawValue(byName["message"]))
 	entry.Set("parent_id", projectRawValue(byName["parent_id"]))
@@ -126,7 +126,7 @@ func commentCreatedObject(ctx context.Context, pool *pgxpool.Pool, byName map[st
 }
 
 // commentRelations attaches the sanitized author and the parent subtree.
-func commentRelations(ctx context.Context, pool *pgxpool.Pool, entry *jsonphp.Object, byName map[string]any, parentFirst bool) error {
+func commentRelations(ctx context.Context, pool *pgxpool.Pool, entry *jsonwire.Object, byName map[string]any, parentFirst bool) error {
 	author := intPtrDeref(byName["user_id"])
 	if !parentFirst {
 		if author != 0 {
@@ -253,7 +253,7 @@ func ProjectCommentsIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", out)
 		writeJSON(w, http.StatusOK, payload)
 	}
@@ -363,7 +363,7 @@ func ProjectCommentsStoreHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", []any{entry})
 		writeJSON(w, http.StatusOK, payload)
 	}
@@ -483,7 +483,7 @@ func UpdateCommentHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", commentObject(fresh))
 		writeJSON(w, http.StatusOK, payload)
 	}

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -354,8 +354,8 @@ var projectModelTimeCols = map[string]bool{
 	"created_at": true, "updated_at": true, "deleted_at": true,
 }
 
-// mysqlDateTime renders an uncast timestamp as MySQL hands it to PHP.
-func mysqlDateTime(value any) any {
+// dateStringTime renders an uncast timestamp as MySQL hands it to PHP.
+func dateStringTime(value any) any {
 	if value == nil {
 		return nil
 	}
@@ -373,7 +373,7 @@ func mysqlDateTime(value any) any {
 
 // rawProjectModel serializes the Project model as Eloquent would with no
 // relations loaded: physical column order, casts applied.
-func rawProjectModel(ctx context.Context, pool *pgxpool.Pool, projectID int64) (*jsonphp.Object, error) {
+func rawProjectModel(ctx context.Context, pool *pgxpool.Pool, projectID int64) (*jsonwire.Object, error) {
 	rows, err := pool.Query(ctx, `SELECT `+strings.Join(projectModelColumns, ", ")+` FROM projects WHERE id = $1`, projectID)
 	if err != nil {
 		return nil, err
@@ -388,7 +388,7 @@ func rawProjectModel(ctx context.Context, pool *pgxpool.Pool, projectID int64) (
 		return nil, err
 	}
 
-	model := jsonphp.NewObject()
+	model := jsonwire.NewObject()
 	for i, column := range fields {
 		value := values[i]
 		switch {
@@ -409,9 +409,9 @@ func rawProjectModel(ctx context.Context, pool *pgxpool.Pool, projectID int64) (
 		case projectModelTimeCols[column]:
 			model.Set(column, projectTimeValue(value))
 		case column == "deadline":
-			model.Set(column, mysqlDate(value))
+			model.Set(column, dateString(value))
 		case strings.HasSuffix(column, "_at"):
-			model.Set(column, mysqlDateTime(value))
+			model.Set(column, dateStringTime(value))
 		default:
 			model.Set(column, projectRawValue(value))
 		}
@@ -454,7 +454,7 @@ func readOrderedJSON(decoder *json.Decoder) (any, error) {
 
 	switch delim {
 	case '{':
-		object := jsonphp.NewObject()
+		object := jsonwire.NewObject()
 		for decoder.More() {
 			keyToken, err := decoder.Token()
 			if err != nil {
@@ -530,7 +530,7 @@ func projectFloatValue(value any) any {
 
 // profileModelObject serializes a professional profile exactly like its
 // Eloquent model: columns in table order, then its `$appends`, then `user`.
-func profileModelObject(ctx context.Context, pool *pgxpool.Pool, table string, profileID int64, withUser bool) (*jsonphp.Object, error) {
+func profileModelObject(ctx context.Context, pool *pgxpool.Pool, table string, profileID int64, withUser bool) (*jsonwire.Object, error) {
 	columns, known := profileModelColumns[table]
 	if !known {
 		columns = []string{"*"}
@@ -550,7 +550,7 @@ func profileModelObject(ctx context.Context, pool *pgxpool.Pool, table string, p
 	}
 
 	byName := map[string]any{}
-	block := jsonphp.NewObject()
+	block := jsonwire.NewObject()
 	for i, column := range fields {
 		byName[column] = values[i]
 		switch {
@@ -654,7 +654,7 @@ func milestoneGalleryURLs(ctx context.Context, gallery any) []any {
 // milestoneContentObject renders `content` with gallery URLs.
 func milestoneContentObject(ctx context.Context, value any) any {
 	decoded := eloquentJSONValue(value)
-	obj, ok := decoded.(*jsonphp.Object)
+	obj, ok := decoded.(*jsonwire.Object)
 	if !ok {
 		return decoded
 	}
@@ -674,7 +674,7 @@ type milestoneRenderFlags struct {
 	pmVerifiedCarbon bool
 }
 
-func milestoneApproveObject(ctx context.Context, pool *pgxpool.Pool, projectID, milestoneID int64, flags milestoneRenderFlags) (*jsonphp.Object, error) {
+func milestoneApproveObject(ctx context.Context, pool *pgxpool.Pool, projectID, milestoneID int64, flags milestoneRenderFlags) (*jsonwire.Object, error) {
 	// `content` must be selected as TEXT: pgx decodes jsonb into a Go map,
 	// which loses the stored key order the reference preserves.
 	columns := make([]string, 0, len(milestoneApproveColumns))
@@ -702,7 +702,7 @@ func milestoneApproveObject(ctx context.Context, pool *pgxpool.Pool, projectID, 
 	}
 
 	byName := map[string]any{}
-	entry := jsonphp.NewObject()
+	entry := jsonwire.NewObject()
 	for i, column := range fields {
 		byName[column] = values[i]
 		switch column {
@@ -714,13 +714,13 @@ func milestoneApproveObject(ctx context.Context, pool *pgxpool.Pool, projectID, 
 			if flags.leadProCarbon {
 				entry.Set(column, projectTimeValue(values[i]))
 			} else {
-				entry.Set(column, mysqlDateTime(values[i]))
+				entry.Set(column, dateStringTime(values[i]))
 			}
 		case "pm_verified_at":
 			if flags.pmVerifiedCarbon {
 				entry.Set(column, projectTimeValue(values[i]))
 			} else {
-				entry.Set(column, mysqlDateTime(values[i]))
+				entry.Set(column, dateStringTime(values[i]))
 			}
 		case "is_completed":
 			boolean := false
@@ -1014,7 +1014,7 @@ func ApproveMilestoneHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", entry)
 		writeJSON(w, http.StatusOK, payload)
 	}

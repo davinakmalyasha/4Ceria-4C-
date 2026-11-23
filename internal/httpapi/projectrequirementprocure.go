@@ -10,7 +10,7 @@ import (
 	"github.com/davinakmalyasha/4ceria/internal/domain/identity"
 	"github.com/davinakmalyasha/4ceria/internal/domain/money"
 	"github.com/davinakmalyasha/4ceria/internal/domain/terminplan"
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -113,7 +113,7 @@ func ProcurementListHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", out)
 
 		writeJSON(w, http.StatusOK, payload)
@@ -146,10 +146,10 @@ func scanProcurementRow(rows pgx.Rows, width int) (procurementRow, error) {
 // procurementEntry renders one row: table columns in order with the
 // decimal casts, the nested requirement (columns plus image_url, no
 // user) and the requesting user.
-func procurementEntry(ctx context.Context, pool *pgxpool.Pool, row procurementRow, withRequirement, withRequester bool) (*jsonphp.Object, error) {
+func procurementEntry(ctx context.Context, pool *pgxpool.Pool, row procurementRow, withRequirement, withRequester bool) (*jsonwire.Object, error) {
 	byName := row.byName
 
-	entry := jsonphp.NewObject()
+	entry := jsonwire.NewObject()
 	for _, column := range row.fields {
 		value := byName[column]
 		switch column {
@@ -346,7 +346,7 @@ func RequestProcurementHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				serverError(w)
 				return
 			}
-			data := mysqlJSONPair(`"project_id": `+strconv.FormatInt(projectID, 10), `"request_id": `+strconv.FormatInt(createdID, 10))
+			data := jsonPair(`"project_id": `+strconv.FormatInt(projectID, 10), `"request_id": `+strconv.FormatInt(createdID, 10))
 			if err := insertNotification(ctx, tx, pmUserID, "verification_required", "Material Procurement Requested",
 				"A new request for "+name+" ("+input.quantityText+" "+unit+") is pending your review.", data); err != nil {
 				slog.Error("procure: notify pm", "error", err)
@@ -369,7 +369,7 @@ func RequestProcurementHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				serverError(w)
 				return
 			}
-			data := mysqlJSONPair(`"project_id": `+strconv.FormatInt(projectID, 10), `"request_id": `+strconv.FormatInt(createdID, 10), `"addendum_id": `+strconv.FormatInt(addendumID, 10))
+			data := jsonPair(`"project_id": `+strconv.FormatInt(projectID, 10), `"request_id": `+strconv.FormatInt(createdID, 10), `"addendum_id": `+strconv.FormatInt(addendumID, 10))
 			if err := insertNotification(ctx, tx, ownerID, "budget_approval_needed", "Budget Authorization Needed",
 				"Direct procurement request for "+name+". Authorize Rp "+whole+" to proceed.", data); err != nil {
 				slog.Error("procure: notify owner", "error", err)
@@ -391,7 +391,7 @@ func RequestProcurementHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", procurementCreateResponse(created))
 
 		writeJSON(w, http.StatusOK, payload)
@@ -547,10 +547,10 @@ func nullableTotal(hasPM bool, total money.Money) any {
 
 // procurementCreateResponse renders the 200 in create order: the
 // assigned fields as written, then project_id, the timestamps and id.
-func procurementCreateResponse(row procurementRow) *jsonphp.Object {
+func procurementCreateResponse(row procurementRow) *jsonwire.Object {
 	byName := row.byName
 
-	entry := jsonphp.NewObject()
+	entry := jsonwire.NewObject()
 	entry.Set("requirement_id", nullableInt64(intPtrOf(byName["requirement_id"])))
 	entry.Set("requested_by", nullableInt64(intPtrOf(byName["requested_by"])))
 	entry.Set("quantity_needed", decimalOrNilBid(byName, "quantity_needed"))

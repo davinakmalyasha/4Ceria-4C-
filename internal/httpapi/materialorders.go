@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -68,8 +68,8 @@ func materialOrderSelectList() string {
 }
 
 // materialOrderObject renders the order in table order.
-func materialOrderObject(byName map[string]any) *jsonphp.Object {
-	entry := jsonphp.NewObject()
+func materialOrderObject(byName map[string]any) *jsonwire.Object {
+	entry := jsonwire.NewObject()
 	for _, column := range materialOrderColumns {
 		value := byName[column]
 		switch column {
@@ -140,7 +140,7 @@ func materialOrderItems(ctx context.Context, pool *pgxpool.Pool, orderID int64) 
 			&createdAt, &updatedAt, &requirementID); err != nil {
 			return nil, err
 		}
-		item := jsonphp.NewObject()
+		item := jsonwire.NewObject()
 		item.Set("id", itemID)
 		item.Set("order_id", order)
 		item.Set("material_id", materialID)
@@ -194,7 +194,7 @@ func materialOrderReviewObject(ctx context.Context, pool *pgxpool.Pool, orderID 
 		&deliveryUserID, &imagePaths, &deliveryPaths); err != nil {
 		return nil, err
 	}
-	entry := jsonphp.NewObject()
+	entry := jsonwire.NewObject()
 	entry.Set("id", id)
 	entry.Set("user_id", userID)
 	entry.Set("supplier_id", supplierID)
@@ -245,7 +245,7 @@ func materialOrderDeliveryJobObject(ctx context.Context, pool *pgxpool.Pool, ord
 		return nil, err
 	}
 
-	entry := jsonphp.NewObject()
+	entry := jsonwire.NewObject()
 	entry.Set("id", id)
 	entry.Set("quote_id", nullableInt64(quoteID))
 	entry.Set("order_id", order)
@@ -281,7 +281,7 @@ func materialOrderDeliveryJobObject(ctx context.Context, pool *pgxpool.Pool, ord
 }
 
 // materialOrderRelations attaches the endpoint's relations in load order.
-func materialOrderRelations(ctx context.Context, pool *pgxpool.Pool, entry *jsonphp.Object, byName map[string]any, relations []string) error {
+func materialOrderRelations(ctx context.Context, pool *pgxpool.Pool, entry *jsonwire.Object, byName map[string]any, relations []string) error {
 	for _, relation := range relations {
 		switch relation {
 		case "supplier":
@@ -415,7 +415,7 @@ func MaterialOrdersIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("success", true)
 		payload.Set("data", out)
 		writeJSON(w, http.StatusOK, payload)
@@ -475,7 +475,7 @@ func MaterialOrderShowHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("success", true)
 		payload.Set("data", entry)
 		writeJSON(w, http.StatusOK, payload)
@@ -605,7 +605,7 @@ func UploadOrderPaymentProofHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("success", true)
 		payload.Set("message", "Payment proof uploaded. Waiting for supplier verification.")
 		payload.Set("data", entry)

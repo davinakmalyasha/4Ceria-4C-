@@ -7,11 +7,11 @@ import { apiFetch, ApiFailure } from '@/lib/api';
 /**
  * Update a house listing the signed-in owner posted.
  *
- * The route is PUT, but the gallery makes the body multipart — PHP does not
- * parse multipart on a real PUT, so the action POSTs with `_method=PUT` (the
- * previous modal sends the same override in the body). Gallery changes use
- * `house_pics[]` for new files and `deleted_house_pics[]` for removed rows; the
- * controller deletes the physical files and scopes every id to this house.
+ * The route is `PUT /api/houses/{id}`. The Go gateway parses multipart bodies
+ * for every method, so the gallery can ride on the real PUT rather than the
+ * old form-post method override. Gallery changes use `house_pics[]` for new
+ * files and `deleted_house_pics[]` for removed rows; the handler deletes the
+ * physical files and scopes every id to this house.
  */
 export async function updateHouse(formData: FormData): Promise<void> {
     const id = Number(formData.get('house_id'));
@@ -20,7 +20,6 @@ export async function updateHouse(formData: FormData): Promise<void> {
     }
 
     const body = new FormData();
-    body.set('_method', 'PUT');
 
     for (const key of [
         'name',
@@ -58,7 +57,7 @@ export async function updateHouse(formData: FormData): Promise<void> {
     });
 
     try {
-        await apiFetch(`/houses/${id}`, { method: 'POST', body });
+        await apiFetch(`/houses/${id}`, { method: 'PUT', body });
     } catch (error) {
         if (error instanceof ApiFailure) {
             redirect(`/dashboard/my-houses?error=${encodeURIComponent(error.message)}`);

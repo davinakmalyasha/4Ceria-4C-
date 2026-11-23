@@ -234,9 +234,9 @@ func insertActivityLog(ctx context.Context, tx pgx.Tx, projectID, userID int64, 
 	return err
 }
 
-// insertNotification writes a notifications row. Data is rendered in MySQL
-// JSON text form (space after `:` and `,`), because the previous store is a
-// MySQL JSON column and its normalization is the wire shape.
+// insertNotification writes a notifications row. Data is rendered in the
+// API's canonical JSON text form (space after `:` and `,`) so the stored
+// fragment is stable and readable.
 func insertNotification(ctx context.Context, tx pgx.Tx, userID int64, kind, title, body, data string) error {
 	_, err := tx.Exec(ctx, `INSERT INTO notifications (user_id, type, title, body, data, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, date_trunc('second', now()), date_trunc('second', now()))`,
 		userID, kind, title, body, data)
@@ -246,13 +246,13 @@ func insertNotification(ctx context.Context, tx pgx.Tx, userID int64, kind, titl
 	return nil
 }
 
-// mysqlJSONPair renders `{"project_id": 1, ...}` in MySQL JSON text form.
-func mysqlJSONPair(pairs ...string) string {
+// jsonPair renders `{"project_id": 1, ...}` in the canonical JSON text form.
+func jsonPair(pairs ...string) string {
 	return "{" + strings.Join(pairs, ", ") + "}"
 }
 
-// mysqlJSONStr renders a JSON string value.
-func mysqlJSONStr(value string) string {
+// jsonString renders a JSON string value.
+func jsonString(value string) string {
 	encoded, err := json.Marshal(value)
 	if err != nil {
 		return `""`

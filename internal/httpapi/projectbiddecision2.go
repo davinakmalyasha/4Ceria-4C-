@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -173,7 +173,7 @@ func kickoffMilestoneTx(ctx context.Context, tx pgx.Tx, projectID int64) error {
 }
 
 // acceptShowAfterWrite reloads the project for the accept/decline 200.
-func acceptShowAfterWrite(ctx context.Context, pool *pgxpool.Pool, spec projectLoad, projectID int64, viewer *projectViewer) (*jsonphp.Object, error) {
+func acceptShowAfterWrite(ctx context.Context, pool *pgxpool.Pool, spec projectLoad, projectID int64, viewer *projectViewer) (*jsonwire.Object, error) {
 	fields, values, err := projectRowByID(ctx, pool, projectID)
 	if err != nil {
 		return nil, err
@@ -486,7 +486,7 @@ func AcceptBidHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			}
 
 			wireID := bidWireID(bid)
-			data := mysqlJSONPair(`"project_id": `+strconv.FormatInt(projectID, 10), `"bid_id": `+strconv.FormatInt(wireID, 10), `"bid_type": "`+bidType+`"`)
+			data := jsonPair(`"project_id": `+strconv.FormatInt(projectID, 10), `"bid_id": `+strconv.FormatInt(wireID, 10), `"bid_type": "`+bidType+`"`)
 			if err := insertNotification(ctx, tx, ownerID, "bid_recommended", "Professional Recommended", "Your Project Manager has recommended a professional for your project \""+title+"\". Please review and approve.", data); err != nil {
 				slog.Error("accept-bid: notify", "error", err)
 				serverError(w)
@@ -506,7 +506,7 @@ func AcceptBidHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 
-			payload := jsonphp.NewObject()
+			payload := jsonwire.NewObject()
 			payload.Set("data", row)
 			writeJSON(w, http.StatusOK, payload)
 			return
@@ -526,7 +526,7 @@ func AcceptBidHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		if bidderUserID != nil {
-			data := mysqlJSONPair(`"project_id": ` + strconv.FormatInt(projectID, 10))
+			data := jsonPair(`"project_id": ` + strconv.FormatInt(projectID, 10))
 			if err := insertNotification(ctx, tx, *bidderUserID, "bid_accepted", "Congratulations! Your Bid was Accepted", "Your proposal for project \""+title+"\" has been accepted. You are now officially assigned to the project.", data); err != nil {
 				slog.Error("accept-bid: notify hire", "error", err)
 				serverError(w)
@@ -563,7 +563,7 @@ func AcceptBidHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", row)
 		writeJSON(w, http.StatusOK, payload)
 	}
@@ -707,7 +707,7 @@ func DeclineBidHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			body += " Reason: " + *reason
 			reasonText = strconv.Quote(*reason)
 		}
-		data := mysqlJSONPair(`"project_id": `+strconv.FormatInt(projectID, 10), `"rejection_reason": `+reasonText)
+		data := jsonPair(`"project_id": `+strconv.FormatInt(projectID, 10), `"rejection_reason": `+reasonText)
 
 		if bidderUserID != nil {
 			if err := insertNotification(ctx, tx, *bidderUserID, "bid_rejected", "Proposal Update", body, data); err != nil {
@@ -730,7 +730,7 @@ func DeclineBidHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", row)
 		writeJSON(w, http.StatusOK, payload)
 	}

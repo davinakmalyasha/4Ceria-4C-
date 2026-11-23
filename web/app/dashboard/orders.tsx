@@ -8,8 +8,8 @@ import { updateOrderStatus, uploadOrderProof, verifyOrderPayment } from './order
  * `GET /material-orders` returns the buyer's orders (or a supplier's sent and
  * received orders) with `supplier`, `user`, `project`, `items.material`,
  * `review` and the delivery job. The server renders the list and the lifecycle
- * forms; the transitions go through `order-actions.ts` (a multipart POST with
- * `_method=PUT`, which is also how the dispatch document is uploaded).
+ * forms; the transitions go through `order-actions.ts` (a multipart PUT, which
+ * is also how the dispatch document is uploaded).
  */
 
 export interface MaterialOrderItem {

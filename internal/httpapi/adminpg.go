@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -61,7 +61,7 @@ func AdminSuspendUserPGHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		if next {
 			text = "User account suspended successfully. All active sessions were revoked."
 		}
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", text)
 		payload.Set("user", user)
 		writeJSON(w, http.StatusOK, payload)
@@ -144,7 +144,7 @@ func AdminUpdateUserRolePGHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			serverError(w)
 			return
 		}
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "User role updated successfully.")
 		payload.Set("user", user)
 		writeJSON(w, http.StatusOK, payload)

@@ -1,43 +1,22 @@
-// Package authz implements App\Support\Hire.
+// Package authz answers one question once:
 //
-// ONE RULE, STATED ONCE
-// ----------------------
-// "Is this user the hired professional for this role on this project?"
+//	"Is this user the hired professional for this role on this project?"
 //
-// The original application answered that question in roughly eighty places
-// across twenty-five controllers, written a dozen different ways:
+// A null comparison is the trap. If the project has no architect and the user
+// has no architect profile, a comparison of two nullable ids can read as a
+// match. That is not a theoretical bug: it is how a user with a role label but
+// no profile row could reach another project's payment stages, dispute thread,
+// evidence files, document vault, phase sealing, BOM writes, warranty closure
+// and termination.
 //
-//	(int) $project->selected_arsitek_id === (int) $user->arsitek?->id
-//	$project->pm_id === $user->id
-//	$user->id === $project->pm_id
-//	...
-//
-// Six of those spellings were VULNERABLE, and the vulnerability was quiet:
-//
-//	(int) $project->selected_arsitek_id === (int) $user->arsitek?->id
-//
-// With no architect on the project and no profile on the user, that is
-// `(int)null === (int)null`, which in PHP is TRUE:
-//
-//	var_dump((int)null === (int)null);   // bool(true)
-//	var_dump((int)null === (int)0);     // bool(true)
-//
-// So a user whose `role_type` was `arsitek` but who had NO `arsiteks` row
-// read as the hired architect of EVERY project that had no architect. The
-// reachable set was not small: minting a payment stage on a foreign project,
-// reading another project's stages, reading a dispute thread and downloading
-// its EVIDENCE FILES from the private disk, the private document vault, phase
-// sealing, BOM writes, warranty closure, and termination.
-//
-// The rule, in one place, requires ALL FOUR of:
+// The rule requires ALL FOUR of:
 //
 //  1. the user's role is the role being asked about;
 //  2. the user has a PROFILE for that role;
 //  3. the project's column for that role is not null;
 //  4. the two PROFILE ids match.
 //
-// Drop step 2 or 3 and the comparison silently succeeds on nulls. Every prior
-// copy-paste got at least one of them wrong.
+// Drop step 2 or 3 and the comparison silently succeeds on nulls.
 //
 // THE ID SPACES
 // -------------
@@ -54,11 +33,9 @@ import (
 
 // Subject is the person asking.
 //
-// It is an INTERFACE rather than a concrete user struct, because the rule
-// needs one thing from a user — the profile for a role — and the storage
-// layer is not the rule's business. The previous `Hire` class reached into
-// Eloquent relations (`$user->arsitek`, `$user->project_manager`), which
-// meant the authorisation rule could not be tested without a database.
+// It is an INTERFACE rather than a concrete user struct: the rule needs one
+// thing from a user — the profile for a role — and the storage layer is not
+// the rule's business. That also makes the rule testable without a database.
 type Subject interface {
 	// UserID is the person.
 	UserID() identity.UserID

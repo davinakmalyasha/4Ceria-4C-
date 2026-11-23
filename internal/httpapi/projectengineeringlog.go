@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -117,12 +117,12 @@ func StoreEngineeringLogHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		content := jsonphp.NewObject()
+		content := jsonwire.NewObject()
 		content.Set("checklist", []any{})
 		content.Set("gallery", gallery)
 		content.Set("is_manual_log", true)
 		content.Set("added_by", viewer.id)
-		encoded, err := jsonphp.Marshal(content)
+		encoded, err := jsonwire.Marshal(content)
 		if err != nil {
 			slog.Error("eng-log: content", "error", err)
 			serverError(w)
@@ -145,7 +145,7 @@ func StoreEngineeringLogHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		// The answer is Eloquent's CREATED model: only the attributes the
 		// create() sent, in create order, with timestamps and id. `content`
 		// therefore renders the IN-MEMORY array order, not the jsonb order.
-		entry := jsonphp.NewObject()
+		entry := jsonwire.NewObject()
 		entry.Set("project_id", projectID)
 		entry.Set("phase_context", roleType)
 		entry.Set("title", title)
@@ -155,7 +155,7 @@ func StoreEngineeringLogHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		entry.Set("pm_verified_at", projectTimeValue(pmVerifiedAt))
 		// The model's toArray override rewrites gallery entries to absolute
 		// URLs, so the response content is the URL form of the same array.
-		responseContent := jsonphp.NewObject()
+		responseContent := jsonwire.NewObject()
 		responseContent.Set("checklist", []any{})
 		responseContent.Set("gallery", milestoneGalleryURLs(ctx, gallery))
 		responseContent.Set("is_manual_log", true)
@@ -166,7 +166,7 @@ func StoreEngineeringLogHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		entry.Set("created_at", projectTimeValue(createdAt))
 		entry.Set("id", milestoneID)
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Log recorded successfully")
 		payload.Set("data", entry)
 		writeJSON(w, http.StatusOK, payload)
@@ -332,7 +332,7 @@ func DeleteEngineeringLogHandler(pool *pgxpool.Pool) http.HandlerFunc {
 }
 
 // milestoneColumnsObject renders the milestone model with no relations.
-func milestoneColumnsObject(ctx context.Context, pool *pgxpool.Pool, projectID, milestoneID int64, pmCarbon bool) (*jsonphp.Object, error) {
+func milestoneColumnsObject(ctx context.Context, pool *pgxpool.Pool, projectID, milestoneID int64, pmCarbon bool) (*jsonwire.Object, error) {
 	columns := make([]string, 0, len(engineeringLogColumns))
 	for _, column := range engineeringLogColumns {
 		if column == "content" {
@@ -357,7 +357,7 @@ func milestoneColumnsObject(ctx context.Context, pool *pgxpool.Pool, projectID, 
 		return nil, err
 	}
 
-	entry := jsonphp.NewObject()
+	entry := jsonwire.NewObject()
 	for i, column := range fields {
 		switch column {
 		case "content":
@@ -365,12 +365,12 @@ func milestoneColumnsObject(ctx context.Context, pool *pgxpool.Pool, projectID, 
 		case "start_date", "due_date", "created_at", "updated_at":
 			entry.Set(column, projectTimeValue(values[i]))
 		case "lead_pro_verified_at":
-			entry.Set(column, mysqlDateTime(values[i]))
+			entry.Set(column, dateStringTime(values[i]))
 		case "pm_verified_at":
 			if pmCarbon {
 				entry.Set(column, projectTimeValue(values[i]))
 			} else {
-				entry.Set(column, mysqlDateTime(values[i]))
+				entry.Set(column, dateStringTime(values[i]))
 			}
 		case "is_completed":
 			boolean := false

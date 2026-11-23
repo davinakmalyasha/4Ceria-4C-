@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -36,7 +36,7 @@ func addendumPathID(r *http.Request) (int64, string) {
 // addendumForProject loads an addendum and enforces the project binding.
 // Returns nil after writing the 404.
 func addendumForProject(ctx context.Context, pool *pgxpool.Pool, w http.ResponseWriter,
-	projectID, addendumID int64) (*jsonphp.Object, bool) {
+	projectID, addendumID int64) (*jsonwire.Object, bool) {
 	row, err := loadAddendumRow(ctx, pool, addendumID)
 	if err != nil {
 		if isNoRows(err) || err == errLedgerGone {
@@ -57,8 +57,8 @@ func addendumForProject(ctx context.Context, pool *pgxpool.Pool, w http.Response
 
 // addendumCreatedObject renders the CREATED addendum in create() payload
 // order, then updated_at, created_at, id.
-func addendumCreatedObject(row *jsonphp.Object) *jsonphp.Object {
-	entry := jsonphp.NewObject()
+func addendumCreatedObject(row *jsonwire.Object) *jsonwire.Object {
+	entry := jsonwire.NewObject()
 	for _, column := range []string{
 		"project_id", "user_id", "role_type", "type", "title", "description",
 		"amount", "status", "assigned_user_id", "team_member_id",
@@ -260,7 +260,7 @@ func RequestEngineeringRoleHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Specialist coordination request submitted successfully.")
 		payload.Set("data", addendumCreatedObject(row))
 		writeJSON(w, http.StatusOK, payload)
@@ -1145,7 +1145,7 @@ func SubmitEngineeringInterviewHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Interview notes saved and recommendation updated.")
 		payload.Set("data", rawBidObject(bidType, freshFields, freshValues))
 		writeJSON(w, http.StatusOK, payload)

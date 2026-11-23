@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/davinakmalyasha/4ceria/internal/domain/identity"
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -243,7 +243,7 @@ func loadViewerBids(ctx context.Context, pool *pgxpool.Pool, projectID int64, vi
 }
 
 // renderBidLists renders the bids_X lists for the given roles, in order.
-func renderBidLists(ctx context.Context, pool *pgxpool.Pool, row *jsonphp.Object, projectID int64, viewer *projectViewer, privileged bool, loaded map[string][]map[string]any, roles []string, bySpelling map[string]int64, withBidder bool, neg *negLogBatch, bb *bidderBatch) error {
+func renderBidLists(ctx context.Context, pool *pgxpool.Pool, row *jsonwire.Object, projectID int64, viewer *projectViewer, privileged bool, loaded map[string][]map[string]any, roles []string, bySpelling map[string]int64, withBidder bool, neg *negLogBatch, bb *bidderBatch) error {
 	for _, role := range roles {
 		rows, ok := loaded[role]
 		if !ok {
@@ -271,7 +271,7 @@ func renderBidLists(ctx context.Context, pool *pgxpool.Pool, row *jsonphp.Object
 // renderAcceptedBids renders the accepted-bid summaries in the resource's
 // fixed order: pm, notaris, arsitek, kontraktor, interior, structural,
 // mep. Each appears exactly where its bids_X relation appears.
-func renderAcceptedBids(ctx context.Context, pool *pgxpool.Pool, row *jsonphp.Object, loaded map[string][]map[string]any, viewer *projectViewer, privileged bool) error {
+func renderAcceptedBids(ctx context.Context, pool *pgxpool.Pool, row *jsonwire.Object, loaded map[string][]map[string]any, viewer *projectViewer, privileged bool) error {
 	for _, role := range []string{"project_manager", "notaris", "arsitek", "kontraktor", "interior", "structural", "mep"} {
 		rows, ok := loaded[role]
 		if !ok {
@@ -293,8 +293,8 @@ func renderAcceptedBids(ctx context.Context, pool *pgxpool.Pool, row *jsonphp.Ob
 }
 
 // bidEntry renders one bid row for its role, in key order.
-func bidEntry(ctx context.Context, pool *pgxpool.Pool, role string, bid map[string]any, privileged bool, bySpelling map[string]int64, withBidder bool, neg *negLogBatch, projectID int64, bb *bidderBatch) (*jsonphp.Object, error) {
-	entry := jsonphp.NewObject()
+func bidEntry(ctx context.Context, pool *pgxpool.Pool, role string, bid map[string]any, privileged bool, bySpelling map[string]int64, withBidder bool, neg *negLogBatch, projectID int64, bb *bidderBatch) (*jsonwire.Object, error) {
+	entry := jsonwire.NewObject()
 	entry.Set("id", bidWireID(bid))
 	entry.Set("price", decimalOrNilBid(bid, "price"))
 	entry.Set("price_max", decimalOrNilBid(bid, "price_max"))
@@ -438,7 +438,7 @@ func intOrZeroBid(bid map[string]any, key string) any {
 // timeOrNilBid renders a timestamptz or null.
 func timeOrNilBid(bid map[string]any, key string) any {
 	if typed, ok := bid[key].(time.Time); ok {
-		return carbon(&typed)
+		return apiTimestamp(&typed)
 	}
 	return nil
 }
@@ -452,8 +452,8 @@ func boolOrFalse(value any) any {
 }
 
 // acceptedBidEntry renders the contracted-bid summary per role, in key order.
-func acceptedBidEntry(ctx context.Context, pool *pgxpool.Pool, role string, bid map[string]any) (*jsonphp.Object, error) {
-	entry := jsonphp.NewObject()
+func acceptedBidEntry(ctx context.Context, pool *pgxpool.Pool, role string, bid map[string]any) (*jsonwire.Object, error) {
+	entry := jsonwire.NewObject()
 
 	entry.Set("id", bidWireID(bid))
 	entry.Set("price", decimalOrNilBid(bid, "price"))
@@ -531,7 +531,7 @@ func acceptedNotaris(ctx context.Context, pool *pgxpool.Pool, notarisID int64) (
 		if err := rows.Scan(&serviceID, &title, &description, &price); err != nil {
 			return nil, err
 		}
-		service := jsonphp.NewObject()
+		service := jsonwire.NewObject()
 		service.Set("id", serviceID)
 		service.Set("title", nullableString(title))
 		service.Set("description", nullableString(description))
@@ -542,7 +542,7 @@ func acceptedNotaris(ctx context.Context, pool *pgxpool.Pool, notarisID int64) (
 		return nil, err
 	}
 
-	notaris := jsonphp.NewObject()
+	notaris := jsonwire.NewObject()
 	notaris.Set("id", id)
 	notaris.Set("nama", nullableString(nama))
 	notaris.Set("services", services)

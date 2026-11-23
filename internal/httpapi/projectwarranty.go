@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -36,8 +36,8 @@ var warrantyColumns = []string{
 }
 
 // warrantyObject renders a loaded claim in table order.
-func warrantyObject(ctx context.Context, byName map[string]any) *jsonphp.Object {
-	entry := jsonphp.NewObject()
+func warrantyObject(ctx context.Context, byName map[string]any) *jsonwire.Object {
+	entry := jsonwire.NewObject()
 	for _, column := range warrantyColumns {
 		switch column {
 		case "images":
@@ -55,8 +55,8 @@ func warrantyObject(ctx context.Context, byName map[string]any) *jsonphp.Object 
 }
 
 // warrantyCreatedObject renders the CREATED claim.
-func warrantyCreatedObject(ctx context.Context, byName map[string]any) *jsonphp.Object {
-	entry := jsonphp.NewObject()
+func warrantyCreatedObject(ctx context.Context, byName map[string]any) *jsonwire.Object {
+	entry := jsonwire.NewObject()
 	entry.Set("reporter_id", projectRawValue(byName["reporter_id"]))
 	entry.Set("title", projectRawValue(byName["title"]))
 	entry.Set("description", projectRawValue(byName["description"]))
@@ -184,7 +184,7 @@ func WarrantyClaimsIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", out)
 		writeJSON(w, http.StatusOK, payload)
 	}
@@ -287,7 +287,7 @@ func StoreWarrantyClaimHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			}
 			stored = append(stored, path)
 		}
-		encoded, err := jsonphp.Marshal(stored)
+		encoded, err := jsonwire.Marshal(stored)
 		if err != nil {
 			serverError(w)
 			return
@@ -330,7 +330,7 @@ func StoreWarrantyClaimHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			"status": "open", "created_at": createdAt, "updated_at": updatedAt,
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Warranty claim filed")
 		payload.Set("data", warrantyCreatedObject(ctx, claim))
 		writeJSON(w, http.StatusOK, payload)
@@ -499,7 +499,7 @@ func UpdateWarrantyClaimHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Claim status updated")
 		payload.Set("data", warrantyObject(ctx, fresh))
 		writeJSON(w, http.StatusOK, payload)

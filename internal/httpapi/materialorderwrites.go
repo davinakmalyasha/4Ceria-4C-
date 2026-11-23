@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -37,7 +37,7 @@ var orderRequirementColumns = []string{
 
 // orderRequirementObject renders the loaded `requirement` relation WITHOUT its
 // own `user` (the order endpoint never eager-loads it).
-func orderRequirementObject(ctx context.Context, pool *pgxpool.Pool, requirementID int64) (*jsonphp.Object, error) {
+func orderRequirementObject(ctx context.Context, pool *pgxpool.Pool, requirementID int64) (*jsonwire.Object, error) {
 	rows, err := pool.Query(ctx, `SELECT `+strings.Join(orderRequirementColumns, ", ")+`
 		FROM project_requirements WHERE id = $1`, requirementID)
 	if err != nil {
@@ -57,7 +57,7 @@ func orderRequirementObject(ctx context.Context, pool *pgxpool.Pool, requirement
 		byName[column] = values[i]
 	}
 
-	entry := jsonphp.NewObject()
+	entry := jsonwire.NewObject()
 	for _, column := range orderRequirementColumns {
 		value := byName[column]
 		switch column {
@@ -97,7 +97,7 @@ func orderItemsWithRequirement(ctx context.Context, pool *pgxpool.Pool, orderID 
 			&createdAt, &updatedAt, &requirementID); err != nil {
 			return nil, err
 		}
-		item := jsonphp.NewObject()
+		item := jsonwire.NewObject()
 		item.Set("id", itemID)
 		item.Set("order_id", order)
 		item.Set("material_id", materialID)
@@ -356,7 +356,7 @@ func verifyOrderPayment(ctx context.Context, w http.ResponseWriter, pool *pgxpoo
 		}
 	}
 
-	payload := jsonphp.NewObject()
+	payload := jsonwire.NewObject()
 	payload.Set("success", true)
 	payload.Set("message", "Payment verified.")
 	payload.Set("data", entry)
@@ -653,7 +653,7 @@ func UpdateMaterialOrderHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			entry.Set("items", items)
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("success", true)
 		payload.Set("message", "Order updated successfully.")
 		payload.Set("data", entry)
@@ -745,7 +745,7 @@ func ConfirmOrderReceiptHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		if status == "completed" {
-			payload := jsonphp.NewObject()
+			payload := jsonwire.NewObject()
 			payload.Set("message", "Receipt already confirmed.")
 			writeJSON(w, http.StatusOK, payload)
 			return
@@ -761,7 +761,7 @@ func ConfirmOrderReceiptHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Receipt confirmed. Order completed.")
 		writeJSON(w, http.StatusOK, payload)
 	}

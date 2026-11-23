@@ -18,6 +18,7 @@ package ai
 
 import (
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -37,6 +38,15 @@ type Config struct {
 	Temperature float32
 	// MaxOutputTokens caps one answer.
 	MaxOutputTokens int32
+	// MaxSteps caps the model/tool loop for one turn.
+	MaxSteps int
+	// Memory enables long-term memory and the preload tool. The per-user
+	// setting can still turn it off; this is the operator kill switch.
+	Memory bool
+	// Specialists enables the property/project single-turn specialist
+	// agents. The direct tools stay available either way, so a failed
+	// delegation cannot remove a capability.
+	Specialists bool
 }
 
 // LoadConfig reads the environment.
@@ -47,6 +57,9 @@ func LoadConfig() Config {
 		Model:           strings.TrimSpace(os.Getenv("DEEPSEEK_MODEL")),
 		Temperature:     0.3,
 		MaxOutputTokens: 2048,
+		MaxSteps:        10,
+		Memory:          envBool("AI_MEMORY", true),
+		Specialists:     envBool("AI_SPECIALISTS", true),
 	}
 	if cfg.BaseURL == "" {
 		cfg.BaseURL = "https://api.deepseek.com/v1"
@@ -54,7 +67,30 @@ func LoadConfig() Config {
 	if cfg.Model == "" {
 		cfg.Model = "deepseek-flash"
 	}
+	if raw := strings.TrimSpace(os.Getenv("AI_MAX_STEPS")); raw != "" {
+		if steps, err := strconv.Atoi(raw); err == nil && steps > 0 {
+			cfg.MaxSteps = steps
+		}
+	}
+	if cfg.MaxSteps > 20 {
+		cfg.MaxSteps = 20
+	}
 	return cfg
+}
+
+func envBool(name string, fallback bool) bool {
+	raw := strings.TrimSpace(os.Getenv(name))
+	if raw == "" {
+		return fallback
+	}
+	switch strings.ToLower(raw) {
+	case "1", "true", "yes", "on":
+		return true
+	case "0", "false", "no", "off":
+		return false
+	default:
+		return fallback
+	}
 }
 
 // Enabled reports whether the assistant can answer (a key is configured).
@@ -64,7 +100,9 @@ func (c Config) Enabled() bool { return c.APIKey != "" }
 // reveal. The key itself is never exposed.
 func (c Config) PublicStatus() map[string]any {
 	return map[string]any{
-		"enabled": c.Enabled(),
-		"model":   c.Model,
+		"enabled":     c.Enabled(),
+		"model":       c.Model,
+		"memory":      c.Memory,
+		"specialists": c.Specialists,
 	}
 }

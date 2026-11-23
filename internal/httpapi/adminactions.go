@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -49,7 +49,7 @@ var adminProfessionalTables = map[string]string{
 
 // adminUserResponse reads the user from PostgreSQL (already re-synced) and
 // appends the Spatie roles, exactly like `$user->load('roles')`.
-func adminUserResponse(ctx context.Context, pool *pgxpool.Pool, userID int64) (*jsonphp.Object, error) {
+func adminUserResponse(ctx context.Context, pool *pgxpool.Pool, userID int64) (*jsonwire.Object, error) {
 	block, err := fullProfileUser(ctx, pool, userID, false)
 	if err != nil {
 		return nil, err
@@ -58,11 +58,11 @@ func adminUserResponse(ctx context.Context, pool *pgxpool.Pool, userID int64) (*
 	if err != nil {
 		return nil, err
 	}
-	if object, ok := block.(*jsonphp.Object); ok {
+	if object, ok := block.(*jsonwire.Object); ok {
 		object.Set("roles", roles)
 		return object, nil
 	}
-	entry := jsonphp.NewObject()
+	entry := jsonwire.NewObject()
 	entry.Set("roles", roles)
 	return entry, nil
 }
@@ -91,8 +91,8 @@ func validateAdminRoleType(fields map[string]any, failures *errorBag) string {
 // houseResponseObject renders a house row plus its owner. `suspended` is the
 // value the request JUST assigned, so it renders as a boolean (the reference's
 // in-memory attribute) rather than the raw tinyint a reload would produce.
-func houseResponseObject(ctx context.Context, pool *pgxpool.Pool, byName map[string]any, suspended bool) *jsonphp.Object {
-	entry := jsonphp.NewObject()
+func houseResponseObject(ctx context.Context, pool *pgxpool.Pool, byName map[string]any, suspended bool) *jsonwire.Object {
+	entry := jsonwire.NewObject()
 	for _, column := range houseModelColumns {
 		value := byName[column]
 		switch column {
@@ -186,7 +186,7 @@ func AdminSuspendHouseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		if next {
 			text = "Listing suspended successfully."
 		}
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", text)
 		payload.Set("house", houseResponseObject(ctx, pool, byName, next))
 		writeJSON(w, http.StatusOK, payload)
@@ -289,7 +289,7 @@ func AdminUpdateProfessionalStatusHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				body = "Your request to join as a " + label + " has been rejected. Reason: " + note
 			}
 
-			data := jsonphp.NewObject()
+			data := jsonwire.NewObject()
 			data.Set("status", status)
 			data.Set("professional_type", typeKey)
 			if status == "rejected" && reasonSet {
@@ -297,7 +297,7 @@ func AdminUpdateProfessionalStatusHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			} else {
 				data.Set("reason", nil)
 			}
-			encoded, err := jsonphp.Marshal(data)
+			encoded, err := jsonwire.Marshal(data)
 			if err == nil {
 				if err := insertNotificationPool(ctx, pool, userID, "verification", title, body, string(encoded)); err != nil {
 					slog.Warn("admin professional: notification", "error", err)
@@ -312,7 +312,7 @@ func AdminUpdateProfessionalStatusHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Professional status updated to "+status)
 		payload.Set("professional", block)
 		writeJSON(w, http.StatusOK, payload)
@@ -349,7 +349,7 @@ func validateProfessionalStatus(fields map[string]any, failures *errorBag) (stri
 	return status, reason, reasonSet
 }
 
-// ucfirstASCII upper-cases the first byte, like PHP's ucfirst().
+// ucfirstASCII upper-cases the first ASCII byte and leaves the rest alone.
 func ucfirstASCII(value string) string {
 	if value == "" {
 		return value

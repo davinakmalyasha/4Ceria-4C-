@@ -148,62 +148,45 @@ func (m *Manifest) MethodURIs() []MethodURI {
 	return out
 }
 
-// NormalisedMiddleware reduces a middleware list to the set the Go router is
+// NormalisedMiddleware reduces a middleware list to the set the router is
 // built from.
 //
-// The two sides of the comparison report the same middleware in two
-// spellings, and neither is wrong:
-//
-//	the manifest (Route::gatherMiddleware)   the route table (route:list)
-//	---------------------------------------   -----------------------------
-//	api                                       api
-//	auth:sanctum                              Illuminate\Auth\Middleware\Authenticate:sanctum
-//	admin                                     App\Http\Middleware\AdminMiddleware
-//	freeze_pending_termination                App\Http\Middleware\FreezeWorkspaceIfTerminationPending
-//	throttle:10,1                             Illuminate\Routing\Middleware\ThrottleRequests:10,1
-//
-// The `api` group is dropped: every route is in it, and it carries the
-// `SecurityHeaders` middleware and the `ThrottleRequests:api` limiter, which
-// apply to the whole API rather than to a route.
+//	manifest spelling            router gate
+//	-----------------            -----------
+//	api                          (the group every route is in; dropped)
+//	auth                         auth
+//	admin                        admin
+//	freeze_pending_termination   freeze_termination
+//	throttle:10,1                rate:10/m
 //
 // An UNRECOGNISED middleware is carried through verbatim rather than
-// dropped. A middleware the Go router does not know about is a gate the new
-// stack does not have, and silently dropping it would make this function
-// agree with a router that is missing a protection.
+// dropped. A name the router does not know is a gate this build does not
+// enforce, and silently dropping it would make the contract report agree
+// with a router that is missing a protection.
 func NormalisedMiddleware(middleware []string) []string {
 	names := map[string]struct{}{}
 
-	for _, raw := range middleware {
-		item := raw
-
+	for _, item := range middleware {
 		switch {
 		case item == "api":
-			// The group every route is in.
 			continue
 
-		case item == "auth" || item == "auth:sanctum",
-			strings.HasPrefix(item, "Illuminate\\Auth\\Middleware\\Authenticate"):
+		case item == "auth":
 			names["auth"] = struct{}{}
 
-		case item == "admin", item == "App\\Http\\Middleware\\AdminMiddleware":
+		case item == "admin":
 			names["admin"] = struct{}{}
 
-		case item == "freeze_pending_termination",
-			item == "App\\Http\\Middleware\\FreezeWorkspaceIfTerminationPending":
+		case item == "freeze_pending_termination":
 			names["freeze_termination"] = struct{}{}
 
-		case strings.HasPrefix(item, "throttle:"),
-			strings.HasPrefix(item, "Illuminate\\Routing\\Middleware\\ThrottleRequests:"):
-			// The rate limit. `throttle:10,1` and `ThrottleRequests:10,1` are
-			// the same limit: ten attempts per one minute.
-			spec := item[strings.LastIndex(item, ":")+1:]
-
+		case strings.HasPrefix(item, "throttle:"):
+			spec := strings.TrimPrefix(item, "throttle:")
 			if parts := strings.Split(spec, ","); len(parts) == 2 && isDigits(parts[0]) && isDigits(parts[1]) {
 				names["rate:"+parts[0]+"/m"] = struct{}{}
 				continue
 			}
-
-			// A NAMED limiter rather than a limit.
+			// A named limiter rather than a limit.
 			names["rate:"+spec] = struct{}{}
 
 		default:
@@ -228,12 +211,11 @@ func NormalisedMiddleware(middleware []string) []string {
 // same value, which is what makes them comparable.
 func ThrottleSpec(middleware []string) string {
 	for _, item := range middleware {
-		if !strings.HasPrefix(item, "throttle:") &&
-			!strings.HasPrefix(item, "Illuminate\\Routing\\Middleware\\ThrottleRequests:") {
+		if !strings.HasPrefix(item, "throttle:") {
 			continue
 		}
 
-		spec := item[strings.LastIndex(item, ":")+1:]
+		spec := strings.TrimPrefix(item, "throttle:")
 
 		if parts := strings.Split(spec, ","); len(parts) == 2 && isDigits(parts[0]) && isDigits(parts[1]) {
 			return spec

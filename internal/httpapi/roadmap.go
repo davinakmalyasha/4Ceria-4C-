@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -44,7 +44,7 @@ func SavedSearchesIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			if err := rows.Scan(&id, &name, &params, &alert, &created, &updated); err != nil {
 				continue
 			}
-			e := jsonphp.NewObject()
+			e := jsonwire.NewObject()
 			e.Set("id", id)
 			e.Set("name", name)
 			e.Set("params", decodeJSONValue(string(params)))
@@ -53,7 +53,7 @@ func SavedSearchesIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			e.Set("updated_at", projectTimeValue(updated))
 			items = append(items, e)
 		}
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", items)
 		writeJSON(w, http.StatusOK, payload)
 	}
@@ -96,7 +96,7 @@ func StoreSavedSearchHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			serverError(w)
 			return
 		}
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Search saved.")
 		payload.Set("id", id)
 		writeJSON(w, http.StatusOK, payload)
@@ -130,7 +130,7 @@ func DestroySavedSearchHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			modelNotFound(w, `App\Models\SavedSearch`, raw)
 			return
 		}
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Saved search deleted.")
 		writeJSON(w, http.StatusOK, payload)
 	}
@@ -195,7 +195,7 @@ func FinanceLedgerHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			}
 			items = append(items, renderLedgerRow(lfields, vals))
 		}
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("summary", summary)
 		payload.Set("transactions", items)
 		writeJSON(w, http.StatusOK, payload)
@@ -232,14 +232,14 @@ func AnalyticsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		_ = pool.QueryRow(ctx, `SELECT count(*) FROM bids WHERE bidder_user_id = $1`, viewer.id).Scan(&bidCount)
 		var savedCount int64
 		_ = pool.QueryRow(ctx, `SELECT count(*) FROM saved_searches WHERE user_id = $1`, viewer.id).Scan(&savedCount)
-		out := jsonphp.NewObject()
+		out := jsonwire.NewObject()
 		out.Set("projects_posted", posted)
 		out.Set("projects_hired", hired)
 		out.Set("active_projects", active)
 		out.Set("total_spent", spent)
 		out.Set("bids_placed", bidCount)
 		out.Set("saved_searches", savedCount)
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", out)
 		writeJSON(w, http.StatusOK, payload)
 	}

@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -51,8 +51,8 @@ func chatMessageImageURL(value any) any {
 
 // chatMessageObject renders a hydrated message; `withSender` adds the full
 // user payload the endpoints load.
-func chatMessageObject(ctx context.Context, pool *pgxpool.Pool, byName map[string]any, withSender bool) (*jsonphp.Object, error) {
-	entry := jsonphp.NewObject()
+func chatMessageObject(ctx context.Context, pool *pgxpool.Pool, byName map[string]any, withSender bool) (*jsonwire.Object, error) {
+	entry := jsonwire.NewObject()
 	for _, column := range chatMessageColumns {
 		switch column {
 		case "is_read":
@@ -180,7 +180,7 @@ func ConversationsIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				}
 			}
 
-			other := jsonphp.NewObject()
+			other := jsonwire.NewObject()
 			other.Set("id", otherID)
 			other.Set("name", name)
 			other.Set("username", nullableString(username))
@@ -204,7 +204,7 @@ func ConversationsIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				}
 			}
 
-			entry := jsonphp.NewObject()
+			entry := jsonwire.NewObject()
 			entry.Set("id", id)
 			entry.Set("other_user", other)
 			if lastMessage == nil {
@@ -217,7 +217,7 @@ func ConversationsIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			out = append(out, entry)
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", out)
 		writeJSON(w, http.StatusOK, payload)
 	}
@@ -296,7 +296,7 @@ func StoreConversationHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			}
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", id)
 		writeJSON(w, http.StatusOK, payload)
 	}
@@ -416,7 +416,7 @@ func ShowConversationHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		var total int64
 		_ = pool.QueryRow(ctx, countQuery, countArgs...).Scan(&total)
 
-		meta := jsonphp.NewObject()
+		meta := jsonwire.NewObject()
 		if len(out) > 0 {
 			// The ORACLE's first() runs AFTER the reverse, so this is the
 			// page's NEWEST id, not its oldest.
@@ -426,7 +426,7 @@ func ShowConversationHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		meta.Set("has_more", total > 50)
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", out)
 		payload.Set("meta", meta)
 		writeJSON(w, http.StatusOK, payload)
@@ -575,8 +575,8 @@ func SendMessageHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		if runes := []rune(bodyContent); len(runes) > 100 {
 			bodyContent = string(runes[:100])
 		}
-		data, _ := jsonphp.Marshal(func() *jsonphp.Object {
-			entry := jsonphp.NewObject()
+		data, _ := jsonwire.Marshal(func() *jsonwire.Object {
+			entry := jsonwire.NewObject()
 			entry.Set("conversation_id", id)
 			entry.Set("sender_id", caller.UserID())
 			entry.Set("sender_name", senderName)
@@ -595,7 +595,7 @@ func SendMessageHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		// Created model: payload order, then updated_at, created_at, id, the
 		// append, then the sender relation.
-		entry := jsonphp.NewObject()
+		entry := jsonwire.NewObject()
 		for _, column := range []string{"conversation_id", "sender_id", "content", "image"} {
 			entry.Set(column, projectRawValue(created[column]))
 		}
@@ -611,7 +611,7 @@ func SendMessageHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		entry.Set("sender", sender)
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", entry)
 		writeJSON(w, http.StatusOK, payload)
 	}

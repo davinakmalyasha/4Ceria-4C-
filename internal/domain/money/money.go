@@ -1,24 +1,16 @@
-// Package money implements App\Support\Money.
-//
-// An immutable monetary amount held in INTEGER MINOR UNITS.
+// Package money implements an immutable monetary amount held in INTEGER
+// MINOR UNITS.
 //
 // WHY INTEGER MINOR UNITS
 // -----------------------
-// Every money path in the original application used to be a PHP float, against
-// columns declared `decimal(24,2)`. A `decimal(24,2)` column can hold values
-// up to ~1.7e22; a float64 tops out at ~9e15 AND carries only 15-17
-// significant decimal digits. So a Rp 1e12 project at sen precision sits
-// right at the float64's exact-integer limit, and the schema was quietly lying
-// about what the code could represent.
+// A `decimal(24,2)` column can hold values up to ~1.7e22; a float64 tops out
+// at ~9e15 and carries only 15–17 significant decimal digits. A Rp 1e12
+// project at sen precision sits right at the float64's exact-integer limit,
+// so a float-based ledger quietly loses the property the schema claims.
 //
-// The specific failure that motivated this: refund caps compared
-// `net-of-refunds` against `gross-refunded`, and every tolerance in the escrow
-// was a magic `+ 0.01` epsilon on a float. None of those comparisons are
-// reproducible at the values real projects reach.
-//
-// Integer minor units is the same approach Stripe, Shopify and the original API Cashier
-// take. It is exact, it is testable, and it makes the money arithmetic a pure
-// function of integers.
+// Integer minor units is exact, testable, and makes the money arithmetic a
+// pure function of integers. It is the same approach used by payment
+// processors and ledgers.
 //
 // WHY STORAGE STAYS decimal(24,2)
 // ------------------------------
@@ -28,32 +20,24 @@
 // anyone reading the database in a SQL client sees human-readable numbers
 // rather than integer sen.
 //
-// PARITY WITH THE PHP ORIGINAL
-// ----------------------------
-// This is a PORT, and the rounding rules are where a port usually drifts.
-// Every one of them is stated here because each is a place where the obvious
-// Go idiom is NOT the PHP behaviour:
+// ROUNDING RULES
+// --------------
+// Every rule below is deliberate. A change to one is a money change and needs
+// a test in this package plus a look at docs/MONEY.md:
 //
-//   - Percentage(): PHP's original was `intdiv($minor * bp + 5000, 10000)`,
-//     which is correct for positive amounts and BIASED for negative ones,
-//     because `intdiv` truncates toward zero and the `+ 5000` offset can then
-//     round the wrong way entirely. Here the MAGNITUDE is rounded half away
-//     from zero and the sign restored, which makes the operation symmetric:
-//     `(-x).Percentage(p) == -(x.Percentage(p))` for every p.
-//
-//   - Percentage(): the sign is applied AFTER rounding the magnitude. Applying
-//     it before would make a negative half-way case round toward zero.
+//   - Percentage(): the MAGNITUDE is rounded half away from zero and the
+//     sign restored, so `(-x).Percentage(p) == -(x.Percentage(p))` for every
+//     p. Applying the sign before rounding would make a negative half-way
+//     case round toward zero.
 //
 //   - normaliseDecimal(): the fraction beyond the currency's scale is
 //     TRUNCATED, not rounded. A value a caller may reconcile against a bank
 //     must not be silently changed.
 //
-//   - MultiplyBy(): PHP's `round()` is half AWAY FROM ZERO, which is also
-//     Go's `math.Round` — but Go's `math.Round` is half away from zero too, so
-//     this one matches. It is stated because `math.RoundToEven` does not, and
-//     that is the other plausible choice.
+//   - MultiplyBy(): half away from zero. `math.RoundToEven` is the other
+//     plausible choice and is deliberately not used.
 //
-//   - DivideBy(): truncates toward zero, like PHP's `intdiv`.
+//   - DivideBy(): truncates toward zero.
 //
 //   - allocate(): the leftover minor units go to the LARGEST remainder first
 //     when there are too FEW, and are taken back from the SMALLEST remainder
@@ -123,10 +107,8 @@ var ErrInvalidWeights = errors.New("weights must be non-empty and sum to a posit
 // ErrAmountOverflow is returned when a result is beyond the representable
 // range of an int64 minor-unit amount.
 //
-// The previous PHP implementation has the same limit, and it fails LOUDLY: PHP's
-// integer overflow becomes a float, and `intdiv(float, int)` throws a
-// TypeError. The Go port must not be quieter than that — a wrong number is
-// worse than a crash — so it refuses too.
+// A result beyond int64 is refused, not wrapped: a wrong number is worse
+// than a loud failure, and a wrapped ledger amount is unrecoverable.
 var ErrAmountOverflow = errors.New("the amount is beyond the representable range")
 
 // New builds an amount from an integer count of MINOR units, with no
@@ -317,7 +299,7 @@ func (m Money) MultiplyBy(factor float64) (Money, error) {
 	scaled := new(big.Float).SetPrec(prec).SetInt64(m.minor)
 	scaled.Mul(scaled, new(big.Float).SetPrec(prec).SetFloat64(factor))
 
-	// Half away from zero, which is PHP's `round()`.
+	// Half away from zero.
 	//
 	// `Int` TRUNCATES toward zero, so the half is added to the MAGNITUDE and
 	// the sign is restored afterwards. Adding the half to a negative value
@@ -413,17 +395,14 @@ func (m Money) IsNegative() bool { return m.minor < 0 }
 // The sign is applied AFTER rounding the magnitude, which makes the behaviour
 // symmetric: `(-x).Percentage(p) == -(x.Percentage(p))` for every p.
 //
-// The PHP original was `intdiv($minor * bp + 5000, 10000)`, which is correct
-// for positive amounts and biased for negative ones: `intdiv` truncates toward
-// zero, so the `+ 5000` offset only ever pushes the result up. On a negative
-// amount it pushes the rounding decision the wrong way, and can round the
-// WRONG WAY entirely once the product is small enough that the offset
-// dominates:
+// A naive `(minor * bp + 5000) / 10000` is correct for positive amounts and
+// biased for negative ones: truncation toward zero means the offset only
+// pushes the result up, and can round the WRONG WAY once it dominates:
 //
 //	-1000 minor x 50 bp = -50000; (-50000 + 5000) / 10000 = 0 (truncated)
 //	expected -5, returned 0
 //
-// So `-1.00` at 5% gave `0` instead of `-0.05`. Refunds, reversals and
+// So `-1.00` at 5% would give `0` instead of `-0.05`. Refunds, reversals and
 // negative adjustments are all real money movements, and this package is the
 // single source of truth for all of them.
 func (m Money) Percentage(percentage string) (Money, error) {
@@ -439,11 +418,9 @@ func (m Money) Percentage(percentage string) (Money, error) {
 	// error: the differential corpus caught the Go port returning
 	// `-8538824893494.46` for 11 % of Rp 90 trillion.
 	//
-	// The PHP original has the same defect, and it fails differently: PHP's
-	// integer overflow becomes a float, and `intdiv(float, int)` then throws a
-	// TypeError. So the original application CRASHES on a percentage of an
-	// amount that large, and the Go port SILENTLY CORRUPTED it. A crash is bad
-	// and corruption is worse.
+	// Computing the product in int64 would silently wrap at that magnitude,
+	// producing a wrong number rather than an error. 128 bits removes the
+	// limit entirely.
 	product := new(big.Int).Mul(big.NewInt(m.minor), big.NewInt(basisPoints))
 
 	sign := int64(1)
@@ -478,8 +455,7 @@ func (m Money) Percentage(percentage string) (Money, error) {
 // stage amounts are what the plan is made of.
 //
 // The tie-break is on the NAME, not on the position, because Go's map
-// iteration order is randomised and the result must not depend on it. The PHP
-// original broke ties on the key for the same reason.
+// iteration order is randomised and the result must not depend on it.
 func (m Money) AllocateNamed(weights map[string]int64) (map[string]Money, error) {
 	if len(weights) == 0 {
 		return nil, fmt.Errorf("%w: at least one weight is required", ErrInvalidWeights)
@@ -531,9 +507,8 @@ func (m Money) Split(parts int) ([]Money, error) {
 // unit at a time, in descending weight order, so the parts always sum exactly
 // to the original.
 //
-// Used for termin schedules, where the previous `signContract` and the SPA both
-// computed `Math.round(pct / 100 * total)` independently and therefore
-// disagreed.
+// Used for termin schedules, where two independent percentage roundings used
+// to disagree by one sen.
 func (m Money) Allocate(weights []int64) ([]Money, error) {
 	if len(weights) == 0 {
 		return nil, fmt.Errorf("%w: at least one weight is required", ErrInvalidWeights)

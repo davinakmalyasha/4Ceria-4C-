@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -281,7 +281,7 @@ func addendumDecision(pool *pgxpool.Pool, approve bool) http.HandlerFunc {
 			entry.Set("user", authorBlock)
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", entry)
 
 		writeJSON(w, http.StatusOK, payload)
@@ -376,7 +376,7 @@ func projectTitleOf(ctx context.Context, tx pgx.Tx, projectID int64) string {
 }
 
 // loadAddendumRow re-reads one addendum in table order for the response.
-func loadAddendumRow(ctx context.Context, pool *pgxpool.Pool, addID int64) (*jsonphp.Object, error) {
+func loadAddendumRow(ctx context.Context, pool *pgxpool.Pool, addID int64) (*jsonwire.Object, error) {
 	rows, err := pool.Query(ctx, `SELECT id, project_id, type, role_type, user_id, team_member_id, specialist_type, title, description, negotiation_note, attachment_path, amount::text, counter_offer_amount::text, recommended_bid_id, recommended_bid_type::text, status::text, payment_proof_path, verification_notes, paid_at, created_at, updated_at, procurement_request_id, assigned_user_id, refunded_amount::text
 		FROM project_addendums WHERE id = $1`, addID)
 	if err != nil {
@@ -405,7 +405,7 @@ func loadAddendumRow(ctx context.Context, pool *pgxpool.Pool, addID int64) (*jso
 		byName[column] = values[i]
 	}
 
-	entry := jsonphp.NewObject()
+	entry := jsonwire.NewObject()
 	for _, column := range fields {
 		value := byName[column]
 		switch column {

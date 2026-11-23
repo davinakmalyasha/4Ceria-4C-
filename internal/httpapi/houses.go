@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -24,7 +24,7 @@ import (
 //
 //   - `price` is the decimal string ("1200000000.00"); width/length are the
 //     stored TEXT as-is; br/ba/floors/views are numbers.
-//   - `housePic` is every `house_pic` row (all columns, Carbon dates);
+//   - `housePic` is every `house_pic` row (all columns, API timestamps);
 //     `roomList` every `rooms` row with its `pics` as [{id, dir}].
 //   - `owner` is `{id, name, email?, phones[], role_type}`: email only for
 //     the owner or an admin, `phones` (contact strings) for any signed-in
@@ -32,10 +32,9 @@ import (
 //   - The envelope is `PaginatedResourceResponse`: data, four-way links,
 //     eight-key meta — the same builders the directories use.
 //
-// MySQL-isms this service preserves deliberately: the six `LIKE` filters are
-// case-insensitive (ILIKE), the `city` equality folds case (a ci `=`), and
-// `width`/`length` coerce like MySQL (leading number or 0) because the
-// columns are TEXT.
+// The six text filters are case-insensitive (ILIKE), and the `city` equality
+// folds case. `width`/`length` are TEXT columns, so a filter parses their
+// leading number and treats the rest as 0 rather than rejecting the row.
 
 // houseColumns is the SELECT list, in the resource's read order.
 var houseColumns = []string{
@@ -90,24 +89,24 @@ func HousesHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		if raw := query.Get("price_min"); raw != "" {
-			add("h.price >=", phpFloat(raw))
+			add("h.price >=", floatFilter(raw))
 		}
 		if raw := query.Get("price_max"); raw != "" {
-			add("h.price <=", phpFloat(raw))
+			add("h.price <=", floatFilter(raw))
 		}
-		if raw := query.Get("bedrooms"); raw != "" && isPHPNumeric(raw) {
+		if raw := query.Get("bedrooms"); raw != "" && isNumericFilter(raw) {
 			add("h.br >=", mustInt(raw))
 		}
-		if raw := query.Get("bathrooms"); raw != "" && isPHPNumeric(raw) {
+		if raw := query.Get("bathrooms"); raw != "" && isNumericFilter(raw) {
 			add("h.ba >=", mustInt(raw))
 		}
-		if raw := query.Get("min_area"); raw != "" && isPHPNumeric(raw) {
-			// TEXT dimensions coerce like MySQL: the leading number, or 0.
-			// The regex guard keeps garbage from ever reaching ::float8,
-			// which would raise where MySQL merely reads 0.
+		if raw := query.Get("min_area"); raw != "" && isNumericFilter(raw) {
+			// Dimensions are TEXT: use the leading number, or 0. The regex
+			// guard keeps garbage out of ::double precision, which would
+			// otherwise raise instead of treating the row as unmeasured.
 			area := `(CASE WHEN h.width ~ '^[+-]?[0-9]*\.?[0-9]+$' THEN h.width::double precision ELSE 0 END)` +
 				` * (CASE WHEN h.length ~ '^[+-]?[0-9]*\.?[0-9]+$' THEN h.length::double precision ELSE 0 END)`
-			add("("+area+") >=", phpFloat(raw))
+			add("("+area+") >=", floatFilter(raw))
 		}
 
 		order := "h.created_at DESC"
@@ -173,7 +172,7 @@ func HousesHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		baseURL := requestBaseURL(r)
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", items)
 		payload.Set("links", pageLinksSummary(baseURL, "", currentPage, lastPage(total, perPage)))
 		payload.Set("meta", directoryMeta(total, perPage, currentPage, basePathOf(baseURL), "", items))
@@ -243,7 +242,7 @@ func HouseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", row)
 
 		writeJSON(w, http.StatusOK, payload)
@@ -276,7 +275,7 @@ func houseRow(ctx context.Context, pool *pgxpool.Pool, houseID int64) ([]string,
 
 // houseResource builds the `HouseResource` object with the owner loaded —
 // the list and show endpoints.
-func houseResource(ctx context.Context, pool *pgxpool.Pool, fields []string, values []any, viewerID int64, viewerIsAdmin bool) (*jsonphp.Object, error) {
+func houseResource(ctx context.Context, pool *pgxpool.Pool, fields []string, values []any, viewerID int64, viewerIsAdmin bool) (*jsonwire.Object, error) {
 	return houseResourceWithOwner(ctx, pool, fields, values, viewerID, viewerIsAdmin, true)
 }
 
@@ -284,7 +283,7 @@ func houseResource(ctx context.Context, pool *pgxpool.Pool, fields []string, val
 // order, with `whenLoaded` semantics. `owner` appears ONLY when the
 // controller loaded `user` — store/update/room-store load just
 // `housePic` and `room`.
-func houseResourceWithOwner(ctx context.Context, pool *pgxpool.Pool, fields []string, values []any, viewerID int64, viewerIsAdmin, withOwner bool) (*jsonphp.Object, error) {
+func houseResourceWithOwner(ctx context.Context, pool *pgxpool.Pool, fields []string, values []any, viewerID int64, viewerIsAdmin, withOwner bool) (*jsonwire.Object, error) {
 	byName := map[string]any{}
 	for i, column := range fields {
 		byName[column] = values[i]
@@ -293,24 +292,24 @@ func houseResourceWithOwner(ctx context.Context, pool *pgxpool.Pool, fields []st
 	id, _ := byName["id"].(int64)
 	ownerID, _ := byName["id_user"].(int64)
 
-	row := jsonphp.NewObject()
+	row := jsonwire.NewObject()
 	row.Set("id", id)
 	setIfPresent(row, "name", byName["name"])
 	setIfPresent(row, "price", decimalText(byName["price"]))
 	setIfPresent(row, "description", byName["house_desc"])
 
-	dimensions := jsonphp.NewObject()
+	dimensions := jsonwire.NewObject()
 	dimensions.Set("width", textOf(byName["width"]))
 	dimensions.Set("length", textOf(byName["length"]))
 	dimensions.Set("floors", intOf(byName["floors"]))
 	row.Set("dimensions", dimensions)
 
-	rooms := jsonphp.NewObject()
+	rooms := jsonwire.NewObject()
 	rooms.Set("bedrooms", intOf(byName["br"]))
 	rooms.Set("bathrooms", intOf(byName["ba"]))
 	row.Set("rooms", rooms)
 
-	address := jsonphp.NewObject()
+	address := jsonwire.NewObject()
 	address.Set("street", textOf(byName["street_name"]))
 	address.Set("kelurahan", textOf(byName["kelurahan"]))
 	address.Set("kecamatan", textOf(byName["kecamatan"]))
@@ -323,8 +322,8 @@ func houseResourceWithOwner(ctx context.Context, pool *pgxpool.Pool, fields []st
 	row.Set("coordinate", textOf(byName["coordinate"]))
 	row.Set("user_id", ownerID)
 	row.Set("views", intOf(byName["views"]))
-	row.Set("created_at", carbonTime(byName["created_at"]))
-	row.Set("updated_at", carbonTime(byName["updated_at"]))
+	row.Set("created_at", apiTime(byName["created_at"]))
+	row.Set("updated_at", apiTime(byName["updated_at"]))
 
 	pics, err := housePics(ctx, pool, id)
 	if err != nil {
@@ -353,7 +352,7 @@ func houseResourceWithOwner(ctx context.Context, pool *pgxpool.Pool, fields []st
 
 // setIfPresent sets a raw value unless it is nil — the `attribute()`
 // presence rule. Empty strings stay: only null is filtered.
-func setIfPresent(row *jsonphp.Object, key string, value any) {
+func setIfPresent(row *jsonwire.Object, key string, value any) {
 	if value == nil {
 		return
 	}
@@ -387,8 +386,8 @@ func intOf(value any) any {
 	}
 }
 
-// decimalText renders a decimal column exactly as Eloquent does: the
-// stored text with its scale ("1200000000.00", never a float).
+// decimalText renders a decimal column as stored text with its scale
+// ("1200000000.00", never a float).
 func decimalText(value any) any {
 	if value == nil {
 		return nil
@@ -399,13 +398,13 @@ func decimalText(value any) any {
 	return jsonVal(value)
 }
 
-// carbonTime renders a timestamp the way Eloquent's date cast does.
-func carbonTime(value any) any {
+// apiTime renders a timestamp in the API wire shape.
+func apiTime(value any) any {
 	if value == nil {
 		return nil
 	}
 	if typed, ok := value.(time.Time); ok {
-		return carbon(&typed)
+		return apiTimestamp(&typed)
 	}
 	return jsonVal(value)
 }
@@ -429,14 +428,14 @@ func housePics(ctx context.Context, pool *pgxpool.Pool, houseID int64) ([]any, e
 		if err := rows.Scan(&id, &fileName, &dir, &size, &house, &createdAt, &updatedAt); err != nil {
 			return nil, err
 		}
-		item := jsonphp.NewObject()
+		item := jsonwire.NewObject()
 		item.Set("id", id)
 		item.Set("file_name", nullableString(fileName))
 		item.Set("dir", nullableString(dir))
 		item.Set("size", nullableString(size))
 		item.Set("id_house", house)
-		item.Set("created_at", carbon(createdAt))
-		item.Set("updated_at", carbon(updatedAt))
+		item.Set("created_at", apiTimestamp(createdAt))
+		item.Set("updated_at", apiTimestamp(updatedAt))
 		list = append(list, item)
 	}
 
@@ -450,7 +449,7 @@ func housePics(ctx context.Context, pool *pgxpool.Pool, houseID int64) ([]any, e
 // In practice the viewer is always a guest here (see the `mine` note
 // above): email is null and phones are []. The branches stay so the
 // shape matches the resource for every viewer.
-func houseOwner(ctx context.Context, pool *pgxpool.Pool, ownerID, viewerID int64, viewerIsAdmin bool) (*jsonphp.Object, error) {
+func houseOwner(ctx context.Context, pool *pgxpool.Pool, ownerID, viewerID int64, viewerIsAdmin bool) (*jsonwire.Object, error) {
 	var id int64
 	var name, role string
 	var email *string
@@ -460,7 +459,7 @@ func houseOwner(ctx context.Context, pool *pgxpool.Pool, ownerID, viewerID int64
 		return nil, err
 	}
 
-	owner := jsonphp.NewObject()
+	owner := jsonwire.NewObject()
 	owner.Set("id", id)
 	owner.Set("name", name)
 
@@ -521,7 +520,7 @@ func houseRooms(ctx context.Context, pool *pgxpool.Pool, houseID int64) ([]any, 
 			return nil, err
 		}
 
-		room := jsonphp.NewObject()
+		room := jsonwire.NewObject()
 		room.Set("id", id)
 		room.Set("name", nullableString(name))
 		room.Set("type", nullableString(roomType))
@@ -552,7 +551,7 @@ func roomPics(ctx context.Context, pool *pgxpool.Pool, roomID int64) ([]any, err
 		if err := rows.Scan(&id, &dir); err != nil {
 			return nil, err
 		}
-		item := jsonphp.NewObject()
+		item := jsonwire.NewObject()
 		item.Set("id", id)
 		item.Set("dir", nullableString(dir))
 		list = append(list, item)
@@ -570,11 +569,11 @@ func houseSelect() string {
 	return strings.Join(qualified, ", ")
 }
 
-// houseNumberRe matches MySQL's leading-number coercion: an optional sign,
-// digits with an optional fraction. `12abc` reads 12; `abc` reads nothing.
+// houseNumberRe matches a leading number: optional sign, digits with an
+// optional fraction. `12abc` reads 12; `abc` reads nothing.
 var houseNumberRe = regexp.MustCompile(`^[+-]?[0-9]*\.?[0-9]+`)
 
-// parseBoolean mirrors `$request->boolean()`: 1/true/on/yes, case-insensitive.
+// parseBoolean accepts 1/true/on/yes, case-insensitively.
 func parseBoolean(raw string) bool {
 	switch strings.ToLower(strings.TrimSpace(raw)) {
 	case "1", "true", "on", "yes":
@@ -584,9 +583,9 @@ func parseBoolean(raw string) bool {
 	}
 }
 
-// phpFloat mirrors `(float)` on request input: a leading numeric prefix,
-// or 0 when there is none.
-func phpFloat(raw string) float64 {
+// floatFilter parses a numeric query filter from its leading numeric prefix,
+// or returns 0 when there is none.
+func floatFilter(raw string) float64 {
 	trimmed := strings.TrimSpace(raw)
 	match := houseNumberRe.FindString(trimmed)
 	if match == "" {
@@ -599,17 +598,15 @@ func phpFloat(raw string) float64 {
 	return value
 }
 
-// isPHPNumeric mirrors `is_numeric()` for request input: optional sign,
-// digits with an optional fraction, optional exponent — no hex, no
-// thousands separators, surrounding whitespace tolerated.
-var phpNumericRe = regexp.MustCompile(`^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$`)
+// numericFilterRe is the accepted shape of a numeric query filter: optional
+// sign, digits with an optional fraction, optional exponent. No hex and no
+// thousands separators.
+var numericFilterRe = regexp.MustCompile(`^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$`)
 
-// isPHPNumeric mirrors `is_numeric()` for request input: optional sign,
-// digits with an optional fraction, optional exponent — no hex, no
-// thousands separators, and no surrounding whitespace (PHP's check has
-// none either; the casts trim, the check does not).
-func isPHPNumeric(raw string) bool {
-	return phpNumericRe.MatchString(raw)
+// isNumericFilter reports whether a query value is numeric. Surrounding
+// whitespace is rejected; the numeric casts trim, the predicate does not.
+func isNumericFilter(raw string) bool {
+	return numericFilterRe.MatchString(raw)
 }
 
 // mustInt mirrors `(int)` on input already known numeric.

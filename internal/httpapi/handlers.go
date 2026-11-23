@@ -7,29 +7,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// THE FIRST PORTED ENDPOINT: `GET /api/admin/stats`.
+// StatsHandler serves `GET /api/admin/stats`.
 //
-// WHY THIS ONE FIRST
-// ------------------
-// It is small (219 bytes), it is TIER 1 (admin), and every number it returns is
-// an aggregate — so it exercises the whole path the rest of this service needs:
-// the auth gate reading Sanctum's token, a query against PostgreSQL, and a body
-// encoded to PHP's exact bytes.
-//
-// THE KEY ORDER IS PART OF THE CONTRACT. PHP arrays preserve insertion order
-// and `response()->json()` writes that order, so the object is built with
-// `jsonphp.Object` rather than a Go map — a map would sort the keys and the
-// body would differ even though every value was right.
-//
-// THE NUMBERS ARE `int`, NOT `float`. `total_users` is `User::count()`: PHP's
-// count is an integer and encodes as `34`, while a Go `float64` would encode as
-// `34` only by luck (`jsonphp` writes a float with a decimal point when it has
-// one, and `34` from a float is `34` — but `34.0` is not, and the difference is
-// invisible until it is not).
+// The body is assembled in a deliberate order (`jsonwire.Object`, not a map)
+// because clients and fixtures read it as a stable document. Counts are
+// integers, not floats: a count is exact, and `34` and `34.0` are different
+// JSON values to a strict client.
 func StatsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
@@ -81,22 +68,9 @@ func StatsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		// "Active operations" = anything not in a terminal state.
 		//
-		// THE LEGACY FILTER NAMES A THIRD VALUE, AND IT DOES NOT EXIST.
-		// `ProjectController` writes `whereNotIn('status', ['completed',
-		// 'cancelled', 'terminated'])`, but `projects.status` is an ENUM whose
-		// members are {open, accepted_arsitek, accepted_kontraktor,
-		// awaiting_payment, in_progress, termination_pending, legal,
-		// procurement, completed_build, completed, cancelled} — there is no
-		// `terminated`.
-		//
-		// MySQL coerces the unknown literal and ignores it, so the previous query
-		// has always meant "not completed and not cancelled". PostgreSQL REJECTS
-		// the literal outright (`invalid input value for enum project_status`),
-		// which is how this service found it: the same filter, implemented literally,
-		// stops answering at all.
-		//
-		// The filter is written with the values the ENUM has, so the two
-		// engines return the same rows.
+		// The status enum has no `terminated` member. A filter that names a
+		// value outside the enum is rejected by PostgreSQL, so the query uses
+		// the enum's actual terminal values: `completed` and `cancelled`.
 		err = pool.QueryRow(ctx, `
 			SELECT count(*) FROM projects
 			 WHERE status NOT IN ('completed', 'cancelled')
@@ -140,17 +114,17 @@ func StatsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		body := jsonphp.NewObject()
+		body := jsonwire.NewObject()
 		body.Set("total_users", stats.users)
 		body.Set("total_houses", stats.houses)
 		body.Set("total_projects", stats.projects)
 		body.Set("pending_verifications", stats.pendingVerification)
 		body.Set("active_projects", stats.activeProjects)
 
-		distribution := jsonphp.NewObject()
+		distribution := jsonwire.NewObject()
 
-		// The controller's order, with the keys the UI reads. A role absent
-		// from the data is `0`, not missing: PHP's `(int) $roles->get(...)`.
+		// The UI's role order. A role absent from the data is `0`, not missing:
+		// the distribution always has the same keys.
 		for _, key := range []string{
 			"client", "arsitek", "kontraktor", "supplier", "notaris", "interior", "project_manager",
 		} {
@@ -181,14 +155,9 @@ func serverError(w http.ResponseWriter) {
 
 // NotificationsHandler serves `GET /api/notifications`.
 //
-// IT IS THE SECOND PORTED ENDPOINT, and it is here because of what it adds to
-// the first: a ROW LIST rather than aggregates, a `jsonb` column that must be
-// embedded as a document (not as a string), and the timestamp format Eloquent
-// writes — `2006-01-02T15:04:05.000000Z`, which is Carbon's `toJSON()`.
-//
-// The controller is `Notification::where('user_id', Auth::id())->latest()->limit(20)`,
-// where `latest()` is `created_at DESC`. The model has no `$hidden`, so every
-// column appears, in the table's order.
+// The list is the caller's newest 20 rows, `created_at DESC`. The `data`
+// column is a JSON document and is embedded as a document, not as a string;
+// timestamps use the API's fixed `2006-01-02T15:04:05.000000Z` shape.
 func NotificationsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		caller, ok := CallerFrom(r.Context())
@@ -228,23 +197,21 @@ func NotificationsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 
-			row := jsonphp.NewObject()
+			row := jsonwire.NewObject()
 			row.Set("id", id)
 			row.Set("user_id", userID)
 			row.Set("type", kind)
 			row.Set("title", title)
 			row.Set("body", body)
 
-			// A `json` column cast to `array` by the model: the response embeds
-			// the DOCUMENT, not a string containing one.
-			//
-			// Compacted, because MySQL stores `{"a": 1}` and PHP writes
-			// `{"a":1}` — the decode/re-encode the previous does on the way out.
-			row.Set("data", jsonphp.Raw(jsonphp.CompactJSON(data)))
+			// A `json`/`jsonb` column: the response embeds the DOCUMENT, not a
+			// string containing one. Compact it first so insignificant
+			// whitespace from the driver never changes the wire shape.
+			row.Set("data", jsonwire.Raw(jsonwire.CompactJSON(data)))
 
-			row.Set("read_at", carbon(readAt))
-			row.Set("created_at", carbon(createdAt))
-			row.Set("updated_at", carbon(updatedAt))
+			row.Set("read_at", apiTimestamp(readAt))
+			row.Set("created_at", apiTimestamp(createdAt))
+			row.Set("updated_at", apiTimestamp(updatedAt))
 
 			list = append(list, row)
 		}
@@ -255,19 +222,19 @@ func NotificationsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", list)
 
 		writeJSON(w, http.StatusOK, payload)
 	}
 }
 
-// carbon renders a timestamp the way Eloquent's date cast does.
+// apiTimestamp renders a timestamp in the API's wire shape.
 //
-// `toJSON()` is ISO 8601 in UTC with SIX fractional digits and a `Z` — not
-// Go's `time.RFC3339Nano`, which trims trailing zeros and would render
-// `…:05Z` where PHP renders `…:05.000000Z`.
-func carbon(value *time.Time) any {
+// It is ISO 8601 in UTC with SIX fractional digits and a `Z` — not Go's
+// `time.RFC3339Nano`, which trims trailing zeros and would render `…:05Z`
+// instead of the stable `…:05.000000Z`.
+func apiTimestamp(value *time.Time) any {
 	if value == nil {
 		return nil
 	}
@@ -277,25 +244,19 @@ func carbon(value *time.Time) any {
 
 // ActiveProjectsHandler serves `GET /api/user/active-projects`.
 //
-// IT IS THE THIRD PORTED ENDPOINT, and it is the one that found a live data
-// leak in the previous controller (B32): `orWhere($column, null)` is
-// `orWhereNull($column)`, so a user with no profile for a role matched EVERY
-// project whose column for that role was empty. An administrator with no
-// profiles saw the id and title of projects they neither owned nor worked on.
-//
-// This service cannot reproduce that and still be a valid replacement, so this
-// handler implements the INTENDED filter — a clause is added only for a profile
-// the user actually has — and the previous controller was corrected to match. A
-// deliberate divergence is documented; a silent one is a defect.
+// A clause is added only for a profile the caller actually has. Comparing a
+// nullable profile id without that guard matches every project whose column is
+// null, which is how an account with no profile could see projects it neither
+// owned nor worked on. The narrow filter is the intended rule.
 func ActiveProjectsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		empty := func() {
-			payload := jsonphp.NewObject()
+			payload := jsonwire.NewObject()
 			payload.Set("data", []any{})
 			writeJSON(w, http.StatusOK, payload)
 		}
 
-		// The previous controller answers `{"data":[]}` for an anonymous caller
+		// An anonymous caller gets `{"data":[]}`
 		// rather than 401 — the route has no `auth` middleware.
 		caller, ok := CallerFrom(r.Context())
 
@@ -387,7 +348,7 @@ func ActiveProjectsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 
-			row := jsonphp.NewObject()
+			row := jsonwire.NewObject()
 			row.Set("id", id)
 			row.Set("title", title)
 
@@ -400,7 +361,7 @@ func ActiveProjectsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", list)
 
 		writeJSON(w, http.StatusOK, payload)

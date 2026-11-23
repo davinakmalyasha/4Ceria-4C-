@@ -3,7 +3,7 @@ package httpapi
 import (
 	"context"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -49,7 +49,7 @@ func projectResourceTermins(ctx context.Context, pool *pgxpool.Pool, projectID i
 			return nil, err
 		}
 
-		entry := jsonphp.NewObject()
+		entry := jsonwire.NewObject()
 		entry.Set("id", nullableInt64(id))
 		entry.Set("label", nullableString(label))
 		entry.Set("percentage", nullableString(percentage))
@@ -59,7 +59,7 @@ func projectResourceTermins(ctx context.Context, pool *pgxpool.Pool, projectID i
 		entry.Set("milestone_id", nullableInt64(milestoneID))
 		entry.Set("milestone_title", nullableString(milestoneTitle))
 		if milestoneID != nil && *milestoneID != 0 && milestoneTitle != nil {
-			block := jsonphp.NewObject()
+			block := jsonwire.NewObject()
 			block.Set("id", *milestoneID)
 			block.Set("title", *milestoneTitle)
 			block.Set("approval_status", nullableString(milestoneApproval))

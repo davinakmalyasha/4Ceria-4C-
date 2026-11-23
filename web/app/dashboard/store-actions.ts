@@ -7,9 +7,8 @@ import { apiFetch, ApiFailure } from '@/lib/api';
 /**
  * Update the authenticated supplier's store profile.
  *
- * The route is PUT, but the photo makes the body multipart — PHP does not parse
- * multipart on a real PUT, so the action POSTs with `_method=PUT` (the previous
- * screen sent the same override as a query parameter). The controller requires
+ * The route is multipart `PUT /api/merchant/profile`; the photo rides in the
+ * same body and the gateway parses multipart on PUT. The handler requires
  * `store_name` and scopes the row to the caller's supplier.
  */
 export async function updateStoreProfile(formData: FormData): Promise<void> {
@@ -20,7 +19,6 @@ export async function updateStoreProfile(formData: FormData): Promise<void> {
     }
 
     const body = new FormData();
-    body.set('_method', 'PUT');
     body.set('store_name', storeName);
 
     for (const key of ['address', 'latitude', 'longitude', 'no_telp', 'category', 'bio', 'detail_location']) {
@@ -36,7 +34,7 @@ export async function updateStoreProfile(formData: FormData): Promise<void> {
     }
 
     try {
-        await apiFetch('/merchant/profile', { method: 'POST', body });
+        await apiFetch('/merchant/profile', { method: 'PUT', body });
     } catch (error) {
         if (error instanceof ApiFailure) {
             redirect(`/dashboard/store?error=${encodeURIComponent(error.message)}`);

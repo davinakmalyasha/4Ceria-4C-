@@ -1,25 +1,18 @@
-package jsonphp
+package jsonwire
 
 import "strings"
 
-// Object is a JSON object whose keys keep their INSERTION order.
+// Object is a JSON object whose keys keep their insertion order.
 //
 // WHY NOT A MAP
 // -------------
-// PHP's `json_encode` emits an array's keys in insertion order. Go's
-// `json.Marshal` on a `map[string]any` emits them SORTED.
+// A response has a readable, deliberate shape: `message` before `data`, a
+// resource id before its relations, a summary before its rows. A Go map sorts
+// its keys, so two runs can produce the same document with different bytes
+// and every diff becomes noise.
 //
-// Two bodies with the same keys in a different order are the same JSON and
-// different bytes, and the rewrite's contract is about bytes. So the type
-// that carries a response body is this one, not a map.
-//
-// The previous API is full of bodies whose key order is part of the contract:
-// every `response()->json(['message' => ..., 'data' => ...])` puts `message`
-// first, and the SPA reads the body as an object so it does not care — but
-// the golden files compare bytes, and the bytes are what a client sees.
-//
-// Setting a key that already exists does NOT move it to the end, because
-// PHP's `$a['x'] = 1` on an existing key does not either.
+// Setting a key that already exists keeps its original position: replacing
+// `data` must not move it to the end of the response.
 type Object struct {
 	keys   []string
 	values map[string]any
@@ -61,6 +54,11 @@ func (o *Object) Keys() []string {
 // Len returns the number of keys.
 func (o *Object) Len() int {
 	return len(o.keys)
+}
+
+// MarshalJSON lets an Object nested inside a standard encoder keep its order.
+func (o Object) MarshalJSON() ([]byte, error) {
+	return Marshal(o)
 }
 
 // encode writes the object.

@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -48,10 +48,10 @@ func scanRequirementRow(rows pgx.Rows, width int) (requirementRow, error) {
 
 // requirementObject renders one requirement: table columns in order with
 // the decimal casts, the image_url append, and the user + folder links.
-func requirementObject(ctx context.Context, pool *pgxpool.Pool, row requirementRow, withFolder bool) (*jsonphp.Object, error) {
+func requirementObject(ctx context.Context, pool *pgxpool.Pool, row requirementRow, withFolder bool) (*jsonwire.Object, error) {
 	byName := row.byName
 
-	entry := jsonphp.NewObject()
+	entry := jsonwire.NewObject()
 	for _, column := range row.fields {
 		value := byName[column]
 		switch column {
@@ -117,7 +117,7 @@ func requirementFolder(ctx context.Context, pool *pgxpool.Pool, folderID *int64)
 		return nil, err
 	}
 
-	entry := jsonphp.NewObject()
+	entry := jsonwire.NewObject()
 	entry.Set("id", nullableInt64(id))
 	entry.Set("project_id", nullableInt64(projectID))
 	entry.Set("name", nullableString(name))
@@ -257,7 +257,7 @@ func RequirementsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", out)
 
 		writeJSON(w, http.StatusOK, payload)

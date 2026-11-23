@@ -35,9 +35,8 @@ import (
 // chars with the same key — which is why the alphabet matters and why this
 // file does not invent its own.
 //
-// Expiry is 60 minutes from `created_at` (`expire => 60`, seconds inside
-// the broker). The lookup is by email with `=` — MySQL's ci collation
-// decides case, identically on both stacks.
+// Expiry is 60 minutes from `created_at`. The email lookup is case-insensitive
+// (`citext`), so an address cannot be registered under two casings.
 //
 // THE MAILER
 // ----------

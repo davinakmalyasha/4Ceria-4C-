@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -84,7 +84,7 @@ func PublicBriefHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("title", title)
 		payload.Set("location", nullableString(location))
 		payload.Set("city", nullableString(city))
@@ -116,7 +116,7 @@ func briefMilestones(ctx context.Context, pool *pgxpool.Pool, projectID int64) (
 		if err != nil {
 			return nil, err
 		}
-		entry := jsonphp.NewObject()
+		entry := jsonwire.NewObject()
 		for i, column := range fields {
 			value := values[i]
 			switch column {
@@ -160,7 +160,7 @@ func briefRequirements(ctx context.Context, pool *pgxpool.Pool, projectID int64)
 		for i, column := range fields {
 			byName[column] = values[i]
 		}
-		entry := jsonphp.NewObject()
+		entry := jsonwire.NewObject()
 		for _, column := range fields {
 			switch {
 			case briefRequirementDecimals[column]:
@@ -212,7 +212,7 @@ func briefComments(ctx context.Context, pool *pgxpool.Pool, projectID int64) ([]
 			return nil, err
 		}
 
-		entry := jsonphp.NewObject()
+		entry := jsonwire.NewObject()
 		entry.Set("id", id)
 		entry.Set("message", message)
 		entry.Set("created_at", briefISO(createdAt))
@@ -243,7 +243,7 @@ func briefReplies(ctx context.Context, pool *pgxpool.Pool, parentID int64) ([]an
 		if err := rows.Scan(&id, &userID, &message, &createdAt); err != nil {
 			return nil, err
 		}
-		entry := jsonphp.NewObject()
+		entry := jsonwire.NewObject()
 		entry.Set("id", id)
 		entry.Set("message", message)
 		entry.Set("created_at", briefISO(createdAt))
@@ -255,13 +255,13 @@ func briefReplies(ctx context.Context, pool *pgxpool.Pool, parentID int64) ([]an
 }
 
 // briefCommentUser is `['name' => $c->user?->name ?? 'User']`.
-func briefCommentUser(ctx context.Context, pool *pgxpool.Pool, userID int64) *jsonphp.Object {
+func briefCommentUser(ctx context.Context, pool *pgxpool.Pool, userID int64) *jsonwire.Object {
 	name := "User"
 	var found string
 	if err := pool.QueryRow(ctx, `SELECT name FROM users WHERE id = $1`, userID).Scan(&found); err == nil {
 		name = found
 	}
-	entry := jsonphp.NewObject()
+	entry := jsonwire.NewObject()
 	entry.Set("name", name)
 	return entry
 }
@@ -302,7 +302,7 @@ func ContractorSubspecialtiesHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				serverError(w)
 				return
 			}
-			entry := jsonphp.NewObject()
+			entry := jsonwire.NewObject()
 			for i, column := range fields {
 				if column == "created_at" || column == "updated_at" {
 					entry.Set(column, projectTimeValue(values[i]))
@@ -313,7 +313,7 @@ func ContractorSubspecialtiesHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			list = append(list, entry)
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", list)
 		writeJSON(w, http.StatusOK, payload)
 	}
@@ -356,7 +356,7 @@ func MyBidsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		role, known := myBidRoles[caller.RoleType()]
 		empty := func() {
-			payload := jsonphp.NewObject()
+			payload := jsonwire.NewObject()
 			payload.Set("data", []any{})
 			writeJSON(w, http.StatusOK, payload)
 		}
@@ -408,7 +408,7 @@ func MyBidsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			list = append(list, entry)
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", list)
 		writeJSON(w, http.StatusOK, payload)
 	}
@@ -428,7 +428,7 @@ func myBidProject(ctx context.Context, pool *pgxpool.Pool, projectID *int64) any
 		*projectID).Scan(&id, &title, &status); err != nil {
 		return nil
 	}
-	entry := jsonphp.NewObject()
+	entry := jsonwire.NewObject()
 	entry.Set("id", id)
 	entry.Set("title", title)
 	entry.Set("status", status)
@@ -512,7 +512,7 @@ func HireHistoryHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			}
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("success", true)
 		payload.Set("data", list)
 		writeJSON(w, http.StatusOK, payload)
@@ -530,7 +530,7 @@ func hireProjectSelect() string {
 
 // hireEntry builds one hired-professional row.
 func hireEntry(ctx context.Context, pool *pgxpool.Pool, role hireRole,
-	profileID int64, projectTitle, base string) (*jsonphp.Object, error) {
+	profileID int64, projectTitle, base string) (*jsonwire.Object, error) {
 	var (
 		userID    *int64
 		name      *string
@@ -590,7 +590,7 @@ func hireEntry(ctx context.Context, pool *pgxpool.Pool, role hireRole,
 		avatar = avatarURL(*userPic)
 	}
 
-	entry := jsonphp.NewObject()
+	entry := jsonwire.NewObject()
 	entry.Set("id", profileID)
 	entry.Set("user_id", *userID)
 	entry.Set("name", displayName)

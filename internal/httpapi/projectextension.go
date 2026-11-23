@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -23,13 +23,13 @@ import (
 // none) and pushes `projects.deadline` forward.
 
 // extensionCreatedObject renders Eloquent\u0027s CREATED extension.
-func extensionCreatedObject(byName map[string]any) *jsonphp.Object {
-	entry := jsonphp.NewObject()
+func extensionCreatedObject(byName map[string]any) *jsonwire.Object {
+	entry := jsonwire.NewObject()
 	entry.Set("requester_id", projectRawValue(byName["requester_id"]))
 	entry.Set("reason", projectRawValue(byName["reason"]))
 	entry.Set("description", projectRawValue(byName["description"]))
 	entry.Set("days_requested", projectRawValue(byName["days_requested"]))
-	entry.Set("original_deadline", mysqlDate(byName["original_deadline"]))
+	entry.Set("original_deadline", dateString(byName["original_deadline"]))
 	entry.Set("status", projectRawValue(byName["status"]))
 	entry.Set("project_id", projectRawValue(byName["project_id"]))
 	entry.Set("updated_at", projectTimeValue(byName["updated_at"]))
@@ -133,7 +133,7 @@ func ExtensionsIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			out = append(out, entry)
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", out)
 		writeJSON(w, http.StatusOK, payload)
 	}
@@ -215,7 +215,7 @@ func StoreExtensionHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Extension requested")
 		payload.Set("data", extensionCreatedObject(byName))
 		writeJSON(w, http.StatusOK, payload)
@@ -404,7 +404,7 @@ func ExtensionDecisionHandler(pool *pgxpool.Pool, verb string) http.HandlerFunc 
 		if verb != "pm-review" {
 			msg = "Decision recorded"
 		}
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", msg)
 		payload.Set("data", extensionObject(fresh))
 		writeJSON(w, http.StatusOK, payload)

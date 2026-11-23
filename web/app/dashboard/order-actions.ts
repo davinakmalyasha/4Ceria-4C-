@@ -7,12 +7,12 @@ import { apiFetch, ApiFailure } from '@/lib/api';
 /**
  * Move a material order through its lifecycle.
  *
- * The API is `PUT/PATCH /material-orders/{id}`, but a multipart body must be a
- * POST with `_method=PUT` (PHP does not parse multipart on PUT). One action
- * therefore serves both JSON-only transitions and the dispatch-documentation
- * upload. The controller owns the role/state gate: supplier pending→processing,
- * processing→shipping (or ready_for_pickup for platform courier), shipping→
- * delivered; buyer delivered→completed and pre-processing cancellation.
+ * The API is `PUT/PATCH /material-orders/{id}`. The gateway parses multipart
+ * on PUT, so one action serves both JSON-only transitions and the
+ * dispatch-documentation upload. The handler owns the role/state gate:
+ * supplier pending→processing, processing→shipping (or ready_for_pickup for
+ * platform courier), shipping→delivered; buyer delivered→completed and
+ * pre-processing cancellation.
  */
 export async function updateOrderStatus(formData: FormData): Promise<void> {
     const id = Number(formData.get('order_id'));
@@ -34,7 +34,6 @@ export async function updateOrderStatus(formData: FormData): Promise<void> {
     }
 
     const body = new FormData();
-    body.set('_method', 'PUT');
     body.set('status', status);
 
     const notes = String(formData.get('notes') ?? '').trim();
@@ -48,7 +47,7 @@ export async function updateOrderStatus(formData: FormData): Promise<void> {
     }
 
     try {
-        await apiFetch(`/material-orders/${id}`, { method: 'POST', body });
+        await apiFetch(`/material-orders/${id}`, { method: 'PUT', body });
     } catch (error) {
         if (error instanceof ApiFailure) {
             redirect(`/dashboard/orders?error=${encodeURIComponent(error.message)}`);

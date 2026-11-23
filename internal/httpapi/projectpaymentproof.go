@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -153,7 +153,7 @@ func UploadProofHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		_ = stored
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("status", "success")
 		payload.Set("message", "Proof of transfer uploaded successfully.")
 		payload.Set("data", data)
@@ -165,7 +165,7 @@ func UploadProofHandler(pool *pgxpool.Pool) http.HandlerFunc {
 // proofError answers the service envelope: {status:"error",message}
 // with the exception's own code — never the standard error shape.
 func proofError(w http.ResponseWriter, status int, msg string) {
-	payload := jsonphp.NewObject()
+	payload := jsonwire.NewObject()
 	payload.Set("status", "error")
 	payload.Set("message", msg)
 
@@ -240,7 +240,7 @@ func validateProofFile(fields map[string]any, files map[string]*uploadedFile, fa
 // storePaymentProof runs the upload inside the caller's transaction and
 // renders the 200 data. A proofErrorValue carries the reference's own
 // 4xx message and status.
-func storePaymentProof(ctx context.Context, tx pgx.Tx, pool *pgxpool.Pool, projectID int64, paymentType, rawID string, viewer *projectViewer, upload *uploadedFile, contents []byte) (string, *jsonphp.Object, error) {
+func storePaymentProof(ctx context.Context, tx pgx.Tx, pool *pgxpool.Pool, projectID int64, paymentType, rawID string, viewer *projectViewer, upload *uploadedFile, contents []byte) (string, *jsonwire.Object, error) {
 	id, err := strconv.ParseInt(rawID, 10, 64)
 	if err != nil {
 		return "", nil, proofErrorValue{status: 404, message: "Payment record not found."}
@@ -399,7 +399,7 @@ func terminUnpaidPrevious(ctx context.Context, tx pgx.Tx, projectID int64, role 
 }
 
 // storeTerminProof uploads a receipt for a payment termin.
-func storeTerminProof(ctx context.Context, tx pgx.Tx, pool *pgxpool.Pool, projectID, terminID int64, viewer *projectViewer, filename string, contents []byte) (string, *jsonphp.Object, error) {
+func storeTerminProof(ctx context.Context, tx pgx.Tx, pool *pgxpool.Pool, projectID, terminID int64, viewer *projectViewer, filename string, contents []byte) (string, *jsonwire.Object, error) {
 	_ = pool
 	_ = viewer
 
@@ -467,7 +467,7 @@ func storeTerminProof(ctx context.Context, tx pgx.Tx, pool *pgxpool.Pool, projec
 }
 
 // storeAddendumProof uploads a receipt for a budget addendum.
-func storeAddendumProof(ctx context.Context, tx pgx.Tx, pool *pgxpool.Pool, projectID, addendumID int64, viewer *projectViewer, filename string, contents []byte) (string, *jsonphp.Object, error) {
+func storeAddendumProof(ctx context.Context, tx pgx.Tx, pool *pgxpool.Pool, projectID, addendumID int64, viewer *projectViewer, filename string, contents []byte) (string, *jsonwire.Object, error) {
 	_ = pool
 	_ = viewer
 
@@ -513,7 +513,7 @@ func storeAddendumProof(ctx context.Context, tx pgx.Tx, pool *pgxpool.Pool, proj
 }
 
 // storeMaterialProof uploads a receipt for a material order.
-func storeMaterialProof(ctx context.Context, tx pgx.Tx, pool *pgxpool.Pool, projectID, orderID int64, viewer *projectViewer, filename string, contents []byte) (string, *jsonphp.Object, error) {
+func storeMaterialProof(ctx context.Context, tx pgx.Tx, pool *pgxpool.Pool, projectID, orderID int64, viewer *projectViewer, filename string, contents []byte) (string, *jsonwire.Object, error) {
 	_ = pool
 	_ = viewer
 
@@ -559,7 +559,7 @@ func storeMaterialProof(ctx context.Context, tx pgx.Tx, pool *pgxpool.Pool, proj
 }
 
 // storeBidProof uploads a receipt for one of the seven bid types.
-func storeBidProof(ctx context.Context, tx pgx.Tx, pool *pgxpool.Pool, projectID int64, role, table string, legacyID int64, viewer *projectViewer, filename string, contents []byte) (string, *jsonphp.Object, error) {
+func storeBidProof(ctx context.Context, tx pgx.Tx, pool *pgxpool.Pool, projectID int64, role, table string, legacyID int64, viewer *projectViewer, filename string, contents []byte) (string, *jsonwire.Object, error) {
 	_ = viewer
 	_ = table
 
@@ -638,7 +638,7 @@ func scanLockedRow(rows pgx.Rows) (map[string]any, error) {
 
 // reloadTerminTx re-reads one termin with its milestone inside the
 // caller's transaction.
-func reloadTerminTx(ctx context.Context, tx pgx.Tx, pool *pgxpool.Pool, terminID int64) (*jsonphp.Object, error) {
+func reloadTerminTx(ctx context.Context, tx pgx.Tx, pool *pgxpool.Pool, terminID int64) (*jsonwire.Object, error) {
 	rows, err := tx.Query(ctx, `SELECT id, project_id, role_type, recipient_id, label, percentage::text, amount::text, retention_amount::text, retention_released_at, retention_released_amount::text, net_amount::text, trigger_description, status::text, payment_proof_path, verification_notes, milestone_id, change_order_id, paid_at, notes, retention_notes, created_at, updated_at, refunded_amount::text, milestone_id
 		FROM project_payment_termins WHERE id = $1`, terminID)
 	if err != nil {
@@ -665,7 +665,7 @@ func reloadTerminTx(ctx context.Context, tx pgx.Tx, pool *pgxpool.Pool, terminID
 }
 
 // reloadAddendumTx re-reads one addendum inside the caller's transaction.
-func reloadAddendumTx(ctx context.Context, tx pgx.Tx, addendumID int64) (*jsonphp.Object, error) {
+func reloadAddendumTx(ctx context.Context, tx pgx.Tx, addendumID int64) (*jsonwire.Object, error) {
 	rows, err := tx.Query(ctx, `SELECT id, project_id, type, role_type, user_id, team_member_id, specialist_type, title, description, negotiation_note, attachment_path, amount::text, counter_offer_amount::text, recommended_bid_id, recommended_bid_type::text, status::text, payment_proof_path, verification_notes, paid_at, created_at, updated_at, procurement_request_id, assigned_user_id, refunded_amount::text
 		FROM project_addendums WHERE id = $1`, addendumID)
 	if err != nil {
@@ -694,7 +694,7 @@ func reloadAddendumTx(ctx context.Context, tx pgx.Tx, addendumID int64) (*jsonph
 		byName[column] = values[i]
 	}
 
-	entry := jsonphp.NewObject()
+	entry := jsonwire.NewObject()
 	for _, column := range fields {
 		value := byName[column]
 		switch column {
@@ -712,7 +712,7 @@ func reloadAddendumTx(ctx context.Context, tx pgx.Tx, addendumID int64) (*jsonph
 
 // reloadMaterialTx re-reads one material order inside the caller's
 // transaction.
-func reloadMaterialTx(ctx context.Context, tx pgx.Tx, orderID int64) (*jsonphp.Object, error) {
+func reloadMaterialTx(ctx context.Context, tx pgx.Tx, orderID int64) (*jsonwire.Object, error) {
 	rows, err := tx.Query(ctx, `SELECT id, user_id, supplier_id, project_id, status, verification_notes, total_price::text, shipping_cost::text, whatsapp_order_id, payment_proof_path, notes, paid_at, shipped_at, delivered_at, completed_at, created_at, updated_at, refunded_amount::text, delivery_method, ready_for_pickup_at, latitude, longitude, delivery_address, address_detail, delivery_documentation_path, is_stock_decremented, total_weight::text
 		FROM material_orders WHERE id = $1`, orderID)
 	if err != nil {
@@ -741,7 +741,7 @@ func reloadMaterialTx(ctx context.Context, tx pgx.Tx, orderID int64) (*jsonphp.O
 		byName[column] = values[i]
 	}
 
-	entry := jsonphp.NewObject()
+	entry := jsonwire.NewObject()
 	for _, column := range fields {
 		value := byName[column]
 		switch column {
@@ -783,7 +783,7 @@ func tinyInt(value any) any {
 
 // reloadBidTx re-reads one bid with its professional block inside the
 // caller's transaction.
-func reloadBidTx(ctx context.Context, tx pgx.Tx, pool *pgxpool.Pool, physicalID int64, role string) (*jsonphp.Object, error) {
+func reloadBidTx(ctx context.Context, tx pgx.Tx, pool *pgxpool.Pool, physicalID int64, role string) (*jsonwire.Object, error) {
 	rows, err := tx.Query(ctx, `SELECT `+bidsColumns+` FROM bids WHERE id = $1`, physicalID)
 	if err != nil {
 		return nil, err

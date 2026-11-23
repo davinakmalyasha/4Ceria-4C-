@@ -8,16 +8,15 @@ import { apiFetch, ApiFailure } from '@/lib/api';
  * Save the signed-in account's profile.
  *
  * Two endpoints, chosen by the form's hidden `mode`:
- *   - `user`         → `PUT /me` (multipart with `_method=PUT`, because the
- *                      avatar makes the body multipart and PHP does not parse
- *                      multipart on a real PUT).
- *   - `professional` → `POST /me/professional`, the endpoint every previous
- *                      role form used. The controller validates ONLY the field
- *                      list for the caller's `role_type`, so forwarding every
- *                      field the form rendered is safe: keys outside that
- *                      role's list are ignored.
+ *   - `user`         → multipart `PUT /me`; the avatar is part of the same
+ *                      body and the gateway parses multipart on PUT.
+ *   - `professional` → `POST /me/professional`, the profile-write endpoint.
+ *                      The handler validates only the field list for the
+ *                      caller's `role_type`, so forwarding every rendered
+ *                      field is safe: keys outside that role's list are
+ *                      ignored.
  *
- * `phone_numbers` is sent as a JSON array even when empty — the controller
+ * `phone_numbers` is sent as a JSON array even when empty — the handler
  * decodes it and treats `'[]'` as "no numbers left", which is how a phone row
  * gets deleted.
  */
@@ -71,8 +70,6 @@ export async function saveProfile(formData: FormData): Promise<void> {
     body.set('phone_numbers', JSON.stringify(phones));
 
     if (mode === 'user') {
-        body.set('_method', 'PUT');
-
         for (const key of ['bank_name', 'bank_account_number', 'bank_account_name']) {
             if (formData.has(key)) {
                 body.set(key, String(formData.get(key) ?? '').trim());
@@ -124,7 +121,7 @@ export async function saveProfile(formData: FormData): Promise<void> {
 
     try {
         await apiFetch(mode === 'user' ? '/me' : '/me/professional', {
-            method: 'POST',
+            method: mode === 'user' ? 'PUT' : 'POST',
             body,
         });
     } catch (error) {

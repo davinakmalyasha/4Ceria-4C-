@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -477,7 +477,7 @@ func TechnicalAuditHandler(pool *pgxpool.Pool) http.HandlerFunc {
 						serverError(w)
 						return
 					}
-					entry := jsonphp.NewObject()
+					entry := jsonwire.NewObject()
 					entry.Set("label", termin.label)
 					entry.Set("amount", termin.amount)
 					entry.Set("milestone_title", row.title)
@@ -562,7 +562,7 @@ func TechnicalAuditHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Audit submitted successfully")
 		payload.Set("unlocked_termins", unlocked)
 		writeJSON(w, http.StatusOK, payload)

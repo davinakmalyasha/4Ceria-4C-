@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -20,7 +20,7 @@ import (
 //   - the paginator envelope is the original API's raw 13-key body and the page URLs
 //     carry ONLY ?page= (none of these controllers call withQueryString());
 //   - `latest()` is ORDER BY created_at DESC, and with equal timestamps
-//     MySQL serves ids ASCENDING (an index scan), so this service orders
+//     IDs are ordered ASCENDING, so this service orders
 //     `created_at DESC, id ASC` — without the tie-break PostgreSQL's heap
 //     order wins and the pages disagree;
 //   - `audited_at` in the history is Carbon's `toIso8601String()`, i.e.
@@ -141,7 +141,7 @@ func AdminProfessionalsIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			{"logistics", "courier_profiles", nil, ""},
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		for _, item := range collections {
 			list, err := adminProfileList(ctx, pool, item.table, item.docs, item.roleType)
 			if err != nil {
@@ -253,7 +253,7 @@ func AdminProfessionalsHistoryHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 
-			entry := jsonphp.NewObject()
+			entry := jsonwire.NewObject()
 			entry.Set("id", id)
 			entry.Set("type", typeKey)
 			entry.Set("role_label", roleLabel)
@@ -345,14 +345,14 @@ func AdminHousesHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				byName[column] = values[i]
 			}
 
-			entry := jsonphp.NewObject()
+			entry := jsonwire.NewObject()
 			for _, column := range houseModelColumns {
 				value := byName[column]
 				switch column {
 				case "price":
 					entry.Set(column, projectDecimalValue(value))
 				case "is_suspended":
-					// No cast on the model: MySQL's tinyint serializes 0/1.
+					// A boolean column serializes as 0/1.
 					suspended := int64(0)
 					if flag, ok := value.(bool); ok && flag {
 						suspended = 1
@@ -414,13 +414,13 @@ func adminUserRoles(ctx context.Context, pool *pgxpool.Pool, userID int64) ([]an
 			&modelType, &modelID, &roleID); err != nil {
 			return nil, err
 		}
-		role := jsonphp.NewObject()
+		role := jsonwire.NewObject()
 		role.Set("id", id)
 		role.Set("name", name)
 		role.Set("guard_name", guardName)
 		role.Set("created_at", projectTimePtrValue(createdAt))
 		role.Set("updated_at", projectTimePtrValue(updatedAt))
-		pivot := jsonphp.NewObject()
+		pivot := jsonwire.NewObject()
 		pivot.Set("model_type", modelType)
 		pivot.Set("model_id", modelID)
 		pivot.Set("role_id", roleID)
@@ -506,11 +506,11 @@ func AdminUsersHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 
-			if object, ok := block.(*jsonphp.Object); ok {
+			if object, ok := block.(*jsonwire.Object); ok {
 				object.Set("roles", roles)
 				items = append(items, object)
 			} else {
-				entry := jsonphp.NewObject()
+				entry := jsonwire.NewObject()
 				entry.Set("roles", roles)
 				items = append(items, entry)
 			}
@@ -639,7 +639,7 @@ func AdminProjectsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			if err := pool.QueryRow(ctx, `SELECT id, title FROM project_disputes WHERE project_id = $1 AND status::text = 'open' ORDER BY id LIMIT 1`, id).Scan(&disputeID, &disputeTitle); err != nil {
 				entry.Set("open_dispute", nil)
 			} else {
-				dispute := jsonphp.NewObject()
+				dispute := jsonwire.NewObject()
 				dispute.Set("id", disputeID)
 				dispute.Set("title", disputeTitle)
 				entry.Set("open_dispute", dispute)

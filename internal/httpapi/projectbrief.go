@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -61,7 +61,7 @@ func renderProjectAnswer(ctx context.Context, pool *pgxpool.Pool, w http.Respons
 		return
 	}
 
-	payload := jsonphp.NewObject()
+	payload := jsonwire.NewObject()
 	payload.Set("data", entry)
 	writeJSON(w, http.StatusOK, payload)
 }
@@ -691,7 +691,7 @@ func ReviewProjectHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		data := jsonphp.NewObject()
+		data := jsonwire.NewObject()
 		byName := map[string]any{}
 		for i, column := range reviewFields {
 			byName[column] = reviewValues[i]
@@ -719,7 +719,7 @@ func ReviewProjectHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			}
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Thank you for your feedback!")
 		payload.Set("data", data)
 		writeJSON(w, http.StatusCreated, payload)

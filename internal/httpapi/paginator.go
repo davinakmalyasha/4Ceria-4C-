@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 )
 
 // THE PAGINATOR
@@ -17,7 +17,7 @@ import (
 //
 // The key order is part of the bytes (PHP arrays preserve insertion order,
 // and `response()->json()` writes that order), so the object is built with
-// `jsonphp.Object` — a Go map would sort the keys and the body would differ
+// `jsonwire.Object` — a Go map would sort the keys and the body would differ
 // even though every value was right.
 //
 // Verified against the live application (`artisan tinker`):
@@ -43,7 +43,7 @@ import (
 //   - rawQuery is the caller's raw query string (no leading `?`); the `page`
 //     parameter is replaced, everything else is preserved in order.
 //   - items are the current slice, already encoded.
-func Paginate(total, perPage, currentPage int, basePath, rawQuery string, items []any) *jsonphp.Object {
+func Paginate(total, perPage, currentPage int, basePath, rawQuery string, items []any) *jsonwire.Object {
 	if perPage <= 0 {
 		perPage = 15
 	}
@@ -85,7 +85,7 @@ func Paginate(total, perPage, currentPage int, basePath, rawQuery string, items 
 		prevPageURL = pageURL(currentPage - 1)
 	}
 
-	body := jsonphp.NewObject()
+	body := jsonwire.NewObject()
 	body.Set("current_page", currentPage)
 	body.Set("data", items)
 	body.Set("first_page_url", firstPageURL)
@@ -124,8 +124,8 @@ func pageLinks(currentPage, lastPage int, basePath, rawQuery string) []any {
 }
 
 // link builds one entry. withPage=false omits the `page` key (the ellipsis).
-func link(target any, label string, page int, active, withPage bool) *jsonphp.Object {
-	entry := jsonphp.NewObject()
+func link(target any, label string, page int, active, withPage bool) *jsonwire.Object {
+	entry := jsonwire.NewObject()
 	entry.Set("url", target)
 	entry.Set("label", label)
 
@@ -261,7 +261,7 @@ func buildPageURL(basePath, rawQuery string, page int) string {
 
 	parts := make([]string, 0, len(kept))
 	for _, pair := range kept {
-		parts = append(parts, phpEscape(pair[0])+"="+phpEscape(pair[1]))
+		parts = append(parts, urlEscape(pair[0])+"="+urlEscape(pair[1]))
 	}
 
 	separator := "?"
@@ -272,9 +272,8 @@ func buildPageURL(basePath, rawQuery string, page int) string {
 	return basePath + separator + strings.Join(parts, "&")
 }
 
-// phpEscape is PHP's `rawurlencode` (RFC 3986): Go's `QueryEscape` with the
-// space as `%20` rather than `+`. Everything else the two agree on for the
-// characters a query key or value can hold.
-func phpEscape(s string) string {
+// urlEscape applies RFC 3986 percent-encoding: Go's `QueryEscape` with the
+// space as `%20` rather than `+`.
+func urlEscape(s string) string {
 	return strings.ReplaceAll(url.QueryEscape(s), "+", "%20")
 }

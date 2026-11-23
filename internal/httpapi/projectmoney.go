@@ -6,7 +6,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -38,7 +38,7 @@ func projectPayoutDestinations(ctx context.Context, pool *pgxpool.Pool, viewer *
 		"project_manager": "project_managers",
 	}
 
-	destinations := jsonphp.NewObject()
+	destinations := jsonwire.NewObject()
 	emitted := false
 
 	for _, role := range bidRoleOrder {
@@ -65,7 +65,7 @@ func projectPayoutDestinations(ctx context.Context, pool *pgxpool.Pool, viewer *
 		var userID *int64
 		_ = pool.QueryRow(ctx, `SELECT user_id FROM `+tableFor[role]+` WHERE id = $1`, profileID).Scan(&userID)
 
-		entry := jsonphp.NewObject()
+		entry := jsonwire.NewObject()
 		entry.Set("role", role)
 		entry.Set("label", bidRoleLabels[role])
 
@@ -153,7 +153,7 @@ func projectBudgetSummary(ctx context.Context, pool *pgxpool.Pool, projectID int
 		percent = paidFloat / ceilingFloat * 100
 	}
 
-	summary := jsonphp.NewObject()
+	summary := jsonwire.NewObject()
 	summary.Set("total", ceilingFloat)
 	summary.Set("paid", paidFloat)
 	summary.Set("allocated", float64(paidMinor+committedMinor)/100)
@@ -196,7 +196,7 @@ type clientHistory struct {
 }
 
 // object renders the client_history block in key order.
-func (h *clientHistory) object() *jsonphp.Object {
+func (h *clientHistory) object() *jsonwire.Object {
 	hireRate := 0.0
 	if h.posted > 0 {
 		// PHP's round(): halves away from zero, integral results printing
@@ -204,7 +204,7 @@ func (h *clientHistory) object() *jsonphp.Object {
 		hireRate = math.Round(float64(h.hired) / float64(h.posted) * 100)
 	}
 
-	out := jsonphp.NewObject()
+	out := jsonwire.NewObject()
 	out.Set("projects_posted", h.posted)
 	out.Set("projects_hired", h.hired)
 	out.Set("hire_rate", hireRate)

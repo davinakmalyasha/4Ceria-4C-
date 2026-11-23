@@ -8,7 +8,7 @@ import (
 
 	"github.com/davinakmalyasha/4ceria/internal/domain/money"
 	"github.com/davinakmalyasha/4ceria/internal/domain/terminplan"
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -168,7 +168,7 @@ func VerifyProcurementHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		ownerID, _ := byName["user_id"].(int64)
 		whole := terminplan.FormatWhole(cost)
-		data := mysqlJSONPair(`"project_id": `+strconv.FormatInt(projectID, 10), `"addendum_id": `+strconv.FormatInt(addendumID, 10), `"request_id": `+strconv.FormatInt(procurementID, 10))
+		data := jsonPair(`"project_id": `+strconv.FormatInt(projectID, 10), `"addendum_id": `+strconv.FormatInt(addendumID, 10), `"request_id": `+strconv.FormatInt(procurementID, 10))
 		if err := insertNotification(ctx, tx, ownerID, "budget_approval_needed", "Budget Authorization Needed",
 			"PM has verified a procurement request for "+reqName+". Authorize Rp "+whole+" to proceed.", data); err != nil {
 			slog.Error("proc-verify: notify", "error", err)
@@ -203,7 +203,7 @@ func VerifyProcurementHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Request forwarded to Owner for budget approval.")
 		payload.Set("data", entry)
 
@@ -315,7 +315,7 @@ func RejectProcurementHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		data := mysqlJSONPair(`"project_id": ` + strconv.FormatInt(projectID, 10))
+		data := jsonPair(`"project_id": ` + strconv.FormatInt(projectID, 10))
 		if err := insertNotification(ctx, tx, requestedBy, "procurement_rejected", "Procurement Request Rejected",
 			"PM rejected your request for "+reqName+". Note: "+note, data); err != nil {
 			slog.Error("proc-reject: notify", "error", err)
@@ -350,7 +350,7 @@ func RejectProcurementHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", entry)
 
 		writeJSON(w, http.StatusOK, payload)

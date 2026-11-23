@@ -23,7 +23,7 @@
 --   * ACCENT-insensitivity is NOT reproduced. MySQL's utf8mb4_0900_ai_ci
 --     strips accents, so 'cafe' matched 'cafe' there. PostgreSQL's C
 --     collation does not. This is a search-RECALL difference and it is
---     called out in docs/POSTGRES-SCHEMA.md; reproducing it would need the
+--     called out in the migration notes; reproducing it would need the
 --     unaccent extension and a functional index on unaccent(col), which is
 --     a decision for the parity phase, not for the schema baseline.
 --
@@ -228,7 +228,7 @@ CREATE TABLE phone_user (
 -- A favourite. 'favoritable_type' is a polymorphic model name - the same
 -- class of defect the reference registry retired in the ledger - but it is a display
 -- concern, not a money one, and it has two live values. It is left as
--- text here and listed in docs/POSTGRES-SCHEMA.md as a deliberate
+-- text here and listed in the migration notes as a deliberate
 -- carry-over.
 -- --------------------------------------------------------------------------
 CREATE TABLE favorites (

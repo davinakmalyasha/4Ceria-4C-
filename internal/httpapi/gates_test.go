@@ -28,7 +28,7 @@ func TestTheAuthGateRunsBeforeTheAdminGate(t *testing.T) {
 				Gates: struct {
 					Middleware []string `yaml:"middleware"`
 				}{
-					Middleware: []string{"api", "auth:sanctum", "freeze_pending_termination", "admin"},
+					Middleware: []string{"api", "auth", "freeze_pending_termination", "admin"},
 				},
 			},
 		},
@@ -83,7 +83,7 @@ func TestAnAnonymousCallerIsRefusedBeforeTheAdminGate(t *testing.T) {
 				Gates: struct {
 					Middleware []string `yaml:"middleware"`
 				}{
-					Middleware: []string{"api", "auth:sanctum", "admin"},
+					Middleware: []string{"api", "auth", "admin"},
 				},
 			},
 		},

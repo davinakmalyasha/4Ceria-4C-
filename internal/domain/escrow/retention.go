@@ -19,7 +19,7 @@ type Split struct {
 
 // SplitRetention divides a gross stage amount, at the configured percentage.
 //
-// PARITY NOTES (each one is a place the obvious Go code differs from PHP):
+// RULES (each one is a place the obvious implementation would be wrong):
 //
 //   - The percentage is rounded to basis points with half-away-from-zero
 //     rounding, matching `(int) round($percent * 100)`.
@@ -99,8 +99,8 @@ func ForTermin(gross, net, retention money.Money) (Split, error) {
 	return Split{Retention: retention, Net: net}, nil
 }
 
-// moneyOf computes `gross * bp / 10000` exactly as the previous code does: an
-// exact integer multiply, then a TRUNCATING division.
+// moneyOf computes `gross * bp / 10000` with an exact integer multiply and a
+// TRUNCATING division.
 //
 // `money.Money.Percentage` is NOT used here, and that is the whole point of
 // this helper: Percentage rounds HALF AWAY FROM ZERO, while retention truncates.

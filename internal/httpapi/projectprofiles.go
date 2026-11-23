@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -174,12 +174,12 @@ func bidNegotiationLogs(ctx context.Context, pool *pgxpool.Pool, role string, bi
 			return list
 		}
 
-		entry := jsonphp.NewObject()
+		entry := jsonwire.NewObject()
 		entry.Set("user_name", userName)
 		entry.Set("round_number", round)
 		entry.Set("note", nullableString(note))
 		entry.Set("changes", jsonOrNil(changes))
-		entry.Set("created_at", carbon(createdAt))
+		entry.Set("created_at", apiTimestamp(createdAt))
 		list = append(list, entry)
 	}
 
@@ -344,7 +344,7 @@ func bidderTree(ctx context.Context, pool *pgxpool.Pool, role string, bid map[st
 // assembleBidderTree renders the per-role bidder block from prefetched
 // data — the pure assembly half of bidderTree, shared by the per-row and
 // batched paths so the wire bytes cannot drift between them.
-func assembleBidderTree(ctx context.Context, role string, bid map[string]any, privileged bool, profile map[string]any, profileID int64, user map[string]any, average, count any, phones []string) *jsonphp.Object {
+func assembleBidderTree(ctx context.Context, role string, bid map[string]any, privileged bool, profile map[string]any, profileID int64, user map[string]any, average, count any, phones []string) *jsonwire.Object {
 	phone := firstPhone(phones)
 
 	nameOf := func(key string) any {
@@ -358,7 +358,7 @@ func assembleBidderTree(ctx context.Context, role string, bid map[string]any, pr
 		userName, _ = user["name"].(string)
 	}
 
-	tree := jsonphp.NewObject()
+	tree := jsonwire.NewObject()
 	tree.Set("id", profileID)
 
 	switch role {
@@ -459,7 +459,7 @@ func assembleBidderTree(ctx context.Context, role string, bid map[string]any, pr
 	}
 
 	if role == "project_manager" {
-		u := jsonphp.NewObject()
+		u := jsonwire.NewObject()
 		if user != nil {
 			u.Set("id", user["id"])
 			u.Set("name", user["name"])
@@ -472,7 +472,7 @@ func assembleBidderTree(ctx context.Context, role string, bid map[string]any, pr
 		}
 		tree.Set("phone", coalesceString(nameOf("no_telp"), phone))
 	} else {
-		u := jsonphp.NewObject()
+		u := jsonwire.NewObject()
 		if user != nil {
 			u.Set("id", user["id"])
 			u.Set("name", user["name"])

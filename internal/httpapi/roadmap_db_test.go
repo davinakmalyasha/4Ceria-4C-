@@ -68,7 +68,7 @@ func TestSavedSearchesCRUD(t *testing.T) {
 		ID int64 `json:"id"`
 	}
 	_ = created
-	// Response is {message,id} via jsonphp — decode loosely.
+	// Response is {message,id} via jsonwire — decode loosely.
 	var raw map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &raw); err != nil {
 		t.Fatalf("decode store: %v", err)

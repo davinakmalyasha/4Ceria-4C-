@@ -5,7 +5,7 @@ project, seven kinds of verified professional bid, the chosen team signs a
 milestone contract, suppliers and couriers move materials, and PostgreSQL keeps
 an escrow ledger that both sides can inspect.
 
-It is a full-stack reference implementation, not a landing-page mockup: 320 API
+It is a full-stack reference implementation, not a landing-page mockup: 325 API
 routes, real authentication, real uploads, a real ledger and a database-enforced
 set of money invariants.
 
@@ -43,13 +43,13 @@ set of money invariants.
 
 | Area | Evidence |
 |---|---|
-| Auth | PostgreSQL Sanctum-compatible tokens, httpOnly cookie, reset flow, timing equalisation |
+| Auth | PostgreSQL opaque tokens, httpOnly cookie, reset flow, timing equalisation |
 | Project lifecycle | 48 workspace handlers across brief, bids, contract, budget, milestones, documents, snags, handover |
 | Money | Integer minor units, escrow ledger, retention, platform fee, dispute freeze, SQL invariants |
 | Marketplace | Supplier catalogue, quotes, orders, payment proof, delivery jobs and reviews |
 | Directory | Seven professional roles, verification status, portfolios, firm workspace |
 | Property | Listings, rooms, photos, filters, favourites, questions |
-| AI | Session history, project tools, memory, quotas, SSE stream |
+| AI | ADK v2 agents, 12 read-only tools, PostgreSQL long-term memory, embedded skills, MCP server, quotas, SSE stream |
 | PWA | Manifest, install prompt, offline shell, update flow, push |
 | Security | Path-safe uploads, body limits, scoped rate limits, signed private URLs, no secrets in the seed |
 

@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -27,8 +27,8 @@ var terminationColumns = []string{
 }
 
 // terminationObject renders a row in table order.
-func terminationObject(byName map[string]any) *jsonphp.Object {
-	entry := jsonphp.NewObject()
+func terminationObject(byName map[string]any) *jsonwire.Object {
+	entry := jsonwire.NewObject()
 	for _, column := range terminationColumns {
 		switch column {
 		case "resolved_at", "created_at", "updated_at":
@@ -42,8 +42,8 @@ func terminationObject(byName map[string]any) *jsonphp.Object {
 
 // terminationCreatedObject is Eloquent's CREATED model: payload order, then
 // `updated_at` before `created_at`, then `id`.
-func terminationCreatedObject(byName map[string]any) *jsonphp.Object {
-	entry := jsonphp.NewObject()
+func terminationCreatedObject(byName map[string]any) *jsonwire.Object {
+	entry := jsonwire.NewObject()
 	for _, column := range []string{"project_id", "initiator_id", "reason", "settlement_terms", "status"} {
 		entry.Set(column, projectRawValue(byName[column]))
 	}
@@ -189,7 +189,7 @@ func MutualTerminationIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			list = append(list, terminationObject(byName))
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", list)
 		writeJSON(w, http.StatusOK, payload)
 	}
@@ -324,7 +324,7 @@ func InitiateMutualTerminationHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			"created_at": createdAt, "updated_at": updatedAt,
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Pengajuan pembatalan bersama berhasil dibuat. Workspace dibekukan sementara.")
 		payload.Set("data", terminationCreatedObject(created))
 		writeJSON(w, http.StatusOK, payload)
@@ -511,7 +511,7 @@ func RespondMutualTerminationHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", messageText)
 		payload.Set("data", terminationObject(fresh))
 		writeJSON(w, http.StatusOK, payload)
@@ -597,7 +597,7 @@ func EscalateMutualTerminationHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Perselisihan berhasil dieskalasi ke Admin Platform. Admin akan melakukan review menyeluruh.")
 		payload.Set("data", terminationObject(fresh))
 		payload.Set("dispute", dispute)
@@ -610,7 +610,7 @@ func EscalateMutualTerminationHandler(pool *pgxpool.Pool) http.HandlerFunc {
 // return the existing open dispute, or open one attached to the termination.
 // The second return reports whether the row was CREATED (create-order wire).
 func escalateTerminationDispute(ctx context.Context, pool *pgxpool.Pool, projectID, terminationID, userID int64,
-	reason, projectTitle, userName string) (*jsonphp.Object, bool, error) {
+	reason, projectTitle, userName string) (*jsonwire.Object, bool, error) {
 	var existingID int64
 	err := pool.QueryRow(ctx, `SELECT id FROM project_disputes
 		WHERE project_id = $1 AND status::text = 'open' LIMIT 1`, projectID).Scan(&existingID)
@@ -657,7 +657,7 @@ func escalateTerminationDispute(ctx context.Context, pool *pgxpool.Pool, project
 	insertDisputeNotifications(ctx, pool, projectID, "dispute_opened", "Dispute Opened — Payments Frozen",
 		body, `{"project_id":`+strconv.FormatInt(projectID, 10)+`,"dispute_id":`+strconv.FormatInt(disputeID, 10)+`}`, userID)
 
-	entry := jsonphp.NewObject()
+	entry := jsonwire.NewObject()
 	entry.Set("project_id", projectID)
 	entry.Set("opened_by", userID)
 	entry.Set("termination_id", terminationID)

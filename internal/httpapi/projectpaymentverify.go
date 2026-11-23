@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -193,7 +193,7 @@ func VerifyProofHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		var data *jsonphp.Object
+		var data *jsonwire.Object
 		var msg string
 
 		if action == "reject" {
@@ -247,7 +247,7 @@ func VerifyProofHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			notifyPaymentVerified(ctx, pool, projectID, target.projectTitle, ownerID, viewer.id, paymentType, target.refID, verifyNotifyLabel(target, paymentType), verifyNotifyMinor(target))
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("status", "success")
 		payload.Set("message", msg)
 		payload.Set("data", data)
@@ -700,14 +700,14 @@ func rejectReason(notes string, set bool) string {
 func verifyRejectData(projectID int64, short string, paymentID int64, notes string, set bool) string {
 	var noteValue string
 	if set {
-		noteValue = mysqlJSONStr(notes)
+		noteValue = jsonString(notes)
 	} else {
 		noteValue = "null"
 	}
 	return `{"notes": ` + noteValue +
 		`, "payment_id": ` + strconv.FormatInt(paymentID, 10) +
 		`, "project_id": ` + strconv.FormatInt(projectID, 10) +
-		`, "payment_type": ` + mysqlJSONStr(short) + `}`
+		`, "payment_type": ` + jsonString(short) + `}`
 }
 
 // rejectVerifyRow applies the rejection state reset.
@@ -1105,7 +1105,7 @@ func verifyNotifyMinor(target *verifyTarget) int64 {
 // reloadVerifyRow re-reads the payment in its verify-response shape: bids
 // with the profile block, termins WITHOUT the milestone key (the service
 // never eager-loads it), addendums and materials in table order.
-func reloadVerifyRow(ctx context.Context, pool *pgxpool.Pool, target *verifyTarget) (*jsonphp.Object, error) {
+func reloadVerifyRow(ctx context.Context, pool *pgxpool.Pool, target *verifyTarget) (*jsonwire.Object, error) {
 	switch target.table {
 	case "project_payment_termins":
 		return reloadVerifyTermin(ctx, pool, target.physID)
@@ -1128,7 +1128,7 @@ func reloadVerifyRow(ctx context.Context, pool *pgxpool.Pool, target *verifyTarg
 		for i, column := range fields {
 			byName[column] = values[i]
 		}
-		entry := jsonphp.NewObject()
+		entry := jsonwire.NewObject()
 		for _, column := range fields {
 			value := byName[column]
 			switch column {
@@ -1174,7 +1174,7 @@ func reloadVerifyRow(ctx context.Context, pool *pgxpool.Pool, target *verifyTarg
 
 // reloadVerifyTermin renders one termin in table order, without the
 // milestone key.
-func reloadVerifyTermin(ctx context.Context, pool *pgxpool.Pool, terminID int64) (*jsonphp.Object, error) {
+func reloadVerifyTermin(ctx context.Context, pool *pgxpool.Pool, terminID int64) (*jsonwire.Object, error) {
 	var id, projectID, recipientID, milestoneID, changeOrderID *int64
 	var roleType, label, percentage, amount, retention, retentionReleased, net, trigger, status, proofPath, verificationNotes, notes, retentionNotes, refunded *string
 	var paidAt, createdAt, updatedAt, retentionReleasedAt any
@@ -1185,7 +1185,7 @@ func reloadVerifyTermin(ctx context.Context, pool *pgxpool.Pool, terminID int64)
 		return nil, err
 	}
 
-	entry := jsonphp.NewObject()
+	entry := jsonwire.NewObject()
 	entry.Set("id", nullableInt64(id))
 	entry.Set("project_id", nullableInt64(projectID))
 	entry.Set("role_type", nullableString(roleType))
@@ -1214,7 +1214,7 @@ func reloadVerifyTermin(ctx context.Context, pool *pgxpool.Pool, terminID int64)
 }
 
 // reloadMaterialVerify renders one material order in table order.
-func reloadMaterialVerify(ctx context.Context, pool *pgxpool.Pool, orderID int64) (*jsonphp.Object, error) {
+func reloadMaterialVerify(ctx context.Context, pool *pgxpool.Pool, orderID int64) (*jsonwire.Object, error) {
 	rows, err := pool.Query(ctx, `SELECT id, user_id, supplier_id, project_id, status, verification_notes, total_price::text, shipping_cost::text, whatsapp_order_id, payment_proof_path, notes, paid_at, ready_for_pickup_at, shipped_at, delivered_at, completed_at, created_at, updated_at, refunded_amount::text, delivery_method, ready_for_pickup_at, latitude, longitude, delivery_address, address_detail, delivery_documentation_path, is_stock_decremented, total_weight::text
 		FROM material_orders WHERE id = $1`, orderID)
 	if err != nil {
@@ -1243,7 +1243,7 @@ func reloadMaterialVerify(ctx context.Context, pool *pgxpool.Pool, orderID int64
 		byName[column] = values[i]
 	}
 
-	entry := jsonphp.NewObject()
+	entry := jsonwire.NewObject()
 	for _, column := range fields {
 		value := byName[column]
 		switch column {

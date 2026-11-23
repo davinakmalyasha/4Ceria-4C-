@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -153,7 +153,7 @@ func StoreRequirementHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", obj)
 
 		writeJSON(w, http.StatusOK, payload)
@@ -164,13 +164,13 @@ func StoreRequirementHandler(pool *pgxpool.Pool) http.HandlerFunc {
 // fields in rule order (present keys only), then user_id, image_path,
 // the zeroed counters, project_id, the timestamps, id, image_url and the
 // requester. A re-read would emit table order instead.
-func buildRequirementResponse(ctx context.Context, pool *pgxpool.Pool, createdID int64, input requirementInput, userID int64, imagePath string, projectID int64) (*jsonphp.Object, error) {
+func buildRequirementResponse(ctx context.Context, pool *pgxpool.Pool, createdID int64, input requirementInput, userID int64, imagePath string, projectID int64) (*jsonwire.Object, error) {
 	quantity, err := money.FromColumn(input.quantityText, "IDR")
 	if err != nil {
 		return nil, err
 	}
 
-	obj := jsonphp.NewObject()
+	obj := jsonwire.NewObject()
 	obj.Set("name", input.name)
 	obj.Set("quantity_required", quantity.Decimal())
 	obj.Set("unit", input.unit)

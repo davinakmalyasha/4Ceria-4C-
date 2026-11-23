@@ -129,7 +129,7 @@ func runWithLock(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger, k
 
 // AutoCompleteOrders mirrors `app:auto-complete-orders`: material orders
 // stuck in `delivered` past 3 days auto-complete so a silent buyer cannot
-// stall a supplier forever (FEATURE-ROADMAP B5 fallback).
+// stall a supplier forever (the supplier fallback).
 func AutoCompleteOrders(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger) error {
 	ct, err := pool.Exec(ctx, `UPDATE material_orders SET status = 'completed', updated_at = date_trunc('second', now()) WHERE status::text = 'delivered' AND updated_at < now() - interval '3 days'`)
 	if err != nil {
@@ -158,7 +158,7 @@ func EscalateOverdueSnags(ctx context.Context, pool *pgxpool.Pool, logger *slog.
 	return nil
 }
 
-// PruneExpired mirrors the prune trio: expired Sanctum tokens and stale
+// PruneExpired mirrors the prune trio: expired access tokens and stale
 // notifications. Best-effort; failures are logged, never fatal.
 func PruneExpired(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger) error {
 	if _, err := pool.Exec(ctx, `DELETE FROM notifications WHERE created_at < now() - interval '90 days'`); err != nil {

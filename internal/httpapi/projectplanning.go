@@ -8,7 +8,7 @@ import (
 
 	"github.com/davinakmalyasha/4ceria/internal/domain/authz"
 	"github.com/davinakmalyasha/4ceria/internal/domain/identity"
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -53,7 +53,7 @@ func leanProjectResponse(ctx context.Context, pool *pgxpool.Pool, w http.Respons
 		return
 	}
 
-	payload := jsonphp.NewObject()
+	payload := jsonwire.NewObject()
 	payload.Set("data", entry)
 	writeJSON(w, http.StatusOK, payload)
 }
@@ -509,7 +509,7 @@ func planningAuditUpdate(ctx context.Context, pool *pgxpool.Pool, w http.Respons
 		existing = append(existing, stored)
 	}
 
-	encoded, err := jsonphp.Marshal(existing)
+	encoded, err := jsonwire.Marshal(existing)
 	if err != nil {
 		slog.Error("planning: encode attachments", "error", err)
 		serverError(w)

@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -184,7 +184,7 @@ func MarkPaidHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Successfully marked as paid and deducted from budget.")
 		payload.Set("budget", freshBudget)
 
@@ -316,7 +316,7 @@ func markPaidApply(ctx context.Context, tx pgx.Tx, pool *pgxpool.Pool, bySpellin
 
 	if payeeID != 0 && payeeID != viewer.id {
 		data := `{"payment_id": ` + strconv.FormatInt(payID, 10) +
-			`, "payment_type": ` + mysqlJSONStr(payType) +
+			`, "payment_type": ` + jsonString(payType) +
 			`, "project_id": ` + strconv.FormatInt(projectID, 10) + `}`
 		if _, err := tx.Exec(ctx, `INSERT INTO notifications (user_id, type, title, body, data, created_at, updated_at) VALUES ($1, 'payment_verified', 'Payment Released', $2, $3, date_trunc('second', now()), date_trunc('second', now()))`,
 			payeeID,

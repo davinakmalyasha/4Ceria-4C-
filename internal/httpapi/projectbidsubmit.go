@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -60,7 +60,7 @@ func isUniqueViolation(err error) bool {
 }
 
 // bidShowAfterWrite reloads the project for the submit 200.
-func bidShowAfterWrite(ctx context.Context, pool *pgxpool.Pool, projectID int64, viewer *projectViewer) (*jsonphp.Object, error) {
+func bidShowAfterWrite(ctx context.Context, pool *pgxpool.Pool, projectID int64, viewer *projectViewer) (*jsonwire.Object, error) {
 	fields, values, err := projectRowByID(ctx, pool, projectID)
 	if err != nil {
 		return nil, err
@@ -574,7 +574,7 @@ func SubmitProjectBidHandler(pool *pgxpool.Pool) http.HandlerFunc {
 					serverError(w)
 					return
 				}
-				payload := jsonphp.NewObject()
+				payload := jsonwire.NewObject()
 				payload.Set("data", row)
 				writeJSON(w, http.StatusOK, payload)
 				return
@@ -618,7 +618,7 @@ func SubmitProjectBidHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", row)
 		writeJSON(w, http.StatusOK, payload)
 	}

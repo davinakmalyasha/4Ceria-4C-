@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/davinakmalyasha/4ceria/internal/domain/money"
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -112,7 +112,7 @@ func supplierCoordinates(ctx context.Context, pool *pgxpool.Pool, supplierID int
 }
 
 // materialQuoteRefresh reads a quote after a write (items as ordered text).
-func materialQuoteRefresh(ctx context.Context, pool *pgxpool.Pool, quoteID int64) (*jsonphp.Object, error) {
+func materialQuoteRefresh(ctx context.Context, pool *pgxpool.Pool, quoteID int64) (*jsonwire.Object, error) {
 	byName, found, err := loadMaterialQuoteRow(ctx, pool, quoteID)
 	if err != nil {
 		return nil, err
@@ -215,7 +215,7 @@ func RequestQuotePaymentHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			serverError(w)
 			return
 		}
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("success", true)
 		payload.Set("message", "Payment requested from buyer.")
 		payload.Set("data", entry)
@@ -382,7 +382,7 @@ func UploadQuotePaymentProofHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			serverError(w)
 			return
 		}
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("success", true)
 		payload.Set("message", "Payment proof uploaded. Waiting for supplier verification.")
 		payload.Set("data", entry)
@@ -566,7 +566,7 @@ func MarkQuotePaidHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			serverError(w)
 			return
 		}
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("success", true)
 		payload.Set("message", "Quote marked as paid.")
 		payload.Set("data", entry)
@@ -747,7 +747,7 @@ func ApproveQuoteHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		items := quoteItemsJSON(byName["items"])
 		for _, item := range items {
-			object, _ := item.(*jsonphp.Object)
+			object, _ := item.(*jsonwire.Object)
 			if object == nil {
 				continue
 			}
@@ -808,7 +808,7 @@ func ApproveQuoteHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			serverError(w)
 			return
 		}
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("success", true)
 		payload.Set("message", "Quote approved and order created.")
 		payload.Set("order", order)
@@ -1001,7 +1001,7 @@ func PostQuoteDeliveryJobHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			serverError(w)
 			return
 		}
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("success", true)
 		payload.Set("message", "Delivery job posted.")
 		payload.Set("data", entry)
@@ -1072,7 +1072,7 @@ func mustMinorValue(text string) int64 {
 
 // materialOrderCreatedObject renders the approve response: the order in
 // create order, then `items`, each with its `material`.
-func materialOrderCreatedObject(ctx context.Context, pool *pgxpool.Pool, orderID int64) (*jsonphp.Object, error) {
+func materialOrderCreatedObject(ctx context.Context, pool *pgxpool.Pool, orderID int64) (*jsonwire.Object, error) {
 	var (
 		userID, supplierID       int64
 		projectID                *int64
@@ -1096,7 +1096,7 @@ func materialOrderCreatedObject(ctx context.Context, pool *pgxpool.Pool, orderID
 		return nil, err
 	}
 
-	entry := jsonphp.NewObject()
+	entry := jsonwire.NewObject()
 	entry.Set("user_id", userID)
 	entry.Set("supplier_id", supplierID)
 	entry.Set("project_id", nullableInt64(projectID))
@@ -1150,7 +1150,7 @@ func materialOrderCreatedObject(ctx context.Context, pool *pgxpool.Pool, orderID
 		}
 		// The eager load RE-QUERIES the items, so they serialize in TABLE
 		// order (requirement_id last), not in create order.
-		item := jsonphp.NewObject()
+		item := jsonwire.NewObject()
 		item.Set("id", itemID)
 		item.Set("order_id", order)
 		item.Set("material_id", materialID)
@@ -1180,7 +1180,7 @@ func materialOrderCreatedObject(ctx context.Context, pool *pgxpool.Pool, orderID
 }
 
 // materialModelObject renders the Material model (casts only).
-func materialModelObject(ctx context.Context, pool *pgxpool.Pool, materialID int64) (*jsonphp.Object, error) {
+func materialModelObject(ctx context.Context, pool *pgxpool.Pool, materialID int64) (*jsonwire.Object, error) {
 	rows, err := pool.Query(ctx, `SELECT id, supplier_id, name, description, price::text, unit,
 		category, stock, is_available, image_path, specifications::text, created_at, updated_at
 		FROM materials WHERE id = $1`, materialID)
@@ -1205,7 +1205,7 @@ func materialModelObject(ctx context.Context, pool *pgxpool.Pool, materialID int
 		return nil, err
 	}
 
-	entry := jsonphp.NewObject()
+	entry := jsonwire.NewObject()
 	entry.Set("id", id)
 	entry.Set("supplier_id", supplierID)
 	entry.Set("name", nullableString(name))

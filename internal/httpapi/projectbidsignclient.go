@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/davinakmalyasha/4ceria/internal/domain/terminplan"
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -288,7 +288,7 @@ func ClientSignContractHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			bidObject.Set(key, block)
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Contract signed successfully! Awaiting payment verification.")
 		payload.Set("bid", bidObject)
 		writeJSON(w, http.StatusOK, payload)

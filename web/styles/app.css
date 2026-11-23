@@ -30,11 +30,10 @@
 /*
 | The theme.
 |--------
-| `--font-sans` is the v3 stack, unchanged: `['Figtree', ...defaultTheme.fontFamily.sans]`
-| in v3 was exactly this list, and the upgrade tool preserved it. The
-| fallback chain is the difference between Figtree (loaded from the Google
-| Fonts link in the Blade template) and whatever the machine has, so it is
-| part of the visual contract.
+| `--font-sans` is the product's type stack: Figtree when the Next font
+| pipeline has loaded it, then the system sans fallbacks. The fallback chain
+| is part of the visual contract, so it stays explicit rather than relying on
+| a browser default.
 |
 | The PALETTE below is the v3 default palette, restored in full. Tailwind v4
 | recalibrated it — `amber-500` was `rgb(245, 158, 11)` and is `rgb(254, 154,

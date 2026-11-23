@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -583,7 +583,7 @@ func ProposeFeeHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		if oldPriceFloat != input.price {
 			changes = append(changes, map[string]any{
 				"field": "price", "old": oldPrice, "new": input.priceText,
-				"message": "Changed price from " + phpNumberFormat(oldPrice) + " to " + phpNumberFormat(input.priceText),
+				"message": "Changed price from " + numberFormat(oldPrice) + " to " + numberFormat(input.priceText),
 			})
 		}
 		if oldFeeType != feeType {
@@ -711,11 +711,11 @@ func ProposeFeeHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				continue
 			}
 			if raw, present := rawFields[key]; present {
-				bidEntry.Set(key, jsonphp.Raw(jsonphp.CompactJSON(raw)))
+				bidEntry.Set(key, jsonwire.Raw(jsonwire.CompactJSON(raw)))
 			}
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Fee and phases proposed successfully")
 		payload.Set("data", bidEntry)
 		writeJSON(w, http.StatusOK, payload)
@@ -792,8 +792,9 @@ func jsonTextOrNil(value any) any {
 	return string(encoded)
 }
 
-// phpNumberFormat is number_format($x) with no decimals.
-func phpNumberFormat(text string) string {
+// numberFormat renders a decimal string with thousands separators and no
+// fractional part.
+func numberFormat(text string) string {
 	parsed, err := strconv.ParseFloat(strings.TrimSpace(text), 64)
 	if err != nil {
 		return text

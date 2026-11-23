@@ -9,7 +9,7 @@ import (
 
 	"github.com/davinakmalyasha/4ceria/internal/domain/authz"
 	"github.com/davinakmalyasha/4ceria/internal/domain/identity"
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -134,7 +134,7 @@ func CreateAddendumHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		created := jsonphp.NewObject()
+		created := jsonwire.NewObject()
 		created.Set("project_id", projectID)
 		created.Set("role_type", viewer.role)
 		created.Set("user_id", viewer.id)
@@ -151,7 +151,7 @@ func CreateAddendumHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		created.Set("created_at", projectTimeValue(createdAt))
 		created.Set("id", createdID)
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Addendum submitted for client approval.")
 		payload.Set("addendum", created)
 
@@ -503,7 +503,7 @@ func HandleAddendumHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			if notifyID != 0 {
 				if err := insertNotification(ctx, tx, notifyID, "budget_approved", "Budget Authorized by "+actorLabel,
 					"The "+actorLabel+" has approved the budget of Rp "+formatIDAmount(orMinor(addAmount))+" for \""+title+"\". Please proceed with the payment.",
-					mysqlJSONPair(`"project_id": `+strconv.FormatInt(projectID, 10))); err != nil {
+					jsonPair(`"project_id": `+strconv.FormatInt(projectID, 10))); err != nil {
 					slog.Error("addendum-status: notify", "error", err)
 					serverError(w)
 					return
@@ -521,7 +521,7 @@ func HandleAddendumHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				if proposerID != nil && *proposerID != 0 {
 					if err := insertNotification(ctx, tx, *proposerID, "budget_negotiation", "Fee Negotiation Requested",
 						"The "+actorLabel+" has requested a fee negotiation for \""+title+"\". Counter-offer: Rp "+formatIDAmount(orMinor(counterTextPtr(counterText, counterSet)))+".",
-						mysqlJSONPair(`"project_id": `+strconv.FormatInt(projectID, 10))); err != nil {
+						jsonPair(`"project_id": `+strconv.FormatInt(projectID, 10))); err != nil {
 						slog.Error("addendum-status: notify", "error", err)
 						serverError(w)
 						return
@@ -555,7 +555,7 @@ func HandleAddendumHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				}
 				if err := insertNotification(ctx, tx, notifyID, "budget_negotiation", "Revised Fee Proposed",
 					"The "+roleName+" revised their fee for \""+title+"\" to Rp "+formatIDAmount(orMinor(addAmount))+".",
-					mysqlJSONPair(`"project_id": `+strconv.FormatInt(projectID, 10))); err != nil {
+					jsonPair(`"project_id": `+strconv.FormatInt(projectID, 10))); err != nil {
 					slog.Error("addendum-status: notify", "error", err)
 					serverError(w)
 					return
@@ -601,7 +601,7 @@ func HandleAddendumHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			if notifyID != 0 {
 				if err := insertNotification(ctx, tx, notifyID, "budget_rejected", "Budget Authorization Rejected by "+actorLabel,
 					"The "+actorLabel+" has rejected the budget for \""+title+"\". Please discuss with the "+actorLabel+".",
-					mysqlJSONPair(`"project_id": `+strconv.FormatInt(projectID, 10))); err != nil {
+					jsonPair(`"project_id": `+strconv.FormatInt(projectID, 10))); err != nil {
 					slog.Error("addendum-status: notify", "error", err)
 					serverError(w)
 					return
@@ -622,7 +622,7 @@ func HandleAddendumHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", answer)
 
 		writeJSON(w, http.StatusOK, payload)

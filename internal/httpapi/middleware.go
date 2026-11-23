@@ -14,23 +14,17 @@ import (
 
 // THE GATES
 // ---------
-// The previous route table carries four gates, and the Go router has to carry
-// the same four or the new stack protects something differently than the old
-// one:
+// The route manifest declares four enforcement points:
 //
 //	auth                the caller is signed in
 //	admin               the caller is an administrator
 //	freeze_termination  the project is not awaiting a termination
 //	rate:N/m            the caller is not calling too often
 //
-// Each one is DECLARED from the manifest and ENFORCED by an interface, and
-// the interface is not implemented yet. That is the honest state of the
-// port, and it is why the gateway reports itself as not ready.
-//
-// A gate that is declared but not enforced is a gate the new stack does not
-// have, and a gateway that answers 200 on a route the previous app rate
-// limits is worse than one that answers 501: the 501 says "not written
-// yet", and the 200 says "protected" when it is not.
+// Each one is DECLARED from the manifest and enforced by an interface in
+// this file. The gateway wires the real implementations at startup. A gate
+// that is declared but cannot be enforced makes the route answer 501 rather
+// than 200: a 200 would claim protection the process does not have.
 
 // Caller is the authenticated caller.
 //
@@ -48,9 +42,10 @@ type Caller interface {
 
 // Authenticator resolves the caller from a request.
 //
-// The original application uses Sanctum bearer tokens: the token is the
-// `id|<40 hex>` form, the row lives in `personal_access_tokens`, and the
-// lookup is by the SHA-256 of the token.
+// The token is the `id|plain` form; the row lives in
+// `personal_access_tokens` and the lookup is by the SHA-256 of the plain
+// part. The browser never sees it: the Next server keeps it in an httpOnly
+// cookie and attaches it to the upstream request.
 type Authenticator interface {
 	// Authenticate returns the caller, or nil when the request carries no
 	// usable token.
@@ -66,18 +61,17 @@ type RateLimiter interface {
 
 // ProjectFreezer answers whether a project is frozen.
 //
-// The previous middleware `FreezeWorkspaceIfTerminationPending` blocks every
-// POST, PUT, PATCH and DELETE on a project whose status is
-// `termination_pending`, with a 422 and a fixed Indonesian message.
+// A project whose status is `termination_pending` rejects every POST, PUT,
+// PATCH and DELETE with a 422 and a fixed Indonesian message. The gate is
+// intentionally blunt: a termination is a legal/escrow boundary, not a state
+// where "just this one write" is safe.
 type ProjectFreezer interface {
 	// Frozen reports whether the project is frozen for a mutation.
 	Frozen(r *http.Request) (bool, error)
 }
 
-// Gates is the set of enforcement points the router needs.
-//
-// Every one of them is an interface, and the default implementations are
-// the ones that say "not implemented yet".
+// Gates is the set of enforcement points the router needs. A nil gate makes
+// every route that declares it answer 501, which is what readiness reports.
 type Gates struct {
 	// Handlers are the routes this build actually serves, keyed by route id.
 	// A route absent from this map answers the 501 stub.
@@ -257,10 +251,9 @@ func withOptionalCaller(gates Gates, next http.Handler) http.Handler {
 	})
 }
 
-// requireAuth is the `auth` gate.
-//
-// The previous middleware is `auth:sanctum`, which answers 401 with
-// `{"message":"Unauthenticated."}` when there is no usable token.
+// requireAuth is the `auth` gate. A missing or unusable token answers 401
+// with `{"message":"Unauthenticated."}`; a valid token is attached to the
+// request context for the handler and the other gates.
 func (g Gates) requireAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if _, ok := CallerFrom(r.Context()); ok {

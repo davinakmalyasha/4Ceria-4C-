@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -430,7 +430,7 @@ func StoreProjectHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		entry.Set("requires_mep", nil)
 		entry.Set("requires_interior", nil)
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", entry)
 		writeJSON(w, http.StatusCreated, payload)
 	}

@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -73,7 +73,7 @@ func houseField(fields map[string]any, key string, required bool, strMax int, nu
 		}
 		if min != nil {
 			if parsed, err := strconv.ParseFloat(strings.TrimSpace(text), 64); err == nil && parsed < *min {
-				failures.add(key, "The "+attr+" field must be at least "+jsonphp.FormatFloat(*min, 64)+".")
+				failures.add(key, "The "+attr+" field must be at least "+jsonwire.FormatFloat(*min, 64)+".")
 			}
 		}
 		return strings.TrimSpace(text), true
@@ -532,7 +532,7 @@ func StoreHouseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", row)
 		writeJSON(w, http.StatusCreated, payload)
 	}
@@ -761,7 +761,7 @@ func UpdateHouseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", row)
 		writeJSON(w, http.StatusOK, payload)
 	}
@@ -937,7 +937,7 @@ func StoreRoomHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Room added successfully")
 		payload.Set("house", row)
 		writeJSON(w, http.StatusOK, payload)
@@ -1044,7 +1044,7 @@ func HouseQuestionsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 					serverError(w)
 					return
 				}
-				entry := jsonphp.NewObject()
+				entry := jsonwire.NewObject()
 				entry.Set("id", answerID)
 				entry.Set("answer", answer)
 				entry.Set("user", user)
@@ -1059,7 +1059,7 @@ func HouseQuestionsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				serverError(w)
 				return
 			}
-			entry := jsonphp.NewObject()
+			entry := jsonwire.NewObject()
 			entry.Set("id", id)
 			entry.Set("question", question)
 			entry.Set("user", user)
@@ -1073,7 +1073,7 @@ func HouseQuestionsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", list)
 		writeJSON(w, http.StatusOK, payload)
 	}
@@ -1139,14 +1139,14 @@ func StoreHouseQuestionHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		entry := jsonphp.NewObject()
+		entry := jsonwire.NewObject()
 		entry.Set("id", questionID)
 		entry.Set("question", question)
 		entry.Set("user", user)
 		entry.Set("created_at", projectTimeValue(createdAt))
 		entry.Set("answers", []any{})
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", entry)
 		writeJSON(w, http.StatusCreated, payload)
 	}

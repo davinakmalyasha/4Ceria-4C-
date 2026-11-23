@@ -13,7 +13,7 @@ import (
 
 	"github.com/davinakmalyasha/4ceria/internal/domain/authz"
 	"github.com/davinakmalyasha/4ceria/internal/domain/identity"
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -680,8 +680,8 @@ func filepathExtLower(path string) string {
 
 // renderMilestoneBase renders the shared column block: table columns in
 // order with the casts, resolved gallery content, and Carbon datetimes.
-func renderMilestoneBase(ctx context.Context, row milestoneRow) *jsonphp.Object {
-	entry := jsonphp.NewObject()
+func renderMilestoneBase(ctx context.Context, row milestoneRow) *jsonwire.Object {
+	entry := jsonwire.NewObject()
 	for _, column := range row.fields {
 		value := row.byName[column]
 		switch column {
@@ -1018,7 +1018,7 @@ func StoreMilestoneHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", entry)
 
 		writeJSON(w, http.StatusOK, payload)
@@ -1030,8 +1030,8 @@ func StoreMilestoneHandler(pool *pgxpool.Pool) http.HandlerFunc {
 // updated_at, created_at, id, and the six professional trees plus the
 // fresh change orders. Unset FKs are absent — never null — because
 // Eloquent only serializes attributes it actually set.
-func buildStoreResponse(ctx context.Context, pool *pgxpool.Pool, input milestoneInput, createdID, projectID int64, content map[string]any, contentOrder []string, gallery []any, fileNames [][2]string, milestoneType string, sortOrder int64, sortText, phase, fkColumn string, fkValue *int64, startDate, dueDate *string) (*jsonphp.Object, error) {
-	entry := jsonphp.NewObject()
+func buildStoreResponse(ctx context.Context, pool *pgxpool.Pool, input milestoneInput, createdID, projectID int64, content map[string]any, contentOrder []string, gallery []any, fileNames [][2]string, milestoneType string, sortOrder int64, sortText, phase, fkColumn string, fkValue *int64, startDate, dueDate *string) (*jsonwire.Object, error) {
+	entry := jsonwire.NewObject()
 	entry.Set("title", input.title)
 	entry.Set("description", nullableString(input.description))
 	entry.Set("start_date", milestoneDateValue(startDate))
@@ -1099,8 +1099,8 @@ func milestoneDateValue(value *string) any {
 
 // renderStoreContent emits the content in key order with the gallery
 // paths resolved to storage URLs. file_names follows upload order.
-func renderStoreContent(ctx context.Context, order []string, content map[string]any, gallery []any, fileNames [][2]string) *jsonphp.Object {
-	entry := jsonphp.NewObject()
+func renderStoreContent(ctx context.Context, order []string, content map[string]any, gallery []any, fileNames [][2]string) *jsonwire.Object {
+	entry := jsonwire.NewObject()
 
 	seenGallery := false
 	seenNames := false
@@ -1111,7 +1111,7 @@ func renderStoreContent(ctx context.Context, order []string, content map[string]
 			entry.Set("gallery", resolveGalleryURLs(ctx, gallery))
 		case "file_names":
 			seenNames = true
-			names := jsonphp.NewObject()
+			names := jsonwire.NewObject()
 			for _, pair := range fileNames {
 				names.Set(pair[0], pair[1])
 			}
@@ -1128,7 +1128,7 @@ func renderStoreContent(ctx context.Context, order []string, content map[string]
 		seenGallery = true
 	}
 	if !seenNames && len(fileNames) > 0 {
-		names := jsonphp.NewObject()
+		names := jsonwire.NewObject()
 		for _, pair := range fileNames {
 			names.Set(pair[0], pair[1])
 		}

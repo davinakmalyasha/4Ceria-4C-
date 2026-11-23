@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -135,7 +135,7 @@ func MilestonesHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", out)
 
 		writeJSON(w, http.StatusOK, payload)
@@ -168,13 +168,13 @@ func scanMilestoneRow(rows pgx.Rows, width int) (milestoneRow, error) {
 // scanMilestone renders one milestone: full columns with the casts, the
 // bare professional trees (appends stripped), the gallery URLs resolved,
 // the linked payment stage, and the change orders.
-func scanMilestone(ctx context.Context, pool *pgxpool.Pool, rows pgx.Rows) (*jsonphp.Object, error) {
+func scanMilestone(ctx context.Context, pool *pgxpool.Pool, rows pgx.Rows) (*jsonwire.Object, error) {
 	row, err := scanMilestoneRow(rows, 27)
 	if err != nil {
 		return nil, err
 	}
 
-	entry := jsonphp.NewObject()
+	entry := jsonwire.NewObject()
 	for _, column := range row.fields {
 		value := row.byName[column]
 		switch column {
@@ -266,7 +266,7 @@ func milestoneProfile(ctx context.Context, pool *pgxpool.Pool, table string, pro
 	decimalCols := map[string]bool{"rate_harga": true}
 	intCols := map[string]bool{"reliability_score": true}
 
-	block := jsonphp.NewObject()
+	block := jsonwire.NewObject()
 	for _, column := range fields {
 		value := byName[column]
 		switch {
@@ -339,7 +339,7 @@ func milestoneTermin(ctx context.Context, pool *pgxpool.Pool, milestoneID any) (
 
 // scanLinkedTermin renders a linked payment stage: the same columns as
 // the termin list, but with no milestone key of its own.
-func scanLinkedTermin(rows pgxRows) (*jsonphp.Object, error) {
+func scanLinkedTermin(rows pgxRows) (*jsonwire.Object, error) {
 	var id, projectID, recipientID, milestoneID, changeOrderID *int64
 	var roleType, label, percentage, amount, retention, retentionReleased, net, trigger, status, proofPath, verificationNotes, notes, retentionNotes, refunded *string
 	var paidAt, createdAt, updatedAt any
@@ -349,7 +349,7 @@ func scanLinkedTermin(rows pgxRows) (*jsonphp.Object, error) {
 		return nil, err
 	}
 
-	entry := jsonphp.NewObject()
+	entry := jsonwire.NewObject()
 	entry.Set("id", nullableInt64(id))
 	entry.Set("project_id", nullableInt64(projectID))
 	entry.Set("role_type", nullableString(roleType))
@@ -401,7 +401,7 @@ func milestoneChangeOrders(ctx context.Context, pool *pgxpool.Pool, milestoneID 
 			return nil, err
 		}
 
-		entry := jsonphp.NewObject()
+		entry := jsonwire.NewObject()
 		entry.Set("id", nullableInt64(rowID))
 		entry.Set("project_id", nullableInt64(projectID))
 		entry.Set("requested_by", nullableInt64(requestedBy))

@@ -21,8 +21,10 @@ database.
 - **Material marketplace** — supplier storefront, catalogue, quotes, orders,
   payment proof and delivery jobs.
 - **Logistics Job Radar** — couriers see nearby delivery jobs and update status.
-- **Ceria AI** — a project-aware assistant with tool calls, per-user memory and
-  strict refusals for money mutations.
+- **Ceria AI** — a Google ADK v2 assistant with 12 read-only tools, persistent
+  per-user memory, six embedded skills, project/property specialists, and a
+  read-only MCP server for external agents. Money mutations are refused by
+  design and stay in the normal API.
 - **Installable PWA** — offline shell, install prompt, push notifications and
   an update flow. No app store.
 
@@ -33,9 +35,9 @@ database.
 | API | Go 1.27, `net/http`, pgx v5 |
 | Database | PostgreSQL 17+ (tested against 18.6), forward-only migrations |
 | Frontend | Next.js 16 App Router, React 19, Tailwind CSS 4, TypeScript 7 |
-| Auth | Sanctum-compatible bearer tokens in an httpOnly cookie |
+| Auth | opaque bearer tokens (`id|plain`) in an httpOnly cookie |
 | Money | integer minor units; no floats |
-| AI | Google ADK v2 + DeepSeek |
+| AI | Google ADK v2, DeepSeek, PostgreSQL memory, embedded skills, MCP |
 | Files | local disk with HMAC-signed URLs, or S3-compatible storage |
 | Realtime | Server-Sent Events for the assistant; push for notifications |
 
@@ -98,7 +100,8 @@ then runs the Go suites against that database.
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Topology, request lifecycle, storage, background jobs, deploy |
 | [`docs/DOMAIN.md`](docs/DOMAIN.md) | Roles, project lifecycle, bids, disputes |
 | [`docs/MONEY.md`](docs/MONEY.md) | The escrow ledger and its invariants |
-| [`docs/API.md`](docs/API.md) | Route manifest, conventions, errors, SSE |
+| [`docs/API.md`](docs/API.md) | Route manifest, conventions, errors, SSE, memory, MCP |
+| [`docs/AI.md`](docs/AI.md) | Agent tree, tools, memory, skills, MCP and safety |
 | [`docs/OPERATIONS.md`](docs/OPERATIONS.md) | Environment, reset, verification, backups |
 | [`docs/PORTFOLIO.md`](docs/PORTFOLIO.md) | The demo script and screenshot gallery |
 | [`AGENTS.md`](AGENTS.md) | Working rules for AI agents and contributors |

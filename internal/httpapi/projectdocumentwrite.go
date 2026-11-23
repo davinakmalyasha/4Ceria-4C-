@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -74,8 +74,8 @@ func documentRow(ctx context.Context, pool *pgxpool.Pool, projectID, docID int64
 
 // documentObject renders a document row exactly like the model: table
 // order, the `file_url` append, and the loaded uploader.
-func documentObject(ctx context.Context, pool *pgxpool.Pool, byName map[string]any) *jsonphp.Object {
-	entry := jsonphp.NewObject()
+func documentObject(ctx context.Context, pool *pgxpool.Pool, byName map[string]any) *jsonwire.Object {
+	entry := jsonwire.NewObject()
 	for _, column := range docColumns {
 		value := byName[column]
 		switch column {
@@ -249,7 +249,7 @@ func StoreDocumentHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", documentCreatedObject(ctx, pool, byName))
 		writeJSON(w, http.StatusOK, payload)
 	}
@@ -258,8 +258,8 @@ func StoreDocumentHandler(pool *pgxpool.Pool) http.HandlerFunc {
 // documentCreatedObject renders Eloquent\u0027s CREATED model for the store
 // response: the create payload order, then timestamps and id, then the
 // file_url append and the loaded uploader.
-func documentCreatedObject(ctx context.Context, pool *pgxpool.Pool, byName map[string]any) *jsonphp.Object {
-	entry := jsonphp.NewObject()
+func documentCreatedObject(ctx context.Context, pool *pgxpool.Pool, byName map[string]any) *jsonwire.Object {
+	entry := jsonwire.NewObject()
 	entry.Set("uploader_id", projectRawValue(byName["uploader_id"]))
 	entry.Set("parent_id", projectRawValue(byName["parent_id"]))
 	entry.Set("version", projectRawValue(byName["version"]))
@@ -491,7 +491,7 @@ func VerifyDocumentHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Document verified")
 		payload.Set("data", documentObject(ctx, pool, updated))
 		writeJSON(w, http.StatusOK, payload)
@@ -611,7 +611,7 @@ func documentMutation(pool *pgxpool.Pool, verb string) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", documentObject(ctx, pool, updated))
 		writeJSON(w, http.StatusOK, payload)
 	}

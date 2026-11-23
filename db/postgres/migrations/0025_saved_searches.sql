@@ -1,4 +1,4 @@
--- 0025: saved searches (FEATURE-ROADMAP B8).
+-- 0025: saved searches.
 --
 -- The SPA kept favorites in localStorage as an optimistic cache; the server
 -- had only `favorites`. This adds the missing `saved_searches` pair so

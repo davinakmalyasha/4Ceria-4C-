@@ -115,12 +115,7 @@ func TestUnmatchedAPIPathAnswersTheJSON404(t *testing.T) {
 		t.Fatalf("an unmatched API path answered %d", recorder.Code)
 	}
 
-	// The exact body the previous catch-all produces.
-	//
-	// The slashes are escaped, because PHP's `json_encode` escapes them and
-	// the rewrite's contract is about BYTES. A body that parsed to the same
-	// JSON would still be a different body.
-	want := `{"message":"API endpoint not found.","path":"\/api\/nope\/does-not-exist"}`
+	want := `{"message":"API endpoint not found.","path":"/api/nope/does-not-exist"}`
 
 	if got := recorder.Body.String(); got != want {
 		t.Errorf("an unmatched API path\n  got  %s\n  want %s", got, want)
@@ -174,28 +169,17 @@ func TestNormalisedMiddleware(t *testing.T) {
 	}{
 		{
 			name: "the alias form",
-			in:   []string{"api", "auth:sanctum", "admin", "freeze_pending_termination", "throttle:10,1"},
+			in:   []string{"api", "auth", "admin", "freeze_pending_termination", "throttle:10,1"},
 			want: []string{"admin", "auth", "freeze_termination", "rate:10/m"},
 		},
 		{
-			name: "the class form",
-			in: []string{
-				"api",
-				"Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
-				"App\\Http\\Middleware\\AdminMiddleware",
-				"App\\Http\\Middleware\\FreezeWorkspaceIfTerminationPending",
-				"Illuminate\\Routing\\Middleware\\ThrottleRequests:10,1",
-			},
-			want: []string{"admin", "auth", "freeze_termination", "rate:10/m"},
-		},
-		{
-			name: "the two forms agree",
-			in:   []string{"api", "auth:sanctum", "throttle:30,1"},
+			name: "auth and a rate limit",
+			in:   []string{"api", "auth", "throttle:30,1"},
 			want: []string{"auth", "rate:30/m"},
 		},
 		{
 			name: "a named limiter is not a limit",
-			in:   []string{"api", "Illuminate\\Routing\\Middleware\\ThrottleRequests:api"},
+			in:   []string{"api", "throttle:api"},
 			want: []string{"rate:api"},
 		},
 		{
@@ -221,7 +205,7 @@ func TestThrottleSpec(t *testing.T) {
 		t.Errorf("ThrottleSpec gave %q, want 10,1", got)
 	}
 
-	if got := ThrottleSpec([]string{"api", "Illuminate\\Routing\\Middleware\\ThrottleRequests:30,1"}); got != "30,1" {
+	if got := ThrottleSpec([]string{"api", "throttle:30,1"}); got != "30,1" {
 		t.Errorf("ThrottleSpec gave %q, want 30,1", got)
 	}
 

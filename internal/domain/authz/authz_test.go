@@ -6,12 +6,9 @@ import (
 	"github.com/davinakmalyasha/4ceria/internal/domain/identity"
 )
 
-// The test doubles implement the two interfaces, so the rule can be exercised
-// WITHOUT A DATABASE — which the previous `Hire` class could not be, because it
-// reached into Eloquent relations.
-//
-// That is the point of the interfaces: an authorisation rule that needs a
-// database to test is an authorisation rule that gets tested by accident.
+// The test doubles implement the two interfaces, so the rule is exercised
+// WITHOUT A DATABASE. That is the point of the interfaces: an authorisation
+// rule that needs a database to test is a rule that gets tested by accident.
 
 type testSubject struct {
 	userID   identity.UserID
@@ -63,14 +60,10 @@ func subjectWith(role identity.Role, profileID identity.ProfileID) testSubject {
 func TestItIsFalseWhenTheSubjectHasNoProfile(t *testing.T) {
 	// THE BYPASS.
 	//
-	// The previous spellings were:
-	//
-	//	(int) $project->selected_arsitek_id === (int) $user->arsitek?->id
-	//
-	// With no architect on the project and no profile on the user, that is
-	// `(int)null === (int)null`, which in PHP is TRUE. So a user whose
-	// `role_type` was `arsitek` but who had NO `arsiteks` row read as the
-	// hired architect of EVERY project that had no architect.
+	// Comparing nullable ids directly is the trap: with no architect on the
+	// project and no profile on the user, a null-to-null comparison reads as
+	// true. A user whose `role_type` was `arsitek` but who had NO `arsiteks`
+	// row then read as the hired architect of EVERY project with no architect.
 	//
 	// The reachable set was: minting a payment stage on a foreign project,
 	// reading another project's stages, reading a dispute thread and

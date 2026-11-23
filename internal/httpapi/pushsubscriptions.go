@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -44,7 +44,7 @@ func PushPublicKeyHandler() http.HandlerFunc {
 			message(w, http.StatusNotImplemented, "Web push is not configured")
 			return
 		}
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("public_key", key)
 		writeJSON(w, http.StatusOK, payload)
 	}

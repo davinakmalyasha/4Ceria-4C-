@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -42,7 +42,7 @@ func projectImagesBatch(ctx context.Context, pool *pgxpool.Pool, projectIDs []in
 		if err := rows.Scan(&pid, &id, &path, &sortOrder); err != nil {
 			return nil, err
 		}
-		item := jsonphp.NewObject()
+		item := jsonwire.NewObject()
 		item.Set("id", id)
 		item.Set("url", projectStorageURL(ctx, nullableString(path)))
 		item.Set("sort_order", sortOrder)
@@ -108,7 +108,7 @@ func projectMilestonesBatch(ctx context.Context, pool *pgxpool.Pool, projectIDs 
 			return nil, err
 		}
 
-		item := jsonphp.NewObject()
+		item := jsonwire.NewObject()
 		item.Set("id", id)
 		item.Set("title", nullableString(title))
 		item.Set("description", nullableString(description))
@@ -127,7 +127,7 @@ func projectMilestonesBatch(ctx context.Context, pool *pgxpool.Pool, projectIDs 
 		item.Set("mep_id", nullableInt64(mepID))
 		item.Set("review_note", nullableString(reviewNote))
 		item.Set("review_status", nullableString(reviewStatus))
-		item.Set("created_at", carbon(createdAt))
+		item.Set("created_at", apiTimestamp(createdAt))
 		out[pid] = append(out[pid], item)
 	}
 	if err := rows.Err(); err != nil {
@@ -204,7 +204,7 @@ func projectRequirements(ctx context.Context, pool *pgxpool.Pool, projectID int6
 			return nil, err
 		}
 
-		item := jsonphp.NewObject()
+		item := jsonwire.NewObject()
 		item.Set("id", id)
 		item.Set("name", nullableString(name))
 		item.Set("quantity_required", projectDecimalText(qtyRequired))
@@ -215,7 +215,7 @@ func projectRequirements(ctx context.Context, pool *pgxpool.Pool, projectID int6
 		item.Set("unit", nullableString(unit))
 		item.Set("quality_level", nullableString(quality))
 		item.Set("image_url", projectStorageURL(ctx, nullableString(imagePath)))
-		item.Set("created_at", carbon(createdAt))
+		item.Set("created_at", apiTimestamp(createdAt))
 		list = append(list, item)
 	}
 
@@ -281,7 +281,7 @@ func projectAddendums(ctx context.Context, pool *pgxpool.Pool, projectID int64) 
 			assignedUser = user
 		}
 
-		item := jsonphp.NewObject()
+		item := jsonwire.NewObject()
 		item.Set("id", id)
 		item.Set("role_type", nullableString(roleType))
 		item.Set("user_id", nullableInt64(userID))
@@ -297,10 +297,10 @@ func projectAddendums(ctx context.Context, pool *pgxpool.Pool, projectID int64) 
 		item.Set("teamMember", teamMember)
 		item.Set("assignedUser", assignedUser)
 		item.Set("status", nullableString(status))
-		item.Set("paid_at", carbon(paidAt))
+		item.Set("paid_at", apiTimestamp(paidAt))
 		item.Set("verification_notes", nullableString(verificationNotes))
 		item.Set("payment_proof_path", projectStorageURL(ctx, nullableString(paymentProofPath)))
-		item.Set("created_at", carbon(createdAt))
+		item.Set("created_at", apiTimestamp(createdAt))
 		list = append(list, item)
 	}
 
@@ -322,7 +322,7 @@ func addendumTeamMember(ctx context.Context, pool *pgxpool.Pool, teamMemberID in
 		return nil, err
 	}
 
-	member := jsonphp.NewObject()
+	member := jsonwire.NewObject()
 	member.Set("id", id)
 	member.Set("name", nullableString(name))
 	member.Set("bio", nullableString(bio))
@@ -345,7 +345,7 @@ func addendumAssignedUser(ctx context.Context, pool *pgxpool.Pool, userID int64)
 
 	phones := userPhones(ctx, pool, userID)
 
-	assigned := jsonphp.NewObject()
+	assigned := jsonwire.NewObject()
 	assigned.Set("id", user["id"])
 	assigned.Set("name", user["name"])
 	assigned.Set("email", user["email"])
@@ -404,7 +404,7 @@ func projectSubProfessionals(ctx context.Context, pool *pgxpool.Pool, projectID 
 			return nil, err
 		}
 
-		item := jsonphp.NewObject()
+		item := jsonwire.NewObject()
 		item.Set("id", id)
 		item.Set("user_id", subUserID)
 		item.Set("parent_role", nullableString(parentRole))
@@ -415,10 +415,10 @@ func projectSubProfessionals(ctx context.Context, pool *pgxpool.Pool, projectID 
 		item.Set("scope_notes", nullableString(scopeNotes))
 		item.Set("lead_pro_notes", nullableString(leadProNotes))
 		item.Set("suggested_fee", nullableString(suggestedFee))
-		item.Set("accepted_at", carbon(acceptedAt))
-		item.Set("recommended_at", carbon(recommendedAt))
-		item.Set("hired_at", carbon(hiredAt))
-		item.Set("completed_at", carbon(completedAt))
+		item.Set("accepted_at", apiTimestamp(acceptedAt))
+		item.Set("recommended_at", apiTimestamp(recommendedAt))
+		item.Set("hired_at", apiTimestamp(hiredAt))
+		item.Set("completed_at", apiTimestamp(completedAt))
 		item.Set("user", user)
 		list = append(list, item)
 	}
@@ -441,7 +441,7 @@ func subProfessionalUser(ctx context.Context, pool *pgxpool.Pool, userID int64) 
 
 	phones := userPhones(ctx, pool, userID)
 
-	user := jsonphp.NewObject()
+	user := jsonwire.NewObject()
 	user.Set("id", id)
 	user.Set("name", name)
 	user.Set("email", email)
@@ -469,10 +469,10 @@ func projectReview(ctx context.Context, pool *pgxpool.Pool, table, fk string, pr
 		return nil, err
 	}
 
-	review := jsonphp.NewObject()
+	review := jsonwire.NewObject()
 	review.Set("rating", rating)
 	review.Set("comment", nullableString(comment))
-	review.Set("created_at", carbon(createdAt))
+	review.Set("created_at", apiTimestamp(createdAt))
 
 	return review, nil
 }
@@ -495,16 +495,16 @@ func projectKontraktorReview(ctx context.Context, pool *pgxpool.Pool, projectID 
 		return nil, err
 	}
 
-	review := jsonphp.NewObject()
+	review := jsonwire.NewObject()
 	review.Set("rating", rating)
 	review.Set("comment", nullableString(comment))
-	review.Set("created_at", carbon(createdAt))
+	review.Set("created_at", apiTimestamp(createdAt))
 
 	return review, nil
 }
 
 // projectFullProfessionals renders the hired-profile blocks for show.
-func projectFullProfessionals(ctx context.Context, pool *pgxpool.Pool, row *jsonphp.Object, projectID int64, arsitekID, kontraktorID, notarisID, interiorID *int64) error {
+func projectFullProfessionals(ctx context.Context, pool *pgxpool.Pool, row *jsonwire.Object, projectID int64, arsitekID, kontraktorID, notarisID, interiorID *int64) error {
 	if arsitekID != nil {
 		block, err := hiredProfessionalBlock(ctx, pool, "arsiteks", *arsitekID)
 		if err != nil {
@@ -592,14 +592,14 @@ func hiredProfessionalBlock(ctx context.Context, pool *pgxpool.Pool, table strin
 		experience = intOrProfile(profile["pengalaman_tahun"])
 	}
 
-	block := jsonphp.NewObject()
+	block := jsonwire.NewObject()
 	block.Set("id", profileID)
 	block.Set("verification_status", stringOrNil(profile["verification_status"]))
 	block.Set("experience_years", experience)
 	block.Set("rating", averageOrZero(average))
 	block.Set("average_rating", averageOrZero(average))
 
-	nested := jsonphp.NewObject()
+	nested := jsonwire.NewObject()
 	nested.Set("id", user["id"])
 	nested.Set("name", user["name"])
 	nested.Set("email", user["email"])
@@ -641,7 +641,7 @@ func hiredNotarisBlock(ctx context.Context, pool *pgxpool.Pool, profileID int64)
 
 	phone, _ := profile["no_telp"].(string)
 
-	block := jsonphp.NewObject()
+	block := jsonwire.NewObject()
 	block.Set("id", profileID)
 	block.Set("verification_status", stringOrNil(profile["verification_status"]))
 	if value := intOrProfile(profile["pengalaman_tahun"]); value != nil {
@@ -653,7 +653,7 @@ func hiredNotarisBlock(ctx context.Context, pool *pgxpool.Pool, profileID int64)
 	block.Set("rating", averageOrZero(average))
 	block.Set("average_rating", averageOrZero(average))
 
-	nested := jsonphp.NewObject()
+	nested := jsonwire.NewObject()
 	nested.Set("id", user["id"])
 	nested.Set("name", user["name"])
 	nested.Set("email", user["email"])
@@ -691,7 +691,7 @@ func hiredInteriorBlock(ctx context.Context, pool *pgxpool.Pool, profileID int64
 
 	phone, _ := profile["no_telp"].(string)
 
-	block := jsonphp.NewObject()
+	block := jsonwire.NewObject()
 	block.Set("id", profileID)
 	block.Set("verification_status", stringOrNil(profile["verification_status"]))
 	if value := intOrProfile(profile["pengalaman_tahun"]); value != nil {
@@ -703,7 +703,7 @@ func hiredInteriorBlock(ctx context.Context, pool *pgxpool.Pool, profileID int64
 	block.Set("rating", averageOrZero(average))
 	block.Set("average_rating", averageOrZero(average))
 
-	nested := jsonphp.NewObject()
+	nested := jsonwire.NewObject()
 	nested.Set("id", user["id"])
 	nested.Set("name", user["name"])
 	nested.Set("email", user["email"])
@@ -746,7 +746,7 @@ func projectManagerBlock(ctx context.Context, pool *pgxpool.Pool, profileID int6
 
 	phone, _ := profile["no_telp"].(string)
 
-	block := jsonphp.NewObject()
+	block := jsonwire.NewObject()
 	block.Set("id", profileID)
 	block.Set("nama", name)
 	block.Set("verification_status", stringOrNil(profile["verification_status"]))
@@ -759,7 +759,7 @@ func projectManagerBlock(ctx context.Context, pool *pgxpool.Pool, profileID int6
 	block.Set("rating", averageOrZero(average))
 
 	if user != nil {
-		nested := jsonphp.NewObject()
+		nested := jsonwire.NewObject()
 		nested.Set("id", user["id"])
 		nested.Set("name", user["name"])
 		nested.Set("email", user["email"])
@@ -796,12 +796,12 @@ func projectShortProfessional(ctx context.Context, pool *pgxpool.Pool, table str
 		return nil, err
 	}
 
-	block := jsonphp.NewObject()
+	block := jsonwire.NewObject()
 	block.Set("id", profileID)
 	block.Set("name", nullableString(&name))
 
 	if user != nil {
-		nested := jsonphp.NewObject()
+		nested := jsonwire.NewObject()
 		nested.Set("id", user["id"])
 		nested.Set("name", user["name"])
 		block.Set("user", nested)
@@ -911,7 +911,7 @@ func projectSpecialistProfile(ctx context.Context, pool *pgxpool.Pool, role stri
 		isInternal = true
 	}
 
-	result := jsonphp.NewObject()
+	result := jsonwire.NewObject()
 	result.Set("name", name)
 	result.Set("type", profileType)
 	result.Set("payment_status", paymentStatus)
@@ -1014,7 +1014,7 @@ func specialistPaymentStatus(ctx context.Context, pool *pgxpool.Pool, role strin
 // relation: every column in table order with the model's casts, the
 // rating appends where the model declares them, and the user minus
 // $hidden plus their phoneNumber rows.
-func fullProfileBlock(ctx context.Context, pool *pgxpool.Pool, table string, profileID int64, withRatings, withRatingsRelation, withPhones bool) (*jsonphp.Object, error) {
+func fullProfileBlock(ctx context.Context, pool *pgxpool.Pool, table string, profileID int64, withRatings, withRatingsRelation, withPhones bool) (*jsonwire.Object, error) {
 	rows, err := pool.Query(ctx, `SELECT `+profileRowColumns(table)+` FROM `+table+` WHERE id = $1`, profileID)
 	if err != nil {
 		return nil, err
@@ -1045,7 +1045,7 @@ func fullProfileBlock(ctx context.Context, pool *pgxpool.Pool, table string, pro
 	decimalCols := map[string]bool{"rate_harga": true}
 	intCols := map[string]bool{"reliability_score": true}
 
-	block := jsonphp.NewObject()
+	block := jsonwire.NewObject()
 	for _, column := range fields {
 		value := byName[column]
 
@@ -1139,7 +1139,7 @@ func projectTimeValue(value any) any {
 		return nil
 	}
 	if typed, ok := value.(time.Time); ok {
-		return carbon(&typed)
+		return apiTimestamp(&typed)
 	}
 	return jsonVal(value)
 }
@@ -1203,7 +1203,7 @@ func fullProfileUserContact(ctx context.Context, pool *pgxpool.Pool, userID int6
 		hidden["email"] = true
 	}
 
-	user := jsonphp.NewObject()
+	user := jsonwire.NewObject()
 	for i, column := range fields {
 		if hidden[column] {
 			continue
@@ -1238,7 +1238,7 @@ func fullProfileUserContact(ctx context.Context, pool *pgxpool.Pool, userID int6
 			if err := phones.Scan(&id, &contact, &phoneUser, &idContact); err != nil {
 				return nil, err
 			}
-			item := jsonphp.NewObject()
+			item := jsonwire.NewObject()
 			item.Set("id", nullableInt64(id))
 			item.Set("contact", nullableString(contact))
 			item.Set("id_user", nullableInt64(phoneUser))
@@ -1295,7 +1295,7 @@ func profileRatings(ctx context.Context, pool *pgxpool.Pool, table string, profi
 		if err != nil {
 			return nil, err
 		}
-		entry := jsonphp.NewObject()
+		entry := jsonwire.NewObject()
 		for i, column := range fields {
 			switch column {
 			case "created_at", "updated_at":

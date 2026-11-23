@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -62,7 +62,7 @@ func handoverRespond(ctx context.Context, pool *pgxpool.Pool, w http.ResponseWri
 		return
 	}
 
-	payload := jsonphp.NewObject()
+	payload := jsonwire.NewObject()
 	payload.Set("data", entry)
 	writeJSON(w, http.StatusOK, payload)
 }
@@ -444,7 +444,7 @@ func verifyPhaseTx(ctx context.Context, tx pgx.Tx, projectID int64, project map[
 		completed = append(completed, phase)
 		sortStrings(completed)
 	}
-	encoded, err := jsonphp.Marshal(stringSliceToAny(completed))
+	encoded, err := jsonwire.Marshal(stringSliceToAny(completed))
 	if err != nil {
 		return false
 	}

@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -68,8 +68,8 @@ func materialFolderAuthorized(ctx context.Context, pool *pgxpool.Pool, viewer *p
 }
 
 // materialFolderObject renders a folder in table order with its creator.
-func materialFolderObject(ctx context.Context, pool *pgxpool.Pool, byName map[string]any) *jsonphp.Object {
-	entry := jsonphp.NewObject()
+func materialFolderObject(ctx context.Context, pool *pgxpool.Pool, byName map[string]any) *jsonwire.Object {
+	entry := jsonwire.NewObject()
 	for _, column := range materialFolderColumns {
 		value := byName[column]
 		switch column {
@@ -92,8 +92,8 @@ func materialFolderObject(ctx context.Context, pool *pgxpool.Pool, byName map[st
 }
 
 // materialFolderCreatedObject renders Eloquent's CREATED model.
-func materialFolderCreatedObject(ctx context.Context, pool *pgxpool.Pool, byName map[string]any) *jsonphp.Object {
-	entry := jsonphp.NewObject()
+func materialFolderCreatedObject(ctx context.Context, pool *pgxpool.Pool, byName map[string]any) *jsonwire.Object {
+	entry := jsonwire.NewObject()
 	entry.Set("name", projectRawValue(byName["name"]))
 	entry.Set("created_by", projectRawValue(byName["created_by"]))
 	entry.Set("bom_type", projectRawValue(byName["bom_type"]))
@@ -194,7 +194,7 @@ func MaterialFoldersIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			out = append(out, materialFolderObject(ctx, pool, byName))
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", out)
 		writeJSON(w, http.StatusOK, payload)
 	}
@@ -260,7 +260,7 @@ func StoreMaterialFolderHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			"created_at": createdAt, "updated_at": updatedAt,
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", materialFolderCreatedObject(ctx, pool, byName))
 		writeJSON(w, http.StatusCreated, payload)
 	}
@@ -339,7 +339,7 @@ func UpdateMaterialFolderHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", materialFolderObject(ctx, pool, byName))
 		writeJSON(w, http.StatusOK, payload)
 	}

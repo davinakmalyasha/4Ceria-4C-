@@ -1,12 +1,12 @@
-// Package terminplan implements App\Services\TerminPlanService — the
-// integrity guards for payment plans (`project_payment_termins`).
+// Package terminplan provides the integrity guards for payment plans
+// (`project_payment_termins`).
 //
 // WHY THIS EXISTS, IN ONE PARAGRAPH
 // ---------------------------------
-// The previous plan writers only checked the caller's role, so any
-// professional could mint a termin on any project with an arbitrary amount
-// and set themselves as `recipient_id` — then self-verify it through the
-// payment verification path. This package centralises the invariants so
+// Early plan writers only checked the caller's role, so any professional
+// could mint a termin on any project with an arbitrary amount and set
+// themselves as `recipient_id` — then self-verify it through the payment
+// verification path. This package centralises the invariants so
 // every write path (the termin controller, signContract, clientSignContract)
 // shares them: a stage names a licensed role, a plan never exceeds the
 // negotiated contract value, percentages split exactly 100, and stages
@@ -23,11 +23,11 @@
 //
 // MONEY IS EXACT
 // -------------
-// All amount comparisons run in minor units (integers, never floats) via
-// the money package — the previous PHP version compared floats against a
-// `+ 1000` tolerance, where the boundary was whatever the double rounding
-// produced. Percentages stay floats with the 0.01 tolerance the reference
-// uses, because percentages are a display-side split, not money.
+// All amount comparisons run in minor units (integers, never floats) via the
+// money package. An earlier implementation compared floats against a `+ 1000`
+// tolerance, where the boundary was whatever double rounding produced.
+// Percentages stay floats with the 0.01 tolerance the plan format uses,
+// because percentages are a display-side split, not money.
 package terminplan
 
 import (
@@ -62,8 +62,8 @@ type Stage struct {
 }
 
 // KnownRoles is every role a payment stage may belong to, in the registry's
-// order. It is TerminPlanService::knownRoles: config/bids.php, not a second
-// list — a restated list is how the seven tables drifted apart.
+// order. It delegates to identity.Roles() rather than restating the list: a
+// second list is how the seven profile tables drifted apart.
 func KnownRoles() []identity.Role {
 	return identity.Roles()
 }
@@ -279,22 +279,20 @@ func absMoney(value int64) int64 {
 	return value
 }
 
-// formatFloat renders a float the way PHP interpolates one: "100.5", never
-// "100.500000". The reference's percentage messages embed the raw double.
+// formatFloat renders a float with the shortest useful decimal form: "100.5",
+// never "100.500000". Percentage messages embed the number, not a formatted
+// money amount.
 func formatFloat(value float64) string {
 	return strings.TrimRight(strings.TrimRight(fmt.Sprintf("%.10f", value), "0"), ".")
 }
 
-// FormatWhole renders whole Rupiah the way number_format($x, 0, ',', '.')
-// does: "8.000.000". Amounts reaching this message are whole by
-// construction (the zero-amount stages are rejected before it).
+// FormatWhole renders whole Rupiah as "8.000.000". Amounts reaching this
+// message are whole by construction (zero-amount stages are rejected first).
 func FormatWhole(amount money.Money) string {
 	return formatID(amount)
 }
 
-// formatID renders whole Rupiah the way number_format($x, 0, ',', '.')
-// does: "8.000.000". Amounts reaching this message are whole by
-// construction (the zero-amount stages are rejected before it).
+// formatID renders whole Rupiah as "8.000.000".
 func formatID(amount money.Money) string {
 	digits := amount.Decimal()
 	if dot := strings.Index(digits, "."); dot >= 0 {

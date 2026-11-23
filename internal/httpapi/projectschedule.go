@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -57,12 +57,12 @@ var scheduleDateCols = map[string]bool{
 }
 
 // scheduleObject renders a loaded schedule in table order.
-func scheduleObject(ctx context.Context, byName map[string]any, reportCount *int64) *jsonphp.Object {
-	entry := jsonphp.NewObject()
+func scheduleObject(ctx context.Context, byName map[string]any, reportCount *int64) *jsonwire.Object {
+	entry := jsonwire.NewObject()
 	for _, column := range scheduleColumns {
 		switch {
 		case scheduleDateCols[column]:
-			entry.Set(column, mysqlDate(byName[column]))
+			entry.Set(column, dateString(byName[column]))
 		case column == "created_at" || column == "updated_at":
 			entry.Set(column, projectTimeValue(byName[column]))
 		default:
@@ -77,8 +77,8 @@ func scheduleObject(ctx context.Context, byName map[string]any, reportCount *int
 }
 
 // scheduleCreatedObject renders Eloquent's CREATED schedule.
-func scheduleCreatedObject(ctx context.Context, byName map[string]any, reportCount int64) *jsonphp.Object {
-	entry := jsonphp.NewObject()
+func scheduleCreatedObject(ctx context.Context, byName map[string]any, reportCount int64) *jsonwire.Object {
+	entry := jsonwire.NewObject()
 	entry.Set("project_id", projectRawValue(byName["project_id"]))
 	entry.Set("phase_slug", projectRawValue(byName["phase_slug"]))
 	entry.Set("status", projectRawValue(byName["status"]))
@@ -91,12 +91,12 @@ func scheduleCreatedObject(ctx context.Context, byName map[string]any, reportCou
 }
 
 // delayObject renders a loaded delay in table order.
-func delayObject(ctx context.Context, byName map[string]any) *jsonphp.Object {
-	entry := jsonphp.NewObject()
+func delayObject(ctx context.Context, byName map[string]any) *jsonwire.Object {
+	entry := jsonwire.NewObject()
 	for _, column := range delayColumns {
 		switch column {
 		case "logged_at":
-			entry.Set(column, mysqlDate(byName[column]))
+			entry.Set(column, dateString(byName[column]))
 		case "created_at", "updated_at":
 			entry.Set(column, projectTimeValue(byName[column]))
 		default:
@@ -107,8 +107,8 @@ func delayObject(ctx context.Context, byName map[string]any) *jsonphp.Object {
 }
 
 // reportObject renders a loaded report plus its creator.
-func reportObject(ctx context.Context, pool *pgxpool.Pool, byName map[string]any) *jsonphp.Object {
-	entry := jsonphp.NewObject()
+func reportObject(ctx context.Context, pool *pgxpool.Pool, byName map[string]any) *jsonwire.Object {
+	entry := jsonwire.NewObject()
 	for _, column := range reportColumns {
 		switch column {
 		case "site_photos", "attachments":
@@ -283,7 +283,7 @@ func SchedulesIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("schedules", schedules)
 		payload.Set("delays", delays)
 		payload.Set("unlinked_reports", reports)
@@ -367,7 +367,7 @@ func loadUnlinkedReports(ctx context.Context, pool *pgxpool.Pool, projectID int6
 }
 
 // scheduleSummary mirrors calculateSummary: milestone-weighted completion.
-func scheduleSummary(ctx context.Context, pool *pgxpool.Pool, projectID int64, order []string, existing, created map[string]map[string]any) (*jsonphp.Object, error) {
+func scheduleSummary(ctx context.Context, pool *pgxpool.Pool, projectID int64, order []string, existing, created map[string]map[string]any) (*jsonwire.Object, error) {
 	done := int64(0)
 	completed := int64(0)
 	currentPhase := any(nil)
@@ -464,7 +464,7 @@ func scheduleSummary(ctx context.Context, pool *pgxpool.Pool, projectID int64, o
 		totalDelay = strconv.FormatInt(delayDays, 10)
 	}
 
-	summary := jsonphp.NewObject()
+	summary := jsonwire.NewObject()
 	summary.Set("completion_percentage", completion)
 	summary.Set("phases_done", completed)
 	summary.Set("total_phases", int64(len(order)))
@@ -582,7 +582,7 @@ func UpdateScheduleHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Phase updated successfully.")
 		payload.Set("phase", scheduleObject(ctx, fresh, nil))
 		writeJSON(w, http.StatusOK, payload)
@@ -816,18 +816,18 @@ func LogDelayHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		delay := jsonphp.NewObject()
+		delay := jsonwire.NewObject()
 		delay.Set("project_id", projectID)
 		delay.Set("phase_slug", input.phaseSlug)
 		delay.Set("days", input.days)
 		delay.Set("reason", input.reason)
 		delay.Set("category", input.category)
-		delay.Set("logged_at", carbon(&loggedAt))
+		delay.Set("logged_at", apiTimestamp(&loggedAt))
 		delay.Set("updated_at", projectTimeValue(updatedAt))
 		delay.Set("created_at", projectTimeValue(createdAt))
 		delay.Set("id", delayID)
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Delay logged and stakeholders notified.")
 		payload.Set("delay", delay)
 		writeJSON(w, http.StatusOK, payload)
@@ -916,7 +916,7 @@ func loadScheduleRow(ctx context.Context, pool *pgxpool.Pool, scheduleID int64) 
 
 // writeErrorsOnly renders the controller's BARE {"errors": …} 422 envelope.
 func writeErrorsOnly(w http.ResponseWriter, failures *errorBag) {
-	errors := jsonphp.NewObject()
+	errors := jsonwire.NewObject()
 	for _, field := range failures.fields {
 		messages := make([]any, 0, len(failures.bag[field]))
 		for _, message := range failures.bag[field] {
@@ -924,7 +924,7 @@ func writeErrorsOnly(w http.ResponseWriter, failures *errorBag) {
 		}
 		errors.Set(field, messages)
 	}
-	payload := jsonphp.NewObject()
+	payload := jsonwire.NewObject()
 	payload.Set("errors", errors)
 	writeJSON(w, http.StatusUnprocessableEntity, payload)
 }

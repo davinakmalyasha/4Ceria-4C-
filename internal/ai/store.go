@@ -45,9 +45,7 @@ func CreateSession(ctx context.Context, pool *pgxpool.Pool, userID int64, title 
 	if title == "" {
 		title = "New chat"
 	}
-	if len(title) > 80 {
-		title = title[:80]
-	}
+	title = truncateRunes(title, 80)
 	var s Session
 	err := pool.QueryRow(ctx, `
 		INSERT INTO ai_chat_sessions (user_id, title)
@@ -200,10 +198,15 @@ func RecentMessages(ctx context.Context, pool *pgxpool.Pool, userID int64, sessi
 	return out, rows.Err()
 }
 
-// CheckQuota reports whether the user may send another message: "ok",
-// "minute" or "day".
-func CheckQuota(ctx context.Context, pool *pgxpool.Pool, userID int64) (string, error) {
-	var minuteCount, dayCount int
+// QuotaUsage is the caller's current assistant budget.
+type QuotaUsage struct {
+	Minute int `json:"minute"`
+	Day    int `json:"day"`
+}
+
+// ReadQuota reads the two counters in one query.
+func ReadQuota(ctx context.Context, pool *pgxpool.Pool, userID int64) (QuotaUsage, error) {
+	var usage QuotaUsage
 	err := pool.QueryRow(ctx, `
 		SELECT
 			COUNT(*) FILTER (WHERE m.created_at > now() - interval '1 minute'),
@@ -211,14 +214,21 @@ func CheckQuota(ctx context.Context, pool *pgxpool.Pool, userID int64) (string, 
 		  FROM ai_chat_messages m
 		  JOIN ai_chat_sessions s ON s.id = m.session_id
 		 WHERE s.user_id = $1 AND m.role = 'user'
-	`, userID).Scan(&minuteCount, &dayCount)
+	`, userID).Scan(&usage.Minute, &usage.Day)
+	return usage, err
+}
+
+// CheckQuota reports whether the user may send another message: "ok",
+// "minute" or "day".
+func CheckQuota(ctx context.Context, pool *pgxpool.Pool, userID int64) (string, error) {
+	usage, err := ReadQuota(ctx, pool, userID)
 	if err != nil {
 		return "", err
 	}
-	if minuteCount >= MinuteQuota {
+	if usage.Minute >= MinuteQuota {
 		return "minute", nil
 	}
-	if dayCount >= DailyQuota {
+	if usage.Day >= DailyQuota {
 		return "day", nil
 	}
 	return "ok", nil

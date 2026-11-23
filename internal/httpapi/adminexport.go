@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -18,7 +18,7 @@ import (
 // and `Content-Disposition: attachment; filename=projects-export-Ymd-His.csv`
 // (the stamp is UTC). The body starts with a UTF-8 BOM so Excel reads
 // Indonesian names correctly, then a header row and one row per project,
-// ordered `created_at DESC, id ASC` (MySQL's tie-break again) and capped at
+// ordered `created_at DESC, id ASC` and capped at
 // 5000 rows.
 //
 // `csvCell()` prefixes a single quote when a value starts with `=`, `+`, `-`,
@@ -64,7 +64,7 @@ func AdminProjectsExportHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		builder.WriteString("\xEF\xBB\xBF")
 
 		header := []string{"ID", "Title", "Owner", "Status", "Budget (IDR)", "Bids", "Open Dispute", "Paid Out (IDR)", "Refunded (IDR)", "Created At"}
-		builder.WriteString(phpCSVLine(header))
+		builder.WriteString(csvLine(header))
 
 		for rows.Next() {
 			var (
@@ -105,7 +105,7 @@ func AdminProjectsExportHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				createdText = created.UTC().Format("2006-01-02 15:04:05")
 			}
 
-			builder.WriteString(phpCSVLine([]string{
+			builder.WriteString(csvLine([]string{
 				strconv.FormatInt(id, 10),
 				csvCell(title),
 				csvCell(ownerName),
@@ -146,18 +146,18 @@ func csvCell(value string) string {
 	return value
 }
 
-// phpCSVLine renders one fputcsv line (comma delimiter, double-quote
+// csvLine renders one RFC 4180-style CSV line (comma delimiter, double-quote
 // enclosure, LF terminator).
-func phpCSVLine(fields []string) string {
+func csvLine(fields []string) string {
 	parts := make([]string, 0, len(fields))
 	for _, field := range fields {
-		parts = append(parts, phpCSVField(field))
+		parts = append(parts, csvField(field))
 	}
 	return strings.Join(parts, ",") + "\n"
 }
 
-// phpCSVField applies fputcsv's quoting rule.
-func phpCSVField(field string) string {
+// csvField applies the CSV quoting rule.
+func csvField(field string) string {
 	if strings.ContainsAny(field, ",\"\\\n\r\t ") {
 		return `"` + strings.ReplaceAll(field, `"`, `""`) + `"`
 	}
@@ -302,7 +302,7 @@ func AdminForceTerminateHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			entry.Set(relation.key, block)
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Project forced terminated by Administrator.")
 		payload.Set("project", entry)
 		writeJSON(w, http.StatusOK, payload)

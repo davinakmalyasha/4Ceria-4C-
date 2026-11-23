@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -57,8 +57,8 @@ func parseScheduleDate(value string) (time.Time, bool) {
 }
 
 // consultationObject renders a row in table order.
-func consultationObject(byName map[string]any) *jsonphp.Object {
-	entry := jsonphp.NewObject()
+func consultationObject(byName map[string]any) *jsonwire.Object {
+	entry := jsonwire.NewObject()
 	for _, column := range consultationColumns {
 		switch column {
 		case "schedule_date", "created_at", "updated_at":
@@ -71,8 +71,8 @@ func consultationObject(byName map[string]any) *jsonphp.Object {
 }
 
 // consultationCreatedObject renders Eloquent's CREATED model.
-func consultationCreatedObject(byName map[string]any) *jsonphp.Object {
-	entry := jsonphp.NewObject()
+func consultationCreatedObject(byName map[string]any) *jsonwire.Object {
+	entry := jsonwire.NewObject()
 	for _, column := range []string{"notaris_id", "user_id", "schedule_date", "status", "notes"} {
 		switch column {
 		case "schedule_date":
@@ -189,7 +189,7 @@ func ConsultationsIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			out = append(out, entry)
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", out)
 		writeJSON(w, http.StatusOK, payload)
 	}
@@ -306,8 +306,8 @@ func StoreConsultationHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		var senderName string
 		_ = pool.QueryRow(ctx, `SELECT name FROM users WHERE id = $1`, caller.UserID()).Scan(&senderName)
 		body := senderName + " requested a consultation on " + scheduleUTC.In(wib).Format("02 Jan 2006 15:04") + " WIB."
-		data, _ := jsonphp.Marshal(func() *jsonphp.Object {
-			entry := jsonphp.NewObject()
+		data, _ := jsonwire.Marshal(func() *jsonwire.Object {
+			entry := jsonwire.NewObject()
 			entry.Set("consultation_id", id)
 			entry.Set("notaris_id", notarisID)
 			return entry
@@ -317,7 +317,7 @@ func StoreConsultationHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			slog.Warn("consultation store: notify", "error", err)
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Consultation booked successfully.")
 		payload.Set("data", consultationCreatedObject(created))
 		writeJSON(w, http.StatusCreated, payload)
@@ -508,8 +508,8 @@ func RespondConsultationHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			}
 		}
 
-		data, _ := jsonphp.Marshal(func() *jsonphp.Object {
-			entry := jsonphp.NewObject()
+		data, _ := jsonwire.Marshal(func() *jsonwire.Object {
+			entry := jsonwire.NewObject()
 			entry.Set("consultation_id", id)
 			entry.Set("notaris_id", intPtrDeref(byName["notaris_id"]))
 			return entry
@@ -526,7 +526,7 @@ func RespondConsultationHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Consultation updated.")
 		payload.Set("data", consultationObject(fresh))
 		writeJSON(w, http.StatusOK, payload)

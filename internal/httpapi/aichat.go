@@ -1,14 +1,16 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/davinakmalyasha/4ceria/internal/ai"
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -40,18 +42,36 @@ func aiConfig() ai.Config { return ai.LoadConfig() }
 func AIStatusHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		caller, _ := CallerFrom(r.Context())
+		cfg := aiConfig()
 		var quota string
+		usedToday := 0
+		memoryEnabled := cfg.Memory
+		memoryItems := 0
 		if caller != nil {
 			if q, err := ai.CheckQuota(r.Context(), pool, caller.UserID()); err == nil {
 				quota = q
 			}
+			if usage, err := ai.ReadQuota(r.Context(), pool, caller.UserID()); err == nil {
+				usedToday = usage.Day
+			}
+			if enabled, err := ai.MemoryEnabled(r.Context(), pool, caller.UserID()); err == nil {
+				memoryEnabled = cfg.Memory && enabled
+			}
+			if count, err := ai.CountMemories(r.Context(), pool, caller.UserID()); err == nil {
+				memoryItems = count
+			}
 		}
-		cfg := aiConfig()
-		body := jsonphp.NewObject()
+		body := jsonwire.NewObject()
 		body.Set("enabled", cfg.Enabled())
 		body.Set("model", cfg.Model)
 		body.Set("quota", quota)
+		body.Set("used_today", usedToday)
 		body.Set("daily_quota", int64(ai.DailyQuota))
+		body.Set("minute_quota", int64(ai.MinuteQuota))
+		body.Set("memory_enabled", memoryEnabled)
+		body.Set("memory_items", memoryItems)
+		body.Set("specialists", cfg.Specialists)
+		body.Set("skills", true)
 		writeJSON(w, http.StatusOK, body)
 	}
 }
@@ -76,7 +96,7 @@ func AISessionsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			for _, s := range sessions {
 				items = append(items, aiSessionObject(s))
 			}
-			body := jsonphp.NewObject()
+			body := jsonwire.NewObject()
 			body.Set("data", items)
 			writeJSON(w, http.StatusOK, body)
 		case http.MethodPost:
@@ -90,7 +110,7 @@ func AISessionsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				serverError(w)
 				return
 			}
-			body := jsonphp.NewObject()
+			body := jsonwire.NewObject()
 			body.Set("data", aiSessionObject(s))
 			writeJSON(w, http.StatusCreated, body)
 		default:
@@ -137,7 +157,7 @@ func AISessionHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			for _, m := range msgs {
 				items = append(items, aiMessageObject(m))
 			}
-			body := jsonphp.NewObject()
+			body := jsonwire.NewObject()
 			body.Set("data", aiSessionObject(s))
 			body.Set("messages", items)
 			writeJSON(w, http.StatusOK, body)
@@ -166,7 +186,7 @@ func AISessionHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				serverError(w)
 				return
 			}
-			body := jsonphp.NewObject()
+			body := jsonwire.NewObject()
 			body.Set("data", aiSessionObject(s))
 			writeJSON(w, http.StatusOK, body)
 		case http.MethodDelete:
@@ -212,7 +232,7 @@ func AIChatHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			writeJSON(w, status, fail)
 			return
 		}
-		body := jsonphp.NewObject()
+		body := jsonwire.NewObject()
 		body.Set("session_id", sessionID)
 		body.Set("reply", reply)
 		body.Set("refused", refused)
@@ -260,22 +280,34 @@ func AIStreamHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		// chunk: the client renders them identically.
 		if prepared.earlyReply != "" {
 			writeSSE(w, map[string]any{"delta": prepared.earlyReply})
+			storeCtx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 5*time.Second)
+			defer cancel()
+			if _, err := ai.AppendMessage(storeCtx, pool, caller.UserID(), prepared.sessionID, "assistant", prepared.earlyReply); err != nil {
+				slog.Error("ai: store early reply", "error", err)
+			}
 			writeSSE(w, map[string]any{"done": true, "refused": prepared.earlyRefused})
-			_, _ = ai.AppendMessage(r.Context(), pool, caller.UserID(), prepared.sessionID, "assistant", prepared.earlyReply)
 			return
 		}
 
-		full := ai.Stream(r.Context(), prepared.cfg, ai.TurnInput{
-			Pool:      pool,
-			UserID:    caller.UserID(),
-			IsAdmin:   caller.IsAdmin(),
-			SessionID: prepared.sessionID,
-			Message:   prepared.message,
-			History:   prepared.history,
+		sentError := false
+		result := ai.Stream(r.Context(), prepared.cfg, ai.TurnInput{
+			Pool:          pool,
+			UserID:        caller.UserID(),
+			IsAdmin:       caller.IsAdmin(),
+			SessionID:     prepared.sessionID,
+			Message:       prepared.message,
+			History:       prepared.history,
+			MemoryEnabled: prepared.memoryEnabled,
 		}, func(c ai.StreamChunk) bool {
-			if c.Error != "" {
+			switch {
+			case c.Error != "":
+				sentError = true
 				writeSSE(w, map[string]any{"error": c.Error})
-			} else if c.Text != "" {
+			case c.Replace != "":
+				writeSSE(w, map[string]any{"replace": c.Replace})
+			case c.Tool != "":
+				writeSSE(w, map[string]any{"tool": c.Tool, "status": c.ToolStatus})
+			case c.Text != "":
 				writeSSE(w, map[string]any{"delta": c.Text})
 			}
 			if flusher != nil {
@@ -283,15 +315,25 @@ func AIStreamHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			}
 			return r.Context().Err() == nil
 		})
-		if full == "" {
+
+		// Persist outside the request context: a client that closes the tab
+		// after seeing the answer must not lose the transcript or its memory.
+		storeCtx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 8*time.Second)
+		defer cancel()
+		if result.Text != "" {
+			if _, err := ai.AppendMessage(storeCtx, pool, caller.UserID(), prepared.sessionID, "assistant", result.Text); err != nil {
+				slog.Error("ai: store stream reply", "error", err)
+			}
+			if prepared.memoryEnabled {
+				if err := ai.SyncSession(storeCtx, pool, caller.UserID(), prepared.sessionID); err != nil {
+					slog.Error("ai: sync memory", "error", err)
+				}
+			}
+		}
+		if result.Text == "" && !sentError {
 			writeSSE(w, map[string]any{"error": "The assistant hit a snag. Please try again."})
-			writeSSE(w, map[string]any{"done": true, "refused": false})
-			return
 		}
-		if _, err := ai.AppendMessage(r.Context(), pool, caller.UserID(), prepared.sessionID, "assistant", full); err != nil {
-			slog.Error("ai: store stream reply", "error", err)
-		}
-		writeSSE(w, map[string]any{"done": true, "refused": false})
+		writeSSE(w, map[string]any{"done": true, "refused": false, "tools": result.Tools})
 	}
 }
 
@@ -300,12 +342,13 @@ func AIStreamHandler(pool *pgxpool.Pool) http.HandlerFunc {
 // ---------------------------------------------------------------------------
 
 type aiPrepared struct {
-	cfg          ai.Config
-	sessionID    string
-	message      string
-	history      []ai.StoredMessage
-	earlyReply   string
-	earlyRefused bool
+	cfg           ai.Config
+	sessionID     string
+	message       string
+	history       []ai.StoredMessage
+	memoryEnabled bool
+	earlyReply    string
+	earlyRefused  bool
 }
 
 func aiPrepareTurn(r *http.Request, pool *pgxpool.Pool, caller Caller, req aiChatRequest) (*aiPrepared, any, int) {
@@ -370,7 +413,13 @@ func aiPrepareTurn(r *http.Request, pool *pgxpool.Pool, caller Caller, req aiCha
 	if n := len(history); n > 0 && history[n-1].Role == "user" && history[n-1].Content == cleaned {
 		history = history[:n-1]
 	}
-	return &aiPrepared{cfg: cfg, sessionID: sessionID, message: cleaned, history: history}, nil, 0
+	memoryEnabled := false
+	if cfg.Memory {
+		if enabled, err := ai.MemoryEnabled(r.Context(), pool, caller.UserID()); err == nil {
+			memoryEnabled = enabled
+		}
+	}
+	return &aiPrepared{cfg: cfg, sessionID: sessionID, message: cleaned, history: history, memoryEnabled: memoryEnabled}, nil, 0
 }
 
 // aiTurn runs the non-streaming turn end to end.
@@ -385,13 +434,14 @@ func aiTurn(r *http.Request, pool *pgxpool.Pool, caller Caller, req aiChatReques
 		}
 		return prepared.earlyReply, prepared.sessionID, true, 0, nil
 	}
-	reply, err := ai.Chat(r.Context(), prepared.cfg, ai.TurnInput{
-		Pool:      pool,
-		UserID:    caller.UserID(),
-		IsAdmin:   caller.IsAdmin(),
-		SessionID: prepared.sessionID,
-		Message:   prepared.message,
-		History:   prepared.history,
+	result, err := ai.Chat(r.Context(), prepared.cfg, ai.TurnInput{
+		Pool:          pool,
+		UserID:        caller.UserID(),
+		IsAdmin:       caller.IsAdmin(),
+		SessionID:     prepared.sessionID,
+		Message:       prepared.message,
+		History:       prepared.history,
+		MemoryEnabled: prepared.memoryEnabled,
 	})
 	if err != nil {
 		slog.Error("ai: chat", "error", err)
@@ -400,43 +450,48 @@ func aiTurn(r *http.Request, pool *pgxpool.Pool, caller Caller, req aiChatReques
 		}
 		return "", prepared.sessionID, false, http.StatusBadGateway, messageObject("The assistant hit a snag. Please try again.")
 	}
-	if _, err := ai.AppendMessage(r.Context(), pool, caller.UserID(), prepared.sessionID, "assistant", reply); err != nil {
+	if _, err := ai.AppendMessage(r.Context(), pool, caller.UserID(), prepared.sessionID, "assistant", result.Text); err != nil {
 		slog.Error("ai: store reply", "error", err)
 	}
-	return reply, prepared.sessionID, false, 0, nil
+	if prepared.memoryEnabled {
+		if err := ai.SyncSession(r.Context(), pool, caller.UserID(), prepared.sessionID); err != nil {
+			slog.Error("ai: sync memory", "error", err)
+		}
+	}
+	return result.Text, prepared.sessionID, false, 0, nil
 }
 
-func aiSessionObject(s ai.Session) *jsonphp.Object {
-	entry := jsonphp.NewObject()
+func aiSessionObject(s ai.Session) *jsonwire.Object {
+	entry := jsonwire.NewObject()
 	entry.Set("id", s.ID)
 	entry.Set("title", s.Title)
-	entry.Set("created_at", carbonTime(s.CreatedAt))
-	entry.Set("updated_at", carbonTime(s.UpdatedAt))
+	entry.Set("created_at", apiTime(s.CreatedAt))
+	entry.Set("updated_at", apiTime(s.UpdatedAt))
 	return entry
 }
 
-func aiMessageObject(m ai.StoredMessage) *jsonphp.Object {
-	entry := jsonphp.NewObject()
+func aiMessageObject(m ai.StoredMessage) *jsonwire.Object {
+	entry := jsonwire.NewObject()
 	entry.Set("id", m.ID)
 	entry.Set("role", m.Role)
 	entry.Set("content", m.Content)
-	entry.Set("created_at", carbonTime(m.CreatedAt))
+	entry.Set("created_at", apiTime(m.CreatedAt))
 	return entry
 }
 
 // messageObject builds the `{"message": ...}` body as a value (for paths
 // that must choose the status at the call site).
-func messageObject(text string) *jsonphp.Object {
-	body := jsonphp.NewObject()
+func messageObject(text string) *jsonwire.Object {
+	body := jsonwire.NewObject()
 	body.Set("message", text)
 	return body
 }
 
 // validationObject builds the 422 validation body as a value.
-func validationObject(messageText string, errors map[string][]string) *jsonphp.Object {
-	body := jsonphp.NewObject()
+func validationObject(messageText string, errors map[string][]string) *jsonwire.Object {
+	body := jsonwire.NewObject()
 	body.Set("message", messageText)
-	fields := jsonphp.NewObject()
+	fields := jsonwire.NewObject()
 	for _, field := range sortedKeys(errors) {
 		list := make([]any, 0, len(errors[field]))
 		for _, text := range errors[field] {
@@ -449,8 +504,8 @@ func validationObject(messageText string, errors map[string][]string) *jsonphp.O
 }
 
 // serverErrorObject builds the 500 body as a value.
-func serverErrorObject() *jsonphp.Object {
-	body := jsonphp.NewObject()
+func serverErrorObject() *jsonwire.Object {
+	body := jsonwire.NewObject()
 	body.Set("message", "Server Error")
 	return body
 }

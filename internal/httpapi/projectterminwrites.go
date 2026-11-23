@@ -9,7 +9,7 @@ import (
 
 	"github.com/davinakmalyasha/4ceria/internal/domain/money"
 	"github.com/davinakmalyasha/4ceria/internal/domain/terminplan"
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -99,7 +99,7 @@ const terminColumnsQuery = `SELECT id, project_id, role_type, recipient_id, labe
 
 // terminResponse renders a termin in table order, optionally with the
 // milestone relation (the route-bound model in `link` never loaded it).
-func terminResponse(ctx context.Context, pool *pgxpool.Pool, terminID int64, withMilestone bool) (*jsonphp.Object, error) {
+func terminResponse(ctx context.Context, pool *pgxpool.Pool, terminID int64, withMilestone bool) (*jsonwire.Object, error) {
 	rows, err := pool.Query(ctx, terminColumnsQuery, terminID)
 	if err != nil {
 		return nil, err
@@ -288,7 +288,7 @@ func UpdatePaymentTerminHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", entry)
 		writeJSON(w, http.StatusOK, payload)
 	}
@@ -687,7 +687,7 @@ func LinkTerminMilestoneHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Payment linked successfully.")
 		payload.Set("data", entry)
 		writeJSON(w, http.StatusOK, payload)

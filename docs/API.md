@@ -1,6 +1,6 @@
 # API
 
-The manifest at `routing/routes.yaml` is the contract: **320 routes**, with
+The manifest at `routing/routes.yaml` is the contract: **325 routes**, with
 their methods, auth class, throttle, and the handler the gateway registers.
 `NewRouter` fails the build when a manifest route has no handler.
 
@@ -23,7 +23,7 @@ their methods, auth class, throttle, and the handler the gateway registers.
 
 ## Authentication
 
-`POST /api/login` returns a Sanctum-style token (`id|plain`). The browser
+`POST /api/login` returns an opaque token in the `id|plain` form. The browser
 never sees it: the Next server stores it in an httpOnly cookie and attaches it
 server-side. Direct clients send `Authorization: Bearer <token>`.
 
@@ -44,7 +44,8 @@ revoked by `POST /api/logout`. Password reset tokens expire after 60 minutes.
 | `/api/conversations`, `/api/notifications` | inbox and preferences |
 | `/api/firms`, `/api/firm-members` | firm workspace |
 | `/api/admin/*` | moderation, verification, disputes, exports |
-| `/api/ai/*` | assistant status, sessions, chat, SSE stream |
+| `/api/ai/*` | assistant status, sessions, chat, SSE stream, long-term memory |
+| `/api/mcp` | read-only MCP (Model Context Protocol) tools for external agents |
 | `/storage/{path}` | uploaded bytes (signed or public) |
 
 `GET /internal/routes` returns the route table for tooling. It is loopback-only
@@ -58,13 +59,35 @@ unless `INTERNAL_ROUTES_TOKEN` is set, in which case send
 
 ```text
 data: {"session_id":"…"}
+data: {"tool":"search_houses","status":"started"}
+data: {"tool":"search_houses","status":"completed"}
 data: {"delta":"…"}
-data: {"done":true,"refused":false}
+data: {"replace":"…"}
+data: {"done":true,"refused":false,"tools":["search_houses"]}
 ```
 
-An upstream failure always ends with `{"error":"…"}` followed by a terminal
-`done` event. The response logger delegates `Flush`, so events are not
-buffered.
+`delta` appends; `replace` replaces the streaming bubble when the final
+answer differs from the accumulated chunks. A client must buffer across
+network reads: a frame can be split between two chunks. An upstream failure
+ends with `{"error":"…"}` followed by a terminal `done` event. The response
+logger delegates `Flush`, so events are not buffered.
+
+## Assistant memory
+
+`GET /api/ai/memory` returns `{enabled,count,data:[{id,kind,role,content,created_at}]}`.
+`PUT /api/ai/memory` toggles memory with `{enabled:true|false}`.
+`DELETE /api/ai/memory` clears every row; `DELETE /api/ai/memory/{id}` removes
+one. All four are scoped to the authenticated caller; a row from another
+account is a 404, not a leak.
+
+## MCP
+
+`POST /api/mcp` is a stateless, authenticated MCP endpoint over the
+Streamable HTTP transport. It exposes the same read-only catalog as the
+assistant (property, directory, materials, platform help, and the caller's
+projects/finance/schedule/bids). It has no write tools. External clients send
+the normal `Authorization: Bearer <token>` header. A local stdio client can
+use `go run ./cmd/ceria-mcp` instead; see `docs/AI.md`.
 
 ## Uploads
 

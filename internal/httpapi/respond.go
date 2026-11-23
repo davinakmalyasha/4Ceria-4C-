@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 )
 
 // THE RESPONSE HELPERS
@@ -20,7 +20,7 @@ import (
 //
 // So there is nothing to be faithful TO except the individual endpoint, and
 // the golden files are what make each one checkable. What is shared is the
-// ENCODING, and that is the `jsonphp` package's job.
+// ENCODING, and that is the `jsonwire` package's job.
 //
 // The helpers here are the two shapes the whole application needs:
 //
@@ -50,7 +50,7 @@ import (
 // writeJSON writes a JSON body with the status and the headers the original API's
 // `response()->json()` would produce.
 func writeJSON(w http.ResponseWriter, status int, body any) {
-	encoded, err := jsonphp.Marshal(body)
+	encoded, err := jsonwire.Marshal(body)
 	if err != nil {
 		// A body that cannot be encoded is a bug in the handler, not
 		// something to paper over. the original API's equivalent is a 500.
@@ -70,7 +70,7 @@ func writeJSON(w http.ResponseWriter, status int, body any) {
 // geocode): `Cache-Control: public, max-age=60` + ETag + `If-None-Match` →
 // 304. Money/user routes stay `no-store` via writeJSON (no caching).
 func writeJSONPublic(w http.ResponseWriter, r *http.Request, status int, body any, maxAge int) {
-	encoded, err := jsonphp.Marshal(body)
+	encoded, err := jsonwire.Marshal(body)
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
@@ -97,7 +97,7 @@ func writeJSONPublic(w http.ResponseWriter, r *http.Request, status int, body an
 // It is the application's most common response by a wide margin, and the
 // shape the SPA's error reader expects.
 func message(w http.ResponseWriter, status int, text string) {
-	body := jsonphp.NewObject()
+	body := jsonwire.NewObject()
 	body.Set("message", text)
 
 	writeJSON(w, status, body)
@@ -108,10 +108,10 @@ func message(w http.ResponseWriter, status int, text string) {
 // The `errors` object maps a field to a LIST of messages, which is
 // the original API's shape and not a shape one would invent.
 func validationError(w http.ResponseWriter, messageText string, errors map[string][]string) {
-	body := jsonphp.NewObject()
+	body := jsonwire.NewObject()
 	body.Set("message", messageText)
 
-	fields := jsonphp.NewObject()
+	fields := jsonwire.NewObject()
 
 	// The field order is the order the validator produced, which is the
 	// order the rules were declared in.
@@ -136,7 +136,7 @@ func validationError(w http.ResponseWriter, messageText string, errors map[strin
 // while an older SPA build is still live degrades silently instead of
 // 404ing. The body carries a `path` key as well as the message.
 func apiNotFound(w http.ResponseWriter, path string) {
-	body := jsonphp.NewObject()
+	body := jsonwire.NewObject()
 	body.Set("message", "API endpoint not found.")
 	body.Set("path", path)
 

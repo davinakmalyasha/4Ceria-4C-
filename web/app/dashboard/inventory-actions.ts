@@ -7,10 +7,10 @@ import { apiFetch, ApiFailure } from '@/lib/api';
 /**
  * Supplier inventory writes.
  *
- * Create is multipart (`images[]`); update is the same multipart with
- * `_method=PUT` because PHP does not parse a real PUT body; delete is a plain
- * DELETE. The controller scopes every row to the authenticated supplier and
- * clears the materials cache. Errors return `?error=` on the inventory screen.
+ * Create is `POST /api/merchant/materials`; update is a multipart
+ * `PUT /api/merchant/materials/{id}`; delete is a plain DELETE. The handlers
+ * scope every row to the authenticated supplier. Errors return `?error=` on
+ * the inventory screen.
  */
 
 function fail(error: unknown): never {
@@ -76,7 +76,6 @@ export async function updateMaterial(formData: FormData): Promise<void> {
     }
 
     const body = new FormData();
-    body.set('_method', 'PUT');
 
     for (const key of ['name', 'description', 'price', 'unit', 'category', 'stock', 'is_available']) {
         const raw = formData.get(key);
@@ -93,7 +92,7 @@ export async function updateMaterial(formData: FormData): Promise<void> {
     });
 
     try {
-        await apiFetch(`/merchant/materials/${id}`, { method: 'POST', body });
+        await apiFetch(`/merchant/materials/${id}`, { method: 'PUT', body });
     } catch (error) {
         fail(error);
     }

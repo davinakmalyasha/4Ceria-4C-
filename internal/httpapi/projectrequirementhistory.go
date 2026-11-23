@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -48,8 +48,8 @@ func scanHistoryRow(rows pgx.Rows, width int) (historyRow, error) {
 // order with the decimal casts plus the image_url append — and nothing
 // else. The reference loads only the `requirement` relation (no nested
 // user, no folder), so neither key appears.
-func historyRequirement(ctx context.Context, row requirementRow) *jsonphp.Object {
-	entry := jsonphp.NewObject()
+func historyRequirement(ctx context.Context, row requirementRow) *jsonwire.Object {
+	entry := jsonwire.NewObject()
 	for _, column := range row.fields {
 		value := row.byName[column]
 		switch column {
@@ -69,10 +69,10 @@ func historyRequirement(ctx context.Context, row requirementRow) *jsonphp.Object
 
 // historyEntry renders one history row: table columns in order with the
 // decimal cast, the actor, and optionally the requirement.
-func historyEntry(ctx context.Context, pool *pgxpool.Pool, row historyRow, withRequirement bool) (*jsonphp.Object, error) {
+func historyEntry(ctx context.Context, pool *pgxpool.Pool, row historyRow, withRequirement bool) (*jsonwire.Object, error) {
 	byName := row.byName
 
-	entry := jsonphp.NewObject()
+	entry := jsonwire.NewObject()
 	for _, column := range row.fields {
 		value := byName[column]
 		switch column {
@@ -197,7 +197,7 @@ func ProjectHistoryHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", out)
 
 		writeJSON(w, http.StatusOK, payload)
@@ -318,7 +318,7 @@ func RequirementHistoryHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", out)
 
 		writeJSON(w, http.StatusOK, payload)

@@ -9,8 +9,8 @@ import { CoverImage } from '@/components/CoverImage';
  * The store is resolved from `GET /marketplace/suppliers` by the signed-in
  * user's id, then `GET /marketplace/suppliers/{id}` supplies the materials and
  * reviews. The owner can update the store through `updateStoreProfile`
- * (`PUT /merchant/profile` via a multipart `_method=PUT`); materials have their
- * own inventory screen.
+ * (a multipart `PUT /merchant/profile`); materials have their own inventory
+ * screen.
  */
 
 export interface StoreMaterial {

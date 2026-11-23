@@ -35,19 +35,65 @@ const SUGGESTIONS = [
     'Estimate a 120 m2 new build, middle quality',
 ];
 
-function parseSSE(chunk: string): { delta?: string; done?: boolean; refused?: boolean; error?: string; session_id?: string }[] {
-    const out: { delta?: string; done?: boolean; refused?: boolean; error?: string; session_id?: string }[] = [];
-    for (const line of chunk.split('\n')) {
-        const trimmed = line.trim();
-        if (!trimmed.startsWith('data:')) continue;
+type SSEEvent = {
+    delta?: string;
+    replace?: string;
+    tool?: string;
+    status?: string;
+    done?: boolean;
+    refused?: boolean;
+    error?: string;
+    session_id?: string;
+    tools?: string[];
+};
+
+/**
+ * Parse complete SSE frames from a buffer and return the unparsed tail.
+ * Network chunks are not frame boundaries: a `data:` line can be split across
+ * two reads, and the old implementation dropped exactly that frame.
+ */
+function parseSSEFrames(buffer: string): { events: SSEEvent[]; rest: string } {
+    const frames = buffer.split(/\r?\n\r?\n/);
+    const rest = frames.pop() ?? '';
+    const events: SSEEvent[] = [];
+    for (const frame of frames) {
+        const data = frame
+            .split(/\r?\n/)
+            .filter((line) => line.startsWith('data:'))
+            .map((line) => line.slice(5).trim())
+            .join('\n');
+        if (!data) continue;
         try {
-            out.push(JSON.parse(trimmed.slice(5).trim()));
+            events.push(JSON.parse(data) as SSEEvent);
         } catch {
-            // A partial frame at the buffer edge; the remainder arrives next.
+            // A malformed frame is ignored; the terminal event still ends the
+            // turn, and the user can retry.
         }
     }
-    return out;
+    return { events, rest };
 }
+
+const TOOL_LABELS: Record<string, string> = {
+    search_houses: 'Searching property listings',
+    get_house: 'Reading the property',
+    search_professionals: 'Searching the professional directory',
+    search_materials: 'Searching materials',
+    my_projects: 'Reading your projects',
+    get_project: 'Reading the project',
+    project_finance: 'Checking escrow and termins',
+    project_schedule: 'Checking milestones',
+    project_bids: 'Reading proposals',
+    my_bids: 'Reading your bids',
+    platform_help: 'Checking platform guidance',
+    estimate_budget: 'Estimating a budget range',
+    search_memory: 'Searching your memory',
+    remember: 'Saving a memory',
+    property_scout: 'Comparing properties',
+    project_auditor: 'Auditing the project',
+    list_skills: 'Looking for a skill',
+    load_skill: 'Loading a skill',
+    load_skill_resource: 'Reading skill notes',
+};
 
 export function AiChat({
     initialSessions,
@@ -72,12 +118,13 @@ export function AiChat({
     const [error, setError] = useState<string | null>(null);
     const [renaming, setRenaming] = useState<string | null>(null);
     const [renameValue, setRenameValue] = useState('');
+    const [toolNote, setToolNote] = useState<string | null>(null);
     const bottomRef = useRef<HTMLDivElement>(null);
     const abortRef = useRef<AbortController | null>(null);
 
     useEffect(() => {
         bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-    }, [messages, busy]);
+    }, [messages, busy, toolNote]);
 
     const refreshSessions = useCallback(async () => {
         try {
@@ -95,6 +142,7 @@ export function AiChat({
             setSessionId(null);
             setMessages([]);
             setError(null);
+            setToolNote(null);
             return;
         }
         setSessionId(id);
@@ -129,6 +177,41 @@ export function AiChat({
             let streamed = '';
             let nextSessionId: string | null = null;
 
+            const paint = (snapshot: string) => {
+                setMessages((prev) => {
+                    const next = [...prev];
+                    next[next.length - 1] = { role: 'assistant', content: snapshot };
+                    return next;
+                });
+            };
+
+            const handleEvents = (events: SSEEvent[]): boolean => {
+                for (const event of events) {
+                    if (event.session_id && !sessionId) nextSessionId = event.session_id;
+                    if (event.error) throw new Error(event.error);
+                    if (event.tool) {
+                        setToolNote(
+                            event.status === 'started'
+                                ? (TOOL_LABELS[event.tool] ?? 'Working on your request') + '…'
+                                : null,
+                        );
+                    }
+                    if (event.replace !== undefined) {
+                        streamed = event.replace;
+                        paint(streamed);
+                    }
+                    if (event.delta) {
+                        streamed += event.delta;
+                        paint(streamed);
+                    }
+                    if (event.done) {
+                        setToolNote(null);
+                        return true;
+                    }
+                }
+                return false;
+            };
+
             try {
                 const response = await fetch('/api/ai/chat/stream', {
                     method: 'POST',
@@ -148,23 +231,20 @@ export function AiChat({
                 }
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder();
+                let buffer = '';
                 for (;;) {
                     const { done, value } = await reader.read();
-                    if (done) break;
-                    for (const event of parseSSE(decoder.decode(value, { stream: true }))) {
-                        if (event.session_id && !sessionId) nextSessionId = event.session_id;
-                        if (event.error) throw new Error(event.error);
-                        if (event.delta) {
-                            streamed += event.delta;
-                            const snapshot = streamed;
-                            setMessages((prev) => {
-                                const next = [...prev];
-                                next[next.length - 1] = { role: 'assistant', content: snapshot };
-                                return next;
-                            });
+                    if (done) {
+                        buffer += decoder.decode();
+                        if (buffer.trim() !== '') {
+                            handleEvents(parseSSEFrames(buffer + '\n\n').events);
                         }
-                        if (event.done) break;
+                        break;
                     }
+                    buffer += decoder.decode(value, { stream: true });
+                    const { events, rest } = parseSSEFrames(buffer);
+                    buffer = rest;
+                    if (handleEvents(events)) break;
                 }
                 if (!streamed) {
                     setMessages((prev) => prev.slice(0, -1));
@@ -199,6 +279,7 @@ export function AiChat({
                 }
             } finally {
                 setBusy(false);
+                setToolNote(null);
                 abortRef.current = null;
             }
         },
@@ -378,7 +459,14 @@ export function AiChat({
                                     {m.content ? (
                                         <Markdown text={m.content} />
                                     ) : (
-                                        <p className="text-xs text-neutral-400 animate-pulse">Thinking…</p>
+                                        <p className="text-xs text-neutral-400 animate-pulse">
+                                            {toolNote ?? 'Thinking…'}
+                                        </p>
+                                    )}
+                                    {toolNote && m.content && i === messages.length - 1 && (
+                                        <p className="mt-2 text-[10px] font-bold uppercase tracking-wider text-neutral-400">
+                                            {toolNote}
+                                        </p>
                                     )}
                                 </div>
                             </div>

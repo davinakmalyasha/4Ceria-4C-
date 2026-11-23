@@ -6,7 +6,8 @@
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | Topology, request lifecycle, storage, jobs, PWA, deploy |
 | [`DOMAIN.md`](DOMAIN.md) | Actors, project lifecycle, bids, disputes, marketplace |
 | [`MONEY.md`](MONEY.md) | Integer money, the escrow ledger, invariants |
-| [`API.md`](API.md) | Route manifest, auth, errors, pagination, SSE, uploads |
+| [`API.md`](API.md) | Route manifest, auth, errors, pagination, SSE, memory, MCP, uploads |
+| [`AI.md`](AI.md) | Agent tree, tools, memory, skills, MCP and safety |
 | [`OPERATIONS.md`](OPERATIONS.md) | Environment, reset, verification, backups, deploy |
 | [`PORTFOLIO.md`](PORTFOLIO.md) | Demo script, screenshots, engineering highlights |
 

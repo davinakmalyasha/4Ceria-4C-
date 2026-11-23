@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -43,8 +43,8 @@ var extensionColumns = []string{
 }
 
 // changeOrderObject renders a change order in table order.
-func changeOrderObject(byName map[string]any) *jsonphp.Object {
-	entry := jsonphp.NewObject()
+func changeOrderObject(byName map[string]any) *jsonwire.Object {
+	entry := jsonwire.NewObject()
 	for _, column := range changeOrderColumns {
 		value := byName[column]
 		switch column {
@@ -60,13 +60,13 @@ func changeOrderObject(byName map[string]any) *jsonphp.Object {
 }
 
 // extensionObject renders an extension in table order.
-func extensionObject(byName map[string]any) *jsonphp.Object {
-	entry := jsonphp.NewObject()
+func extensionObject(byName map[string]any) *jsonwire.Object {
+	entry := jsonwire.NewObject()
 	for _, column := range extensionColumns {
 		value := byName[column]
 		switch column {
 		case "original_deadline", "new_deadline_date":
-			entry.Set(column, mysqlDate(value))
+			entry.Set(column, dateString(value))
 		case "created_at", "updated_at":
 			entry.Set(column, projectTimeValue(value))
 		default:
@@ -77,8 +77,8 @@ func extensionObject(byName map[string]any) *jsonphp.Object {
 }
 
 // changeOrderCreatedObject renders Eloquent\u0027s CREATED change order.
-func changeOrderCreatedObject(byName map[string]any) *jsonphp.Object {
-	entry := jsonphp.NewObject()
+func changeOrderCreatedObject(byName map[string]any) *jsonwire.Object {
+	entry := jsonwire.NewObject()
 	entry.Set("requested_by", projectRawValue(byName["requested_by"]))
 	entry.Set("role_type", projectRawValue(byName["role_type"]))
 	entry.Set("milestone_id", projectRawValue(byName["milestone_id"]))
@@ -180,7 +180,7 @@ func ChangeOrdersIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		_ = viewer
 
 		type item struct {
-			obj  *jsonphp.Object
+			obj  *jsonwire.Object
 			sort time.Time
 		}
 		items := make([]item, 0)
@@ -216,7 +216,7 @@ func ChangeOrdersIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 					mapped = "rejected"
 				}
 			}
-			obj := jsonphp.NewObject()
+			obj := jsonwire.NewObject()
 			obj.Set("id", "co-"+strconv.FormatInt(id, 10))
 			obj.Set("type", "change_order")
 			obj.Set("title", nullableString(title))
@@ -224,7 +224,7 @@ func ChangeOrdersIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			obj.Set("cost_impact", nullableString(cost))
 			obj.Set("status", mapped)
 			if requesterID != nil {
-				requester := jsonphp.NewObject()
+				requester := jsonwire.NewObject()
 				requester.Set("id", *requesterID)
 				requester.Set("name", nullableString(requesterName))
 				requester.Set("role_type", nullableString(requesterRole))
@@ -267,7 +267,7 @@ func ChangeOrdersIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			if status != nil && (*status == "paid" || *status == "approved_unpaid") {
 				mapped = "owner_approved"
 			}
-			obj := jsonphp.NewObject()
+			obj := jsonwire.NewObject()
 			obj.Set("id", "add-"+strconv.FormatInt(id, 10))
 			obj.Set("type", "addendum")
 			obj.Set("title", nullableString(title))
@@ -275,7 +275,7 @@ func ChangeOrdersIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			obj.Set("cost_impact", nullableString(amount))
 			obj.Set("status", mapped)
 			if userID != nil {
-				requester := jsonphp.NewObject()
+				requester := jsonwire.NewObject()
 				requester.Set("id", *userID)
 				requester.Set("name", nullableString(name))
 				requester.Set("role_type", nullableString(role))
@@ -296,7 +296,7 @@ func ChangeOrdersIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			out = append(out, it.obj)
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", out)
 		writeJSON(w, http.StatusOK, payload)
 	}
@@ -409,7 +409,7 @@ func StoreChangeOrderHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Change order submitted.")
 		payload.Set("data", changeOrderCreatedObject(byName))
 		writeJSON(w, http.StatusCreated, payload)
@@ -715,7 +715,7 @@ func ChangeOrderDecisionHandler(pool *pgxpool.Pool, verb string) http.HandlerFun
 		if verb != "pm-review" {
 			msg = "Change order decided."
 		}
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", msg)
 		payload.Set("data", changeOrderObject(fresh))
 		writeJSON(w, http.StatusOK, payload)

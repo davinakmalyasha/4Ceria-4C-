@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -31,8 +31,8 @@ var dailyLogColumns = []string{
 }
 
 // dailyLogObject renders one log row the way the model's toArray does.
-func dailyLogObject(ctx context.Context, byName map[string]any) *jsonphp.Object {
-	entry := jsonphp.NewObject()
+func dailyLogObject(ctx context.Context, byName map[string]any) *jsonwire.Object {
+	entry := jsonwire.NewObject()
 	for _, column := range dailyLogColumns {
 		value := byName[column]
 		switch column {
@@ -67,8 +67,8 @@ func dailyLogPhotoURLs(ctx context.Context, value any) []any {
 }
 
 // dailyLogCreatedObject renders Eloquent\u0027s CREATED log (create order).
-func dailyLogCreatedObject(ctx context.Context, byName map[string]any) *jsonphp.Object {
-	entry := jsonphp.NewObject()
+func dailyLogCreatedObject(ctx context.Context, byName map[string]any) *jsonwire.Object {
+	entry := jsonwire.NewObject()
 	entry.Set("user_id", projectRawValue(byName["user_id"]))
 	entry.Set("log_date", projectTimeValue(byName["log_date"]))
 	entry.Set("weather", projectRawValue(byName["weather"]))
@@ -179,7 +179,7 @@ func DailyLogsIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			out = append(out, entry)
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", out)
 		writeJSON(w, http.StatusOK, payload)
 	}
@@ -305,7 +305,7 @@ func StoreDailyLogHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		_ = input
 
-		encoded, err := jsonphp.Marshal(photoPaths)
+		encoded, err := jsonwire.Marshal(photoPaths)
 		if err != nil {
 			serverError(w)
 			return
@@ -358,7 +358,7 @@ func StoreDailyLogHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			entry.Set("user", nil)
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", entry)
 		writeJSON(w, http.StatusOK, payload)
 	}

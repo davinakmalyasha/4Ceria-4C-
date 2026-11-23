@@ -25,6 +25,9 @@ node tools/db/reset-demo.mjs
 # API
 go run ./cmd/gateway --addr=:8099
 
+# Local stdio MCP server (public tools; add -user 42 for account scope)
+DATABASE_URL=... go run ./cmd/ceria-mcp
+
 # Web
 cd web && npm ci && npm run dev     # :3000; API_ORIGIN defaults to 127.0.0.1:8099
 
@@ -48,8 +51,9 @@ cd web && npm run build
 5. **The route manifest is the contract.** Add a route to
    `routing/routes.yaml` and its handler in the same change; the router answers
    a deliberate 501 for a manifest route with no handler.
-6. **Identity is PostgreSQL-native.** `internal/httpapi/authpg.go` preserves
-   Sanctum semantics. There is no MySQL driver or DSN in the runtime.
+6. **Identity is PostgreSQL-native.** `internal/httpapi/authpg.go` owns token
+   auth. Tokens are opaque and stored as SHA-256 hashes; there is no external
+   identity service or database driver in the runtime.
 7. **File paths go through `safeStorageJoin`.** A client filename is a label,
    never a path. Uploads are stored under a random name with a sanitised
    extension.
@@ -65,6 +69,12 @@ cd web && npm run build
     are LF. Run `gofmt -w` and keep the diff minimal.
 12. **No credentials in the seed.** `db/postgres/seed.sql` ends with
     `DELETE FROM personal_access_tokens`; never commit real tokens or keys.
+13. **Agent tools are read-only.** `internal/ai/tools.go` and the MCP server
+    must never grow a money, bid, contract or dispute write. Those actions go
+    through the normal API and its `FreezeGate`.
+14. **Memory is per user.** Every `ai_memories` query is scoped by `user_id`;
+    deleting a chat cascades its derived memories. Never add a cross-user
+    memory search.
 
 ## Working rules
 
@@ -82,6 +92,7 @@ cd web && npm run build
 | API handlers | `internal/httpapi/` |
 | Route manifest | `routing/routes.yaml` |
 | Domain and money | `internal/domain/`, `docs/DOMAIN.md`, `docs/MONEY.md` |
+| Assistant, memory, skills, MCP | `internal/ai/`, `cmd/ceria-mcp/`, `docs/AI.md` |
 | Auth and uploads | `docs/ARCHITECTURE.md`, `docs/API.md` |
 | PostgreSQL schema | `db/postgres/migrations/`, `db/postgres/seed.sql` |
 | Demo reset | `tools/db/reset-demo.mjs` |

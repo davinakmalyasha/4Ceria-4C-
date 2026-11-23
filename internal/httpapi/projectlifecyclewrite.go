@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -206,7 +206,7 @@ func InviteProfessionalHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		_ = tx.QueryRow(ctx, `SELECT title FROM projects WHERE id = $1`, projectID).Scan(&projectTitle)
 
 		data := `{"bid_id": ` + strconv.FormatInt(bidID, 10) +
-			`, "role_type": ` + mysqlJSONStr(roleType) +
+			`, "role_type": ` + jsonString(roleType) +
 			`, "project_id": ` + strconv.FormatInt(projectID, 10) + `}`
 		if err := insertNotification(ctx, tx, *proUserID, "project_invitation", "New Project Invitation!",
 			"You have been invited to participate in the project \""+projectTitle+"\".", data); err != nil {
@@ -247,7 +247,7 @@ func InviteProfessionalHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		// the attributes the create() sent (plus timestamps and id)
 		// appear, in create order. The other columns keep their DB
 		// defaults invisibly.
-		bid := jsonphp.NewObject()
+		bid := jsonwire.NewObject()
 		bid.Set("project_id", projectID)
 		bid.Set(roleColumn, professionalID)
 		bid.Set("price", "0.00")
@@ -257,7 +257,7 @@ func InviteProfessionalHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		bid.Set("created_at", projectTimeValue(createdAt))
 		bid.Set("id", bidID)
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Invitation sent successfully.")
 		payload.Set("bid", bid)
 
@@ -396,7 +396,7 @@ func MarkCompleteHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Project completed successfully.")
 		payload.Set("data", entry)
 

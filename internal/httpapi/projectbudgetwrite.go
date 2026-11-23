@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -177,7 +177,7 @@ func AddTransactionHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Transaction recorded successfully")
 		payload.Set("transaction", entry)
 		payload.Set("budget", freshBudget)
@@ -244,7 +244,7 @@ func validateTransactionFields(fields map[string]any, failures *errorBag) (txnTy
 // writeTransactionValidation answers the transaction endpoint's custom
 // 422 envelope: the literal message, not the summarized one.
 func writeTransactionValidation(w http.ResponseWriter, failures *errorBag) {
-	errors := jsonphp.NewObject()
+	errors := jsonwire.NewObject()
 	for _, field := range failures.fields {
 		items := make([]any, 0, len(failures.bag[field]))
 		for _, text := range failures.bag[field] {
@@ -253,7 +253,7 @@ func writeTransactionValidation(w http.ResponseWriter, failures *errorBag) {
 		errors.Set(field, items)
 	}
 
-	payload := jsonphp.NewObject()
+	payload := jsonwire.NewObject()
 	payload.Set("message", "Validation error")
 	payload.Set("errors", errors)
 
@@ -263,7 +263,7 @@ func writeTransactionValidation(w http.ResponseWriter, failures *errorBag) {
 // loadLedgerRow re-reads the latest matching ledger row the way the
 // controller's lookup does: same project, null reference, same title and
 // type, newest id.
-func loadLedgerRow(ctx context.Context, pool *pgxpool.Pool, projectID int64, txnType, title string) (*jsonphp.Object, error) {
+func loadLedgerRow(ctx context.Context, pool *pgxpool.Pool, projectID int64, txnType, title string) (*jsonwire.Object, error) {
 	rows, err := pool.Query(ctx, `SELECT id, project_id, transaction_type, amount::text, title, category, type, status, description, reference_model, reference_id, reverses_model, reverses_id, transaction_date, actor_user_id, actor_role, voided_at, voided_duplicate_of_id, voided_original_amount::text, created_at, updated_at
 		FROM project_budget_transactions
 		WHERE project_id = $1 AND reference_id IS NULL AND title = $2 AND transaction_type = $3
@@ -300,13 +300,13 @@ func (errLedgerGoneT) Error() string { return "ledger row not found" }
 var errLedgerGone = errLedgerGoneT{}
 
 // renderLedgerRow renders one ledger row in MySQL column order.
-func renderLedgerRow(fields []string, values []any) *jsonphp.Object {
+func renderLedgerRow(fields []string, values []any) *jsonwire.Object {
 	byName := map[string]any{}
 	for i, column := range fields {
 		byName[column] = values[i]
 	}
 
-	entry := jsonphp.NewObject()
+	entry := jsonwire.NewObject()
 	for _, column := range fields {
 		value := byName[column]
 		switch column {
@@ -419,7 +419,7 @@ func sandboxItemByID(w http.ResponseWriter, ctx context.Context, pool *pgxpool.P
 }
 
 // renderSandboxRow renders one sandbox row in table order.
-func renderSandboxRow(ctx context.Context, pool *pgxpool.Pool, itemID int64) (*jsonphp.Object, error) {
+func renderSandboxRow(ctx context.Context, pool *pgxpool.Pool, itemID int64) (*jsonwire.Object, error) {
 	var id, projectID *int64
 	var title, estimated *string
 	var active *bool
@@ -431,7 +431,7 @@ func renderSandboxRow(ctx context.Context, pool *pgxpool.Pool, itemID int64) (*j
 		return nil, err
 	}
 
-	entry := jsonphp.NewObject()
+	entry := jsonwire.NewObject()
 	entry.Set("id", nullableInt64(id))
 	entry.Set("project_id", nullableInt64(projectID))
 	entry.Set("title", nullableString(title))
@@ -516,7 +516,7 @@ func AddSandboxHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		// The 201 echoes the create in input order — project first, id
 		// last — not the table order.
-		created := jsonphp.NewObject()
+		created := jsonwire.NewObject()
 		created.Set("project_id", projectID)
 		created.Set("title", title)
 		created.Set("estimated_amount", estimated)
@@ -525,7 +525,7 @@ func AddSandboxHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		created.Set("created_at", projectTimeValue(createdAt))
 		created.Set("id", itemID)
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("item", created)
 
 		writeJSON(w, http.StatusOK, payload)
@@ -597,7 +597,7 @@ func ToggleSandboxHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("item", entry)
 
 		writeJSON(w, http.StatusOK, payload)
@@ -682,7 +682,7 @@ func UpdateSandboxHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("item", entry)
 
 		writeJSON(w, http.StatusOK, payload)
@@ -747,7 +747,7 @@ func DeleteSandboxHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Sandbox item deleted successfully")
 
 		writeJSON(w, http.StatusOK, payload)

@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -101,7 +101,7 @@ func firmPortfolios(ctx context.Context, pool *pgxpool.Pool, userID int64) ([]an
 			&duration, &clientReview, &createdAt, &updatedAt); err != nil {
 			return nil, err
 		}
-		entry := jsonphp.NewObject()
+		entry := jsonwire.NewObject()
 		entry.Set("id", id)
 		entry.Set("user_id", user)
 		entry.Set("role_type", nullableString(role))
@@ -223,7 +223,7 @@ func firmRoster(ctx context.Context, pool *pgxpool.Pool, ownerID int64) ([]any, 
 
 		_, profile, _ := firmProfileRow(ctx, pool, memberUserID)
 
-		memberEntry := jsonphp.NewObject()
+		memberEntry := jsonwire.NewObject()
 		memberEntry.Set("id", userID)
 		memberEntry.Set("name", name)
 		memberEntry.Set("role_type", nullableString(roleType))
@@ -425,7 +425,7 @@ func FirmMembersProfileHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			profileID = firmIntOf(profile["id"])
 		}
 
-		owner := jsonphp.NewObject()
+		owner := jsonwire.NewObject()
 		owner.Set("id", id)
 		owner.Set("name", name)
 		owner.Set("username", nullableString(username))
@@ -460,7 +460,7 @@ func FirmMembersProfileHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			hiring = *firmHiring
 		}
 
-		stats := jsonphp.NewObject()
+		stats := jsonwire.NewObject()
 		experience := int64(0)
 		rate := 0.0
 		average := 0.0
@@ -496,7 +496,7 @@ func FirmMembersProfileHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("owner", owner)
 		payload.Set("firm_name", displayName)
 		payload.Set("firm_slogan", nullableString(firmSlogan))
@@ -681,7 +681,7 @@ func FirmMembersUpdateProfileHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			} else {
 				decoded = raw
 			}
-			encoded, err := jsonphp.Marshal(decoded)
+			encoded, err := jsonwire.Marshal(decoded)
 			if err == nil {
 				sets = append(sets, setClause("firm_needed_roles", string(encoded)))
 			}
@@ -771,7 +771,7 @@ func FirmMembersUpdateProfileHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		// The controller TOUCHES the profile relations: the base_rate block
 		// reads the caller's own, and the company_name sync reads BOTH. A
 		// touched relation serializes on the user payload.
-		if object, ok := user.(*jsonphp.Object); ok {
+		if object, ok := user.(*jsonwire.Object); ok {
 			order := make([]string, 0, 2)
 			addRelation := func(name string) {
 				for _, existing := range order {
@@ -809,7 +809,7 @@ func FirmMembersUpdateProfileHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			}
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Firm squad profile updated successfully.")
 		payload.Set("user", user)
 		_ = bannerPath
@@ -1020,7 +1020,7 @@ func FirmMembersQuickAssignHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		// The created model echoes the PAYLOAD order, then updated_at BEFORE
 		// created_at (Eloquent stamps updated first), with `amount` cast to a
 		// decimal string.
-		entry := jsonphp.NewObject()
+		entry := jsonwire.NewObject()
 		entry.Set("project_id", projectID)
 		entry.Set("role_type", viewer.role)
 		entry.Set("user_id", viewer.id)
@@ -1042,7 +1042,7 @@ func FirmMembersQuickAssignHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		entry.Set("created_at", projectTimeValue(createdAt))
 		entry.Set("id", addendumID)
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Specialist assignment proposal submitted to project owner.")
 		payload.Set("data", entry)
 		writeJSON(w, http.StatusCreated, payload)

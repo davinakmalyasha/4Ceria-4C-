@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -80,7 +80,7 @@ func disputeParticipantGate(ctx context.Context, pool *pgxpool.Pool, w http.Resp
 }
 
 // disputeDetail renders one dispute with its relations.
-func disputeDetail(ctx context.Context, pool *pgxpool.Pool, disputeID int64) (*jsonphp.Object, error) {
+func disputeDetail(ctx context.Context, pool *pgxpool.Pool, disputeID int64) (*jsonwire.Object, error) {
 	row, err := readDisputeRow(ctx, pool, disputeID)
 	if err != nil {
 		return nil, err
@@ -93,7 +93,7 @@ func disputeDetail(ctx context.Context, pool *pgxpool.Pool, disputeID int64) (*j
 		mustIntValue(row, "opened_by")).Scan(&openerID, &openerName, &openerPic); err != nil {
 		return nil, err
 	}
-	opener := jsonphp.NewObject()
+	opener := jsonwire.NewObject()
 	opener.Set("id", openerID)
 	opener.Set("name", openerName)
 	opener.Set("pic", nullableString(openerPic))
@@ -103,7 +103,7 @@ func disputeDetail(ctx context.Context, pool *pgxpool.Pool, disputeID int64) (*j
 		if id, isInt := resolvedBy.(int64); isInt && id != 0 {
 			var name *string
 			if err := pool.QueryRow(ctx, `SELECT name FROM users WHERE id = $1`, id).Scan(&name); err == nil {
-				resolver := jsonphp.NewObject()
+				resolver := jsonwire.NewObject()
 				resolver.Set("id", id)
 				resolver.Set("name", nullableString(name))
 				row.Set("resolver", resolver)
@@ -158,17 +158,17 @@ func disputeMessages(ctx context.Context, pool *pgxpool.Pool, disputeID int64) (
 			return nil, err
 		}
 
-		messageObject := jsonphp.NewObject()
+		messageObject := jsonwire.NewObject()
 		messageObject.Set("id", id)
 		messageObject.Set("dispute_id", disputeID)
 		messageObject.Set("user_id", userID)
 		messageObject.Set("body", body)
 		messageObject.Set("evidence_path", nullableString(evidencePath))
 		messageObject.Set("evidence_original_name", nullableString(evidenceName))
-		messageObject.Set("created_at", carbon(createdAt))
-		messageObject.Set("updated_at", carbon(updatedAt))
+		messageObject.Set("created_at", apiTimestamp(createdAt))
+		messageObject.Set("updated_at", apiTimestamp(updatedAt))
 
-		author := jsonphp.NewObject()
+		author := jsonwire.NewObject()
 		author.Set("id", authorID)
 		author.Set("name", authorName)
 		author.Set("pic", nullableString(authorPic))
@@ -181,7 +181,7 @@ func disputeMessages(ctx context.Context, pool *pgxpool.Pool, disputeID int64) (
 }
 
 // mustIntValue reads an integer attribute from a rendered row.
-func mustIntValue(row *jsonphp.Object, key string) int64 {
+func mustIntValue(row *jsonwire.Object, key string) int64 {
 	if value, ok := row.Get(key); ok {
 		if id, isInt := value.(int64); isInt {
 			return id
@@ -240,7 +240,7 @@ func ProjectDisputesIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			out = append(out, entry)
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", out)
 		writeJSON(w, http.StatusOK, payload)
 	}
@@ -289,7 +289,7 @@ func ProjectDisputeShowHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", entry)
 		writeJSON(w, http.StatusOK, payload)
 	}
@@ -410,7 +410,7 @@ func ProjectDisputeStoreHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			disputeBody, `{"project_id":`+strconv.FormatInt(projectID, 10)+`,"dispute_id":`+strconv.FormatInt(disputeID, 10)+`}`, viewer.id)
 
 		// The CREATED model, in create order.
-		entry := jsonphp.NewObject()
+		entry := jsonwire.NewObject()
 		entry.Set("project_id", projectID)
 		entry.Set("opened_by", viewer.id)
 		entry.Set("termination_id", nil)
@@ -437,7 +437,7 @@ func ProjectDisputeStoreHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		entry.Set("created_at", projectTimeValue(createdAt))
 		entry.Set("id", disputeID)
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Dispute opened. All project payments are frozen until an admin resolves it.")
 		payload.Set("data", entry)
 		writeJSON(w, http.StatusCreated, payload)
@@ -654,7 +654,7 @@ func ProjectDisputeReplyHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			`{"project_id":`+strconv.FormatInt(projectID, 10)+`,"dispute_id":`+strconv.FormatInt(disputeID, 10)+`}`, viewer.id)
 
 		// The CREATED message with its author.
-		entry := jsonphp.NewObject()
+		entry := jsonwire.NewObject()
 		entry.Set("dispute_id", disputeID)
 		entry.Set("user_id", viewer.id)
 		entry.Set("body", body)
@@ -667,13 +667,13 @@ func ProjectDisputeReplyHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		var authorName string
 		var authorPic *string
 		_ = pool.QueryRow(ctx, `SELECT name, pic FROM users WHERE id = $1`, viewer.id).Scan(&authorName, &authorPic)
-		author := jsonphp.NewObject()
+		author := jsonwire.NewObject()
 		author.Set("id", viewer.id)
 		author.Set("name", authorName)
 		author.Set("pic", nullableString(authorPic))
 		entry.Set("user", author)
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Message posted.")
 		payload.Set("data", entry)
 		writeJSON(w, http.StatusCreated, payload)

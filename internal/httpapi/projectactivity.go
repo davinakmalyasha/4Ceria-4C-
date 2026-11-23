@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -93,7 +93,7 @@ func ActivityHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 
-			entry := jsonphp.NewObject()
+			entry := jsonwire.NewObject()
 			entry.Set("id", nullableInt64(id))
 			entry.Set("project_id", nullableInt64(projectIDVal))
 			entry.Set("user_id", nullableInt64(userID))
@@ -118,7 +118,7 @@ func ActivityHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", out)
 
 		writeJSON(w, http.StatusOK, payload)

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 )
 
 // THE ROUTER
@@ -54,9 +54,8 @@ func NewRouter(manifest *Manifest, gates Gates) *Router {
 	// They are registered on the SAME mux as the catch-all below, rather
 	// than on a nested one. A nested mux would answer an unmatched API path
 	// with Go's default `text/plain` 404, because the nested mux's own
-	// catch-all is Go's and not ours — and the original application answers
-	// an unmatched API path with a JSON body, for the reason in the comment
-	// on the catch-all below.
+	// catch-all is Go's and not ours. The API's clients expect a JSON body,
+	// as the catch-all below explains.
 	for _, entry := range manifest.MethodURIs() {
 		// A route with a handler is served; a route without one answers the
 		// 501 stub. Every route is implemented, so the stub is a bug detector, not
@@ -69,12 +68,11 @@ func NewRouter(manifest *Manifest, gates Gates) *Router {
 		mux.Handle(entry.Method+" "+entry.Pattern(), router.stub(entry))
 	}
 
-	// The catch-all. The original application answers an unmatched API path
-	// with a JSON 404, because a route removed or renamed on the API while
-	// an older SPA build is still live degrades silently into the SPA's
-	// HTML instead of 404ing. The SPA's own routes are not the gateway's
-	// business — the SPA is served by Next.js — so everything else is a
-	// plain 404.
+	// The catch-all. An unmatched API path answers a JSON 404: a route
+	// removed or renamed while an older browser build is still live should
+	// fail as a missing endpoint, not degrade into the web app's HTML. The
+	// web app's own routes are not the gateway's business — Next.js serves
+	// those — so everything else is a plain 404.
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/api/") || r.URL.Path == "/api" {
 			apiNotFound(w, r.URL.Path)
@@ -115,7 +113,7 @@ func (r *Router) wrap(entry MethodURI, inner http.HandlerFunc) http.Handler {
 
 func (r *Router) stub(entry MethodURI) http.Handler {
 	inner := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		body := jsonphp.NewObject()
+		body := jsonwire.NewObject()
 		body.Set("message", "This endpoint is not implemented yet.")
 		body.Set("route", entry.ID)
 		body.Set("method", entry.Method)
@@ -202,12 +200,12 @@ func (r *Router) internalRoutes(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	routes := jsonphp.NewObject()
+	routes := jsonwire.NewObject()
 
 	list := make([]any, 0, len(r.manifest.Routes))
 
 	for _, route := range r.manifest.Routes {
-		entry := jsonphp.NewObject()
+		entry := jsonwire.NewObject()
 
 		entry.Set("id", route.ID)
 		entry.Set("uri", route.URI)
@@ -234,7 +232,7 @@ func (r *Router) internalRoutes(w http.ResponseWriter, req *http.Request) {
 
 	routes.Set("routes", list)
 
-	meta := jsonphp.NewObject()
+	meta := jsonwire.NewObject()
 	meta.Set("api_route_count", r.manifest.Meta.APICount)
 	meta.Set("public_route_count", r.manifest.Meta.PublicCount)
 	meta.Set("admin_route_count", r.manifest.Meta.AdminCount)
@@ -251,7 +249,7 @@ func (r *Router) internalRoutes(w http.ResponseWriter, req *http.Request) {
 // slow restarts the process, and the database being slow is not the
 // process's fault.
 func (r *Router) healthz(w http.ResponseWriter, req *http.Request) {
-	body := jsonphp.NewObject()
+	body := jsonwire.NewObject()
 	body.Set("status", "ok")
 
 	writeJSON(w, http.StatusOK, body)
@@ -266,11 +264,11 @@ func (r *Router) healthz(w http.ResponseWriter, req *http.Request) {
 func (r *Router) readyz(w http.ResponseWriter, req *http.Request) {
 	missing := r.gates.Unimplemented()
 
-	body := jsonphp.NewObject()
+	body := jsonwire.NewObject()
 
 	if r.gates.DBStats != nil {
 		total, idle, acquired := r.gates.DBStats()
-		pool := jsonphp.NewObject()
+		pool := jsonwire.NewObject()
 		pool.Set("total_conns", int64(total))
 		pool.Set("idle_conns", int64(idle))
 		pool.Set("acquired_conns", int64(acquired))
@@ -285,7 +283,7 @@ func (r *Router) readyz(w http.ResponseWriter, req *http.Request) {
 
 	body.Set("status", "not_ready")
 
-	gates := jsonphp.NewObject()
+	gates := jsonwire.NewObject()
 	for _, name := range missing {
 		gates.Set(name, true)
 	}

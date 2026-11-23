@@ -23,13 +23,13 @@ func extractToken(t *testing.T, body string) string {
 	return tok
 }
 
-func authViaSanctumPG(t *testing.T, pool *pgxpool.Pool, token string) roadmapCaller {
+func authViaTokenAuthPG(t *testing.T, pool *pgxpool.Pool, token string) roadmapCaller {
 	t.Helper()
 	req := httptest.NewRequest(http.MethodGet, "/api/me", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
-	caller, err := NewSanctumPG(pool).Authenticate(req)
+	caller, err := NewTokenAuthPG(pool).Authenticate(req)
 	if err != nil || caller == nil {
-		t.Fatalf("sanctum-pg authenticate: %v", err)
+		t.Fatalf("token-auth authenticate: %v", err)
 	}
 	if rc, ok := caller.(roadmapCaller); ok {
 		return rc
@@ -66,9 +66,9 @@ func TestPGRegisterLoginMeLogout(t *testing.T) {
 
 	req3 := httptest.NewRequest(http.MethodGet, "/api/me", nil)
 	req3.Header.Set("Authorization", "Bearer "+token)
-	caller3, err := NewSanctumPG(pool).Authenticate(req3)
+	caller3, err := NewTokenAuthPG(pool).Authenticate(req3)
 	if err != nil || caller3 == nil {
-		t.Fatalf("sanctum-pg authenticate: %v", err)
+		t.Fatalf("token-auth authenticate: %v", err)
 	}
 	req3 = req3.WithContext(withCaller(req3.Context(), caller3))
 	rec3 := httptest.NewRecorder()

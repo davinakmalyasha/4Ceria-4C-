@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -164,35 +164,35 @@ func BastHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			warranty = warrantyEnd.UTC().Format("02 January 2006")
 		}
 
-		data := jsonphp.NewObject()
+		data := jsonwire.NewObject()
 		data.Set("document_number", "BAST/"+strconv.FormatInt(projectID, 10)+"/"+now.Format("2006/01/02"))
 		data.Set("date", now.Format("02 January 2006"))
 
-		project := jsonphp.NewObject()
+		project := jsonwire.NewObject()
 		project.Set("id", projectID)
 		project.Set("title", projectTitle)
 		project.Set("location", location)
 		project.Set("total_budget", totalBudget)
 		data.Set("project", project)
 
-		partiesObj := jsonphp.NewObject()
-		owner := jsonphp.NewObject()
+		partiesObj := jsonwire.NewObject()
+		owner := jsonwire.NewObject()
 		owner.Set("name", ownerName)
 		owner.Set("phone", nullableString(ownerPhone))
 		owner.Set("role", "PIHAK PERTAMA (Pemilik)")
 		partiesObj.Set("owner", owner)
-		contractor := jsonphp.NewObject()
+		contractor := jsonwire.NewObject()
 		contractor.Set("name", contractorName)
 		contractor.Set("company", contractorCompany)
 		contractor.Set("role", "PIHAK KEDUA (Pelaksana)")
 		partiesObj.Set("contractor", contractor)
-		pm := jsonphp.NewObject()
+		pm := jsonwire.NewObject()
 		pm.Set("name", pmName)
 		pm.Set("role", "PIHAK KETIGA (Pengawas)")
 		partiesObj.Set("pm", pm)
 		data.Set("parties", partiesObj)
 
-		milestones := jsonphp.NewObject()
+		milestones := jsonwire.NewObject()
 		milestones.Set("start_date", createdAt.UTC().Format("02 January 2006"))
 		milestones.Set("completion_date", completion)
 		milestones.Set("warranty_expiry", warranty)
@@ -204,7 +204,7 @@ func BastHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			"Seluruh cacat pekerjaan (snag list) yang terdata sebelumnya telah dinyatakan selesai dan diperbaiki.",
 		})
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", data)
 
 		writeJSON(w, http.StatusOK, payload)
@@ -348,7 +348,7 @@ func LegalFinancialsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			out = append(out, entry)
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("allocated_tax", float64(taxMinor)/100)
 		payload.Set("total_spent", float64(paidMinor)/100)
 		payload.Set("total_spent_cents", paidMinor)

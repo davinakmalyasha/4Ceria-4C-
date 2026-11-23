@@ -8,11 +8,11 @@ import (
 	"github.com/davinakmalyasha/4ceria/internal/domain/money"
 )
 
-// TestTheThreeListsAreExactlyTheLegacyOnes pins MONEY.md I1, I2 and I3.
+// TestTheThreeListsAreExact pins MONEY.md I1, I2 and I3.
 //
 // The three lists are the escrow's vocabulary, and every historical balance
 // defect in this codebase is a list that disagreed with another list.
-func TestTheThreeListsAreExactlyTheLegacyOnes(t *testing.T) {
+func TestTheThreeListsAreExact(t *testing.T) {
 	wantDisbursement := map[TxType]bool{
 		TxPayment: true, TxRefund: true, TxPlatformFee: true, TxRetentionRelease: true,
 	}

@@ -33,8 +33,9 @@ components and the two proxy route handlers attach it to API calls.
    and calls the handler.
 4. `internal/httpapi` handlers use pgx; money moves through
    `internal/domain/escrow`, never ad-hoc SQL arithmetic in a handler.
-5. Responses are encoded by `internal/jsonphp` so numeric and object shapes
-   are stable. Errors use the same `{"message": ...}` shape throughout.
+5. Responses are encoded by `internal/jsonwire`: key order is deliberate and
+   pre-encoded `json`/`jsonb` fragments are written verbatim. Errors use the
+   same `{"message": ...}` shape throughout.
 
 A 401 from the API during a server render redirects to `/auth/expire`, which
 clears the cookie and then sends the visitor to `/login`. This prevents the
@@ -44,7 +45,7 @@ stale-cookie redirect loop.
 
 - `users`, `personal_access_tokens`, `roles` and `model_has_roles` are
   PostgreSQL tables.
-- Tokens keep Sanctum's `id|plain` form; only the SHA-256 hash is stored, and
+- Tokens use the opaque `id|plain` form; only the SHA-256 hash is stored, and
   expiry is checked on every request.
 - `last_used_at` is touched best-effort after a successful lookup.
 - Password reset tokens are hashed, expire after 60 minutes, are deleted on use
@@ -79,6 +80,16 @@ characters.
 
 The Next app proxies `/storage/*` so the browser stays same-origin and the API
 host can remain server-side.
+
+## Assistant and MCP
+
+`internal/ai` is a Google ADK v2 agent over the DeepSeek OpenAI-compatible
+model. The ADK session is ephemeral per turn; the transcript, memory and
+settings live in PostgreSQL. Tools are read-only and caller-scoped, skills are
+embedded `SKILL.md` instruction packages, and two single-turn specialists are
+exposed as agent tools. The same read-only catalog is served by a stateless,
+authenticated MCP endpoint at `POST /api/mcp` and by `cmd/ceria-mcp` over
+stdio. See `docs/AI.md`.
 
 ## Background work
 

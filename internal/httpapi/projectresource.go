@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -161,7 +161,7 @@ func projectTime(values []any, fields []string, column string) any {
 			return nil
 		}
 		if typed, ok := values[i].(time.Time); ok {
-			return carbon(&typed)
+			return apiTimestamp(&typed)
 		}
 		return jsonVal(values[i])
 	}
@@ -270,7 +270,7 @@ func projectColumns(values []any, fields []string, columns ...string) map[string
 // order, with `whenLoaded` driven by the load spec. A non-nil bundle serves
 // the list path from prefetches (see listbatch.go); nil keeps the per-row
 // path byte-for-byte, which is what every other caller uses.
-func projectResource(ctx context.Context, pool *pgxpool.Pool, fields []string, values []any, viewer *projectViewer, spec projectLoad, histories map[int64]*clientHistory, bundle *listBundle) (*jsonphp.Object, error) {
+func projectResource(ctx context.Context, pool *pgxpool.Pool, fields []string, values []any, viewer *projectViewer, spec projectLoad, histories map[int64]*clientHistory, bundle *listBundle) (*jsonwire.Object, error) {
 	byName := projectColumnsByName(fields, values)
 
 	id, _ := byName["id"].(int64)
@@ -289,7 +289,7 @@ func projectResource(ctx context.Context, pool *pgxpool.Pool, fields []string, v
 		return nil, err
 	}
 
-	row := jsonphp.NewObject()
+	row := jsonwire.NewObject()
 	row.Set("id", id)
 	row.Set("has_submitted_bid", hasBid)
 	row.Set("title", projectText(values, fields, "title"))
@@ -735,8 +735,8 @@ func projectWalkthroughStatus(values []any, fields []string) any {
 }
 
 // projectSnagCounts is four zeros: snag items are never loaded here.
-func projectSnagCounts() *jsonphp.Object {
-	counts := jsonphp.NewObject()
+func projectSnagCounts() *jsonwire.Object {
+	counts := jsonwire.NewObject()
 	counts.Set("open", 0)
 	counts.Set("in_progress", 0)
 	counts.Set("resolved", 0)
@@ -745,8 +745,8 @@ func projectSnagCounts() *jsonphp.Object {
 }
 
 // projectChangeOrderSummary is zeros: change orders are never loaded here.
-func projectChangeOrderSummary() *jsonphp.Object {
-	summary := jsonphp.NewObject()
+func projectChangeOrderSummary() *jsonwire.Object {
+	summary := jsonwire.NewObject()
 	summary.Set("total_cost_impact", 0)
 	summary.Set("pending_count", 0)
 	return summary
@@ -799,7 +799,7 @@ func projectResolvedStringList(ctx context.Context, value any) any {
 
 // projectOwnerBlock builds the minimal owner slice: id, name, and the
 // first phone contact for entitled viewers. Email never appears here.
-func projectOwnerBlock(ctx context.Context, pool *pgxpool.Pool, ownerID int64, canViewPhone, withPhones bool) (*jsonphp.Object, error) {
+func projectOwnerBlock(ctx context.Context, pool *pgxpool.Pool, ownerID int64, canViewPhone, withPhones bool) (*jsonwire.Object, error) {
 	if ownerID == 0 {
 		return nil, nil
 	}
@@ -820,7 +820,7 @@ func projectOwnerBlock(ctx context.Context, pool *pgxpool.Pool, ownerID int64, c
 		phone = nullableString(contact)
 	}
 
-	owner := jsonphp.NewObject()
+	owner := jsonwire.NewObject()
 	owner.Set("id", id)
 	owner.Set("name", name)
 	owner.Set("phone", phone)

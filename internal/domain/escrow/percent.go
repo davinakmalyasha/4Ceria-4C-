@@ -5,13 +5,11 @@ import (
 	"strings"
 )
 
-// basisPoints converts a configured percentage into integer basis points, the
-// way the previous code does: `(int) round($percent * 100)`.
+// basisPoints converts a configured percentage into integer basis points.
 //
-// The rounding is HALF AWAY FROM ZERO at the third decimal, which is what PHP's
-// `round()` does. It is stated because the alternative (`math.Round` and
-// `math.RoundToEven`) differ only in that case, and a retention percentage is
-// exactly where a half-basis-point difference becomes a disputed rupiah.
+// The rounding is HALF AWAY FROM ZERO at the third decimal. The alternative
+// (`math.RoundToEven`) differs only in that case, and a retention percentage
+// is exactly where a half-basis-point difference becomes a disputed rupiah.
 //
 // A percentage is read as a STRING rather than a float: `5.5` is 550 basis
 // points, and a float parse of a config value is one more place the two engines

@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -48,7 +48,7 @@ func marketplaceUser(ctx context.Context, pool *pgxpool.Pool, userID int64) (any
 		return nil, err
 	}
 
-	user := jsonphp.NewObject()
+	user := jsonwire.NewObject()
 	for i, column := range fields {
 		if marketplaceHiddenUserFields[column] {
 			continue
@@ -77,7 +77,7 @@ func reviewAggregates(ctx context.Context, pool *pgxpool.Pool, supplierID int64)
 
 // marketplaceSupplierObject renders a supplier plus the requested counts.
 func marketplaceSupplierObject(ctx context.Context, pool *pgxpool.Pool,
-	byName map[string]any, countKeys []string) (*jsonphp.Object, error) {
+	byName map[string]any, countKeys []string) (*jsonwire.Object, error) {
 	entry := supplierObject(byName)
 	supplierID := intPtrDeref(byName["id"])
 
@@ -159,7 +159,7 @@ func MarketplaceSuppliersHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			out = append(out, entry)
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("status", "success")
 		payload.Set("data", out)
 		writeJSON(w, http.StatusOK, payload)
@@ -242,7 +242,7 @@ func MarketplaceSupplierHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		entry.Set("reviews", reviews)
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("status", "success")
 		payload.Set("data", entry)
 		writeJSON(w, http.StatusOK, payload)
@@ -310,7 +310,7 @@ func marketplaceSupplierReviews(ctx context.Context, pool *pgxpool.Pool, supplie
 			&deliveryUserID, &imagePaths, &deliveryPaths); err != nil {
 			return nil, err
 		}
-		entry := jsonphp.NewObject()
+		entry := jsonwire.NewObject()
 		entry.Set("id", id)
 		entry.Set("user_id", userID)
 		entry.Set("supplier_id", supplier)
@@ -345,8 +345,8 @@ func marketplaceSupplierReviews(ctx context.Context, pool *pgxpool.Pool, supplie
 
 // marketplaceMaterialEntry renders the public material: columns, supplier (with
 // its owner), then images.
-func marketplaceMaterialEntry(ctx context.Context, pool *pgxpool.Pool, row map[string]any) (*jsonphp.Object, error) {
-	entry := jsonphp.NewObject()
+func marketplaceMaterialEntry(ctx context.Context, pool *pgxpool.Pool, row map[string]any) (*jsonwire.Object, error) {
+	entry := jsonwire.NewObject()
 	for _, column := range []string{
 		"id", "supplier_id", "name", "description", "price", "unit", "category",
 		"stock", "is_available", "image_path", "specifications", "created_at", "updated_at",
@@ -470,7 +470,7 @@ func MarketplaceMaterialsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			out = append(out, entry)
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("status", "success")
 		payload.Set("data", out)
 		writeJSON(w, http.StatusOK, payload)

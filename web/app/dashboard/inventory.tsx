@@ -8,9 +8,9 @@ import { CoverImage } from '@/components/CoverImage';
  * Native merchant inventory.
  *
  * `GET /merchant/materials` returns the authenticated supplier's materials
- * (`images` loaded). Add is a multipart create; edit (including the availability
- * toggle) is a multipart `_method=PUT`; delete is a DELETE. Every write is
- * scoped to the supplier by the controller.
+ * (`images` loaded). Add is a multipart POST; edit (including the availability
+ * toggle) is a multipart PUT; delete is a DELETE. Every write is scoped to the
+ * supplier by the handler.
  */
 
 export interface InventoryMaterial {

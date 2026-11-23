@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -108,7 +108,7 @@ func (v *errorBag) summarize() string {
 }
 
 func (v *errorBag) write(w http.ResponseWriter) {
-	errors := jsonphp.NewObject()
+	errors := jsonwire.NewObject()
 	for _, field := range v.fields {
 		items := make([]any, 0, len(v.bag[field]))
 		for _, message := range v.bag[field] {
@@ -118,7 +118,7 @@ func (v *errorBag) write(w http.ResponseWriter) {
 		errors.Set(field, items)
 	}
 
-	payload := jsonphp.NewObject()
+	payload := jsonwire.NewObject()
 	payload.Set("message", v.summarize())
 	payload.Set("errors", errors)
 
@@ -714,7 +714,7 @@ func UpdateMeHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Profile updated successfully")
 		payload.Set("user", resource)
 
@@ -785,7 +785,7 @@ func UpdateAvatarHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			}
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Avatar updated successfully")
 		payload.Set("pic", stored)
 
@@ -822,7 +822,7 @@ func DeleteAvatarHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			}
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Avatar deleted successfully")
 
 		writeJSON(w, http.StatusOK, payload)
@@ -866,7 +866,7 @@ func UnreadSummaryHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("unread_messages", unreadMessages)
 		payload.Set("unread_notifications", unreadNotifications)
 

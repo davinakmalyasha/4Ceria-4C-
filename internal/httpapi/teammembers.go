@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -63,8 +63,8 @@ func teamMemberSkills(value any) any {
 }
 
 // teamMemberObject renders a hydrated row: table order, then the append.
-func teamMemberObject(byName map[string]any) *jsonphp.Object {
-	entry := jsonphp.NewObject()
+func teamMemberObject(byName map[string]any) *jsonwire.Object {
+	entry := jsonwire.NewObject()
 	for _, column := range teamMemberColumns {
 		switch column {
 		case "skills":
@@ -81,8 +81,8 @@ func teamMemberObject(byName map[string]any) *jsonphp.Object {
 
 // teamMemberCreatedObject renders Eloquent's CREATED model: payload order,
 // then updated_at BEFORE created_at, then id, then the append.
-func teamMemberCreatedObject(byName map[string]any, payloadKeys []string) *jsonphp.Object {
-	entry := jsonphp.NewObject()
+func teamMemberCreatedObject(byName map[string]any, payloadKeys []string) *jsonwire.Object {
+	entry := jsonwire.NewObject()
 	for _, column := range payloadKeys {
 		switch column {
 		case "skills":
@@ -223,7 +223,7 @@ func TeamMembersIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		ctx := r.Context()
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		allowed := false
 		for _, role := range []string{"arsitek", "kontraktor", "structural", "mep",
 			"interior", "project_manager", "admin"} {
@@ -322,7 +322,7 @@ func StoreTeamMemberHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		var skillsArg any
 		if input.skills != nil {
-			encoded, err := jsonphp.Marshal(input.skills)
+			encoded, err := jsonwire.Marshal(input.skills)
 			if err != nil {
 				serverError(w)
 				return
@@ -352,7 +352,7 @@ func StoreTeamMemberHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			"email": input.email, "created_at": createdAt, "updated_at": updatedAt,
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", teamMemberCreatedObject(created, teamMemberPayloadKeys))
 		payload.Set("message", "Team member added.")
 		writeJSON(w, http.StatusCreated, payload)
@@ -442,7 +442,7 @@ func UpdateTeamMemberHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		if presentIn(fields, "skills") {
 			var skillsArg any
 			if input.skills != nil {
-				encoded, err := jsonphp.Marshal(input.skills)
+				encoded, err := jsonwire.Marshal(input.skills)
 				if err != nil {
 					serverError(w)
 					return
@@ -472,7 +472,7 @@ func UpdateTeamMemberHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", teamMemberObject(fresh))
 		payload.Set("message", "Team member updated.")
 		writeJSON(w, http.StatusOK, payload)

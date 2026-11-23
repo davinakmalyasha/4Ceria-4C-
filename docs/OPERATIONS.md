@@ -26,7 +26,11 @@ The important variables:
 | `S3_*` | When all four are set, new files go to the bucket and GETs are presigned. |
 | `RESEND_API_KEY` | Real mail; unset = log driver. |
 | `VAPID_*` | Web push; unset = in-app notifications only. |
-| `DEEPSEEK_API_KEY` | Assistant; unset = endpoints answer 503. |
+| `DEEPSEEK_API_KEY` | Assistant model key. Unset: the JSON turn answers 503, SSE returns a one-chunk notice, history/memory still work. |
+| `AI_MEMORY` | `true`/`false`; operator kill switch for long-term memory. |
+| `AI_SPECIALISTS` | `true`/`false`; expose `property_scout` and `project_auditor`. |
+| `AI_MAX_STEPS` | Model calls per turn, default 10, capped at 20. |
+| `CERIA_MCP_USER_ID` | Optional account id for `cmd/ceria-mcp`; 0/empty = public tools only. |
 | `API_ORIGIN` (web) | Server-side API origin. The browser never calls it. |
 | `SITE_URL` (web) | Public web origin for metadata. |
 | `SESSION_COOKIE_SECURE` (web) | Defaults to `NODE_ENV=production`; set `false` only for local HTTP production-mode testing. |
@@ -91,6 +95,19 @@ Web:
   "Refresh" activates the waiting worker.
 - Push: set `VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY`, enable notifications from
   the bell, and verify a test notification opens a same-origin URL.
+
+## Assistant and MCP
+
+- `DEEPSEEK_API_KEY` enables the assistant. Without it, chat history and
+  memory still work and the UI says the assistant is not configured.
+- Memory is in PostgreSQL (`ai_memories`, `ai_memory_settings`). Back it up
+  with the rest of the database; users can clear their own rows.
+- The HTTP MCP endpoint is `POST /api/mcp`, authenticated with the normal
+  bearer token. For a local client, run
+  `DATABASE_URL=... go run ./cmd/ceria-mcp` and set `CERIA_MCP_USER_ID` when
+  account-scoped tools are wanted.
+- The assistant logs one line per turn with the user id, session id, tool
+  names and token counts. It never logs message content.
 
 ## Observability
 

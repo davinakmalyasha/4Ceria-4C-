@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -49,8 +49,8 @@ func reviewSelectList() string {
 }
 
 // reviewTableObject renders a hydrated review in table order.
-func reviewTableObject(ctx context.Context, byName map[string]any) *jsonphp.Object {
-	entry := jsonphp.NewObject()
+func reviewTableObject(ctx context.Context, byName map[string]any) *jsonwire.Object {
+	entry := jsonwire.NewObject()
 	for _, column := range reviewColumns {
 		value := byName[column]
 		switch column {
@@ -73,8 +73,8 @@ func reviewTableObject(ctx context.Context, byName map[string]any) *jsonphp.Obje
 
 // reviewCreatedObject renders Eloquent's CREATED review: the payload order,
 // then timestamps and id.
-func reviewCreatedObject(byName map[string]any, imagePaths, deliveryPaths []any) *jsonphp.Object {
-	entry := jsonphp.NewObject()
+func reviewCreatedObject(byName map[string]any, imagePaths, deliveryPaths []any) *jsonwire.Object {
+	entry := jsonwire.NewObject()
 	entry.Set("user_id", projectRawValue(byName["user_id"]))
 	entry.Set("supplier_id", projectRawValue(byName["supplier_id"]))
 	entry.Set("order_id", projectRawValue(byName["order_id"]))
@@ -117,7 +117,7 @@ func reviewRow(ctx context.Context, pool *pgxpool.Pool, reviewID int64) (map[str
 // writeErrorsEnvelopeOnly is the review controllers' 422 body: `errors` with
 // no `message`.
 func writeErrorsEnvelopeOnly(w http.ResponseWriter, failures *errorBag) {
-	errors := jsonphp.NewObject()
+	errors := jsonwire.NewObject()
 	for _, field := range failures.fields {
 		messages := make([]any, 0, len(failures.bag[field]))
 		for _, message := range failures.bag[field] {
@@ -125,7 +125,7 @@ func writeErrorsEnvelopeOnly(w http.ResponseWriter, failures *errorBag) {
 		}
 		errors.Set(field, messages)
 	}
-	payload := jsonphp.NewObject()
+	payload := jsonwire.NewObject()
 	payload.Set("errors", errors)
 	writeJSON(w, http.StatusUnprocessableEntity, payload)
 }
@@ -319,8 +319,8 @@ func StoreOrderReviewHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			}
 		}
 
-		encodedShop, _ := jsonphp.Marshal(shopPaths)
-		encodedDelivery, _ := jsonphp.Marshal(deliveryPaths)
+		encodedShop, _ := jsonwire.Marshal(shopPaths)
+		encodedDelivery, _ := jsonwire.Marshal(deliveryPaths)
 
 		var commentArg, deliveryCommentArg any
 		if commentSet {
@@ -358,7 +358,7 @@ func StoreOrderReviewHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			"updated_at": updatedAt, "id": reviewID,
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("status", "success")
 		payload.Set("message", "Thank you for your feedback!")
 		payload.Set("data", reviewCreatedObject(created, shopPaths, deliveryPaths))
@@ -436,7 +436,7 @@ func UpdateOrderReviewHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				}
 			}
 			paths := storeReviewImages(images, "reviews/materials")
-			encoded, _ := jsonphp.Marshal(paths)
+			encoded, _ := jsonwire.Marshal(paths)
 			args = append(args, string(encoded))
 			sets = append(sets, "image_paths = $"+strconv.Itoa(len(args))+"::jsonb")
 		}
@@ -454,7 +454,7 @@ func UpdateOrderReviewHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("status", "success")
 		payload.Set("message", "Review updated successfully!")
 		payload.Set("data", reviewTableObject(ctx, fresh))
@@ -506,7 +506,7 @@ func DestroyOrderReviewHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("status", "success")
 		payload.Set("message", "Review deleted successfully.")
 		writeJSON(w, http.StatusOK, payload)
@@ -590,7 +590,7 @@ func SupplierReviewsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		// The nested resource collection serializes its items only; the
 		// pagination meta is not part of this endpoint's contract.
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("status", "success")
 		payload.Set("data", items)
 		writeJSON(w, http.StatusOK, payload)
@@ -598,8 +598,8 @@ func SupplierReviewsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 }
 
 // supplierReviewEntry is the MaterialOrderReviewResource allowlist.
-func supplierReviewEntry(ctx context.Context, pool *pgxpool.Pool, byName map[string]any) (*jsonphp.Object, error) {
-	entry := jsonphp.NewObject()
+func supplierReviewEntry(ctx context.Context, pool *pgxpool.Pool, byName map[string]any) (*jsonwire.Object, error) {
+	entry := jsonwire.NewObject()
 	entry.Set("id", projectIntValue(byName["id"]))
 	entry.Set("rating", projectIntValue(byName["rating"]))
 	entry.Set("comment", projectRawValue(byName["comment"]))
@@ -623,8 +623,8 @@ func supplierReviewEntry(ctx context.Context, pool *pgxpool.Pool, byName map[str
 	if err != nil {
 		return nil, err
 	}
-	if object, ok := reviewer.(*jsonphp.Object); ok {
-		safe := jsonphp.NewObject()
+	if object, ok := reviewer.(*jsonwire.Object); ok {
+		safe := jsonwire.NewObject()
 		if value, present := object.Get("id"); present {
 			safe.Set("id", value)
 		}
@@ -640,7 +640,7 @@ func supplierReviewEntry(ctx context.Context, pool *pgxpool.Pool, byName map[str
 	}
 
 	orderID := intPtrDeref(byName["order_id"])
-	orderBlock := jsonphp.NewObject()
+	orderBlock := jsonwire.NewObject()
 	rows, err := pool.Query(ctx, `SELECT material_id, quantity, price_at_order::text
 		FROM material_order_items WHERE order_id = $1 ORDER BY id`, orderID)
 	if err != nil {
@@ -654,7 +654,7 @@ func supplierReviewEntry(ctx context.Context, pool *pgxpool.Pool, byName map[str
 			rows.Close()
 			return nil, err
 		}
-		item := jsonphp.NewObject()
+		item := jsonwire.NewObject()
 		item.Set("material_id", materialID)
 		materialName, _ := materialModelObject(ctx, pool, materialID)
 		if materialName != nil {

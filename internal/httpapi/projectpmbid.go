@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -172,7 +172,7 @@ func SubmitPMBidHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		bid := jsonphp.NewObject()
+		bid := jsonwire.NewObject()
 		bid.Set("duration_unit", input.durationUnit)
 		bid.Set("status", "pending")
 		bid.Set("payment_status", "unpaid")
@@ -191,7 +191,7 @@ func SubmitPMBidHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		bid.Set("created_at", projectTimeValue(createdAt))
 		bid.Set("id", bidID)
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Bid submitted successfully!")
 		payload.Set("bid", bid)
 
@@ -331,14 +331,14 @@ func jsonColumnText(value any) *string {
 			return nil
 		}
 		decoded := decodeJSONValue(trimmed)
-		encoded, err := jsonphp.Marshal(decoded)
+		encoded, err := jsonwire.Marshal(decoded)
 		if err != nil {
 			return nil
 		}
 		text := string(encoded)
 		return &text
 	case []any, map[string]any:
-		encoded, err := jsonphp.Marshal(typed)
+		encoded, err := jsonwire.Marshal(typed)
 		if err != nil {
 			return nil
 		}
@@ -595,7 +595,7 @@ func PMBidDecisionHandler(pool *pgxpool.Pool, verb string) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", entry)
 
 		writeJSON(w, http.StatusOK, payload)

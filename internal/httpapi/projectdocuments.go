@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -115,14 +115,14 @@ func DocumentsIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				byName[column] = values[i]
 			}
 
-			entry := jsonphp.NewObject()
+			entry := jsonwire.NewObject()
 			for _, column := range docColumns {
 				value := byName[column]
 				switch column {
 				case "reviewed_at":
 					// ProjectDocument has no casts: reviewed_at stays a raw
 					// MySQL datetime string.
-					entry.Set(column, mysqlDateTime(value))
+					entry.Set(column, dateStringTime(value))
 				case "created_at", "updated_at":
 					entry.Set(column, projectTimeValue(value))
 				default:
@@ -151,7 +151,7 @@ func DocumentsIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", out)
 		writeJSON(w, http.StatusOK, payload)
 	}
@@ -243,7 +243,7 @@ func resourceDocuments(ctx context.Context, pool *pgxpool.Pool, projectID int64)
 		}
 		_ = parentID
 
-		entry := jsonphp.NewObject()
+		entry := jsonwire.NewObject()
 		entry.Set("id", nullableInt64(id))
 		entry.Set("file_name", nullableString(fileName))
 		path := ""
@@ -257,9 +257,9 @@ func resourceDocuments(ctx context.Context, pool *pgxpool.Pool, projectID int64)
 		entry.Set("target_role", nullableString(targetRole))
 		entry.Set("version_label", nullableString(versionLabel))
 		entry.Set("review_note", nullableString(reviewNote))
-		entry.Set("reviewed_at", mysqlDateTime(reviewedAt))
+		entry.Set("reviewed_at", dateStringTime(reviewedAt))
 		if uploaderID != nil && *uploaderID != 0 {
-			block := jsonphp.NewObject()
+			block := jsonwire.NewObject()
 			var name string
 			var role *string
 			if err := pool.QueryRow(ctx, `SELECT name, role_type::text FROM users WHERE id = $1`, *uploaderID).Scan(&name, &role); err == nil {
@@ -302,7 +302,7 @@ func resourceComments(ctx context.Context, pool *pgxpool.Pool, projectID int64) 
 			return nil, err
 		}
 
-		entry := jsonphp.NewObject()
+		entry := jsonwire.NewObject()
 		entry.Set("id", nullableInt64(id))
 		entry.Set("user_id", nullableInt64(userID))
 		entry.Set("project_id", nullableInt64(projID))
@@ -313,7 +313,7 @@ func resourceComments(ctx context.Context, pool *pgxpool.Pool, projectID int64) 
 			var name string
 			var pic *string
 			if err := pool.QueryRow(ctx, `SELECT name, pic FROM users WHERE id = $1`, *userID).Scan(&name, &pic); err == nil {
-				block := jsonphp.NewObject()
+				block := jsonwire.NewObject()
 				block.Set("id", *userID)
 				block.Set("name", name)
 				block.Set("profile_picture", projectStorageURL(ctx, nullableString(pic)))

@@ -245,7 +245,7 @@ func notifyPaymentVerified(ctx context.Context, pool *pgxpool.Pool, projectID in
 	label string, amountMinor int64) {
 	formatted := "Rp " + formatIDAmount(amountMinor)
 	data := `{"payment_id": ` + formatInt(paymentID) +
-		`, "payment_type": ` + mysqlJSONStr(short) +
+		`, "payment_type": ` + jsonString(short) +
 		`, "project_id": ` + formatInt(projectID) + `}`
 
 	if _, err := pool.Exec(ctx, `

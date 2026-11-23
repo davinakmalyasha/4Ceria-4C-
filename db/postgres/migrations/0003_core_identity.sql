@@ -46,7 +46,7 @@
 
 
 -- The enum vocabulary this file needs. Every value list is the
--- MySQL one, in MySQL's order, and spec/enums.yaml is the source.
+-- MySQL one, in MySQL's order, and the live enum vocabulary is the source.
 
 CREATE TYPE contractor_subspecialties_category AS ENUM ('construction', 'mechanical', 'finishing');
 

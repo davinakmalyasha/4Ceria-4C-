@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"net/http"
 )
@@ -93,8 +93,8 @@ func favoriteTrimJoin(parts []*string, glue, cutset string) string {
 }
 
 // favoriteCard renders one resolved item.
-func favoriteCard(id int64, kind, title string, subtitle any, image any, price any) *jsonphp.Object {
-	card := jsonphp.NewObject()
+func favoriteCard(id int64, kind, title string, subtitle any, image any, price any) *jsonwire.Object {
+	card := jsonwire.NewObject()
 	card.Set("id", id)
 	card.Set("type", kind)
 	card.Set("title", title)
@@ -237,14 +237,14 @@ func favoriteMaterialCards(ctx context.Context, pool *pgxpool.Pool, ids []int64)
 }
 
 // favoritesPayload builds the index answer for one user.
-func favoritesPayload(ctx context.Context, pool *pgxpool.Pool, userID int64) (*jsonphp.Object, error) {
+func favoritesPayload(ctx context.Context, pool *pgxpool.Pool, userID int64) (*jsonwire.Object, error) {
 	grouped, err := loadFavorites(ctx, pool, userID)
 	if err != nil {
 		return nil, err
 	}
 
-	data := jsonphp.NewObject()
-	items := jsonphp.NewObject()
+	data := jsonwire.NewObject()
+	items := jsonwire.NewObject()
 	for _, kind := range grouped.order {
 		ids := grouped.ids[kind]
 		list := make([]any, 0, len(ids))
@@ -287,7 +287,7 @@ func favoritesPayload(ctx context.Context, pool *pgxpool.Pool, userID int64) (*j
 		itemsValue = []any{}
 	}
 
-	payload := jsonphp.NewObject()
+	payload := jsonwire.NewObject()
 	payload.Set("data", dataValue)
 	payload.Set("items", itemsValue)
 	return payload, nil
@@ -391,7 +391,7 @@ func ToggleFavoriteHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				serverError(w)
 				return
 			}
-			payload := jsonphp.NewObject()
+			payload := jsonwire.NewObject()
 			payload.Set("favorited", false)
 			payload.Set("type", kind)
 			payload.Set("id", id)
@@ -414,7 +414,7 @@ func ToggleFavoriteHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("favorited", true)
 		payload.Set("type", kind)
 		payload.Set("id", id)

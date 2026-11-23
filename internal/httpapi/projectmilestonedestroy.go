@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -282,7 +282,7 @@ func removePublicFile(rel string) error {
 
 // jsonMessage is the bare message envelope used by these verbs.
 func jsonMessage(w http.ResponseWriter, status int, text string) {
-	body := jsonphp.NewObject()
+	body := jsonwire.NewObject()
 	body.Set("message", text)
 	writeJSON(w, status, body)
 }

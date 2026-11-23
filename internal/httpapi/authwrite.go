@@ -12,8 +12,8 @@ import (
 // THE IDENTITY HELPERS.
 //
 // Login, register, logout, forgot-password and reset-password are
-// PostgreSQL-native (`authpg.go`, Sanctum semantics preserved).
-// This file holds the shared primitives they are built from:
+// PostgreSQL-native (`authpg.go`). This file holds the shared primitives
+// they are built from:
 // token randomness, the `$2y$` bcrypt spelling, email validation,
 // JSON-scalar helpers and the CRC suffix for token display.
 
@@ -39,13 +39,11 @@ func randomTokenString(n int) (string, error) {
 // uniqueCodeAlphabet is `User::generateUniqueCode`'s unambiguous alphabet.
 const uniqueCodeAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
-// bcryptHash hashes with the original API's settings: cost 12, `$2y$` prefix.
+// bcryptHash uses cost 12 and the `$2y$` prefix.
 //
-// x/crypto emits `$2a$`, which verifies identically at the C level — but
-// the original API's BcryptHasher rejects anything `password_get_info` does not
-// recognise as bcrypt, and PHP only recognises `$2y$`. Hashing with Go and
-// checking with the original API (or the reverse) therefore requires the `$2y$`
-// spelling; the remaining 60-char body is format-identical.
+// x/crypto emits `$2a$`, which verifies identically, but the database already
+// contains `$2y$` hashes and external verifiers expect that spelling. The
+// remaining 60-char body is format-identical, so only the prefix is rewritten.
 func bcryptHash(password string) (string, error) {
 	hashed, err := bcrypt.GenerateFromPassword([]byte(password), 12)
 	if err != nil {
@@ -75,8 +73,8 @@ func validEmail(value string) bool {
 	return len(parts) == 2 && parts[0] != "" && parts[1] != "" && strings.Contains(parts[1], ".")
 }
 
-// confirmedMatches mirrors PHP's `!==` for JSON scalars: same type and
-// same value, or both absent-or-null.
+// confirmedMatches compares JSON scalars by type and value; null and absent
+// match only each other.
 func confirmedMatches(password, confirmation any) bool {
 	if password == nil || confirmation == nil {
 		return password == nil && confirmation == nil
@@ -122,10 +120,9 @@ var registerRoles = []string{
 	"electrical", "plumbing", "roofing", "finishing",
 }
 
-// crc32bHex is PHP's `hash('crc32b', $s)`. Despite the name it is the
-// IEEE CRC-32 — verified three ways: the `123456789` check vector is
-// `cbf43926` (the IEEE residue), a live token tail matches, and PHP's own
-// `crc32` of the same string differs. The Go standard library computes it.
+// crc32bHex renders the token suffix: the IEEE CRC-32 as eight lowercase hex
+// digits. It is verified against the `123456789` check vector (`cbf43926`),
+// which distinguishes it from the other common CRC-32 spelling.
 func crc32bHex(s string) string {
 	sum := crc32.ChecksumIEEE([]byte(s))
 

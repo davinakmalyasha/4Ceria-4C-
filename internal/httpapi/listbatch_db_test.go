@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 )
 
 // TestListBundleMatchesPerRow renders the same projects through the
@@ -132,11 +132,11 @@ func TestListBundleMatchesPerRow(t *testing.T) {
 			if err != nil {
 				t.Fatalf("%s project %d batched: %v", tc.name, p.id, err)
 			}
-			sb, err := jsonphp.Marshal(single)
+			sb, err := jsonwire.Marshal(single)
 			if err != nil {
 				t.Fatal(err)
 			}
-			bb, err := jsonphp.Marshal(batched)
+			bb, err := jsonwire.Marshal(batched)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -191,8 +191,8 @@ func TestBatchHelpersAgainstSingleRow(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := batch[negLogKey{projectID: 14976, role: "arsitek", refID: bidRefID(bid)}]
-	sb, _ := jsonphp.Marshal(single)
-	bb, _ := jsonphp.Marshal(got)
+	sb, _ := jsonwire.Marshal(single)
+	bb, _ := jsonwire.Marshal(got)
 	if string(sb) != string(bb) {
 		t.Fatalf("neg logs differ\nsingle:  %s\nbatched: %s", sb, bb)
 	}
@@ -214,8 +214,8 @@ func TestBatchHelpersAgainstSingleRow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ssb, _ := jsonphp.Marshal(singleSubs)
-	bsb, _ := jsonphp.Marshal(batchedSubs[14976])
+	ssb, _ := jsonwire.Marshal(singleSubs)
+	bsb, _ := jsonwire.Marshal(batchedSubs[14976])
 	if string(ssb) != string(bsb) {
 		t.Fatalf("subs differ\nsingle:  %s\nbatched: %s", ssb, bsb)
 	}
@@ -235,8 +235,8 @@ func TestBatchHelpersAgainstSingleRow(t *testing.T) {
 	}
 	bundle := &listBundle{ownerNames: names, ownerFound: found, ownerPhones: contacts}
 	batchedOwner := projectOwnerBlockFromMaps(ownerID, true, true, bundle)
-	sob, _ := jsonphp.Marshal(singleOwner)
-	bob, _ := jsonphp.Marshal(batchedOwner)
+	sob, _ := jsonwire.Marshal(singleOwner)
+	bob, _ := jsonwire.Marshal(batchedOwner)
 	if string(sob) != string(bob) {
 		t.Fatalf("owner differs\nsingle:  %s\nbatched: %s", sob, bob)
 	}

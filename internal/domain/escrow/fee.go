@@ -9,9 +9,9 @@ import (
 // FeePercent converts a configured platform-fee percentage into basis points,
 // clamped to [0 %, 100 %].
 //
-// The clamp is on the PERCENTAGE, not on the result, because that is what the
-// previous code does — and the difference is visible at the boundary: 100.6 %
-// clamps to exactly 100 %, i.e. 10 000 basis points, not 10 060.
+// The clamp is on the PERCENTAGE, not on the result, and the difference is
+// visible at the boundary: 100.6% clamps to exactly 100%, i.e. 10 000 basis
+// points, not 10 060.
 //
 // THE FEE IS OFF BY DEFAULT (`0`), and that is a promise in the product copy:
 // "4Ceria does not currently charge a platform fee." The service implements the
@@ -53,10 +53,9 @@ func FeeOn(gross money.Money, percent string) (money.Money, error) {
 
 // FeeTitle is the ledger title of a platform-fee row.
 //
-// The percentage is formatted the way the previous `number_format($p, 2, ',', '.')`
-// + `rtrim` pair formats it: two decimals, a COMMA as the decimal mark, and
-// trailing zeros removed ("1", "1,5", "0,25"). The ledger is a human-audited
-// record, so this service reproduces the string rather than "fixing" it to a dot.
+// The percentage is formatted for a human-audited ledger: two decimals, a
+// COMMA as the decimal mark, and trailing zeros removed ("1", "1,5", "0,25").
+// The string is deliberately stable; changing it would rewrite audit history.
 func FeeTitle(percent string, subject string) string {
 	bp, err := FeePercent(percent)
 	if err != nil {

@@ -4,14 +4,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 )
 
-// TestOrderedDecodeRoundTrips pins the geocode re-encoding contract: the
-// decoded-then-re-encoded body must equal PHP's
-// `json_encode(json_decode($s))` for the same bytes. The fixture carries
-// every sharp edge: key order, `\/`, unicode escapes, nesting, a big
-// integer, an empty array, and a null.
+// TestOrderedDecodeRoundTrips pins the geocode re-encoding contract: key
+// order survives, string escapes become UTF-8, and nesting/arrays/null keep
+// their shape. The fixture carries every sharp edge: `\/`, unicode escapes,
+// a big integer, an empty array and a null.
 func TestOrderedDecodeRoundTrips(t *testing.T) {
 	upstream := `{"place_id":31190668,"licence":"Data \u00a9 OSM http:\/\/osm.org\/c","lat":"-6.1999142","address":{"city":"Jakarta","x":null},"tags":[],"n":1.5,"ok":true}`
 
@@ -20,15 +19,12 @@ func TestOrderedDecodeRoundTrips(t *testing.T) {
 		t.Fatalf("decodeOrdered: %v", err)
 	}
 
-	encoded, err := jsonphp.Marshal(value)
+	encoded, err := jsonwire.Marshal(value)
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
 	}
 
-	// Verified with: php -r 'echo json_encode(json_decode($s));'
-	// (PHP re-escapes the © as \u00a9 — and so does jsonphp.)
-	want := `{"place_id":31190668,"licence":"Data © OSM http:\/\/osm.org\/c","lat":"-6.1999142","address":{"city":"Jakarta","x":null},"tags":[],"n":1.5,"ok":true}`
-	want = strings.Replace(want, "©", "\\u00a9", 1)
+	want := `{"place_id":31190668,"licence":"Data © OSM http://osm.org/c","lat":"-6.1999142","address":{"city":"Jakarta","x":null},"tags":[],"n":1.5,"ok":true}`
 
 	if string(encoded) != want {
 		t.Errorf("re-encoded mismatch:\n got: %s\nwant: %s", encoded, want)
@@ -72,8 +68,8 @@ func TestGeocodeNumberValidation(t *testing.T) {
 	}
 }
 
-// TestRound4MatchesPHP pins half-away-from-zero to 4 places.
-func TestRound4MatchesPHP(t *testing.T) {
+// TestRound4HalfAwayFromZero pins the coordinate rounding rule.
+func TestRound4HalfAwayFromZero(t *testing.T) {
 	if got := formatCoord(round4(12.3456789)); got != "12.3457" {
 		t.Errorf("round4(12.3456789) = %q, want 12.3457", got)
 	}

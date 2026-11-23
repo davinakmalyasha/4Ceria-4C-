@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -243,7 +243,7 @@ func OwnerAcceptProjectHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			entry.Set("project_manager", nil)
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", entry)
 		writeJSON(w, http.StatusOK, payload)
 	}
@@ -352,9 +352,9 @@ func projectArchitectReview(ctx context.Context, pool *pgxpool.Pool, projectID i
 		}
 		return nil, err
 	}
-	review := jsonphp.NewObject()
+	review := jsonwire.NewObject()
 	review.Set("rating", rating)
 	review.Set("comment", nullableString(comment))
-	review.Set("created_at", carbon(createdAt))
+	review.Set("created_at", apiTimestamp(createdAt))
 	return review, nil
 }

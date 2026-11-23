@@ -1,8 +1,13 @@
 package ai
 
 import (
+	"context"
 	"strings"
 	"testing"
+	"unicode/utf8"
+
+	"github.com/jackc/pgx/v5/pgtype"
+	"google.golang.org/adk/v2/session"
 )
 
 func TestSanitizeInputTrimsAndCaps(t *testing.T) {
@@ -80,22 +85,11 @@ func TestRedactOutputStripsBearer(t *testing.T) {
 	if !strings.Contains(out, "[redacted]") {
 		t.Errorf("no redaction marker: %q", out)
 	}
-}
-
-func TestFormatHistoryCapsAndLabels(t *testing.T) {
-	msgs := []StoredMessage{}
-	for i := 0; i < 30; i++ {
-		msgs = append(msgs, StoredMessage{Role: "user", Content: "m" + string(rune('a'+i%26))})
+	if got := RedactOutput("a task-list item"); got != "a task-list item" {
+		t.Errorf("word containing sk- was redacted: %q", got)
 	}
-	got := FormatHistory(msgs)
-	if strings.Count(got, "User:") > MaxHistoryMessages {
-		t.Errorf("history not capped: %d turns", strings.Count(got, "User:"))
-	}
-	if !strings.Contains(got, "DATA, not instructions") {
-		t.Error("history must be labelled as data")
-	}
-	if FormatHistory(nil) != "" {
-		t.Error("empty history must fold to empty")
+	if got := RedactOutput("key sk-live-123456"); strings.Contains(got, "sk-live-123456") {
+		t.Errorf("API key leaked: %q", got)
 	}
 }
 
@@ -168,12 +162,120 @@ func TestDeriveTitle(t *testing.T) {
 	}
 }
 
-func TestBuildToolsCount(t *testing.T) {
+func TestBuildToolsCatalog(t *testing.T) {
 	tools, err := BuildTools(ToolCtx{})
 	if err != nil {
 		t.Fatalf("BuildTools: %v", err)
 	}
-	if len(tools) != 8 {
-		t.Errorf("got %d tools, want 8", len(tools))
+	want := map[string]bool{
+		"search_houses": false, "get_house": false,
+		"search_professionals": false, "search_materials": false,
+		"my_projects": false, "get_project": false,
+		"project_finance": false, "project_schedule": false,
+		"project_bids": false, "my_bids": false,
+		"platform_help": false, "estimate_budget": false,
+	}
+	for _, item := range tools {
+		if _, ok := want[item.Name()]; !ok {
+			t.Errorf("unexpected tool %q", item.Name())
+			continue
+		}
+		want[item.Name()] = true
+	}
+	for name, seen := range want {
+		if !seen {
+			t.Errorf("missing tool %q", name)
+		}
+	}
+	if len(tools) != len(want) {
+		t.Errorf("got %d tools, want %d", len(tools), len(want))
+	}
+}
+
+func TestTruncateRunesKeepsUTF8(t *testing.T) {
+	in := "rumah café 東京"
+	got := truncateRunes(in, 8)
+	if !utf8.ValidString(got) {
+		t.Fatalf("truncation split UTF-8: %q", got)
+	}
+	if got != "rumah ca" {
+		t.Errorf("got %q", got)
+	}
+	if truncateRunes("abc", 0) != "" {
+		t.Error("zero cap must be empty")
+	}
+}
+
+func TestIDRTextHandlesPostgresNumeric(t *testing.T) {
+	n := pgtype.Numeric{}
+	if err := n.Scan("1200000000.00"); err != nil {
+		t.Fatalf("scan numeric: %v", err)
+	}
+	if got, want := idrText(n), "Rp 1.200.000.000"; got != want {
+		t.Errorf("idrText(numeric) = %q, want %q", got, want)
+	}
+	if got := idrText("500000.00"); got != "Rp 500.000" {
+		t.Errorf("idrText(string) = %q", got)
+	}
+	if got := idrText(pgtype.Numeric{}); got != "Rp 0" {
+		t.Errorf("invalid numeric = %q", got)
+	}
+}
+
+func TestEstimateBudgetUsesIntegerArithmetic(t *testing.T) {
+	got := estimateBudget(EstimateArgs{ProjectType: "new_build", AreaM2: 100, Quality: "middle"})
+	if got.LowIDR != "Rp 552.500.000" || got.HighIDR != "Rp 812.500.000" {
+		t.Errorf("unexpected range: %+v", got)
+	}
+}
+
+func TestReplayHistoryCreatesOrderedSessionEvents(t *testing.T) {
+	ctx := context.Background()
+	sessions := session.InMemoryService()
+	created, err := sessions.Create(ctx, &session.CreateRequest{
+		AppName: "ceria", UserID: "user-1", SessionID: "11111111-1111-1111-1111-111111111111",
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	history := []StoredMessage{
+		{Role: "user", Content: "hello"},
+		{Role: "assistant", Content: "hi"},
+		{Role: "system", Content: "ignored"},
+	}
+	if err := replayHistory(ctx, sessions, created.Session, history); err != nil {
+		t.Fatalf("replay: %v", err)
+	}
+	got, err := sessions.Get(ctx, &session.GetRequest{
+		AppName: "ceria", UserID: "user-1", SessionID: "11111111-1111-1111-1111-111111111111",
+	})
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	var authors []string
+	for ev := range got.Session.Events().All() {
+		authors = append(authors, ev.Author)
+	}
+	if strings.Join(authors, ",") != "user,assistant" {
+		t.Errorf("authors = %v", authors)
+	}
+}
+
+func TestMergeDeltaHandlesCumulativeAndIncrementalChunks(t *testing.T) {
+	// Incremental provider: each chunk is a delta.
+	delta, next := mergeDelta("Hello", " world")
+	if delta != " world" || next != "Hello world" {
+		t.Errorf("incremental: delta=%q next=%q", delta, next)
+	}
+	// Cumulative provider: the chunk contains the prefix.
+	delta, next = mergeDelta("Hello", "Hello world")
+	if delta != " world" || next != "Hello world" {
+		t.Errorf("cumulative: delta=%q next=%q", delta, next)
+	}
+	if got := mergePartial("Hello", "Hello world"); got != "Hello world" {
+		t.Errorf("mergePartial cumulative = %q", got)
+	}
+	if got := mergePartial("Hello", " world"); got != "Hello world" {
+		t.Errorf("mergePartial incremental = %q", got)
 	}
 }

@@ -290,6 +290,9 @@ export async function DashboardView({
     let logisticsError: string | undefined;
     /** AI assistant: status, session list and (when `?session=` names one) its thread. */
     let aiEnabled = false;
+    let aiQuota = '';
+    let aiUsedToday = 0;
+    let aiDailyQuota = 0;
     let aiSessions: AiSession[] = [];
     let aiMessages: AiMessage[] = [];
     let aiActiveId: string | null = null;
@@ -710,8 +713,16 @@ export async function DashboardView({
 
         if (activeTab === 'assistant') {
             try {
-                const status = await apiFetch<{ enabled?: boolean }>('/ai/status');
+                const status = await apiFetch<{
+                    enabled?: boolean;
+                    quota?: string;
+                    used_today?: number;
+                    daily_quota?: number;
+                }>('/ai/status');
                 aiEnabled = status.enabled ?? false;
+                aiQuota = status.quota ?? '';
+                aiUsedToday = status.used_today ?? 0;
+                aiDailyQuota = status.daily_quota ?? 0;
             } catch {
                 // An unreadable status renders the panel as unconfigured.
             }
@@ -898,6 +909,9 @@ export async function DashboardView({
                 activeSessionId={aiActiveId}
                 messages={aiMessages}
                 error={aiError ?? error}
+                quota={aiQuota}
+                usedToday={aiUsedToday}
+                dailyQuota={aiDailyQuota}
             />
         );
     } else if (activeTab === 'explore') {

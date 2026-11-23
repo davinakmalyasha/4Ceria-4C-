@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -41,8 +41,8 @@ var snagColumns = []string{
 var snagSLA = map[string]int64{"critical": 3, "major": 7, "minor": 14}
 
 // snagObject renders a loaded snag item with appends.
-func snagObject(ctx context.Context, byName map[string]any) *jsonphp.Object {
-	entry := jsonphp.NewObject()
+func snagObject(ctx context.Context, byName map[string]any) *jsonwire.Object {
+	entry := jsonwire.NewObject()
 	for _, column := range snagColumns {
 		switch column {
 		case "photos", "resolution_photos":
@@ -71,8 +71,8 @@ func snagObject(ctx context.Context, byName map[string]any) *jsonphp.Object {
 }
 
 // snagCreatedObject renders Eloquent's CREATED snag.
-func snagCreatedObject(ctx context.Context, byName map[string]any) *jsonphp.Object {
-	entry := jsonphp.NewObject()
+func snagCreatedObject(ctx context.Context, byName map[string]any) *jsonwire.Object {
+	entry := jsonwire.NewObject()
 	entry.Set("title", projectRawValue(byName["title"]))
 	entry.Set("description", projectRawValue(byName["description"]))
 	entry.Set("location", projectRawValue(byName["location"]))
@@ -210,7 +210,7 @@ func SnagItemsIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			if reporter := intPtrDeref(byName["reported_by"]); reporter != 0 {
 				var name string
 				if err := pool.QueryRow(ctx, `SELECT name FROM users WHERE id = $1`, reporter).Scan(&name); err == nil {
-					block := jsonphp.NewObject()
+					block := jsonwire.NewObject()
 					block.Set("id", reporter)
 					block.Set("name", name)
 					entry.Set("reporter", block)
@@ -228,7 +228,7 @@ func SnagItemsIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", out)
 		writeJSON(w, http.StatusOK, payload)
 	}
@@ -313,7 +313,7 @@ func StoreSnagItemHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		// The reference's column keeps whole seconds: the response shows .000000.
 		dueAt := time.Now().UTC().Truncate(time.Second).AddDate(0, 0, int(snagSLA[input.severity]))
-		encoded, err := jsonphp.Marshal(photos)
+		encoded, err := jsonwire.Marshal(photos)
 		if err != nil {
 			serverError(w)
 			return
@@ -340,7 +340,7 @@ func StoreSnagItemHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			"due_at": dueAt, "created_at": createdAt, "updated_at": updatedAt,
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Defect reported.")
 		payload.Set("data", snagCreatedObject(ctx, byName))
 		writeJSON(w, http.StatusCreated, payload)
@@ -568,7 +568,7 @@ func UpdateSnagItemHandler(pool *pgxpool.Pool) http.HandlerFunc {
 					}
 					stored = append(stored, path)
 				}
-				encoded, err := jsonphp.Marshal(stored)
+				encoded, err := jsonwire.Marshal(stored)
 				if err != nil {
 					serverError(w)
 					return
@@ -591,7 +591,7 @@ func UpdateSnagItemHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Snag item updated.")
 		payload.Set("data", snagObject(ctx, fresh))
 		writeJSON(w, http.StatusOK, payload)

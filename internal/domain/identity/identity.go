@@ -7,16 +7,16 @@
 //
 // The two spaces OVERLAP: architect profile 42 and user 42 are different rows
 // belonging to different people, and there is nothing in the numbers that says
-// so. The original application had this asymmetry recorded in three places — a
-// config key, a model relation and a branch in an authorisation rule — and
-// every one of them was a place to compare the wrong two numbers.
+// so. The schema used to record the distinction in several places — a config
+// key, a model relation and an authorisation branch — and every one of them was
+// a place to compare the wrong two numbers.
 //
-// `projects.pm_id` was the worst of them: it held a USER id while every other
+// `projects.pm_id` was the worst case: it held a USER id while every other
 // `selected_*` column held a PROFILE id, and `bids_project_manager.pm_id`
 // held a PROFILE id. So "the project's PM" and "the PM's bid" were two
-// different numbers for the same person. The pm_id resolution migration
-// (2026-10-21) made the column hold the PROFILE id, and the convention is
-// now ONE convention: every `selected_*` column holds a profile id.
+// different numbers for the same person. The pm_id resolution migration made
+// the column hold the PROFILE id, and the convention is now ONE convention:
+// every `selected_*` column holds a profile id.
 //
 // THE TYPES ARE THE POINT
 // ----------------------
@@ -80,10 +80,8 @@ func (id ProfileID) MarshalJSON() ([]byte, error) {
 	return []byte(strconv.FormatInt(int64(id), 10)), nil
 }
 
-// ProfileTable is the table a role's profiles live in.
-//
-// It is the same table the previous `config/bids.php` named, and the same one
-// the PostgreSQL schema uses.
+// ProfileTable is the table a role's profiles live in; it matches the
+// PostgreSQL schema exactly.
 type ProfileTable string
 
 // The seven profile tables.
@@ -99,9 +97,8 @@ const (
 
 // Profile is a person's professional profile.
 //
-// The original application models this as a `users` row with one of seven
-// optional profile relations. This service keeps that shape — a user has AT MOST
-// ONE profile per role — and the role is what selects the relation.
+// A user has AT MOST ONE profile per role; the role selects the table, and
+// the profile id is the value stored in a project's `selected_*` column.
 type Profile struct {
 	// User is the person the profile belongs to.
 	User UserID
@@ -119,7 +116,7 @@ type Profile struct {
 // database can be checked against the registry without a lookup table.
 type Role string
 
-// The seven roles, in the order `config/bids.php` declares them.
+// The seven roles, in the registry's canonical order.
 const (
 	RoleArsitek        Role = "arsitek"
 	RoleKontraktor     Role = "kontraktor"
@@ -130,10 +127,10 @@ const (
 	RoleProjectManager Role = "project_manager"
 )
 
-// Roles is every licensed role, in the registry's order.
+// Roles is every licensed role, in canonical order.
 //
-// The ORDER is not cosmetic: it is the order the previous `config/bids.php`
-// used, and the order the `bids` table's role enum was built from.
+// The ORDER is not cosmetic: the `bids` role enum was built from it, and
+// role lists in the UI and in exports rely on it being stable.
 func Roles() []Role {
 	return []Role{
 		RoleArsitek,
@@ -146,11 +143,8 @@ func Roles() []Role {
 	}
 }
 
-// ProfileTableFor is the table a role's profiles live in.
-//
-// This is the ONE place the role-to-table mapping is stated. The previous
-// application had it in `config/bids.php` AND in the `Hire` class's relation
-// map, and the two had to be kept in sync by hand.
+// ProfileTableFor is the table a role's profiles live in. This is the ONE
+// place the role-to-table mapping is stated; every caller derives from it.
 func ProfileTableFor(role Role) (ProfileTable, bool) {
 	switch role {
 	case RoleArsitek:

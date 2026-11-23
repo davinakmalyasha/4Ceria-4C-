@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -38,8 +38,8 @@ var stickyNoteColumns = []string{
 }
 
 // stickyNoteApproved returns the row in table order.
-func stickyNoteObject(byName map[string]any) *jsonphp.Object {
-	entry := jsonphp.NewObject()
+func stickyNoteObject(byName map[string]any) *jsonwire.Object {
+	entry := jsonwire.NewObject()
 	for _, column := range stickyNoteColumns {
 		value := byName[column]
 		switch column {
@@ -58,8 +58,8 @@ func projectValueOrDefault(value any) any {
 }
 
 // stickyNoteCreatedObject renders Eloquent's CREATED sticky note.
-func stickyNoteCreatedObject(byName map[string]any) *jsonphp.Object {
-	entry := jsonphp.NewObject()
+func stickyNoteCreatedObject(byName map[string]any) *jsonwire.Object {
+	entry := jsonwire.NewObject()
 	for _, column := range []string{"user_id", "phase_context", "title", "content", "position_index", "project_id"} {
 		entry.Set(column, projectRawValue(byName[column]))
 	}
@@ -144,7 +144,7 @@ func StickyNotesIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", out)
 		writeJSON(w, http.StatusOK, payload)
 	}
@@ -195,7 +195,7 @@ func StoreStickyNoteHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			"created_at": createdAt, "updated_at": updatedAt,
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", stickyNoteCreatedObject(byName))
 		writeJSON(w, http.StatusOK, payload)
 	}
@@ -336,7 +336,7 @@ func UpdateStickyNoteHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", stickyNoteObject(fresh))
 		writeJSON(w, http.StatusOK, payload)
 	}
@@ -464,7 +464,7 @@ func GenerateShareTokenHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			token = &generated
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("share_token", *token)
 		payload.Set("share_url", frontendBase()+"/brief/"+*token)
 		writeJSON(w, http.StatusOK, payload)
@@ -534,8 +534,8 @@ var notificationPreferenceAlwaysOn = []string{
 }
 
 // notificationPreferenceObject renders a preference row in table order.
-func notificationPreferenceObject(byName map[string]any) *jsonphp.Object {
-	entry := jsonphp.NewObject()
+func notificationPreferenceObject(byName map[string]any) *jsonwire.Object {
+	entry := jsonwire.NewObject()
 	for _, column := range []string{
 		"id", "user_id", "type", "channel", "enabled",
 		"quiet_hours_start", "quiet_hours_end", "digest", "created_at", "updated_at",
@@ -583,8 +583,8 @@ func preferenceClock(value any) any {
 // updateOrCreate fills the match attributes first (user_id, type, channel),
 // then the values (enabled, digest, quiet hours), and save stamps updated_at
 // BEFORE created_at.
-func notificationPreferenceCreatedObject(byName map[string]any) *jsonphp.Object {
-	entry := jsonphp.NewObject()
+func notificationPreferenceCreatedObject(byName map[string]any) *jsonwire.Object {
+	entry := jsonwire.NewObject()
 	for _, column := range []string{
 		"user_id", "type", "channel", "enabled", "digest",
 		"quiet_hours_start", "quiet_hours_end",
@@ -632,7 +632,7 @@ func NotificationPreferencesIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		defer rows.Close()
 
-		grouped := jsonphp.NewObject()
+		grouped := jsonwire.NewObject()
 		preferenceCount := 0
 		for rows.Next() {
 			fields := fieldNames(rows)
@@ -655,16 +655,16 @@ func NotificationPreferencesIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			channel, _ := byName["channel"].(string)
 
 			bucket, present := grouped.Get(typeKey)
-			var bucketObject *jsonphp.Object
+			var bucketObject *jsonwire.Object
 			if present {
-				bucketObject, _ = bucket.(*jsonphp.Object)
+				bucketObject, _ = bucket.(*jsonwire.Object)
 			}
 			if bucketObject == nil {
-				bucketObject = jsonphp.NewObject()
+				bucketObject = jsonwire.NewObject()
 				grouped.Set(typeKey, bucketObject)
 			}
 
-			entry := jsonphp.NewObject()
+			entry := jsonwire.NewObject()
 			enabled := false
 			if typed, ok := byName["enabled"].(bool); ok {
 				enabled = typed
@@ -690,7 +690,7 @@ func NotificationPreferencesIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			channels = append(channels, channel)
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		var preferences any = grouped
 		if preferenceCount == 0 {
 			// PHP's empty array encodes as [], not {}.
@@ -792,7 +792,7 @@ func UpdateNotificationPreferenceHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			}
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Notification preference saved.")
 		if byName == nil {
 			payload.Set("data", nil)
@@ -853,7 +853,7 @@ func validatePreference(fields map[string]any, failures *errorBag) (string, stri
 	enabled := false
 	if raw, present := fields["enabled"]; !present || raw == nil {
 		failures.add("enabled", "The enabled field is required.")
-	} else if parsed, ok := laravelBoolean(raw); ok {
+	} else if parsed, ok := booleanInputValue(raw); ok {
 		enabled = parsed
 	} else {
 		failures.add("enabled", "The enabled field must be true or false.")
@@ -1140,7 +1140,7 @@ func BroadcastPhaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		if !present {
 			rawList = append(rawList, role)
-			encoded, err := jsonphp.Marshal(rawList)
+			encoded, err := jsonwire.Marshal(rawList)
 			if err != nil {
 				serverError(w)
 				return
@@ -1179,7 +1179,7 @@ func BroadcastPhaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			serverError(w)
 			return
 		}
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", entry)
 		writeJSON(w, http.StatusOK, payload)
 	}

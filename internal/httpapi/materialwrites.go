@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -102,7 +102,7 @@ func materialValidation(fields map[string]any, failures *errorBag, update bool) 
 
 	if update {
 		if raw, present := fields["is_available"]; present {
-			if _, ok := laravelBoolean(raw); !ok {
+			if _, ok := booleanInputValue(raw); !ok {
 				failures.add("is_available", "The is available field must be true or false.")
 			}
 		}
@@ -204,7 +204,7 @@ func StoreMaterialHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				continue
 			}
 			if key == "specifications" {
-				encoded, err := jsonphp.Marshal(raw)
+				encoded, err := jsonwire.Marshal(raw)
 				if err != nil {
 					serverError(w)
 					return
@@ -248,7 +248,7 @@ func StoreMaterialHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			}
 		}
 
-		entry := jsonphp.NewObject()
+		entry := jsonwire.NewObject()
 		for _, key := range materialOnlyKeys {
 			raw, present := fields[key]
 			if !present {
@@ -283,7 +283,7 @@ func StoreMaterialHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		entry.Set("images", imagesList)
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("status", "success")
 		payload.Set("message", "Material added successfully with multiple images")
 		payload.Set("data", entry)
@@ -293,7 +293,7 @@ func StoreMaterialHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 // mustMarshalText renders a value as JSON text for orderedJSONColumn.
 func mustMarshalText(value any) any {
-	encoded, err := jsonphp.Marshal(value)
+	encoded, err := jsonwire.Marshal(value)
 	if err != nil {
 		return nil
 	}
@@ -319,7 +319,7 @@ func materialImages(ctx context.Context, pool *pgxpool.Pool, materialID int64) (
 		if err := rows.Scan(&id, &material, &imagePath, &createdAt, &updatedAt); err != nil {
 			return nil, err
 		}
-		entry := jsonphp.NewObject()
+		entry := jsonwire.NewObject()
 		entry.Set("id", id)
 		entry.Set("material_id", material)
 		entry.Set("image_path", nullableString(imagePath))
@@ -422,7 +422,7 @@ func UpdateMaterialHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				args[len(args)-1] = mustMarshalText(value)
 				placeholder += "::jsonb"
 			case "is_available":
-				flag, _ := laravelBoolean(value)
+				flag, _ := booleanInputValue(value)
 				args[len(args)-1] = flag
 			default:
 				args[len(args)-1] = projectRawValue(value)
@@ -484,7 +484,7 @@ func UpdateMaterialHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("status", "success")
 		payload.Set("message", "Material updated successfully")
 		payload.Set("data", entry)
@@ -560,7 +560,7 @@ func DestroyMaterialHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		imageRows, err := materialImages(ctx, pool, materialID)
 		if err == nil {
 			for _, item := range imageRows {
-				if object, ok := item.(*jsonphp.Object); ok {
+				if object, ok := item.(*jsonwire.Object); ok {
 					if path, present := object.Get("image_path"); present {
 						if text, ok := path.(string); ok && text != "" {
 							_ = removeVaultFile(text)
@@ -576,7 +576,7 @@ func DestroyMaterialHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("status", "success")
 		payload.Set("message", "Material and its images deleted successfully")
 		writeJSON(w, http.StatusOK, payload)

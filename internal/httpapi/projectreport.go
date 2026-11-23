@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -44,8 +44,8 @@ var reportAttachmentMimes = map[string]bool{
 }
 
 // reportObject renders a loaded report in table order.
-func projectReportObject(byName map[string]any) *jsonphp.Object {
-	entry := jsonphp.NewObject()
+func projectReportObject(byName map[string]any) *jsonwire.Object {
+	entry := jsonwire.NewObject()
 	for _, column := range projectReportColumns {
 		value := byName[column]
 		switch column {
@@ -64,8 +64,8 @@ func projectReportObject(byName map[string]any) *jsonphp.Object {
 
 // reportCreatedObject renders Eloquent's CREATED report: the property
 // assignment order in the service, then the save timestamps and id.
-func reportCreatedObject(byName map[string]any) *jsonphp.Object {
-	entry := jsonphp.NewObject()
+func reportCreatedObject(byName map[string]any) *jsonwire.Object {
+	entry := jsonwire.NewObject()
 	entry.Set("project_id", projectRawValue(byName["project_id"]))
 	entry.Set("created_by", projectRawValue(byName["created_by"]))
 	entry.Set("summary", projectRawValue(byName["summary"]))
@@ -106,7 +106,7 @@ func reportRow(ctx context.Context, pool *pgxpool.Pool, reportID int64) (map[str
 
 // writeValidationEnvelope mirrors the reports controller's own 422 body.
 func writeValidationEnvelope(w http.ResponseWriter, failures *errorBag) {
-	errors := jsonphp.NewObject()
+	errors := jsonwire.NewObject()
 	for _, field := range failures.fields {
 		messages := make([]any, 0, len(failures.bag[field]))
 		for _, message := range failures.bag[field] {
@@ -114,7 +114,7 @@ func writeValidationEnvelope(w http.ResponseWriter, failures *errorBag) {
 		}
 		errors.Set(field, messages)
 	}
-	payload := jsonphp.NewObject()
+	payload := jsonwire.NewObject()
 	payload.Set("message", "The given data was invalid.")
 	payload.Set("errors", errors)
 	writeJSON(w, http.StatusUnprocessableEntity, payload)
@@ -381,7 +381,7 @@ func StoreReportHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				message(w, http.StatusInternalServerError, "Failed to publish report: Server Error")
 				return
 			}
-			entry := jsonphp.NewObject()
+			entry := jsonwire.NewObject()
 			entry.Set("name", upload.filename)
 			entry.Set("path", stored)
 			entry.Set("size", upload.sizeBytes())
@@ -401,8 +401,8 @@ func StoreReportHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			health = *input.budgetHealth
 		}
 
-		photosJSON, _ := jsonphp.Marshal(photoPaths)
-		attachmentsJSON, _ := jsonphp.Marshal(attachmentPaths)
+		photosJSON, _ := jsonwire.Marshal(photoPaths)
+		attachmentsJSON, _ := jsonwire.Marshal(attachmentPaths)
 
 		var reportID int64
 		var publishedAt, createdAt, updatedAt any
@@ -429,7 +429,7 @@ func StoreReportHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			byName["phase_slug"] = *input.phaseSlug
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Report published successfully!")
 		payload.Set("report", reportCreatedObject(byName))
 		writeJSON(w, http.StatusCreated, payload)
@@ -533,7 +533,7 @@ func UpdateReportHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				}
 				existing = append(existing, stored)
 			}
-			encoded, _ := jsonphp.Marshal(existing)
+			encoded, _ := jsonwire.Marshal(existing)
 			addJSON("site_photos", string(encoded))
 		}
 		if len(attachments) > 0 {
@@ -545,13 +545,13 @@ func UpdateReportHandler(pool *pgxpool.Pool) http.HandlerFunc {
 					message(w, http.StatusInternalServerError, "Failed to update report: Server Error")
 					return
 				}
-				entry := jsonphp.NewObject()
+				entry := jsonwire.NewObject()
 				entry.Set("name", upload.filename)
 				entry.Set("path", stored)
 				entry.Set("size", upload.sizeBytes())
 				existing = append(existing, entry)
 			}
-			encoded, _ := jsonphp.Marshal(existing)
+			encoded, _ := jsonwire.Marshal(existing)
 			addJSON("attachments", string(encoded))
 		}
 
@@ -576,7 +576,7 @@ func UpdateReportHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		entry.Set("project", project)
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Report updated successfully!")
 		payload.Set("report", entry)
 		writeJSON(w, http.StatusOK, payload)
@@ -640,7 +640,7 @@ func DestroyReportHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			}
 		}
 		for _, attachment := range jsonList(byName["attachments"]) {
-			if object, ok := attachment.(*jsonphp.Object); ok {
+			if object, ok := attachment.(*jsonwire.Object); ok {
 				if path, ok := object.Get("path"); ok {
 					if text, ok := path.(string); ok && text != "" {
 						_ = removeVaultFile(text)

@@ -22,7 +22,7 @@
 
 
 -- The enum vocabulary this file needs. Every value list is the
--- MySQL one, in MySQL's order, and spec/enums.yaml is the source.
+-- MySQL one, in MySQL's order, and the live enum vocabulary is the source.
 
 CREATE TYPE material_orders_status AS ENUM ('pending', 'awaiting_payment', 'verifying', 'paid', 'shipping', 'delivered', 'completed', 'cancelled', 'processing', 'ready_for_pickup', 'refunded');
 

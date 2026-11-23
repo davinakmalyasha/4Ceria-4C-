@@ -87,12 +87,12 @@ func TestFeeOnANonPositiveGrossIsZero(t *testing.T) {
 	}
 }
 
-// TestFeeTitleMatchesTheLegacyFormat pins the human string in the ledger.
+// TestFeeTitleFormat pins the human string in the ledger.
 //
-// The previous code formats the percentage with `number_format($p, 2, ',', '.')`
-// and then strips the trailing zeros, which yields an Indonesian decimal comma.
-// The ledger is audited by humans, so this service keeps the string.
-func TestFeeTitleMatchesTheLegacyFormat(t *testing.T) {
+// The percentage is written with two decimals, an Indonesian decimal comma and
+// trailing zeros stripped. The ledger is audited by humans, so this service
+// keeps the string stable.
+func TestFeeTitleFormat(t *testing.T) {
 	cases := map[string]string{
 		"0":     "0",
 		"1":     "1",

@@ -15,7 +15,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -33,29 +33,19 @@ import (
 //   - search: format=json, q (trimmed), limit=5, countrycodes=id
 //   - both: `User-Agent: 4Ceria-App-Backend`, 5 s timeout
 //
-// RE-ENCODING: PHP's `json_encode` preserves the decoded key order and
-// escapes `/` as `\/`. A verbatim proxy of Nominatim's bytes would differ
-// wherever Nominatim prints a raw `/` (its licence URL) or non-compact
-// spacing — so the body is decoded order-preservingly and re-encoded
-// through `jsonphp`, which mimics PHP's encoder.
+// RE-ENCODING: the upstream body is decoded order-preservingly and written
+// back through `jsonwire`, so key order is stable and a raw `/` or non-ASCII
+// character is not re-escaped differently between responses. A verbatim proxy
+// would preserve Nominatim's whitespace and exponent spelling; the API's
+// clients should see one stable shape.
 //
-// CACHE: a 7-day success cache keyed exactly like the original API's
-// (`geocode:reverse:lat:{lat}:lng:{lng}`, `geocode:search:{md5}`). The
-// short-TTL-then-promote dance in the controller nets out to the same
-// observable behaviour; failures are not cached. A process-local map: two
-// replicas may fetch the same query twice, which is a bill, not a bug.
+// CACHE: a 7-day success cache keyed by coordinates or query
+// (`geocode:reverse:lat:{lat}:lng:{lng}`, `geocode:search:{md5}`). Failures
+// are not cached. The map is process-local: two replicas may fetch the same
+// query twice, which is a bill, not a bug.
 //
 // ORIGIN: `GEOCODING_ORIGIN`, default the public Nominatim. Tests point it
 // at a stub.
-//
-// WHY THE 200 PATH IS NOT IN THE SHADOW GATE
-// ------------------------------------------
-// The body is a third party's data. Two sequential live fetches — one per
-// stack — can differ when OpenStreetMap changes, and the two stacks cache
-// in different processes with different lifetimes. The validation paths
-// are deterministic and ARE gated; the 200 path is proven against the
-// PHP re-encode of the same upstream bytes, the honest maximum for a
-// transparent proxy.
 
 // geocodeCache is a TTL map with lazy expiry.
 type geocodeCache struct {
@@ -224,7 +214,7 @@ func geocodeNumber(raw, field string, min, max float64, failures *errorBag) (flo
 		return 0, false
 	}
 
-	if !isPHPNumeric(raw) {
+	if !isNumericFilter(raw) {
 		failures.add(field, "The "+field+" field must be a number.")
 		return 0, false
 	}
@@ -238,18 +228,18 @@ func geocodeNumber(raw, field string, min, max float64, failures *errorBag) (flo
 	return value, true
 }
 
-// round4 is PHP's `round($v, 4)`: half away from zero.
+// round4 rounds to four decimal places, half away from zero.
 func round4(value float64) float64 {
 	return math.Round(value*10000) / 10000
 }
 
-// formatCoord is PHP's float interpolation for the rounded values.
+// formatCoord renders a rounded coordinate without a trailing `.0`.
 func formatCoord(value float64) string {
 	return strconv.FormatFloat(value, 'f', -1, 64)
 }
 
-// geocodeFetch GETs the upstream with the controller's headers and timeout,
-// returning the re-encoded body. False means "503", exactly when the original API's
+// geocodeFetch GETs the upstream with the configured headers and timeout,
+// returning the re-encoded body. False means "503": the upstream could not be
 // `$response->successful()` is false or the request throws.
 func geocodeFetch(r *http.Request, target string) ([]byte, bool) {
 	request, err := http.NewRequestWithContext(r.Context(), http.MethodGet, target, nil)
@@ -284,7 +274,7 @@ func geocodeFetch(r *http.Request, target string) ([]byte, bool) {
 		return nil, false
 	}
 
-	encoded, err := jsonphp.Marshal(value)
+	encoded, err := jsonwire.Marshal(value)
 	if err != nil {
 		slog.Error("geocode: encode", "error", err)
 		return nil, false
@@ -320,7 +310,7 @@ func writeJSONRawPublic(w http.ResponseWriter, r *http.Request, status int, body
 }
 
 // decodeOrdered decodes JSON preserving object key order and number
-// literals: objects become *jsonphp.Object, numbers stay verbatim.
+// literals: objects become *jsonwire.Object, numbers stay verbatim.
 func decodeOrdered(raw []byte) (any, error) {
 	parser := &jsonParser{input: raw}
 	value, err := parser.value()
@@ -393,7 +383,7 @@ func (p *jsonParser) literal(word string, value any) (any, error) {
 
 func (p *jsonParser) object() (any, error) {
 	p.pos++
-	object := jsonphp.NewObject()
+	object := jsonwire.NewObject()
 
 	p.spaces()
 	if !p.atEnd() && p.input[p.pos] == '}' {
@@ -564,11 +554,9 @@ func unquoteJSON(escaped []byte) (string, error) {
 	return "", jsonError("bad escape")
 }
 
-// number reads a JSON number the way PHP decodes it: an integer literal
-// becomes an int, anything else a double. The encoder then formats it
-// back — which is what normalises Nominatim's `e-05` to PHP's `e-5`.
-// A verbatim passthrough would preserve the upstream spelling, and the
-// two stacks would differ on every exponent.
+// number reads a JSON number: an integer literal becomes an int, anything
+// else a float. The encoder then writes a canonical spelling, so a provider
+// that alternates between `e-05` and `e-5` still produces one response shape.
 func (p *jsonParser) number() (any, error) {
 	start := p.pos
 

@@ -8,7 +8,7 @@ import (
 
 	"github.com/davinakmalyasha/4ceria/internal/domain/authz"
 	"github.com/davinakmalyasha/4ceria/internal/domain/identity"
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -339,7 +339,7 @@ func stockHandler(w http.ResponseWriter, r *http.Request, pool *pgxpool.Pool, ki
 	reqEntry := historyRequirement(ctx, refreshed)
 
 	if kind == "usage" {
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", reqEntry)
 		writeJSON(w, http.StatusOK, payload)
 		return
@@ -359,7 +359,7 @@ func stockHandler(w http.ResponseWriter, r *http.Request, pool *pgxpool.Pool, ki
 		return
 	}
 
-	payload := jsonphp.NewObject()
+	payload := jsonwire.NewObject()
 	if kind == "restock" {
 		payload.Set("message", "Material successfully restocked.")
 	} else {
@@ -399,10 +399,10 @@ func stockLess(onSite *string, quantity string) bool {
 // the fillable keys as assigned, then updated_at, created_at, id, and
 // the actor. A re-read emits table order instead — and the reference
 // answers create order on every one of these 200s.
-func historyCreateResponse(ctx context.Context, pool *pgxpool.Pool, row historyRow) (*jsonphp.Object, error) {
+func historyCreateResponse(ctx context.Context, pool *pgxpool.Pool, row historyRow) (*jsonwire.Object, error) {
 	byName := row.byName
 
-	entry := jsonphp.NewObject()
+	entry := jsonwire.NewObject()
 	entry.Set("project_requirement_id", nullableInt64(intPtrOf(byName["project_requirement_id"])))
 	entry.Set("user_id", nullableInt64(intPtrOf(byName["user_id"])))
 	entry.Set("type", nullableString(stringPtrOf(byName["type"])))

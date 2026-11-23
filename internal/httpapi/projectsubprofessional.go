@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -45,8 +45,8 @@ var subColumns = []string{
 }
 
 // subObject renders one roster row.
-func subObject(byName map[string]any) *jsonphp.Object {
-	entry := jsonphp.NewObject()
+func subObject(byName map[string]any) *jsonwire.Object {
+	entry := jsonwire.NewObject()
 	for _, column := range subColumns {
 		value := byName[column]
 		switch column {
@@ -94,8 +94,8 @@ func loadSub(ctx context.Context, pool subQuerier, projectID, subID int64) (map[
 // subObjectCreateOrder renders the model Eloquent CREATED: the
 // updateOrCreate match keys first, then the values it set, then the
 // timestamps and id — NOT table order.
-func subObjectCreateOrder(byName map[string]any) *jsonphp.Object {
-	entry := jsonphp.NewObject()
+func subObjectCreateOrder(byName map[string]any) *jsonwire.Object {
+	entry := jsonwire.NewObject()
 	entry.Set("project_id", projectRawValue(byName["project_id"]))
 	entry.Set("user_id", projectRawValue(byName["user_id"]))
 	entry.Set("sub_role", projectRawValue(byName["sub_role"]))
@@ -133,7 +133,7 @@ func subUserBlock(ctx context.Context, pool subQuerier, userID int64) any {
 	if err := rows.Scan(&id, &name, &role); err != nil {
 		return nil
 	}
-	block := jsonphp.NewObject()
+	block := jsonwire.NewObject()
 	block.Set("id", userID)
 	block.Set("name", name)
 	block.Set("role_type", nullableString(role))
@@ -141,7 +141,7 @@ func subUserBlock(ctx context.Context, pool subQuerier, userID int64) any {
 }
 
 // subResult reloads one row with the roster's trimmed relations.
-func subResult(ctx context.Context, pool *pgxpool.Pool, projectID, subID int64, withRelations bool) (*jsonphp.Object, error) {
+func subResult(ctx context.Context, pool *pgxpool.Pool, projectID, subID int64, withRelations bool) (*jsonwire.Object, error) {
 	byName, found, err := loadSub(ctx, pool, projectID, subID)
 	if err != nil {
 		return nil, err
@@ -162,7 +162,7 @@ func subResult(ctx context.Context, pool *pgxpool.Pool, projectID, subID int64, 
 		if userID != nil {
 			entry.Set("user", subUserBlock(ctx, pool, *userID))
 		}
-		assigner := jsonphp.NewObject()
+		assigner := jsonwire.NewObject()
 		if assignedBy != nil {
 			var name string
 			if err := pool.QueryRow(ctx, `SELECT name FROM users WHERE id = $1`, *assignedBy).Scan(&name); err == nil {
@@ -316,7 +316,7 @@ func SubProfessionalsIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				entry.Set("user", subUserBlock(ctx, pool, v))
 			}
 			if v, ok := byName["assigned_by"].(int64); ok {
-				block := jsonphp.NewObject()
+				block := jsonwire.NewObject()
 				var name string
 				if err := pool.QueryRow(ctx, `SELECT name FROM users WHERE id = $1`, v).Scan(&name); err == nil {
 					block.Set("id", v)
@@ -337,7 +337,7 @@ func SubProfessionalsIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		_ = viewer
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("data", out)
 		writeJSON(w, http.StatusOK, payload)
 	}
@@ -494,7 +494,7 @@ func AssignSubProfessionalHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				entry = created
 			}
 		}
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Sub-professional invited successfully.")
 		payload.Set("data", entry)
 		writeJSON(w, http.StatusCreated, payload)
@@ -858,7 +858,7 @@ func SubProfessionalDecisionHandler(pool *pgxpool.Pool, verb string) http.Handle
 			"hire":      "Professional hired successfully.",
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", messages[verb])
 		payload.Set("data", entry)
 		writeJSON(w, http.StatusOK, payload)
@@ -1127,7 +1127,7 @@ func ShortlistSubBidHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			}
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Bid shortlisted for interview.")
 		payload.Set("data", entry)
 		writeJSON(w, http.StatusOK, payload)

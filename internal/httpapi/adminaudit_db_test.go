@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 )
 
 // TestAdminProjectsAuditColumns pins the audit columns the Projects Audit
@@ -44,13 +44,13 @@ func TestAdminProjectsAuditColumns(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	entry := jsonphp.NewObject()
+	entry := jsonwire.NewObject()
 	entry.Set("bid_count", bidCount)
 	entry.Set("pending_bid_count", pendingBidCount)
 	if openDispute == nil {
 		entry.Set("open_dispute", nil)
 	} else {
-		dispute := jsonphp.NewObject()
+		dispute := jsonwire.NewObject()
 		dispute.Set("id", disputeID)
 		dispute.Set("title", disputeTitle)
 		entry.Set("open_dispute", dispute)
@@ -58,7 +58,7 @@ func TestAdminProjectsAuditColumns(t *testing.T) {
 	entry.Set("paid_total", formatMinor(paidMinor))
 	entry.Set("refunded_total", formatMinor(refundedMinor))
 
-	raw, err := jsonphp.Marshal(entry)
+	raw, err := jsonwire.Marshal(entry)
 	if err != nil {
 		t.Fatal(err)
 	}

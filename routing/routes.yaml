@@ -9,7 +9,7 @@
 
 'meta':
   'updated_at': '2026-11-23T00:00:00+00:00'
-  'api_route_count': 320
+  'api_route_count': 325
   'public_route_count': 20
   'admin_route_count': 18
 'routes':
@@ -22,7 +22,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
         - 'admin'
   - 'id': 'get.api.admin.disputes.dispute'
@@ -34,7 +34,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
         - 'admin'
   - 'id': 'post.api.admin.disputes.dispute.act'
@@ -46,7 +46,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
         - 'admin'
   - 'id': 'get.api.admin.disputes.dispute.messages.message.evidence'
@@ -58,7 +58,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
         - 'admin'
   - 'id': 'post.api.admin.disputes.dispute.reply'
@@ -70,7 +70,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
         - 'admin'
   - 'id': 'post.api.admin.retention.release'
@@ -82,7 +82,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
         - 'admin'
   - 'id': 'get.api.admin.houses'
@@ -94,7 +94,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
         - 'admin'
   - 'id': 'patch.api.admin.houses.id.suspend'
@@ -106,7 +106,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
         - 'admin'
   - 'id': 'get.api.admin.professionals'
@@ -118,7 +118,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
         - 'admin'
   - 'id': 'get.api.admin.professionals.history'
@@ -130,7 +130,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
         - 'admin'
   - 'id': 'patch.api.admin.professionals.type.id.status'
@@ -142,7 +142,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
         - 'admin'
   - 'id': 'get.api.admin.projects'
@@ -154,7 +154,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
         - 'admin'
   - 'id': 'get.api.admin.projects.export'
@@ -166,7 +166,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
         - 'admin'
         - 'throttle:10,1'
@@ -179,7 +179,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
         - 'admin'
   - 'id': 'get.api.admin.stats'
@@ -191,7 +191,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
         - 'admin'
   - 'id': 'get.api.admin.users'
@@ -203,7 +203,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
         - 'admin'
   - 'id': 'patch.api.admin.users.user.role'
@@ -215,7 +215,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
         - 'admin'
   - 'id': 'patch.api.admin.users.user.suspend'
@@ -227,7 +227,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
         - 'admin'
   - 'id': 'get.api.ai.status'
@@ -239,7 +239,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.ai.sessions'
     'methods':
@@ -250,7 +250,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.ai.sessions'
     'methods':
@@ -261,7 +261,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.ai.sessions.session'
     'methods':
@@ -272,7 +272,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'put.api.ai.sessions.session'
     'methods':
@@ -283,7 +283,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'delete.api.ai.sessions.session'
     'methods':
@@ -294,7 +294,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.ai.chat'
     'methods':
@@ -305,7 +305,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
         - 'throttle:30,1'
   - 'id': 'post.api.ai.chat.stream'
@@ -317,9 +317,68 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
         - 'throttle:30,1'
+  - 'id': 'get.api.ai.memory'
+    'methods':
+      - 'GET'
+    'uri': 'api/ai/memory'
+    'auth': 'authenticated'
+    'throttle': null
+    'gates':
+      'middleware':
+        - 'api'
+        - 'auth'
+        - 'freeze_pending_termination'
+  - 'id': 'put.api.ai.memory'
+    'methods':
+      - 'PUT'
+    'uri': 'api/ai/memory'
+    'auth': 'authenticated'
+    'throttle': '60,1'
+    'gates':
+      'middleware':
+        - 'api'
+        - 'auth'
+        - 'freeze_pending_termination'
+        - 'throttle:60,1'
+  - 'id': 'delete.api.ai.memory'
+    'methods':
+      - 'DELETE'
+    'uri': 'api/ai/memory'
+    'auth': 'authenticated'
+    'throttle': '60,1'
+    'gates':
+      'middleware':
+        - 'api'
+        - 'auth'
+        - 'freeze_pending_termination'
+        - 'throttle:60,1'
+  - 'id': 'delete.api.ai.memory.memory'
+    'methods':
+      - 'DELETE'
+    'uri': 'api/ai/memory/{memory}'
+    'auth': 'authenticated'
+    'throttle': '60,1'
+    'gates':
+      'middleware':
+        - 'api'
+        - 'auth'
+        - 'freeze_pending_termination'
+        - 'throttle:60,1'
+  - 'id': 'post.api.mcp'
+    'methods':
+      - 'POST'
+    'uri': 'api/mcp'
+    'auth': 'authenticated'
+    'throttle': '120,1'
+    'gates':
+      'middleware':
+        - 'api'
+        - 'auth'
+        - 'freeze_pending_termination'
+        - 'throttle:120,1'
   - 'id': 'get.api.arsitek'
     'methods':
       - 'GET'
@@ -347,7 +406,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
   - 'id': 'post.api.consultations'
     'methods':
       - 'POST'
@@ -357,7 +416,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
   - 'id': 'post.api.consultations.consultation.respond'
     'methods':
       - 'POST'
@@ -367,7 +426,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
   - 'id': 'get.api.contractor-subspecialties'
     'methods':
       - 'GET'
@@ -377,7 +436,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.conversations'
     'methods':
@@ -388,7 +447,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.conversations'
     'methods':
@@ -399,7 +458,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
         - 'throttle:10,1'
   - 'id': 'get.api.conversations.conversation'
@@ -411,7 +470,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.conversations.conversation.messages'
     'methods':
@@ -422,7 +481,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
         - 'throttle:30,1'
   - 'id': 'get.api.delivery-jobs'
@@ -434,7 +493,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.favorites'
     'methods':
@@ -445,7 +504,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.favorites.merge'
     'methods':
@@ -456,7 +515,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.favorites.toggle'
     'methods':
@@ -467,7 +526,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'delete.api.favorites.favorite'
     'methods':
@@ -478,7 +537,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.firm-members.browse-owners'
     'methods':
@@ -489,7 +548,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.firm-members.invitations'
     'methods':
@@ -500,7 +559,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.firm-members.invite'
     'methods':
@@ -511,7 +570,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.firm-members.my-firms'
     'methods':
@@ -522,7 +581,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.firm-members.profile.ownerId'
     'methods':
@@ -533,7 +592,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.firm-members.quick-assign'
     'methods':
@@ -544,7 +603,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.firm-members.request-join'
     'methods':
@@ -555,7 +614,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.firm-members.roster'
     'methods':
@@ -566,7 +625,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.firm-members.search'
     'methods':
@@ -577,7 +636,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.firm-members.suggestions'
     'methods':
@@ -588,7 +647,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.firm-members.update-profile'
     'methods':
@@ -599,7 +658,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'delete.api.firm-members.firmMember'
     'methods':
@@ -610,7 +669,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.firm-members.firmMember.cancel'
     'methods':
@@ -621,7 +680,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.firm-members.firmMember.respond'
     'methods':
@@ -632,7 +691,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.forgot-password'
     'methods':
@@ -673,7 +732,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.houses'
     'methods':
@@ -693,7 +752,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'houses.destroy'
     'methods':
@@ -704,7 +763,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.houses.house'
     'methods':
@@ -725,7 +784,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.houses.house.questions'
     'methods':
@@ -745,7 +804,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.houses.house.rooms'
     'methods':
@@ -756,7 +815,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.interior'
     'methods':
@@ -795,7 +854,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.logistics.dashboard-stats'
     'methods':
@@ -806,7 +865,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.logistics.jobs.id.accept'
     'methods':
@@ -817,7 +876,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.logistics.jobs.id.status'
     'methods':
@@ -828,7 +887,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.logistics.my-jobs'
     'methods':
@@ -839,7 +898,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.logout'
     'methods':
@@ -850,7 +909,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.marketplace.materials'
     'methods':
@@ -888,7 +947,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'delete.api.material-order-reviews.material_order_review'
     'methods':
@@ -899,7 +958,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'put.api.material-order-reviews.material_order_review'
     'methods':
@@ -910,7 +969,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'material-orders.index'
     'methods':
@@ -921,7 +980,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'material-orders.show'
     'methods':
@@ -932,7 +991,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'material-orders.update'
     'methods':
@@ -944,7 +1003,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.material-orders.material_order.payment-proof'
     'methods':
@@ -955,7 +1014,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.material-orders.material_order.verify-payment'
     'methods':
@@ -966,7 +1025,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.material-orders.material_order.confirm-receipt'
     'methods':
@@ -977,7 +1036,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.material-quotes'
     'methods':
@@ -988,7 +1047,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.material-quotes'
     'methods':
@@ -999,7 +1058,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.material-quotes.quote.approve'
     'methods':
@@ -1010,7 +1069,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'put.api.material-quotes.quote.mark-paid'
     'methods':
@@ -1021,7 +1080,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.material-quotes.quote.payment-proof'
     'methods':
@@ -1032,7 +1091,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.material-quotes.quote.post-delivery-job'
     'methods':
@@ -1043,7 +1102,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'put.api.material-quotes.quote.request-payment'
     'methods':
@@ -1054,7 +1113,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.me'
     'methods':
@@ -1065,7 +1124,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'put.api.me'
     'methods':
@@ -1076,7 +1135,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'delete.api.me.avatar'
     'methods':
@@ -1087,7 +1146,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.me.avatar'
     'methods':
@@ -1098,7 +1157,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.me.professional'
     'methods':
@@ -1109,7 +1168,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.me.unread-summary'
     'methods':
@@ -1120,7 +1179,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.mep-engineers'
     'methods':
@@ -1140,7 +1199,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'materials.store'
     'methods':
@@ -1151,7 +1210,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'materials.destroy'
     'methods':
@@ -1162,7 +1221,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'materials.update'
     'methods':
@@ -1174,7 +1233,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.merchant.profile'
     'methods':
@@ -1185,7 +1244,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'put.api.merchant.profile'
     'methods':
@@ -1196,7 +1255,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.my-bids'
     'methods':
@@ -1207,7 +1266,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.notaris'
     'methods':
@@ -1227,7 +1286,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.notification-preferences'
     'methods':
@@ -1238,7 +1297,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'put.api.notification-preferences'
     'methods':
@@ -1249,7 +1308,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.notifications'
     'methods':
@@ -1260,7 +1319,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.notifications.read-all'
     'methods':
@@ -1271,7 +1330,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.notifications.notification.read'
     'methods':
@@ -1282,7 +1341,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.portfolios'
     'methods':
@@ -1293,7 +1352,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.portfolios'
     'methods':
@@ -1304,7 +1363,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'delete.api.portfolios.id'
     'methods':
@@ -1315,7 +1374,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.portfolios.id'
     'methods':
@@ -1326,7 +1385,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.project-manager'
     'methods':
@@ -1346,7 +1405,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'projects.store'
     'methods':
@@ -1357,7 +1416,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'projects.destroy'
     'methods':
@@ -1368,7 +1427,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.projects.project'
     'methods':
@@ -1379,7 +1438,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'projects.update'
     'methods':
@@ -1391,7 +1450,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.accept-bid'
     'methods':
@@ -1402,7 +1461,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.projects.project.activity'
     'methods':
@@ -1413,7 +1472,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.addendums.addendum.approve'
     'methods':
@@ -1424,7 +1483,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.addendums.addendum.reject'
     'methods':
@@ -1435,7 +1494,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.approve-construction-brief'
     'methods':
@@ -1446,7 +1505,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.approve-engineering'
     'methods':
@@ -1457,7 +1516,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.approve-engineering-hire.addendum'
     'methods':
@@ -1468,7 +1527,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.approve-planning'
     'methods':
@@ -1479,7 +1538,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.authorize-phase'
     'methods':
@@ -1490,7 +1549,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.authorize-specialist'
     'methods':
@@ -1501,7 +1560,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.projects.project.bast'
     'methods':
@@ -1512,7 +1571,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.projects.project.bids'
     'methods':
@@ -1523,7 +1582,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.bids'
     'methods':
@@ -1534,7 +1593,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.bids.bid.accept-invite'
     'methods':
@@ -1545,7 +1604,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.bids.bid.client-sign-contract'
     'methods':
@@ -1556,7 +1615,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.bids.bid.confirm-fee'
     'methods':
@@ -1567,7 +1626,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.bids.bid.negotiate'
     'methods':
@@ -1578,7 +1637,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.bids.bid.reject-invite'
     'methods':
@@ -1589,7 +1648,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.bids.bid.sign-contract'
     'methods':
@@ -1600,7 +1659,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.broadcast-phase'
     'methods':
@@ -1611,7 +1670,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.projects.project.budget'
     'methods':
@@ -1622,7 +1681,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.budget.addendums'
     'methods':
@@ -1633,7 +1692,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'put.api.projects.project.budget.addendums.id'
     'methods':
@@ -1644,7 +1703,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.budget.mark-paid'
     'methods':
@@ -1655,7 +1714,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.budget.sandbox'
     'methods':
@@ -1666,7 +1725,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'delete.api.projects.project.budget.sandbox.id'
     'methods':
@@ -1677,7 +1736,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'put.api.projects.project.budget.sandbox.id'
     'methods':
@@ -1688,7 +1747,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'put.api.projects.project.budget.sandbox.id.update'
     'methods':
@@ -1699,7 +1758,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.budget.transactions'
     'methods':
@@ -1710,7 +1769,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.projects.project.change-orders'
     'methods':
@@ -1721,7 +1780,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.change-orders'
     'methods':
@@ -1732,7 +1791,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.change-orders.changeOrder.owner-decide'
     'methods':
@@ -1743,7 +1802,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.change-orders.changeOrder.pm-review'
     'methods':
@@ -1754,7 +1813,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.projects.project.comments'
     'methods':
@@ -1765,7 +1824,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.comments'
     'methods':
@@ -1776,7 +1835,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'delete.api.projects.project.comments.comment'
     'methods':
@@ -1787,7 +1846,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'put.api.projects.project.comments.comment'
     'methods':
@@ -1798,7 +1857,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.projects.project.daily-logs'
     'methods':
@@ -1809,7 +1868,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.daily-logs'
     'methods':
@@ -1820,7 +1879,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'delete.api.projects.project.daily-logs.dailyLog'
     'methods':
@@ -1831,7 +1890,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.decline-bid'
     'methods':
@@ -1842,7 +1901,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.delays'
     'methods':
@@ -1853,7 +1912,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.projects.project.disputes'
     'methods':
@@ -1864,7 +1923,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.disputes'
     'methods':
@@ -1875,7 +1934,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.projects.project.disputes.dispute'
     'methods':
@@ -1886,7 +1945,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.projects.project.disputes.dispute.messages.message.evidence'
     'methods':
@@ -1897,7 +1956,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.disputes.dispute.reply'
     'methods':
@@ -1908,7 +1967,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.disputes.dispute.withdraw'
     'methods':
@@ -1919,7 +1978,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.projects.project.documents'
     'methods':
@@ -1930,7 +1989,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.documents'
     'methods':
@@ -1941,7 +2000,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.documents.approve-design'
     'methods':
@@ -1952,7 +2011,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.documents.revise-design'
     'methods':
@@ -1963,7 +2022,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.documents.submit-design'
     'methods':
@@ -1974,7 +2033,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'delete.api.projects.project.documents.document'
     'methods':
@@ -1985,7 +2044,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'put.api.projects.project.documents.document'
     'methods':
@@ -1996,7 +2055,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.documents.document.verify'
     'methods':
@@ -2007,7 +2066,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.engineering-logs'
     'methods':
@@ -2018,7 +2077,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'delete.api.projects.project.engineering-logs.milestone'
     'methods':
@@ -2029,7 +2088,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.projects.project.extensions'
     'methods':
@@ -2040,7 +2099,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.extensions'
     'methods':
@@ -2051,7 +2110,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.extensions.extension.owner-decide'
     'methods':
@@ -2062,7 +2121,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.extensions.extension.pm-review'
     'methods':
@@ -2073,7 +2132,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.handover.approve'
     'methods':
@@ -2084,7 +2143,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.handover.reject'
     'methods':
@@ -2095,7 +2154,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.import-external-vendor'
     'methods':
@@ -2106,7 +2165,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.initiate-walkthrough'
     'methods':
@@ -2117,7 +2176,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.invite'
     'methods':
@@ -2128,7 +2187,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.kickoff'
     'methods':
@@ -2139,7 +2198,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.projects.project.legal-financials'
     'methods':
@@ -2150,7 +2209,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.lock-brief'
     'methods':
@@ -2161,7 +2220,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.mark-complete'
     'methods':
@@ -2172,7 +2231,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.projects.project.material-folders'
     'methods':
@@ -2183,7 +2242,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.material-folders'
     'methods':
@@ -2194,7 +2253,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'delete.api.projects.project.material-folders.folder'
     'methods':
@@ -2205,7 +2264,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'put.api.projects.project.material-folders.folder'
     'methods':
@@ -2216,7 +2275,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.projects.project.milestones'
     'methods':
@@ -2227,7 +2286,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.milestones'
     'methods':
@@ -2238,7 +2297,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'delete.api.projects.project.milestones.milestone'
     'methods':
@@ -2249,7 +2308,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'put.api.projects.project.milestones.milestone'
     'methods':
@@ -2260,7 +2319,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.milestones.milestone.approve'
     'methods':
@@ -2271,7 +2330,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.projects.project.mutual-termination'
     'methods':
@@ -2282,7 +2341,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.mutual-termination.initiate'
     'methods':
@@ -2293,7 +2352,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.mutual-termination.termination.escalate'
     'methods':
@@ -2304,7 +2363,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.mutual-termination.termination.respond'
     'methods':
@@ -2315,7 +2374,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.owner-accept'
     'methods':
@@ -2326,7 +2385,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.projects.project.payment-termins'
     'methods':
@@ -2337,7 +2396,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.payment-termins'
     'methods':
@@ -2348,7 +2407,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'delete.api.projects.project.payment-termins.termin'
     'methods':
@@ -2359,7 +2418,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'put.api.projects.project.payment-termins.termin'
     'methods':
@@ -2370,7 +2429,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.payment-termins.termin.link-milestone'
     'methods':
@@ -2381,7 +2440,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.payment-termins.termin.unlink-milestone'
     'methods':
@@ -2392,7 +2451,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.payments.type.id.upload-proof'
     'methods':
@@ -2403,7 +2462,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.payments.type.id.verify-proof'
     'methods':
@@ -2414,7 +2473,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.pm-bids'
     'methods':
@@ -2425,7 +2484,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.pm-bids.bid.accept'
     'methods':
@@ -2436,7 +2495,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.pm-bids.bid.decline'
     'methods':
@@ -2447,7 +2506,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.pm-bids.bid.shortlist'
     'methods':
@@ -2458,7 +2517,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.projects.project.procurement-requests'
     'methods':
@@ -2469,7 +2528,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.procurement-requests.procurementRequest.reject'
     'methods':
@@ -2480,7 +2539,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.procurement-requests.procurementRequest.verify'
     'methods':
@@ -2491,7 +2550,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.propose-fee'
     'methods':
@@ -2502,7 +2561,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.reject-engineering-bid.bidId'
     'methods':
@@ -2513,7 +2572,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.reject-engineering-hire.addendum'
     'methods':
@@ -2524,7 +2583,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.reject-planning'
     'methods':
@@ -2535,7 +2594,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.reject-specialist'
     'methods':
@@ -2546,7 +2605,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.projects.project.reports'
     'methods':
@@ -2557,7 +2616,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.reports'
     'methods':
@@ -2568,7 +2627,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'delete.api.projects.project.reports.report'
     'methods':
@@ -2579,7 +2638,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'put.api.projects.project.reports.report'
     'methods':
@@ -2590,7 +2649,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.request-engineering'
     'methods':
@@ -2601,7 +2660,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.projects.project.requirements'
     'methods':
@@ -2612,7 +2671,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.requirements'
     'methods':
@@ -2623,7 +2682,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.projects.project.requirements-history'
     'methods':
@@ -2634,7 +2693,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'delete.api.projects.project.requirements.requirement'
     'methods':
@@ -2645,7 +2704,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'put.api.projects.project.requirements.requirement'
     'methods':
@@ -2656,7 +2715,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.projects.project.requirements.requirement.history'
     'methods':
@@ -2667,7 +2726,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.requirements.requirement.request-procurement'
     'methods':
@@ -2678,7 +2737,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.requirements.requirement.restock'
     'methods':
@@ -2689,7 +2748,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.requirements.requirement.usage'
     'methods':
@@ -2700,7 +2759,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.requirements.requirement.use'
     'methods':
@@ -2711,7 +2770,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.resign'
     'methods':
@@ -2722,7 +2781,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.review'
     'methods':
@@ -2733,7 +2792,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.revise-construction-brief'
     'methods':
@@ -2744,7 +2803,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.projects.project.schedules'
     'methods':
@@ -2755,7 +2814,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'put.api.projects.project.schedules.schedule'
     'methods':
@@ -2766,7 +2825,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.seal-construction'
     'methods':
@@ -2777,7 +2836,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.seal-design'
     'methods':
@@ -2788,7 +2847,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.seal-interior'
     'methods':
@@ -2799,7 +2858,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.seal-legal'
     'methods':
@@ -2810,7 +2869,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'delete.api.projects.project.share-token'
     'methods':
@@ -2821,7 +2880,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.share-token'
     'methods':
@@ -2832,7 +2891,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.shortlist-bid'
     'methods':
@@ -2843,7 +2902,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.projects.project.snag-items'
     'methods':
@@ -2854,7 +2913,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.snag-items'
     'methods':
@@ -2865,7 +2924,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'put.api.projects.project.snag-items.snagItem'
     'methods':
@@ -2876,7 +2935,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.snag-items.snagItem.accept'
     'methods':
@@ -2887,7 +2946,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.projects.project.sticky-notes'
     'methods':
@@ -2898,7 +2957,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.sticky-notes'
     'methods':
@@ -2909,7 +2968,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'delete.api.projects.project.sticky-notes.stickyNote'
     'methods':
@@ -2920,7 +2979,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'put.api.projects.project.sticky-notes.stickyNote'
     'methods':
@@ -2931,7 +2990,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.projects.project.sub-professionals'
     'methods':
@@ -2942,7 +3001,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.sub-professionals'
     'methods':
@@ -2953,7 +3012,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.sub-professionals.shortlist-bid.role.bidId'
     'methods':
@@ -2964,7 +3023,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'delete.api.projects.project.sub-professionals.id'
     'methods':
@@ -2975,7 +3034,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.sub-professionals.id.accept'
     'methods':
@@ -2986,7 +3045,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.sub-professionals.id.decline'
     'methods':
@@ -2997,7 +3056,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.sub-professionals.id.hire'
     'methods':
@@ -3008,7 +3067,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.sub-professionals.id.interview'
     'methods':
@@ -3019,7 +3078,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.sub-professionals.id.recommend'
     'methods':
@@ -3030,7 +3089,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.submit-engineering-interview'
     'methods':
@@ -3041,7 +3100,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.submit-planning'
     'methods':
@@ -3052,7 +3111,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.technical-audit-submit'
     'methods':
@@ -3063,7 +3122,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.terminate'
     'methods':
@@ -3074,7 +3133,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.update'
     'methods':
@@ -3085,7 +3144,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.update-planning-audit'
     'methods':
@@ -3096,7 +3155,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.verify-engineering.addendum'
     'methods':
@@ -3107,7 +3166,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.verify-legal'
     'methods':
@@ -3118,7 +3177,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.verify-payment'
     'methods':
@@ -3129,7 +3188,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.verify-pbg'
     'methods':
@@ -3140,7 +3199,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.verify-planning-pm'
     'methods':
@@ -3151,7 +3210,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.verify-slf'
     'methods':
@@ -3162,7 +3221,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.projects.project.warranty-claims'
     'methods':
@@ -3173,7 +3232,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.warranty-claims'
     'methods':
@@ -3184,7 +3243,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'put.api.projects.project.warranty-claims.claim.status'
     'methods':
@@ -3195,7 +3254,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.push.public-key'
     'methods':
@@ -3206,7 +3265,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.push.subscribe'
     'methods':
@@ -3217,7 +3276,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.push.unsubscribe'
     'methods':
@@ -3228,7 +3287,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.questions.question.answers'
     'methods':
@@ -3239,7 +3298,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.register'
     'methods':
@@ -3270,7 +3329,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.structural-engineers'
     'methods':
@@ -3290,7 +3349,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.team-members'
     'methods':
@@ -3301,7 +3360,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.team-members'
     'methods':
@@ -3312,7 +3371,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'delete.api.team-members.id'
     'methods':
@@ -3323,7 +3382,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'put.api.team-members.id'
     'methods':
@@ -3334,7 +3393,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.upload'
     'methods':
@@ -3345,7 +3404,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.user.active-projects'
     'methods':
@@ -3356,7 +3415,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.verifications.documents.type.id.field'
     'methods':
@@ -3367,7 +3426,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.saved-searches'
     'methods':
@@ -3378,7 +3437,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.saved-searches'
     'methods':
@@ -3389,7 +3448,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'delete.api.saved-searches.id'
     'methods':
@@ -3400,7 +3459,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.projects.project.finance-ledger'
     'methods':
@@ -3411,7 +3470,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.me.analytics'
     'methods':
@@ -3422,7 +3481,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.projects.project.reports.export'
     'methods':
@@ -3433,7 +3492,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.projects.project.progress'
     'methods':
@@ -3444,7 +3503,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'put.api.projects.project.milestones.milestone.weight'
     'methods':
@@ -3455,7 +3514,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.procurement-requests.id.purchase'
     'methods':
@@ -3466,7 +3525,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.projects.project.owner-reviews'
     'methods':
@@ -3477,7 +3536,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'post.api.projects.project.owner-reviews'
     'methods':
@@ -3488,7 +3547,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.projects.project.snags.sla'
     'methods':
@@ -3499,7 +3558,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.tools.kpr'
     'methods':
@@ -3510,7 +3569,7 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'
   - 'id': 'get.api.me.export'
     'methods':
@@ -3521,5 +3580,5 @@
     'gates':
       'middleware':
         - 'api'
-        - 'auth:sanctum'
+        - 'auth'
         - 'freeze_pending_termination'

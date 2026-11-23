@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davinakmalyasha/4ceria/internal/jsonphp"
+	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -28,8 +28,8 @@ var portfolioColumns = []string{
 }
 
 // portfolioObject renders a hydrated row in table order.
-func portfolioObject(byName map[string]any) *jsonphp.Object {
-	entry := jsonphp.NewObject()
+func portfolioObject(byName map[string]any) *jsonwire.Object {
+	entry := jsonwire.NewObject()
 	for _, column := range portfolioColumns {
 		switch column {
 		case "created_at", "updated_at":
@@ -42,8 +42,8 @@ func portfolioObject(byName map[string]any) *jsonphp.Object {
 }
 
 // portfolioCreatedObject renders Eloquent's CREATED model.
-func portfolioCreatedObject(byName map[string]any) *jsonphp.Object {
-	entry := jsonphp.NewObject()
+func portfolioCreatedObject(byName map[string]any) *jsonwire.Object {
+	entry := jsonwire.NewObject()
 	for _, column := range []string{
 		"user_id", "role_type", "title", "description", "duration",
 		"client_review", "image_path",
@@ -287,7 +287,7 @@ func StorePortfolioHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			"image_path": imagePath, "created_at": createdAt, "updated_at": updatedAt,
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Portfolio added successfully")
 		payload.Set("data", portfolioCreatedObject(created))
 		writeJSON(w, http.StatusOK, payload)
@@ -378,7 +378,7 @@ func UpdatePortfolioHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		payload := jsonphp.NewObject()
+		payload := jsonwire.NewObject()
 		payload.Set("message", "Portfolio updated successfully")
 		payload.Set("data", portfolioObject(fresh))
 		writeJSON(w, http.StatusOK, payload)
