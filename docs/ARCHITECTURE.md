@@ -42,7 +42,7 @@ components and the two proxy route handlers attach it to API calls.
    Public JSON ETags are weak because the identity bytes have two codings.
 7. A long response owns its deadline. Multipart uploads extend the read
    deadline from their declared size; the AI SSE stream extends its write
-   deadline to three minutes. See `docs/PERFORMANCE.md`.
+   deadline to three minutes. See `docs/history/PERFORMANCE.md`.
 
 A 401 from the API during a server render redirects to `/auth/expire`, which
 clears the cookie and then sends the visitor to `/login`. This prevents the
@@ -128,6 +128,6 @@ held on one acquired connection:
 
 The API is a static Go binary (`Dockerfile`, `--addr=:8080`). The web app is a
 Next standalone build. Required runtime configuration is documented in
-`.env.example` and `docs/OPERATIONS.md`.
+`.env.example` and `docs/history/OPERATIONS.md`.
 
 The repository is a portfolio reference, not a live service.

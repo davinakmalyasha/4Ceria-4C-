@@ -87,8 +87,15 @@ gateway. On the houses list with 16 concurrent workers, 8 demo users and a
 |---|---:|---:|---:|---:|---:|
 | Before (`38d759c`) | 48 | 16 | 4.4 req/s | 28 ms | 288 ms |
 | After | 182 | 0 | 17.9 req/s | 33 ms | 74 ms |
+| Now (houses batch + 1-query limiter, anonymous, 4 rps) | 40 | 0 | 3.8 req/s | 27 ms | 33 ms |
 
-The old page loop held the result-set connection while `houseResource` opened
+Fresh run 2026-11-24 against `4ceria_pgcheck` (seed + 0031), same
+16-worker/20 rps recipe: 195 requests, 0 connection errors, p50 18.5 ms on
+the 200s — but 167 of the anonymous hits answered 429. That is the
+300/minute API ceiling working as designed (one shared anonymous bucket vs
+8 per-user buckets in the old recipe), so it is not comparable to the
+rows above; the 4 rps row is the like-for-like latency read. The old page
+loop held the result-set connection while `houseResource` opened
 more connections for each row; at 16 concurrent requests it exhausted the
 20-connection pool and stalled. The new loop collects the page first, releases
 the batch connection, then enriches. The after p50 is a little higher because
@@ -114,11 +121,15 @@ honest way to measure those, and is the next step before adding indexes.
 | `GET /api/ai/memory` | 3 queries | 1 batched round trip |
 | Admin projects list | 64 queries | 9 queries |
 | Admin users list | 59 queries | 2 queries |
-| Admin houses list | ~17 queries | 2 batched round trips (1 observed) |
-| Admin professionals queue | 15 + 3N queries | ≤ 45 (17 observed on the demo seed) |
+| Admin houses list | ~17 queries | 3 queries (count+page batch + owners batch) |
+| Admin professionals queue | 15 + 3N queries | ≤ 25 (17 observed on the demo seed) |
 | Owner project list | 28 queries for 8 projects | 16 queries; row-invariant at 17 for 40+ rows |
 | Public directory (24 rows) | 3–4 per row (~98) | 3–4 total |
-| Conversations inbox | 5 per chat (~500 for 100) | 5 total |
+| Public houses list (12 rows) | 3 + N per row (~60: pics, owner, rooms, room pics) | 6 total (count+page batch + pics, owners, rooms, room pics); guests skip phones |
+| Conversations inbox | 5 per chat (~500 for 100) | 5 total; page query is a `UNION ALL` of the two single-leg index scans (no `OR` seq scan) |
+| Limiter headers | `Allow` transaction + second `Remaining` count per gated hit | `Allow` returns the remaining budget from the same read; one transaction per hit |
+| AI scoped tools | 7-table `UNION ALL` per tool call (multiplied by `MaxLLMCalls`) | one `UNION ALL` per user per turn via `ProfileCache` (`NewProfileCache` per runner) |
+| Admin export (5,000 rows) | 4 correlated subqueries per row, whole CSV buffered | one `GROUP BY` + `LATERAL` open-dispute query, rows streamed with `Flush` |
 | Marketplace suppliers | 4 per supplier | 4 total |
 | Marketplace materials | 3 per material | 4 total |
 | Material orders index | 7–8 per order, unbounded | 10 total for 25+ rows |
@@ -127,7 +138,10 @@ honest way to measure those, and is the next step before adding indexes.
 | AI memory preload in a tool loop | 1 search per model call | 1 search per turn |
 
 `TestStatsHandlerIsOneQuery` and `TestProjectBudgetSummaryIsOneQuery` use a
-`pgx.QueryTracer` and fail if the count regresses. The same tracer pins every
+`pgx.QueryTracer` plus a `BatchTracer` and fail if the count regresses. The
+batch tracer matters: `queryCountAndRows` sends count+page in one `SendBatch`,
+which the query tracer never sees. Without it the admin lists undercounted by
+two (admin houses read 1 instead of 3). The same tracer pins every
 list above, plus a row-invariance test (`TestProjectsHandlerQueryCountIsRowInvariant`)
 that requires the owner list to stay flat when the project count grows fivefold.
 `TestAdminBatchLoadersMatchSingles` proves the batched user, role,
@@ -178,11 +192,59 @@ a synthetic dataset (100,000 houses, 50,000 projects, 50,000 users) in a
 separate database. The demo seed was too small to make the planner choose
 between an index and a sequential scan honestly.
 
+`0031_list_indexes.sql` closes the lists 0030 left behind. The small-scale
+`explain.mjs --strict` run already seq-scanned `admin houses` on 1,006 rows;
+at 50k+ plan rows `--strict` fails, so every `ORDER BY` below matches its
+handler exactly: `house (created_at DESC, id)`, `projects (user_id,
+created_at DESC, id DESC)`, `material_orders (user_id|supplier_id,
+created_at DESC, id ASC)`, `chat_messages (conversation_id, id DESC)` for the
+`DISTINCT ON` last-message query, and `(verification_status, id)` on the seven
+professional tables plus `suppliers` for the directory/marketplace pages.
+Sweeps stay unindexed by design (infrequent full scans over small sets).
+
 | Query | Before | After |
 |---|---:|---:|
 | Houses `ORDER BY price LIMIT 12` | 73.4 ms sequential scan + top-N sort | 0.23 ms index scan |
 | Admin projects `ORDER BY created_at DESC, id ASC LIMIT 15` | 21.2 ms sequential scan + top-N sort | 0.10 ms index-only scan |
 | Admin users `ORDER BY created_at DESC, id ASC LIMIT 20` | 21.1 ms sequential scan + top-N sort | 0.13 ms index-only scan |
+
+- `conversations inbox` (`UNION ALL` two legs): 0.156 ms `Seq Scan` →
+  0.229 ms two `Index Scan`s + `Append` on the 501-row fixture
+  (`conversations_user_one_last_message_idx`,
+  `conversations_user_two_last_message_idx`). Slower on 501 rows, flat by
+  per-user set instead of linear in table size; kept for the shape, not the
+  0.07 ms.
+- `conversation unread counts`: 51.72 → 1.18 ms (`chat_messages_conv_id_idx`).
+
+Full-scale run, 100,006 houses / 50,008 projects / 50,019 users
+(`seed-perf.mjs` with the flags above, `explain.mjs --compare-indexes
+--strict`, 2026-11-24, `perf.json` gitignored). One warm request each,
+same host, same database. `--strict` passes; remaining sequential scans
+are on relations under the 50,000-plan-row gate or on `expectIndex: false`
+sweeps.
+
+| Query | Before (ms) | After (ms) | Sequential scans after |
+|---|---:|---:|:--|
+| Houses newest feed | 5.17 | 0.39 | - |
+| Houses price sort | 213.96 | 2.02 | - |
+| Admin houses | 116.11 | 2.55 | - |
+| Admin projects | 69.45 | 0.54 | - |
+| Admin users | 86.28 | 0.82 | - |
+| Admin professionals pending | 0.85 | 0.36 | - |
+| Directory page | 0.21 | 0.14 | - |
+| Marketplace suppliers | 58.69 | 0.46 | suppliers(451) |
+| Material orders by buyer | 2.73 | 0.64 | - |
+| Material orders by supplier | 3.11 | 1.76 | - |
+| Conversations inbox | 0.81 | 0.49 | conversations(501) |
+| Conversation last messages | 6.25 | 1.33 | chat_messages(2505), conversations(501) |
+| Conversation unread counts | 51.72 | 1.18 | chat_messages(501), conversations(501) |
+| Owner projects | 15.15 | 0.73 | - |
+| Retention candidates | 65.77 | 55.89 | projects(2500) |
+| Auto-complete candidates | 7.46 | 3.33 | material_orders(712) |
+| Snag escalation candidates | 0.12 | 0.10 | project_snag_items(0) |
+| Prune notifications | 75.23 | 45.72 | notifications(50043) |
+| Prune expired tokens | 2.30 | 0.85 | personal_access_tokens(1000) |
+| Prune rate limits | 40.09 | 19.50 | - |
 
 The default houses feed already used `house_is_suspended_created_at_index`
 (0.11 ms on the same dataset), and the owner-scoped project list used
@@ -247,10 +309,20 @@ check, plans and query counts do.
 
 `npm run analyze` (`web/scripts/bundle-report.mjs`) reports first-party JS
 after `npm run build` with no new dependencies. Latest production build:
-**1,191.8 kB across 29 chunks**, root main **432.8 kB**, largest chunk
-276.5 kB. The budget is 2,048 kB total first-party JS; the check fails above
-it. Lighthouse stays a manual check against `next start` (mobile profile,
-median of 3 runs); the service worker never caches `/api/*` or `/storage/*`.
+**1,212.2 kB across 39 chunks**, root main **432.8 kB**, largest chunk
+223.7 kB, **gzip ~384.6 kB**. The budget is 2,048 kB total first-party JS; the check fails above
+it. The eight `framer-motion` docs widgets load via `next/dynamic` with
+`ssr: false`, and the 18 below-fold dashboard panels load via `next/dynamic`
+with SSR preserved (first paint stays the awaited data), so the shells never
+pay for panels the active tab does not render (29 → 39 chunks, largest
+276.5 → 223.7 kB, second-largest 165.5 → 155.8 kB). `Plus Jakarta Sans`
+is self-hosted through `next/font/google` (no render-blocking Google stylesheet,
+no external font request); the CSP no longer allowlists `fonts.googleapis.com`
+or `fonts.gstatic.com`. `experimental.optimizePackageImports: ['lucide-react']`
+rewrites the 40-file barrel import into per-icon paths. The six static
+`Logo4C` instances carry `width`/`height` matching their classes (no CLS
+reserve gap); remote/dynamic images keep fixed-size wrappers. Lighthouse stays a
+manual check against `next start` (mobile profile, median of 3 runs); the service worker never caches `/api/*` or `/storage/*`.
 
 ## Commands
 
@@ -263,3 +335,19 @@ PGHOST=127.0.0.1 PGPORT=55432 node tools/bench/seed-perf.mjs --users=1000 --hous
 PGHOST=127.0.0.1 PGPORT=55432 node tools/bench/explain.mjs --database=4ceria_perf_smoke
 cd web && npm run analyze
 ```
+
+## Costs left in place
+
+- `Authenticate` writes `last_used_at` on every authenticated request
+  (`internal/httpapi/authpg.go`). Sampling it would cut a write per read but
+  weakens the audit trail; unchanged.
+- `writeJSON` buffers the full body for `Content-Length` before compression.
+  Streaming would halve peak bytes on 5,000-row lists but breaks the
+  header-time gzip decision and ETag path; unchanged.
+- `SearchMemory` keeps the `ILIKE '%q%'` fallback beside `content_tsv`.
+  Removing it would speed the miss path but change recall; unchanged.
+- Public `explore/houses/help` stay `no-store`; no caller passes
+  `revalidateSeconds` yet (`lib/api.ts` supports it). ISR is a product
+  decision, not yet taken.
+- Sweeps stay unindexed (`expectIndex: false`); the full-scale table above
+  is the baseline if sweeper `duration_ms` ever requires it.

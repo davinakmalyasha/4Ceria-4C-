@@ -8,9 +8,7 @@
 | [`MONEY.md`](MONEY.md) | Integer money, the escrow ledger, invariants |
 | [`API.md`](API.md) | Route manifest, auth, errors, pagination, SSE, memory, MCP, uploads |
 | [`AI.md`](AI.md) | Agent tree, tools, memory, skills, MCP and safety |
-| [`OPERATIONS.md`](OPERATIONS.md) | Environment, reset, verification, backups, deploy |
-| [`PERFORMANCE.md`](PERFORMANCE.md) | JSON v2, compression, timeouts and query benchmarks |
-| [`PORTFOLIO.md`](PORTFOLIO.md) | Demo script, screenshots, engineering highlights |
+| [`history/`](history/) | Development notes: benchmarks, operations recipes |
 
 The database is the other half of the contract:
 
