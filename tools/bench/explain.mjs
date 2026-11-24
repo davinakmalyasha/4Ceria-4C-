@@ -138,9 +138,11 @@ const queries = [
     },
     {
         name: 'conversations inbox',
-        sql: `SELECT id FROM conversations
-               WHERE user_one_id = ${client} OR user_two_id = ${client}
-               ORDER BY last_message_at DESC NULLS LAST, id ASC LIMIT 100`,
+        sql: `SELECT id FROM (
+                 SELECT id, last_message_at FROM conversations WHERE user_one_id = ${client}
+                 UNION ALL
+                 SELECT id, last_message_at FROM conversations WHERE user_two_id = ${client}
+               ) t ORDER BY last_message_at DESC NULLS LAST, id ASC LIMIT 100`,
         expectIndex: true,
     },
     {
@@ -210,6 +212,19 @@ const perfIndexes = [
     ['house_is_suspended_price_idx', 'CREATE INDEX house_is_suspended_price_idx ON house (is_suspended, price)'],
     ['projects_created_at_id_idx', 'CREATE INDEX projects_created_at_id_idx ON projects (created_at DESC, id ASC)'],
     ['users_created_at_id_idx', 'CREATE INDEX users_created_at_id_idx ON users (created_at DESC, id ASC)'],
+    ['house_created_at_id_idx', 'CREATE INDEX house_created_at_id_idx ON house (created_at DESC, id ASC)'],
+    ['projects_user_created_id_idx', 'CREATE INDEX projects_user_created_id_idx ON projects (user_id, created_at DESC, id DESC)'],
+    ['material_orders_user_created_id_idx', 'CREATE INDEX material_orders_user_created_id_idx ON material_orders (user_id, created_at DESC, id ASC)'],
+    ['material_orders_supplier_created_id_idx', 'CREATE INDEX material_orders_supplier_created_id_idx ON material_orders (supplier_id, created_at DESC, id ASC)'],
+    ['chat_messages_conv_id_idx', 'CREATE INDEX chat_messages_conv_id_idx ON chat_messages (conversation_id, id DESC)'],
+    ['arsiteks_verification_id_idx', 'CREATE INDEX arsiteks_verification_id_idx ON arsiteks (verification_status, id)'],
+    ['kontraktors_verification_id_idx', 'CREATE INDEX kontraktors_verification_id_idx ON kontraktors (verification_status, id)'],
+    ['notaris_profiles_verification_id_idx', 'CREATE INDEX notaris_profiles_verification_id_idx ON notaris_profiles (verification_status, id)'],
+    ['interior_profiles_verification_id_idx', 'CREATE INDEX interior_profiles_verification_id_idx ON interior_profiles (verification_status, id)'],
+    ['structural_engineers_verification_id_idx', 'CREATE INDEX structural_engineers_verification_id_idx ON structural_engineers (verification_status, id)'],
+    ['mep_engineers_verification_id_idx', 'CREATE INDEX mep_engineers_verification_id_idx ON mep_engineers (verification_status, id)'],
+    ['project_managers_verification_id_idx', 'CREATE INDEX project_managers_verification_id_idx ON project_managers (verification_status, id)'],
+    ['suppliers_verification_id_idx', 'CREATE INDEX suppliers_verification_id_idx ON suppliers (verification_status, id)'],
 ];
 
 function walk(node, visit) {
@@ -313,9 +328,9 @@ if (compare) {
 const after = runAll();
 
 if (before) {
-    process.stdout.write('\nBefore 0030 indexes\n');
+    process.stdout.write('\nBefore 0030+0031 indexes\n');
     printTable(before);
-    process.stdout.write('\nAfter 0030 indexes\n');
+    process.stdout.write('\nAfter 0030+0031 indexes\n');
     printTable(after);
     process.stdout.write('\nPer-query delta (before -> after)\n');
     for (let index = 0; index < queries.length; index++) {

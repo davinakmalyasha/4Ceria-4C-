@@ -151,8 +151,39 @@ func HousesHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		items := make([]any, 0, len(rawRows))
+		houseIDs := make([]int64, 0, len(rawRows))
+		ownerSet := map[int64]bool{}
+		ownerIDs := make([]int64, 0, len(rawRows))
+		idPos, ownerPos := -1, -1
+		for i, column := range fields {
+			if column == "id" {
+				idPos = i
+			}
+			if column == "id_user" {
+				ownerPos = i
+			}
+		}
 		for _, values := range rawRows {
-			row, err := houseResource(r.Context(), pool, fields, values, callerID, caller != nil && caller.IsAdmin())
+			if idPos >= 0 {
+				if id, ok := values[idPos].(int64); ok {
+					houseIDs = append(houseIDs, id)
+				}
+			}
+			if ownerPos >= 0 {
+				if owner, ok := values[ownerPos].(int64); ok && owner != 0 && !ownerSet[owner] {
+					ownerSet[owner] = true
+					ownerIDs = append(ownerIDs, owner)
+				}
+			}
+		}
+		bundle, err := buildHousePageBundle(r.Context(), pool, houseIDs, ownerIDs, callerID, caller != nil && caller.IsAdmin())
+		if err != nil {
+			slog.Error("houses: bundle", "error", err)
+			serverError(w)
+			return
+		}
+		for _, values := range rawRows {
+			row, err := houseResourceBundled(fields, values, callerID, caller != nil && caller.IsAdmin(), bundle)
 			if err != nil {
 				slog.Error("houses: row", "error", err)
 				serverError(w)
