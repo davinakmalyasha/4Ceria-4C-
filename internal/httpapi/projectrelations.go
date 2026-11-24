@@ -1194,6 +1194,42 @@ func fullProfileUserContact(ctx context.Context, pool *pgxpool.Pool, userID int6
 		return nil, err
 	}
 
+	user := profileUserObject(fields, values, withEmail)
+	if !withPhones {
+		return user, nil
+	}
+
+	phones, err := pool.Query(ctx, `SELECT id, contact, id_user, id_contact FROM phone_user WHERE id_user = $1 ORDER BY id`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer phones.Close()
+
+	list := make([]any, 0)
+	for phones.Next() {
+		var id, phoneUser, idContact *int64
+		var contact *string
+		if err := phones.Scan(&id, &contact, &phoneUser, &idContact); err != nil {
+			return nil, err
+		}
+		item := jsonwire.NewObject()
+		item.Set("id", nullableInt64(id))
+		item.Set("contact", nullableString(contact))
+		item.Set("id_user", nullableInt64(phoneUser))
+		item.Set("id_contact", nullableInt64(idContact))
+		list = append(list, item)
+	}
+	if err := phones.Err(); err != nil {
+		return nil, err
+	}
+	user.Set("phone_number", list)
+
+	return user, nil
+}
+
+// profileUserObject serializes one users row with the model's hidden fields.
+// It is shared by the single and batched loaders so their bytes cannot drift.
+func profileUserObject(fields []string, values []any, withEmail bool) *jsonwire.Object {
 	hidden := map[string]bool{
 		"password": true, "remember_token": true,
 		"bank_name": true, "bank_account_number": true, "bank_account_name": true,
@@ -1223,36 +1259,76 @@ func fullProfileUserContact(ctx context.Context, pool *pgxpool.Pool, userID int6
 			user.Set(column, projectRawValue(value))
 		}
 	}
+	return user
+}
 
-	phones, err := pool.Query(ctx, `SELECT id, contact, id_user, id_contact FROM phone_user WHERE id_user = $1 ORDER BY id`, userID)
+// fullProfileUsersBatch loads a page of user blocks in two queries (users and,
+// when requested, their phones) instead of two per user. The map is keyed by
+// user id; the caller controls output order.
+func fullProfileUsersBatch(ctx context.Context, pool *pgxpool.Pool, ids []int64, withPhones, withEmail bool) (map[int64]any, error) {
+	out := map[int64]any{}
+	if len(ids) == 0 {
+		return out, nil
+	}
+
+	rows, err := pool.Query(ctx, `SELECT `+usersRowColumns+` FROM users WHERE id = ANY($1)`, ids)
+	if err != nil {
+		return nil, err
+	}
+	fields := fieldNames(rows)
+	for rows.Next() {
+		values, err := scanRow(rows, len(fields))
+		if err != nil {
+			rows.Close()
+			return nil, err
+		}
+		out[projectInt(values, fields, "id")] = profileUserObject(fields, values, withEmail)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return nil, err
+	}
+	rows.Close()
+
+	if !withPhones {
+		return out, nil
+	}
+
+	phones, err := pool.Query(ctx, `SELECT id_user, id, contact, id_contact FROM phone_user WHERE id_user = ANY($1) ORDER BY id`, ids)
 	if err != nil {
 		return nil, err
 	}
 	defer phones.Close()
-
-	if withPhones {
-		list := make([]any, 0)
-		for phones.Next() {
-			var id, phoneUser, idContact *int64
-			var contact *string
-			if err := phones.Scan(&id, &contact, &phoneUser, &idContact); err != nil {
-				return nil, err
-			}
-			item := jsonwire.NewObject()
-			item.Set("id", nullableInt64(id))
-			item.Set("contact", nullableString(contact))
-			item.Set("id_user", nullableInt64(phoneUser))
-			item.Set("id_contact", nullableInt64(idContact))
-			list = append(list, item)
-		}
-		if err := phones.Err(); err != nil {
+	byUser := map[int64][]any{}
+	for phones.Next() {
+		var idUser int64
+		var id, idContact *int64
+		var contact *string
+		if err := phones.Scan(&idUser, &id, &contact, &idContact); err != nil {
 			return nil, err
 		}
-
+		item := jsonwire.NewObject()
+		item.Set("id", nullableInt64(id))
+		item.Set("contact", nullableString(contact))
+		item.Set("id_user", nullableInt64(&idUser))
+		item.Set("id_contact", nullableInt64(idContact))
+		byUser[idUser] = append(byUser[idUser], item)
+	}
+	if err := phones.Err(); err != nil {
+		return nil, err
+	}
+	for id, block := range out {
+		user, ok := block.(*jsonwire.Object)
+		if !ok {
+			continue
+		}
+		list := byUser[id]
+		if list == nil {
+			list = []any{}
+		}
 		user.Set("phone_number", list)
 	}
-
-	return user, nil
+	return out, nil
 }
 
 // ratingTable names the ratings table and its profile foreign key.

@@ -36,6 +36,9 @@ node scripts/verify.mjs             # gofmt, vet, go test, policy, tsc, next bui
 node scripts/verify.mjs --db        # plus PostgreSQL from scratch + DB tests
 cd web && npx tsc --noEmit
 cd web && npm run build
+
+# Performance
+go test ./internal/jsonwire -bench . -benchmem -count=5 -run '^$'
 ```
 
 ## Critical traps
@@ -75,6 +78,20 @@ cd web && npm run build
 14. **Memory is per user.** Every `ai_memories` query is scoped by `user_id`;
     deleting a chat cascades its derived memories. Never add a cross-user
     memory search.
+15. **The JSON wire is v2 with v1-compatible bytes.** `internal/jsonwire` uses
+    `encoding/json/v2` with `AllowInvalidUTF8`, `AllowDuplicateNames`,
+    `EscapeForJS`, `PreserveRawStrings` and `EscapeForHTML(false)`.
+    `compat_test.go` is the byte oracle. The every-request `requestFields`
+    map path decodes with the same envelope (`UnmarshalRead`); typed AI
+    decoders stay on v1. Persisted/signed JSON (contract snapshots, audit
+    documents) stays on `encoding/json` v1; changing those bytes can
+    invalidate a signature.
+16. **Compression is one middleware.** `withCompression` must skip
+    `text/event-stream`, 204/304/HEAD and small bodies, and set
+    `Vary: Accept-Encoding`. Public JSON ETags are weak.
+17. **Long responses own their deadline.** Multipart uploads extend the read
+    deadline from their declared size; SSE extends its write deadline. Never
+    "fix" a timeout by removing the server-wide deadline.
 
 ## Working rules
 

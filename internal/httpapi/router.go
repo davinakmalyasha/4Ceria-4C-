@@ -82,7 +82,7 @@ func NewRouter(manifest *Manifest, gates Gates) *Router {
 		message(w, http.StatusNotFound, "Not found.")
 	})
 
-	router.handler = withRequestID(withSecurityHeaders(withRequestLimits(withOptionalCaller(gates, mux))))
+	router.handler = withRequestID(withSecurityHeaders(withRequestLimits(withCompression(withOptionalCaller(gates, mux)))))
 
 	return router
 }

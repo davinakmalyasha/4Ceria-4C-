@@ -217,7 +217,7 @@ func requestFields(r *http.Request) (map[string]any, map[string]*uploadedFile, e
 
 	var fields map[string]any
 
-	if err := json.NewDecoder(r.Body).Decode(&fields); err != nil {
+	if err := jsonwire.UnmarshalRead(r.Body, &fields); err != nil {
 		return nil, nil, err
 	}
 

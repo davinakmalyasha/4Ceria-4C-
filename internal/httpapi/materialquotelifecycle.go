@@ -1230,6 +1230,95 @@ func materialModelObject(ctx context.Context, pool *pgxpool.Pool, materialID int
 	return entry, rows.Err()
 }
 
+// materialModelFromValues renders the same block from a scanRow tuple. The
+// batch item loader uses it so a material's bytes cannot drift.
+func materialModelFromValues(fields []string, values []any) *jsonwire.Object {
+	byName := make(map[string]any, len(fields))
+	for i, column := range fields {
+		byName[column] = values[i]
+	}
+
+	entry := jsonwire.NewObject()
+	entry.Set("id", projectRawValue(byName["id"]))
+	entry.Set("supplier_id", projectRawValue(byName["supplier_id"]))
+	entry.Set("name", nullableValueText(byName["name"]))
+	entry.Set("description", nullableValueText(byName["description"]))
+	entry.Set("price", nullableValueText(byName["price"]))
+	entry.Set("unit", nullableValueText(byName["unit"]))
+	entry.Set("category", nullableValueText(byName["category"]))
+	entry.Set("stock", nullableValueInt(byName["stock"]))
+	entry.Set("is_available", boolValue(byName["is_available"]))
+	entry.Set("image_path", nullableValueText(byName["image_path"]))
+
+	if specifications, ok := orderedJSONValue(byName["specifications"]); ok {
+		entry.Set("specifications", specifications)
+	} else {
+		entry.Set("specifications", nil)
+	}
+
+	entry.Set("created_at", projectTimeValue(byName["created_at"]))
+	entry.Set("updated_at", projectTimeValue(byName["updated_at"]))
+	return entry
+}
+
+// nullableValueText accepts the string and *string shapes scanRow can return.
+func nullableValueText(value any) any {
+	switch typed := value.(type) {
+	case nil:
+		return nil
+	case string:
+		return typed
+	case *string:
+		return nullableString(typed)
+	default:
+		return nil
+	}
+}
+
+func nullableValueInt(value any) any {
+	switch typed := value.(type) {
+	case nil:
+		return nil
+	case int64:
+		return typed
+	case int32:
+		return int64(typed)
+	case int:
+		return int64(typed)
+	case *int64:
+		if typed == nil {
+			return nil
+		}
+		return *typed
+	default:
+		return nil
+	}
+}
+
+func boolValue(value any) bool {
+	flag, _ := value.(bool)
+	return flag
+}
+
+// orderedJSONValue reads a stored json/jsonb fragment from a scanned tuple.
+func orderedJSONValue(value any) (any, bool) {
+	switch typed := value.(type) {
+	case nil:
+		return nil, false
+	case string:
+		return orderedJSONColumn(typed), true
+	case []byte:
+		return orderedJSONColumn(typed), true
+	case *string:
+		if typed == nil {
+			return nil, false
+		}
+		return orderedJSONColumn(*typed), true
+	default:
+		return nil, false
+	}
+}
+
 // randomHexUpper renders strtoupper(bin2hex(random_bytes(n))).
 func randomHexUpper(n int) string {
 	raw := make([]byte, n)

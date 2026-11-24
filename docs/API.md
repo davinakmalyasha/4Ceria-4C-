@@ -70,7 +70,17 @@ data: {"done":true,"refused":false,"tools":["search_houses"]}
 answer differs from the accumulated chunks. A client must buffer across
 network reads: a frame can be split between two chunks. An upstream failure
 ends with `{"error":"…"}` followed by a terminal `done` event. The response
-logger delegates `Flush`, so events are not buffered.
+logger delegates `Flush`, so events are not buffered. The stream is never
+gzip-compressed and extends its own write deadline to three minutes.
+
+## Compression and caching
+
+API responses are gzip-compressed when the caller sends
+`Accept-Encoding: gzip`, the body is at least 1 KiB, and the content type is
+compressible. Compressible responses carry `Vary: Accept-Encoding`; SSE is
+excluded. Public GETs (`houses`, directories, geocode) use a weak ETag
+(`W/"…"`) and `Cache-Control: public, max-age=60` (300 for geocode);
+authenticated responses remain `no-store`.
 
 ## Assistant memory
 

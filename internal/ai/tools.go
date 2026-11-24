@@ -749,29 +749,23 @@ func projectFinance(parent context.Context, tc ToolCtx, a ProjectArgs) (ProjectF
 			Note: "That project belongs to another account, so I can't show its finances."}, nil
 	}
 
+	// One round trip for the three independent sums.
 	var paidMinor, addendumMinor, terminMinor int64
 	if err := tc.Pool.QueryRow(ctx, `
-		SELECT COALESCE(trunc(SUM(amount) * 100)::bigint, 0)
-		  FROM project_budget_transactions
-		 WHERE project_id = $1
-		   AND transaction_type::text IN ('payment','refund','platform_fee','retention_release')
-	`, a.ProjectID).Scan(&paidMinor); err != nil {
-		return ProjectFinanceResult{}, toolFailure("project_finance", err)
-	}
-	if err := tc.Pool.QueryRow(ctx, `
-		SELECT COALESCE(trunc(SUM(amount) * 100)::bigint, 0)
-		  FROM project_addendums
-		 WHERE project_id = $1
-		   AND status::text IN ('approved_unpaid','pending_approval','verifying')
-	`, a.ProjectID).Scan(&addendumMinor); err != nil {
-		return ProjectFinanceResult{}, toolFailure("project_finance", err)
-	}
-	if err := tc.Pool.QueryRow(ctx, `
-		SELECT COALESCE(trunc(SUM(amount) * 100)::bigint, 0)
-		  FROM project_payment_termins
-		 WHERE project_id = $1
-		   AND status::text IN ('locked','pending','invoice_sent')
-	`, a.ProjectID).Scan(&terminMinor); err != nil {
+		SELECT
+			(SELECT COALESCE(trunc(SUM(amount) * 100)::bigint, 0)
+			   FROM project_budget_transactions
+			  WHERE project_id = $1
+			    AND transaction_type::text IN ('payment','refund','platform_fee','retention_release')),
+			(SELECT COALESCE(trunc(SUM(amount) * 100)::bigint, 0)
+			   FROM project_addendums
+			  WHERE project_id = $1
+			    AND status::text IN ('approved_unpaid','pending_approval','verifying')),
+			(SELECT COALESCE(trunc(SUM(amount) * 100)::bigint, 0)
+			   FROM project_payment_termins
+			  WHERE project_id = $1
+			    AND status::text IN ('locked','pending','invoice_sent'))
+	`, a.ProjectID).Scan(&paidMinor, &addendumMinor, &terminMinor); err != nil {
 		return ProjectFinanceResult{}, toolFailure("project_finance", err)
 	}
 	ceiling := idrMinor(head.Budget)

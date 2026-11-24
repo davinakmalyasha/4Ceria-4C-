@@ -73,6 +73,8 @@ yarn-error.log
 /debug_*.mjs
 /tmp_*.mjs
 /debug_*.json
+/perf.json
+/perf-*.json
 
 # Scratch directories
 /scratch/

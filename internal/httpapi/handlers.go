@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -30,86 +31,48 @@ func StatsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			roles               map[string]int
 		}
 
-		err := pool.QueryRow(ctx, `SELECT count(*) FROM users`).Scan(&stats.users)
+		// One round trip: every counter is a scalar subquery, and the role
+		// distribution is aggregated inside PostgreSQL. Six sequential
+		// queries were six chances for a dashboard load to queue.
+		var rolesJSON []byte
+		err := pool.QueryRow(ctx, `
+			SELECT
+				(SELECT count(*) FROM users),
+				(SELECT count(*) FROM house),
+				(SELECT count(*) FROM projects),
+				(SELECT count(*) FROM arsiteks             WHERE verification_status = 'pending')
+				+ (SELECT count(*) FROM kontraktors          WHERE verification_status = 'pending')
+				+ (SELECT count(*) FROM project_managers     WHERE verification_status = 'pending')
+				+ (SELECT count(*) FROM structural_engineers WHERE verification_status = 'pending')
+				+ (SELECT count(*) FROM mep_engineers        WHERE verification_status = 'pending')
+				+ (SELECT count(*) FROM suppliers            WHERE verification_status = 'pending')
+				+ (SELECT count(*) FROM interior_profiles    WHERE verification_status = 'pending')
+				+ (SELECT count(*) FROM notaris_profiles     WHERE verification_status = 'pending'),
+				(SELECT count(*) FROM projects WHERE status NOT IN ('completed', 'cancelled')),
+				COALESCE((
+					SELECT jsonb_object_agg(role, total)
+					  FROM (
+						SELECT COALESCE(role_type::text, 'user') AS role, count(*) AS total
+						  FROM users
+						 GROUP BY role_type
+					  ) distribution
+				), '{}'::jsonb)
+		`).Scan(
+			&stats.users,
+			&stats.houses,
+			&stats.projects,
+			&stats.pendingVerification,
+			&stats.activeProjects,
+			&rolesJSON,
+		)
 		if err != nil {
-			slog.Error("stats: users", "error", err)
+			slog.Error("stats", "error", err)
 			serverError(w)
 			return
 		}
-
-		if err := pool.QueryRow(ctx, `SELECT count(*) FROM house`).Scan(&stats.houses); err != nil {
-			slog.Error("stats: houses", "error", err)
-			serverError(w)
-			return
-		}
-
-		if err := pool.QueryRow(ctx, `SELECT count(*) FROM projects`).Scan(&stats.projects); err != nil {
-			slog.Error("stats: projects", "error", err)
-			serverError(w)
-			return
-		}
-
-		// The eight professional tables, exactly as the controller sums them.
-		err = pool.QueryRow(ctx, `
-			SELECT (SELECT count(*) FROM arsiteks             WHERE verification_status = 'pending')
-			     + (SELECT count(*) FROM kontraktors          WHERE verification_status = 'pending')
-			     + (SELECT count(*) FROM project_managers     WHERE verification_status = 'pending')
-			     + (SELECT count(*) FROM structural_engineers WHERE verification_status = 'pending')
-			     + (SELECT count(*) FROM mep_engineers        WHERE verification_status = 'pending')
-			     + (SELECT count(*) FROM suppliers            WHERE verification_status = 'pending')
-			     + (SELECT count(*) FROM interior_profiles    WHERE verification_status = 'pending')
-			     + (SELECT count(*) FROM notaris_profiles     WHERE verification_status = 'pending')
-		`).Scan(&stats.pendingVerification)
-		if err != nil {
-			slog.Error("stats: verifications", "error", err)
-			serverError(w)
-			return
-		}
-
-		// "Active operations" = anything not in a terminal state.
-		//
-		// The status enum has no `terminated` member. A filter that names a
-		// value outside the enum is rejected by PostgreSQL, so the query uses
-		// the enum's actual terminal values: `completed` and `cancelled`.
-		err = pool.QueryRow(ctx, `
-			SELECT count(*) FROM projects
-			 WHERE status NOT IN ('completed', 'cancelled')
-		`).Scan(&stats.activeProjects)
-		if err != nil {
-			slog.Error("stats: active", "error", err)
-			serverError(w)
-			return
-		}
-
-		rows, err := pool.Query(ctx, `
-			SELECT COALESCE(role_type::text, 'user') AS role, count(*)
-			  FROM users
-			 GROUP BY role_type
-		`)
-		if err != nil {
-			slog.Error("stats: roles", "error", err)
-			serverError(w)
-			return
-		}
-		defer rows.Close()
-
 		stats.roles = map[string]int{}
-
-		for rows.Next() {
-			var (
-				role  string
-				total int
-			)
-
-			if err := rows.Scan(&role, &total); err != nil {
-				serverError(w)
-				return
-			}
-
-			stats.roles[role] = total
-		}
-
-		if err := rows.Err(); err != nil {
+		if err := json.Unmarshal(rolesJSON, &stats.roles); err != nil {
+			slog.Error("stats: roles", "error", err)
 			serverError(w)
 			return
 		}

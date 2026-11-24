@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -89,7 +90,9 @@ func adminProfileIDs(ctx context.Context, pool *pgxpool.Pool, table string, docs
 	return out, rows.Err()
 }
 
-// adminProfileList renders one verification-queue collection.
+// adminProfileList renders one verification-queue collection through the
+// single-row loaders. It is the byte-oracle for the batched payload builder
+// (see TestAdminProfessionalsBatchMatchesSingle), not the live path.
 func adminProfileList(ctx context.Context, pool *pgxpool.Pool, table string, docsFields []string, roleType string) ([]any, error) {
 	ids, err := adminProfileIDs(ctx, pool, table, docsFields, roleType)
 	if err != nil {
@@ -109,47 +112,138 @@ func adminProfileList(ctx context.Context, pool *pgxpool.Pool, table string, doc
 	return out, nil
 }
 
+// adminProfileCollection is one leg of the verification queue: a table, the
+// document columns that make a pending row actionable, and an optional trade
+// role for the contractor branches.
+type adminProfileCollection struct {
+	key      string
+	table    string
+	docs     []string
+	roleType string
+}
+
+// adminProfessionalCollections is the controller's fixed collection order.
+func adminProfessionalCollections() []adminProfileCollection {
+	profileDocs := []string{"foto", "file_portofolio", "file_sertifikat", "npwp", "siup", "identity_number"}
+	supplierDocs := []string{"foto", "address", "bio", "no_telp"}
+
+	return []adminProfileCollection{
+		{"arsiteks", "arsiteks", profileDocs, ""},
+		{"kontraktors", "kontraktors", profileDocs, "kontraktor"},
+		{"civil_contractors", "kontraktors", profileDocs, "civil"},
+		{"mechanical_contractors", "kontraktors", profileDocs, "mechanical"},
+		{"electrical_contractors", "kontraktors", profileDocs, "electrical"},
+		{"plumbing_contractors", "kontraktors", profileDocs, "plumbing"},
+		{"roofing_contractors", "kontraktors", profileDocs, "roofing"},
+		{"finishing_contractors", "kontraktors", profileDocs, "finishing"},
+		{"project_managers", "project_managers", profileDocs, ""},
+		{"structural_engineers", "structural_engineers", profileDocs, ""},
+		{"mep_engineers", "mep_engineers", profileDocs, ""},
+		{"notaries", "notaris_profiles", profileDocs, ""},
+		{"interiors", "interior_profiles", profileDocs, ""},
+		{"suppliers", "suppliers", supplierDocs, ""},
+		{"logistics", "courier_profiles", nil, ""},
+	}
+}
+
+// adminProfessionalsPayload builds the whole queue with one ID query per
+// collection, one profile+rating pair per table, and one user batch for every
+// pending profile. The per-row path was 15 + 3N queries.
+func adminProfessionalsPayload(ctx context.Context, pool *pgxpool.Pool, collections []adminProfileCollection) (*jsonwire.Object, error) {
+	type collectionIDs struct {
+		collection adminProfileCollection
+		ids        []int64
+	}
+
+	byCollection := make([]collectionIDs, 0, len(collections))
+	idsByTable := map[string][]int64{}
+	seenByTable := map[string]map[int64]bool{}
+
+	for _, collection := range collections {
+		ids, err := adminProfileIDs(ctx, pool, collection.table, collection.docs, collection.roleType)
+		if err != nil {
+			return nil, err
+		}
+		byCollection = append(byCollection, collectionIDs{collection: collection, ids: ids})
+
+		seen := seenByTable[collection.table]
+		if seen == nil {
+			seen = map[int64]bool{}
+			seenByTable[collection.table] = seen
+		}
+		for _, id := range ids {
+			if seen[id] {
+				continue
+			}
+			seen[id] = true
+			idsByTable[collection.table] = append(idsByTable[collection.table], id)
+		}
+	}
+
+	profilesByTable := make(map[string]map[int64]*jsonwire.Object, len(idsByTable))
+	userIDs := make([]int64, 0)
+	userSeen := map[int64]bool{}
+
+	for table, ids := range idsByTable {
+		profiles, err := profileModelsBatch(ctx, pool, table, ids)
+		if err != nil {
+			return nil, err
+		}
+		profilesByTable[table] = profiles
+
+		for _, id := range ids {
+			block, ok := profiles[id]
+			if !ok {
+				continue
+			}
+			userID := mustIntValue(block, "user_id")
+			if userID != 0 && !userSeen[userID] {
+				userSeen[userID] = true
+				userIDs = append(userIDs, userID)
+			}
+		}
+	}
+
+	users, err := fullProfileUsersBatch(ctx, pool, userIDs, false, true)
+	if err != nil {
+		return nil, err
+	}
+	for _, profiles := range profilesByTable {
+		for _, block := range profiles {
+			userID := mustIntValue(block, "user_id")
+			if userID == 0 {
+				block.Set("user", nil)
+				continue
+			}
+			block.Set("user", users[userID])
+		}
+	}
+
+	payload := jsonwire.NewObject()
+	for _, item := range byCollection {
+		profiles := profilesByTable[item.collection.table]
+		list := make([]any, 0, len(item.ids))
+		for _, id := range item.ids {
+			block, ok := profiles[id]
+			if !ok {
+				continue
+			}
+			list = append(list, block)
+		}
+		payload.Set(item.collection.key, list)
+	}
+
+	return payload, nil
+}
+
 // AdminProfessionalsIndexHandler serves `GET /api/admin/professionals`.
 func AdminProfessionalsIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-
-		profileDocs := []string{"foto", "file_portofolio", "file_sertifikat", "npwp", "siup", "identity_number"}
-		supplierDocs := []string{"foto", "address", "bio", "no_telp"}
-
-		type collection struct {
-			key      string
-			table    string
-			docs     []string
-			roleType string
-		}
-		collections := []collection{
-			{"arsiteks", "arsiteks", profileDocs, ""},
-			{"kontraktors", "kontraktors", profileDocs, "kontraktor"},
-			{"civil_contractors", "kontraktors", profileDocs, "civil"},
-			{"mechanical_contractors", "kontraktors", profileDocs, "mechanical"},
-			{"electrical_contractors", "kontraktors", profileDocs, "electrical"},
-			{"plumbing_contractors", "kontraktors", profileDocs, "plumbing"},
-			{"roofing_contractors", "kontraktors", profileDocs, "roofing"},
-			{"finishing_contractors", "kontraktors", profileDocs, "finishing"},
-			{"project_managers", "project_managers", profileDocs, ""},
-			{"structural_engineers", "structural_engineers", profileDocs, ""},
-			{"mep_engineers", "mep_engineers", profileDocs, ""},
-			{"notaries", "notaris_profiles", profileDocs, ""},
-			{"interiors", "interior_profiles", profileDocs, ""},
-			{"suppliers", "suppliers", supplierDocs, ""},
-			{"logistics", "courier_profiles", nil, ""},
-		}
-
-		payload := jsonwire.NewObject()
-		for _, item := range collections {
-			list, err := adminProfileList(ctx, pool, item.table, item.docs, item.roleType)
-			if err != nil {
-				slog.Error("admin professionals: list", "table", item.table, "error", err)
-				serverError(w)
-				return
-			}
-			payload.Set(item.key, list)
+		payload, err := adminProfessionalsPayload(r.Context(), pool, adminProfessionalCollections())
+		if err != nil {
+			slog.Error("admin professionals: payload", "error", err)
+			serverError(w)
+			return
 		}
 
 		writeJSON(w, http.StatusOK, payload)
@@ -313,34 +407,44 @@ func AdminHousesHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				SELECT 1 FROM users u WHERE u.id = t.id_user AND u.name ILIKE $1))`
 		}
 
-		var total int
-		if err := pool.QueryRow(ctx, `SELECT count(*) FROM house t`+where, args...).Scan(&total); err != nil {
-			slog.Error("admin houses: count", "error", err)
-			serverError(w)
-			return
-		}
-
 		offset := (currentPage - 1) * perPage
-		rows, err := pool.Query(ctx, `SELECT `+strings.Join(houseModelColumns, ", ")+`
-			FROM house t`+where+` ORDER BY t.created_at DESC, t.id ASC LIMIT `+strconv.Itoa(perPage)+
-			` OFFSET `+strconv.Itoa(offset), args...)
+		countSQL := `SELECT count(*) FROM house t` + where
+		rowsSQL := `SELECT ` + strings.Join(houseModelColumns, ", ") + `
+			FROM house t` + where + ` ORDER BY t.created_at DESC, t.id ASC LIMIT ` +
+			strconv.Itoa(perPage) + ` OFFSET ` + strconv.Itoa(offset)
+
+		var fields []string
+		var page [][]any
+		total, err := queryCountAndRows(ctx, pool, countSQL, args, rowsSQL, args, func(rows pgx.Rows) error {
+			var collectErr error
+			fields, page, collectErr = collectRows(rows)
+			return collectErr
+		})
 		if err != nil {
-			slog.Error("admin houses: query", "error", err)
+			slog.Error("admin houses: page", "error", err)
 			serverError(w)
 			return
 		}
-		defer rows.Close()
 
-		items := make([]any, 0, perPage)
-		for rows.Next() {
-			fields := fieldNames(rows)
-			values, err := scanRow(rows, len(fields))
-			if err != nil {
-				slog.Error("admin houses: scan", "error", err)
-				serverError(w)
-				return
+		ownerSet := map[int64]bool{}
+		ownerIDs := make([]int64, 0, perPage)
+		for _, values := range page {
+			owner := projectInt(values, fields, "id_user")
+			if owner != 0 && !ownerSet[owner] {
+				ownerSet[owner] = true
+				ownerIDs = append(ownerIDs, owner)
 			}
-			byName := map[string]any{}
+		}
+		owners, err := fullProfileUsersBatch(ctx, pool, ownerIDs, false, true)
+		if err != nil {
+			slog.Error("admin houses: owners", "error", err)
+			serverError(w)
+			return
+		}
+
+		items := make([]any, 0, len(page))
+		for _, values := range page {
+			byName := make(map[string]any, len(fields))
 			for i, column := range fields {
 				byName[column] = values[i]
 			}
@@ -365,23 +469,14 @@ func AdminHousesHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				}
 			}
 
-			owner := intPtrDeref(byName["id_user"])
+			owner := projectInt(values, fields, "id_user")
 			if owner != 0 {
-				user, err := fullProfileUser(ctx, pool, owner, false)
-				if err != nil {
-					user = nil
-				}
-				entry.Set("user", user)
+				entry.Set("user", owners[owner])
 			} else {
 				entry.Set("user", nil)
 			}
 
 			items = append(items, entry)
-		}
-		if err := rows.Err(); err != nil {
-			slog.Error("admin houses: rows", "error", err)
-			serverError(w)
-			return
 		}
 
 		writeJSON(w, http.StatusOK, Paginate(total, perPage, currentPage, requestBaseURL(r), "", items))
@@ -390,18 +485,34 @@ func AdminHousesHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 // adminUserRoles renders the Spatie `roles` array for one user.
 func adminUserRoles(ctx context.Context, pool *pgxpool.Pool, userID int64) ([]any, error) {
+	roles, err := adminUserRolesBatch(ctx, pool, []int64{userID})
+	if err != nil {
+		return nil, err
+	}
+	out := roles[userID]
+	if out == nil {
+		out = []any{}
+	}
+	return out, nil
+}
+
+// adminUserRolesBatch loads the Spatie roles for a page in one query.
+func adminUserRolesBatch(ctx context.Context, pool *pgxpool.Pool, userIDs []int64) (map[int64][]any, error) {
+	out := map[int64][]any{}
+	if len(userIDs) == 0 {
+		return out, nil
+	}
 	rows, err := pool.Query(ctx, `
 		SELECT r.id, r.name, r.guard_name, r.created_at, r.updated_at, mhr.model_type, mhr.model_id, mhr.role_id
 		  FROM roles r
 		  JOIN model_has_roles mhr ON mhr.role_id = r.id
-		 WHERE mhr.model_type = 'App\Models\User' AND mhr.model_id = $1
-		 ORDER BY r.id`, userID)
+		 WHERE mhr.model_type = 'App\Models\User' AND mhr.model_id = ANY($1)
+		 ORDER BY mhr.model_id, r.id`, userIDs)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	out := make([]any, 0)
 	for rows.Next() {
 		var (
 			id                   int64
@@ -425,7 +536,7 @@ func adminUserRoles(ctx context.Context, pool *pgxpool.Pool, userID int64) ([]an
 		pivot.Set("model_id", modelID)
 		pivot.Set("role_id", roleID)
 		role.Set("pivot", pivot)
-		out = append(out, role)
+		out[modelID] = append(out[modelID], role)
 	}
 	return out, rows.Err()
 }
@@ -457,55 +568,49 @@ func AdminUsersHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			clause = " WHERE " + strings.Join(where, " AND ")
 		}
 
-		var total int
-		if err := pool.QueryRow(ctx, `SELECT count(*) FROM users`+clause, args...).Scan(&total); err != nil {
-			slog.Error("admin users: count", "error", err)
+		offset := (currentPage - 1) * perPage
+		countSQL := `SELECT count(*) FROM users` + clause
+		rowsSQL := `SELECT id FROM users` + clause +
+			` ORDER BY created_at DESC, id ASC LIMIT ` + strconv.Itoa(perPage) +
+			` OFFSET ` + strconv.Itoa(offset)
+
+		ids := make([]int64, 0, perPage)
+		total, err := queryCountAndRows(ctx, pool, countSQL, args, rowsSQL, args, func(rows pgx.Rows) error {
+			for rows.Next() {
+				var id int64
+				if err := rows.Scan(&id); err != nil {
+					return err
+				}
+				ids = append(ids, id)
+			}
+			return rows.Err()
+		})
+		if err != nil {
+			slog.Error("admin users: page", "error", err)
 			serverError(w)
 			return
 		}
 
-		offset := (currentPage - 1) * perPage
-		rows, err := pool.Query(ctx, `SELECT id FROM users`+clause+
-			` ORDER BY created_at DESC, id ASC LIMIT `+strconv.Itoa(perPage)+
-			` OFFSET `+strconv.Itoa(offset), args...)
+		users, err := fullProfileUsersBatch(ctx, pool, ids, false, true)
 		if err != nil {
-			slog.Error("admin users: query", "error", err)
+			slog.Error("admin users: users", "error", err)
 			serverError(w)
 			return
 		}
-		ids := make([]int64, 0, perPage)
-		for rows.Next() {
-			var id int64
-			if err := rows.Scan(&id); err != nil {
-				rows.Close()
-				slog.Error("admin users: scan", "error", err)
-				serverError(w)
-				return
-			}
-			ids = append(ids, id)
-		}
-		rows.Close()
-		if err := rows.Err(); err != nil {
-			slog.Error("admin users: rows", "error", err)
+		rolesByUser, err := adminUserRolesBatch(ctx, pool, ids)
+		if err != nil {
+			slog.Error("admin users: roles", "error", err)
 			serverError(w)
 			return
 		}
 
 		items := make([]any, 0, len(ids))
 		for _, id := range ids {
-			block, err := fullProfileUser(ctx, pool, id, false)
-			if err != nil {
-				slog.Error("admin users: user", "error", err)
-				serverError(w)
-				return
+			block := users[id]
+			roles := rolesByUser[id]
+			if roles == nil {
+				roles = []any{}
 			}
-			roles, err := adminUserRoles(ctx, pool, id)
-			if err != nil {
-				slog.Error("admin users: roles", "error", err)
-				serverError(w)
-				return
-			}
-
 			if object, ok := block.(*jsonwire.Object); ok {
 				object.Set("roles", roles)
 				items = append(items, object)
@@ -536,126 +641,167 @@ func AdminProjectsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				SELECT 1 FROM users u WHERE u.id = t.user_id AND u.name LIKE $1))`
 		}
 
-		var total int
-		if err := pool.QueryRow(ctx, `SELECT count(*) FROM projects t`+where, args...).Scan(&total); err != nil {
-			slog.Error("admin projects: count", "error", err)
+		offset := (currentPage - 1) * perPage
+		countSQL := `SELECT count(*) FROM projects t` + where
+		rowsSQL := `SELECT id FROM projects t` + where +
+			` ORDER BY t.created_at DESC, t.id ASC LIMIT ` + strconv.Itoa(perPage) +
+			` OFFSET ` + strconv.Itoa(offset)
+
+		ids := make([]int64, 0, perPage)
+		total, err := queryCountAndRows(ctx, pool, countSQL, args, rowsSQL, args, func(rows pgx.Rows) error {
+			for rows.Next() {
+				var id int64
+				if err := rows.Scan(&id); err != nil {
+					return err
+				}
+				ids = append(ids, id)
+			}
+			return rows.Err()
+		})
+		if err != nil {
+			slog.Error("admin projects: page", "error", err)
 			serverError(w)
 			return
 		}
 
-		offset := (currentPage - 1) * perPage
-		rows, err := pool.Query(ctx, `SELECT id FROM projects t`+where+
-			` ORDER BY t.created_at DESC, t.id ASC LIMIT `+strconv.Itoa(perPage)+
-			` OFFSET `+strconv.Itoa(offset), args...)
-		if err != nil {
-			slog.Error("admin projects: query", "error", err)
-			serverError(w)
-			return
-		}
-		ids := make([]int64, 0, perPage)
-		for rows.Next() {
-			var id int64
-			if err := rows.Scan(&id); err != nil {
-				rows.Close()
-				slog.Error("admin projects: scan", "error", err)
+		var projectFields []string
+		projectValues := map[int64][]any{}
+		if len(ids) > 0 {
+			rows, err := pool.Query(ctx, `SELECT `+projectsRowColumns+` FROM projects WHERE id = ANY($1)`, ids)
+			if err != nil {
+				slog.Error("admin projects: rows", "error", err)
 				serverError(w)
 				return
 			}
-			ids = append(ids, id)
+			projectFields = fieldNames(rows)
+			for rows.Next() {
+				values, err := scanRow(rows, len(projectFields))
+				if err != nil {
+					rows.Close()
+					slog.Error("admin projects: scan", "error", err)
+					serverError(w)
+					return
+				}
+				projectValues[projectInt(values, projectFields, "id")] = values
+			}
+			if err := rows.Err(); err != nil {
+				rows.Close()
+				slog.Error("admin projects: rows", "error", err)
+				serverError(w)
+				return
+			}
+			rows.Close()
 		}
-		rows.Close()
-		if err := rows.Err(); err != nil {
-			slog.Error("admin projects: rows", "error", err)
+
+		ownerSet := map[int64]bool{}
+		arsitekSet := map[int64]bool{}
+		kontraktorSet := map[int64]bool{}
+		ownerIDs := []int64{}
+		arsitekIDs := []int64{}
+		kontraktorIDs := []int64{}
+		for _, values := range projectValues {
+			if id := projectInt(values, projectFields, "user_id"); id != 0 && !ownerSet[id] {
+				ownerSet[id] = true
+				ownerIDs = append(ownerIDs, id)
+			}
+			if id := projectInt(values, projectFields, "selected_arsitek_id"); id != 0 && !arsitekSet[id] {
+				arsitekSet[id] = true
+				arsitekIDs = append(arsitekIDs, id)
+			}
+			if id := projectInt(values, projectFields, "selected_kontraktor_id"); id != 0 && !kontraktorSet[id] {
+				kontraktorSet[id] = true
+				kontraktorIDs = append(kontraktorIDs, id)
+			}
+		}
+
+		owners, err := fullProfileUsersBatch(ctx, pool, ownerIDs, false, true)
+		if err != nil {
+			slog.Error("admin projects: owners", "error", err)
+			serverError(w)
+			return
+		}
+		arsiteks, err := profileModelsBatch(ctx, pool, "arsiteks", arsitekIDs)
+		if err != nil {
+			slog.Error("admin projects: arsiteks", "error", err)
+			serverError(w)
+			return
+		}
+		kontraktors, err := profileModelsBatch(ctx, pool, "kontraktors", kontraktorIDs)
+		if err != nil {
+			slog.Error("admin projects: kontraktors", "error", err)
+			serverError(w)
+			return
+		}
+		bids, err := adminBidCountsBatch(ctx, pool, ids)
+		if err != nil {
+			slog.Error("admin projects: bids", "error", err)
+			serverError(w)
+			return
+		}
+		disputes, err := adminDisputesBatch(ctx, pool, ids)
+		if err != nil {
+			slog.Error("admin projects: disputes", "error", err)
+			serverError(w)
+			return
+		}
+		ledger, err := adminLedgerBatch(ctx, pool, ids)
+		if err != nil {
+			slog.Error("admin projects: ledger", "error", err)
 			serverError(w)
 			return
 		}
 
 		items := make([]any, 0, len(ids))
 		for _, id := range ids {
-			entry, err := rawProjectModel(ctx, pool, id)
-			if err != nil {
-				slog.Error("admin projects: project", "error", err)
+			values, ok := projectValues[id]
+			if !ok {
+				slog.Error("admin projects: missing row", "project_id", id)
 				serverError(w)
 				return
 			}
-
-			fields, values, err := projectRowByID(ctx, pool, id)
-			if err != nil {
-				slog.Error("admin projects: row", "error", err)
-				serverError(w)
-				return
-			}
-			project := projectColumnsByName(fields, values)
-
-			ownerID, _ := project["user_id"].(int64)
-			owner, err := fullProfileUser(ctx, pool, ownerID, false)
-			if err != nil {
-				owner = nil
-			}
-			entry.Set("user", owner)
+			entry := rawProjectModelFromValues(projectFields, values)
+			entry.Set("user", owners[projectInt(values, projectFields, "user_id")])
 
 			for _, relation := range []struct {
-				key   string
-				table string
-				field string
+				key      string
+				field    string
+				profiles map[int64]*jsonwire.Object
 			}{
-				{"arsitek", "arsiteks", "selected_arsitek_id"},
-				{"kontraktor", "kontraktors", "selected_kontraktor_id"},
+				{"arsitek", "selected_arsitek_id", arsiteks},
+				{"kontraktor", "selected_kontraktor_id", kontraktors},
 			} {
-				profileID := intPtrDeref(project[relation.field])
+				profileID := projectInt(values, projectFields, relation.field)
 				if profileID == 0 {
 					entry.Set(relation.key, nil)
 					continue
 				}
-				block, err := profileModelObject(ctx, pool, relation.table, profileID, false)
-				if err != nil {
-					if isNoRows(err) {
-						entry.Set(relation.key, nil)
-						continue
-					}
-					slog.Error("admin projects: relation", "error", err)
-					serverError(w)
-					return
-				}
-				entry.Set(relation.key, block)
+				entry.Set(relation.key, relation.profiles[profileID])
 			}
 
 			// Audit columns: bid volume, open-dispute freeze state, money moved.
 			// bid_count is lifetime volume; pending_bid_count is the actionable
 			// triage queue (pending|reviewed|invited|negotiating|shortlisted).
-			var bidCount, pendingBidCount int64
-			if err := pool.QueryRow(ctx, `SELECT COUNT(*), COALESCE(SUM(CASE WHEN status::text IN ('pending','reviewed','invited','negotiating','shortlisted') THEN 1 ELSE 0 END), 0) FROM bids WHERE project_id = $1`, id).Scan(&bidCount, &pendingBidCount); err != nil {
-				slog.Error("admin projects: bids", "error", err)
-				serverError(w)
-				return
-			}
-			entry.Set("bid_count", bidCount)
-			entry.Set("pending_bid_count", pendingBidCount)
+			bid := bids[id]
+			entry.Set("bid_count", bid.total)
+			entry.Set("pending_bid_count", bid.pending)
 
 			// An open dispute freezes every payment path (terminFreezeGate), so
 			// the auditor sees exactly what the freeze gate sees.
-			var disputeID int64
-			var disputeTitle string
-			if err := pool.QueryRow(ctx, `SELECT id, title FROM project_disputes WHERE project_id = $1 AND status::text = 'open' ORDER BY id LIMIT 1`, id).Scan(&disputeID, &disputeTitle); err != nil {
-				entry.Set("open_dispute", nil)
+			if dispute, ok := disputes[id]; ok {
+				open := jsonwire.NewObject()
+				open.Set("id", dispute.id)
+				open.Set("title", dispute.title)
+				entry.Set("open_dispute", open)
 			} else {
-				dispute := jsonwire.NewObject()
-				dispute.Set("id", disputeID)
-				dispute.Set("title", disputeTitle)
-				entry.Set("open_dispute", dispute)
+				entry.Set("open_dispute", nil)
 			}
 
 			// Outflow vs refunds, as decimal strings like budget. Outflow is
 			// payment + platform_fee + retention_release; refunds are separate
 			// so paid-out can never hide behind a refund.
-			var paidMinor, refundedMinor int64
-			if err := pool.QueryRow(ctx, `SELECT COALESCE((SUM(CASE WHEN transaction_type::text IN ('payment','platform_fee','retention_release') THEN amount ELSE 0 END) * 100)::bigint, 0), COALESCE((SUM(CASE WHEN transaction_type::text = 'refund' THEN amount ELSE 0 END) * 100)::bigint, 0) FROM project_budget_transactions WHERE project_id = $1`, id).Scan(&paidMinor, &refundedMinor); err != nil {
-				slog.Error("admin projects: ledger", "error", err)
-				serverError(w)
-				return
-			}
-			entry.Set("paid_total", formatMinor(paidMinor))
-			entry.Set("refunded_total", formatMinor(refundedMinor))
+			row := ledger[id]
+			entry.Set("paid_total", formatMinor(row.paid))
+			entry.Set("refunded_total", formatMinor(row.refunded))
 
 			items = append(items, entry)
 		}

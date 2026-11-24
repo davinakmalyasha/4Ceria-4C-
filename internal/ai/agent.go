@@ -134,15 +134,8 @@ func newRememberTool(tc ToolCtx) tool.Tool {
 		Name:        "remember",
 		Description: "Stores a short preference or fact in the CURRENT user's memory when they explicitly ask you to remember it. Never use this to store secrets, bank details, tokens or another person's private data.",
 	}, func(ctx agent.Context, a RememberArgs) (RememberResult, error) {
-		if tc.Pool == nil {
-			return RememberResult{Stored: false, Note: "Memory is unavailable right now."}, nil
-		}
-		enabled, err := MemoryEnabled(ctx, tc.Pool, tc.UserID)
-		if err != nil {
-			return RememberResult{}, fmt.Errorf("memory is temporarily unavailable")
-		}
-		if !enabled {
-			return RememberResult{Stored: false, Note: "Memory is turned off for this account. The user can enable it in the assistant panel."}, nil
+		if tc.Pool == nil || !tc.MemoryEnabled {
+			return RememberResult{Stored: false, Note: "Memory is unavailable or turned off for this account."}, nil
 		}
 		if _, err := Remember(ctx, tc.Pool, tc.UserID, a.Content); err != nil {
 			return RememberResult{}, fmt.Errorf("memory could not be saved")

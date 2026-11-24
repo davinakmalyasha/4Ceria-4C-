@@ -33,9 +33,16 @@ components and the two proxy route handlers attach it to API calls.
    and calls the handler.
 4. `internal/httpapi` handlers use pgx; money moves through
    `internal/domain/escrow`, never ad-hoc SQL arithmetic in a handler.
-5. Responses are encoded by `internal/jsonwire`: key order is deliberate and
-   pre-encoded `json`/`jsonb` fragments are written verbatim. Errors use the
-   same `{"message": ...}` shape throughout.
+5. Responses are encoded by `internal/jsonwire` on `encoding/json/v2`:
+   key order is deliberate, raw JSON fragments stay JSON values, and the
+   encoder options preserve the API's bytes (invalid UTF-8, U+2028/U+2029,
+   JS/HTML escaping). Errors use the same `{"message": ...}` shape throughout.
+6. `withCompression` is the single gzip layer. It skips `text/event-stream`,
+   small bodies and empty responses, and sets `Vary: Accept-Encoding`.
+   Public JSON ETags are weak because the identity bytes have two codings.
+7. A long response owns its deadline. Multipart uploads extend the read
+   deadline from their declared size; the AI SSE stream extends its write
+   deadline to three minutes. See `docs/PERFORMANCE.md`.
 
 A 401 from the API during a server render redirects to `/auth/expire`, which
 clears the cookie and then sends the visitor to `/login`. This prevents the

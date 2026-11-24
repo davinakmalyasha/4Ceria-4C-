@@ -101,9 +101,12 @@ type projectLoad struct {
 	// paymentTermins renders the termin list (always empty on live data;
 	// accept is the only S2 read that loads the relation).
 	paymentTermins bool
-	ratings        bool
-	requirements   bool
-	addendums      bool
+	// payouts renders the owner/PM/admin payout destination block. The list
+	// batch prefetches it for privileged viewers.
+	payouts      bool
+	ratings      bool
+	requirements bool
+	addendums    bool
 }
 
 // bidCountRoles is the seven roles in resource key order.
@@ -120,6 +123,7 @@ func listLoad(role string, hasProfile bool) projectLoad {
 		subPros:       "viewer",
 		countRoles:    bidCountRoles,
 		clientHistory: true,
+		payouts:       true,
 	}
 
 	if role != "" && hasProfile {
@@ -177,14 +181,7 @@ func loadViewer(ctx context.Context, pool *pgxpool.Pool, caller Caller) (*projec
 	}
 
 	viewer.role = subject.RoleType()
-
-	if !viewer.isAdmin {
-		admin, err := isAdminUser(ctx, pool, viewer.id, viewer.role)
-		if err != nil {
-			return nil, err
-		}
-		viewer.isAdmin = admin
-	}
+	viewer.isAdmin = viewer.isAdmin || subject.IsAdmin()
 
 	for _, role := range identity.Roles() {
 		if id := subject.ProfileIDFor(role); id != nil && id.Valid() {
@@ -336,26 +333,28 @@ func ProjectsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		var total int
-		if err := pool.QueryRow(r.Context(), `SELECT COUNT(*) FROM projects p`+where, args...).Scan(&total); err != nil {
-			slog.Error("projects: count", "error", err)
-			serverError(w)
-			return
-		}
-
 		currentPage := pageParam(r)
 		const perPage = 50
 		offset := (currentPage - 1) * perPage
 
-		rows, err := pool.Query(r.Context(), `SELECT `+projectListColumns+` FROM projects p`+where+` ORDER BY p.created_at DESC, p.id DESC LIMIT 50 OFFSET `+strconv.Itoa(offset), args...)
+		countSQL := `SELECT COUNT(*) FROM projects p` + where
+		rowsSQL := `SELECT ` + projectListColumns + ` FROM projects p` + where +
+			` ORDER BY p.created_at DESC, p.id DESC LIMIT 50 OFFSET ` + strconv.Itoa(offset)
+
+		var fields []string
+		var rawValues [][]any
+		total, err := queryCountAndRows(r.Context(), pool, countSQL, args, rowsSQL, args, func(rows pgx.Rows) error {
+			var collectErr error
+			fields, rawValues, collectErr = collectRows(rows)
+			return collectErr
+		})
 		if err != nil {
-			slog.Error("projects: query", "error", err)
+			slog.Error("projects: page", "error", err)
 			serverError(w)
 			return
 		}
-		defer rows.Close()
 
-		items, err := projectList(r.Context(), pool, rows, viewer, feedLoad(viewer, withBids))
+		items, err := projectListValues(r.Context(), pool, fields, rawValues, viewer, feedLoad(viewer, withBids))
 		if err != nil {
 			slog.Error("projects: rows", "error", err)
 			serverError(w)
@@ -390,8 +389,17 @@ func hasBidProfile(viewer *projectViewer) bool {
 // every other relation keeps its per-project loader to preserve
 // `whenLoaded` omission semantics.
 func projectList(ctx context.Context, pool *pgxpool.Pool, rows pgx.Rows, viewer *projectViewer, spec projectLoad) ([]any, error) {
-	fields := fieldNames(rows)
+	fields, values, err := collectRows(rows)
+	if err != nil {
+		return nil, err
+	}
+	return projectListValues(ctx, pool, fields, values, viewer, spec)
+}
 
+// projectListValues is projectList after its page has been read. A caller
+// that batched the count and the page can hand the values straight here once
+// the batch connection is released.
+func projectListValues(ctx context.Context, pool *pgxpool.Pool, fields []string, page [][]any, viewer *projectViewer, spec projectLoad) ([]any, error) {
 	type rawProject struct {
 		fields []string
 		values []any
@@ -403,12 +411,7 @@ func projectList(ctx context.Context, pool *pgxpool.Pool, rows pgx.Rows, viewer 
 	var ids []int64
 	var ownerIDList []int64
 
-	for rows.Next() {
-		values, err := scanRow(rows, len(fields))
-		if err != nil {
-			return nil, err
-		}
-
+	for _, values := range page {
 		pid := projectInt(values, fields, "id")
 		projects = append(projects, rawProject{fields: fields, values: values, id: pid})
 		if pid != 0 {
@@ -421,9 +424,6 @@ func projectList(ctx context.Context, pool *pgxpool.Pool, rows pgx.Rows, viewer 
 				ownerIDList = append(ownerIDList, id)
 			}
 		}
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
 	}
 
 	histories, err := clientHistories(ctx, pool, ownerIDs)
@@ -455,9 +455,24 @@ func projectList(ctx context.Context, pool *pgxpool.Pool, rows pgx.Rows, viewer 
 	batchedSpec.images = false
 	batchedSpec.milestones = false
 
+	var payoutNeeds []payoutNeed
+	if spec.payouts && viewer.payoutMayBeVisible() {
+		for _, project := range projects {
+			for _, role := range bidRoleOrder {
+				if profileID := projectInt(project.values, project.fields, payoutColumnFor[role]); profileID != 0 {
+					payoutNeeds = append(payoutNeeds, payoutNeed{
+						projectID: project.id,
+						role:      role,
+						profileID: profileID,
+					})
+				}
+			}
+		}
+	}
+
 	var bundle *listBundle
 	if len(ids) > 0 {
-		if b := buildListBundle(ctx, pool, ids, ownerIDList, viewer, spec); b != nil {
+		if b := buildListBundle(ctx, pool, ids, ownerIDList, viewer, spec, payoutNeeds); b != nil {
 			bundle = b
 		} else {
 			slog.Warn("projectList: batch prefetch failed, falling back to per-row queries")

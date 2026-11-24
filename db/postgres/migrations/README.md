@@ -11,3 +11,5 @@ constraint exists, and the SQL is the current PostgreSQL schema. They are not a
 runtime dependency. New migrations describe the current system only.
 
 The AI memory tables are in `0029_ai_memory.sql`; see `docs/AI.md`.
+The list indexes proven by `EXPLAIN` on the larger benchmark dataset are in
+`0030_perf_indexes.sql`; see `docs/PERFORMANCE.md`.

@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"strings"
 
 	"github.com/davinakmalyasha/4ceria/internal/domain/authz"
 	"github.com/davinakmalyasha/4ceria/internal/domain/identity"
@@ -26,6 +27,7 @@ import (
 type DbSubject struct {
 	id       identity.UserID
 	role     string
+	admin    bool
 	profiles map[identity.Role]identity.ProfileID
 }
 
@@ -34,6 +36,9 @@ func (s DbSubject) UserID() identity.UserID { return s.id }
 
 // RoleType is the person's role_type.
 func (s DbSubject) RoleType() string { return s.role }
+
+// IsAdmin is true for the role and for the Spatie admin role.
+func (s DbSubject) IsAdmin() bool { return s.admin }
 
 // ProfileIDFor is the person's profile for a role, or nil.
 func (s DbSubject) ProfileIDFor(role identity.Role) *identity.ProfileID {
@@ -72,26 +77,51 @@ func loadSubject(ctx context.Context, pool *pgxpool.Pool, userID int64) (DbSubje
 		profiles: map[identity.Role]identity.ProfileID{},
 	}
 
-	if err := pool.QueryRow(ctx,
-		`SELECT COALESCE(role_type::text, '') FROM users WHERE id = $1`, userID,
-	).Scan(&subject.role); err != nil {
+	if err := pool.QueryRow(ctx, `
+		SELECT COALESCE(u.role_type::text, ''),
+		       EXISTS (
+		           SELECT 1 FROM model_has_roles m
+		            JOIN roles r ON r.id = m.role_id
+		           WHERE r.name = 'admin'
+		             AND m.model_type = 'App\Models\User'
+		             AND m.model_id = u.id
+		       )
+		  FROM users u WHERE u.id = $1`, userID,
+	).Scan(&subject.role, &subject.admin); err != nil {
 		return subject, err
 	}
+	subject.admin = subject.admin || subject.role == "admin"
 
+	legs := make([]string, 0, len(identity.Roles()))
 	for _, role := range identity.Roles() {
 		table, ok := identity.ProfileTableFor(role)
 		if !ok {
 			continue
 		}
-
-		var profileID *int64
-		if err := pool.QueryRow(ctx,
-			`SELECT id FROM `+string(table)+` WHERE user_id = $1 LIMIT 1`, userID,
-		).Scan(&profileID); err != nil || profileID == nil || *profileID <= 0 {
-			continue
+		legs = append(legs, `SELECT '`+string(role)+`' AS role, id FROM `+string(table)+
+			` WHERE user_id = $1`)
+	}
+	if len(legs) > 0 {
+		rows, err := pool.Query(ctx, strings.Join(legs, " UNION ALL "), userID)
+		if err != nil {
+			return subject, err
 		}
-
-		subject.profiles[role] = identity.ProfileIDOf(*profileID)
+		for rows.Next() {
+			var role string
+			var profileID int64
+			if err := rows.Scan(&role, &profileID); err != nil {
+				rows.Close()
+				return subject, err
+			}
+			if profileID > 0 {
+				subject.profiles[identity.Role(role)] = identity.ProfileIDOf(profileID)
+			}
+		}
+		if err := rows.Err(); err != nil {
+			rows.Close()
+			return subject, err
+		}
+		rows.Close()
 	}
 
 	return subject, nil

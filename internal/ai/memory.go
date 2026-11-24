@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -52,11 +53,59 @@ const (
 // pgMemoryService implements ADK's memory.Service over PostgreSQL.
 type pgMemoryService struct {
 	pool *pgxpool.Pool
+	// enabled is set for a turn that already loaded the user's setting. It
+	// removes a settings query from every memory search in that turn; nil
+	// means "read it from the database".
+	enabled *bool
 }
 
 // NewMemoryService returns the ADK memory service used by the runner.
 func NewMemoryService(pool *pgxpool.Pool) memory.Service {
 	return &pgMemoryService{pool: pool}
+}
+
+// NewEnabledMemoryService returns a memory service for a turn whose
+// memory switch is already known.
+func NewEnabledMemoryService(pool *pgxpool.Pool, enabled bool) memory.Service {
+	return &pgMemoryService{pool: pool, enabled: &enabled}
+}
+
+// cachedMemoryService remembers search results for one turn. ADK's preload
+// tool runs before every model call, and a tool loop makes several calls with
+// the same query; without this cache each one is another database search.
+type cachedMemoryService struct {
+	inner memory.Service
+	mu    sync.Mutex
+	cache map[string]*memory.SearchResponse
+}
+
+func newCachedMemoryService(inner memory.Service) memory.Service {
+	return &cachedMemoryService{inner: inner, cache: map[string]*memory.SearchResponse{}}
+}
+
+func (s *cachedMemoryService) AddSessionToMemory(ctx context.Context, sess session.Session) error {
+	return s.inner.AddSessionToMemory(ctx, sess)
+}
+
+func (s *cachedMemoryService) SearchMemory(ctx context.Context, req *memory.SearchRequest) (*memory.SearchResponse, error) {
+	if req == nil {
+		return s.inner.SearchMemory(ctx, req)
+	}
+	key := req.UserID + "\x00" + strings.TrimSpace(req.Query)
+	s.mu.Lock()
+	hit, ok := s.cache[key]
+	s.mu.Unlock()
+	if ok {
+		return hit, nil
+	}
+	response, err := s.inner.SearchMemory(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	s.mu.Lock()
+	s.cache[key] = response
+	s.mu.Unlock()
+	return response, nil
 }
 
 // AddSessionToMemory implements memory.Service. The chat handler normally
@@ -87,7 +136,13 @@ func (s *pgMemoryService) SearchMemory(ctx context.Context, req *memory.SearchRe
 	if !ok {
 		return out, nil
 	}
-	enabled, err := MemoryEnabled(ctx, s.pool, userID)
+	enabled := true
+	var err error
+	if s.enabled != nil {
+		enabled = *s.enabled
+	} else {
+		enabled, err = MemoryEnabled(ctx, s.pool, userID)
+	}
 	if err != nil || !enabled {
 		return out, err
 	}
@@ -187,7 +242,16 @@ func SyncSession(ctx context.Context, pool *pgxpool.Pool, userID int64, sessionI
 	if err != nil || !enabled {
 		return err
 	}
-	_, err = pool.Exec(ctx, `
+	return SyncSessionIfEnabled(ctx, pool, userID, sessionID, true)
+}
+
+// SyncSessionIfEnabled is SyncSession for a caller that already loaded the
+// user's setting. Passing false is a no-op, not a query.
+func SyncSessionIfEnabled(ctx context.Context, pool *pgxpool.Pool, userID int64, sessionID string, enabled bool) error {
+	if !enabled {
+		return nil
+	}
+	_, err := pool.Exec(ctx, `
 		INSERT INTO ai_memories (user_id, session_id, message_id, kind, role, content)
 		SELECT s.user_id, m.session_id, m.id, 'message', m.role,
 		       left(m.content, $3)
@@ -219,6 +283,59 @@ func Remember(ctx context.Context, pool *pgxpool.Pool, userID int64, content str
 		RETURNING id
 	`, userID, content).Scan(&id)
 	return id, err
+}
+
+// MemorySnapshot is the assistant memory panel in one round trip.
+type MemorySnapshot struct {
+	Enabled bool
+	Count   int
+	Items   []MemoryItem
+}
+
+// LoadMemorySnapshot reads the switch, the total count and the newest rows
+// with one batched round trip. The panel asks for all three together.
+func LoadMemorySnapshot(ctx context.Context, pool *pgxpool.Pool, userID int64, limit int) (MemorySnapshot, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 50
+	}
+	batch := &pgx.Batch{}
+	batch.Queue(`SELECT COALESCE((SELECT enabled FROM ai_memory_settings WHERE user_id = $1), true)`, userID)
+	batch.Queue(`SELECT count(*) FROM ai_memories WHERE user_id = $1`, userID)
+	batch.Queue(`
+		SELECT id, kind, role, content, created_at
+		  FROM ai_memories
+		 WHERE user_id = $1
+		 ORDER BY created_at DESC, id DESC
+		 LIMIT $2
+	`, userID, limit)
+	results := pool.SendBatch(ctx, batch)
+	defer results.Close()
+
+	var snapshot MemorySnapshot
+	if err := results.QueryRow().Scan(&snapshot.Enabled); err != nil {
+		return MemorySnapshot{}, err
+	}
+	if err := results.QueryRow().Scan(&snapshot.Count); err != nil {
+		return MemorySnapshot{}, err
+	}
+	rows, err := results.Query()
+	if err != nil {
+		return MemorySnapshot{}, err
+	}
+	snapshot.Items = []MemoryItem{}
+	for rows.Next() {
+		var item MemoryItem
+		if err := rows.Scan(&item.ID, &item.Kind, &item.Role, &item.Content, &item.CreatedAt); err != nil {
+			rows.Close()
+			return MemorySnapshot{}, err
+		}
+		snapshot.Items = append(snapshot.Items, item)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return MemorySnapshot{}, err
+	}
+	return snapshot, nil
 }
 
 // ListMemories returns the user's newest memory rows for the settings panel.

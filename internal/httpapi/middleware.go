@@ -211,12 +211,21 @@ func withSecurityHeaders(next http.Handler) http.Handler {
 // JSON is small by design (2 MB); a multipart upload is allowed up to 80 MB,
 // which is the largest attachment cap any handler declares. A content length
 // that already exceeds the cap is refused before a single byte is read.
+//
+// A multipart body also gets its own read deadline. The server's global
+// ReadTimeout is deliberately short (slowloris protection), but an 80 MB
+// upload is legitimate work: the deadline assumes a slow 1 Mbps client and
+// is capped at 30 minutes.
 func withRequestLimits(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		limit := int64(2 << 20)
 
 		if strings.HasPrefix(strings.ToLower(r.Header.Get("Content-Type")), "multipart/form-data") {
 			limit = 80 << 20
+			deadline := uploadReadTimeout(r.ContentLength, true)
+			// A ResponseWriter that cannot set a deadline (a test recorder,
+			// an HTTP version without support) keeps the server default.
+			_ = http.NewResponseController(w).SetReadDeadline(time.Now().Add(deadline))
 		}
 
 		if r.ContentLength > limit {
@@ -227,6 +236,29 @@ func withRequestLimits(next http.Handler) http.Handler {
 		r.Body = http.MaxBytesReader(w, r.Body, limit)
 		next.ServeHTTP(w, r)
 	})
+}
+
+const (
+	uploadDeadlineFloor = 30 * time.Second
+	uploadDeadlineCap   = 30 * time.Minute
+	uploadBytesPerSec   = 128 * 1024 // a slow 1 Mbps client
+)
+
+// uploadReadTimeout sizes a multipart read window from the declared body.
+// Unknown/streamed lengths get the cap; a small multipart still gets the
+// floor.
+func uploadReadTimeout(contentLength int64, multipart bool) time.Duration {
+	if !multipart {
+		return uploadDeadlineFloor
+	}
+	if contentLength <= 0 {
+		return uploadDeadlineCap
+	}
+	deadline := uploadDeadlineFloor + time.Duration(contentLength/uploadBytesPerSec)*time.Second
+	if deadline > uploadDeadlineCap {
+		return uploadDeadlineCap
+	}
+	return deadline
 }
 
 // withOptionalCaller resolves a bearer token without requiring one.

@@ -226,6 +226,7 @@ func SendPendingPushes(ctx context.Context, pool *pgxpool.Pool, logger *slog.Log
 		return err
 	}
 
+	start := time.Now()
 	for _, item := range batch {
 		if shouldPushForPool(ctx, pool, item.userID, item.kind) {
 			fanoutPushPool(pool, item.userID, item.kind, item.title, item.body)
@@ -236,7 +237,8 @@ func SendPendingPushes(ctx context.Context, pool *pgxpool.Pool, logger *slog.Log
 	}
 
 	if len(batch) > 0 {
-		logger.Info("scheduler: push sweep", "notifications", len(batch))
+		logger.Info("scheduler: push sweep", "notifications", len(batch),
+			"duration_ms", time.Since(start).Milliseconds())
 	}
 	return nil
 }

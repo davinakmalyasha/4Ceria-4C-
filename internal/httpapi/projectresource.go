@@ -461,7 +461,7 @@ func projectResource(ctx context.Context, pool *pgxpool.Pool, fields []string, v
 	row.Set("interior_approved_at", projectTime(values, fields, "owner_interior_approved_at"))
 	row.Set("share_token", projectGated(projectText(values, fields, "share_token"), privileged))
 
-	destinations, err := projectPayoutDestinations(ctx, pool, viewer, id, byName, privileged)
+	destinations, err := projectPayoutDestinationsBundled(ctx, pool, viewer, id, byName, privileged, bundle)
 	if err != nil {
 		return nil, err
 	}

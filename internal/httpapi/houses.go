@@ -121,53 +121,44 @@ func HousesHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		currentPage := pageParam(r)
 		where := " WHERE " + strings.Join(conditions, " AND ")
 
-		var total int
-		if err := pool.QueryRow(r.Context(),
-			`SELECT COUNT(*) FROM house h`+where, args...,
-		).Scan(&total); err != nil {
-			slog.Error("houses: count", "error", err)
-			serverError(w)
-			return
-		}
-
 		offset := (currentPage - 1) * perPage
 		limitArgs := append(append([]any{}, args...), perPage, offset)
-		rows, err := pool.Query(r.Context(), `
-			SELECT `+houseSelect()+` FROM house h`+where+`
-			 ORDER BY `+order+` LIMIT $`+strconv.Itoa(len(args)+1)+` OFFSET $`+strconv.Itoa(len(args)+2),
-			limitArgs...,
-		)
+		countSQL := `SELECT COUNT(*) FROM house h` + where
+		rowsSQL := `
+			SELECT ` + houseSelect() + ` FROM house h` + where + `
+			 ORDER BY ` + order + ` LIMIT $` + strconv.Itoa(len(args)+1) + ` OFFSET $` + strconv.Itoa(len(args)+2)
+
+		// Count and page in one round trip. The rows are collected first so
+		// houseResource's batched relation queries do not run while the page
+		// connection is still held.
+		var fields []string
+		rawRows := make([][]any, 0, perPage)
+		total, err := queryCountAndRows(r.Context(), pool, countSQL, args, rowsSQL, limitArgs, func(rows pgx.Rows) error {
+			fields = fieldNames(rows)
+			for rows.Next() {
+				values, scanErr := scanRow(rows, len(fields))
+				if scanErr != nil {
+					return scanErr
+				}
+				rawRows = append(rawRows, values)
+			}
+			return rows.Err()
+		})
 		if err != nil {
-			slog.Error("houses: query", "error", err)
+			slog.Error("houses: page", "error", err)
 			serverError(w)
 			return
 		}
-		defer rows.Close()
 
-		fields := fieldNames(rows)
-		items := make([]any, 0, perPage)
-
-		for rows.Next() {
-			values, err := scanRow(rows, len(fields))
-			if err != nil {
-				slog.Error("houses: scan", "error", err)
-				serverError(w)
-				return
-			}
-
+		items := make([]any, 0, len(rawRows))
+		for _, values := range rawRows {
 			row, err := houseResource(r.Context(), pool, fields, values, callerID, caller != nil && caller.IsAdmin())
 			if err != nil {
 				slog.Error("houses: row", "error", err)
 				serverError(w)
 				return
 			}
-
 			items = append(items, row)
-		}
-		if err := rows.Err(); err != nil {
-			slog.Error("houses: rows", "error", err)
-			serverError(w)
-			return
 		}
 
 		baseURL := requestBaseURL(r)

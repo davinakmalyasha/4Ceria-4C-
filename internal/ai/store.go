@@ -225,13 +225,87 @@ func CheckQuota(ctx context.Context, pool *pgxpool.Pool, userID int64) (string, 
 	if err != nil {
 		return "", err
 	}
-	if usage.Minute >= MinuteQuota {
-		return "minute", nil
+	return usage.Label(), nil
+}
+
+// Label is the quota state the HTTP layer and the assistant panel use.
+func (u QuotaUsage) Label() string {
+	if u.Minute >= MinuteQuota {
+		return "minute"
 	}
-	if usage.Day >= DailyQuota {
-		return "day", nil
+	if u.Day >= DailyQuota {
+		return "day"
 	}
-	return "ok", nil
+	return "ok"
+}
+
+// TurnState is everything the first half of a turn needs, loaded in one
+// round trip: the session must exist, the quota counters, and the user's
+// memory switch.
+type TurnState struct {
+	SessionExists bool
+	Usage         QuotaUsage
+	MemoryEnabled bool
+}
+
+// LoadTurnState reads the session/ownership check, both quota counters and
+// the memory setting together. A turn used to pay three separate round trips
+// before it stored the user's message.
+func LoadTurnState(ctx context.Context, pool *pgxpool.Pool, userID int64, sessionID string) (TurnState, error) {
+	var state TurnState
+	err := pool.QueryRow(ctx, `
+		SELECT
+			EXISTS(
+				SELECT 1 FROM ai_chat_sessions WHERE id = $2 AND user_id = $1
+			),
+			(SELECT count(*) FILTER (WHERE m.created_at > now() - interval '1 minute')
+			   FROM ai_chat_messages m
+			   JOIN ai_chat_sessions s ON s.id = m.session_id
+			  WHERE s.user_id = $1 AND m.role = 'user'),
+			(SELECT count(*) FILTER (WHERE m.created_at > date_trunc('day', now()))
+			   FROM ai_chat_messages m
+			   JOIN ai_chat_sessions s ON s.id = m.session_id
+			  WHERE s.user_id = $1 AND m.role = 'user'),
+			COALESCE((SELECT enabled FROM ai_memory_settings WHERE user_id = $1), true)
+	`, userID, sessionID).Scan(
+		&state.SessionExists,
+		&state.Usage.Minute,
+		&state.Usage.Day,
+		&state.MemoryEnabled,
+	)
+	return state, err
+}
+
+// StatusSnapshot is the assistant panel's status in one round trip.
+type StatusSnapshot struct {
+	Usage         QuotaUsage
+	MemoryEnabled bool
+	MemoryItems   int
+}
+
+// LoadStatusSnapshot reads quota, memory switch and memory count together.
+// The panel asks for all three on every load.
+func LoadStatusSnapshot(ctx context.Context, pool *pgxpool.Pool, userID int64) (StatusSnapshot, error) {
+	var snapshot StatusSnapshot
+	err := pool.QueryRow(ctx, `
+		SELECT
+			(SELECT count(*) FILTER (WHERE m.created_at > now() - interval '1 minute')
+			   FROM ai_chat_messages m
+			   JOIN ai_chat_sessions s ON s.id = m.session_id
+			  WHERE s.user_id = $1 AND m.role = 'user'),
+			(SELECT count(*) FILTER (WHERE m.created_at > date_trunc('day', now()))
+			   FROM ai_chat_messages m
+			   JOIN ai_chat_sessions s ON s.id = m.session_id
+			  WHERE s.user_id = $1 AND m.role = 'user'),
+			COALESCE((SELECT enabled FROM ai_memory_settings WHERE user_id = $1), true),
+			(SELECT count(*) FROM ai_memories WHERE user_id = $1)
+	`, userID).Scan(
+		&snapshot.Usage.Minute,
+		&snapshot.Usage.Day,
+		&snapshot.MemoryEnabled,
+		&snapshot.MemoryItems,
+	)
+	return snapshot, err
 }
 
 func trimTitle(t string) string {

@@ -78,34 +78,165 @@ func chatMessageObject(ctx context.Context, pool *pgxpool.Pool, byName map[strin
 	return entry, nil
 }
 
-// chatMessageRow reads one message.
-func chatMessageRow(ctx context.Context, pool *pgxpool.Pool, messageID int64) (map[string]any, bool, error) {
-	rows, err := pool.Query(ctx, `SELECT `+chatMessageSelectList()+`
-		FROM chat_messages WHERE id = $1`, messageID)
-	if err != nil {
-		return nil, false, err
-	}
-	defer rows.Close()
-	if !rows.Next() {
-		return nil, false, rows.Err()
-	}
-	fields := fieldNames(rows)
-	values, err := scanRow(rows, len(fields))
-	if err != nil {
-		return nil, false, err
-	}
-	byName := map[string]any{}
-	for i, column := range fields {
-		byName[column] = values[i]
-	}
-	return byName, true, rows.Err()
-}
-
 // chatAvatarTables is resolveAvatars()' role → table map (note `courier`).
 var chatAvatarTables = map[string]string{
 	"arsitek": "arsiteks", "kontraktor": "kontraktors", "notaris": "notaris_profiles",
 	"interior": "interior_profiles", "project_manager": "project_managers",
 	"courier": "courier_profiles", "supplier": "suppliers",
+}
+
+type conversationUser struct {
+	name     string
+	username *string
+	role     *string
+	pic      *string
+}
+
+// conversationUsersBatch loads the counterpart rows for an inbox page.
+func conversationUsersBatch(ctx context.Context, pool *pgxpool.Pool, ids []int64) (map[int64]conversationUser, error) {
+	out := map[int64]conversationUser{}
+	if len(ids) == 0 {
+		return out, nil
+	}
+
+	rows, err := pool.Query(ctx, `SELECT id, name, username, role_type::text, pic
+		FROM users WHERE id = ANY($1)`, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var id int64
+		var user conversationUser
+		if err := rows.Scan(&id, &user.name, &user.username, &user.role, &user.pic); err != nil {
+			return nil, err
+		}
+		out[id] = user
+	}
+	return out, rows.Err()
+}
+
+// chatAvatarRoleOrder keeps the batched avatar query stable across runs.
+var chatAvatarRoleOrder = []string{
+	"arsitek", "kontraktor", "notaris", "interior",
+	"project_manager", "courier", "supplier",
+}
+
+// conversationAvatarsBatch resolves the first non-null profile foto for every
+// counterpart whose role has an avatar table. Each table is one branch of a
+// UNION ALL, so the whole inbox pays one query instead of one per row.
+func conversationAvatarsBatch(ctx context.Context, pool *pgxpool.Pool, users map[int64]conversationUser) (map[int64]string, error) {
+	out := map[int64]string{}
+	byTable := map[string][]int64{}
+	for id, user := range users {
+		if user.role == nil {
+			continue
+		}
+		table, ok := chatAvatarTables[*user.role]
+		if !ok {
+			continue
+		}
+		byTable[table] = append(byTable[table], id)
+	}
+	if len(byTable) == 0 {
+		return out, nil
+	}
+
+	legs := make([]string, 0, len(byTable))
+	args := make([]any, 0, len(byTable))
+	for _, role := range chatAvatarRoleOrder {
+		table, ok := chatAvatarTables[role]
+		if !ok {
+			continue
+		}
+		ids, ok := byTable[table]
+		if !ok || len(ids) == 0 {
+			continue
+		}
+		args = append(args, ids)
+		legs = append(legs, `SELECT DISTINCT ON (user_id) user_id, foto FROM `+
+			table+` WHERE user_id = ANY($`+strconv.Itoa(len(args))+`) AND foto IS NOT NULL ORDER BY user_id, id`)
+	}
+	if len(legs) == 0 {
+		return out, nil
+	}
+
+	rows, err := pool.Query(ctx, strings.Join(legs, " UNION ALL "), args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var id int64
+		var foto string
+		if err := rows.Scan(&id, &foto); err != nil {
+			return nil, err
+		}
+		out[id] = foto
+	}
+	return out, rows.Err()
+}
+
+// conversationUnreadBatch counts unread counterpart messages per conversation.
+func conversationUnreadBatch(ctx context.Context, pool *pgxpool.Pool, ids []int64, callerID int64) (map[int64]int64, error) {
+	out := map[int64]int64{}
+	if len(ids) == 0 {
+		return out, nil
+	}
+
+	rows, err := pool.Query(ctx, `SELECT conversation_id, count(*)
+		FROM chat_messages
+		WHERE conversation_id = ANY($1) AND sender_id <> $2 AND is_read = false
+		GROUP BY conversation_id`, ids, callerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var id, count int64
+		if err := rows.Scan(&id, &count); err != nil {
+			return nil, err
+		}
+		out[id] = count
+	}
+	return out, rows.Err()
+}
+
+// conversationLastMessagesBatch loads the newest message of every conversation
+// in one round trip. The per-row path read the id and then the row.
+func conversationLastMessagesBatch(ctx context.Context, pool *pgxpool.Pool, ids []int64) (map[int64]map[string]any, error) {
+	out := map[int64]map[string]any{}
+	if len(ids) == 0 {
+		return out, nil
+	}
+
+	rows, err := pool.Query(ctx, `SELECT DISTINCT ON (conversation_id) conversation_id, `+
+		chatMessageSelectList()+`
+		FROM chat_messages
+		WHERE conversation_id = ANY($1)
+		ORDER BY conversation_id, id DESC`, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	fields := fieldNames(rows)
+	for rows.Next() {
+		values, err := scanRow(rows, len(fields))
+		if err != nil {
+			return nil, err
+		}
+		byName := make(map[string]any, len(fields))
+		for i, column := range fields {
+			byName[column] = values[i]
+		}
+		conversationID := intPtrDeref(byName["conversation_id"])
+		out[conversationID] = byName
+	}
+	return out, rows.Err()
 }
 
 // ConversationsIndexHandler serves `GET /api/conversations`.
@@ -128,80 +259,91 @@ func ConversationsIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			serverError(w)
 			return
 		}
-
-		type conversationRow struct {
-			byName map[string]any
-		}
-		loaded := make([]conversationRow, 0)
-		for rows.Next() {
-			fields := fieldNames(rows)
-			values, err := scanRow(rows, len(fields))
-			if err != nil {
-				rows.Close()
-				slog.Error("conversations: scan", "error", err)
-				serverError(w)
-				return
-			}
-			byName := map[string]any{}
-			for i, column := range fields {
-				byName[column] = values[i]
-			}
-			loaded = append(loaded, conversationRow{byName})
-		}
+		fields, values, err := collectRows(rows)
 		rows.Close()
+		if err != nil {
+			slog.Error("conversations: scan", "error", err)
+			serverError(w)
+			return
+		}
 
-		out := make([]any, 0)
+		loaded := make([]map[string]any, 0, len(values))
+		otherIDs := make([]int64, 0, len(values))
+		conversationIDs := make([]int64, 0, len(values))
+		seenOther := map[int64]bool{}
+		for _, row := range values {
+			byName := make(map[string]any, len(fields))
+			for i, column := range fields {
+				byName[column] = row[i]
+			}
+			loaded = append(loaded, byName)
+
+			id := intPtrDeref(byName["id"])
+			conversationIDs = append(conversationIDs, id)
+
+			otherID := intPtrDeref(byName["user_two_id"])
+			if intPtrDeref(byName["user_two_id"]) == caller.UserID() {
+				otherID = intPtrDeref(byName["user_one_id"])
+			}
+			if otherID != 0 && !seenOther[otherID] {
+				seenOther[otherID] = true
+				otherIDs = append(otherIDs, otherID)
+			}
+		}
+
+		users, err := conversationUsersBatch(ctx, pool, otherIDs)
+		if err != nil {
+			slog.Error("conversations: users", "error", err)
+			serverError(w)
+			return
+		}
+		avatars, err := conversationAvatarsBatch(ctx, pool, users)
+		if err != nil {
+			slog.Error("conversations: avatars", "error", err)
+			serverError(w)
+			return
+		}
+		unread, err := conversationUnreadBatch(ctx, pool, conversationIDs, caller.UserID())
+		if err != nil {
+			slog.Error("conversations: unread", "error", err)
+			serverError(w)
+			return
+		}
+		lastMessages, err := conversationLastMessagesBatch(ctx, pool, conversationIDs)
+		if err != nil {
+			slog.Error("conversations: last messages", "error", err)
+			serverError(w)
+			return
+		}
+
+		out := make([]any, 0, len(loaded))
 		for _, conversation := range loaded {
-			id := intPtrDeref(conversation.byName["id"])
-			otherID := intPtrDeref(conversation.byName["user_two_id"])
-			if intPtrDeref(conversation.byName["user_two_id"]) == caller.UserID() {
-				otherID = intPtrDeref(conversation.byName["user_one_id"])
+			id := intPtrDeref(conversation["id"])
+			otherID := intPtrDeref(conversation["user_two_id"])
+			if intPtrDeref(conversation["user_two_id"]) == caller.UserID() {
+				otherID = intPtrDeref(conversation["user_one_id"])
 			}
 
-			var (
-				name     string
-				username *string
-				role     *string
-				pic      *string
-			)
-			if err := pool.QueryRow(ctx, `SELECT name, username, role_type::text, pic
-				FROM users WHERE id = $1`, otherID).Scan(&name, &username, &role, &pic); err != nil {
+			user, found := users[otherID]
+			if !found {
 				continue // the controller drops conversations with a missing user
 			}
 
-			avatar := pic
-			if role != nil {
-				if table, known := chatAvatarTables[*role]; known {
-					var foto *string
-					if err := pool.QueryRow(ctx, `SELECT foto FROM `+table+`
-						WHERE user_id = $1 AND foto IS NOT NULL LIMIT 1`, otherID).Scan(&foto); err == nil {
-						avatar = foto
-					}
-				}
+			avatar := user.pic
+			if foto, ok := avatars[otherID]; ok {
+				avatar = &foto
 			}
 
 			other := jsonwire.NewObject()
 			other.Set("id", otherID)
-			other.Set("name", name)
-			other.Set("username", nullableString(username))
-			other.Set("role_type", nullableString(role))
+			other.Set("name", user.name)
+			other.Set("username", nullableString(user.username))
+			other.Set("role_type", nullableString(user.role))
 			other.Set("pic", nullableString(avatar))
 
-			var unread int64
-			_ = pool.QueryRow(ctx, `SELECT count(*) FROM chat_messages
-				WHERE conversation_id = $1 AND sender_id <> $2 AND is_read = false`,
-				id, caller.UserID()).Scan(&unread)
-
 			var lastMessage any
-			if lastID := func() int64 {
-				var value int64
-				_ = pool.QueryRow(ctx, `SELECT id FROM chat_messages WHERE conversation_id = $1
-					ORDER BY id DESC LIMIT 1`, id).Scan(&value)
-				return value
-			}(); lastID != 0 {
-				if byName, found, err := chatMessageRow(ctx, pool, lastID); err == nil && found {
-					lastMessage, _ = chatMessageObject(ctx, pool, byName, false)
-				}
+			if byName, ok := lastMessages[id]; ok {
+				lastMessage, _ = chatMessageObject(ctx, pool, byName, false)
 			}
 
 			entry := jsonwire.NewObject()
@@ -212,8 +354,8 @@ func ConversationsIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			} else {
 				entry.Set("last_message", lastMessage)
 			}
-			entry.Set("unread_count", unread)
-			entry.Set("last_message_at", projectTimeValue(conversation.byName["last_message_at"]))
+			entry.Set("unread_count", unread[id])
+			entry.Set("last_message_at", projectTimeValue(conversation["last_message_at"]))
 			out = append(out, entry)
 		}
 

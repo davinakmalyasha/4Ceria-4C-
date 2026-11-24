@@ -42,11 +42,13 @@ func StartScheduler(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger
 func schedulerLoop(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger) {
 	// Run retention shortly after boot (catch-up), then daily.
 	runWithLock(ctx, pool, logger, schedLockRetention, "retention", func(ctx context.Context) error {
+		start := time.Now()
 		res, err := ReleaseExpiredRetentions(ctx, pool, nil, false, logger)
 		if err != nil {
 			return err
 		}
-		logger.Info("scheduler: retention sweep", "released", res.ReleasedStages, "scanned", res.Scanned)
+		logger.Info("scheduler: retention sweep", "released", res.ReleasedStages,
+			"scanned", res.Scanned, "duration_ms", time.Since(start).Milliseconds())
 		return nil
 	})
 	runWithLock(ctx, pool, logger, schedLockPrune, "mail", func(ctx context.Context) error {
@@ -77,11 +79,13 @@ func schedulerLoop(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger)
 			})
 		case <-ticker.C:
 			runWithLock(ctx, pool, logger, schedLockRetention, "retention", func(ctx context.Context) error {
+				start := time.Now()
 				res, err := ReleaseExpiredRetentions(ctx, pool, nil, false, logger)
 				if err != nil {
 					return err
 				}
-				logger.Info("scheduler: retention sweep", "released", res.ReleasedStages, "scanned", res.Scanned)
+				logger.Info("scheduler: retention sweep", "released", res.ReleasedStages,
+					"scanned", res.Scanned, "duration_ms", time.Since(start).Milliseconds())
 				return nil
 			})
 			runWithLock(ctx, pool, logger, schedLockAutoComplete, "auto-complete-orders", func(ctx context.Context) error {
@@ -131,12 +135,14 @@ func runWithLock(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger, k
 // stuck in `delivered` past 3 days auto-complete so a silent buyer cannot
 // stall a supplier forever (the supplier fallback).
 func AutoCompleteOrders(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger) error {
+	start := time.Now()
 	ct, err := pool.Exec(ctx, `UPDATE material_orders SET status = 'completed', updated_at = date_trunc('second', now()) WHERE status::text = 'delivered' AND updated_at < now() - interval '3 days'`)
 	if err != nil {
 		return err
 	}
 	if n := ct.RowsAffected(); n > 0 {
-		logger.Info("scheduler: auto-complete orders", "completed", n)
+		logger.Info("scheduler: auto-complete orders", "completed", n,
+			"duration_ms", time.Since(start).Milliseconds())
 	}
 	return nil
 }
@@ -145,6 +151,7 @@ func AutoCompleteOrders(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 // their deadline that are not resolved get flagged once.
 func EscalateOverdueSnags(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger) error {
 	// Idempotent: only rows never escalated.
+	start := time.Now()
 	ct, err := pool.Exec(ctx, `UPDATE project_snag_items SET escalated_at = date_trunc('second', now()), updated_at = date_trunc('second', now()) WHERE status::text NOT IN ('resolved','closed') AND due_at IS NOT NULL AND due_at < now() AND escalated_at IS NULL`)
 	if err != nil {
 		// Older schemas may lack escalated_at/deadline: log and skip rather
@@ -152,7 +159,10 @@ func EscalateOverdueSnags(ctx context.Context, pool *pgxpool.Pool, logger *slog.
 		logger.Info("scheduler: snag escalate skipped", "error", err.Error())
 		return nil
 	}
-	_ = ct
+	if n := ct.RowsAffected(); n > 0 {
+		logger.Info("scheduler: snag escalate", "escalated", n,
+			"duration_ms", time.Since(start).Milliseconds())
+	}
 	// The escalated_at stamp is the escalation signal the UI reads; a
 	// notification per escalated row is fanned out by the notifier.
 	return nil
@@ -161,14 +171,28 @@ func EscalateOverdueSnags(ctx context.Context, pool *pgxpool.Pool, logger *slog.
 // PruneExpired mirrors the prune trio: expired access tokens and stale
 // notifications. Best-effort; failures are logged, never fatal.
 func PruneExpired(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger) error {
-	if _, err := pool.Exec(ctx, `DELETE FROM notifications WHERE created_at < now() - interval '90 days'`); err != nil {
+	start := time.Now()
+	var notifications, tokens, limits int64
+
+	if ct, err := pool.Exec(ctx, `DELETE FROM notifications WHERE created_at < now() - interval '90 days'`); err != nil {
 		logger.Info("scheduler: prune notifications skipped", "error", err.Error())
+	} else {
+		notifications = ct.RowsAffected()
 	}
-	if _, err := pool.Exec(ctx, `DELETE FROM personal_access_tokens WHERE expires_at IS NOT NULL AND expires_at <= now()`); err != nil {
+	if ct, err := pool.Exec(ctx, `DELETE FROM personal_access_tokens WHERE expires_at IS NOT NULL AND expires_at <= now()`); err != nil {
 		logger.Info("scheduler: prune tokens skipped", "error", err.Error())
+	} else {
+		tokens = ct.RowsAffected()
 	}
-	if _, err := pool.Exec(ctx, `DELETE FROM rate_limit_hits WHERE hit_at < now() - interval '1 hour'`); err != nil {
+	if ct, err := pool.Exec(ctx, `DELETE FROM rate_limit_hits WHERE hit_at < now() - interval '1 hour'`); err != nil {
 		logger.Info("scheduler: prune rate limits skipped", "error", err.Error())
+	} else {
+		limits = ct.RowsAffected()
+	}
+
+	if notifications+tokens+limits > 0 {
+		logger.Info("scheduler: prune", "notifications", notifications, "tokens", tokens,
+			"rate_limits", limits, "duration_ms", time.Since(start).Milliseconds())
 	}
 	return nil
 }

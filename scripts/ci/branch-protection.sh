@@ -2,14 +2,16 @@
 #
 # branch-protection.sh — the rule set for `main`.
 #
-# WHY
-# ---
-# `main` had NO protection. Any push went straight in, and the only gate was
-# a manual sequence in AGENTS.md that nobody could prove had been run. Worse,
-# the pipeline that was supposed to be the gate had never executed a single
-# line of project code (see the history at the top of
-# .github/workflows/ci.yml), so "the build is green" was not a fact anyone
-# could assert.
+# The live rule set MUST match the CONTEXTS list below: GitHub only reports
+# the CI job names, so a hand-added check name (or a renamed job) makes every
+# PR unmergeable through the normal flow. If the live settings drift, re-run
+# this script to converge them; do not hand-edit the branch protection.
+#
+# WHY PROTECTION
+# --------------
+# An unprotected `main` lets any push land without the gate, and a pipeline
+# that never executed project code made "the build is green" unassertable
+# (see the history at the top of .github/workflows/ci.yml).
 #
 # THE RULE SET
 # ------------

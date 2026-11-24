@@ -118,7 +118,17 @@ func TestListBundleMatchesPerRow(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		bundle := buildListBundle(ctx, pool, pids, ownerIDList, viewer, spec)
+		var payoutNeeds []payoutNeed
+		if spec.payouts && viewer.payoutMayBeVisible() {
+			for _, p := range projects {
+				for _, role := range bidRoleOrder {
+					if profileID := projectInt(p.values, p.fields, payoutColumnFor[role]); profileID != 0 {
+						payoutNeeds = append(payoutNeeds, payoutNeed{projectID: p.id, role: role, profileID: profileID})
+					}
+				}
+			}
+		}
+		bundle := buildListBundle(ctx, pool, pids, ownerIDList, viewer, spec, payoutNeeds)
 		if bundle == nil {
 			t.Fatalf("%s: bundle build failed on seeded data", tc.name)
 		}

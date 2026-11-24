@@ -2,6 +2,8 @@ package httpapi
 
 import (
 	"context"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
@@ -49,6 +51,153 @@ type listBundle struct {
 	ownerFound  map[int64]bool
 	ownerPhones map[int64]*string
 	bidders     *bidderBatch
+	// payouts is non-nil when the page prefetched payout destinations. A
+	// missing project key means the privileged block is the empty array.
+	payouts map[int64]any
+}
+
+// payoutNeed is one hired-role profile named by a project row.
+type payoutNeed struct {
+	projectID int64
+	role      string
+	profileID int64
+}
+
+// projectPayoutsBatch resolves every hired profile on a page with one UNION
+// query and one user query. The per-row path cost two queries per hired role.
+func projectPayoutsBatch(ctx context.Context, pool *pgxpool.Pool, needs []payoutNeed) (map[int64]any, error) {
+	out := map[int64]any{}
+	if len(needs) == 0 {
+		return out, nil
+	}
+
+	byRole := map[string][]int64{}
+	seen := map[string]map[int64]bool{}
+	for _, need := range needs {
+		if need.profileID == 0 {
+			continue
+		}
+		if seen[need.role] == nil {
+			seen[need.role] = map[int64]bool{}
+		}
+		if seen[need.role][need.profileID] {
+			continue
+		}
+		seen[need.role][need.profileID] = true
+		byRole[need.role] = append(byRole[need.role], need.profileID)
+	}
+
+	legs := make([]string, 0, len(byRole))
+	args := make([]any, 0, len(byRole))
+	for _, role := range bidRoleOrder {
+		ids := byRole[role]
+		if len(ids) == 0 {
+			continue
+		}
+		table, ok := payoutTableFor[role]
+		if !ok {
+			continue
+		}
+		args = append(args, ids)
+		legs = append(legs, `SELECT '`+role+`' AS role, id, user_id FROM `+table+
+			` WHERE id = ANY($`+strconv.Itoa(len(args))+`)`)
+	}
+	if len(legs) == 0 {
+		return out, nil
+	}
+
+	rows, err := pool.Query(ctx, strings.Join(legs, " UNION ALL "), args...)
+	if err != nil {
+		return nil, err
+	}
+	profileUser := map[string]map[int64]int64{}
+	userSet := map[int64]bool{}
+	userIDs := make([]int64, 0)
+	for rows.Next() {
+		var role string
+		var profileID int64
+		var userID *int64
+		if err := rows.Scan(&role, &profileID, &userID); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		if userID == nil || *userID == 0 {
+			continue
+		}
+		if profileUser[role] == nil {
+			profileUser[role] = map[int64]int64{}
+		}
+		profileUser[role][profileID] = *userID
+		if !userSet[*userID] {
+			userSet[*userID] = true
+			userIDs = append(userIDs, *userID)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return nil, err
+	}
+	rows.Close()
+
+	users := map[int64]*payoutUser{}
+	if len(userIDs) > 0 {
+		userRows, err := pool.Query(ctx, `SELECT id, name, bank_name, bank_account_number, bank_account_name
+			FROM users WHERE id = ANY($1)`, userIDs)
+		if err != nil {
+			return nil, err
+		}
+		for userRows.Next() {
+			var user payoutUser
+			if err := userRows.Scan(&user.id, &user.name, &user.bankName,
+				&user.bankAccountNo, &user.bankAccountNm); err != nil {
+				userRows.Close()
+				return nil, err
+			}
+			users[user.id] = &user
+		}
+		if err := userRows.Err(); err != nil {
+			userRows.Close()
+			return nil, err
+		}
+		userRows.Close()
+	}
+
+	byProject := map[int64]map[string]payoutNeed{}
+	for _, need := range needs {
+		if need.profileID == 0 {
+			continue
+		}
+		if byProject[need.projectID] == nil {
+			byProject[need.projectID] = map[string]payoutNeed{}
+		}
+		byProject[need.projectID][need.role] = need
+	}
+
+	for projectID, roles := range byProject {
+		destinations := jsonwire.NewObject()
+		emitted := false
+		for _, role := range bidRoleOrder {
+			need, ok := roles[role]
+			if !ok {
+				continue
+			}
+			var user *payoutUser
+			if userID, ok := profileUser[role][need.profileID]; ok {
+				user = users[userID]
+			}
+			destinations.Set(role, payoutDestinationObject(role, user))
+			if user != nil {
+				emitted = true
+			}
+		}
+		if !emitted {
+			out[projectID] = []any{}
+			continue
+		}
+		out[projectID] = destinations
+	}
+
+	return out, nil
 }
 
 // projectBidCountsBatch counts unified bids per role for many projects.
@@ -343,7 +492,7 @@ func subProfessionalUserFromMaps(userID int64, users map[int64]map[string]any, p
 
 // buildListBundle prefetches one page's relations. Any query failure
 // returns nil so the caller falls back to the per-row path byte-for-byte.
-func buildListBundle(ctx context.Context, pool *pgxpool.Pool, projectIDs []int64, ownerIDs []int64, viewer *projectViewer, spec projectLoad) *listBundle {
+func buildListBundle(ctx context.Context, pool *pgxpool.Pool, projectIDs []int64, ownerIDs []int64, viewer *projectViewer, spec projectLoad, payoutNeeds []payoutNeed) *listBundle {
 	b := &listBundle{
 		counts:      map[int64]map[string]int64{},
 		viewerBids:  map[int64]map[string][]map[string]any{},
@@ -472,6 +621,16 @@ func buildListBundle(ctx context.Context, pool *pgxpool.Pool, projectIDs []int64
 		return nil
 	}
 	b.ownerPhones = contacts
+
+	if spec.payouts && viewer.payoutMayBeVisible() {
+		payouts, err := projectPayoutsBatch(ctx, pool, payoutNeeds)
+		if err != nil {
+			return nil
+		}
+		// An empty map is deliberate: it tells the resource that the whole
+		// page is covered and an unlisted project is the empty array.
+		b.payouts = payouts
+	}
 
 	if !spec.bidsWithoutBidder {
 		var needs []bidderNeed

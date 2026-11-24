@@ -166,6 +166,44 @@ func materialOrderItems(ctx context.Context, pool *pgxpool.Pool, orderID int64) 
 	return out, rows.Err()
 }
 
+type materialOrderReviewRow struct {
+	id, userID, supplierID, order int64
+	rating                        *int64
+	comment, imagePath            *string
+	createdAt, updatedAt          any
+	deliveryRating                *int64
+	deliveryComment               *string
+	deliveryUserID                *int64
+	imagePaths, deliveryPaths     *string
+}
+
+func materialOrderReviewFromRow(row materialOrderReviewRow) *jsonwire.Object {
+	entry := jsonwire.NewObject()
+	entry.Set("id", row.id)
+	entry.Set("user_id", row.userID)
+	entry.Set("supplier_id", row.supplierID)
+	entry.Set("order_id", row.order)
+	entry.Set("rating", nullableInt64(row.rating))
+	entry.Set("comment", nullableString(row.comment))
+	entry.Set("image_path", nullableString(row.imagePath))
+	entry.Set("created_at", projectTimeValue(row.createdAt))
+	entry.Set("updated_at", projectTimeValue(row.updatedAt))
+	entry.Set("delivery_rating", nullableInt64(row.deliveryRating))
+	entry.Set("delivery_comment", nullableString(row.deliveryComment))
+	entry.Set("delivery_user_id", nullableInt64(row.deliveryUserID))
+	if row.imagePaths == nil {
+		entry.Set("image_paths", nil)
+	} else {
+		entry.Set("image_paths", orderedJSONColumn(*row.imagePaths))
+	}
+	if row.deliveryPaths == nil {
+		entry.Set("delivery_image_paths", nil)
+	} else {
+		entry.Set("delivery_image_paths", orderedJSONColumn(*row.deliveryPaths))
+	}
+	return entry
+}
+
 // materialOrderReviewObject renders the review row with its array casts.
 func materialOrderReviewObject(ctx context.Context, pool *pgxpool.Pool, orderID int64) (any, error) {
 	rows, err := pool.Query(ctx, `SELECT id, user_id, supplier_id, order_id, rating,
@@ -177,67 +215,64 @@ func materialOrderReviewObject(ctx context.Context, pool *pgxpool.Pool, orderID 
 	}
 	defer rows.Close()
 	if !rows.Next() {
-		return nil, nil
+		return nil, rows.Err()
 	}
-	var (
-		id, userID, supplierID, order int64
-		rating                        *int64
-		comment, imagePath            *string
-		createdAt, updatedAt          any
-		deliveryRating                *int64
-		deliveryComment               *string
-		deliveryUserID                *int64
-		imagePaths, deliveryPaths     *string
-	)
-	if err := rows.Scan(&id, &userID, &supplierID, &order, &rating, &comment,
-		&imagePath, &createdAt, &updatedAt, &deliveryRating, &deliveryComment,
-		&deliveryUserID, &imagePaths, &deliveryPaths); err != nil {
+	var row materialOrderReviewRow
+	if err := rows.Scan(&row.id, &row.userID, &row.supplierID, &row.order, &row.rating,
+		&row.comment, &row.imagePath, &row.createdAt, &row.updatedAt,
+		&row.deliveryRating, &row.deliveryComment, &row.deliveryUserID,
+		&row.imagePaths, &row.deliveryPaths); err != nil {
 		return nil, err
 	}
+	return materialOrderReviewFromRow(row), rows.Err()
+}
+
+type materialOrderDeliveryJobRow struct {
+	id, order                    int64
+	quoteID, logisticsID         *int64
+	pickup, dropoff, jobStatus   *string
+	agreedFee, estimatedWeight   *string
+	createdAt, updatedAt         any
+	pickupPhotos, deliveryPhotos *string
+}
+
+func materialOrderDeliveryJobFromRow(row materialOrderDeliveryJobRow) *jsonwire.Object {
 	entry := jsonwire.NewObject()
-	entry.Set("id", id)
-	entry.Set("user_id", userID)
-	entry.Set("supplier_id", supplierID)
-	entry.Set("order_id", order)
-	entry.Set("rating", nullableInt64(rating))
-	entry.Set("comment", nullableString(comment))
-	entry.Set("image_path", nullableString(imagePath))
-	entry.Set("created_at", projectTimeValue(createdAt))
-	entry.Set("updated_at", projectTimeValue(updatedAt))
-	entry.Set("delivery_rating", nullableInt64(deliveryRating))
-	entry.Set("delivery_comment", nullableString(deliveryComment))
-	entry.Set("delivery_user_id", nullableInt64(deliveryUserID))
-	if imagePaths == nil {
-		entry.Set("image_paths", nil)
+	entry.Set("id", row.id)
+	entry.Set("quote_id", nullableInt64(row.quoteID))
+	entry.Set("order_id", row.order)
+	entry.Set("logistics_id", nullableInt64(row.logisticsID))
+	entry.Set("pickup_address", nullableString(row.pickup))
+	entry.Set("dropoff_address", nullableString(row.dropoff))
+	entry.Set("status", nullableString(row.jobStatus))
+	entry.Set("agreed_fee", nullableString(row.agreedFee))
+	entry.Set("estimated_weight", nullableString(row.estimatedWeight))
+	entry.Set("created_at", projectTimeValue(row.createdAt))
+	entry.Set("updated_at", projectTimeValue(row.updatedAt))
+	if row.pickupPhotos == nil {
+		entry.Set("pickup_photos", nil)
 	} else {
-		entry.Set("image_paths", orderedJSONColumn(*imagePaths))
+		entry.Set("pickup_photos", orderedJSONColumn(*row.pickupPhotos))
 	}
-	if deliveryPaths == nil {
-		entry.Set("delivery_image_paths", nil)
+	if row.deliveryPhotos == nil {
+		entry.Set("delivery_photos", nil)
 	} else {
-		entry.Set("delivery_image_paths", orderedJSONColumn(*deliveryPaths))
+		entry.Set("delivery_photos", orderedJSONColumn(*row.deliveryPhotos))
 	}
-	return entry, rows.Err()
+	return entry
 }
 
 // materialOrderDeliveryJobObject renders `deliveryJob.logistics.phoneNumber`.
 func materialOrderDeliveryJobObject(ctx context.Context, pool *pgxpool.Pool, orderID int64) (any, error) {
-	var (
-		id, order                    int64
-		quoteID, logisticsID         *int64
-		pickup, dropoff, jobStatus   *string
-		agreedFee                    *string
-		estimatedWeight              *string
-		createdAt, updatedAt         any
-		pickupPhotos, deliveryPhotos *string
-	)
+	var row materialOrderDeliveryJobRow
 	err := pool.QueryRow(ctx, `SELECT id, quote_id, order_id, logistics_id, pickup_address,
 		dropoff_address, status, agreed_fee::text, estimated_weight, created_at, updated_at,
 		pickup_photos::text, delivery_photos::text
 		FROM delivery_jobs WHERE order_id = $1 OR quote_id IN
 			(SELECT quote_id FROM delivery_jobs WHERE order_id = $1) LIMIT 1`, orderID).
-		Scan(&id, &quoteID, &order, &logisticsID, &pickup, &dropoff, &jobStatus,
-			&agreedFee, &estimatedWeight, &createdAt, &updatedAt, &pickupPhotos, &deliveryPhotos)
+		Scan(&row.id, &row.quoteID, &row.order, &row.logisticsID, &row.pickup, &row.dropoff,
+			&row.jobStatus, &row.agreedFee, &row.estimatedWeight, &row.createdAt,
+			&row.updatedAt, &row.pickupPhotos, &row.deliveryPhotos)
 	if err != nil {
 		if isNoRows(err) {
 			return nil, nil
@@ -245,31 +280,9 @@ func materialOrderDeliveryJobObject(ctx context.Context, pool *pgxpool.Pool, ord
 		return nil, err
 	}
 
-	entry := jsonwire.NewObject()
-	entry.Set("id", id)
-	entry.Set("quote_id", nullableInt64(quoteID))
-	entry.Set("order_id", order)
-	entry.Set("logistics_id", nullableInt64(logisticsID))
-	entry.Set("pickup_address", nullableString(pickup))
-	entry.Set("dropoff_address", nullableString(dropoff))
-	entry.Set("status", nullableString(jobStatus))
-	entry.Set("agreed_fee", nullableString(agreedFee))
-	entry.Set("estimated_weight", nullableString(estimatedWeight))
-	entry.Set("created_at", projectTimeValue(createdAt))
-	entry.Set("updated_at", projectTimeValue(updatedAt))
-	if pickupPhotos == nil {
-		entry.Set("pickup_photos", nil)
-	} else {
-		entry.Set("pickup_photos", orderedJSONColumn(*pickupPhotos))
-	}
-	if deliveryPhotos == nil {
-		entry.Set("delivery_photos", nil)
-	} else {
-		entry.Set("delivery_photos", orderedJSONColumn(*deliveryPhotos))
-	}
-
-	if logisticsID != nil && *logisticsID != 0 {
-		logistics, err := fullProfileUser(ctx, pool, *logisticsID, true)
+	entry := materialOrderDeliveryJobFromRow(row)
+	if row.logisticsID != nil && *row.logisticsID != 0 {
+		logistics, err := fullProfileUser(ctx, pool, *row.logisticsID, true)
 		if err != nil {
 			return nil, err
 		}
@@ -385,34 +398,36 @@ func MaterialOrdersIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			serverError(w)
 			return
 		}
-		defer rows.Close()
-
-		out := make([]any, 0)
-		for rows.Next() {
-			fields := fieldNames(rows)
-			values, err := scanRow(rows, len(fields))
-			if err != nil {
-				slog.Error("orders: scan", "error", err)
-				serverError(w)
-				return
-			}
-			byName := map[string]any{}
-			for i, column := range fields {
-				byName[column] = values[i]
-			}
-			entry := materialOrderObject(byName)
-			if err := materialOrderRelations(ctx, pool, entry, byName,
-				[]string{"supplier", "user", "project", "items", "review", "deliveryJob"}); err != nil {
-				slog.Error("orders: relations", "error", err)
-				serverError(w)
-				return
-			}
-			out = append(out, entry)
-		}
-		if err := rows.Err(); err != nil {
-			slog.Error("orders: rows", "error", err)
+		fields, values, err := collectRows(rows)
+		rows.Close()
+		if err != nil {
+			slog.Error("orders: scan", "error", err)
 			serverError(w)
 			return
+		}
+
+		loaded := make([]map[string]any, 0, len(values))
+		for _, row := range values {
+			byName := make(map[string]any, len(fields))
+			for i, column := range fields {
+				byName[column] = row[i]
+			}
+			loaded = append(loaded, byName)
+		}
+
+		bundle, err := buildMaterialOrderBundle(ctx, pool, loaded)
+		if err != nil {
+			slog.Error("orders: bundle", "error", err)
+			serverError(w)
+			return
+		}
+
+		out := make([]any, 0, len(loaded))
+		for _, byName := range loaded {
+			entry := materialOrderObject(byName)
+			bundle.relations(entry, byName,
+				[]string{"supplier", "user", "project", "items", "review", "deliveryJob"})
+			out = append(out, entry)
 		}
 
 		payload := jsonwire.NewObject()

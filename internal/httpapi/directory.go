@@ -83,42 +83,49 @@ func DirectoryHandler(pool *pgxpool.Pool, table, base string, withServices bool)
 		perPage := pageSize(r, 24, 100)
 		currentPage := pageParam(r)
 
-		var total int
-		if err := pool.QueryRow(r.Context(),
-			`SELECT COUNT(*) FROM `+table+` WHERE verification_status = 'verified'`,
-		).Scan(&total); err != nil {
-			slog.Error("directory: count", "table", table, "error", err)
-			serverError(w)
-			return
-		}
-
 		offset := (currentPage - 1) * perPage
 
 		// Explicit columns (no `SELECT *`): same rows, schema-change safe.
 		cols := directoryColumns(table)
-		rows, err := pool.Query(r.Context(), `
-			SELECT `+cols+` FROM `+table+` WHERE verification_status = 'verified'
-			 ORDER BY id LIMIT $1 OFFSET $2
-		`, perPage, offset)
+		countSQL := `SELECT COUNT(*) FROM ` + table + ` WHERE verification_status = 'verified'`
+		rowsSQL := `SELECT ` + cols + ` FROM ` + table + ` WHERE verification_status = 'verified'
+			 ORDER BY id LIMIT $1 OFFSET $2`
+
+		var fields []string
+		var page [][]any
+		total, err := queryCountAndRows(r.Context(), pool, countSQL, nil, rowsSQL, []any{perPage, offset}, func(rows pgx.Rows) error {
+			var collectErr error
+			fields, page, collectErr = collectRows(rows)
+			return collectErr
+		})
 		if err != nil {
-			slog.Error("directory: query", "table", table, "error", err)
+			slog.Error("directory: page", "table", table, "error", err)
 			serverError(w)
 			return
 		}
-		defer rows.Close()
 
-		fields := fieldNames(rows)
-		items := make([]any, 0, perPage)
-
-		for rows.Next() {
-			values, err := scanRow(rows, len(fields))
-			if err != nil {
-				slog.Error("directory: scan", "table", table, "error", err)
-				serverError(w)
-				return
+		ids := make([]int64, 0, len(page))
+		userIDs := make([]int64, 0, len(page))
+		seenUser := map[int64]bool{}
+		for _, values := range page {
+			ids = append(ids, projectInt(values, fields, "id"))
+			userID := projectInt(values, fields, "user_id")
+			if userID != 0 && !seenUser[userID] {
+				seenUser[userID] = true
+				userIDs = append(userIDs, userID)
 			}
+		}
 
-			row, err := directoryRow(r.Context(), pool, table, fields, values, withServices)
+		bundle, err := buildDirectoryBundle(r.Context(), pool, table, ids, userIDs, withServices)
+		if err != nil {
+			slog.Error("directory: batch", "table", table, "error", err)
+			serverError(w)
+			return
+		}
+
+		items := make([]any, 0, len(page))
+		for _, values := range page {
+			row, err := directoryRow(r.Context(), pool, table, fields, values, withServices, bundle)
 			if err != nil {
 				slog.Error("directory: row", "table", table, "error", err)
 				serverError(w)
@@ -126,11 +133,6 @@ func DirectoryHandler(pool *pgxpool.Pool, table, base string, withServices bool)
 			}
 
 			items = append(items, row)
-		}
-		if err := rows.Err(); err != nil {
-			slog.Error("directory: rows", "table", table, "error", err)
-			serverError(w)
-			return
 		}
 
 		baseURL := requestBaseURL(r)
@@ -144,10 +146,155 @@ func DirectoryHandler(pool *pgxpool.Pool, table, base string, withServices bool)
 	}
 }
 
+// directoryBundle carries one page's prefetched relations. Nil keeps the
+// per-row path for any other caller.
+type directoryBundle struct {
+	projectCounts map[int64]int64
+	users         map[int64]*jsonwire.Object
+	services      map[int64][]any
+}
+
+// buildDirectoryBundle loads the three per-row relations of a directory page
+// once: project counts, users (plus phones), and notaris services.
+func buildDirectoryBundle(ctx context.Context, pool *pgxpool.Pool, table string, ids, userIDs []int64, withServices bool) (*directoryBundle, error) {
+	bundle := &directoryBundle{
+		projectCounts: map[int64]int64{},
+		users:         map[int64]*jsonwire.Object{},
+		services:      map[int64][]any{},
+	}
+
+	if column, ok := projectColumnForProfile(table); ok && len(ids) > 0 {
+		rows, err := pool.Query(ctx, `SELECT `+column+`, count(*) FROM projects
+			WHERE `+column+` = ANY($1) GROUP BY `+column, ids)
+		if err != nil {
+			return nil, err
+		}
+		for rows.Next() {
+			var profileID, count int64
+			if err := rows.Scan(&profileID, &count); err != nil {
+				rows.Close()
+				return nil, err
+			}
+			bundle.projectCounts[profileID] = count
+		}
+		if err := rows.Err(); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		rows.Close()
+	}
+
+	if len(userIDs) > 0 {
+		users, err := directoryUsersBatch(ctx, pool, userIDs)
+		if err != nil {
+			return nil, err
+		}
+		bundle.users = users
+	}
+
+	if withServices && table == "notaris_profiles" && len(ids) > 0 {
+		services, err := directoryServicesBatch(ctx, pool, ids)
+		if err != nil {
+			return nil, err
+		}
+		bundle.services = services
+	}
+
+	return bundle, nil
+}
+
+// directoryUsersBatch loads the minimal public user slice for a page: users
+// and their ordered phone rows, two queries instead of two per profile.
+func directoryUsersBatch(ctx context.Context, pool *pgxpool.Pool, ids []int64) (map[int64]*jsonwire.Object, error) {
+	out := map[int64]*jsonwire.Object{}
+	if len(ids) == 0 {
+		return out, nil
+	}
+
+	rows, err := pool.Query(ctx, `SELECT id, name, pic FROM users WHERE id = ANY($1)`, ids)
+	if err != nil {
+		return nil, err
+	}
+	for rows.Next() {
+		var id int64
+		var name string
+		var pic *string
+		if err := rows.Scan(&id, &name, &pic); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		user := jsonwire.NewObject()
+		user.Set("id", id)
+		user.Set("name", name)
+		user.Set("pic", nullableString(pic))
+		user.Set("phoneNumber", []any{})
+		out[id] = user
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return nil, err
+	}
+	rows.Close()
+
+	phones, err := pool.Query(ctx, `SELECT id_user, contact, id_contact FROM phone_user
+		WHERE id_user = ANY($1) ORDER BY id_user, id`, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer phones.Close()
+
+	for phones.Next() {
+		var idUser int64
+		var contact, idContact *string
+		if err := phones.Scan(&idUser, &contact, &idContact); err != nil {
+			return nil, err
+		}
+		user := out[idUser]
+		if user == nil {
+			continue
+		}
+		item := jsonwire.NewObject()
+		item.Set("contact", nullableString(contact))
+		item.Set("id_contact", nullableString(idContact))
+		list, _ := user.Get("phoneNumber")
+		existing, _ := list.([]any)
+		user.Set("phoneNumber", append(existing, item))
+	}
+	return out, phones.Err()
+}
+
+// directoryServicesBatch loads the notaris services for a page in one query.
+func directoryServicesBatch(ctx context.Context, pool *pgxpool.Pool, ids []int64) (map[int64][]any, error) {
+	out := map[int64][]any{}
+	if len(ids) == 0 {
+		return out, nil
+	}
+
+	rows, err := pool.Query(ctx, `SELECT notaris_id, id FROM notaris_services
+		WHERE notaris_id = ANY($1) ORDER BY notaris_id, id`, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var notarisID, id int64
+		if err := rows.Scan(&notarisID, &id); err != nil {
+			return nil, err
+		}
+		item := jsonwire.NewObject()
+		item.Set("id", id)
+		item.Set("nama", nil)
+		item.Set("deskripsi", nil)
+		out[notarisID] = append(out[notarisID], item)
+	}
+	return out, rows.Err()
+}
+
 // directoryRow builds one allowlisted row. Columns are read by presence:
 // a table without the column omits the key — which is how seven different
 // schemas share one emitter without `isset` explosions.
-func directoryRow(ctx context.Context, pool *pgxpool.Pool, table string, fields []string, values []any, withServices bool) (*jsonwire.Object, error) {
+func directoryRow(ctx context.Context, pool *pgxpool.Pool, table string, fields []string, values []any, withServices bool, bundle *directoryBundle) (*jsonwire.Object, error) {
 	byName := map[string]any{}
 	for i, column := range fields {
 		byName[column] = values[i]
@@ -225,7 +372,9 @@ func directoryRow(ctx context.Context, pool *pgxpool.Pool, table string, fields 
 	// that name this profile's id, and a count cannot leak a column.
 	projectsCount := int64(0)
 	if profileID, ok := intOf("id"); ok {
-		if column, ok := projectColumnForProfile(table); ok {
+		if bundle != nil {
+			projectsCount = bundle.projectCounts[profileID]
+		} else if column, ok := projectColumnForProfile(table); ok {
 			_ = pool.QueryRow(ctx,
 				`SELECT COUNT(*) FROM projects WHERE `+column+` = $1`, profileID,
 			).Scan(&projectsCount)
@@ -244,11 +393,19 @@ func directoryRow(ctx context.Context, pool *pgxpool.Pool, table string, fields 
 	}
 
 	if withServices {
-		services, err := directoryServices(ctx, pool, table, id)
-		if err != nil {
-			return nil, err
+		if bundle != nil {
+			services := bundle.services[id]
+			if services == nil {
+				services = []any{}
+			}
+			row.Set("services", services)
+		} else {
+			services, err := directoryServices(ctx, pool, table, id)
+			if err != nil {
+				return nil, err
+			}
+			row.Set("services", services)
 		}
-		row.Set("services", services)
 	}
 
 	if value, ok := present("foto"); ok {
@@ -265,11 +422,15 @@ func directoryRow(ctx context.Context, pool *pgxpool.Pool, table string, fields 
 	row.Set("is_verified", verified)
 
 	if userID != 0 {
-		user, err := directoryUser(ctx, pool, userID)
-		if err != nil {
-			return nil, err
+		if bundle != nil {
+			row.Set("user", bundle.users[userID])
+		} else {
+			user, err := directoryUser(ctx, pool, userID)
+			if err != nil {
+				return nil, err
+			}
+			row.Set("user", user)
 		}
-		row.Set("user", user)
 	}
 
 	return row, nil

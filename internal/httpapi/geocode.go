@@ -2,7 +2,6 @@ package httpapi
 
 import (
 	"crypto/md5"
-	"crypto/sha256"
 	"encoding/hex"
 	"io"
 	"log/slog"
@@ -287,6 +286,7 @@ func geocodeFetch(r *http.Request, target string) ([]byte, bool) {
 // content type.
 func writeJSONRaw(w http.ResponseWriter, status int, body []byte) {
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Length", strconv.Itoa(len(body)))
 	w.WriteHeader(status)
 	_, _ = w.Write(body)
 }
@@ -294,17 +294,16 @@ func writeJSONRaw(w http.ResponseWriter, status int, body []byte) {
 // writeJSONRawPublic adds public caching to writeJSONRaw for geocode hits
 // (third-party bytes, short TTL).
 func writeJSONRawPublic(w http.ResponseWriter, r *http.Request, status int, body []byte, maxAge int) {
-	sum := sha256.Sum256(body)
-	etag := `"` + hex.EncodeToString(sum[:16]) + `"`
+	etag := weakETag(body)
 	w.Header().Set("ETag", etag)
 	w.Header().Set("Cache-Control", "public, max-age="+strconv.Itoa(maxAge))
-	if r != nil {
-		if inm := r.Header.Get("If-None-Match"); inm != "" && inm == etag {
-			w.WriteHeader(http.StatusNotModified)
-			return
-		}
+	addVary(w.Header(), "Accept-Encoding")
+	if r != nil && etagMatches(r.Header.Get("If-None-Match"), etag) {
+		w.WriteHeader(http.StatusNotModified)
+		return
 	}
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Length", strconv.Itoa(len(body)))
 	w.WriteHeader(status)
 	_, _ = w.Write(body)
 }

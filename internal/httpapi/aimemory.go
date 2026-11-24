@@ -28,26 +28,14 @@ func AIMemoryHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		switch r.Method {
 		case http.MethodGet:
-			enabled, err := ai.MemoryEnabled(r.Context(), pool, caller.UserID())
+			snapshot, err := ai.LoadMemorySnapshot(r.Context(), pool, caller.UserID(), 50)
 			if err != nil {
-				slog.Error("ai memory: enabled", "error", err)
+				slog.Error("ai memory: snapshot", "error", err)
 				serverError(w)
 				return
 			}
-			items, err := ai.ListMemories(r.Context(), pool, caller.UserID(), 50)
-			if err != nil {
-				slog.Error("ai memory: list", "error", err)
-				serverError(w)
-				return
-			}
-			count, err := ai.CountMemories(r.Context(), pool, caller.UserID())
-			if err != nil {
-				slog.Error("ai memory: count", "error", err)
-				serverError(w)
-				return
-			}
-			data := make([]any, 0, len(items))
-			for _, item := range items {
+			data := make([]any, 0, len(snapshot.Items))
+			for _, item := range snapshot.Items {
 				entry := jsonwire.NewObject()
 				entry.Set("id", item.ID)
 				entry.Set("kind", item.Kind)
@@ -57,8 +45,8 @@ func AIMemoryHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				data = append(data, entry)
 			}
 			body := jsonwire.NewObject()
-			body.Set("enabled", enabled)
-			body.Set("count", count)
+			body.Set("enabled", snapshot.Enabled)
+			body.Set("count", snapshot.Count)
 			body.Set("data", data)
 			writeJSON(w, http.StatusOK, body)
 

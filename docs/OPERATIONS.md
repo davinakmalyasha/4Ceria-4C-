@@ -58,6 +58,18 @@ node scripts/verify.mjs --db
 and then runs `go test ./...` with `DATABASE_URL` pointing at it. The default
 gate is safe on a machine without PostgreSQL; `--db` is not.
 
+## Performance data
+
+```bash
+node tools/bench/seed-perf.mjs --database=4ceria_perf
+node tools/bench/explain.mjs --database=4ceria_perf
+```
+
+The perf seed builds a separate disposable database (never the demo or
+verification database) for query-plan work; the EXPLAIN runner measures the
+list and sweep queries. The recipe and the numbers live in
+`docs/PERFORMANCE.md`.
+
 ## Production shape
 
 API:

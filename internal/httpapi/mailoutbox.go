@@ -81,6 +81,8 @@ func SendQueuedMail(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger
 		fromName = "4Ceria"
 	}
 	client := &http.Client{Timeout: 15 * time.Second}
+	start := time.Now()
+	sent, failed := 0, 0
 
 	for _, j := range jobs {
 		if apiKey == "" {
@@ -88,6 +90,7 @@ func SendQueuedMail(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger
 				logger.Info("mail: log driver", "to", j.to, "subject", j.subject)
 			}
 			_, _ = pool.Exec(ctx, `UPDATE mail_outbox SET sent_at = date_trunc('second', now()) WHERE id = $1`, j.id)
+			sent++
 			continue
 		}
 		payload, _ := json.Marshal(map[string]any{
@@ -102,6 +105,7 @@ func SendQueuedMail(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger
 		req.Header.Set("Content-Type", "application/json")
 		resp, err := client.Do(req)
 		if err != nil {
+			failed++
 			_, _ = pool.Exec(ctx, `UPDATE mail_outbox
 				SET error = $2, attempts = attempts + 1,
 				    next_attempt_at = now() + (interval '1 minute' * (attempts + 1))
@@ -110,6 +114,7 @@ func SendQueuedMail(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger
 		}
 		resp.Body.Close()
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			failed++
 			_, _ = pool.Exec(ctx, `UPDATE mail_outbox
 				SET error = $2, attempts = attempts + 1,
 				    next_attempt_at = now() + (interval '1 minute' * (attempts + 1))
@@ -117,6 +122,12 @@ func SendQueuedMail(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger
 			continue
 		}
 		_, _ = pool.Exec(ctx, `UPDATE mail_outbox SET sent_at = date_trunc('second', now()), error = NULL WHERE id = $1`, j.id)
+		sent++
+	}
+
+	if len(jobs) > 0 && logger != nil {
+		logger.Info("scheduler: mail sweep", "sent", sent, "failed", failed,
+			"duration_ms", time.Since(start).Milliseconds())
 	}
 	return nil
 }

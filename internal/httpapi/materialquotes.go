@@ -61,6 +61,11 @@ func supplierRelationObject(ctx context.Context, pool *pgxpool.Pool, supplierID 
 		return nil, err
 	}
 
+	return supplierModelFromValues(fields, values), rows.Err()
+}
+
+// supplierModelFromValues is shared by the single-row and batched loaders.
+func supplierModelFromValues(fields []string, values []any) *jsonwire.Object {
 	entry := jsonwire.NewObject()
 	for i, column := range fields {
 		switch column {
@@ -72,7 +77,7 @@ func supplierRelationObject(ctx context.Context, pool *pgxpool.Pool, supplierID 
 			entry.Set(column, projectRawValue(values[i]))
 		}
 	}
-	return entry, rows.Err()
+	return entry
 }
 
 // materialQuoteObject renders a quote in table order. `items` is the stored

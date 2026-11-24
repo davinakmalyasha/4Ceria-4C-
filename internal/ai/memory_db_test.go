@@ -109,6 +109,57 @@ func TestMemoryIngestSearchAndIsolation(t *testing.T) {
 	}
 }
 
+func TestLoadTurnStateSeesSessionQuotaAndMemory(t *testing.T) {
+	pool, userID, _ := memoryPool(t)
+	defer pool.Close()
+	ctx := context.Background()
+
+	cleanup := func() {
+		pool.Exec(ctx, `DELETE FROM ai_chat_sessions WHERE user_id = $1`, userID)
+		pool.Exec(ctx, `DELETE FROM ai_memories WHERE user_id = $1`, userID)
+		pool.Exec(ctx, `DELETE FROM ai_memory_settings WHERE user_id = $1`, userID)
+	}
+	cleanup()
+	t.Cleanup(cleanup)
+
+	session, err := CreateSession(ctx, pool, userID, "turn state")
+	if err != nil {
+		t.Fatalf("create session: %v", err)
+	}
+	state, err := LoadTurnState(ctx, pool, userID, session.ID)
+	if err != nil {
+		t.Fatalf("load state: %v", err)
+	}
+	if !state.SessionExists || !state.MemoryEnabled || state.Usage.Day != 0 {
+		t.Fatalf("unexpected initial state: %+v", state)
+	}
+
+	if _, err := AppendMessage(ctx, pool, userID, session.ID, "user", "hello"); err != nil {
+		t.Fatalf("append: %v", err)
+	}
+	state, err = LoadTurnState(ctx, pool, userID, session.ID)
+	if err != nil {
+		t.Fatalf("load state after message: %v", err)
+	}
+	if state.Usage.Day < 1 {
+		t.Fatalf("quota did not count the user message: %+v", state)
+	}
+
+	// A disabled turn skips ingestion without another settings query.
+	if err := SyncSessionIfEnabled(ctx, pool, userID, session.ID, false); err != nil {
+		t.Fatalf("disabled sync: %v", err)
+	}
+	if count, _ := CountMemories(ctx, pool, userID); count != 0 {
+		t.Fatalf("disabled sync ingested %d rows", count)
+	}
+	if err := SyncSessionIfEnabled(ctx, pool, userID, session.ID, true); err != nil {
+		t.Fatalf("enabled sync: %v", err)
+	}
+	if count, _ := CountMemories(ctx, pool, userID); count != 1 {
+		t.Fatalf("enabled sync ingested %d rows, want 1", count)
+	}
+}
+
 func TestMemoryCanBeDisabledAndCleared(t *testing.T) {
 	pool, userID, _ := memoryPool(t)
 	defer pool.Close()

@@ -387,10 +387,21 @@ func rawProjectModel(ctx context.Context, pool *pgxpool.Pool, projectID int64) (
 	if err != nil {
 		return nil, err
 	}
+	return rawProjectModelFromValues(fields, values), rows.Err()
+}
+
+// rawProjectModelFromValues renders the model block from a row that may also
+// carry the wider projectsRowColumns projection. It iterates projectModelColumns
+// so the output key order is unchanged.
+func rawProjectModelFromValues(fields []string, values []any) *jsonwire.Object {
+	byName := make(map[string]any, len(fields))
+	for i, column := range fields {
+		byName[column] = values[i]
+	}
 
 	model := jsonwire.NewObject()
-	for i, column := range fields {
-		value := values[i]
+	for _, column := range projectModelColumns {
+		value := byName[column]
 		switch {
 		case projectModelJSONCols[column]:
 			model.Set(column, eloquentJSONValue(value))
@@ -416,7 +427,7 @@ func rawProjectModel(ctx context.Context, pool *pgxpool.Pool, projectID int64) (
 			model.Set(column, projectRawValue(value))
 		}
 	}
-	return model, rows.Err()
+	return model
 }
 
 // decodeOrderedJSON parses JSON while PRESERVING object key order. The
@@ -549,10 +560,30 @@ func profileModelObject(ctx context.Context, pool *pgxpool.Pool, table string, p
 		return nil, err
 	}
 
-	byName := map[string]any{}
-	block := jsonwire.NewObject()
+	average, count := profileRatingValue(ctx, pool, table, profileID)
+	block := profileModelFromValues(table, fields, values, average, count)
+
+	if withUser {
+		user, err := fullProfileUser(ctx, pool, projectInt(values, fields, "user_id"), false)
+		if err != nil {
+			return nil, err
+		}
+		block.Set("user", user)
+	}
+
+	return block, rows.Err()
+}
+
+// profileModelFromValues renders a profile block. The rating pair is passed
+// in so a page can batch the accessor instead of querying it per profile.
+func profileModelFromValues(table string, fields []string, values []any, average float64, count int64) *jsonwire.Object {
+	byName := make(map[string]any, len(fields))
 	for i, column := range fields {
 		byName[column] = values[i]
+	}
+
+	block := jsonwire.NewObject()
+	for i, column := range fields {
 		switch {
 		case column == "rate_harga":
 			block.Set(column, projectDecimalValue(values[i]))
@@ -580,17 +611,14 @@ func profileModelObject(ctx context.Context, pool *pgxpool.Pool, table string, p
 	// `$appends`, in declaration order.
 	switch table {
 	case "arsiteks", "interior_profiles", "project_managers":
-		average, count := profileRatingValue(ctx, pool, table, profileID)
 		block.Set("average_rating", average)
 		block.Set("review_count", count)
 	case "kontraktors":
-		average, count := profileRatingValue(ctx, pool, table, profileID)
 		block.Set("average_rating", average)
 		block.Set("review_count", count)
 		block.Set("lokasi", projectRawValue(byName["alamat"]))
 		block.Set("no_telp", projectRawValue(byName["no_telepon"]))
 	case "notaris_profiles":
-		average, count := profileRatingValue(ctx, pool, table, profileID)
 		block.Set("average_rating", average)
 		block.Set("review_count", count)
 		verified := false
@@ -600,19 +628,81 @@ func profileModelObject(ctx context.Context, pool *pgxpool.Pool, table string, p
 		block.Set("is_verified", verified)
 	}
 
-	if withUser {
-		var userID int64
-		if id, ok := byName["user_id"].(int64); ok {
-			userID = id
+	return block
+}
+
+// profileRatingPair is one profile's accessor pair.
+type profileRatingPair struct {
+	average float64
+	count   int64
+}
+
+// profileRatingsBatch loads the accessor pairs for a page in one grouped
+// query, using the same one-decimal rounding as profileRatingValue.
+func profileRatingsBatch(ctx context.Context, pool *pgxpool.Pool, table string, ids []int64) (map[int64]profileRatingPair, error) {
+	out := map[int64]profileRatingPair{}
+	fk := ratingFK(table)
+	ratingsTable, _, ok := ratingTable(table)
+	if fk == "" || !ok || len(ids) == 0 {
+		return out, nil
+	}
+	rows, err := pool.Query(ctx, `
+		SELECT `+fk+`, AVG(rating)::float8, COUNT(*)
+		  FROM `+ratingsTable+`
+		 WHERE `+fk+` = ANY($1)
+		 GROUP BY `+fk, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id int64
+		var average *float64
+		var count int64
+		if err := rows.Scan(&id, &average, &count); err != nil {
+			return nil, err
 		}
-		user, err := fullProfileUser(ctx, pool, userID, false)
+		value := 0.0
+		if average != nil {
+			value = float64(int64(*average*10+0.5)) / 10
+		}
+		out[id] = profileRatingPair{average: value, count: count}
+	}
+	return out, rows.Err()
+}
+
+// profileModelsBatch loads a page of profile blocks in one query plus one
+// grouped ratings query. It is the admin list equivalent of calling
+// profileModelObject and profileRatingValue per row.
+func profileModelsBatch(ctx context.Context, pool *pgxpool.Pool, table string, ids []int64) (map[int64]*jsonwire.Object, error) {
+	out := map[int64]*jsonwire.Object{}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	ratings, err := profileRatingsBatch(ctx, pool, table, ids)
+	if err != nil {
+		return nil, err
+	}
+	columns, known := profileModelColumns[table]
+	if !known {
+		columns = []string{"*"}
+	}
+	rows, err := pool.Query(ctx, `SELECT `+strings.Join(columns, ", ")+` FROM `+table+` WHERE id = ANY($1)`, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	fields := fieldNames(rows)
+	for rows.Next() {
+		values, err := scanRow(rows, len(fields))
 		if err != nil {
 			return nil, err
 		}
-		block.Set("user", user)
+		id := projectInt(values, fields, "id")
+		rating := ratings[id]
+		out[id] = profileModelFromValues(table, fields, values, rating.average, rating.count)
 	}
-
-	return block, rows.Err()
+	return out, rows.Err()
 }
 
 // profileRatingValue is the accessor pair: average rounded to one decimal

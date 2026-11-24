@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 )
@@ -62,6 +63,9 @@ func writeJSON(w http.ResponseWriter, status int, body any) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
+	// The exact body is known. Content-Length lets the compression layer
+	// choose identity vs gzip at header time instead of buffering a prefix.
+	w.Header().Set("Content-Length", strconv.Itoa(len(encoded)))
 	w.WriteHeader(status)
 	_, _ = w.Write(encoded)
 }
@@ -77,19 +81,46 @@ func writeJSONPublic(w http.ResponseWriter, r *http.Request, status int, body an
 		_, _ = w.Write([]byte(`{"message":"Server Error"}`))
 		return
 	}
-	sum := sha256.Sum256(encoded)
-	etag := `"` + hex.EncodeToString(sum[:16]) + `"`
+	etag := weakETag(encoded)
 	w.Header().Set("ETag", etag)
 	w.Header().Set("Cache-Control", "public, max-age="+strconv.Itoa(maxAge))
-	if r != nil {
-		if inm := r.Header.Get("If-None-Match"); inm != "" && inm == etag {
-			w.WriteHeader(http.StatusNotModified)
-			return
-		}
+	addVary(w.Header(), "Accept-Encoding")
+	if r != nil && etagMatches(r.Header.Get("If-None-Match"), etag) {
+		w.WriteHeader(http.StatusNotModified)
+		return
 	}
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Length", strconv.Itoa(len(encoded)))
 	w.WriteHeader(status)
 	_, _ = w.Write(encoded)
+}
+
+// weakETag tags the IDENTITY representation. The same bytes can be sent
+// gzip-compressed (with Vary: Accept-Encoding), and a strong tag would claim
+// the two encodings are byte-identical. A weak tag is valid for both and
+// still supports a 304.
+func weakETag(encoded []byte) string {
+	sum := sha256.Sum256(encoded)
+	return `W/"` + hex.EncodeToString(sum[:16]) + `"`
+}
+
+// etagMatches performs the weak comparison RFC 9110 defines for GET/HEAD.
+// `*` matches any current representation.
+func etagMatches(header, etag string) bool {
+	if header == "" {
+		return false
+	}
+	target := strings.TrimPrefix(etag, "W/")
+	for _, part := range strings.Split(header, ",") {
+		part = strings.TrimSpace(part)
+		if part == "*" {
+			return true
+		}
+		if strings.TrimPrefix(part, "W/") == target {
+			return true
+		}
+	}
+	return false
 }
 
 // message writes the `{"message": "..."}` shape.

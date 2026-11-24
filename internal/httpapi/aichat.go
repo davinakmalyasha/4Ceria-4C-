@@ -48,17 +48,14 @@ func AIStatusHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		memoryEnabled := cfg.Memory
 		memoryItems := 0
 		if caller != nil {
-			if q, err := ai.CheckQuota(r.Context(), pool, caller.UserID()); err == nil {
-				quota = q
-			}
-			if usage, err := ai.ReadQuota(r.Context(), pool, caller.UserID()); err == nil {
-				usedToday = usage.Day
-			}
-			if enabled, err := ai.MemoryEnabled(r.Context(), pool, caller.UserID()); err == nil {
-				memoryEnabled = cfg.Memory && enabled
-			}
-			if count, err := ai.CountMemories(r.Context(), pool, caller.UserID()); err == nil {
-				memoryItems = count
+			// Quota, memory switch and memory count in one round trip.
+			if snapshot, err := ai.LoadStatusSnapshot(r.Context(), pool, caller.UserID()); err == nil {
+				quota = snapshot.Usage.Label()
+				usedToday = snapshot.Usage.Day
+				memoryEnabled = cfg.Memory && snapshot.MemoryEnabled
+				memoryItems = snapshot.MemoryItems
+			} else {
+				slog.Error("ai: status snapshot", "error", err)
 			}
 		}
 		body := jsonwire.NewObject()
@@ -269,6 +266,10 @@ func AIStreamHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		w.Header().Set("Cache-Control", "no-cache")
 		w.Header().Set("X-Accel-Buffering", "no")
 		w.WriteHeader(http.StatusOK)
+		// The server's WriteTimeout is 30s, but an AI turn may legitimately
+		// run for 120s. Extend this one response; the compression middleware
+		// implements Unwrap so ResponseController reaches the real writer.
+		_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(3 * time.Minute))
 		flusher, _ := w.(http.Flusher)
 
 		writeSSE(w, map[string]any{"session_id": prepared.sessionID})
@@ -324,10 +325,8 @@ func AIStreamHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			if _, err := ai.AppendMessage(storeCtx, pool, caller.UserID(), prepared.sessionID, "assistant", result.Text); err != nil {
 				slog.Error("ai: store stream reply", "error", err)
 			}
-			if prepared.memoryEnabled {
-				if err := ai.SyncSession(storeCtx, pool, caller.UserID(), prepared.sessionID); err != nil {
-					slog.Error("ai: sync memory", "error", err)
-				}
+			if err := ai.SyncSessionIfEnabled(storeCtx, pool, caller.UserID(), prepared.sessionID, prepared.memoryEnabled); err != nil {
+				slog.Error("ai: sync memory", "error", err)
 			}
 		}
 		if result.Text == "" && !sentError {
@@ -372,18 +371,18 @@ func aiPrepareTurn(r *http.Request, pool *pgxpool.Pool, caller Caller, req aiCha
 		sessionID = s.ID
 	} else if !isUUIDString(sessionID) {
 		return nil, messageObject("Chat not found."), http.StatusNotFound
-	} else if _, err := ai.GetSession(r.Context(), pool, caller.UserID(), sessionID); err != nil {
-		if isNoRows(err) {
-			return nil, messageObject("Chat not found."), http.StatusNotFound
-		}
-		slog.Error("ai: get session", "error", err)
-		return nil, serverErrorObject(), http.StatusInternalServerError
 	}
 
-	if quota, err := ai.CheckQuota(r.Context(), pool, caller.UserID()); err != nil {
-		slog.Error("ai: quota", "error", err)
+	// Ownership, both quota counters and the memory switch in one query.
+	state, err := ai.LoadTurnState(r.Context(), pool, caller.UserID(), sessionID)
+	if err != nil {
+		slog.Error("ai: turn state", "error", err)
 		return nil, serverErrorObject(), http.StatusInternalServerError
-	} else if quota != "ok" {
+	}
+	if !state.SessionExists {
+		return nil, messageObject("Chat not found."), http.StatusNotFound
+	}
+	if quota := state.Usage.Label(); quota != "ok" {
 		return nil, messageObject(ai.QuotaError(quota)), http.StatusTooManyRequests
 	}
 
@@ -413,12 +412,7 @@ func aiPrepareTurn(r *http.Request, pool *pgxpool.Pool, caller Caller, req aiCha
 	if n := len(history); n > 0 && history[n-1].Role == "user" && history[n-1].Content == cleaned {
 		history = history[:n-1]
 	}
-	memoryEnabled := false
-	if cfg.Memory {
-		if enabled, err := ai.MemoryEnabled(r.Context(), pool, caller.UserID()); err == nil {
-			memoryEnabled = enabled
-		}
-	}
+	memoryEnabled := cfg.Memory && state.MemoryEnabled
 	return &aiPrepared{cfg: cfg, sessionID: sessionID, message: cleaned, history: history, memoryEnabled: memoryEnabled}, nil, 0
 }
 
@@ -453,10 +447,8 @@ func aiTurn(r *http.Request, pool *pgxpool.Pool, caller Caller, req aiChatReques
 	if _, err := ai.AppendMessage(r.Context(), pool, caller.UserID(), prepared.sessionID, "assistant", result.Text); err != nil {
 		slog.Error("ai: store reply", "error", err)
 	}
-	if prepared.memoryEnabled {
-		if err := ai.SyncSession(r.Context(), pool, caller.UserID(), prepared.sessionID); err != nil {
-			slog.Error("ai: sync memory", "error", err)
-		}
+	if err := ai.SyncSessionIfEnabled(r.Context(), pool, caller.UserID(), prepared.sessionID, prepared.memoryEnabled); err != nil {
+		slog.Error("ai: sync memory", "error", err)
 	}
 	return result.Text, prepared.sessionID, false, 0, nil
 }
@@ -511,7 +503,7 @@ func serverErrorObject() *jsonwire.Object {
 }
 
 func writeSSE(w http.ResponseWriter, payload map[string]any) {
-	encoded, err := json.Marshal(payload)
+	encoded, err := jsonwire.Marshal(payload)
 	if err != nil {
 		return
 	}

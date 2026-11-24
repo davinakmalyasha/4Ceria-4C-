@@ -127,7 +127,7 @@ func buildRunner(ctx context.Context, cfg Config, tc ToolCtx, history []StoredMe
 
 	var mem memory.Service = memory.InMemoryService()
 	if tc.Pool != nil && tc.MemoryEnabled {
-		mem = NewMemoryService(tc.Pool)
+		mem = newCachedMemoryService(NewEnabledMemoryService(tc.Pool, true))
 	}
 
 	r, err := runner.New(runner.Config{

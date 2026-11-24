@@ -51,22 +51,15 @@ func ReleaseExpiredRetentions(ctx context.Context, pool *pgxpool.Pool, projectFi
 	var res RetentionReleaseResult
 
 	var projectIDs []int64
-	var rows any
-	_ = rows
 	if projectFilter != nil {
-		var warrantyEnd *string
-		if err := pool.QueryRow(ctx, `SELECT warranty_end_at::text FROM projects WHERE id = $1`, *projectFilter).Scan(&warrantyEnd); err != nil {
+		var expired bool
+		if err := pool.QueryRow(ctx,
+			`SELECT (warranty_end_at IS NOT NULL AND warranty_end_at < now()) FROM projects WHERE id = $1`,
+			*projectFilter,
+		).Scan(&expired); err != nil {
 			if isNoRows(err) {
 				return res, nil
 			}
-			return res, err
-		}
-		if warrantyEnd == nil {
-			return res, nil
-		}
-		// Only scan if expired.
-		var expired bool
-		if err := pool.QueryRow(ctx, `SELECT (warranty_end_at < now()) FROM projects WHERE id = $1`, *projectFilter).Scan(&expired); err != nil {
 			return res, err
 		}
 		if !expired {
@@ -78,7 +71,6 @@ func ReleaseExpiredRetentions(ctx context.Context, pool *pgxpool.Pool, projectFi
 		if err != nil {
 			return res, err
 		}
-		defer qrows.Close()
 		for qrows.Next() {
 			var id int64
 			if err := qrows.Scan(&id); err != nil {
@@ -88,8 +80,10 @@ func ReleaseExpiredRetentions(ctx context.Context, pool *pgxpool.Pool, projectFi
 			projectIDs = append(projectIDs, id)
 		}
 		if err := qrows.Err(); err != nil {
+			qrows.Close()
 			return res, err
 		}
+		qrows.Close()
 	}
 
 	res.Scanned = len(projectIDs)
@@ -100,60 +94,36 @@ func ReleaseExpiredRetentions(ctx context.Context, pool *pgxpool.Pool, projectFi
 	}
 	terminRegistryID := bySpelling[`App\Models\ProjectPaymentTermin`]
 
+	blocking, err := retentionBlockingBatch(ctx, pool, projectIDs)
+	if err != nil {
+		return res, err
+	}
+	disputes, err := retentionDisputesBatch(ctx, pool, projectIDs)
+	if err != nil {
+		return res, err
+	}
+	held, err := retentionStagesBatch(ctx, pool, projectIDs)
+	if err != nil {
+		return res, err
+	}
+
 	for _, projectID := range projectIDs {
 		// 2. Blocking warranty claims.
-		var blocking int
-		if err := pool.QueryRow(ctx, `SELECT count(*) FROM project_warranty_claims WHERE project_id = $1 AND status::text IN ('open','fixing')`, projectID).Scan(&blocking); err != nil {
-			if logger != nil {
-				logger.Error("retention: blocking claims", "project", projectID, "error", err)
-			}
-			continue
-		}
-		if blocking > 0 {
+		if count := blocking[projectID]; count > 0 {
 			res.SkippedBlocked++
-			res.Lines = append(res.Lines, "project "+strconv.FormatInt(projectID, 10)+": "+strconv.Itoa(blocking)+" blocking claim(s) - held back")
+			res.Lines = append(res.Lines, "project "+strconv.FormatInt(projectID, 10)+": "+strconv.Itoa(count)+" blocking claim(s) - held back")
 			continue
 		}
 
 		// 3. Open dispute also freezes the release (improvement over legacy).
-		var disputeID int64
-		var disputeTitle string
-		if err := pool.QueryRow(ctx, `SELECT id, title FROM project_disputes WHERE project_id = $1 AND status::text = 'open' LIMIT 1`, projectID).Scan(&disputeID, &disputeTitle); err == nil {
+		if dispute, ok := disputes[projectID]; ok {
 			res.SkippedDispute++
-			res.Lines = append(res.Lines, "project "+strconv.FormatInt(projectID, 10)+": open dispute #"+strconv.FormatInt(disputeID, 10)+" - held back")
+			res.Lines = append(res.Lines, "project "+strconv.FormatInt(projectID, 10)+": open dispute #"+strconv.FormatInt(dispute.id, 10)+" - held back")
 			continue
 		}
 
 		// 4. Stages holding retention.
-		srows, err := pool.Query(ctx, `SELECT id, label, retention_amount::text, retention_released_at FROM project_payment_termins WHERE project_id = $1 AND retention_amount > 0 AND retention_released_at IS NULL ORDER BY id`, projectID)
-		if err != nil {
-			if logger != nil {
-				logger.Error("retention: stages", "project", projectID, "error", err)
-			}
-			continue
-		}
-		type stage struct {
-			id        int64
-			label     string
-			retention string
-		}
-		var stages []stage
-		for srows.Next() {
-			var st stage
-			var releasedAt any
-			if err := srows.Scan(&st.id, &st.label, &st.retention, &releasedAt); err != nil {
-				continue
-			}
-			stages = append(stages, st)
-		}
-		srows.Close()
-		if err := srows.Err(); err != nil {
-			if logger != nil {
-				logger.Error("retention: stages scan", "project", projectID, "error", err)
-			}
-			continue
-		}
-
+		stages := held[projectID]
 		if len(stages) == 0 {
 			res.SkippedNothingHeld++
 			continue
@@ -190,6 +160,93 @@ func ReleaseExpiredRetentions(ctx context.Context, pool *pgxpool.Pool, projectFi
 	}
 
 	return res, nil
+}
+
+type retentionStage struct {
+	id        int64
+	label     string
+	retention string
+}
+
+type retentionDispute struct {
+	id    int64
+	title string
+}
+
+// retentionBlockingBatch counts blocking claims for every candidate in one
+// grouped query instead of one query per project.
+func retentionBlockingBatch(ctx context.Context, pool *pgxpool.Pool, projectIDs []int64) (map[int64]int, error) {
+	out := map[int64]int{}
+	if len(projectIDs) == 0 {
+		return out, nil
+	}
+	rows, err := pool.Query(ctx, `SELECT project_id, count(*)
+		FROM project_warranty_claims
+		WHERE project_id = ANY($1) AND status::text IN ('open','fixing')
+		GROUP BY project_id`, projectIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id int64
+		var count int
+		if err := rows.Scan(&id, &count); err != nil {
+			return nil, err
+		}
+		out[id] = count
+	}
+	return out, rows.Err()
+}
+
+// retentionDisputesBatch finds the first open dispute per candidate.
+func retentionDisputesBatch(ctx context.Context, pool *pgxpool.Pool, projectIDs []int64) (map[int64]retentionDispute, error) {
+	out := map[int64]retentionDispute{}
+	if len(projectIDs) == 0 {
+		return out, nil
+	}
+	rows, err := pool.Query(ctx, `SELECT DISTINCT ON (project_id) project_id, id, title
+		FROM project_disputes
+		WHERE project_id = ANY($1) AND status::text = 'open'
+		ORDER BY project_id, id`, projectIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var projectID int64
+		var dispute retentionDispute
+		if err := rows.Scan(&projectID, &dispute.id, &dispute.title); err != nil {
+			return nil, err
+		}
+		out[projectID] = dispute
+	}
+	return out, rows.Err()
+}
+
+// retentionStagesBatch loads every unreleased retention stage for the page.
+func retentionStagesBatch(ctx context.Context, pool *pgxpool.Pool, projectIDs []int64) (map[int64][]retentionStage, error) {
+	out := map[int64][]retentionStage{}
+	if len(projectIDs) == 0 {
+		return out, nil
+	}
+	rows, err := pool.Query(ctx, `SELECT project_id, id, label, retention_amount::text
+		FROM project_payment_termins
+		WHERE project_id = ANY($1) AND retention_amount > 0 AND retention_released_at IS NULL
+		ORDER BY project_id, id`, projectIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var projectID int64
+		var stage retentionStage
+		if err := rows.Scan(&projectID, &stage.id, &stage.label, &stage.retention); err != nil {
+			return nil, err
+		}
+		out[projectID] = append(out[projectID], stage)
+	}
+	return out, rows.Err()
 }
 
 func releaseOneRetention(ctx context.Context, pool *pgxpool.Pool, projectID, stageID int64, label string, retentionMinor, terminRegistryID int64) (bool, error) {

@@ -2,7 +2,7 @@ package jsonwire
 
 import "testing"
 
-func TestEncodeString(t *testing.T) {
+func TestMarshalString(t *testing.T) {
 	cases := []struct {
 		name string
 		in   string

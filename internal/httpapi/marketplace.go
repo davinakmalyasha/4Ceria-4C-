@@ -32,22 +32,11 @@ var marketplaceHiddenUserFields = map[string]bool{
 	"unique_code": true,
 }
 
-// marketplaceUser renders the owner payload with the sensitive set removed.
-func marketplaceUser(ctx context.Context, pool *pgxpool.Pool, userID int64) (any, error) {
-	rows, err := pool.Query(ctx, `SELECT id,name,email,username,unique_code,email_verified_at,pic,firm_name,firm_slogan,firm_banner_path,firm_description,firm_is_hiring,firm_needed_roles,"Deskripsi",bank_name,bank_account_number,bank_account_name,created_at,updated_at,role_type,is_suspended FROM users WHERE id = $1`, userID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	if !rows.Next() {
-		return nil, nil
-	}
-	fields := fieldNames(rows)
-	values, err := scanRow(rows, len(fields))
-	if err != nil {
-		return nil, err
-	}
+// marketplaceUserColumns is the owner projection. Email, unique_code and the
+// bank fields are selected so the hidden-field set is applied in one place.
+const marketplaceUserColumns = `id,name,email,username,unique_code,email_verified_at,pic,firm_name,firm_slogan,firm_banner_path,firm_description,firm_is_hiring,firm_needed_roles,"Deskripsi",bank_name,bank_account_number,bank_account_name,created_at,updated_at,role_type,is_suspended`
 
+func marketplaceUserObject(fields []string, values []any) *jsonwire.Object {
 	user := jsonwire.NewObject()
 	for i, column := range fields {
 		if marketplaceHiddenUserFields[column] {
@@ -63,7 +52,47 @@ func marketplaceUser(ctx context.Context, pool *pgxpool.Pool, userID int64) (any
 			user.Set(column, projectRawValue(values[i]))
 		}
 	}
-	return user, nil
+	return user
+}
+
+// marketplaceUser renders the owner payload with the sensitive set removed.
+func marketplaceUser(ctx context.Context, pool *pgxpool.Pool, userID int64) (any, error) {
+	rows, err := pool.Query(ctx, `SELECT `+marketplaceUserColumns+` FROM users WHERE id = $1`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	if !rows.Next() {
+		return nil, rows.Err()
+	}
+	fields := fieldNames(rows)
+	values, err := scanRow(rows, len(fields))
+	if err != nil {
+		return nil, err
+	}
+	return marketplaceUserObject(fields, values), rows.Err()
+}
+
+// marketplaceUsersBatch loads a page of owner payloads in one query.
+func marketplaceUsersBatch(ctx context.Context, pool *pgxpool.Pool, ids []int64) (map[int64]any, error) {
+	out := map[int64]any{}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	rows, err := pool.Query(ctx, `SELECT `+marketplaceUserColumns+` FROM users WHERE id = ANY($1)`, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	fields := fieldNames(rows)
+	for rows.Next() {
+		values, err := scanRow(rows, len(fields))
+		if err != nil {
+			return nil, err
+		}
+		out[projectInt(values, fields, "id")] = marketplaceUserObject(fields, values)
+	}
+	return out, rows.Err()
 }
 
 // reviewAggregates returns (avg-as-text, count) for a supplier's reviews.
@@ -75,29 +104,149 @@ func reviewAggregates(ctx context.Context, pool *pgxpool.Pool, supplierID int64)
 	return average, count
 }
 
-// marketplaceSupplierObject renders a supplier plus the requested counts.
+// marketplaceSupplierBundle carries one page's supplier aggregates.
+type marketplaceSupplierBundle struct {
+	materialsCount map[int64]int64
+	reviewAvg      map[int64]string
+	reviewCount    map[int64]int64
+	users          map[int64]any
+}
+
+// buildMarketplaceSupplierBundle loads the three per-supplier relations of a
+// page once: available material count, review aggregate and owner.
+func buildMarketplaceSupplierBundle(ctx context.Context, pool *pgxpool.Pool, suppliers []map[string]any) (*marketplaceSupplierBundle, error) {
+	bundle := &marketplaceSupplierBundle{
+		materialsCount: map[int64]int64{},
+		reviewAvg:      map[int64]string{},
+		reviewCount:    map[int64]int64{},
+		users:          map[int64]any{},
+	}
+	if len(suppliers) == 0 {
+		return bundle, nil
+	}
+
+	ids := make([]int64, 0, len(suppliers))
+	userSeen := map[int64]bool{}
+	userIDs := make([]int64, 0, len(suppliers))
+	for _, supplier := range suppliers {
+		id := intPtrDeref(supplier["id"])
+		if id != 0 {
+			ids = append(ids, id)
+		}
+		userID := intPtrDeref(supplier["user_id"])
+		if userID != 0 && !userSeen[userID] {
+			userSeen[userID] = true
+			userIDs = append(userIDs, userID)
+		}
+	}
+
+	materials, err := pool.Query(ctx, `SELECT supplier_id, count(*) FROM materials
+		WHERE supplier_id = ANY($1) AND is_available = true
+		GROUP BY supplier_id`, ids)
+	if err != nil {
+		return nil, err
+	}
+	for materials.Next() {
+		var id, count int64
+		if err := materials.Scan(&id, &count); err != nil {
+			materials.Close()
+			return nil, err
+		}
+		bundle.materialsCount[id] = count
+	}
+	if err := materials.Err(); err != nil {
+		materials.Close()
+		return nil, err
+	}
+	materials.Close()
+
+	reviews, err := pool.Query(ctx, `SELECT supplier_id, round(avg(rating), 4)::text, count(*)
+		FROM material_order_reviews WHERE supplier_id = ANY($1)
+		GROUP BY supplier_id`, ids)
+	if err != nil {
+		return nil, err
+	}
+	for reviews.Next() {
+		var id int64
+		var average *string
+		var count int64
+		if err := reviews.Scan(&id, &average, &count); err != nil {
+			reviews.Close()
+			return nil, err
+		}
+		if average != nil {
+			bundle.reviewAvg[id] = *average
+		}
+		bundle.reviewCount[id] = count
+	}
+	if err := reviews.Err(); err != nil {
+		reviews.Close()
+		return nil, err
+	}
+	reviews.Close()
+
+	users, err := marketplaceUsersBatch(ctx, pool, userIDs)
+	if err != nil {
+		return nil, err
+	}
+	bundle.users = users
+
+	return bundle, nil
+}
+
+// marketplaceSupplierObject renders a supplier plus the requested counts. The
+// per-row path is kept for the detail endpoint; the list passes a bundle.
 func marketplaceSupplierObject(ctx context.Context, pool *pgxpool.Pool,
-	byName map[string]any, countKeys []string) (*jsonwire.Object, error) {
+	byName map[string]any, countKeys []string, bundle *marketplaceSupplierBundle) (*jsonwire.Object, error) {
 	entry := supplierObject(byName)
 	supplierID := intPtrDeref(byName["id"])
+
+	var (
+		reviewLoaded bool
+		reviewAvg    *string
+		reviewCount  int64
+	)
+	loadReviews := func() {
+		if reviewLoaded {
+			return
+		}
+		reviewAvg, reviewCount = reviewAggregates(ctx, pool, supplierID)
+		reviewLoaded = true
+	}
 
 	for _, key := range countKeys {
 		switch key {
 		case "materials_count":
+			if bundle != nil {
+				entry.Set(key, bundle.materialsCount[supplierID])
+				continue
+			}
 			var count int64
 			_ = pool.QueryRow(ctx, `SELECT count(*) FROM materials
 				WHERE supplier_id = $1 AND is_available = true`, supplierID).Scan(&count)
 			entry.Set(key, count)
 		case "reviews_avg_rating":
-			average, _ := reviewAggregates(ctx, pool, supplierID)
-			if average == nil {
+			if bundle != nil {
+				if average, ok := bundle.reviewAvg[supplierID]; ok {
+					entry.Set(key, average)
+				} else {
+					entry.Set(key, nil)
+				}
+				continue
+			}
+			loadReviews()
+			if reviewAvg == nil {
 				entry.Set(key, nil)
 			} else {
-				entry.Set(key, *average)
+				entry.Set(key, *reviewAvg)
 			}
 		case "reviews_count":
-			_, count := reviewAggregates(ctx, pool, supplierID)
-			entry.Set(key, count)
+			if bundle != nil {
+				entry.Set(key, bundle.reviewCount[supplierID])
+				continue
+			}
+			loadReviews()
+			entry.Set(key, reviewCount)
 		}
 	}
 	return entry, nil
@@ -127,35 +276,40 @@ func MarketplaceSuppliersHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			serverError(w)
 			return
 		}
-		defer rows.Close()
+		fields, values, err := collectRows(rows)
+		rows.Close()
+		if err != nil {
+			slog.Error("marketplace suppliers: scan", "error", err)
+			serverError(w)
+			return
+		}
 
-		out := make([]any, 0)
-		for rows.Next() {
-			fields := fieldNames(rows)
-			values, err := scanRow(rows, len(fields))
-			if err != nil {
-				slog.Error("marketplace suppliers: scan", "error", err)
-				serverError(w)
-				return
-			}
-			byName := map[string]any{}
+		loaded := make([]map[string]any, 0, len(values))
+		for _, row := range values {
+			byName := make(map[string]any, len(fields))
 			for i, column := range fields {
-				byName[column] = values[i]
+				byName[column] = row[i]
 			}
+			loaded = append(loaded, byName)
+		}
+
+		bundle, err := buildMarketplaceSupplierBundle(ctx, pool, loaded)
+		if err != nil {
+			slog.Error("marketplace suppliers: bundle", "error", err)
+			serverError(w)
+			return
+		}
+
+		out := make([]any, 0, len(loaded))
+		for _, byName := range loaded {
 			entry, err := marketplaceSupplierObject(ctx, pool, byName,
-				[]string{"materials_count", "reviews_avg_rating", "reviews_count"})
+				[]string{"materials_count", "reviews_avg_rating", "reviews_count"}, bundle)
 			if err != nil {
 				slog.Error("marketplace suppliers: render", "error", err)
 				serverError(w)
 				return
 			}
-			user, err := marketplaceUser(ctx, pool, intPtrDeref(byName["user_id"]))
-			if err != nil {
-				slog.Error("marketplace suppliers: user", "error", err)
-				serverError(w)
-				return
-			}
-			entry.Set("user", user)
+			entry.Set("user", bundle.users[intPtrDeref(byName["user_id"])])
 			out = append(out, entry)
 		}
 
@@ -211,7 +365,7 @@ func MarketplaceSupplierHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		entry, err := marketplaceSupplierObject(ctx, pool, byName,
-			[]string{"reviews_avg_rating", "reviews_count"})
+			[]string{"reviews_avg_rating", "reviews_count"}, nil)
 		if err != nil {
 			slog.Error("marketplace supplier: render", "error", err)
 			serverError(w)
@@ -345,7 +499,117 @@ func marketplaceSupplierReviews(ctx context.Context, pool *pgxpool.Pool, supplie
 
 // marketplaceMaterialEntry renders the public material: columns, supplier (with
 // its owner), then images.
-func marketplaceMaterialEntry(ctx context.Context, pool *pgxpool.Pool, row map[string]any) (*jsonwire.Object, error) {
+// marketplaceMaterialBundle carries one page's supplier, owner and image
+// relations for the public material listing.
+type marketplaceMaterialBundle struct {
+	suppliers map[int64]*jsonwire.Object
+	images    map[int64][]any
+}
+
+func materialImagesBatch(ctx context.Context, pool *pgxpool.Pool, ids []int64) (map[int64][]any, error) {
+	out := map[int64][]any{}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	rows, err := pool.Query(ctx, `SELECT id, material_id, image_path, created_at, updated_at
+		FROM material_images WHERE material_id = ANY($1) ORDER BY material_id, id`, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var id, materialID int64
+		var imagePath *string
+		var createdAt, updatedAt any
+		if err := rows.Scan(&id, &materialID, &imagePath, &createdAt, &updatedAt); err != nil {
+			return nil, err
+		}
+		entry := jsonwire.NewObject()
+		entry.Set("id", id)
+		entry.Set("material_id", materialID)
+		entry.Set("image_path", nullableString(imagePath))
+		entry.Set("created_at", projectTimeValue(createdAt))
+		entry.Set("updated_at", projectTimeValue(updatedAt))
+		out[materialID] = append(out[materialID], entry)
+	}
+	return out, rows.Err()
+}
+
+func buildMarketplaceMaterialBundle(ctx context.Context, pool *pgxpool.Pool, rows []map[string]any) (*marketplaceMaterialBundle, error) {
+	bundle := &marketplaceMaterialBundle{
+		suppliers: map[int64]*jsonwire.Object{},
+		images:    map[int64][]any{},
+	}
+	if len(rows) == 0 {
+		return bundle, nil
+	}
+
+	materialIDs := make([]int64, 0, len(rows))
+	supplierSet := map[int64]bool{}
+	supplierIDs := make([]int64, 0, len(rows))
+	for _, row := range rows {
+		if id := intPtrDeref(row["id"]); id != 0 {
+			materialIDs = append(materialIDs, id)
+		}
+		if id := intPtrDeref(row["supplier_id"]); id != 0 && !supplierSet[id] {
+			supplierSet[id] = true
+			supplierIDs = append(supplierIDs, id)
+		}
+	}
+
+	supplierUser := map[int64]int64{}
+	userIDs := make([]int64, 0, len(supplierIDs))
+	if len(supplierIDs) > 0 {
+		rows, err := pool.Query(ctx, `SELECT `+strings.Join(supplierColumns, ", ")+`
+			FROM suppliers WHERE id = ANY($1)`, supplierIDs)
+		if err != nil {
+			return nil, err
+		}
+		fields := fieldNames(rows)
+		for rows.Next() {
+			values, err := scanRow(rows, len(fields))
+			if err != nil {
+				rows.Close()
+				return nil, err
+			}
+			byName := make(map[string]any, len(fields))
+			for i, column := range fields {
+				byName[column] = values[i]
+			}
+			id := projectInt(values, fields, "id")
+			bundle.suppliers[id] = supplierObject(byName)
+			userID := projectInt(values, fields, "user_id")
+			if userID != 0 {
+				supplierUser[id] = userID
+				userIDs = append(userIDs, userID)
+			}
+		}
+		if err := rows.Err(); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		rows.Close()
+	}
+
+	users, err := marketplaceUsersBatch(ctx, pool, userIDs)
+	if err != nil {
+		return nil, err
+	}
+	for id, supplier := range bundle.suppliers {
+		supplier.Set("user", users[supplierUser[id]])
+	}
+
+	images, err := materialImagesBatch(ctx, pool, materialIDs)
+	if err != nil {
+		return nil, err
+	}
+	bundle.images = images
+
+	return bundle, nil
+}
+
+func marketplaceMaterialRowObject(row map[string]any) *jsonwire.Object {
 	entry := jsonwire.NewObject()
 	for _, column := range []string{
 		"id", "supplier_id", "name", "description", "price", "unit", "category",
@@ -366,8 +630,23 @@ func marketplaceMaterialEntry(ctx context.Context, pool *pgxpool.Pool, row map[s
 			entry.Set(column, projectRawValue(value))
 		}
 	}
+	return entry
+}
 
+func marketplaceMaterialEntryBundled(ctx context.Context, pool *pgxpool.Pool, row map[string]any, bundle *marketplaceMaterialBundle) (*jsonwire.Object, error) {
+	entry := marketplaceMaterialRowObject(row)
 	supplierID := intPtrDeref(row["supplier_id"])
+
+	if bundle != nil {
+		entry.Set("supplier", bundle.suppliers[supplierID])
+		images := bundle.images[intPtrDeref(row["id"])]
+		if images == nil {
+			images = []any{}
+		}
+		entry.Set("images", images)
+		return entry, nil
+	}
+
 	supplierFields, supplierValues, err := func() ([]string, []any, error) {
 		rows, err := pool.Query(ctx, `SELECT `+strings.Join(supplierColumns, ", ")+`
 			FROM suppliers WHERE id = $1`, supplierID)
@@ -409,6 +688,10 @@ func marketplaceMaterialEntry(ctx context.Context, pool *pgxpool.Pool, row map[s
 	return entry, nil
 }
 
+func marketplaceMaterialEntry(ctx context.Context, pool *pgxpool.Pool, row map[string]any) (*jsonwire.Object, error) {
+	return marketplaceMaterialEntryBundled(ctx, pool, row, nil)
+}
+
 // MarketplaceMaterialsHandler serves `GET /api/marketplace/materials`.
 func MarketplaceMaterialsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -446,22 +729,33 @@ func MarketplaceMaterialsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			serverError(w)
 			return
 		}
-		defer rows.Close()
+		fields, values, err := collectRows(rows)
+		rows.Close()
+		if err != nil {
+			slog.Error("marketplace materials: scan", "error", err)
+			serverError(w)
+			return
+		}
 
-		out := make([]any, 0)
-		for rows.Next() {
-			fields := fieldNames(rows)
-			values, err := scanRow(rows, len(fields))
-			if err != nil {
-				slog.Error("marketplace materials: scan", "error", err)
-				serverError(w)
-				return
-			}
-			row := map[string]any{}
+		loaded := make([]map[string]any, 0, len(values))
+		for _, row := range values {
+			byName := make(map[string]any, len(fields))
 			for i, column := range fields {
-				row[column] = values[i]
+				byName[column] = row[i]
 			}
-			entry, err := marketplaceMaterialEntry(ctx, pool, row)
+			loaded = append(loaded, byName)
+		}
+
+		bundle, err := buildMarketplaceMaterialBundle(ctx, pool, loaded)
+		if err != nil {
+			slog.Error("marketplace materials: bundle", "error", err)
+			serverError(w)
+			return
+		}
+
+		out := make([]any, 0, len(loaded))
+		for _, row := range loaded {
+			entry, err := marketplaceMaterialEntryBundled(ctx, pool, row, bundle)
 			if err != nil {
 				slog.Error("marketplace materials: render", "error", err)
 				serverError(w)

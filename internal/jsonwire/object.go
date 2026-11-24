@@ -1,6 +1,6 @@
 package jsonwire
 
-import "strings"
+import "encoding/json/jsontext"
 
 // Object is a JSON object whose keys keep their insertion order.
 //
@@ -61,24 +61,10 @@ func (o Object) MarshalJSON() ([]byte, error) {
 	return Marshal(o)
 }
 
-// encode writes the object.
-func (o Object) encode(out *strings.Builder) error {
-	out.WriteByte('{')
-
-	for i, key := range o.keys {
-		if i > 0 {
-			out.WriteByte(',')
-		}
-
-		EncodeString(out, key)
-		out.WriteByte(':')
-
-		if err := encode(out, o.values[key]); err != nil {
-			return err
-		}
+// MarshalJSONTo lets a v2 encoder write the object directly, in order.
+func (o *Object) MarshalJSONTo(enc *jsontext.Encoder) error {
+	if o == nil {
+		return enc.WriteToken(jsontext.Null)
 	}
-
-	out.WriteByte('}')
-
-	return nil
+	return writeObject(enc, o.keys, o.values)
 }

@@ -102,6 +102,7 @@ then runs the Go suites against that database.
 | [`docs/MONEY.md`](docs/MONEY.md) | The escrow ledger and its invariants |
 | [`docs/API.md`](docs/API.md) | Route manifest, conventions, errors, SSE, memory, MCP |
 | [`docs/AI.md`](docs/AI.md) | Agent tree, tools, memory, skills, MCP and safety |
+| [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) | JSON v2, gzip, deadlines and query benchmarks |
 | [`docs/OPERATIONS.md`](docs/OPERATIONS.md) | Environment, reset, verification, backups |
 | [`docs/PORTFOLIO.md`](docs/PORTFOLIO.md) | The demo script and screenshot gallery |
 | [`AGENTS.md`](AGENTS.md) | Working rules for AI agents and contributors |

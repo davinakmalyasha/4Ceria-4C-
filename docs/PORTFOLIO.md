@@ -50,6 +50,7 @@ set of money invariants.
 | Directory | Seven professional roles, verification status, portfolios, firm workspace |
 | Property | Listings, rooms, photos, filters, favourites, questions |
 | AI | ADK v2 agents, 12 read-only tools, PostgreSQL long-term memory, embedded skills, MCP server, quotas, SSE stream |
+| Performance | `encoding/json/v2` wire encoder with a byte-compat oracle, gzip middleware, batched page queries, per-response deadlines, benchmarked in `docs/PERFORMANCE.md` |
 | PWA | Manifest, install prompt, offline shell, update flow, push |
 | Security | Path-safe uploads, body limits, scoped rate limits, signed private URLs, no secrets in the seed |
 
@@ -57,6 +58,10 @@ set of money invariants.
 
 - **The route manifest is the contract.** `routing/routes.yaml` drives the
   router and a test fails when a route has no handler.
+- **The JSON wire is fast without moving.** `internal/jsonwire` runs on
+  `encoding/json/v2` with an old-encoder oracle, so ordered keys and stored
+  fragments survive while list encoding drops from ~12 ms to ~1.3 ms and
+  40k allocations to 3 in the benchmark.
 - **One money model.** `internal/domain/money` and `internal/domain/escrow`
   own every calculation; the database function is the only ledger writer.
 - **The database is the second test suite.** `db/postgres/tests/escrow_behaviour.sql`

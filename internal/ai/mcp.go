@@ -2,7 +2,8 @@ package ai
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
+	jsonv2 "encoding/json/v2"
 	"fmt"
 	"time"
 
@@ -98,7 +99,7 @@ func mcpResult(ctx context.Context, call func(context.Context) (any, error)) (*m
 			Content: []mcp.Content{&mcp.TextContent{Text: err.Error()}},
 		}, nil, nil
 	}
-	encoded, marshalErr := json.MarshalIndent(out, "", "  ")
+	encoded, marshalErr := jsonv2.Marshal(out, jsontext.WithIndent("  "))
 	if marshalErr != nil {
 		return &mcp.CallToolResult{
 			IsError: true,
