@@ -48,7 +48,7 @@ func TestPgLimiterBlocksOverLimit(t *testing.T) {
 	_, _ = pool.Exec(context.Background(), `DELETE FROM rate_limit_hits WHERE key = $1`, limiterKey(req))
 	allowed := 0
 	for i := 0; i < 3; i++ {
-		ok, _ := lim.Allow(req, 2, time.Minute)
+		ok, _, _ := lim.Allow(req, 2, time.Minute)
 		if ok {
 			allowed++
 		}

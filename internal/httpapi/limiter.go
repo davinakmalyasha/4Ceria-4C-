@@ -37,7 +37,7 @@ func NewMemoryLimiter() *MemoryLimiter {
 }
 
 // Allow reports whether the call may proceed.
-func (l *MemoryLimiter) Allow(r *http.Request, limit int, window time.Duration) (bool, time.Duration) {
+func (l *MemoryLimiter) Allow(r *http.Request, limit int, window time.Duration) (bool, time.Duration, int) {
 	key := limiterBucket(r, limit, window)
 	now := l.now()
 
@@ -70,12 +70,12 @@ func (l *MemoryLimiter) Allow(r *http.Request, limit int, window time.Duration) 
 			retryAfter = 0
 		}
 		l.hits[key] = kept
-		return false, retryAfter
+		return false, retryAfter, 0
 	}
 
 	l.hits[key] = append(kept, now)
 
-	return true, 0
+	return true, 0, limit - len(kept) - 1
 }
 
 // Remaining reports how many attempts are left in the current window.

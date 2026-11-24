@@ -141,3 +141,27 @@ func TestMyBidsScope(t *testing.T) {
 		}
 	}
 }
+
+func TestCallerProfileIDsCachedMemoizes(t *testing.T) {
+	pool, userID, _ := memoryPool(t)
+	defer pool.Close()
+	ctx := context.Background()
+	tc := ToolCtx{Pool: pool, UserID: userID, Profiles: NewProfileCache()}
+
+	first := callerProfileIDsCached(ctx, tc, userID)
+	second := callerProfileIDsCached(ctx, tc, userID)
+	if len(first) == 0 {
+		t.Skip("caller holds no profile rows")
+	}
+	if len(first) != len(second) {
+		t.Fatalf("cached profiles differ: %d vs %d", len(first), len(second))
+	}
+	for table, id := range first {
+		if second[table] != id {
+			t.Fatalf("table %s: %d vs %d", table, id, second[table])
+		}
+	}
+	if tc.Profiles.byUser[userID] == nil {
+		t.Fatal("cache was not populated")
+	}
+}

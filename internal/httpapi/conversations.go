@@ -250,8 +250,13 @@ func ConversationsIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		ctx := r.Context()
 
 		rows, err := pool.Query(ctx, `SELECT `+strings.Join(conversationColumns, ", ")+`
-			FROM conversations
-			WHERE user_one_id = $1 OR user_two_id = $1
+			FROM (
+				SELECT `+strings.Join(conversationColumns, ", ")+`
+				  FROM conversations WHERE user_one_id = $1
+				UNION ALL
+				SELECT `+strings.Join(conversationColumns, ", ")+`
+				  FROM conversations WHERE user_two_id = $1
+			) t
 			ORDER BY last_message_at DESC NULLS LAST, id ASC
 			LIMIT 100`, caller.UserID())
 		if err != nil {

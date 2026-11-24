@@ -22,9 +22,10 @@ func MCPHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return nil
 		}
 		return ai.NewMCPServer(ai.ToolCtx{
-			Pool:    pool,
-			UserID:  caller.UserID(),
-			IsAdmin: caller.IsAdmin(),
+			Pool:     pool,
+			UserID:   caller.UserID(),
+			IsAdmin:  caller.IsAdmin(),
+			Profiles: ai.NewProfileCache(),
 		}, true)
 	}, &mcp.StreamableHTTPOptions{
 		Stateless:                    true,

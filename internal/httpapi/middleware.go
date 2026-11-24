@@ -54,9 +54,11 @@ type Authenticator interface {
 
 // RateLimiter counts the calls per key.
 type RateLimiter interface {
-	// Allow reports whether the call may proceed, and how long the caller
-	// should wait if it may not.
-	Allow(r *http.Request, limit int, window time.Duration) (bool, time.Duration)
+	// Allow reports whether the call may proceed, how long the caller
+	// should wait if it may not, and the remaining budget after this call.
+	// The remaining count comes from the same read as the decision, so the
+	// middleware never pays a second count query for the headers.
+	Allow(r *http.Request, limit int, window time.Duration) (bool, time.Duration, int)
 }
 
 // ProjectFreezer answers whether a project is frozen.
@@ -392,7 +394,7 @@ func (g Gates) requireRate(limit int, window time.Duration) func(http.Handler) h
 				return
 			}
 
-			allowed, retryAfter := g.Limiter.Allow(r, limit, window)
+			allowed, retryAfter, remaining := g.Limiter.Allow(r, limit, window)
 			if !allowed {
 				w.Header().Set("Retry-After", strconv.Itoa(int(retryAfter.Seconds())))
 				w.Header().Set("X-RateLimit-Limit", strconv.Itoa(limit))
@@ -401,16 +403,13 @@ func (g Gates) requireRate(limit int, window time.Duration) func(http.Handler) h
 				return
 			}
 
-			// The remaining count, for observability. The shadow comparator
+			// The remaining count, for observability. It comes from the
+			// Allow call above, not a second query. The shadow comparator
 			// only checks status, content-type and body, so these headers do
 			// not affect contract — but a client that cannot see its budget
 			// cannot back off, and the original API emits them.
-			if remaining, ok := g.Limiter.(interface {
-				Remaining(*http.Request, int, time.Duration) int
-			}); ok {
-				w.Header().Set("X-RateLimit-Limit", strconv.Itoa(limit))
-				w.Header().Set("X-RateLimit-Remaining", strconv.Itoa(remaining.Remaining(r, limit, window)))
-			}
+			w.Header().Set("X-RateLimit-Limit", strconv.Itoa(limit))
+			w.Header().Set("X-RateLimit-Remaining", strconv.Itoa(remaining))
 
 			next.ServeHTTP(w, r)
 		})

@@ -183,6 +183,7 @@ func Chat(ctx context.Context, cfg Config, in TurnInput) (TurnResult, error) {
 	r, err := buildRunner(ctx, cfg, ToolCtx{
 		Pool: in.Pool, UserID: in.UserID, IsAdmin: in.IsAdmin,
 		SessionID: in.SessionID, MemoryEnabled: in.MemoryEnabled,
+		Profiles: NewProfileCache(),
 	}, in.History)
 	if err != nil {
 		return TurnResult{}, err
@@ -261,6 +262,7 @@ func Stream(ctx context.Context, cfg Config, in TurnInput, yield func(StreamChun
 	r, err := buildRunner(ctx, cfg, ToolCtx{
 		Pool: in.Pool, UserID: in.UserID, IsAdmin: in.IsAdmin,
 		SessionID: in.SessionID, MemoryEnabled: in.MemoryEnabled,
+		Profiles: NewProfileCache(),
 	}, in.History)
 	if err != nil {
 		yield(StreamChunk{Error: "The assistant could not start. Please try again."})

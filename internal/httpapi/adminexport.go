@@ -45,12 +45,23 @@ func AdminProjectsExportHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		rows, err := pool.Query(ctx, `
 			SELECT p.id, p.title, p.status::text, p.budget::text, p.created_at, u.name,
-			  (SELECT COUNT(*) FROM bids b WHERE b.project_id = p.id),
-			  COALESCE((SELECT d.title FROM project_disputes d WHERE d.project_id = p.id AND d.status::text = 'open' ORDER BY d.id LIMIT 1), ''),
-			  COALESCE((SELECT SUM(CASE WHEN t.transaction_type::text IN ('payment','platform_fee','retention_release') THEN t.amount ELSE 0 END) FROM project_budget_transactions t WHERE t.project_id = p.id), 0.00)::text,
-			  COALESCE((SELECT SUM(CASE WHEN t.transaction_type::text = 'refund' THEN t.amount ELSE 0 END) FROM project_budget_transactions t WHERE t.project_id = p.id), 0.00)::text
+			  COALESCE(b.bids, 0),
+			  COALESCE(d.open_dispute, ''),
+			  COALESCE(t.paid::text, '0.00'),
+			  COALESCE(t.refunded::text, '0.00')
 			  FROM projects p
-			  LEFT JOIN users u ON u.id = p.user_id`+where+`
+			  LEFT JOIN users u ON u.id = p.user_id
+			  LEFT JOIN (SELECT project_id, COUNT(*) AS bids FROM bids GROUP BY project_id) b ON b.project_id = p.id
+			  LEFT JOIN LATERAL (
+			    SELECT d.title AS open_dispute FROM project_disputes d
+			     WHERE d.project_id = p.id AND d.status::text = 'open' ORDER BY d.id LIMIT 1
+			  ) d ON true
+			  LEFT JOIN (
+			    SELECT project_id,
+			      SUM(CASE WHEN transaction_type::text IN ('payment','platform_fee','retention_release') THEN amount ELSE 0 END) AS paid,
+			      SUM(CASE WHEN transaction_type::text = 'refund' THEN amount ELSE 0 END) AS refunded
+			      FROM project_budget_transactions GROUP BY project_id
+			  ) t ON t.project_id = p.id`+where+`
 			 ORDER BY p.created_at DESC, p.id ASC
 			 LIMIT 5000`, args...)
 		if err != nil {
@@ -60,11 +71,18 @@ func AdminProjectsExportHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		defer rows.Close()
 
-		var builder strings.Builder
-		builder.WriteString("\xEF\xBB\xBF")
+		w.Header().Set("Cache-Control", "no-cache, private")
+		w.Header().Set("Content-Type", "text/csv; charset=UTF-8")
+		w.Header().Set("Content-Disposition",
+			`attachment; filename=projects-export-`+time.Now().UTC().Format("20060102-150405")+`.csv`)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("\xEF\xBB\xBF"))
 
 		header := []string{"ID", "Title", "Owner", "Status", "Budget (IDR)", "Bids", "Open Dispute", "Paid Out (IDR)", "Refunded (IDR)", "Created At"}
-		builder.WriteString(csvLine(header))
+		_, _ = w.Write([]byte(csvLine(header)))
+		if flusher, ok := w.(http.Flusher); ok {
+			flusher.Flush()
+		}
 
 		for rows.Next() {
 			var (
@@ -105,7 +123,7 @@ func AdminProjectsExportHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				createdText = created.UTC().Format("2006-01-02 15:04:05")
 			}
 
-			builder.WriteString(csvLine([]string{
+			_, _ = w.Write([]byte(csvLine([]string{
 				strconv.FormatInt(id, 10),
 				csvCell(title),
 				csvCell(ownerName),
@@ -116,20 +134,15 @@ func AdminProjectsExportHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				paidText,
 				refundedText,
 				createdText,
-			}))
+			})))
 		}
 		if err := rows.Err(); err != nil {
 			slog.Error("admin export: rows", "error", err)
-			serverError(w)
 			return
 		}
-
-		w.Header().Set("Cache-Control", "no-cache, private")
-		w.Header().Set("Content-Type", "text/csv; charset=UTF-8")
-		w.Header().Set("Content-Disposition",
-			`attachment; filename=projects-export-`+time.Now().UTC().Format("20060102-150405")+`.csv`)
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(builder.String()))
+		if flusher, ok := w.(http.Flusher); ok {
+			flusher.Flush()
+		}
 	}
 }
 

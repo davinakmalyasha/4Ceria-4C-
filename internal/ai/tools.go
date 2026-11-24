@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"math"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -29,6 +30,18 @@ import (
 // ToolCtx carries the per-request database handle and caller identity.
 // Tools are built per chat turn so the user id is always the CURRENT
 // caller, never a cached one.
+type ProfileCache struct {
+	mu     sync.Mutex
+	byUser map[int64]map[string]int64
+}
+
+// NewProfileCache builds the per-turn profile-id memo. One agent turn can
+// call several scoped tools; without it every tool pays the 7-table UNION
+// again for the same user.
+func NewProfileCache() *ProfileCache {
+	return &ProfileCache{byUser: map[int64]map[string]int64{}}
+}
+
 type ToolCtx struct {
 	Pool          *pgxpool.Pool
 	UserID        int64
@@ -36,6 +49,7 @@ type ToolCtx struct {
 	SessionID     string
 	MemoryEnabled bool
 	Timeout       time.Duration
+	Profiles      *ProfileCache
 }
 
 func (c ToolCtx) ctx(parent context.Context) (context.Context, context.CancelFunc) {
@@ -569,7 +583,25 @@ type MyProjectsResult struct {
 // in project_managers etc. keyed by user_id, so resolve the caller's
 // profile ids first.
 func callerProfileIDs(ctx context.Context, pool *pgxpool.Pool, userID int64) map[string]int64 {
+	return callerProfileIDsCached(ctx, ToolCtx{Pool: pool}, userID)
+}
+
+// callerProfileIDsCached is the per-turn memoized form. The first scoped
+// tool call in a turn pays the UNION; the rest reuse the map.
+func callerProfileIDsCached(ctx context.Context, tc ToolCtx, userID int64) map[string]int64 {
+	if tc.Profiles != nil {
+		tc.Profiles.mu.Lock()
+		if cached, ok := tc.Profiles.byUser[userID]; ok {
+			tc.Profiles.mu.Unlock()
+			return cached
+		}
+		tc.Profiles.mu.Unlock()
+	}
+	pool := tc.Pool
 	ids := map[string]int64{}
+	if pool == nil {
+		return ids
+	}
 	rows, err := pool.Query(ctx, `
 		SELECT 'arsiteks', id FROM arsiteks WHERE user_id = $1
 		UNION ALL SELECT 'kontraktors', id FROM kontraktors WHERE user_id = $1
@@ -590,6 +622,14 @@ func callerProfileIDs(ctx context.Context, pool *pgxpool.Pool, userID int64) map
 			ids[table] = id
 		}
 	}
+	if tc.Profiles != nil {
+		tc.Profiles.mu.Lock()
+		if tc.Profiles.byUser == nil {
+			tc.Profiles.byUser = map[int64]map[string]int64{}
+		}
+		tc.Profiles.byUser[userID] = ids
+		tc.Profiles.mu.Unlock()
+	}
 	return ids
 }
 
@@ -603,7 +643,7 @@ func myProjects(parent context.Context, tc ToolCtx, a MyProjectsArgs) (MyProject
 	if limit > 10 {
 		limit = 10
 	}
-	prof := callerProfileIDs(ctx, tc.Pool, tc.UserID)
+	prof := callerProfileIDsCached(ctx, tc, tc.UserID)
 	conds := []string{"p.user_id = $1"}
 	args := []any{tc.UserID}
 	if id, ok := prof["arsiteks"]; ok {
@@ -1077,7 +1117,7 @@ func (p projectParties) allows(profiles map[string]int64) bool {
 }
 
 func (h projectHead) allows(ctx context.Context, tc ToolCtx) bool {
-	return h.OwnerID == tc.UserID || tc.IsAdmin || h.Parties.allows(callerProfileIDs(ctx, tc.Pool, tc.UserID))
+	return h.OwnerID == tc.UserID || tc.IsAdmin || h.Parties.allows(callerProfileIDsCached(ctx, tc, tc.UserID))
 }
 
 func loadProject(ctx context.Context, pool *pgxpool.Pool, projectID int64) (projectHead, bool, error) {

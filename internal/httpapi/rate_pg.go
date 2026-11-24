@@ -27,9 +27,9 @@ func NewPgLimiter(pool *pgxpool.Pool) *PgLimiter {
 	return &PgLimiter{pool: pool}
 }
 
-func (l *PgLimiter) Allow(r *http.Request, limit int, window time.Duration) (bool, time.Duration) {
+func (l *PgLimiter) Allow(r *http.Request, limit int, window time.Duration) (bool, time.Duration, int) {
 	if l == nil || l.pool == nil {
-		return true, 0
+		return true, 0, limit
 	}
 
 	key := limiterBucket(r, limit, window)
@@ -40,12 +40,12 @@ func (l *PgLimiter) Allow(r *http.Request, limit int, window time.Duration) (boo
 	tx, err := l.pool.Begin(ctx)
 	if err != nil {
 		// Fail open: a limiter outage must not take authentication down.
-		return true, 0
+		return true, 0, limit
 	}
 	defer tx.Rollback(ctx)
 
 	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext($1))`, key); err != nil {
-		return true, 0
+		return true, 0, limit
 	}
 
 	// Opportunistic housekeeping: rows older than an hour can never be in a
@@ -56,30 +56,30 @@ func (l *PgLimiter) Allow(r *http.Request, limit int, window time.Duration) (boo
 
 	var count int
 	if err := tx.QueryRow(ctx, `SELECT count(*) FROM rate_limit_hits WHERE key = $1 AND hit_at > $2`, key, cutoff).Scan(&count); err != nil {
-		return true, 0
+		return true, 0, limit
 	}
 
 	if count >= limit {
 		var oldest time.Time
 		if err := tx.QueryRow(ctx, `SELECT min(hit_at) FROM rate_limit_hits WHERE key = $1 AND hit_at > $2`, key, cutoff).Scan(&oldest); err != nil {
-			return false, 0
+			return false, 0, 0
 		}
 		retry := oldest.Add(window).Sub(now)
 		if retry < 0 {
 			retry = 0
 		}
-		return false, retry
+		return false, retry, 0
 	}
 
 	if _, err := tx.Exec(ctx, `INSERT INTO rate_limit_hits (key, hit_at) VALUES ($1, $2)`, key, now); err != nil {
-		return true, 0
+		return true, 0, limit
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		return true, 0
+		return true, 0, limit
 	}
 
-	return true, 0
+	return true, 0, limit - count - 1
 }
 
 func (l *PgLimiter) Remaining(r *http.Request, limit int, window time.Duration) int {

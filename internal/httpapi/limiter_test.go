@@ -23,18 +23,18 @@ func TestTheLimiterKeysAuthenticatedTrafficOnTheUser(t *testing.T) {
 	}
 
 	for i := 0; i < 10; i++ {
-		if allowed, _ := limiter.Allow(request("token-alpha", "10.1.2.3"), 10, time.Minute); !allowed {
+		if allowed, _, _ := limiter.Allow(request("token-alpha", "10.1.2.3"), 10, time.Minute); !allowed {
 			t.Fatalf("attempt %d should be allowed", i+1)
 		}
 	}
 
-	if allowed, _ := limiter.Allow(request("token-beta", "203.0.113.99"), 10, time.Minute); allowed {
+	if allowed, _, _ := limiter.Allow(request("token-beta", "203.0.113.99"), 10, time.Minute); allowed {
 		t.Fatal("the same user with a rotated token and IP was allowed: the bucket rotated")
 	}
 
 	other := request("token-gamma", "203.0.113.7")
 	other = other.WithContext(withCaller(other.Context(), Session{ID: 43}))
-	if allowed, _ := limiter.Allow(other, 10, time.Minute); !allowed {
+	if allowed, _, _ := limiter.Allow(other, 10, time.Minute); !allowed {
 		t.Fatal("a different user was blocked: buckets are shared across users")
 	}
 }
@@ -72,16 +72,16 @@ func TestAnonymousTrafficKeysOnTheIP(t *testing.T) {
 	}
 
 	for i := 0; i < 5; i++ {
-		if allowed, _ := limiter.Allow(anonymous("10.1.2.3"), 5, time.Minute); !allowed {
+		if allowed, _, _ := limiter.Allow(anonymous("10.1.2.3"), 5, time.Minute); !allowed {
 			t.Fatalf("attempt %d should be allowed", i+1)
 		}
 	}
 
-	if allowed, _ := limiter.Allow(anonymous("10.1.2.3"), 5, time.Minute); allowed {
+	if allowed, _, _ := limiter.Allow(anonymous("10.1.2.3"), 5, time.Minute); allowed {
 		t.Fatal("the sixth attempt from the same IP was allowed")
 	}
 
-	if allowed, _ := limiter.Allow(anonymous("10.9.9.9"), 5, time.Minute); !allowed {
+	if allowed, _, _ := limiter.Allow(anonymous("10.9.9.9"), 5, time.Minute); !allowed {
 		t.Fatal("a different IP was blocked: anonymous buckets are shared")
 	}
 }
@@ -181,18 +181,18 @@ func TestTheWindowSlides(t *testing.T) {
 	r.RemoteAddr = "10.1.2.3:1234"
 
 	for i := 0; i < 5; i++ {
-		if allowed, _ := limiter.Allow(r, 5, time.Minute); !allowed {
+		if allowed, _, _ := limiter.Allow(r, 5, time.Minute); !allowed {
 			t.Fatalf("attempt %d should be allowed", i+1)
 		}
 	}
 
-	if allowed, _ := limiter.Allow(r, 5, time.Minute); allowed {
+	if allowed, _, _ := limiter.Allow(r, 5, time.Minute); allowed {
 		t.Fatal("the sixth attempt was allowed inside the window")
 	}
 
 	now = now.Add(61 * time.Second)
 
-	if allowed, _ := limiter.Allow(r, 5, time.Minute); !allowed {
+	if allowed, _, _ := limiter.Allow(r, 5, time.Minute); !allowed {
 		t.Fatal("no attempt was allowed after the window slid")
 	}
 }
