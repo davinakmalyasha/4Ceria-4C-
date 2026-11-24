@@ -18,16 +18,25 @@ var errUnsafeStoragePath = errors.New("unsafe storage path")
 // able to read, write or delete outside the configured root.
 func safeStorageJoin(base, rel string) (string, error) {
 	rel = strings.TrimSpace(rel)
-	if rel == "" {
+	if rel == "" || strings.ContainsRune(rel, 0) {
 		return "", errUnsafeStoragePath
 	}
 
+	// Normalise separators once and reject every absolute form this API can
+	// meet. `filepath.IsAbs` alone is host-platform aware: `C:/x` is absolute
+	// on Windows and a plain relative name on Linux, so the same stored value
+	// would be accepted by one deploy and rejected by another.
 	rel = strings.ReplaceAll(rel, "\\", "/")
+	if unsafeStorageRelative(rel) {
+		return "", errUnsafeStoragePath
+	}
+
 	rel = strings.TrimPrefix(rel, "/")
 
 	clean := filepath.Clean(filepath.FromSlash(rel))
 	if clean == "." || clean == ".." || filepath.IsAbs(clean) ||
-		strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
+		strings.HasPrefix(clean, ".."+string(filepath.Separator)) ||
+		unsafeStorageRelative(clean) {
 		return "", errUnsafeStoragePath
 	}
 
@@ -45,6 +54,42 @@ func safeStorageJoin(base, rel string) (string, error) {
 	}
 
 	return fullAbs, nil
+}
+
+// unsafeStorageRelative reports whether a slash-normalised relative path is
+// actually an absolute, drive-qualified, UNC or device path. The checks are
+// deliberately host-OS independent so a Linux worker and a Windows developer
+// accept and reject the same values.
+func unsafeStorageRelative(rel string) bool {
+	if len(rel) >= 2 && isASCIILetter(rel[0]) && rel[1] == ':' {
+		return true
+	}
+
+	// `//server/share` and `//?/C:/...` are UNC/device forms on Windows and
+	// must never reach a filesystem join on any OS.
+	if strings.HasPrefix(rel, "//") {
+		return true
+	}
+
+	if filepath.VolumeName(rel) != "" {
+		return true
+	}
+
+	// A drive token can also appear after a harmless prefix (`./C:/...`).
+	// Windows cleans that to `.\C:\...` and keeps it inside the root, while
+	// Linux would promote the same bytes to an absolute path. Reject the
+	// token itself so both hosts agree.
+	for _, segment := range strings.Split(rel, "/") {
+		if len(segment) == 2 && isASCIILetter(segment[0]) && segment[1] == ':' {
+			return true
+		}
+	}
+
+	return false
+}
+
+func isASCIILetter(b byte) bool {
+	return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z')
 }
 
 // sanitiseExtension keeps only a short alphanumeric suffix. A client filename
