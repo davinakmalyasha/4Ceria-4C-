@@ -819,9 +819,14 @@ func disputeRecipientIDs(ctx context.Context, pool *pgxpool.Pool, projectID, sen
 
 	recipients[ownerID] = true
 	if pmID != nil && *pmID != 0 {
-		// `pm_id` holds a PROFILE id; the recipient is that PM progress' USER.
+		// `pm_id` is nominally a PROFILE id, but the PM-accept path writes
+		// the PM's USER id (projectpmbid.go, reproduced for wire compat).
+		// Resolve as a profile first; when that misses, treat the value as
+		// a user id directly so the hired PM still gets freeze notices.
 		var pmUser *int64
 		if err := pool.QueryRow(ctx, `SELECT user_id FROM project_managers WHERE id = $1`, *pmID).Scan(&pmUser); err == nil && pmUser != nil && *pmUser != 0 {
+			recipients[*pmUser] = true
+		} else if err := pool.QueryRow(ctx, `SELECT id FROM users WHERE id = $1`, *pmID).Scan(&pmUser); err == nil && pmUser != nil && *pmUser != 0 {
 			recipients[*pmUser] = true
 		}
 	}

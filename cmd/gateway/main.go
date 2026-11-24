@@ -48,6 +48,22 @@ func main() {
 	// directly and has no `.env` file.
 	httpapi.LoadDotEnv(".env")
 
+	// Fail closed in production: an empty APP_KEY makes HMAC reset tokens
+	// deterministic-ish and invalidates outstanding storage URLs on restart;
+	// an empty RESEND_API_KEY silently turns password-reset mail into a log
+	// line while the API reports success. Development keeps the permissive
+	// behavior so `go run` works with no secrets.
+	if envIsProd() {
+		if os.Getenv("APP_KEY") == "" {
+			slog.New(slog.NewJSONHandler(os.Stderr, nil)).Error("refusing to boot: APP_KEY is empty in production")
+			os.Exit(1)
+		}
+		if os.Getenv("RESEND_API_KEY") == "" {
+			slog.New(slog.NewJSONHandler(os.Stderr, nil)).Error("refusing to boot: RESEND_API_KEY is empty in production")
+			os.Exit(1)
+		}
+	}
+
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
 
 	manifest, err := httpapi.LoadManifest(*manifestPath)
@@ -538,4 +554,15 @@ func envInt(key string, def int) int {
 		}
 	}
 	return def
+}
+
+// envIsProd reports whether the process runs in production. Staging can opt
+// into the same strictness by setting APP_ENV or GO_ENV to `production`.
+func envIsProd() bool {
+	for _, key := range []string{"APP_ENV", "GO_ENV", "ENV"} {
+		if strings.EqualFold(strings.TrimSpace(os.Getenv(key)), "production") {
+			return true
+		}
+	}
+	return false
 }

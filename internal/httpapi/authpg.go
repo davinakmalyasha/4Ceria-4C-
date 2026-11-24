@@ -211,9 +211,13 @@ func LogoutPGHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		_ = caller
 		sum := sha256.Sum256([]byte(plain))
 		result, err := pool.Exec(r.Context(), `DELETE FROM personal_access_tokens WHERE id::text = $1 AND token = $2`, id, hex.EncodeToString(sum[:]))
-		if err != nil || result.RowsAffected() == 0 {
+		if err != nil {
 			slog.Error("logout: revoke", "error", err)
 			serverError(w)
+			return
+		}
+		if result.RowsAffected() == 0 {
+			message(w, http.StatusUnauthorized, "Unauthenticated.")
 			return
 		}
 		payload := jsonwire.NewObject()
@@ -344,6 +348,8 @@ func RegisterPGHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			failures.add("password", "The password field must be a string.")
 		} else if len([]rune(password)) < 8 {
 			failures.add("password", "The password field must be at least 8 characters.")
+		} else if len(password) > 72 {
+			failures.add("password", "The password field must not be greater than 72 characters.")
 		}
 		role, rolePresent := stringField(fields, "role_type")
 		if !rolePresent {
@@ -500,6 +506,8 @@ func ResetPasswordPGHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			failures.add("password", "The password field must be a string.")
 		} else if len([]rune(password)) < 8 {
 			failures.add("password", "The password field must be at least 8 characters.")
+		} else if len(password) > 72 {
+			failures.add("password", "The password field must not be greater than 72 characters.")
 		}
 		if passwordPresent {
 			rawConfirm, hasConfirm := fields["password_confirmation"]

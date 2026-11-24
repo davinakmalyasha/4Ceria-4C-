@@ -160,6 +160,20 @@ func loadProjectParties(ctx context.Context, pool *pgxpool.Pool, projectID int64
 
 	for role, column := range byRole {
 		if column != nil && *column > 0 {
+			// PM-accept writes the USER id into pm_id (wire compat); every
+			// other writer uses the PROFILE id. Normalize here so the hired
+			// PM keeps access either way: when the value is not a profile
+			// id, resolve it through the profile's user_id.
+			if role == identity.RoleProjectManager {
+				var pid int64
+				if err := pool.QueryRow(ctx, `SELECT id FROM project_managers WHERE id = $1`, *column).Scan(&pid); err != nil {
+					var resolved int64
+					if err2 := pool.QueryRow(ctx, `SELECT id FROM project_managers WHERE user_id = $1 ORDER BY id LIMIT 1`, *column).Scan(&resolved); err2 == nil {
+						project.hired[role] = identity.ProfileIDOf(resolved)
+						continue
+					}
+				}
+			}
 			project.hired[role] = identity.ProfileIDOf(*column)
 		}
 	}

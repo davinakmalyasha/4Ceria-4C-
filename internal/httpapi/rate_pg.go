@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -39,12 +40,21 @@ func (l *PgLimiter) Allow(r *http.Request, limit int, window time.Duration) (boo
 
 	tx, err := l.pool.Begin(ctx)
 	if err != nil {
-		// Fail open: a limiter outage must not take authentication down.
+		// Fail closed on the auth attack surface (login/register/reset):
+		// a limiter outage must not silently disable brute-force protection.
+		// Other routes keep the old fail-open posture so a limiter blip does
+		// not take the whole API down.
+		if isAuthRateLimitPath(r.URL.Path) {
+			return false, time.Minute, 0
+		}
 		return true, 0, limit
 	}
 	defer tx.Rollback(ctx)
 
 	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext($1))`, key); err != nil {
+		if isAuthRateLimitPath(r.URL.Path) {
+			return false, time.Minute, 0
+		}
 		return true, 0, limit
 	}
 
@@ -56,6 +66,9 @@ func (l *PgLimiter) Allow(r *http.Request, limit int, window time.Duration) (boo
 
 	var count int
 	if err := tx.QueryRow(ctx, `SELECT count(*) FROM rate_limit_hits WHERE key = $1 AND hit_at > $2`, key, cutoff).Scan(&count); err != nil {
+		if isAuthRateLimitPath(r.URL.Path) {
+			return false, time.Minute, 0
+		}
 		return true, 0, limit
 	}
 
@@ -72,10 +85,16 @@ func (l *PgLimiter) Allow(r *http.Request, limit int, window time.Duration) (boo
 	}
 
 	if _, err := tx.Exec(ctx, `INSERT INTO rate_limit_hits (key, hit_at) VALUES ($1, $2)`, key, now); err != nil {
+		if isAuthRateLimitPath(r.URL.Path) {
+			return false, time.Minute, 0
+		}
 		return true, 0, limit
 	}
 
 	if err := tx.Commit(ctx); err != nil {
+		if isAuthRateLimitPath(r.URL.Path) {
+			return false, time.Minute, 0
+		}
 		return true, 0, limit
 	}
 
@@ -101,4 +120,17 @@ func (l *PgLimiter) Remaining(r *http.Request, limit int, window time.Duration) 
 	}
 
 	return remaining
+}
+
+// isAuthRateLimitPath reports whether a request path is on the brute-force
+// attack surface. Limiter outages fail closed here (block with a retry) and
+// fail open everywhere else (keep serving).
+func isAuthRateLimitPath(path string) bool {
+	p := strings.ToLower(path)
+	for _, sub := range []string{"/login", "/register", "/forgot", "/reset-password", "/password"} {
+		if strings.Contains(p, sub) {
+			return true
+		}
+	}
+	return false
 }

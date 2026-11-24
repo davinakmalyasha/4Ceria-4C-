@@ -127,6 +127,10 @@ func (r *Router) storage(w http.ResponseWriter, req *http.Request) {
 		w.Header().Set("Cache-Control", "public, max-age=3600")
 	} else {
 		w.Header().Set("Cache-Control", "private, no-store")
+		// Private files are user uploads (proofs, evidence, KTP). Serve as
+		// attachment so a polyglot HTML/SVG can never execute in the app
+		// origin even if its extension allowlist is ever widened.
+		w.Header().Set("Content-Disposition", "attachment; filename="+strconv.Quote(info.Name()))
 	}
 
 	http.ServeContent(w, req, info.Name(), info.ModTime(), file)
