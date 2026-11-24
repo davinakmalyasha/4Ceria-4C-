@@ -358,6 +358,16 @@ func StoreOrderReviewHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			"updated_at": updatedAt, "id": reviewID,
 		}
 
+		var supplierUserID int64
+		_ = pool.QueryRow(ctx, `SELECT user_id FROM suppliers WHERE id = $1`, intPtrDeref(byName["supplier_id"])).Scan(&supplierUserID)
+		if supplierUserID != 0 && supplierUserID != caller.UserID() {
+			data := `{"material_order_id": ` + strconv.FormatInt(orderID, 10) + `, "review_id": ` + strconv.FormatInt(reviewID, 10) + `}`
+			_ = insertNotificationPool(ctx, pool, supplierUserID, "order_reviewed",
+				"New Order Review",
+				"Buyer left a "+strconv.FormatInt(rating, 10)+"-star review on order #"+strconv.FormatInt(orderID, 10)+".",
+				data)
+		}
+
 		payload := jsonwire.NewObject()
 		payload.Set("status", "success")
 		payload.Set("message", "Thank you for your feedback!")
@@ -429,13 +439,15 @@ func UpdateOrderReviewHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		if len(images) > 0 {
-			// Delete the replaced files first.
+			// Delete the replaced shop files first. Delivery images are
+			// immutable on update (no delivery_images input here), so they
+			// are left untouched.
 			for _, item := range quoteItemsJSON(byName["image_paths"]) {
 				if path, ok := item.(string); ok && path != "" {
 					_ = removeVaultFile(path)
 				}
 			}
-			paths := storeReviewImages(images, "reviews/materials")
+			paths := storeReviewImages(images, "reviews/shop")
 			encoded, _ := jsonwire.Marshal(paths)
 			args = append(args, string(encoded))
 			sets = append(sets, "image_paths = $"+strconv.Itoa(len(args))+"::jsonb")
@@ -495,6 +507,11 @@ func DestroyOrderReviewHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		for _, item := range quoteItemsJSON(byName["image_paths"]) {
+			if path, ok := item.(string); ok && path != "" {
+				_ = removeVaultFile(path)
+			}
+		}
+		for _, item := range quoteItemsJSON(byName["delivery_image_paths"]) {
 			if path, ok := item.(string); ok && path != "" {
 				_ = removeVaultFile(path)
 			}

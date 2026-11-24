@@ -522,6 +522,12 @@ func markPaidTermin(ctx context.Context, tx pgx.Tx, projectID, payID int64) (int
 	if status != nil && *status == "paid" {
 		return 0, "", 0, 0, markPaidError{status: 422, message: "This payment has already been marked as paid."}
 	}
+	if status != nil && *status == "locked" {
+		return 0, "", 0, 0, markPaidError{status: 422, message: "This termin is still locked. It must be unlocked to pending/invoice before it can be marked as paid."}
+	}
+	if status != nil && *status == "void" {
+		return 0, "", 0, 0, markPaidError{status: 422, message: "This termin is void and cannot be marked as paid."}
+	}
 
 	if _, err := tx.Exec(ctx, `UPDATE project_payment_termins SET status = 'paid', paid_at = date_trunc('second', now()), updated_at = date_trunc('second', now()) WHERE id = $1`, payID); err != nil {
 		return 0, "", 0, 0, err

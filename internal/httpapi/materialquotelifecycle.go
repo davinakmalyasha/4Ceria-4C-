@@ -209,6 +209,16 @@ func RequestQuotePaymentHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
+		if buyerID := intPtrDeref(byName["user_id"]); buyerID != 0 && buyerID != viewer.id {
+			data := `{"material_quote_id": ` + strconv.FormatInt(quoteID, 10) + `}`
+			if err := insertNotificationPool(ctx, pool, buyerID, "quote_payment_requested",
+				"Payment Requested",
+				"The supplier requested Rp "+formatIDAmount(requested)+" shipping for quote #"+strconv.FormatInt(quoteID, 10)+". Please review and upload proof.",
+				data); err != nil {
+				slog.Warn("quote request-payment: notify", "error", err)
+			}
+		}
+
 		entry, err := materialQuoteRefresh(ctx, pool, quoteID)
 		if err != nil {
 			slog.Error("quote request-payment: render", "error", err)
@@ -466,6 +476,13 @@ func MarkQuotePaidHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			message(w, http.StatusUnprocessableEntity, "This quote was refunded and cannot be marked as paid again.")
 			return
 		}
+		if status == "approved" {
+			// The order path owns the money from here: approving created a
+			// material_orders row, and verify-payment moves the ledger once.
+			// Paying the quote as well would move the same amount twice.
+			message(w, http.StatusUnprocessableEntity, "This quote is already approved. Payment must go through the order, not the quote.")
+			return
+		}
 
 		formFields, _, ferr := requestFields(r)
 		if ferr != nil {
@@ -558,6 +575,16 @@ func MarkQuotePaidHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			slog.Error("quote mark-paid: commit", "error", err)
 			serverError(w)
 			return
+		}
+
+		if buyerID := intPtrDeref(byName["user_id"]); buyerID != 0 && buyerID != viewer.id {
+			data := `{"material_quote_id": ` + strconv.FormatInt(quoteID, 10) + `}`
+			if err := insertNotificationPool(ctx, pool, buyerID, "quote_marked_paid",
+				"Quote Marked as Paid",
+				"Your payment for quote #"+strconv.FormatInt(quoteID, 10)+" was confirmed. The supplier will prepare your order.",
+				data); err != nil {
+				slog.Warn("quote mark-paid: notify", "error", err)
+			}
 		}
 
 		entry, err := materialQuoteRefresh(ctx, pool, quoteID)
@@ -683,12 +710,19 @@ func ApproveQuoteHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			message(w, http.StatusUnprocessableEntity, "Quote already approved")
 			return
 		}
-
-		if _, err := tx.Exec(ctx, `UPDATE material_quotes SET status = 'approved',
-			updated_at = date_trunc('second', now()) WHERE id = $1`, quoteID); err != nil {
-			slog.Error("quote approve: quote update", "error", err)
-			serverError(w)
+		if lockedStatus == "refunded" {
+			message(w, http.StatusUnprocessableEntity, "This quote was refunded and cannot be approved.")
 			return
+		}
+
+		wasPaid := lockedStatus == "paid"
+		if !wasPaid {
+			if _, err := tx.Exec(ctx, `UPDATE material_quotes SET status = 'approved',
+				updated_at = date_trunc('second', now()) WHERE id = $1`, quoteID); err != nil {
+				slog.Error("quote approve: quote update", "error", err)
+				serverError(w)
+				return
+			}
 		}
 
 		calculatedShipping := shippingMinor
@@ -728,21 +762,55 @@ func ApproveQuoteHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		deliveryAddress := stringOf(byName["delivery_address"])
 
 		var orderID int64
+		initialOrderStatus := "pending"
+		if wasPaid {
+			initialOrderStatus = "paid"
+		}
 		if err := tx.QueryRow(ctx, `INSERT INTO material_orders
-			(user_id, supplier_id, project_id, status, total_price, shipping_cost,
+			(user_id, supplier_id, project_id, quote_id, status, total_price, shipping_cost,
 			 delivery_method, whatsapp_order_id, notes, delivery_address, address_detail,
 			 latitude, longitude, total_weight, created_at, updated_at)
-			VALUES ($1, $2, $3, 'pending', $4::numeric, $5::numeric, $6, $7, $8, $9, $10,
-			 $11::numeric, $12::numeric, $13::numeric, date_trunc('second', now()), date_trunc('second', now()))
+			VALUES ($1, $2, $3, $4, $5, $6::numeric, $7::numeric, $8, $9, $10, $11, $12,
+			 $13::numeric, $14::numeric, $15::numeric, date_trunc('second', now()), date_trunc('second', now()))
 			RETURNING id`,
-			intPtrDeref(byName["user_id"]), *supplierProfile, projectArg,
+			intPtrDeref(byName["user_id"]), *supplierProfile, projectArg, quoteID, initialOrderStatus,
 			formatMinor(totalMinor), formatMinor(calculatedShipping), deliveryMethod,
 			"ORD-"+randomHexUpper(4), notesArg, deliveryAddress, addressDetail,
 			numericArg(latitudeArg), numericArg(longitudeArg), weightArg).
 			Scan(&orderID); err != nil {
-			slog.Error("quote approve: order", "error", err)
-			serverError(w)
-			return
+			// Rollout tolerance: 0032 adds quote_id. If the migration has
+			// not run yet, retry without the column; the status guards
+			// above still block the double-charge.
+			if strings.Contains(err.Error(), "quote_id") {
+				if err2 := tx.QueryRow(ctx, `INSERT INTO material_orders
+					(user_id, supplier_id, project_id, status, total_price, shipping_cost,
+					 delivery_method, whatsapp_order_id, notes, delivery_address, address_detail,
+					 latitude, longitude, total_weight, created_at, updated_at)
+					VALUES ($1, $2, $3, $4, $5::numeric, $6::numeric, $7, $8, $9, $10, $11,
+					 $12::numeric, $13::numeric, $14::numeric, date_trunc('second', now()), date_trunc('second', now()))
+					RETURNING id`,
+					intPtrDeref(byName["user_id"]), *supplierProfile, projectArg, initialOrderStatus,
+					formatMinor(totalMinor), formatMinor(calculatedShipping), deliveryMethod,
+					"ORD-"+randomHexUpper(4), notesArg, deliveryAddress, addressDetail,
+					numericArg(latitudeArg), numericArg(longitudeArg), weightArg).
+					Scan(&orderID); err2 != nil {
+					slog.Error("quote approve: order", "error", err2)
+					serverError(w)
+					return
+				}
+			} else {
+				slog.Error("quote approve: order", "error", err)
+				serverError(w)
+				return
+			}
+		}
+		if wasPaid {
+			if _, err := tx.Exec(ctx, `UPDATE material_orders SET paid_at = date_trunc('second', now()),
+				updated_at = date_trunc('second', now()) WHERE id = $1`, orderID); err != nil {
+				slog.Error("quote approve: order paid stamp", "error", err)
+				serverError(w)
+				return
+			}
 		}
 
 		items := quoteItemsJSON(byName["items"])
@@ -796,10 +864,59 @@ func ApproveQuoteHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			}
 		}
 
+		if wasPaid {
+			// The money already moved on mark-paid. Pre-check stock inside the
+			// same tx so an unpaid-for shortage rolls everything back; the
+			// actual decrement happens after commit via claimOrderStock.
+			for _, item := range items {
+				object, _ := item.(*jsonwire.Object)
+				if object == nil {
+					continue
+				}
+				var materialID int64
+				var quantity any
+				if value, ok := object.Get("material_id"); ok {
+					materialID = intPtrDeref(value)
+				}
+				if value, ok := object.Get("qty"); ok {
+					quantity = value
+				}
+				if materialID == 0 {
+					continue
+				}
+				var okStock bool
+				if err := tx.QueryRow(ctx, `SELECT stock >= $2::numeric FROM materials WHERE id = $1`, materialID, quantity).Scan(&okStock); err != nil {
+					slog.Error("quote approve: stock check", "error", err)
+					serverError(w)
+					return
+				}
+				if !okStock {
+					message(w, http.StatusUnprocessableEntity, "Insufficient stock for one or more items in this order.")
+					return
+				}
+			}
+		}
+
 		if err := tx.Commit(ctx); err != nil {
 			slog.Error("quote approve: commit", "error", err)
 			serverError(w)
 			return
+		}
+
+		if wasPaid {
+			if _, err := moveOrderStock(ctx, pool, orderID, false); err != nil {
+				slog.Error("quote approve: stock claim", "error", err)
+			}
+		}
+
+		if buyerID := intPtrDeref(byName["user_id"]); buyerID != 0 && buyerID != viewer.id {
+			data := `{"material_quote_id": ` + strconv.FormatInt(quoteID, 10) + `, "material_order_id": ` + strconv.FormatInt(orderID, 10) + `}`
+			if err := insertNotificationPool(ctx, pool, buyerID, "quote_approved",
+				"Quote Approved — Order Created",
+				"Your quote #"+strconv.FormatInt(quoteID, 10)+" was approved. Order #"+strconv.FormatInt(orderID, 10)+" is now pending.",
+				data); err != nil {
+				slog.Warn("quote approve: notify", "error", err)
+			}
 		}
 
 		order, err := materialOrderCreatedObject(ctx, pool, orderID)

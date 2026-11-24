@@ -60,8 +60,10 @@ type Service struct {
 // Option configures a Service.
 type Option func(*Service)
 
-// WithFreezeGate installs the dispute freeze check. Without it, RecordPayment
-// does NOT check the freeze, and a caller that skips it reopens I38.
+// WithFreezeGate installs the dispute freeze check. It is REQUIRED for any
+// disbursement: Record/RecordPayment fail closed when no gate is installed so
+// a caller cannot silently skip the open-dispute check by omitting the
+// option (previously the check was skipped when freeze == nil).
 func WithFreezeGate(gate FreezeGate) Option {
 	return func(s *Service) { s.freeze = gate }
 }
@@ -116,7 +118,12 @@ func (s *Service) Record(ctx context.Context, movement Movement) (Result, error)
 	// the arbitration outcome inside an open dispute, so blocking it would
 	// deadlock resolution. RecordPayment keeps its own explicit check for
 	// the previous message path; this covers any future direct Record caller.
-	if s.freeze != nil && movement.Type.IsDisbursement() && movement.Type != TxRefund {
+	// Fail closed: a Service without a gate refuses disbursements instead of
+	// silently skipping the check.
+	if movement.Type.IsDisbursement() && movement.Type != TxRefund {
+		if s.freeze == nil {
+			return Result{}, fmt.Errorf("escrow: freeze gate required for %s", movement.Type)
+		}
 		if err := s.freeze.AssertNoOpenDispute(ctx, movement.ProjectID); err != nil {
 			return Result{}, err
 		}
@@ -151,12 +158,6 @@ func (s *Service) Record(ctx context.Context, movement Movement) (Result, error)
 func (s *Service) RecordPayment(ctx context.Context, movement Movement) (Result, error) {
 	if movement.Type != TxPayment {
 		return Result{}, fmt.Errorf("%w: got %s", ErrNotAPayment, movement.Type)
-	}
-
-	if s.freeze != nil {
-		if err := s.freeze.AssertNoOpenDispute(ctx, movement.ProjectID); err != nil {
-			return Result{}, err
-		}
 	}
 
 	result, err := s.Record(ctx, movement)

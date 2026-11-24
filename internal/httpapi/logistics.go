@@ -190,6 +190,21 @@ func LogisticsAcceptJobHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				WHERE id = $1 AND status IN ('requested', 'pending', 'sent')`, *quoteID); err != nil {
 				slog.Warn("logistics accept: quote", "error", err)
 			}
+			var buyerID, supplierUserID int64
+			_ = pool.QueryRow(ctx, `SELECT q.user_id, COALESCE(s.user_id, 0) FROM material_quotes q LEFT JOIN suppliers s ON s.id = q.supplier_id WHERE q.id = $1`, *quoteID).Scan(&buyerID, &supplierUserID)
+			data := `{"delivery_job_id": ` + strconv.FormatInt(jobID, 10) + `, "material_quote_id": ` + strconv.FormatInt(*quoteID, 10) + `}`
+			if buyerID != 0 {
+				_ = insertNotificationPool(ctx, pool, buyerID, "courier_accepted",
+					"Courier Accepted Your Delivery",
+					"A courier accepted delivery job #"+strconv.FormatInt(jobID, 10)+". Track it under deliveries.",
+					data)
+			}
+			if supplierUserID != 0 && supplierUserID != buyerID {
+				_ = insertNotificationPool(ctx, pool, supplierUserID, "courier_accepted",
+					"Courier Accepted Delivery Job",
+					"Courier accepted delivery job #"+strconv.FormatInt(jobID, 10)+" for quote #"+strconv.FormatInt(*quoteID, 10)+".",
+					data)
+			}
 		}
 
 		payload := jsonwire.NewObject()
@@ -225,18 +240,25 @@ func LogisticsDashboardStatsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		earnings := 0.0
+		earningsMinor := int64(0)
 		if earningsText != nil {
-			if parsed, err := strconv.ParseFloat(strings.TrimSpace(*earningsText), 64); err == nil {
-				earnings = parsed
-			}
+			earningsMinor = mustMinorValue(strings.TrimSpace(*earningsText))
 		}
+		// Display stays a float for the existing dashboard contract, but it
+		// is derived from the exact integer minor sum, not a float SUM.
+		// The figure is ACCRUED (agreed fees on delivered jobs), not paid:
+		// no payout rail moves agreed_fee today (migration 0007 notes the
+		// platform pays it, but no code settles it). The key is kept for
+		// compat; accruedMinor + payoutStatus tell the truth.
+		earnings := float64(earningsMinor) / 100.0
 
 		stats := jsonwire.NewObject()
 		stats.Set("available", available)
 		stats.Set("accepted", accepted)
 		stats.Set("completed", completed)
 		stats.Set("totalEarnings", earnings)
+		stats.Set("accruedMinor", formatMinor(earningsMinor))
+		stats.Set("payoutStatus", "manual")
 
 		rows, err := pool.Query(ctx, `SELECT `+deliveryJobSelectList("dj")+`
 			  FROM delivery_jobs dj
@@ -504,5 +526,34 @@ func LogisticsUpdateStatusHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			payload.Set("photos", storedPaths)
 		}
 		writeJSON(w, http.StatusOK, payload)
+
+		if newStatus == "picked_up" || newStatus == "delivered" {
+			kind := "courier_picked_up"
+			title := "Courier Picked Up Your Materials"
+			body := "Your delivery job #" + strconv.FormatInt(jobID, 10) + " was picked up."
+			if newStatus == "delivered" {
+				kind = "courier_delivered"
+				title = "Materials Delivered"
+				body = "Your delivery job #" + strconv.FormatInt(jobID, 10) + " was delivered. Please confirm receipt."
+			}
+			var quoteID *int64
+			var orderID *int64
+			_ = pool.QueryRow(ctx, `SELECT quote_id, order_id FROM delivery_jobs WHERE id = $1`, jobID).Scan(&quoteID, &orderID)
+			data := `{"delivery_job_id": ` + strconv.FormatInt(jobID, 10) + `}`
+			var buyerID, supplierUserID int64
+			if quoteID != nil && *quoteID != 0 {
+				_ = pool.QueryRow(ctx, `SELECT q.user_id, COALESCE(s.user_id, 0) FROM material_quotes q LEFT JOIN suppliers s ON s.id = q.supplier_id WHERE q.id = $1`, *quoteID).Scan(&buyerID, &supplierUserID)
+				data = `{"delivery_job_id": ` + strconv.FormatInt(jobID, 10) + `, "material_quote_id": ` + strconv.FormatInt(*quoteID, 10) + `}`
+			} else if orderID != nil && *orderID != 0 {
+				_ = pool.QueryRow(ctx, `SELECT o.user_id, COALESCE(s.user_id, 0) FROM material_orders o LEFT JOIN suppliers s ON s.id = o.supplier_id WHERE o.id = $1`, *orderID).Scan(&buyerID, &supplierUserID)
+				data = `{"delivery_job_id": ` + strconv.FormatInt(jobID, 10) + `, "material_order_id": ` + strconv.FormatInt(*orderID, 10) + `}`
+			}
+			if buyerID != 0 {
+				_ = insertNotificationPool(context.Background(), pool, buyerID, kind, title, body, data)
+			}
+			if supplierUserID != 0 && supplierUserID != buyerID {
+				_ = insertNotificationPool(context.Background(), pool, supplierUserID, kind, title, body, data)
+			}
+		}
 	}
 }

@@ -182,7 +182,12 @@ func (g *fakeGate) AssertNoOpenDispute(context.Context, int64) error {
 func newServiceWith(t *testing.T, store *memoryStore, opts ...Option) *Service {
 	t.Helper()
 
-	service := NewService(store, opts...)
+	// Default to an open gate so unit tests exercise ledger math, not the
+	// freeze. Tests that need the freeze pass their own WithFreezeGate last,
+	// which wins because options apply in order. Production must always pass
+	// an explicit gate: NewService without one now fails disbursements.
+	all := append([]Option{WithFreezeGate(&fakeGate{})}, opts...)
+	service := NewService(store, all...)
 	service.logger = slog.New(slog.NewTextHandler(testWriter{t: t}, &slog.HandlerOptions{Level: slog.LevelError + 1}))
 
 	return service
@@ -407,6 +412,21 @@ func TestAFeeThatCannotBeRecordedDoesNotFailThePayment(t *testing.T) {
 
 	if len(store.entriesOf(TxPlatformFee)) != 0 {
 		t.Fatal("a fee row was written that the escrow could not cover")
+	}
+}
+
+// TestTheFreezeGateBlocksAPayment is MONEY.md I38.
+func TestMissingFreezeGateRefusesDisbursement(t *testing.T) {
+	store := fundedStore(100_000_000)
+	service := NewService(store)
+	service.logger = slog.New(slog.NewTextHandler(testWriter{t: t}, &slog.HandlerOptions{Level: slog.LevelError + 1}))
+
+	_, err := service.RecordPayment(context.Background(), paymentMovement(40_000_000))
+	if err == nil {
+		t.Fatal("a payment was accepted with no freeze gate installed")
+	}
+	if len(store.entries) != 0 {
+		t.Fatal("a ledger row was written with no freeze gate installed")
 	}
 }
 

@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -10,6 +11,8 @@ import (
 	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+var errInsufficientStock = errors.New("insufficient stock")
 
 // MATERIAL ORDER WRITES — the fulfilment status machine and the payment
 // confirmation.
@@ -186,6 +189,18 @@ func moveOrderStock(ctx context.Context, pool *pgxpool.Pool, orderID int64, rest
 	}
 
 	for _, item := range lines {
+		if !restore {
+			var ok bool
+			if err := pool.QueryRow(ctx, `SELECT stock >= $2 FROM materials WHERE id = $1`, item.materialID, item.quantity).Scan(&ok); err != nil {
+				return claimed, err
+			}
+			if !ok {
+				// Roll back the claim so a retry can succeed after restock.
+				_, _ = pool.Exec(ctx, `UPDATE material_orders SET is_stock_decremented = false,
+					updated_at = date_trunc('second', now()) WHERE id = $1`, orderID)
+				return false, errInsufficientStock
+			}
+		}
 		if _, err := pool.Exec(ctx, `UPDATE materials SET stock = stock `+delta+` $2,
 			updated_at = date_trunc('second', now()) WHERE id = $1`, item.materialID, item.quantity); err != nil {
 			return claimed, err
@@ -315,6 +330,10 @@ func verifyOrderPayment(ctx context.Context, w http.ResponseWriter, pool *pgxpoo
 
 	claimed, err := moveOrderStock(ctx, pool, orderID, false)
 	if err != nil {
+		if errors.Is(err, errInsufficientStock) {
+			message(w, http.StatusUnprocessableEntity, "Insufficient stock for one or more items in this order.")
+			return
+		}
 		slog.Error("order verify: stock", "error", err)
 		serverError(w)
 		return
@@ -597,6 +616,10 @@ func UpdateMaterialOrderHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		case "paid", "processing", "ready_for_pickup", "shipping", "delivered", "completed":
 			claimed, err := moveOrderStock(ctx, pool, orderID, false)
 			if err != nil {
+				if errors.Is(err, errInsufficientStock) {
+					message(w, http.StatusUnprocessableEntity, "Insufficient stock for one or more items in this order.")
+					return
+				}
 				slog.Error("order update: stock", "error", err)
 				serverError(w)
 				return
@@ -759,6 +782,18 @@ func ConfirmOrderReceiptHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			slog.Error("order confirm: update", "error", err)
 			serverError(w)
 			return
+		}
+
+		var supplierUserID int64
+		_ = pool.QueryRow(ctx, `SELECT COALESCE(s.user_id, 0) FROM material_orders o LEFT JOIN suppliers s ON s.id = o.supplier_id WHERE o.id = $1`, orderID).Scan(&supplierUserID)
+		if supplierUserID != 0 {
+			data := `{"material_order_id": ` + strconv.FormatInt(orderID, 10) + `}`
+			if err := insertNotificationPool(ctx, pool, supplierUserID, "order_receipt_confirmed",
+				"Buyer Confirmed Receipt",
+				"Buyer confirmed receipt of order #"+strconv.FormatInt(orderID, 10)+". The order is now completed.",
+				data); err != nil {
+				slog.Warn("order confirm: notify", "error", err)
+			}
 		}
 
 		payload := jsonwire.NewObject()
