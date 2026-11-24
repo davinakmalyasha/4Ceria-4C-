@@ -111,7 +111,7 @@ export default function Navbar({ authed }: { authed: boolean }) {
                 <div className="flex min-w-0 items-center gap-6">
                     <Link href="/" className="flex shrink-0 items-center gap-2" aria-label="4Ceria home">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img className="h-8 w-8 object-contain" src="/assets/Logo4C.png" alt="" />
+                        <img className="h-8 w-8 object-contain" src="/assets/Logo4C.png" alt="" width={32} height={32} />
                         <span className="text-sm font-extrabold tracking-tight text-neutral-800">4Ceria</span>
                     </Link>
 

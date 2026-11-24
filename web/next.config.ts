@@ -13,6 +13,12 @@ const config: NextConfig = {
     // The dev server is opened as both localhost and 127.0.0.1 in local work.
     allowedDevOrigins: ['127.0.0.1', 'localhost'],
 
+    // lucide-react ships per-icon modules: this rewrites the barrel import
+    // into direct paths so a 40-file icon list does not pull the whole set.
+    experimental: {
+        optimizePackageImports: ['lucide-react'],
+    },
+
     async headers() {
         const security = [
             { key: 'X-Content-Type-Options', value: 'nosniff' },
@@ -28,8 +34,8 @@ const config: NextConfig = {
                 value: [
                     "default-src 'self'",
                     "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-                    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-                    "font-src 'self' https://fonts.gstatic.com",
+                    "style-src 'self' 'unsafe-inline'",
+                    "font-src 'self'",
                     "img-src 'self' data: blob: https://images.unsplash.com https://*.unsplash.com",
                     "connect-src 'self' ws: wss:",
                     "object-src 'none'",

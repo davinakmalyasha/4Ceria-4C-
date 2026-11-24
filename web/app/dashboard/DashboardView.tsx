@@ -1,12 +1,13 @@
 import { redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
+import dynamic from 'next/dynamic';
 import { apiFetch, ApiFailure } from '@/lib/api';
 import { sessionToken } from '@/lib/session';
 import { AuthProvider, type User } from '@/context/AuthContext';
 import { DashboardShell } from './DashboardShell';
 import { DirectoryPanel, ProjectsPanel } from './native';
-import { MyBidsPanel, type MyBidRow } from './myBids';
-import { HireHistoryPanel, type HireRow } from './hireHistory';
+import type { MyBidRow } from './myBids';
+import type { HireRow } from './hireHistory';
 import { OverviewPanel, SPECIALIST_ROLES, type FirmInvitation, type OverviewProject, type OverviewUser } from './overview';
 import {
     ExplorePanel,
@@ -20,38 +21,53 @@ import {
     type SupplierRow,
 } from './explore';
 import { titleCase } from '@/lib/format';
-import { HousesPanel, MyHousesPanel } from './houses';
-import { PostHouseForm } from './postHouse';
-import { SavedPanel } from './saved';
-import { ProfilePanel } from './profile';
-import { VerificationPanel } from './verification';
-import { MarketplacePanel, type MarketplaceMode } from './marketplace';
-import { ChatPanel, type ChatMessage, type ConversationRow } from './chat';
-import { OrdersPanel, type MaterialOrderRow } from './orders';
-import { QuotesPanel, type MaterialQuoteRow } from './quotes';
-import { FindEngineersPanel } from './findEngineers';
-import { FindSubContractorsPanel } from './findSubContractors';
-import { ManagementPanel, type ManagementProject } from './management';
-import { FirmListPanel, FirmProfilePanel, type FirmMembership, type FirmProfilePayload } from './firms';
+import type { MarketplaceMode } from './marketplace';
+import type { ChatMessage, ConversationRow } from './chat';
+import type { MaterialOrderRow } from './orders';
+import type { MaterialQuoteRow } from './quotes';
+import type { ManagementProject } from './management';
+import type { FirmMembership, FirmProfilePayload } from './firms';
 import type { FirmBrowseRow } from './firmWorkspace';
 import type { NotificationRow } from '@/components/header/NotificationsDropdown';
-import {
-    DeliveryJobsPanel,
-    JobRadarPanel,
-    MyDeliveriesPanel,
-    type DeliveryJobRow,
-} from './deliveries';
-import { InventoryPanel, type InventoryMaterial } from './inventory';
-import { StorePanel, type StorePayload } from './store';
-import { ConsultationsPanel, type ConsultationRow } from './consultations';
-import { AssistantPanel } from './assistant';
+import type { DeliveryJobRow } from './deliveries';
+import type { InventoryMaterial } from './inventory';
+import type { StorePayload } from './store';
+import type { ConsultationRow } from './consultations';
 import type { AiMessage, AiSession } from '@/components/ai/AiChat';
-import { PostProjectForm } from './postProject';
-import {
-    LogisticsOverviewPanel,
-    type LogisticsRecentJob,
-    type LogisticsStats,
-} from './logisticsOverview';
+import type { LogisticsRecentJob, LogisticsStats } from './logisticsOverview';
+
+// Below-fold dashboard panels load per tab. The three core tabs (native,
+// overview, explore) stay static; the rest split into per-panel chunks.
+// Server rendering is preserved (default ssr), so the first paint is still
+// the awaited data, not a skeleton.
+const MyBidsPanel = dynamic(() => import('./myBids').then((m) => m.MyBidsPanel));
+const HireHistoryPanel = dynamic(() => import('./hireHistory').then((m) => m.HireHistoryPanel));
+const HousesPanel = dynamic(() => import('./houses').then((m) => m.HousesPanel));
+const MyHousesPanel = dynamic(() => import('./houses').then((m) => m.MyHousesPanel));
+const PostHouseForm = dynamic(() => import('./postHouse').then((m) => m.PostHouseForm));
+const SavedPanel = dynamic(() => import('./saved').then((m) => m.SavedPanel));
+const ProfilePanel = dynamic(() => import('./profile').then((m) => m.ProfilePanel));
+const VerificationPanel = dynamic(() => import('./verification').then((m) => m.VerificationPanel));
+const MarketplacePanel = dynamic(() => import('./marketplace').then((m) => m.MarketplacePanel));
+const ChatPanel = dynamic(() => import('./chat').then((m) => m.ChatPanel));
+const OrdersPanel = dynamic(() => import('./orders').then((m) => m.OrdersPanel));
+const QuotesPanel = dynamic(() => import('./quotes').then((m) => m.QuotesPanel));
+const FindEngineersPanel = dynamic(() => import('./findEngineers').then((m) => m.FindEngineersPanel));
+const FindSubContractorsPanel = dynamic(() => import('./findSubContractors').then((m) => m.FindSubContractorsPanel));
+const ManagementPanel = dynamic(() => import('./management').then((m) => m.ManagementPanel));
+const FirmListPanel = dynamic(() => import('./firms').then((m) => m.FirmListPanel));
+const FirmProfilePanel = dynamic(() => import('./firms').then((m) => m.FirmProfilePanel));
+const DeliveryJobsPanel = dynamic(() => import('./deliveries').then((m) => m.DeliveryJobsPanel));
+const JobRadarPanel = dynamic(() => import('./deliveries').then((m) => m.JobRadarPanel));
+const MyDeliveriesPanel = dynamic(() => import('./deliveries').then((m) => m.MyDeliveriesPanel));
+const InventoryPanel = dynamic(() => import('./inventory').then((m) => m.InventoryPanel));
+const StorePanel = dynamic(() => import('./store').then((m) => m.StorePanel));
+const ConsultationsPanel = dynamic(() => import('./consultations').then((m) => m.ConsultationsPanel));
+const AssistantPanel = dynamic(() => import('./assistant').then((m) => m.AssistantPanel));
+const PostProjectForm = dynamic(() => import('./postProject').then((m) => m.PostProjectForm));
+const LogisticsOverviewPanel = dynamic(() =>
+    import('./logisticsOverview').then((m) => m.LogisticsOverviewPanel),
+);
 
 /**
  * The dashboard body — shared by `/dashboard` and `/dashboard/<tab>`.

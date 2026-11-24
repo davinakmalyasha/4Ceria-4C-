@@ -45,7 +45,7 @@ export default async function ResetPasswordPage({
             <div className="w-full max-w-md rounded-3xl border border-neutral-100 bg-white p-8 shadow-xl shadow-neutral-200/50">
                 <Link href="/" className="inline-flex items-center gap-2 text-lg font-black tracking-tighter">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src="/assets/Logo4C.png" alt="" className="h-8 w-8" />
+                    <img src="/assets/Logo4C.png" alt="" className="h-8 w-8" width={32} height={32} />
                     4Ceria<span className="text-[#FD1D1D]">.</span>
                 </Link>
                 <h1 className="mt-6 text-2xl font-black tracking-tight">Choose a new password</h1>

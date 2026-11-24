@@ -46,7 +46,7 @@ export default async function PublicBriefPage({ params }: { params: Promise<{ to
                 <header className="flex flex-wrap items-center justify-between gap-4">
                     <Link href="/" className="inline-flex items-center gap-2 text-xl font-black tracking-tighter">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src="/assets/Logo4C.png" alt="" className="h-9 w-9" />
+                        <img src="/assets/Logo4C.png" alt="" className="h-9 w-9" width={36} height={36} />
                         4Ceria<span className="text-[#FD1D1D]">.</span>
                     </Link>
                     <span className="rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-neutral-400">

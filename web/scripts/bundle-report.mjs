@@ -13,6 +13,7 @@
  */
 
 import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { gzipSync } from 'node:zlib';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -67,6 +68,18 @@ try {
 
 process.stdout.write(`first-party JS: ${kb(total)} across ${entries.length} chunks\n`);
 process.stdout.write(`root main JS:   ${kb(rootBytes)}\n`);
+try {
+    const gzipTotal = entries.reduce((sum, entry) => {
+        try {
+            return sum + gzipSync(readFileSync(join(CHUNKS, entry.name))).length;
+        } catch {
+            return sum + entry.bytes;
+        }
+    }, 0);
+    process.stdout.write(`first-party JS (gzip): ~${kb(gzipTotal)}\n`);
+} catch {
+    // gzip is informational only; the raw budget above stays the gate.
+}
 process.stdout.write('largest chunks:\n');
 for (const entry of entries.sort((a, b) => b.bytes - a.bytes).slice(0, 10)) {
     process.stdout.write(`  ${kb(entry.bytes).padStart(10)}  ${entry.name}\n`);

@@ -31,7 +31,7 @@ export default async function LoginPage({
                     className="relative z-10 inline-flex items-center gap-2 text-2xl font-black tracking-tighter text-neutral-900"
                 >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src="/assets/Logo4C.png" alt="" className="h-9 w-9" />
+                    <img src="/assets/Logo4C.png" alt="" className="h-9 w-9" width={36} height={36} />
                     4Ceria<span className="text-[#FD1D1D]">.</span>
                 </Link>
 
@@ -74,7 +74,7 @@ export default async function LoginPage({
                 <div className="mb-8 flex items-center justify-between lg:hidden">
                     <Link href="/" className="inline-flex items-center gap-2 text-xl font-black tracking-tighter">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src="/assets/Logo4C.png" alt="" className="h-8 w-8" />
+                        <img src="/assets/Logo4C.png" alt="" className="h-8 w-8" width={32} height={32} />
                         4Ceria<span className="text-[#FD1D1D]">.</span>
                     </Link>
                     <Link

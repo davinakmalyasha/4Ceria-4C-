@@ -1,14 +1,17 @@
 'use client';
 
-import BiddingWidget from './widgets/BiddingWidget';
-import MilestoneWidget from './widgets/MilestoneWidget';
-import RadarWidget from './widgets/RadarWidget';
-import PostProjectWidget from './widgets/PostProjectWidget';
+import dynamic from 'next/dynamic';
+
+const BiddingWidget = dynamic(() => import('./widgets/BiddingWidget'), { ssr: false });
+const MilestoneWidget = dynamic(() => import('./widgets/MilestoneWidget'), { ssr: false });
+const RadarWidget = dynamic(() => import('./widgets/RadarWidget'), { ssr: false });
+const PostProjectWidget = dynamic(() => import('./widgets/PostProjectWidget'), { ssr: false });
+const HireProWidget = dynamic(() => import('./widgets/HireProWidget'), { ssr: false });
+const BuyMaterialWidget = dynamic(() => import('./widgets/BuyMaterialWidget'), { ssr: false });
+const VerificationWidget = dynamic(() => import('./widgets/VerificationWidget'), { ssr: false });
+const ShortlistInterviewWidget = dynamic(() => import('./widgets/ShortlistInterviewWidget'), { ssr: false });
+
 import SellHouseWidget from './widgets/SellHouseWidget';
-import HireProWidget from './widgets/HireProWidget';
-import BuyMaterialWidget from './widgets/BuyMaterialWidget';
-import VerificationWidget from './widgets/VerificationWidget';
-import ShortlistInterviewWidget from './widgets/ShortlistInterviewWidget';
 import ChatWidget from './widgets/ChatWidget';
 import ContractWidget from './widgets/ContractWidget';
 import PhaseTimelineWidget from './widgets/PhaseTimelineWidget';

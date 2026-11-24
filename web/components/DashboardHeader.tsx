@@ -102,7 +102,7 @@ export function DashboardHeader({
                         className="flex items-center gap-2 shrink-0 select-none hover:opacity-90 transition-opacity focus:outline-none"
                     >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img className="w-8 h-8 object-contain" src="/assets/Logo4C.png" alt="4C Logo" />
+                        <img className="w-8 h-8 object-contain" src="/assets/Logo4C.png" alt="4C Logo" width={32} height={32} />
                         <span className="text-sm font-extrabold text-neutral-800 tracking-tight">4Ceria</span>
                     </button>
                 </div>

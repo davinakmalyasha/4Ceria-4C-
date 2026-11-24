@@ -1,7 +1,15 @@
 import type { Metadata, Viewport } from 'next';
+import { Plus_Jakarta_Sans } from 'next/font/google';
 import '@/styles/globals.css';
 import { PwaProvider } from '@/components/pwa/PwaProvider';
 import { PwaStatus } from '@/components/pwa/PwaStatus';
+
+const jakarta = Plus_Jakarta_Sans({
+    subsets: ['latin'],
+    weight: ['400', '500', '600', '700', '800'],
+    display: 'swap',
+    variable: '--font-jakarta',
+});
 
 /**
  * The document shell.
@@ -67,16 +75,8 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
     return (
-        <html lang="id" data-scroll-behavior="smooth">
-            <head>
-                <link rel="preconnect" href="https://fonts.googleapis.com" />
-                <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-                <link
-                    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
-                    rel="stylesheet"
-                />
-            </head>
-            <body className="antialiased">
+        <html lang="id" data-scroll-behavior="smooth" className={jakarta.variable}>
+            <body className="antialiased" style={{ fontFamily: 'var(--font-jakarta), system-ui, sans-serif' }}>
                 <PwaProvider>
                     {children}
                     <PwaStatus />
