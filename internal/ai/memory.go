@@ -148,6 +148,10 @@ func (s *pgMemoryService) SearchMemory(ctx context.Context, req *memory.SearchRe
 	}
 
 	query := strings.TrimSpace(req.Query)
+	// Escape LIKE metacharacters so a query of `%%%` or `___` cannot match
+	// everything and flood the prompt (or exfiltrate via ranking). The FTS
+	// arm is unaffected; only the ILIKE fallback uses this pattern.
+	likeQuery := strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(query, `\`, `\\`), `%`, `\%`), `_`, `\_`)
 	var rows pgx.Rows
 	if query == "" {
 		rows, err = s.pool.Query(ctx, `
@@ -173,13 +177,13 @@ func (s *pgMemoryService) SearchMemory(ctx context.Context, req *memory.SearchRe
 			   AND (
 			        q.tsq IS NULL
 			        OR m.content_tsv @@ q.tsq
-			        OR m.content ILIKE '%' || $2 || '%'
+			        OR m.content ILIKE '%' || $2 || '%' ESCAPE '\'
 			   )
 			 ORDER BY
 			        CASE WHEN q.tsq IS NULL THEN 0 ELSE ts_rank_cd(m.content_tsv, q.tsq) END DESC,
 			        m.created_at DESC, m.id DESC
 			 LIMIT $3
-		`, userID, query, memorySearchLimit)
+		`, userID, likeQuery, memorySearchLimit)
 	}
 	if err != nil {
 		return nil, err

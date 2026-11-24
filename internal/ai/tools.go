@@ -1241,8 +1241,10 @@ func estimateBudget(a EstimateArgs) EstimateResult {
 	if area <= 0 {
 		area = 100
 	}
+	capped := false
 	if area > 10000 {
 		area = 10000
+		capped = true
 	}
 	base := map[string][3]int64{
 		"new_build":  {4500000, 6500000, 10000000},
@@ -1265,10 +1267,14 @@ func estimateBudget(a EstimateArgs) EstimateResult {
 	mid := base[idx]
 	low := mid * areaMilli * 85 / 100000
 	high := mid * areaMilli * 125 / 100000
+	note := "ROUGH ESTIMATE only — 2026 ballpark per-m2 rates, not a quote. Real bids on 4Ceria vary by design, structure, materials and city. Post the project to collect professional bids."
+	if capped {
+		note = "ROUGH ESTIMATE only — area capped at 10,000 m2 for this ballpark (you asked for more). Real bids on 4Ceria vary by design, structure, materials and city. Post the project to collect professional bids."
+	}
 	return EstimateResult{
 		LowIDR:  formatIDR(low),
 		HighIDR: formatIDR(high),
-		Note:    "ROUGH ESTIMATE only — 2026 ballpark per-m2 rates, not a quote. Real bids on 4Ceria vary by design, structure, materials and city. Post the project to collect professional bids.",
+		Note:    note,
 	}
 }
 

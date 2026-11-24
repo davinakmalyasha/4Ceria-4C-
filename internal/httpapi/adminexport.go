@@ -71,19 +71,9 @@ func AdminProjectsExportHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		defer rows.Close()
 
-		w.Header().Set("Cache-Control", "no-cache, private")
-		w.Header().Set("Content-Type", "text/csv; charset=UTF-8")
-		w.Header().Set("Content-Disposition",
-			`attachment; filename=projects-export-`+time.Now().UTC().Format("20060102-150405")+`.csv`)
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("\xEF\xBB\xBF"))
-
 		header := []string{"ID", "Title", "Owner", "Status", "Budget (IDR)", "Bids", "Open Dispute", "Paid Out (IDR)", "Refunded (IDR)", "Created At"}
-		_, _ = w.Write([]byte(csvLine(header)))
-		if flusher, ok := w.(http.Flusher); ok {
-			flusher.Flush()
-		}
-
+		var lines []string
+		lines = append(lines, csvLine(header))
 		for rows.Next() {
 			var (
 				id                int64
@@ -123,7 +113,7 @@ func AdminProjectsExportHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				createdText = created.UTC().Format("2006-01-02 15:04:05")
 			}
 
-			_, _ = w.Write([]byte(csvLine([]string{
+			lines = append(lines, csvLine([]string{
 				strconv.FormatInt(id, 10),
 				csvCell(title),
 				csvCell(ownerName),
@@ -134,11 +124,22 @@ func AdminProjectsExportHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				paidText,
 				refundedText,
 				createdText,
-			})))
+			}))
 		}
 		if err := rows.Err(); err != nil {
 			slog.Error("admin export: rows", "error", err)
+			serverError(w)
 			return
+		}
+		rows.Close()
+		w.Header().Set("Cache-Control", "no-cache, private")
+		w.Header().Set("Content-Type", "text/csv; charset=UTF-8")
+		w.Header().Set("Content-Disposition",
+			`attachment; filename=projects-export-`+time.Now().UTC().Format("20060102-150405")+`.csv`)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("\xEF\xBB\xBF"))
+		for _, line := range lines {
+			_, _ = w.Write([]byte(line))
 		}
 		if flusher, ok := w.(http.Flusher); ok {
 			flusher.Flush()
@@ -266,6 +267,26 @@ func AdminForceTerminateHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			_ = insertNotificationPool(ctx, pool, ownerID, "contract_terminated",
 				"Project Terminated by Administrator",
 				`"`+title+`" was terminated by an administrator. Contact support if you believe this is a mistake.`, data)
+		}
+
+		// Hired professionals learn from the inbox, not from a silent status
+		// flip: fan out to every bidder on an active contract.
+		rows, err := pool.Query(ctx, `SELECT DISTINCT bidder_user_id FROM bids WHERE project_id = $1 AND status::text IN ('accepted','active','contract_pending','awaiting_payment') AND bidder_user_id IS NOT NULL AND bidder_user_id <> $2`, projectID, caller.UserID())
+		if err == nil {
+			var pros []int64
+			for rows.Next() {
+				var id int64
+				if err := rows.Scan(&id); err == nil && id != 0 {
+					pros = append(pros, id)
+				}
+			}
+			rows.Close()
+			for _, pid := range pros {
+				data := `{"project_id": ` + strconv.FormatInt(projectID, 10) + `}`
+				_ = insertNotificationPool(ctx, pool, pid, "contract_terminated",
+					"Project Terminated by Administrator",
+					`"`+title+`" was terminated by an administrator. Your contract on this project has ended.`, data)
+			}
 		}
 
 		freshFields, freshValues, err := projectRowByID(ctx, pool, projectID)

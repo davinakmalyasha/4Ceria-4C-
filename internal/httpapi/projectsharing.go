@@ -732,6 +732,16 @@ func UpdateNotificationPreferenceHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
+		// email/whatsapp have no sender (no email fan-out, no WA/SMS
+		// client): accepting `enabled=true` would be a dead toggle that
+		// promises delivery that never happens. In-app + webpush are the
+		// live channels; the preference still stores, but enabled stays off.
+		if (channel == "email" || channel == "whatsapp") && enabled {
+			message(w, http.StatusUnprocessableEntity,
+				"The '"+channel+"' channel has no sender configured yet. Use in-app or webpush; your preference was not enabled.")
+			return
+		}
+
 		var noteType any
 		if typeSet {
 			noteType = kind

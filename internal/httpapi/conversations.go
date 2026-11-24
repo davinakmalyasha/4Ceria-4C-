@@ -249,6 +249,26 @@ func ConversationsIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		ctx := r.Context()
 
+		perPage := 50
+		if raw := r.URL.Query().Get("per_page"); raw != "" {
+			if n, err := strconv.Atoi(raw); err == nil && n > 0 {
+				perPage = n
+			}
+		}
+		if perPage < 1 {
+			perPage = 1
+		}
+		if perPage > 100 {
+			perPage = 100
+		}
+		page := 1
+		if raw := r.URL.Query().Get("page"); raw != "" {
+			if n, err := strconv.Atoi(raw); err == nil && n > 0 {
+				page = n
+			}
+		}
+		limit := perPage + 1
+		offset := (page - 1) * perPage
 		rows, err := pool.Query(ctx, `SELECT `+strings.Join(conversationColumns, ", ")+`
 			FROM (
 				SELECT `+strings.Join(conversationColumns, ", ")+`
@@ -258,7 +278,7 @@ func ConversationsIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				  FROM conversations WHERE user_two_id = $1
 			) t
 			ORDER BY last_message_at DESC NULLS LAST, id ASC
-			LIMIT 100`, caller.UserID())
+			LIMIT $2 OFFSET $3`, caller.UserID(), limit, offset)
 		if err != nil {
 			slog.Error("conversations: query", "error", err)
 			serverError(w)
@@ -365,7 +385,18 @@ func ConversationsIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		payload := jsonwire.NewObject()
+		hasMore := len(loaded) > perPage
+		if hasMore {
+			loaded = loaded[:perPage]
+			// Rebuild out trimmed to the page (out parallels loaded order).
+			out = out[:perPage]
+		}
 		payload.Set("data", out)
+		meta := jsonwire.NewObject()
+		meta.Set("current_page", page)
+		meta.Set("per_page", perPage)
+		meta.Set("has_more", hasMore)
+		payload.Set("meta", meta)
 		writeJSON(w, http.StatusOK, payload)
 	}
 }

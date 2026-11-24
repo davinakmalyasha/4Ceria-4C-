@@ -315,6 +315,14 @@ func releaseOneRetention(ctx context.Context, pool *pgxpool.Pool, projectID, sta
 	if err := tx.Commit(ctx); err != nil {
 		return false, err
 	}
+	var ownerID int64
+	var projectTitle string
+	if err := pool.QueryRow(ctx, `SELECT user_id, title FROM projects WHERE id = $1`, projectID).Scan(&ownerID, &projectTitle); err == nil && ownerID != 0 {
+		_ = insertNotificationPool(ctx, pool, ownerID, "retention_released",
+			"Retention Released",
+			"Retention Rp "+formatIDAmount(retentionMinor)+" for \""+projectTitle+"\" ("+label+") was released. Warranty has expired.",
+			`{"project_id": `+strconv.FormatInt(projectID, 10)+`}`)
+	}
 	return true, nil
 }
 

@@ -2,10 +2,13 @@ package httpapi
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
 	"os"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -38,16 +41,63 @@ func shouldPushForPool(ctx context.Context, pool *pgxpool.Pool, userID int64, ki
 		}
 	}
 	var enabled *bool
-	_ = pool.QueryRow(ctx, `SELECT enabled FROM notification_preferences WHERE user_id = $1 AND channel = 'webpush' AND type = $2 LIMIT 1`, userID, kind).Scan(&enabled)
+	var qStart, qEnd *string
+	_ = pool.QueryRow(ctx, `SELECT enabled, quiet_hours_start::text, quiet_hours_end::text FROM notification_preferences WHERE user_id = $1 AND channel = 'webpush' AND type = $2 LIMIT 1`, userID, kind).Scan(&enabled, &qStart, &qEnd)
 	if enabled != nil {
-		return *enabled
+		if !*enabled {
+			return false
+		}
+		if inQuietHours(qStart, qEnd) {
+			return false
+		}
+		return true
 	}
 	var defEnabled *bool
-	_ = pool.QueryRow(ctx, `SELECT enabled FROM notification_preferences WHERE user_id = $1 AND channel = 'webpush' AND type IS NULL LIMIT 1`, userID).Scan(&defEnabled)
+	var dStart, dEnd *string
+	_ = pool.QueryRow(ctx, `SELECT enabled, quiet_hours_start::text, quiet_hours_end::text FROM notification_preferences WHERE user_id = $1 AND channel = 'webpush' AND type IS NULL LIMIT 1`, userID).Scan(&defEnabled, &dStart, &dEnd)
 	if defEnabled != nil {
-		return *defEnabled
+		if !*defEnabled {
+			return false
+		}
+		if inQuietHours(dStart, dEnd) {
+			return false
+		}
+		return true
 	}
 	return true
+}
+
+// inQuietHours reports whether the current UTC time falls inside a
+// quiet-hours window. Empty bounds mean no quiet hours. Overnight windows
+// (start > end, e.g. 22:00-07:00) wrap past midnight. Times come from
+// Postgres `time` columns rendered as text (HH:MM:SS); unparsable values
+// fail open so a bad preference never silences money notices (ALWAYS_ON
+// types bypass this function entirely anyway).
+func inQuietHours(start, end *string) bool {
+	if start == nil || end == nil || *start == "" || *end == "" {
+		return false
+	}
+	parse := func(s string) (int, bool) {
+		var h, m, sec int
+		if _, err := fmt.Sscanf(s, "%d:%d:%d", &h, &m, &sec); err != nil {
+			return 0, false
+		}
+		if h < 0 || h > 23 || m < 0 || m > 59 {
+			return 0, false
+		}
+		return h*60 + m, true
+	}
+	s, ok1 := parse(*start)
+	e, ok2 := parse(*end)
+	if !ok1 || !ok2 || s == e {
+		return false
+	}
+	now := time.Now().UTC()
+	cur := now.Hour()*60 + now.Minute()
+	if s < e {
+		return cur >= s && cur < e
+	}
+	return cur >= s || cur < e
 }
 
 func pushRateAllowed(userID int64) bool {
@@ -70,7 +120,12 @@ func pushRateAllowed(userID int64) bool {
 
 // fanoutPushPool sends a push for a pool-written notification. Async wrapper
 // is the caller's job; this blocks up to ~25s (3 tries x 5s backoff).
-func fanoutPushPool(pool *pgxpool.Pool, userID int64, kind, title, body string) {
+//
+// The payload carries notification_id + url because the service worker
+// (`web/public/sw.js`) deep-links on those two fields: `data.url` is opened
+// on click and `tag` is `n-<notification_id>` for dedupe. Without them every
+// push lands on the generic /dashboard.
+func fanoutPushPool(pool *pgxpool.Pool, userID int64, notificationID int64, kind, title, body, url string) {
 	if !pushRateAllowed(userID) {
 		return
 	}
@@ -106,7 +161,11 @@ func fanoutPushPool(pool *pgxpool.Pool, userID int64, kind, title, body string) 
 	if len(subs) == 0 {
 		return
 	}
-	payload := `{"title":` + pushJSONString(title) + `,"body":` + pushJSONString(body) + `,"type":` + pushJSONString(kind) + `}`
+	if url == "" {
+		url = "/dashboard"
+	}
+	payload := `{"title":` + pushJSONString(title) + `,"body":` + pushJSONString(body) + `,"type":` + pushJSONString(kind) +
+		`,"notification_id":` + strconv.FormatInt(notificationID, 10) + `,"url":` + pushJSONString(url) + `}`
 	for _, s := range subs {
 		subscription := &webpush.Subscription{Endpoint: s.endpoint, Keys: webpush.Keys{P256dh: s.p256dh, Auth: s.auth}}
 		var lastErr error
@@ -118,7 +177,7 @@ func fanoutPushPool(pool *pgxpool.Pool, userID int64, kind, title, body string) 
 				Subscriber:      "mailto:" + pushMailFrom(),
 				VAPIDPublicKey:  pub,
 				VAPIDPrivateKey: priv,
-				TTL:             30,
+				TTL:             86400,
 			})
 			if err != nil {
 				lastErr = err
@@ -188,13 +247,84 @@ func pushMailFrom() string {
 	return "no-reply@4ceria.test"
 }
 
+// notificationPushURL mirrors the frontend deep-link map in
+// web/components/header/NotificationsDropdown.tsx so a tapped push opens the
+// same tab the in-app inbox would. data is the notifications.data JSON
+// (usually {"project_id": N, ...}); unknown shapes fall back to /dashboard.
+func notificationPushURL(kind, data string) string {
+	var parsed map[string]any
+	projectID := int64(0)
+	if data != "" {
+		if err := json.Unmarshal([]byte(data), &parsed); err == nil {
+			for _, key := range []string{"project_id", "projectId"} {
+				if v, ok := parsed[key]; ok {
+					switch n := v.(type) {
+					case float64:
+						projectID = int64(n)
+					case int64:
+						projectID = n
+					}
+				}
+			}
+		}
+	}
+	switch kind {
+	case "chat_message":
+		return "/dashboard?tab=chat"
+	case "project_invitation":
+		return "/dashboard?tab=my-bids"
+	case "order_payment_proof", "order_status":
+		return "/dashboard?tab=orders"
+	case "quote_payment_proof", "quote_payment_requested", "quote_marked_paid", "quote_approved":
+		return "/dashboard?tab=quotes"
+	case "courier_accepted", "courier_picked_up", "courier_delivered":
+		return "/dashboard?tab=deliveries"
+	case "quote_reviewed", "order_reviewed":
+		return "/dashboard?tab=orders"
+	case "payment_verified":
+		return "/dashboard?tab=orders"
+	case "verification", "verification_required":
+		return "/dashboard?tab=verification"
+	case "bid_shortlisted", "bid_recommended", "pm_bid_shortlisted", "bid_accepted", "pm_bid_accepted", "bid_rejected":
+		return "/dashboard?tab=my-bids"
+	case "consultation_requested", "consultation_responded":
+		return "/dashboard?tab=consultations"
+	}
+	if strings.HasPrefix(kind, "consultation_") {
+		return "/dashboard?tab=consultations"
+	}
+	if projectID > 0 {
+		if tab, ok := map[string]string{
+			"milestone_updated": "process", "milestone_approved": "process",
+			"milestone_approval_needed": "process", "milestone_revision_requested": "process",
+			"phase_verified": "process", "schedule_delayed": "process",
+			"design_submitted": "process", "design_approved": "process",
+			"design_revision_requested": "process", "budget_approved": "budget",
+			"budget_negotiation": "budget", "budget_counter_accepted": "budget",
+			"budget_rejected": "budget", "budget_approval_needed": "budget",
+			"procurement_rejected": "budget", "addendum_approved": "budget",
+			"addendum_rejected": "budget", "change_order": "budget",
+			"sub_professional_invite": "engineering", "sub_professional_activated": "engineering",
+			"sub_professional_declined": "engineering", "warranty_claim": "overview",
+			"professional_resigned": "activity", "dispute_opened": "overview",
+			"dispute_reply": "overview", "dispute_resolved": "overview",
+			"bid_received": "interviews", "pm_bid_received": "interviews",
+			"pm_hire_initiated": "interviews",
+		}[kind]; ok {
+			return "/projects/" + strconv.FormatInt(projectID, 10) + "/" + tab
+		}
+		return "/projects/" + strconv.FormatInt(projectID, 10)
+	}
+	return "/dashboard"
+}
+
 // SendPendingPushes delivers web push for notifications whose creating
 // transaction has committed and which have not been pushed yet. Running from
 // the sweeper rather than from inside the handler is what prevents a push for
 // a bid or payment that then rolls back.
 func SendPendingPushes(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger) error {
 	rows, err := pool.Query(ctx, `
-		SELECT id, user_id, type, title, body
+		SELECT id, user_id, type, title, body, COALESCE(data, '')
 		  FROM notifications
 		 WHERE push_sent_at IS NULL
 		   AND created_at > now() - interval '15 minutes'
@@ -210,12 +340,13 @@ func SendPendingPushes(ctx context.Context, pool *pgxpool.Pool, logger *slog.Log
 		kind   string
 		title  string
 		body   string
+		data   string
 	}
 
 	var batch []pending
 	for rows.Next() {
 		var item pending
-		if err := rows.Scan(&item.id, &item.userID, &item.kind, &item.title, &item.body); err != nil {
+		if err := rows.Scan(&item.id, &item.userID, &item.kind, &item.title, &item.body, &item.data); err != nil {
 			rows.Close()
 			return err
 		}
@@ -229,7 +360,7 @@ func SendPendingPushes(ctx context.Context, pool *pgxpool.Pool, logger *slog.Log
 	start := time.Now()
 	for _, item := range batch {
 		if shouldPushForPool(ctx, pool, item.userID, item.kind) {
-			fanoutPushPool(pool, item.userID, item.kind, item.title, item.body)
+			fanoutPushPool(pool, item.userID, item.id, item.kind, item.title, item.body, notificationPushURL(item.kind, item.data))
 		}
 		if _, err := pool.Exec(ctx, `UPDATE notifications SET push_sent_at = now() WHERE id = $1`, item.id); err != nil {
 			logger.Info("scheduler: push marker failed", "id", item.id, "error", err.Error())

@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
 	"github.com/jackc/pgx/v5"
@@ -87,13 +88,21 @@ func DirectoryHandler(pool *pgxpool.Pool, table, base string, withServices bool)
 
 		// Explicit columns (no `SELECT *`): same rows, schema-change safe.
 		cols := directoryColumns(table)
-		countSQL := `SELECT COUNT(*) FROM ` + table + ` WHERE verification_status = 'verified'`
-		rowsSQL := `SELECT ` + cols + ` FROM ` + table + ` WHERE verification_status = 'verified'
-			 ORDER BY id LIMIT $1 OFFSET $2`
+		search := strings.TrimSpace(r.URL.Query().Get("search"))
+		where := ` WHERE verification_status = 'verified'`
+		var args []any
+		if search != "" {
+			where += ` AND (nama ILIKE $1 OR company_name ILIKE $1 OR spesialisasi ILIKE $1 OR lokasi ILIKE $1)`
+			args = append(args, "%"+search+"%")
+		}
+		countSQL := `SELECT COUNT(*) FROM ` + table + where
+		rowsSQL := `SELECT ` + cols + ` FROM ` + table + where +
+			` ORDER BY id LIMIT $` + strconv.Itoa(len(args)+1) + ` OFFSET $` + strconv.Itoa(len(args)+2)
+		rowsArgs := append(append([]any{}, args...), perPage, offset)
 
 		var fields []string
 		var page [][]any
-		total, err := queryCountAndRows(r.Context(), pool, countSQL, nil, rowsSQL, []any{perPage, offset}, func(rows pgx.Rows) error {
+		total, err := queryCountAndRows(r.Context(), pool, countSQL, args, rowsSQL, rowsArgs, func(rows pgx.Rows) error {
 			var collectErr error
 			fields, page, collectErr = collectRows(rows)
 			return collectErr

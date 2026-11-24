@@ -24,13 +24,14 @@ import (
 // The SSRF refusals are `abort(422, …)`, so their local answers carry a debug
 // trace and stay out of the byte gate.
 
-// pushAllowedSuffixes is ALLOWED_ENDPOINT_SUFFIXES, verbatim (the Windows
-// entry really does contain the literal `{region}`).
+// pushAllowedSuffixes is ALLOWED_ENDPOINT_SUFFIXES. The legacy list carried
+// a literal `wns2-{region}.notify.windows.com` template that never matches a
+// real host; WNS is covered by the `notify.windows.com` suffix below
+// (e.g. wns2-db5.notify.windows.com), so the template is dropped.
 var pushAllowedSuffixes = []string{
 	"fcm.googleapis.com",
 	"updates.push.services.mozilla.com",
 	"push.services.mozilla.com",
-	"wns2-{region}.notify.windows.com",
 	"notify.windows.com",
 	"web.push.apple.com",
 	"push.apple.com",
