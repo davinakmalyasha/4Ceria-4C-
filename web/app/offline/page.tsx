@@ -26,7 +26,8 @@ export default function OfflinePage() {
                 <h1 className="mt-6 text-3xl font-black tracking-tight">The workspace is out of reach.</h1>
                 <p className="mt-3 text-sm leading-relaxed text-neutral-500">
                     4Ceria needs a connection for live project, escrow and marketplace data. Reconnect
-                    and try again — nothing you submitted has been lost.
+                    and try again. Forms are not sent while offline — please keep this page open and
+                    resubmit once you are back online.
                 </p>
                 <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
                     <Link

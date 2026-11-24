@@ -13,3 +13,5 @@ runtime dependency. New migrations describe the current system only.
 The AI memory tables are in `0029_ai_memory.sql`; see `docs/AI.md`.
 The list indexes proven by `EXPLAIN` on the larger benchmark dataset are in
 `0030_perf_indexes.sql`; see `docs/history/PERFORMANCE.md`.
+The order-to-quote link (`material_orders.quote_id`) that lets the ledger move
+exactly once per marketplace payment is in `0032_order_quote_link.sql`.
