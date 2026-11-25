@@ -86,6 +86,9 @@ jobs:
       - name: The suites
         run: go test ./...
 
+      - name: Coverage gate (critical pure-unit bars)
+        run: node scripts/ci/coverage-gate.mjs
+
   web:
     name: Next.js
     runs-on: ubuntu-latest
@@ -106,6 +109,10 @@ jobs:
       - name: Type check
         working-directory: web
         run: npx tsc --noEmit
+
+      - name: Unit tests
+        working-directory: web
+        run: npm run test
 
       - name: Build
         working-directory: web

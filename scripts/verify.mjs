@@ -4,9 +4,9 @@
  *
  *   1. gofmt over cmd/ and internal/
  *   2. go vet ./...
- *   3. go test ./...
+ *   3. go test ./... and the coverage gate (critical pure-unit bars)
  *   4. action and image policy
- *   5. tsc --noEmit and next build in web/
+ *   5. tsc --noEmit, vitest run, and next build in web/
  *
  * With `--db`, it also builds PostgreSQL from scratch (C collation), applies
  * every migration, loads the demo seed, runs the SQL suites, and then runs the
@@ -81,6 +81,7 @@ if (gofmt.error) {
 
 step('go vet', 'go', ['vet', './...']);
 step('go test', 'go', ['test', './...']);
+step('coverage gate', 'node', ['scripts/ci/coverage-gate.mjs']);
 step('action policy', 'node', ['scripts/ci/action-policy.mjs']);
 
 if (skipWeb) {
@@ -90,6 +91,7 @@ if (skipWeb) {
     failures.push('web/node_modules absent');
 } else {
     step('frontend type check', npm, ['exec', '--', 'tsc', '--noEmit'], { cwd: WEB });
+    step('frontend unit tests', npm, ['run', 'test'], { cwd: WEB });
     step('frontend build', npm, ['run', 'build'], { cwd: WEB });
 }
 
