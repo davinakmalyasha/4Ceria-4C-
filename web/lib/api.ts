@@ -75,12 +75,24 @@ export async function apiFetch<T>(
               ? { cache: 'no-store' as const }
               : { next: { revalidate: revalidateSeconds } };
 
-    const response = await fetch(`${apiOrigin()}/api${path}`, {
-        ...init,
-        headers,
-        signal: init.signal ?? AbortSignal.timeout(30_000),
-        ...cacheMode,
-    });
+    let response: Response;
+    try {
+        response = await fetch(`${apiOrigin()}/api${path}`, {
+            ...init,
+            headers,
+            signal: init.signal ?? AbortSignal.timeout(30_000),
+            ...cacheMode,
+        });
+    } catch {
+        // DNS dead, gateway down, route lost: `fetch` rejects with a
+        // TypeError instead of a status. Surface it as a 503 ApiFailure so
+        // pages render "service unreachable, retry" instead of crashing
+        // into the nearest error boundary with no status at all.
+        throw new ApiFailure({
+            status: 503,
+            message: 'The 4Ceria service is unreachable. Check your connection and try again.',
+        });
+    }
 
     if (!response.ok) {
         let body: { message?: string; errors?: Record<string, string[]> } = {};

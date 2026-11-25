@@ -77,10 +77,22 @@ async function forward(request: NextRequest, context: { params: Promise<{ path: 
     }
 
     const streaming = target.pathname.endsWith('/api/ai/chat/stream');
-    const response = await fetch(target, {
-        ...init,
-        ...(streaming ? {} : { signal: AbortSignal.timeout(30_000) }),
-    });
+    let response: Response;
+    try {
+        response = await fetch(target, {
+            ...init,
+            ...(streaming ? {} : { signal: AbortSignal.timeout(30_000) }),
+        });
+    } catch (error) {
+        // The gateway is down, DNS is broken, or the device lost its route:
+        // `fetch` rejects instead of answering. A 503 tells the caller this
+        // is the connection, not their request — retrying is correct.
+        console.error('BFF: API unreachable', target.host, error);
+        return NextResponse.json(
+            { message: 'The 4Ceria service is unreachable. Check your connection and try again.' },
+            { status: 503 },
+        );
+    }
 
     if (response.status === 401 && token) {
         await clearSession();

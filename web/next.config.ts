@@ -17,6 +17,12 @@ const config: NextConfig = {
     // into direct paths so a 40-file icon list does not pull the whole set.
     experimental: {
         optimizePackageImports: ['lucide-react'],
+        // Offline detection + automatic retry of blocked navigations, RSC
+        // fetches and Server Actions. Without it a network drop mid-action
+        // rejects and every form needs its own retry loop; with it the
+        // request stays pending, `useOffline()` reports the state, and the
+        // framework replays the request when connectivity returns.
+        useOffline: true,
     },
 
     async headers() {

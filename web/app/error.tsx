@@ -1,38 +1,60 @@
 'use client';
 
+import { useEffect } from 'react';
 import Link from 'next/link';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 
-export default function RootError({
-    error,
-    reset,
-}: {
-    error: Error & { digest?: string };
-    reset: () => void;
-}) {
+/**
+ * Root segment boundary: anything the nested boundaries do not catch.
+ *
+ * Props follow the file convention — `error` is `unknown` (a value thrown
+ * from a Client Component arrives as-is; a Server Component failure arrives
+ * as a redacted Error carrying only a digest), and `retry()` re-renders the
+ * segment instead of merely clearing the flag. The digest is shown so a bug
+ * report can be matched against the server logs; the message is only shown
+ * when it is provably ours.
+ */
+export default function RootError({ error, retry }: { error: unknown; retry: () => void }) {
+    useEffect(() => {
+        console.error(error);
+    }, [error]);
+
+    const digest =
+        error instanceof Error ? (error as Error & { digest?: string }).digest : undefined;
+    const message =
+        error instanceof Error && (error.message.startsWith('NEXT_') || digest === undefined)
+            ? error.message
+            : null;
+
     return (
         <main className="flex min-h-screen items-center justify-center bg-neutral-50 px-6 py-20">
             <div className="w-full max-w-md text-center">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src="/pwa-192x192.png" alt="" className="mx-auto h-16 w-16 rounded-2xl" />
                 <div className="mt-6 inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-amber-800">
-                    <AlertTriangle className="h-3.5 w-3.5" />
+                    <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
                     Something went wrong
                 </div>
                 <h1 className="mt-5 text-3xl font-black tracking-tight text-neutral-900">
                     This page could not finish loading.
                 </h1>
                 <p className="mt-3 text-sm leading-relaxed text-neutral-500">
-                    The error was recorded{error.digest ? ` as ${error.digest}` : ''}. Retrying is safe
+                    {message ?? 'An unexpected error interrupted this page.'} Retrying is safe
                     — no form has been submitted twice.
+                    {digest ? (
+                        <>
+                            <br />
+                            <span className="font-mono text-xs">Reference {digest}</span>
+                        </>
+                    ) : null}
                 </p>
                 <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
                     <button
                         type="button"
-                        onClick={reset}
+                        onClick={retry}
                         className="inline-flex items-center justify-center gap-2 rounded-xl bg-neutral-900 px-5 py-3 text-sm font-bold text-white transition hover:bg-neutral-800"
                     >
-                        <RefreshCw className="h-4 w-4" />
+                        <RefreshCw className="h-4 w-4" aria-hidden="true" />
                         Try again
                     </button>
                     <Link
