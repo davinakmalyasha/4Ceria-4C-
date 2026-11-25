@@ -1,7 +1,9 @@
 import { assetUrl } from '@/lib/assets';
 import { formatIDR, titleCase } from '@/lib/format';
 import { updateStoreProfile } from './store-actions';
+import { UploadInput } from '@/components/forms/UploadInput';
 import { CoverImage } from '@/components/CoverImage';
+import { EmptyState } from '@/components/feedback/EmptyState';
 
 /**
  * Native "My Store" screen.
@@ -133,7 +135,7 @@ export function StorePanel({ store, error }: { store: StorePayload | null; error
             </div>
 
             {error && (
-                <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700">{error}</div>
+                <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700">{error}</div>
             )}
 
             <details className="bg-white rounded-2xl border border-neutral-200 p-5">
@@ -175,7 +177,7 @@ export function StorePanel({ store, error }: { store: StorePayload | null; error
                     </label>
                     <label className="block sm:col-span-2">
                         <span className="text-[9px] font-black uppercase tracking-wider text-neutral-400">Store photo</span>
-                        <input type="file" name="foto" accept="image/jpeg,image/png,image/webp" className="mt-1 block text-xs text-neutral-600 file:mr-2 file:rounded-lg file:border-0 file:bg-neutral-900 file:px-2 file:py-1.5 file:text-[9px] file:font-black file:uppercase file:tracking-wider file:text-white" />
+                        <UploadInput name="foto" accept="image/jpeg,image/png,image/webp" maxMB={2} className="mt-1 block text-xs text-neutral-600 file:mr-2 file:rounded-lg file:border-0 file:bg-neutral-900 file:px-2 file:py-1.5 file:text-[9px] file:font-black file:uppercase file:tracking-wider file:text-white" />
                     </label>
                     <div className="sm:col-span-2 xl:col-span-4 flex justify-end">
                         <button type="submit" className="px-4 py-2 rounded-xl bg-neutral-900 text-white text-[10px] font-black uppercase tracking-wider hover:bg-neutral-700">
@@ -190,9 +192,10 @@ export function StorePanel({ store, error }: { store: StorePayload | null; error
                     Store catalogue · {materials.length}
                 </h2>
                 {materials.length === 0 ? (
-                    <div className="bg-white rounded-2xl border border-dashed border-neutral-200 p-8 text-sm text-neutral-500">
-                        No materials are listed in this store yet.
-                    </div>
+                    <EmptyState
+                        title="No materials are listed in this store yet."
+                        body="Publish materials from the inventory and they appear in this catalogue."
+                    />
                 ) : (
                     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                         {materials.map((material) => {

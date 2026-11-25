@@ -58,6 +58,7 @@ export function PostHouseForm() {
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [housePics, setHousePics] = useState<File[]>([]);
+    const [skippedPics, setSkippedPics] = useState(0);
     const [rooms, setRooms] = useState<RoomDraft[]>([]);
 
     async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -115,7 +116,7 @@ export function PostHouseForm() {
             </div>
 
             {error && (
-                <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700">{error}</div>
+                <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700">{error}</div>
             )}
 
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -199,11 +200,17 @@ export function PostHouseForm() {
                         name="house_pic"
                         multiple
                         accept="image/jpeg,image/png,image/jpg"
-                        onChange={(event) => setHousePics(Array.from(event.target.files ?? []))}
+                        onChange={(event) => {
+                            const files = Array.from(event.target.files ?? []);
+                            const kept = files.filter((file) => file.size <= 2 * 1024 * 1024);
+                            setSkippedPics(files.length - kept.length);
+                            setHousePics(kept);
+                        }}
                         className="block w-full text-xs text-neutral-600 file:mr-3 file:rounded-lg file:border-0 file:bg-neutral-900 file:px-3 file:py-2 file:text-[10px] file:font-black file:uppercase file:tracking-wider file:text-white"
                     />
                     <p className="text-[10px] text-neutral-400">
                         JPEG or PNG, up to 2 MB each. {housePics.length} selected.
+                        {skippedPics > 0 ? ` ${skippedPics} skipped (over 2 MB).` : ''}
                     </p>
                 </section>
 
@@ -243,6 +250,7 @@ export function PostHouseForm() {
                                     <input
                                         value={room.name}
                                         required
+                                        maxLength={255}
                                         onChange={(event) =>
                                             setRooms((rows) =>
                                                 rows.map((row, i) => (i === index ? { ...row, name: event.target.value } : row)),
@@ -312,18 +320,21 @@ export function PostHouseForm() {
                                 />
                             </Field>
 
-                            <Field label="Room photos (optional)">
+                            <Field label="Room photos (optional, up to 2 MB each)">
                                 <input
                                     type="file"
                                     multiple
                                     accept="image/jpeg,image/png,image/jpg"
-                                    onChange={(event) =>
+                                    onChange={(event) => {
+                                        const kept = Array.from(event.target.files ?? []).filter(
+                                            (file) => file.size <= 2 * 1024 * 1024,
+                                        );
                                         setRooms((rows) =>
                                             rows.map((row, i) =>
-                                                i === index ? { ...row, pics: Array.from(event.target.files ?? []) } : row,
+                                                i === index ? { ...row, pics: kept } : row,
                                             ),
-                                        )
-                                    }
+                                        );
+                                    }}
                                     className="block w-full text-xs text-neutral-600 file:mr-3 file:rounded-lg file:border-0 file:bg-neutral-900 file:px-3 file:py-2 file:text-[10px] file:font-black file:uppercase file:tracking-wider file:text-white"
                                 />
                             </Field>

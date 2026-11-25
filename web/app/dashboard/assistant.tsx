@@ -41,7 +41,7 @@ export function AssistantPanel({
             </div>
             <MemoryPanel />
             {error && (
-                <p className="mb-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-2 text-xs font-bold text-red-700">
+                <p role="alert" className="mb-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-2 text-xs font-bold text-red-700">
                     {error}
                 </p>
             )}

@@ -1,5 +1,7 @@
 import { formatIDR, titleCase } from '@/lib/format';
+import { EmptyState } from '@/components/feedback/EmptyState';
 import { approveQuote, markQuotePaid, postQuoteDeliveryJob, requestQuotePayment, uploadQuoteProof } from './quotes-actions';
+import { UploadInput } from '@/components/forms/UploadInput';
 
 /**
  * Native quotation-history panel.
@@ -81,16 +83,14 @@ export function QuotesPanel({
             </div>
 
             {error && (
-                <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700">{error}</div>
+                <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700">{error}</div>
             )}
 
             {quotes.length === 0 ? (
-                <div className="bg-white rounded-2xl border border-dashed border-neutral-200 p-10 text-center">
-                    <h2 className="text-sm font-black text-neutral-900">No quotes found</h2>
-                    <p className="mt-1 text-xs text-neutral-500">
-                        Request a quotation from a marketplace supplier to start one.
-                    </p>
-                </div>
+                <EmptyState
+                    title="No quotes found"
+                    body="Request a quotation from a marketplace supplier to start one."
+                />
             ) : (
                 <div className="space-y-4">
                     {quotes.map((quote) => {
@@ -277,7 +277,7 @@ export function QuotesPanel({
                                                 <input type="hidden" name="quote_id" value={quote.id} />
                                                 <label className="block">
                                                     <span className="text-[9px] font-black uppercase tracking-wider text-neutral-400">Transfer receipt</span>
-                                                    <input type="file" name="payment_proof" required accept=".jpg,.jpeg,.png,.webp,.pdf" className="mt-1 block text-xs text-neutral-600 file:mr-2 file:rounded-lg file:border-0 file:bg-neutral-900 file:px-2 file:py-1.5 file:text-[9px] file:font-black file:uppercase file:tracking-wider file:text-white" />
+                                                    <UploadInput name="payment_proof" required accept=".jpg,.jpeg,.png,.webp,.pdf" maxMB={5} className="mt-1 block text-xs text-neutral-600 file:mr-2 file:rounded-lg file:border-0 file:bg-neutral-900 file:px-2 file:py-1.5 file:text-[9px] file:font-black file:uppercase file:tracking-wider file:text-white" />
                                                 </label>
                                                 <button type="submit" className="px-3 py-1.5 rounded-lg bg-neutral-900 text-white text-[10px] font-black uppercase tracking-wider hover:bg-neutral-700">
                                                     Upload payment proof

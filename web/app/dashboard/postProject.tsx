@@ -48,6 +48,7 @@ export function PostProjectForm() {
     const [wantsPm, setWantsPm] = useState(false);
     const [discussLater, setDiscussLater] = useState(false);
     const [images, setImages] = useState<File[]>([]);
+    const [skippedImages, setSkippedImages] = useState(0);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -132,7 +133,7 @@ export function PostProjectForm() {
             </div>
 
             {error && (
-                <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700">{error}</div>
+                <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700">{error}</div>
             )}
 
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -188,25 +189,25 @@ export function PostProjectForm() {
                             <input name="building_width" type="number" min={0} step="0.01" className={inputClass} />
                         </Field>
                         <Field label="Postal code">
-                            <input name="postal_code" className={inputClass} />
+                            <input name="postal_code" maxLength={255} className={inputClass} />
                         </Field>
                         <Field label="Province">
-                            <input name="province" className={inputClass} />
+                            <input name="province" maxLength={255} className={inputClass} />
                         </Field>
                         <Field label="City">
-                            <input name="city" className={inputClass} />
+                            <input name="city" maxLength={255} className={inputClass} />
                         </Field>
                         <Field label="Kecamatan">
-                            <input name="kecamatan" className={inputClass} />
+                            <input name="kecamatan" maxLength={255} className={inputClass} />
                         </Field>
                         <Field label="Kelurahan">
-                            <input name="kelurahan" className={inputClass} />
+                            <input name="kelurahan" maxLength={255} className={inputClass} />
                         </Field>
                         <Field label="Street name">
-                            <input name="street_name" className={inputClass} />
+                            <input name="street_name" maxLength={255} className={inputClass} />
                         </Field>
                         <Field label="Jenis proyek">
-                            <input name="jenis_proyek" className={inputClass} placeholder="umum" />
+                            <input name="jenis_proyek" maxLength={255} className={inputClass} placeholder="umum" />
                         </Field>
                         <Field label="Latitude">
                             <input name="latitude" className={inputClass} placeholder="-6.2088" />
@@ -274,11 +275,17 @@ export function PostProjectForm() {
                         type="file"
                         multiple
                         accept="image/jpeg,image/png,image/webp"
-                        onChange={(event) => setImages(Array.from(event.target.files ?? []).slice(0, 3))}
+                        onChange={(event) => {
+                            const files = Array.from(event.target.files ?? []).slice(0, 3);
+                            const kept = files.filter((file) => file.size <= 5 * 1024 * 1024);
+                            setSkippedImages(files.length - kept.length);
+                            setImages(kept);
+                        }}
                         className="block w-full text-xs text-neutral-600 file:mr-3 file:rounded-lg file:border-0 file:bg-neutral-900 file:px-3 file:py-2 file:text-[10px] file:font-black file:uppercase file:tracking-wider file:text-white"
                     />
                     <p className="text-[10px] text-neutral-400">
                         JPEG, PNG or WebP, up to 5 MB each. {images.length} selected.
+                        {skippedImages > 0 ? ` ${skippedImages} skipped (over 5 MB).` : ''}
                     </p>
                 </section>
 

@@ -76,7 +76,16 @@ export function ChatComposer({
                         type="file"
                         accept="image/jpeg,image/png,image/jpg"
                         className="hidden"
-                        onChange={(event) => setImage(event.target.files?.[0] ?? null)}
+                        onChange={(event) => {
+                            const file = event.target.files?.[0] ?? null;
+                            if (file && file.size > 5 * 1024 * 1024) {
+                                setError(`"${file.name}" exceeds the 5 MB image limit.`);
+                                event.target.value = '';
+                                setImage(null);
+                                return;
+                            }
+                            setImage(file);
+                        }}
                     />
                 </label>
                 <textarea

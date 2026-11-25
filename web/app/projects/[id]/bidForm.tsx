@@ -75,7 +75,7 @@ export function BidForm({
             </p>
 
             {submitted && (
-                <div className="mt-4 rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                <div role="status" className="mt-4 rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
                     Proposal sent. The owner will review it and may invite you to an interview.
                 </div>
             )}

@@ -1,6 +1,8 @@
 import { formatIDR, titleCase } from '@/lib/format';
+import { EmptyState } from '@/components/feedback/EmptyState';
 import { ConfirmSubmit } from './confirmSubmit';
 import { updateOrderStatus, uploadOrderProof, verifyOrderPayment } from './order-actions';
+import { UploadInput } from '@/components/forms/UploadInput';
 
 /**
  * Native material-orders panel.
@@ -83,16 +85,14 @@ export function OrdersPanel({
             </div>
 
             {error && (
-                <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700">{error}</div>
+                <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700">{error}</div>
             )}
 
             {orders.length === 0 ? (
-                <div className="bg-white rounded-2xl border border-dashed border-neutral-200 p-10 text-center">
-                    <h2 className="text-sm font-black text-neutral-900">No Active Missions</h2>
-                    <p className="mt-1 text-xs text-neutral-500">
-                        There are no orders matching your current criteria.
-                    </p>
-                </div>
+                <EmptyState
+                    title="No Active Missions"
+                    body="There are no orders matching your current criteria."
+                />
             ) : (
                 <div className="space-y-4">
                     {orders.map((order) => {
@@ -233,10 +233,10 @@ export function OrdersPanel({
                                                         <span className="text-[9px] font-black uppercase tracking-wider text-neutral-400">
                                                             Dispatch documentation (optional)
                                                         </span>
-                                                        <input
-                                                            type="file"
+                                                        <UploadInput
                                                             name="delivery_documentation"
                                                             accept="image/jpeg,image/png,image/webp"
+                                                            maxMB={20}
                                                             className="mt-1 block text-xs text-neutral-600 file:mr-2 file:rounded-lg file:border-0 file:bg-neutral-900 file:px-2 file:py-1.5 file:text-[9px] file:font-black file:uppercase file:tracking-wider file:text-white"
                                                         />
                                                     </label>
@@ -268,11 +268,11 @@ export function OrdersPanel({
                                                         <span className="text-[9px] font-black uppercase tracking-wider text-neutral-400">
                                                             Transfer receipt
                                                         </span>
-                                                        <input
-                                                            type="file"
+                                                        <UploadInput
                                                             name="payment_proof"
                                                             required
                                                             accept="image/jpeg,image/png,image/webp,application/pdf"
+                                                            maxMB={5}
                                                             className="mt-1 block text-xs text-neutral-600 file:mr-2 file:rounded-lg file:border-0 file:bg-neutral-900 file:px-2 file:py-1.5 file:text-[9px] file:font-black file:uppercase file:tracking-wider file:text-white"
                                                         />
                                                     </label>

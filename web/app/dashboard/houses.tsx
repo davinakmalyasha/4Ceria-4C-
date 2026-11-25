@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { EmptyState } from '@/components/feedback/EmptyState';
+import { UploadInput } from '@/components/forms/UploadInput';
 import { assetUrl } from '@/lib/assets';
 import { formatIDR, titleCase } from '@/lib/format';
 import { askHouseQuestion, deleteHouse } from './houses-actions';
@@ -177,9 +179,10 @@ export function HousesPanel({
             </form>
 
             {houses.length === 0 ? (
-                <div className="bg-white rounded-2xl border border-dashed border-neutral-200 p-8 text-sm text-neutral-500">
-                    No properties match these filters. Try widening the price range or clearing the search.
-                </div>
+                <EmptyState
+                    title="No properties match these filters."
+                    body="Try widening the price range or clearing the search."
+                />
             ) : (
                 <>
                     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -253,23 +256,16 @@ export function MyHousesPanel({
             </div>
 
             {error && (
-                <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700">{error}</div>
+                <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700">{error}</div>
             )}
 
             {mine.length === 0 ? (
-                <div className="bg-white rounded-2xl border border-dashed border-neutral-200 p-10 text-center">
-                    <h2 className="text-sm font-black text-neutral-900">No properties listed yet</h2>
-                    <p className="mt-1 text-xs text-neutral-500 max-w-md mx-auto">
-                        You have not listed any houses for sale. Post your first property to start receiving
-                        enquiries.
-                    </p>
-                    <Link
-                        href="/dashboard/post-house"
-                        className="mt-5 inline-flex px-4 py-2 rounded-xl bg-neutral-900 text-white text-[10px] font-black uppercase tracking-wider hover:bg-neutral-700"
-                    >
-                        Start selling now
-                    </Link>
-                </div>
+                <EmptyState
+                    title="No properties listed yet"
+                    body="You have not listed any houses for sale. Post your first property to start receiving enquiries."
+                    actionHref="/dashboard/post-house"
+                    actionLabel="Start selling now"
+                />
             ) : (
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                     {mine.map((house) => (
@@ -336,11 +332,11 @@ export function MyHousesPanel({
                                         </div>
                                     )}
 
-                                    <input
-                                        type="file"
+                                    <UploadInput
                                         name="house_pics"
                                         multiple
                                         accept="image/jpeg,image/png"
+                                        maxMB={2}
                                         className="block text-xs text-neutral-600 file:mr-2 file:rounded-lg file:border-0 file:bg-neutral-900 file:px-2 file:py-1.5 file:text-[9px] file:font-black file:uppercase file:tracking-wider file:text-white"
                                     />
                                     <button

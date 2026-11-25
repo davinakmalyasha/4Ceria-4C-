@@ -64,6 +64,7 @@ export function ForgotForm() {
                     autoCapitalize="none"
                     name="email"
                     required
+                    maxLength={255}
                     placeholder="your@email.com"
                     className="block w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl shadow-sm placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-[#FF2D20]/20 focus:border-[#FF2D20] sm:text-sm transition-all focus:bg-white"
                 />

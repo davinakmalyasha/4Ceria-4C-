@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { useActionState, useState } from 'react';
-import { ChevronRight, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { ChevronRight, Loader2 } from 'lucide-react';
+import { PasswordField } from '@/components/forms/PasswordField';
 import { login, type LoginState } from './actions';
 
 const DEMO_ACCOUNTS = [
@@ -15,7 +16,6 @@ export function LoginForm({ next }: { next?: string }) {
     const [state, action, pending] = useActionState<LoginState, FormData>(login, { error: '' });
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [showPassword, setShowPassword] = useState(false);
 
     return (
         <form className="space-y-5" action={action} noValidate>
@@ -40,6 +40,7 @@ export function LoginForm({ next }: { next?: string }) {
                     type="email"
                     name="email"
                     required
+                    maxLength={255}
                     autoComplete="email"
                     autoFocus
                     value={email}
@@ -63,25 +64,15 @@ export function LoginForm({ next }: { next?: string }) {
                     </Link>
                 </div>
                 <div className="relative">
-                    <input
+                    <PasswordField
                         id="password"
-                        type={showPassword ? 'text' : 'password'}
                         name="password"
-                        required
                         autoComplete="current-password"
-                        value={password}
-                        onChange={(event) => setPassword(event.target.value)}
                         placeholder="••••••••"
-                        className="block w-full rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 pr-11 text-sm shadow-sm transition-all placeholder:text-neutral-400 focus:border-[#FD1D1D] focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-500/15"
+                        value={password}
+                        onChange={setPassword}
+                        inputClassName="block w-full rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 pr-11 text-sm shadow-sm transition-all placeholder:text-neutral-400 focus:border-[#FD1D1D] focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-500/15"
                     />
-                    <button
-                        type="button"
-                        onClick={() => setShowPassword((value) => !value)}
-                        aria-label={showPassword ? 'Hide password' : 'Show password'}
-                        className="absolute inset-y-0 right-0 grid w-11 place-items-center text-neutral-400 transition hover:text-neutral-700"
-                    >
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
                 </div>
             </div>
 

@@ -1,4 +1,6 @@
 import type { ReactNode } from 'react';
+import { UploadInput } from '@/components/forms/UploadInput';
+import { EmptyState } from '@/components/feedback/EmptyState';
 import { formatIDR, titleCase } from '@/lib/format';
 import { acceptDeliveryJob, updateDeliveryStatus } from './delivery-actions';
 
@@ -156,18 +158,16 @@ export function DeliveryJobsPanel({
             </div>
 
             {error && (
-                <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700">{error}</div>
+                <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700">{error}</div>
             )}
 
             {role !== 'supplier' ? (
                 <RoleNotice message="Delivery jobs are visible to supplier accounts only." />
             ) : jobs.length === 0 ? (
-                <div className="bg-white rounded-2xl border border-dashed border-neutral-200 p-10 text-center">
-                    <h2 className="text-sm font-black text-neutral-900">No Active Deliveries</h2>
-                    <p className="mt-1 text-xs text-neutral-500">
-                        A delivery job appears when a quote is approved with shipping.
-                    </p>
-                </div>
+                <EmptyState
+                    title="No Active Deliveries"
+                    body="A delivery job appears when a quote is approved with shipping."
+                />
             ) : (
                 <div className="space-y-4">
                     {jobs.map((job) => (
@@ -203,18 +203,16 @@ export function JobRadarPanel({
             </div>
 
             {error && (
-                <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700">{error}</div>
+                <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700">{error}</div>
             )}
 
             {role !== 'logistics' ? (
                 <RoleNotice message="Job Radar is available to logistics accounts only." />
             ) : jobs.length === 0 ? (
-                <div className="bg-white rounded-2xl border border-dashed border-neutral-200 p-10 text-center">
-                    <h2 className="text-sm font-black text-neutral-900">No Jobs Nearby</h2>
-                    <p className="mt-1 text-xs text-neutral-500">
-                        New platform deliveries appear here as soon as a supplier posts one.
-                    </p>
-                </div>
+                <EmptyState
+                    title="No Jobs Nearby"
+                    body="New platform deliveries appear here as soon as a supplier posts one."
+                />
             ) : (
                 <div className="space-y-4">
                     {jobs.map((job) => (
@@ -260,18 +258,16 @@ export function MyDeliveriesPanel({
             </div>
 
             {error && (
-                <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700">{error}</div>
+                <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700">{error}</div>
             )}
 
             {role !== 'logistics' ? (
                 <RoleNotice message="My Deliveries is available to logistics accounts only." />
             ) : jobs.length === 0 ? (
-                <div className="bg-white rounded-2xl border border-dashed border-neutral-200 p-10 text-center">
-                    <h2 className="text-sm font-black text-neutral-900">No Active Deliveries</h2>
-                    <p className="mt-1 text-xs text-neutral-500">
-                        Claim a job from the radar and it appears here.
-                    </p>
-                </div>
+                <EmptyState
+                    title="No Active Deliveries"
+                    body="Claim a job from the radar and it appears here."
+                />
             ) : (
                 <div className="space-y-4">
                     {jobs.map((job) => {
@@ -287,12 +283,12 @@ export function MyDeliveriesPanel({
                                             <span className="text-[9px] font-black uppercase tracking-wider text-neutral-400">
                                                 Photo evidence (1-3)
                                             </span>
-                                            <input
-                                                type="file"
+                                            <UploadInput
                                                 name="photos"
                                                 required
                                                 multiple
                                                 accept="image/jpeg,image/png,image/webp"
+                                                maxMB={5}
                                                 className="mt-1 block text-xs text-neutral-600 file:mr-2 file:rounded-lg file:border-0 file:bg-neutral-900 file:px-2 file:py-1.5 file:text-[9px] file:font-black file:uppercase file:tracking-wider file:text-white"
                                             />
                                         </label>

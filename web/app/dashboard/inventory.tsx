@@ -2,7 +2,9 @@ import { assetUrl } from '@/lib/assets';
 import { formatIDR, titleCase } from '@/lib/format';
 import { ConfirmSubmit } from './confirmSubmit';
 import { createMaterial, deleteMaterial, updateMaterial } from './inventory-actions';
+import { UploadInput } from '@/components/forms/UploadInput';
 import { CoverImage } from '@/components/CoverImage';
+import { EmptyState } from '@/components/feedback/EmptyState';
 
 /**
  * Native merchant inventory.
@@ -66,7 +68,7 @@ export function InventoryPanel({
             </div>
 
             {error && (
-                <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700">{error}</div>
+                <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700">{error}</div>
             )}
 
             <details className="bg-white rounded-2xl border border-neutral-200 p-5">
@@ -100,7 +102,7 @@ export function InventoryPanel({
                     </label>
                     <label className="block sm:col-span-2">
                         <span className="text-[9px] font-black uppercase tracking-wider text-neutral-400">Images</span>
-                        <input type="file" name="images" multiple accept="image/jpeg,image/png,image/webp" className={fileClass} />
+                        <UploadInput name="images" multiple accept="image/jpeg,image/png,image/webp" maxMB={2} className={fileClass} />
                     </label>
                     <div className="sm:col-span-2 xl:col-span-4 flex justify-end">
                         <button
@@ -114,16 +116,15 @@ export function InventoryPanel({
             </details>
 
             {role !== 'supplier' && materials.length === 0 ? (
-                <div className="bg-white rounded-2xl border border-dashed border-neutral-200 p-8 text-sm text-neutral-500">
-                    Merchant inventory is available to supplier accounts only.
-                </div>
+                <EmptyState
+                    title="Supplier accounts only."
+                    body="Merchant inventory is available to supplier accounts only."
+                />
             ) : materials.length === 0 ? (
-                <div className="bg-white rounded-2xl border border-dashed border-neutral-200 p-10 text-center">
-                    <h2 className="text-sm font-black text-neutral-900">No materials in your inventory yet</h2>
-                    <p className="mt-1 text-xs text-neutral-500">
-                        Add a material above and it appears in the marketplace.
-                    </p>
-                </div>
+                <EmptyState
+                    title="No materials in your inventory yet"
+                    body="Add a material above and it appears in the marketplace."
+                />
             ) : (
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                     {materials.map((material) => {
@@ -227,7 +228,7 @@ export function InventoryPanel({
                                                     </div>
                                                 )}
 
-                                                <input type="file" name="images" multiple accept="image/jpeg,image/png,image/webp" className={fileClass} />
+                                                <UploadInput name="images" multiple accept="image/jpeg,image/png,image/webp" maxMB={2} className={fileClass} />
                                                 <button
                                                     type="submit"
                                                     className="px-3 py-1.5 rounded-lg bg-neutral-900 text-white text-[10px] font-black uppercase tracking-wider hover:bg-neutral-700"

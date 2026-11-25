@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { assetUrl } from '@/lib/assets';
 import { formatIDR, titleCase } from '@/lib/format';
 import { ConfirmSubmit } from './confirmSubmit';
+import { UploadInput } from '@/components/forms/UploadInput';
 import {
     cancelFirmInvitation,
     deletePortfolio,
@@ -13,6 +14,7 @@ import {
 } from './firm-actions';
 import type { FirmMembership, FirmProfilePayload } from './firms';
 import { CoverImage } from '@/components/CoverImage';
+import { EmptyState } from '@/components/feedback/EmptyState';
 
 /**
  * Native firm workspace.
@@ -130,7 +132,7 @@ function ErrorNote({ error }: { error?: string }) {
         return null;
     }
 
-    return <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700">{error}</div>;
+    return <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700">{error}</div>;
 }
 
 function MemberCard({
@@ -231,7 +233,7 @@ function RosterColumn({
                 {title} · {rows.length}
             </h3>
             {rows.length === 0 ? (
-                <p className="text-xs text-neutral-500">{empty}</p>
+                <EmptyState title="Nothing here yet." body={empty} />
             ) : (
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                     {rows.map((row) => (
@@ -275,7 +277,7 @@ function PortfolioCard({ portfolio, editable }: { portfolio: PortfolioRow; edita
                                 <textarea name="description" required rows={2} defaultValue={portfolio.description ?? ''} className={inputClass} />
                                 <input name="duration" defaultValue={portfolio.duration ?? ''} placeholder="Duration" className={inputClass} />
                                 <input name="client_review" defaultValue={portfolio.client_review ?? ''} placeholder="Client review" className={inputClass} />
-                                <input type="file" name="image" accept="image/jpeg,image/png,image/webp" className={fileClass} />
+                                <UploadInput name="image" accept="image/jpeg,image/png,image/webp" maxMB={5} className={fileClass} />
                                 <button
                                     type="submit"
                                     className="px-3 py-1.5 rounded-lg bg-neutral-900 text-white text-[10px] font-black uppercase tracking-wider hover:bg-neutral-700"
@@ -338,11 +340,11 @@ export function FirmOwnerWorkspace({ profile, error }: { profile: FirmProfilePay
                         </label>
                         <label className="block">
                             <span className="text-[9px] font-black uppercase tracking-wider text-neutral-400">Banner</span>
-                            <input type="file" name="firm_banner" accept="image/jpeg,image/png,image/webp" className={fileClass} />
+                            <UploadInput name="firm_banner" accept="image/jpeg,image/png,image/webp" maxMB={2} className={fileClass} />
                         </label>
                         <label className="block">
                             <span className="text-[9px] font-black uppercase tracking-wider text-neutral-400">Logo</span>
-                            <input type="file" name="firm_logo" accept="image/jpeg,image/png,image/webp" className={fileClass} />
+                            <UploadInput name="firm_logo" accept="image/jpeg,image/png,image/webp" maxMB={2} className={fileClass} />
                         </label>
                     </div>
 
@@ -421,9 +423,10 @@ export function FirmOwnerWorkspace({ profile, error }: { profile: FirmProfilePay
                 </div>
 
                 {portfolios.length === 0 ? (
-                    <div className="bg-white rounded-2xl border border-dashed border-neutral-200 p-6 text-sm text-neutral-500">
-                        No portfolio projects yet.
-                    </div>
+                    <EmptyState
+                        title="No portfolio projects yet."
+                        body="Publish finished work to show clients what this firm can do."
+                    />
                 ) : (
                     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                         {portfolios.map((portfolio) => (
@@ -456,7 +459,7 @@ export function FirmOwnerWorkspace({ profile, error }: { profile: FirmProfilePay
                         </label>
                         <label className="block sm:col-span-2">
                             <span className="text-[9px] font-black uppercase tracking-wider text-neutral-400">Cover image</span>
-                            <input type="file" name="image" accept="image/jpeg,image/png,image/webp" className={fileClass} />
+                            <UploadInput name="image" accept="image/jpeg,image/png,image/webp" maxMB={5} className={fileClass} />
                         </label>
                         <div className="sm:col-span-2 flex justify-end">
                             <button
@@ -536,7 +539,7 @@ function FirmReadOnlyProfile({ firm, ownerId }: { firm: FirmProfilePayload; owne
                         Squad roster · {roster.length}
                     </h3>
                     {roster.length === 0 ? (
-                        <p className="text-xs text-neutral-500">No active members yet.</p>
+                        <EmptyState title="No active members yet." body="Invite specialists to build the squad." />
                     ) : (
                         <ul className="space-y-2">
                             {roster.map((row) => (
@@ -654,9 +657,10 @@ export function FirmBrowsePanel({
                 </div>
 
                 {firms.length === 0 ? (
-                    <div className="bg-white rounded-2xl border border-dashed border-neutral-200 p-8 text-sm text-neutral-500">
-                        No firms match this search. Hiring firms appear here by default.
-                    </div>
+                    <EmptyState
+                        title="No firms match this search."
+                        body="Hiring firms appear here by default — try widening the search."
+                    />
                 ) : (
                     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                         {firms.map((firm) => {

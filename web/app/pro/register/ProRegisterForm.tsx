@@ -4,6 +4,7 @@ import {
     Armchair, Briefcase, Building2, HardHat, Shield, Store, Truck, Wrench, Zap,
 } from 'lucide-react';
 import { useActionState, useState } from 'react';
+import { PasswordField } from '@/components/forms/PasswordField';
 import { registerProfessional, type ProRegisterState } from './actions';
 
 /**
@@ -140,12 +141,22 @@ export function ProRegisterForm() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                    <label className="block text-sm font-semibold text-neutral-700 mb-2">Password</label>
-                    <input type="password" name="password" required className="block w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-[#FF2D20]/20 focus:border-[#FF2D20] sm:text-sm focus:bg-white transition-all shadow-sm" />
+                    <label htmlFor="pro-password" className="block text-sm font-semibold text-neutral-700 mb-2">Password</label>
+                    <PasswordField
+                        id="pro-password"
+                        name="password"
+                        showStrength
+                        inputClassName="block w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-[#FF2D20]/20 focus:border-[#FF2D20] sm:text-sm focus:bg-white transition-all shadow-sm"
+                    />
                 </div>
                 <div>
-                    <label className="block text-sm font-semibold text-neutral-700 mb-2">Confirm Password</label>
-                    <input type="password" name="password_confirmation" required className="block w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-[#FF2D20]/20 focus:border-[#FF2D20] sm:text-sm focus:bg-white transition-all shadow-sm" />
+                    <label htmlFor="pro-password-confirm" className="block text-sm font-semibold text-neutral-700 mb-2">Confirm Password</label>
+                    <PasswordField
+                        id="pro-password-confirm"
+                        name="password_confirmation"
+                        placeholder="Repeat the password"
+                        inputClassName="block w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-[#FF2D20]/20 focus:border-[#FF2D20] sm:text-sm focus:bg-white transition-all shadow-sm"
+                    />
                 </div>
             </div>
 

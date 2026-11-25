@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import type { User } from '@/context/AuthContext';
+import { UploadInput } from '@/components/forms/UploadInput';
 import { saveProfile } from './profile-actions';
 
 /**
@@ -78,6 +79,7 @@ function Field({
     required = false,
     placeholder,
     inputMode,
+    maxLength = 255,
 }: {
     label: string;
     name: string;
@@ -86,6 +88,7 @@ function Field({
     required?: boolean;
     placeholder?: string;
     inputMode?: 'text' | 'decimal' | 'numeric' | 'tel';
+    maxLength?: number;
 }) {
     return (
         <label className="block">
@@ -97,6 +100,7 @@ function Field({
                 required={required}
                 placeholder={placeholder}
                 inputMode={inputMode}
+                maxLength={maxLength}
                 className={inputClass}
             />
         </label>
@@ -108,16 +112,18 @@ function TextArea({
     name,
     defaultValue,
     rows = 3,
+    maxLength = 1000,
 }: {
     label: string;
     name: string;
     defaultValue?: string | null;
     rows?: number;
+    maxLength?: number;
 }) {
     return (
         <label className="block sm:col-span-2">
             <span className="text-[9px] font-black uppercase tracking-wider text-neutral-400">{label}</span>
-            <textarea name={name} rows={rows} defaultValue={defaultValue ?? ''} className={inputClass} />
+            <textarea name={name} rows={rows} defaultValue={defaultValue ?? ''} maxLength={maxLength} className={inputClass} />
         </label>
     );
 }
@@ -187,7 +193,7 @@ export function ProfileEditPanel({ user, error }: { user: User; error?: string }
             <input type="hidden" name="mode" value={isProfessional ? 'professional' : 'user'} />
 
             {error && (
-                <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700">{error}</div>
+                <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700">{error}</div>
             )}
 
             <Section title="Account">
@@ -225,7 +231,7 @@ export function ProfileEditPanel({ user, error }: { user: User; error?: string }
                         <span className="text-[9px] font-black uppercase tracking-wider text-neutral-400">
                             Profile photo
                         </span>
-                        <input type="file" name="pic" accept="image/jpeg,image/png,image/gif,image/webp" className={fileClass} />
+                        <UploadInput name="pic" accept="image/jpeg,image/png,image/gif,image/webp" maxMB={2} className={fileClass} />
                     </label>
                 )}
             </Section>
@@ -299,7 +305,7 @@ export function ProfileEditPanel({ user, error }: { user: User; error?: string }
                             <span className="text-[9px] font-black uppercase tracking-wider text-neutral-400">
                                 Profile photo
                             </span>
-                            <input type="file" name="foto" accept="image/jpeg,image/png,image/jpg" className={fileClass} />
+                            <UploadInput name="foto" accept="image/jpeg,image/png,image/jpg" maxMB={5} className={fileClass} />
                         </label>
                     </Section>
 

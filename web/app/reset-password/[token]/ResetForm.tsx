@@ -1,13 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { useActionState, useState } from 'react';
-import { Eye, EyeOff, Loader2, ShieldCheck } from 'lucide-react';
+import { useActionState } from 'react';
+import { Loader2, ShieldCheck } from 'lucide-react';
+import { PasswordField } from '@/components/forms/PasswordField';
 import { resetPassword, type ResetState } from './actions';
 
 export function ResetForm({ token, email }: { token: string; email: string }) {
     const [state, action, pending] = useActionState<ResetState, FormData>(resetPassword, { error: '' });
-    const [show, setShow] = useState(false);
 
     return (
         <form action={action} className="space-y-5">
@@ -35,41 +35,23 @@ export function ResetForm({ token, email }: { token: string; email: string }) {
                 <label htmlFor="password" className="mb-1.5 block text-sm font-semibold text-neutral-700">
                     New password
                 </label>
-                <div className="relative">
-                    <input
-                        id="password"
-                        name="password"
-                        type={show ? 'text' : 'password'}
-                        required
-                        minLength={8}
-                        autoComplete="new-password"
-                        placeholder="At least 8 characters"
-                        className="block w-full rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 pr-11 text-sm transition-all placeholder:text-neutral-400 focus:border-[#FD1D1D] focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-500/15"
-                    />
-                    <button
-                        type="button"
-                        onClick={() => setShow((value) => !value)}
-                        aria-label={show ? 'Hide password' : 'Show password'}
-                        className="absolute inset-y-0 right-0 grid w-11 place-items-center text-neutral-400 transition hover:text-neutral-700"
-                    >
-                        {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                </div>
+                <PasswordField
+                    id="password"
+                    name="password"
+                    showStrength
+                    inputClassName="block w-full rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 pr-11 text-sm transition-all placeholder:text-neutral-400 focus:border-[#FD1D1D] focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-500/15"
+                />
             </div>
 
             <div>
                 <label htmlFor="password_confirmation" className="mb-1.5 block text-sm font-semibold text-neutral-700">
                     Confirm new password
                 </label>
-                <input
+                <PasswordField
                     id="password_confirmation"
                     name="password_confirmation"
-                    type={show ? 'text' : 'password'}
-                    required
-                    minLength={8}
-                    autoComplete="new-password"
                     placeholder="Repeat the password"
-                    className="block w-full rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm transition-all placeholder:text-neutral-400 focus:border-[#FD1D1D] focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-500/15"
+                    inputClassName="block w-full rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 pr-11 text-sm transition-all placeholder:text-neutral-400 focus:border-[#FD1D1D] focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-500/15"
                 />
             </div>
 

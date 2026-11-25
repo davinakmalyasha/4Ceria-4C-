@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState } from 'react';
+import { PasswordField } from '@/components/forms/PasswordField';
 import { register, type RegisterState } from './actions';
 
 /**
@@ -25,17 +26,17 @@ export function RegisterForm() {
             <div className="grid grid-cols-2 gap-4">
                 <div>
                     <label htmlFor="register-name" className="block text-sm font-medium text-gray-700">Full Name</label>
-                    <input id="register-name" type="text" name="name" autoComplete="name" required className="mt-1 block w-full px-3 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:ring-[#FF2D20]/50 focus:border-[#FF2D20] sm:text-sm bg-white/50" />
+                    <input id="register-name" type="text" name="name" autoComplete="name" required maxLength={255} className="mt-1 block w-full px-3 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:ring-[#FF2D20]/50 focus:border-[#FF2D20] sm:text-sm bg-white/50" />
                 </div>
                 <div>
                     <label htmlFor="register-username" className="block text-sm font-medium text-gray-700">Username</label>
-                    <input id="register-username" type="text" name="username" autoComplete="username" required className="mt-1 block w-full px-3 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:ring-[#FF2D20]/50 focus:border-[#FF2D20] sm:text-sm bg-white/50" />
+                    <input id="register-username" type="text" name="username" autoComplete="username" required maxLength={255} className="mt-1 block w-full px-3 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:ring-[#FF2D20]/50 focus:border-[#FF2D20] sm:text-sm bg-white/50" />
                 </div>
             </div>
 
             <div>
                 <label htmlFor="register-email" className="block text-sm font-medium text-gray-700">Email address</label>
-                <input id="register-email" type="email" name="email" autoComplete="email" autoCapitalize="none" required className="mt-1 block w-full px-3 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:ring-[#FF2D20]/50 focus:border-[#FF2D20] sm:text-sm bg-white/50" />
+                <input id="register-email" type="email" name="email" autoComplete="email" autoCapitalize="none" required maxLength={255} className="mt-1 block w-full px-3 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:ring-[#FF2D20]/50 focus:border-[#FF2D20] sm:text-sm bg-white/50" />
             </div>
 
             <div>
@@ -48,11 +49,21 @@ export function RegisterForm() {
             <div className="grid grid-cols-2 gap-4">
                 <div>
                     <label htmlFor="register-password" className="block text-sm font-medium text-gray-700">Password</label>
-                    <input id="register-password" type="password" name="password" autoComplete="new-password" minLength={8} required className="mt-1 block w-full px-3 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:ring-[#FF2D20]/50 focus:border-[#FF2D20] sm:text-sm bg-white/50" />
+                    <PasswordField
+                        id="register-password"
+                        name="password"
+                        showStrength
+                        inputClassName="mt-1 block w-full px-3 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:ring-[#FF2D20]/50 focus:border-[#FF2D20] sm:text-sm bg-white/50"
+                    />
                 </div>
                 <div>
                     <label htmlFor="register-confirm" className="block text-sm font-medium text-gray-700">Confirm Password</label>
-                    <input id="register-confirm" type="password" name="password_confirmation" autoComplete="new-password" minLength={8} required className="mt-1 block w-full px-3 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:ring-[#FF2D20]/50 focus:border-[#FF2D20] sm:text-sm bg-white/50" />
+                    <PasswordField
+                        id="register-confirm"
+                        name="password_confirmation"
+                        placeholder="Repeat the password"
+                        inputClassName="mt-1 block w-full px-3 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:ring-[#FF2D20]/50 focus:border-[#FF2D20] sm:text-sm bg-white/50"
+                    />
                 </div>
             </div>
 

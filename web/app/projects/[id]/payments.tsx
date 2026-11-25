@@ -1,5 +1,7 @@
 import { formatIDR, titleCase } from '@/lib/format';
+import { EmptyState } from '@/components/feedback/EmptyState';
 import { uploadTerminProof, verifyTerminProof } from './payments-actions';
+import { UploadInput } from '@/components/forms/UploadInput';
 import { SubmitButton } from '@/app/dashboard/SubmitButton';
 
 /**
@@ -183,10 +185,10 @@ export function PaymentsPanel({
             </div>
 
             {termins.length === 0 ? (
-                <div className="bg-white rounded-2xl border border-neutral-200 p-8 text-sm text-neutral-500">
-                    No payment stages yet. The owner and the hired PM build the schedule before work
-                    starts.
-                </div>
+                <EmptyState
+                    title="No payment stages yet."
+                    body="The owner and the hired PM build the schedule before work starts."
+                />
             ) : (
                 <div className="space-y-8">
                     {[...groups.entries()].map(([role, rows]) => (
@@ -259,11 +261,11 @@ export function PaymentsPanel({
                                                         <span className="text-[9px] font-black uppercase tracking-wider text-neutral-400">
                                                             Transfer receipt (JPG, PNG or PDF)
                                                         </span>
-                                                        <input
-                                                            type="file"
+                                                        <UploadInput
                                                             name="proof"
                                                             accept="image/jpeg,image/png,image/jpg,application/pdf"
                                                             required
+                                                            maxMB={5}
                                                             className="mt-1 block w-full text-[11px] text-neutral-600 file:mr-2 file:rounded-lg file:border-0 file:bg-neutral-100 file:px-3 file:py-1.5 file:text-[10px] file:font-bold"
                                                         />
                                                     </label>

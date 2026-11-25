@@ -108,12 +108,12 @@ export function VerificationForm({
     return (
         <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-neutral-200 p-5 space-y-6">
             {error && (
-                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-bold text-red-700">
+                <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-bold text-red-700">
                     {error}
                 </div>
             )}
             {success && (
-                <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-bold text-emerald-700">
+                <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-bold text-emerald-700">
                     Application submitted successfully. The admin team will review your details.
                 </div>
             )}
@@ -221,7 +221,16 @@ export function VerificationForm({
                     <input
                         type="file"
                         accept="image/jpeg,image/png,image/jpg"
-                        onChange={(event) => setFoto(event.target.files?.[0] ?? null)}
+                        onChange={(event) => {
+                            const file = event.target.files?.[0] ?? null;
+                            if (file && file.size > 5 * 1024 * 1024) {
+                                setError(`"${file.name}" exceeds the 5 MB photo limit.`);
+                                event.target.value = '';
+                                setFoto(null);
+                                return;
+                            }
+                            setFoto(file);
+                        }}
                         className={`mt-1.5 ${fileClass}`}
                     />
                 </label>
@@ -233,7 +242,16 @@ export function VerificationForm({
                     <input
                         type="file"
                         accept=".pdf,.jpg,.jpeg,.png"
-                        onChange={(event) => setPortfolio(event.target.files?.[0] ?? null)}
+                        onChange={(event) => {
+                            const file = event.target.files?.[0] ?? null;
+                            if (file && file.size > 10 * 1024 * 1024) {
+                                setError(`"${file.name}" exceeds the 10 MB portfolio limit.`);
+                                event.target.value = '';
+                                setPortfolio(null);
+                                return;
+                            }
+                            setPortfolio(file);
+                        }}
                         className={`mt-1.5 ${fileClass}`}
                     />
                 </label>
@@ -245,7 +263,16 @@ export function VerificationForm({
                     <input
                         type="file"
                         accept=".pdf,.jpg,.jpeg,.png"
-                        onChange={(event) => setCertificate(event.target.files?.[0] ?? null)}
+                        onChange={(event) => {
+                            const file = event.target.files?.[0] ?? null;
+                            if (file && file.size > 5 * 1024 * 1024) {
+                                setError(`"${file.name}" exceeds the 5 MB certificate limit.`);
+                                event.target.value = '';
+                                setCertificate(null);
+                                return;
+                            }
+                            setCertificate(file);
+                        }}
                         className={`mt-1.5 ${fileClass}`}
                     />
                 </label>
