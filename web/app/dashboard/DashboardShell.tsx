@@ -5,6 +5,7 @@ import { useState, type ReactNode } from 'react';
 import { DashboardHeader } from '@/components/DashboardHeader';
 import { MobileNav } from '@/components/header/MobileNav';
 import { VerificationAlert } from '@/components/header/VerificationAlert';
+import { DataFreshness } from '@/components/feedback/DataFreshness';
 import { useAuth } from '@/context/AuthContext';
 import { ChatLauncher } from './ChatLauncher';
 import { AiLauncher } from '@/components/ai/AiLauncher';
@@ -84,6 +85,8 @@ export function DashboardShell({
                                 setActiveTab={setActiveTab}
                             />
                         )}
+
+                        <DataFreshness />
 
                         {nativeTab}
                     </div>

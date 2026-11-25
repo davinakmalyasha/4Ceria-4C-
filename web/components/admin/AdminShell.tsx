@@ -15,6 +15,7 @@ import {
     X,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { DataFreshness } from '@/components/feedback/DataFreshness';
 
 /**
  * The admin chrome.
@@ -159,7 +160,10 @@ export function AdminShell({
                     <span className="text-xs font-black uppercase tracking-[0.15em] text-neutral-900">Admin Portal</span>
                     <span className="w-9" />
                 </div>
-                <div className="p-4 sm:p-8 max-w-[1400px] mx-auto">{children}</div>
+                <div className="p-4 sm:p-8 max-w-[1400px] mx-auto">
+                    <DataFreshness />
+                    {children}
+                </div>
             </main>
         </div>
     );

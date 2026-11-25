@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Download, RefreshCw, Share, WifiOff, X } from 'lucide-react';
+import { Download, RefreshCw, Share, X } from 'lucide-react';
 import { usePwa } from './PwaProvider';
 
 const DISMISS_KEY = '4ceria.pwa.install.dismissed';
@@ -14,7 +14,7 @@ const DISMISS_KEY = '4ceria.pwa.install.dismissed';
  * button that cannot work.
  */
 export function PwaStatus() {
-    const { canInstall, installed, needsIosInstructions, updateReady, offline, install, applyUpdate } =
+    const { canInstall, installed, needsIosInstructions, updateReady, install, applyUpdate } =
         usePwa();
     const [dismissed, setDismissed] = useState(true);
     const [showIosHelp, setShowIosHelp] = useState(false);
@@ -82,20 +82,10 @@ export function PwaStatus() {
         );
     }
 
-    if (offline) {
-        return (
-            <div className="fixed inset-x-0 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-200 flex justify-center px-4">
-                <div className="flex items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-amber-900 shadow-xl">
-                    <WifiOff className="h-4 w-4 shrink-0" />
-                    <p className="text-xs font-bold">
-                        You are offline. The offline page and cached assets still open; project and
-                        payment actions need a connection.
-                    </p>
-                </div>
-            </div>
-        );
-    }
-
+    // Connectivity has its own surface now: <OfflineBanner /> in the root
+    // layout reads the framework signal (`useOffline()`), which also fires
+    // when a request fails behind a lying `navigator.onLine`. A second toast
+    // here would double-announce the same outage.
     if (installed || dismissed || !ready || (!canInstall && !needsIosInstructions)) {
         return null;
     }

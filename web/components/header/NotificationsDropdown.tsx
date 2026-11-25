@@ -465,9 +465,12 @@ export function NotificationsDropdown({
 
                     <div className="max-h-[400px] overflow-y-auto">
                         {notifications.length === 0 ? (
-                            <div className="py-12 text-center text-neutral-400">
-                                <Bell size={32} className="mx-auto mb-3 opacity-30" />
-                                <p className="font-semibold">No notifications yet</p>
+                            <div className="px-5 py-12 text-center text-neutral-400">
+                                <Bell size={32} className="mx-auto mb-3 opacity-30" aria-hidden="true" />
+                                <p className="text-sm font-black text-neutral-700">No notifications yet</p>
+                                <p className="mx-auto mt-1 max-w-[220px] text-[11px] leading-relaxed">
+                                    Bids, payments, milestones and deliveries will ping you here.
+                                </p>
                             </div>
                         ) : (
                             notifications.map((notification) => (

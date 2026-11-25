@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useToast } from '@/components/feedback/Toast';
 
 /**
  * Browser Web Push, adapted from the `usePushNotifications`.
@@ -36,6 +37,7 @@ export function usePushNotifications() {
     const [enabled, setEnabled] = useState(false);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const notify = useToast();
 
     useEffect(() => {
         const ok =
@@ -127,12 +129,13 @@ export function usePushNotifications() {
             }
 
             setEnabled(true);
+            notify('Push notifications enabled.');
         } catch {
             setError('Push could not be enabled.');
         } finally {
             setBusy(false);
         }
-    }, []);
+    }, [notify]);
 
     const disable = useCallback(async () => {
         setBusy(true);
@@ -148,12 +151,13 @@ export function usePushNotifications() {
             }
 
             setEnabled(false);
+            notify('Push notifications disabled.', 'info');
         } catch {
             setError('Push could not be disabled.');
         } finally {
             setBusy(false);
         }
-    }, []);
+    }, [notify]);
 
     return { supported, enabled, busy, error, enable, disable };
 }

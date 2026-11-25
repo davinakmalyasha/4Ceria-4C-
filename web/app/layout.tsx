@@ -3,6 +3,8 @@ import { Plus_Jakarta_Sans } from 'next/font/google';
 import '@/styles/globals.css';
 import { PwaProvider } from '@/components/pwa/PwaProvider';
 import { PwaStatus } from '@/components/pwa/PwaStatus';
+import { OfflineBanner } from '@/components/pwa/OfflineBanner';
+import { ToastProvider } from '@/components/feedback/Toast';
 
 const jakarta = Plus_Jakarta_Sans({
     subsets: ['latin'],
@@ -78,8 +80,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <html lang="id" data-scroll-behavior="smooth" className={jakarta.variable}>
             <body className="antialiased" style={{ fontFamily: 'var(--font-jakarta), system-ui, sans-serif' }}>
                 <PwaProvider>
-                    {children}
-                    <PwaStatus />
+                    <ToastProvider>
+                        {children}
+                        <PwaStatus />
+                        <OfflineBanner />
+                    </ToastProvider>
                 </PwaProvider>
             </body>
         </html>

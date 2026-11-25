@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import { useToast } from '@/components/feedback/Toast';
 
 /**
  * Native document upload.
@@ -45,6 +46,7 @@ const inputClass =
 
 export function DocumentUpload({ projectId }: { projectId: number }) {
     const router = useRouter();
+    const notify = useToast();
     const [open, setOpen] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -56,6 +58,12 @@ export function DocumentUpload({ projectId }: { projectId: number }) {
 
         const form = event.currentTarget;
         const data = new FormData(form);
+        const file = data.get('file');
+        if (file instanceof File && file.size > 20 * 1024 * 1024) {
+            setError(`"${file.name}" is ${(file.size / 1048576).toFixed(1)} MB — the limit is 20 MB per file.`);
+            setSubmitting(false);
+            return;
+        }
 
         try {
             const response = await fetch(`/api/projects/${projectId}/documents`, {
@@ -74,6 +82,7 @@ export function DocumentUpload({ projectId }: { projectId: number }) {
 
             form.reset();
             setOpen(false);
+            notify('Document uploaded.');
             router.refresh();
         } catch {
             setError('The document could not be uploaded. Check your connection and try again.');
@@ -103,7 +112,7 @@ export function DocumentUpload({ projectId }: { projectId: number }) {
             {open && (
                 <form onSubmit={handleSubmit} className="mt-4 space-y-4">
                     {error && (
-                        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-bold text-red-700">
+                        <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-bold text-red-700">
                             {error}
                         </div>
                     )}
