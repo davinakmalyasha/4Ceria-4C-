@@ -1,5 +1,6 @@
 import { titleCase } from '@/lib/format';
 import { ConfirmSubmit } from '@/app/dashboard/confirmSubmit';
+import { EmptyState } from '@/components/feedback/EmptyState';
 import { DocumentUpload } from './documentUpload';
 import { deleteDocument, verifyDocument } from './files-actions';
 
@@ -86,15 +87,16 @@ export function FilesPanel({
             </div>
 
             {error && (
-                <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700">{error}</div>
+                <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700">{error}</div>
             )}
 
             <DocumentUpload projectId={projectId} />
 
             {documents.length === 0 ? (
-                <div className="bg-white rounded-2xl border border-dashed border-neutral-200 p-8 text-sm text-neutral-500">
-                    The vault is empty. Upload the first document above.
-                </div>
+                <EmptyState
+                    title="The vault is empty."
+                    body="Upload the first document above — contracts, designs and receipts live here."
+                />
             ) : (
                 <div className="space-y-8">
                     {[...groups.entries()].map(([category, rows]) => (

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { EmptyState } from '@/components/feedback/EmptyState';
 import { titleCase } from '@/lib/format';
 import { ConfirmSubmit } from '@/app/dashboard/confirmSubmit';
 import { acceptBid, declineBid, recommendSpecialist, shortlistBid } from './interviews-actions';
@@ -188,22 +189,16 @@ export function InterviewsPanel({
             </div>
 
             {error && (
-                <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700">{error}</div>
+                <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700">{error}</div>
             )}
 
             {rows.length === 0 ? (
-                <div className="bg-white rounded-2xl border border-dashed border-neutral-200 p-8 text-sm text-neutral-500">
-                    <p className="font-black text-neutral-900">No candidates in the interview stage yet.</p>
-                    <p className="mt-1">
-                        Shortlisting a proposal moves it here.{' '}
-                        <Link
-                            href={`/projects/${projectId}/proposals`}
-                            className="font-bold text-neutral-900 hover:text-red-600"
-                        >
-                            Triage proposals →
-                        </Link>
-                    </p>
-                </div>
+                <EmptyState
+                    title="No candidates in the interview stage yet."
+                    body="Shortlisting a proposal moves it here."
+                    actionHref={`/projects/${projectId}/proposals`}
+                    actionLabel="Triage proposals"
+                />
             ) : (
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                     {rows.map(({ bid, bidType, roleLabel }) => {

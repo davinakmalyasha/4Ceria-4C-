@@ -4,6 +4,7 @@ import { apiFetch } from '@/lib/api';
 import { titleCase } from '@/lib/format';
 import { reviewProfessional } from '../actions';
 import { AdminPageHeader, ErrorNote, hrefWith } from '@/components/admin/parts';
+import { EmptyState } from '@/components/feedback/EmptyState';
 import type { ProfessionalsPayload, ProfessionalRow } from '@/components/admin/types';
 
 const TABS: { key: string; label: string; dataKey: keyof ProfessionalsPayload }[] = [
@@ -111,9 +112,10 @@ export default async function AdminVerificationPage({
             </div>
 
             {rows.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-neutral-200 bg-white p-10 text-center text-sm text-neutral-500">
-                    No pending {activeTab.label.toLowerCase()} applications.
-                </div>
+                <EmptyState
+                    title={`No pending ${activeTab.label.toLowerCase()} applications.`}
+                    body="New applications land here for review once professionals submit their documents."
+                />
             ) : (
                 <div className="space-y-4">
                     {rows.map((row) => (

@@ -1,4 +1,5 @@
 import { titleCase } from '@/lib/format';
+import { EmptyState } from '@/components/feedback/EmptyState';
 
 /**
  * Native activity panel.
@@ -36,9 +37,10 @@ export function ActivityPanel({ events }: { events: ActivityRow[] }) {
             </div>
 
             {events.length === 0 ? (
-                <div className="bg-white rounded-2xl border border-dashed border-neutral-200 p-8 text-sm text-neutral-500">
-                    No activity recorded yet.
-                </div>
+                <EmptyState
+                    title="No activity recorded yet."
+                    body="Bids, payments, milestones and decisions are logged here as they happen."
+                />
             ) : (
                 <div className="relative">
                     <div className="absolute left-[19px] top-4 bottom-4 w-px bg-neutral-200" aria-hidden />

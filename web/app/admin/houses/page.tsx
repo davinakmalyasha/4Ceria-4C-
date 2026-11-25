@@ -3,6 +3,7 @@ import { apiFetch } from '@/lib/api';
 import { formatIDR } from '@/lib/format';
 import { toggleHouseSuspend } from '../actions';
 import { AdminPageHeader, ErrorNote, Pagination } from '@/components/admin/parts';
+import { TableEmpty } from '@/components/feedback/EmptyState';
 import type { AdminHouseRow, Paginated } from '@/components/admin/types';
 
 const inputClass =
@@ -67,11 +68,11 @@ export default async function AdminHousesPage({
                         </thead>
                         <tbody className="divide-y divide-neutral-100 text-xs">
                             {(houses.data ?? []).length === 0 ? (
-                                <tr>
-                                    <td colSpan={6} className="px-6 py-12 text-center italic text-neutral-400">
-                                        No property listings match these filters.
-                                    </td>
-                                </tr>
+                                <TableEmpty
+                                    colSpan={6}
+                                    title="No property listings match these filters."
+                                    hint="Try widening the search — owners publish listings from the dashboard."
+                                />
                             ) : (
                                 (houses.data ?? []).map((house) => (
                                     <tr key={house.id} className="hover:bg-neutral-50/50">

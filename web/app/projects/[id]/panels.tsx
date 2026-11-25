@@ -1,6 +1,8 @@
 import Link from 'next/link';
+import { DataFreshness } from '@/components/feedback/DataFreshness';
 import { approveMilestone, clientSignContract } from './process-actions';
 import { SubmitButton } from '@/app/dashboard/SubmitButton';
+import { EmptyState } from '@/components/feedback/EmptyState';
 import { SignaturePad } from '@/app/dashboard/SignaturePad';
 import type { ReactNode } from 'react';
 import { PROJECT_TABS, type ProjectTab } from './tabs';
@@ -141,7 +143,10 @@ export function ProjectShell({
                     </nav>
                 </div>
             </header>
-            <main className="max-w-6xl mx-auto px-4 sm:px-8 py-8">{children}</main>
+            <main className="max-w-6xl mx-auto px-4 sm:px-8 py-8">
+                <DataFreshness />
+                {children}
+            </main>
         </div>
     );
 }
@@ -197,7 +202,10 @@ export function OverviewPanel({ project, bidSlot }: { project: ProjectPayload; b
                 <section className="bg-white rounded-2xl border border-neutral-200 p-6">
                     <h2 className="text-sm font-black uppercase tracking-wider text-neutral-400">Milestones</h2>
                     {(project.milestones ?? []).length === 0 ? (
-                        <p className="mt-3 text-sm text-neutral-500">No milestones yet.</p>
+                        <EmptyState
+                            title="No milestones yet."
+                            body="Milestones break the work into verifiable stages. The hired professional drafts them; the owner approves each one."
+                        />
                     ) : (
                         <ul className="mt-3 space-y-2 text-sm">
                             {(project.milestones ?? []).map((milestone) => (
@@ -242,7 +250,12 @@ export function BudgetPanel({ project, budget }: { project: ProjectPayload; budg
                     <h2 className="text-sm font-black uppercase tracking-wider text-neutral-400">Payment stages</h2>
                 </div>
                 {termins.length === 0 ? (
-                    <p className="px-6 py-6 text-sm text-neutral-500">No payment stages have been drafted yet.</p>
+                    <div className="px-6 py-6">
+                        <EmptyState
+                            title="No payment stages have been drafted yet."
+                            body="Each stage ties money to a milestone. They unlock once the contract is signed."
+                        />
+                    </div>
                 ) : (
                     <table className="w-full text-sm">
                         <thead>
@@ -276,7 +289,12 @@ export function BudgetPanel({ project, budget }: { project: ProjectPayload; budg
                     <h2 className="text-sm font-black uppercase tracking-wider text-neutral-400">Ledger</h2>
                 </div>
                 {(budget.transactions ?? []).length === 0 ? (
-                    <p className="px-6 py-6 text-sm text-neutral-500">No ledger movements recorded.</p>
+                    <div className="px-6 py-6">
+                        <EmptyState
+                            title="No ledger movements recorded."
+                            body="Deposits, payments, refunds and retention releases appear here with their references."
+                        />
+                    </div>
                 ) : (
                     <ul className="divide-y divide-neutral-100">
                         {(budget.transactions ?? []).map((transaction) => (
@@ -468,25 +486,18 @@ export function ProposalsPanel({ bids, projectId, error, updated }: { bids: Bids
                 <div role="alert" className="mb-5 rounded-2xl border border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700">{error}</div>
             )}
             {updated === 'signed' && (
-                <div className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-sm text-emerald-800">
+                <div role="status" className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-sm text-emerald-800">
                     Contract countersigned. The payment stages are now on the Payments tab.
                 </div>
             )}
 
             {total === 0 ? (
-                <div className="bg-white rounded-2xl border border-dashed border-neutral-200 p-8 text-sm text-neutral-500">
-                    <p className="font-black text-neutral-900">No proposals have been submitted yet.</p>
-                    <p className="mt-1">
-                        Share the brief with professionals or invite a specific pro — new bids
-                        appear here grouped by role.{' '}
-                        <Link
-                            href={`/projects/${projectId}/interviews`}
-                            className="font-bold text-neutral-900 hover:text-red-600"
-                        >
-                            Open the interviews board →
-                        </Link>
-                    </p>
-                </div>
+                <EmptyState
+                    title="No proposals have been submitted yet."
+                    body="Share the brief with professionals or invite a specific pro — new bids appear here grouped by role."
+                    actionHref={`/projects/${projectId}/interviews`}
+                    actionLabel="Open the interviews board"
+                />
             ) : (
                 <div className="space-y-8">
                     {groups.map((group) => (
@@ -597,7 +608,7 @@ export function ProcessPanel({
                 </div>
             )}
             {updated === 'approved' && (
-                <div className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                <div role="status" className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
                     Milestone approved. Any linked payment stage is now unlocked.
                 </div>
             )}

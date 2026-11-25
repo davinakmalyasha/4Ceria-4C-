@@ -4,6 +4,7 @@ import { apiFetch } from '@/lib/api';
 import { formatIDR } from '@/lib/format';
 import { forceTerminateProject } from '../actions';
 import { AdminPageHeader, ErrorNote, Pagination } from '@/components/admin/parts';
+import { TableEmpty } from '@/components/feedback/EmptyState';
 import { ConfirmSubmit } from '@/app/dashboard/confirmSubmit';
 import type { AdminProjectRow, Paginated } from '@/components/admin/types';
 
@@ -79,11 +80,11 @@ export default async function AdminProjectsPage({
                         </thead>
                         <tbody className="divide-y divide-neutral-100 text-xs">
                             {(projects.data ?? []).length === 0 ? (
-                                <tr>
-                                    <td colSpan={9} className="px-6 py-12 text-center italic text-neutral-400">
-                                        No projects match these filters.
-                                    </td>
-                                </tr>
+                                <TableEmpty
+                                    colSpan={9}
+                                    title="No projects match these filters."
+                                    hint="Try widening the search — new projects appear here once owners publish them."
+                                />
                             ) : (
                                 (projects.data ?? []).map((project) => (
                                     <tr key={project.id} className="hover:bg-neutral-50/50">

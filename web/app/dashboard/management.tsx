@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { assetUrl } from '@/lib/assets';
 import { formatIDR, titleCase } from '@/lib/format';
 import { CoverImage } from '@/components/CoverImage';
+import { EmptyState } from '@/components/feedback/EmptyState';
 
 /**
  * Native "Management" panel.
@@ -60,19 +61,12 @@ export function ManagementPanel({ projects }: { projects: ManagementProject[] })
             </div>
 
             {projects.length === 0 ? (
-                <div className="bg-white rounded-2xl border border-dashed border-neutral-200 p-10 text-center">
-                    <h2 className="text-sm font-black text-neutral-900">No Active Projects Yet</h2>
-                    <p className="mt-1 text-xs text-neutral-500 max-w-md mx-auto">
-                        Once your proposals are accepted by clients they appear here. Keep bidding on the
-                        Bidding Board.
-                    </p>
-                    <Link
-                        href="/dashboard/explore"
-                        className="mt-5 inline-flex px-4 py-2 rounded-xl bg-neutral-900 text-white text-[10px] font-black uppercase tracking-wider hover:bg-neutral-700"
-                    >
-                        Browse tenders
-                    </Link>
-                </div>
+                <EmptyState
+                    title="No Active Projects Yet"
+                    body="Once your proposals are accepted by clients they appear here. Keep bidding on the Bidding Board."
+                    actionHref="/dashboard/explore"
+                    actionLabel="Browse tenders"
+                />
             ) : (
                 <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
                     {projects.map((project) => {

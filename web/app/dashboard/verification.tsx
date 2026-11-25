@@ -1,4 +1,5 @@
 import { titleCase } from '@/lib/format';
+import { EmptyState } from '@/components/feedback/EmptyState';
 import type { User } from '@/context/AuthContext';
 import { VerificationForm } from './verificationForm';
 
@@ -110,7 +111,7 @@ export function VerificationPanel({ user }: { user: User }) {
                 </p>
             </div>
 
-            <section className={`rounded-2xl border p-5 ${card.tone}`}>
+            <section role={status === 'rejected' ? 'alert' : undefined} className={`rounded-2xl border p-5 ${card.tone}`}>
                 <h2 className="text-sm font-black uppercase tracking-widest">{card.heading}</h2>
                 <p className="mt-2 text-xs font-semibold leading-relaxed">{card.body}</p>
             </section>
@@ -137,7 +138,10 @@ export function VerificationPanel({ user }: { user: User }) {
                                 Submitted details
                             </h2>
                             {metadata.length === 0 ? (
-                                <p className="text-sm text-neutral-500">No details have been submitted yet.</p>
+                                <EmptyState
+                                    title="No details have been submitted yet."
+                                    body="Fill in the application below to start verification."
+                                />
                             ) : (
                                 <dl className="space-y-2 text-sm">
                                     {metadata.map((row) => (
@@ -157,7 +161,10 @@ export function VerificationPanel({ user }: { user: User }) {
                                 Uploaded documents
                             </h2>
                             {documents.length === 0 ? (
-                                <p className="text-sm text-neutral-500">No documents uploaded yet.</p>
+                                <EmptyState
+                                    title="No documents uploaded yet."
+                                    body="Upload your photo, portfolio and certificates below."
+                                />
                             ) : (
                                 <ul className="space-y-2">
                                     {documents.map((document) => (

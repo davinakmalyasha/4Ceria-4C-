@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { EmptyState } from '@/components/feedback/EmptyState';
 import { formatIDR, titleCase } from '@/lib/format';
 import { acceptInvite, rejectInvite, signContract } from './bid-actions';
 import { SubmitButton } from './SubmitButton';
@@ -236,10 +237,7 @@ function BidSection({
             </h2>
 
             {rows.length === 0 ? (
-                <div className="bg-white rounded-2xl border border-dashed border-neutral-200 p-8">
-                    <p className="text-sm font-black text-neutral-900">{emptyTitle}</p>
-                    <p className="mt-1 text-xs text-neutral-500 max-w-md">{emptyBody}</p>
-                </div>
+                <EmptyState title={emptyTitle} body={emptyBody} />
             ) : (
                 <div className="grid gap-4 lg:grid-cols-2">
                     {rows.map((bid) => (

@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Check, X } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
 import { AdminPageHeader, Pagination } from '@/components/admin/parts';
+import { TableEmpty } from '@/components/feedback/EmptyState';
 import type { HistoryRow, Paginated } from '@/components/admin/types';
 
 function badge(status: string) {
@@ -52,11 +53,11 @@ export default async function AdminVerificationLogsPage({
                     </thead>
                     <tbody className="divide-y divide-neutral-100 text-xs">
                         {(history.data ?? []).length === 0 ? (
-                            <tr>
-                                <td colSpan={5} className="px-6 py-12 text-center italic text-neutral-400">
-                                    No verification history recorded yet.
-                                </td>
-                            </tr>
+                            <TableEmpty
+                                colSpan={5}
+                                title="No verification history recorded yet."
+                                hint="Approved and rejected applications are listed here with their reasons."
+                            />
                         ) : (
                             (history.data ?? []).map((row, index) => {
                                 const initials = (row.name ?? '?')

@@ -1,4 +1,5 @@
 import { titleCase } from '@/lib/format';
+import { EmptyState } from '@/components/feedback/EmptyState';
 import type { DocumentRow } from './files';
 import type { ProjectPayload } from './panels';
 
@@ -170,10 +171,12 @@ export function LegalPanel({
                     </h2>
                 </div>
                 {legalDocuments.length === 0 ? (
-                    <p className="px-6 py-6 text-sm text-neutral-500">
-                        No legal documents uploaded yet. Compliance files appear here once
-                        the owner uploads them in the Files tab.
-                    </p>
+                    <div className="px-6 py-6">
+                        <EmptyState
+                            title="No legal documents uploaded yet."
+                            body="Compliance files appear here once the owner uploads them in the Files tab."
+                        />
+                    </div>
                 ) : (
                     <table className="w-full text-sm">
                         <thead>

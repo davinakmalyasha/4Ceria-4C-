@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { EmptyState } from '@/components/feedback/EmptyState';
 import { assetUrl } from '@/lib/assets';
 import { formatIDR } from '@/lib/format';
 import type { DirectoryRow } from './explore';
@@ -28,12 +29,10 @@ export function FindSubContractorsPanel({ contractors }: { contractors: Director
             </div>
 
             {contractors.length === 0 ? (
-                <div className="bg-white rounded-2xl border border-dashed border-neutral-200 p-10 text-center">
-                    <h2 className="text-sm font-black text-neutral-900">No sub-contractors found</h2>
-                    <p className="mt-1 text-xs text-neutral-500">
-                        No contractor profiles are listed yet.
-                    </p>
-                </div>
+                <EmptyState
+                    title="No sub-contractors found"
+                    body="No contractor profiles are listed yet."
+                />
             ) : (
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                     {contractors.map((contractor) => {

@@ -4,6 +4,7 @@ import { apiFetch } from '@/lib/api';
 import { formatIDR, titleCase } from '@/lib/format';
 import { actOnDispute, replyToDispute } from '../actions';
 import { AdminPageHeader, ErrorNote, Pagination, hrefWith } from '@/components/admin/parts';
+import { TableEmpty } from '@/components/feedback/EmptyState';
 import { ConfirmSubmit } from '@/app/dashboard/confirmSubmit';
 import type { DisputeRow, DisputesPayload } from '@/components/admin/types';
 
@@ -281,11 +282,11 @@ export default async function AdminDisputesPage({
                     </thead>
                     <tbody className="divide-y divide-neutral-100 text-xs">
                         {rows.length === 0 ? (
-                            <tr>
-                                <td colSpan={6} className="px-6 py-12 text-center italic text-neutral-400">
-                                    No disputes in this queue.
-                                </td>
-                            </tr>
+                            <TableEmpty
+                                colSpan={6}
+                                title="No disputes in this queue."
+                                hint="Open disputes appear here with their freeze status and evidence."
+                            />
                         ) : (
                             rows.map((row) => (
                                 <tr key={row.id} className="hover:bg-neutral-50/50">

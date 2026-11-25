@@ -5,6 +5,7 @@ import { respondToInvitation } from './overview-actions';
 import { FirmBrowsePanel, FirmOwnerWorkspace } from './firmWorkspace';
 import type { FirmBrowseRow, FirmJob } from './firmWorkspace';
 import { CoverImage } from '@/components/CoverImage';
+import { EmptyState } from '@/components/feedback/EmptyState';
 
 /**
  * Native firms cluster.
@@ -202,7 +203,7 @@ export function FirmListPanel({
             </div>
 
             {error && (
-                <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700">{error}</div>
+                <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700">{error}</div>
             )}
 
             <section>
@@ -210,9 +211,10 @@ export function FirmListPanel({
                     Active memberships · {memberships.length}
                 </h2>
                 {memberships.length === 0 ? (
-                    <div className="bg-white rounded-2xl border border-dashed border-neutral-200 p-8 text-sm text-neutral-500">
-                        You have not joined a firm yet. Browse squads and request to join one.
-                    </div>
+                    <EmptyState
+                        title="You have not joined a firm yet."
+                        body="Browse squads and request to join one."
+                    />
                 ) : (
                     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                         {memberships.map((membership) => (
@@ -253,9 +255,10 @@ export function FirmListPanel({
                     Invitations · {invitations.length}
                 </h2>
                 {invitations.length === 0 ? (
-                    <div className="bg-white rounded-2xl border border-dashed border-neutral-200 p-8 text-sm text-neutral-500">
-                        No pending invitations.
-                    </div>
+                    <EmptyState
+                        title="No pending invitations."
+                        body="Firm owners invite specialists by trade — invitations land here."
+                    />
                 ) : (
                     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                         {invitations.map((invitation) => (

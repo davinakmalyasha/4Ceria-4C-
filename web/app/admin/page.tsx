@@ -3,6 +3,7 @@ import { Briefcase, Clock, Home, Users } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
 import { changeUserRole, toggleUserSuspend } from './actions';
 import { AdminPageHeader, ErrorNote, Pagination } from '@/components/admin/parts';
+import { TableEmpty } from '@/components/feedback/EmptyState';
 import type { AdminStats, AdminUserRow, Paginated } from '@/components/admin/types';
 
 const ROLE_OPTIONS = [
@@ -172,11 +173,11 @@ export default async function AdminPage({
                         </thead>
                         <tbody className="divide-y divide-neutral-100 text-xs">
                             {rows.length === 0 ? (
-                                <tr>
-                                    <td colSpan={4} className="px-6 py-12 text-center italic text-neutral-400">
-                                        No user records match these filters.
-                                    </td>
-                                </tr>
+                                <TableEmpty
+                                    colSpan={4}
+                                    title="No user records match these filters."
+                                    hint="Try widening the search or clearing the role filter."
+                                />
                             ) : (
                                 rows.map((row) => (
                                     <tr key={row.id} className="hover:bg-neutral-50/50">

@@ -1,4 +1,5 @@
 import { postComment } from './qa-actions';
+import { EmptyState } from '@/components/feedback/EmptyState';
 import { CoverImage } from '@/components/CoverImage';
 
 /**
@@ -100,7 +101,7 @@ export function QaPanel({
             </div>
 
             {error && (
-                <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700">
+                <div role="alert" className="mb-5 rounded-2xl border border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700">
                     {error}
                 </div>
             )}
@@ -133,9 +134,10 @@ export function QaPanel({
             </form>
 
             {threads.length === 0 ? (
-                <div className="bg-white rounded-2xl border border-neutral-200 p-8 text-sm text-neutral-500">
-                    No questions yet. The first message opens the thread.
-                </div>
+                <EmptyState
+                    title="No questions yet."
+                    body="The first message opens the thread — ask about scope, schedule or cost."
+                />
             ) : (
                 <div className="space-y-5">
                     {threads.map((thread) => {

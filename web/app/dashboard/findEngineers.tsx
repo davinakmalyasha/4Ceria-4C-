@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { EmptyState } from '@/components/feedback/EmptyState';
 import { formatIDR } from '@/lib/format';
 import type { DirectoryRow } from './explore';
 
@@ -79,9 +80,10 @@ function EngineerSection({
             </div>
 
             {rows.length === 0 ? (
-                <div className="bg-white rounded-2xl border border-dashed border-neutral-200 p-8 text-sm text-neutral-500">
-                    No engineers are listed in this category yet.
-                </div>
+                <EmptyState
+                    title="No engineers are listed in this category yet."
+                    body="Verified specialists appear here once approved."
+                />
             ) : (
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                     {rows.map((engineer) => (

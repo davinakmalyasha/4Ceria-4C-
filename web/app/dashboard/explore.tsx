@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { EmptyState } from '@/components/feedback/EmptyState';
 import { assetUrl } from '@/lib/assets';
 import { formatIDR, titleCase } from '@/lib/format';
 import { CoverImage } from '@/components/CoverImage';
@@ -230,7 +231,10 @@ function ProfessionalsSection({ professionals }: { professionals: Record<string,
                             </Link>
                         </div>
                         {rows.length === 0 ? (
-                            <p className="text-xs text-neutral-500">No professionals are listed in this category yet.</p>
+                            <EmptyState
+                                title="No professionals are listed in this category yet."
+                                body="Verified professionals appear here once approved. Check another category in the meantime."
+                            />
                         ) : (
                             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                                 {rows.slice(0, 4).map((professional) => (
@@ -258,7 +262,12 @@ function MarketplaceSection({ materials, suppliers }: { materials: MaterialRow[]
                     </Link>
                 </div>
                 {materials.length === 0 ? (
-                    <p className="text-xs text-neutral-500">No materials are listed yet.</p>
+                    <EmptyState
+                        title="No materials are listed yet."
+                        body="Supplier catalogues appear here once merchants publish them."
+                        actionHref="/dashboard/marketplace"
+                        actionLabel="Open marketplace"
+                    />
                 ) : (
                     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                         {materials.map((material) => (
@@ -296,7 +305,12 @@ function MarketplaceSection({ materials, suppliers }: { materials: MaterialRow[]
                     </h3>
                 </div>
                 {suppliers.length === 0 ? (
-                    <p className="text-xs text-neutral-500">No suppliers are listed yet.</p>
+                    <EmptyState
+                        title="No suppliers are listed yet."
+                        body="Verified suppliers appear here once approved."
+                        actionHref="/dashboard/marketplace"
+                        actionLabel="Open marketplace"
+                    />
                 ) : (
                     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                         {suppliers.map((supplier) => (
