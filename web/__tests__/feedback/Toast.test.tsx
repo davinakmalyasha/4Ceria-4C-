@@ -104,6 +104,31 @@ describe('Toast', () => {
         expect(screen.getByRole('status').textContent).toContain('Heads up');
     });
 
+    test('double-dismiss of the same toast leaves other toasts alone', () => {
+        render(
+            <ToastProvider>
+                <Trigger message="First" />
+                <Trigger message="Second" />
+            </ToastProvider>,
+        );
+        fireEvent.click(screen.getByRole('button', { name: 'fire-First' }));
+        fireEvent.click(screen.getByRole('button', { name: 'fire-Second' }));
+        const dismissFirst = screen.getAllByRole('button', { name: 'Dismiss notification' })[0];
+        act(() => {
+            // A rapid double-click lands twice before React unmounts the
+            // toast. The second dismiss finds no timer and must be a no-op
+            // rather than throwing or clearing another toast's timer.
+            dismissFirst.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            dismissFirst.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        });
+        expect(screen.queryByText('First')).toBeNull();
+        expect(screen.getByText('Second')).toBeDefined();
+        act(() => {
+            vi.advanceTimersByTime(5000);
+        });
+        expect(screen.queryByText('Second')).toBeNull();
+    });
+
     test('notify is a no-op outside a provider', () => {
         function Fire() {
             const notify = useToast();
