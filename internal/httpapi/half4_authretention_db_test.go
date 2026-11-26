@@ -239,6 +239,9 @@ func TestHalfRetentionScheduler(t *testing.T) {
 	}
 	lim := NewPgLimiter(pool)
 	req := httptest.NewRequest(http.MethodPost, "/api/login", nil)
+	// Caller-bound key: immune to rows other tests or earlier CI steps
+	// leave in the shared database under the common httptest IP.
+	req = req.WithContext(withCaller(req.Context(), Session{ID: 9_999_002, Role: "client"}))
 	// clean key then allow/block/remaining
 	_, _ = pool.Exec(ctx, `DELETE FROM rate_limit_hits WHERE key = $1`, limiterKey(req))
 	ok, _, _ := lim.Allow(req, 1, time.Minute)

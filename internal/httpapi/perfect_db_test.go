@@ -43,6 +43,9 @@ func TestPgLimiterBlocksOverLimit(t *testing.T) {
 	defer pool.Close()
 	// Unique key per run to avoid cross-test interference.
 	req := limiterTestRequest(t, "pg-limiter-test-key")
+	// Caller-bound key: immune to rows other tests or earlier CI steps
+	// leave in the shared database under the common httptest IP.
+	req = req.WithContext(withCaller(req.Context(), Session{ID: 9_999_001, Role: "arsitek"}))
 	lim := NewPgLimiter(pool)
 	// Clean slate for this key.
 	_, _ = pool.Exec(context.Background(), `DELETE FROM rate_limit_hits WHERE key = $1`, limiterKey(req))
