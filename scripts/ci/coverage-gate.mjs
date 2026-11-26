@@ -58,17 +58,19 @@ if (result.status !== 0) {
 }
 
 const failures = [];
+const seen = new Set();
 for (const line of result.stdout.split('\n')) {
-    const match = line.match(/^(github\.com\/\S+\/(internal\/\S+))\s+coverage:\s+([\d.]+)%/);
+    const match = line.match(/(internal\/\S+)\s+(?:[\d.]+s|\(cached\))\s+coverage:\s+([\d.]+)%/);
     if (!match) {
         continue;
     }
-    const pkg = match[2];
-    const pct = Number.parseFloat(match[3]);
+    const pkg = match[1];
+    const pct = Number.parseFloat(match[2]);
     const bar = BARS.get(pkg);
     if (bar === undefined) {
         continue;
     }
+    seen.add(pkg);
     if (pct < bar) {
         failures.push(`${pkg}: ${pct}% < bar ${bar}%`);
     } else {
@@ -78,6 +80,17 @@ for (const line of result.stdout.split('\n')) {
 
 if (failures.length > 0) {
     process.stderr.write(`::error::coverage below bar: ${failures.join('; ')}\n`);
+    process.exit(1);
+}
+
+for (const pkg of BARS.keys()) {
+    if (!seen.has(pkg)) {
+        process.stderr.write(`::error::no coverage line for ${pkg} (gate would pass vacuously)\n`);
+        failures.push(pkg);
+    }
+}
+
+if (failures.length > 0) {
     process.exit(1);
 }
 
