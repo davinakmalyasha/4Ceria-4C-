@@ -33,10 +33,7 @@ func main() {
 	httpapi.LoadDotEnv(".env")
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
 
-	dsn := os.Getenv("DATABASE_URL")
-	if dsn == "" {
-		dsn = "postgres://postgres@127.0.0.1:5432/4ceria_pgcheck"
-	}
+	dsn := defaultRetentionDSN(os.Getenv("DATABASE_URL"))
 
 	cfg, err := pgxpool.ParseConfig(dsn)
 	if err != nil {
@@ -48,7 +45,7 @@ func main() {
 		return err
 	}
 	// Single-purpose sweeper: small pool, short life.
-	cfg.MaxConns = 4
+	cfg.MaxConns = defaultRetentionMaxConns()
 
 	pool, err := pgxpool.NewWithConfig(context.Background(), cfg)
 	if err != nil {
@@ -62,10 +59,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	var filter *int64
-	if *projectID != 0 {
-		filter = projectID
-	}
+	filter := retentionProjectFilter(*projectID)
 
 	res, err := httpapi.ReleaseExpiredRetentions(context.Background(), pool, filter, *dryRun, logger)
 	if err != nil {
@@ -76,39 +70,7 @@ func main() {
 	for _, line := range res.Lines {
 		fmt.Println(" ", line)
 	}
-	verb := "Released"
-	if *dryRun {
-		verb = "WOULD RELEASE"
-	}
-	fmt.Printf("%s %d stage(s), total Rp %s\n", verb, res.ReleasedStages, formatIDR(res.ReleasedTotalMinor))
-	fmt.Printf("projects scanned %d | skipped (blocking claim) %d | skipped (open dispute) %d | skipped (nothing held) %d\n",
-		res.Scanned, res.SkippedBlocked, res.SkippedDispute, res.SkippedNothingHeld)
-}
-
-func formatIDR(minor int64) string {
-	neg := minor < 0
-	if neg {
-		minor = -minor
-	}
-	whole := minor / 100
-	var digits []byte
-	if whole == 0 {
-		digits = []byte("0")
-	} else {
-		for whole > 0 {
-			digits = append([]byte{byte('0' + whole%10)}, digits...)
-			whole /= 10
-		}
-	}
-	var grouped []byte
-	for i, c := range digits {
-		if i > 0 && (len(digits)-i)%3 == 0 {
-			grouped = append(grouped, '.')
-		}
-		grouped = append(grouped, c)
-	}
-	if neg {
-		return "-" + string(grouped)
-	}
-	return string(grouped)
+	totalLine, statsLine := formatRetentionSummary(res, *dryRun)
+	fmt.Println(totalLine)
+	fmt.Println(statsLine)
 }

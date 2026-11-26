@@ -26,8 +26,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strconv"
-	"strings"
 	"syscall"
 	"time"
 
@@ -37,11 +35,12 @@ import (
 )
 
 func main() {
-	manifestPath := flag.String("manifest", "routing/routes.yaml", "the route manifest to serve")
-	addr := flag.String("addr", ":8080", "the address to listen on")
-	readTimeout := flag.Duration("read-timeout", 15*time.Second, "the read timeout")
-	writeTimeout := flag.Duration("write-timeout", 30*time.Second, "the write timeout")
-	shutdownTimeout := flag.Duration("shutdown-timeout", 20*time.Second, "how long to wait for in-flight requests")
+	defCfg := defaultGatewayConfig()
+	manifestPath := flag.String("manifest", defCfg.manifestPath, "the route manifest to serve")
+	addr := flag.String("addr", defCfg.addr, "the address to listen on")
+	readTimeout := flag.Duration("read-timeout", defCfg.readTimeout, "the read timeout")
+	writeTimeout := flag.Duration("write-timeout", defCfg.writeTimeout, "the write timeout")
+	shutdownTimeout := flag.Duration("shutdown-timeout", defCfg.shutdownTimeout, "how long to wait for in-flight requests")
 	flag.Parse()
 
 	// Local development reads `.env`; production injects the environment
@@ -54,12 +53,8 @@ func main() {
 	// line while the API reports success. Development keeps the permissive
 	// behavior so `go run` works with no secrets.
 	if envIsProd() {
-		if os.Getenv("APP_KEY") == "" {
-			slog.New(slog.NewJSONHandler(os.Stderr, nil)).Error("refusing to boot: APP_KEY is empty in production")
-			os.Exit(1)
-		}
-		if os.Getenv("RESEND_API_KEY") == "" {
-			slog.New(slog.NewJSONHandler(os.Stderr, nil)).Error("refusing to boot: RESEND_API_KEY is empty in production")
+		for _, name := range prodSecretsMissing(os.Getenv("APP_KEY"), os.Getenv("RESEND_API_KEY")) {
+			slog.New(slog.NewJSONHandler(os.Stderr, nil)).Error("refusing to boot: " + name + " is empty in production")
 			os.Exit(1)
 		}
 	}
@@ -119,8 +114,9 @@ func main() {
 		}
 		// Bounded pool: pgx defaults to ~4*CPU open with an unbounded queue.
 		// Explicit caps keep burst traffic from becoming `too many clients`.
-		config.MaxConns = int32(envInt("PGPOOL_MAX_CONNS", 20))
-		config.MinConns = int32(envInt("PGPOOL_MIN_CONNS", 2))
+		maxConns, minConns := resolvePoolConns(os.Getenv("PGPOOL_MAX_CONNS"), os.Getenv("PGPOOL_MIN_CONNS"))
+		config.MaxConns = maxConns
+		config.MinConns = minConns
 		config.MaxConnLifetime = 5 * time.Minute
 		config.MaxConnIdleTime = time.Minute
 		config.HealthCheckPeriod = 30 * time.Second
@@ -503,14 +499,15 @@ func main() {
 		"missing_gates", gates.Unimplemented(),
 	)
 
+	readHeaderTimeout, idleTimeout, maxHeaderBytes := serverTuning()
 	server := &http.Server{
 		Addr:              *addr,
 		Handler:           router,
-		ReadHeaderTimeout: 10 * time.Second,
+		ReadHeaderTimeout: readHeaderTimeout,
 		ReadTimeout:       *readTimeout,
 		WriteTimeout:      *writeTimeout,
-		IdleTimeout:       2 * time.Minute,
-		MaxHeaderBytes:    1 << 20,
+		IdleTimeout:       idleTimeout,
+		MaxHeaderBytes:    maxHeaderBytes,
 	}
 
 	// The graceful shutdown: a request in flight is a request that may be
@@ -545,24 +542,4 @@ func main() {
 
 		logger.Info("stopped")
 	}
-}
-
-func envInt(key string, def int) int {
-	if raw := os.Getenv(key); raw != "" {
-		if v, err := strconv.Atoi(strings.TrimSpace(raw)); err == nil && v > 0 {
-			return v
-		}
-	}
-	return def
-}
-
-// envIsProd reports whether the process runs in production. Staging can opt
-// into the same strictness by setting APP_ENV or GO_ENV to `production`.
-func envIsProd() bool {
-	for _, key := range []string{"APP_ENV", "GO_ENV", "ENV"} {
-		if strings.EqualFold(strings.TrimSpace(os.Getenv(key)), "production") {
-			return true
-		}
-	}
-	return false
 }

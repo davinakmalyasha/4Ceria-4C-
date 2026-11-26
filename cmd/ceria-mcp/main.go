@@ -17,10 +17,8 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
-	"strconv"
 	"strings"
 	"syscall"
-	"time"
 
 	"github.com/davinakmalyasha/4ceria/internal/ai"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -36,22 +34,16 @@ func main() {
 	slog.SetDefault(logger)
 
 	dsn := strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	if dsn == "" {
+	if err := validateMCPDSN(dsn); err != nil {
 		logger.Error("DATABASE_URL is required")
 		os.Exit(2)
 	}
-	userID := *userFlag
-	if userID == 0 {
-		if raw := strings.TrimSpace(os.Getenv("CERIA_MCP_USER_ID")); raw != "" {
-			parsed, err := strconv.ParseInt(raw, 10, 64)
-			if err != nil || parsed <= 0 {
-				logger.Error("CERIA_MCP_USER_ID must be a positive integer")
-				os.Exit(2)
-			}
-			userID = parsed
-		}
+	userID, err := resolveMCPUserID(*userFlag, os.Getenv("CERIA_MCP_USER_ID"))
+	if err != nil {
+		logger.Error("CERIA_MCP_USER_ID must be a positive integer")
+		os.Exit(2)
 	}
-	admin := *adminFlag || strings.EqualFold(strings.TrimSpace(os.Getenv("CERIA_MCP_ADMIN")), "true")
+	admin := resolveMCPAdmin(*adminFlag, os.Getenv("CERIA_MCP_ADMIN"))
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -63,7 +55,7 @@ func main() {
 	}
 	defer pool.Close()
 
-	pingCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	pingCtx, cancel := context.WithTimeout(ctx, defaultMCPPingTimeout())
 	defer cancel()
 	if err := pool.Ping(pingCtx); err != nil {
 		logger.Error("PostgreSQL is unreachable", "error", err)
