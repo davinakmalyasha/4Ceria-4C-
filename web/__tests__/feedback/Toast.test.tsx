@@ -103,4 +103,18 @@ describe('Toast', () => {
         fireEvent.click(screen.getByRole('button', { name: 'fire-Heads up' }));
         expect(screen.getByRole('status').textContent).toContain('Heads up');
     });
+
+    test('notify is a no-op outside a provider', () => {
+        function Fire() {
+            const notify = useToast();
+            return (
+                <button type="button" onClick={() => notify('stray')}>
+                    fire
+                </button>
+            );
+        }
+        render(<Fire />);
+        fireEvent.click(screen.getByRole('button', { name: 'fire' }));
+        expect(screen.queryByRole('status')).toBeNull();
+    });
 });

@@ -84,4 +84,41 @@ describe('ConfirmSubmit', () => {
         expect(requestSubmit).toHaveBeenCalledTimes(1);
         expect(screen.queryByRole('alertdialog')).toBeNull();
     });
+
+    test('Cancel closes the dialog and restores focus to the trigger', () => {
+        const trigger = openDialog();
+        fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+        expect(screen.queryByRole('alertdialog')).toBeNull();
+        expect(document.activeElement).toBe(trigger);
+    });
+
+    test('a non-Escape key leaves the dialog open', () => {
+        openDialog();
+        act(() => {
+            window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+        });
+        expect(screen.getByRole('alertdialog')).toBeDefined();
+    });
+
+    test('clicking inside the dialog does not dismiss it', () => {
+        openDialog();
+        fireEvent.click(screen.getByText('Are you sure?'));
+        expect(screen.getByRole('alertdialog')).toBeDefined();
+    });
+
+    test('primary tone renders the dark confirm style', () => {
+        render(
+            <form>
+                <ConfirmSubmit message="Are you sure?" tone="primary">
+                    Save it
+                </ConfirmSubmit>
+            </form>,
+        );
+        const trigger = screen.getByRole('button', { name: 'Save it' });
+        expect(trigger.className).toContain('bg-neutral-900');
+        fireEvent.click(trigger);
+        expect(screen.getByRole('button', { name: 'Confirm' }).className).toContain(
+            'bg-neutral-900',
+        );
+    });
 });

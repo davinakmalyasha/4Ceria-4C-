@@ -51,4 +51,12 @@ describe('SegmentError', () => {
         expect(screen.getByText('An unexpected error interrupted this section.')).toBeDefined();
         expect(screen.getByText('Reference abc123')).toBeDefined();
     });
+
+    test('renders generic copy for a non-Error failure', () => {
+        const retry = vi.fn();
+        render(<SegmentError title="Orders" error="boom" retry={retry} />);
+        expect(screen.getByText('An unexpected error interrupted this section.')).toBeDefined();
+        expect(screen.queryByText(/Reference/)).toBeNull();
+        expect(screen.queryByText('boom')).toBeNull();
+    });
 });

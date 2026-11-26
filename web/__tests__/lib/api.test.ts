@@ -125,4 +125,12 @@ describe('apiFetch', () => {
         await apiFetch('/uploads', { method: 'POST', body: form });
         expect(new Headers(callInit(1).headers).get('Content-Type')).toBeNull();
     });
+
+    test('forwards a revalidate window when signed out', async () => {
+        fetchMock.mockResolvedValueOnce(jsonResponse({ ok: true }));
+        await apiFetch('/projects', {}, 60);
+        const init = callInit();
+        expect(init).toMatchObject({ next: { revalidate: 60 } });
+        expect(init).not.toHaveProperty('cache');
+    });
 });

@@ -33,6 +33,11 @@ describe('EmptyState', () => {
         expect(link.getAttribute('href')).toBe('/projects/new');
     });
 
+    test('renders the icon when given', () => {
+        render(<EmptyState title="T" body="B" icon={<span data-testid="empty-icon">i</span>} />);
+        expect(screen.getByTestId('empty-icon')).toBeDefined();
+    });
+
     test('renders no action link without both href and label', () => {
         const view = render(<EmptyState title="T" body="B" actionHref="/projects/new" />);
         expect(screen.queryByRole('link')).toBeNull();

@@ -2,3 +2,6 @@ node_modules/
 .next/
 next-env.d.ts
 .env*.local
+
+# vitest coverage output (gated in CI, never committed)
+coverage/

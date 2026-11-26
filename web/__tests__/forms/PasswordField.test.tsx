@@ -46,4 +46,11 @@ describe('PasswordField', () => {
         fireEvent.change(input, { target: { value: 'Abcdefghij12!' } });
         expect(screen.getByText('Very strong')).toBeDefined();
     });
+
+    test('renders an associated label when given', () => {
+        render(<PasswordField name="password" label="Password" />);
+        const input = screen.getByPlaceholderText('At least 8 characters');
+        const label = screen.getByText('Password');
+        expect(label.getAttribute('for')).toBe(input.getAttribute('id'));
+    });
 });

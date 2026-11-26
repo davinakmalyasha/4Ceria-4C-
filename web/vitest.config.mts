@@ -15,5 +15,18 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     include: ['__tests__/**/*.test.{ts,tsx}'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'lcov'],
+      include: [
+        'lib/**/*.ts',
+        'components/feedback/**/*.tsx',
+        'components/forms/**/*.tsx',
+        'components/pwa/OfflineBanner.tsx',
+        'components/pwa/PwaStatus.tsx',
+        'app/dashboard/confirmSubmit.tsx',
+      ],
+      thresholds: { lines: 90, functions: 90, branches: 85 },
+    },
   },
 })

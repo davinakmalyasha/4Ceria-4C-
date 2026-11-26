@@ -37,4 +37,11 @@ describe('UploadInput', () => {
         fireEvent.change(input, { target: { files: [small] } });
         expect(screen.queryByRole('alert')).toBeNull();
     });
+
+    test('a selection with no files is ignored', () => {
+        const { input } = renderFileInput(2);
+        fireEvent.change(input, { target: { files: null } });
+        expect(screen.queryByRole('alert')).toBeNull();
+        expect(screen.getByText('Up to 2 MB per file.')).toBeDefined();
+    });
 });
