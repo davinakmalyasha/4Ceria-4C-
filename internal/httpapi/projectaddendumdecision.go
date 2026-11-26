@@ -80,7 +80,7 @@ func addendumDecision(pool *pgxpool.Pool, approve bool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("addendum-decision: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -118,7 +118,7 @@ func addendumDecision(pool *pgxpool.Pool, approve bool) http.HandlerFunc {
 				return
 			}
 			slog.Error("addendum-decision: load", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -267,7 +267,7 @@ func addendumDecision(pool *pgxpool.Pool, approve bool) http.HandlerFunc {
 		entry, err := loadAddendumRow(ctx, pool, addID)
 		if err != nil {
 			slog.Error("addendum-decision: reload", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 

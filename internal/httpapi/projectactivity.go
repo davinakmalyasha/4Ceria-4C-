@@ -44,7 +44,7 @@ func ActivityHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		subject, err := loadSubject(ctx, pool, caller.UserID())
 		if err != nil {
 			slog.Error("activity: subject", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -55,7 +55,7 @@ func ActivityHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("activity: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		_ = projectFields
@@ -64,7 +64,7 @@ func ActivityHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		parties, err := loadProjectParties(ctx, pool, projectID)
 		if err != nil {
 			slog.Error("activity: parties", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -89,7 +89,7 @@ func ActivityHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 			if err := rows.Scan(&id, &projectIDVal, &userID, &action, &details, &createdAt, &updatedAt); err != nil {
 				slog.Error("activity: scan", "error", err)
-				serverError(w)
+				gateError(w, err)
 				return
 			}
 
@@ -114,7 +114,7 @@ func ActivityHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		if err := rows.Err(); err != nil {
 			slog.Error("activity: rows", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 

@@ -80,14 +80,14 @@ func SealDesignHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("seal-design: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
 		subject, err := loadSubject(ctx, pool, caller.UserID())
 		if err != nil {
 			slog.Error("seal-design: subject", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -98,7 +98,7 @@ func SealDesignHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("seal-design: parties", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -112,7 +112,7 @@ func SealDesignHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		if err := pool.QueryRow(ctx, `SELECT COALESCE(requires_structural, false), structural_id, mep_id, selected_interior_id
 			FROM projects WHERE id = $1`, projectID).Scan(&requiresStructural, &structuralID, &mepID, &interiorID); err != nil {
 			slog.Error("seal-design: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -186,7 +186,7 @@ func SealDesignHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		fields, values, err := projectRowByID(ctx, pool, projectID)
 		if err != nil {
 			slog.Error("seal-design: reload", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 

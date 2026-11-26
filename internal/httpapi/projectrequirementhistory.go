@@ -138,7 +138,7 @@ func ProjectHistoryHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("reqhist: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -149,7 +149,7 @@ func ProjectHistoryHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("reqhist: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -158,7 +158,7 @@ func ProjectHistoryHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		allowed, err := requirementGate(ctx, pool, viewer, projectID, ownerID)
 		if err != nil {
 			slog.Error("reqhist: gate", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !allowed {
@@ -169,7 +169,7 @@ func ProjectHistoryHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		rows, err := pool.Query(ctx, `SELECT `+requirementHistoriesColumns+` FROM project_requirement_histories WHERE project_requirement_id IN (SELECT id FROM project_requirements WHERE project_id = $1) ORDER BY created_at DESC`, projectID)
 		if err != nil {
 			slog.Error("reqhist: list", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		defer rows.Close()
@@ -179,7 +179,7 @@ func ProjectHistoryHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			row, err := scanHistoryRow(rows, 8)
 			if err != nil {
 				slog.Error("reqhist: scan", "error", err)
-				serverError(w)
+				gateError(w, err)
 				return
 			}
 
@@ -193,7 +193,7 @@ func ProjectHistoryHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		if err := rows.Err(); err != nil {
 			slog.Error("reqhist: rows", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -243,7 +243,7 @@ func RequirementHistoryHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("reqhist-one: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -254,7 +254,7 @@ func RequirementHistoryHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("reqhist-one: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -267,7 +267,7 @@ func RequirementHistoryHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("reqhist-one: load", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -279,7 +279,7 @@ func RequirementHistoryHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		allowed, err := requirementGate(ctx, pool, viewer, projectID, ownerID)
 		if err != nil {
 			slog.Error("reqhist-one: gate", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !allowed {
@@ -290,7 +290,7 @@ func RequirementHistoryHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		rows, err := pool.Query(ctx, `SELECT `+requirementHistoriesColumns+` FROM project_requirement_histories WHERE project_requirement_id = $1 ORDER BY created_at DESC`, requirementID)
 		if err != nil {
 			slog.Error("reqhist-one: list", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		defer rows.Close()
@@ -300,7 +300,7 @@ func RequirementHistoryHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			hrow, err := scanHistoryRow(rows, 8)
 			if err != nil {
 				slog.Error("reqhist-one: scan", "error", err)
-				serverError(w)
+				gateError(w, err)
 				return
 			}
 
@@ -314,7 +314,7 @@ func RequirementHistoryHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		if err := rows.Err(); err != nil {
 			slog.Error("reqhist-one: rows", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 

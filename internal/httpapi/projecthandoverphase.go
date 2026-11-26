@@ -51,7 +51,7 @@ func handoverRespond(ctx context.Context, pool *pgxpool.Pool, w http.ResponseWri
 	fields, values, err := projectRowByID(ctx, pool, projectID)
 	if err != nil {
 		slog.Error("handover: reload", "error", err)
-		serverError(w)
+		gateError(w, err)
 		return
 	}
 
@@ -90,7 +90,7 @@ func PhaseHandoverApproveHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("handover-approve: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -101,7 +101,7 @@ func PhaseHandoverApproveHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("handover-approve: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		project := projectColumnsByName(fields, values)
@@ -172,7 +172,7 @@ func PhaseHandoverRevisionHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("handover-reject: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -183,7 +183,7 @@ func PhaseHandoverRevisionHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("handover-reject: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		project := projectColumnsByName(fields, values)

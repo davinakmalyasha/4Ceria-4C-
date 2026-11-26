@@ -92,7 +92,7 @@ func VerifyProofHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("verify: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -103,7 +103,7 @@ func VerifyProofHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("verify: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		_ = values
@@ -165,7 +165,7 @@ func VerifyProofHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("verify: load", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -239,7 +239,7 @@ func VerifyProofHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		data, err = reloadVerifyRow(ctx, pool, target)
 		if err != nil {
 			slog.Error("verify: reload", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 

@@ -387,7 +387,7 @@ func ProposeFeeHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("propose-fee: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -443,7 +443,7 @@ func ProposeFeeHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("propose-fee: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -701,7 +701,7 @@ func ProposeFeeHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		freshFields, freshValues, _, err := engineeringBid(ctx, pool, projectID, input.bidType, input.bidID)
 		if err != nil {
 			slog.Error("propose-fee: reload", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 

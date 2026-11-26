@@ -56,14 +56,14 @@ func VerifyPaymentHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("verify-payment: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
 		subject, err := loadSubject(ctx, pool, caller.UserID())
 		if err != nil {
 			slog.Error("verify-payment: subject", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -74,7 +74,7 @@ func VerifyPaymentHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("verify-payment: parties", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -92,7 +92,7 @@ func VerifyPaymentHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("verify-payment: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -252,7 +252,7 @@ func VerifyPaymentHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		fields, values, err := projectRowByID(ctx, pool, projectID)
 		if err != nil {
 			slog.Error("verify-payment: reload", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 

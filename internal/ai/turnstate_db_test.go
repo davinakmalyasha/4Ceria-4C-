@@ -51,7 +51,7 @@ func TestTurnAndStatusSnapshotsAreOneQuery(t *testing.T) {
 	if err != nil {
 		t.Skip("no database")
 	}
-	defer pool.Close()
+	t.Cleanup(pool.Close)
 	if err := pool.Ping(context.Background()); err != nil {
 		t.Skip("database unreachable")
 	}

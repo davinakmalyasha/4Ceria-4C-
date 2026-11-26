@@ -292,14 +292,14 @@ func TechnicalAuditHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("technical audit: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("technical audit: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		columns, err := projectHireColumns(ctx, pool, projectID)

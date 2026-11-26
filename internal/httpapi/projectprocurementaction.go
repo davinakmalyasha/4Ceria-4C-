@@ -58,7 +58,7 @@ func VerifyProcurementHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("proc-verify: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -69,7 +69,7 @@ func VerifyProcurementHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("proc-verify: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -192,7 +192,7 @@ func VerifyProcurementHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		refreshed, err := loadProcurement(ctx, pool, procurementID)
 		if err != nil {
 			slog.Error("proc-verify: reload", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -244,7 +244,7 @@ func RejectProcurementHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("proc-reject: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -255,7 +255,7 @@ func RejectProcurementHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("proc-reject: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -339,7 +339,7 @@ func RejectProcurementHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		refreshed, err := loadProcurement(ctx, pool, procurementID)
 		if err != nil {
 			slog.Error("proc-reject: reload", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -374,7 +374,7 @@ func stockProcurement(w http.ResponseWriter, ctx context.Context, pool *pgxpool.
 			return procurementRow{}, false
 		}
 		slog.Error("procurement: load", "error", err)
-		serverError(w)
+		gateError(w, err)
 		return procurementRow{}, false
 	}
 

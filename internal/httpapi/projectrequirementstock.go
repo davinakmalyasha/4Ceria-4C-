@@ -116,7 +116,7 @@ func stockRequirement(w http.ResponseWriter, r *http.Request, ctx context.Contex
 			return requirementRow{}, false
 		}
 		slog.Error("stock: load", "error", err)
-		serverError(w)
+		gateError(w, err)
 		return requirementRow{}, false
 	}
 
@@ -137,7 +137,7 @@ func stockProject(w http.ResponseWriter, ctx context.Context, pool *pgxpool.Pool
 			return 0, false
 		}
 		slog.Error("stock: project", "error", err)
-		serverError(w)
+		gateError(w, err)
 		return 0, false
 	}
 
@@ -203,7 +203,7 @@ func stockHandler(w http.ResponseWriter, r *http.Request, pool *pgxpool.Pool, ki
 	viewer, err := loadViewer(ctx, pool, caller)
 	if err != nil {
 		slog.Error("stock: viewer", "error", err)
-		serverError(w)
+		gateError(w, err)
 		return
 	}
 
@@ -221,7 +221,7 @@ func stockHandler(w http.ResponseWriter, r *http.Request, pool *pgxpool.Pool, ki
 		allowed, err := requirementGate(ctx, pool, viewer, projectID, ownerID)
 		if err != nil {
 			slog.Error("stock: gate", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !allowed {
@@ -232,7 +232,7 @@ func stockHandler(w http.ResponseWriter, r *http.Request, pool *pgxpool.Pool, ki
 		allowed, err := stockGate(ctx, pool, viewer, projectID, ownerID)
 		if err != nil {
 			slog.Error("stock: gate", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !allowed {
@@ -332,7 +332,7 @@ func stockHandler(w http.ResponseWriter, r *http.Request, pool *pgxpool.Pool, ki
 	refreshed, err := loadRequirement(ctx, pool, requirementID)
 	if err != nil {
 		slog.Error("stock: reload", "error", err)
-		serverError(w)
+		gateError(w, err)
 		return
 	}
 

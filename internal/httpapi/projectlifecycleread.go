@@ -53,7 +53,7 @@ func BastHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		if _, err := loadViewer(ctx, pool, caller); err != nil {
 			slog.Error("bast: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -63,21 +63,21 @@ func BastHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("bast: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
 		subject, err := loadSubject(ctx, pool, caller.UserID())
 		if err != nil {
 			slog.Error("bast: subject", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
 		parties, err := loadProjectParties(ctx, pool, projectID)
 		if err != nil {
 			slog.Error("bast: parties", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -94,7 +94,7 @@ func BastHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			FROM projects WHERE id = $1`, projectID).Scan(
 			&title, &lokasi, &city, &budget, &ownerID, &kontraktorID, &pmID, &createdAt, &acceptedAt, &warrantyEnd); err != nil {
 			slog.Error("bast: load", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -239,7 +239,7 @@ func LegalFinancialsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("legal: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -250,7 +250,7 @@ func LegalFinancialsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("legal: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -325,7 +325,7 @@ func LegalFinancialsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			if err := rows.Scan(&id); err != nil {
 				rows.Close()
 				slog.Error("legal: scan", "error", err)
-				serverError(w)
+				gateError(w, err)
 				return
 			}
 			terminIDs = append(terminIDs, id)
@@ -333,7 +333,7 @@ func LegalFinancialsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		rows.Close()
 		if err := rows.Err(); err != nil {
 			slog.Error("legal: rows", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 

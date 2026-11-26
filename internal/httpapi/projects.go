@@ -236,7 +236,7 @@ func ProjectsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(r.Context(), pool, caller)
 		if err != nil {
 			slog.Error("projects: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -323,7 +323,7 @@ func ProjectsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			items, err := projectList(r.Context(), pool, rows, viewer, feedLoad(viewer, withBids))
 			if err != nil {
 				slog.Error("projects: rows", "error", err)
-				serverError(w)
+				gateError(w, err)
 				return
 			}
 
@@ -350,14 +350,14 @@ func ProjectsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		})
 		if err != nil {
 			slog.Error("projects: page", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
 		items, err := projectListValues(r.Context(), pool, fields, rawValues, viewer, feedLoad(viewer, withBids))
 		if err != nil {
 			slog.Error("projects: rows", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -537,7 +537,7 @@ func ProjectShowHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(r.Context(), pool, caller)
 		if err != nil {
 			slog.Error("project show: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -548,7 +548,7 @@ func ProjectShowHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("project show: query", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -558,7 +558,7 @@ func ProjectShowHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		allowed, err := canAccessProject(r.Context(), pool, viewer, projectID, ownerID, pmID, projectColumns(values, fields, "selected_arsitek_id", "selected_kontraktor_id", "selected_notaris_id", "selected_interior_id", "structural_id", "mep_id"))
 		if err != nil {
 			slog.Error("project show: gate", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 

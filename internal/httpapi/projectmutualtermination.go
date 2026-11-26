@@ -144,7 +144,7 @@ func MutualTerminationIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		if err := pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM projects WHERE id = $1)`,
 			projectID).Scan(&exists); err != nil {
 			slog.Error("termination index: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !exists {
@@ -168,7 +168,7 @@ func MutualTerminationIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			ORDER BY created_at DESC, id ASC`, projectID)
 		if err != nil {
 			slog.Error("termination index: query", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		defer rows.Close()
@@ -179,7 +179,7 @@ func MutualTerminationIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			values, err := scanRow(rows, len(fields))
 			if err != nil {
 				slog.Error("termination index: scan", "error", err)
-				serverError(w)
+				gateError(w, err)
 				return
 			}
 			byName := map[string]any{}
@@ -221,7 +221,7 @@ func InitiateMutualTerminationHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("termination initiate: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -351,7 +351,7 @@ func RespondMutualTerminationHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		termination, found, err := terminationRow(ctx, pool, terminationID)
 		if err != nil {
 			slog.Error("termination respond: load", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !found {
@@ -410,13 +410,13 @@ func RespondMutualTerminationHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		if err := pool.QueryRow(ctx, `SELECT user_id, pm_id FROM projects WHERE id = $1`,
 			projectID).Scan(&ownerID, &pmID); err != nil {
 			slog.Error("termination respond: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("termination respond: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if ownerID != viewer.id && !verifyAssignedPM(viewer, pmID) {
@@ -483,7 +483,7 @@ func RespondMutualTerminationHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			updated_at = date_trunc('second', now()) WHERE id = $1`,
 			projectID, projectStatus); err != nil {
 			slog.Error("termination respond: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -507,7 +507,7 @@ func RespondMutualTerminationHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		fresh, _, err := terminationRow(ctx, pool, terminationID)
 		if err != nil {
 			slog.Error("termination respond: reload", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -538,7 +538,7 @@ func EscalateMutualTerminationHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		termination, found, err := terminationRow(ctx, pool, terminationID)
 		if err != nil {
 			slog.Error("termination escalate: load", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !found {
@@ -593,7 +593,7 @@ func EscalateMutualTerminationHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		fresh, _, err := terminationRow(ctx, pool, terminationID)
 		if err != nil {
 			slog.Error("termination escalate: reload", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 

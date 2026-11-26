@@ -51,7 +51,7 @@ func PaymentTerminsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		subject, err := loadSubject(ctx, pool, caller.UserID())
 		if err != nil {
 			slog.Error("termins: subject", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -61,14 +61,14 @@ func PaymentTerminsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("termins: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
 		parties, err := loadProjectParties(ctx, pool, projectID)
 		if err != nil {
 			slog.Error("termins: parties", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -81,7 +81,7 @@ func PaymentTerminsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			FROM project_payment_termins WHERE project_id = $1 ORDER BY id`, projectID)
 		if err != nil {
 			slog.Error("termins: list", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		defer rows.Close()
@@ -91,14 +91,14 @@ func PaymentTerminsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			entry, err := scanTerminRow(ctx, pool, rows)
 			if err != nil {
 				slog.Error("termins: scan", "error", err)
-				serverError(w)
+				gateError(w, err)
 				return
 			}
 			out = append(out, entry)
 		}
 		if err := rows.Err(); err != nil {
 			slog.Error("termins: rows", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -281,7 +281,7 @@ func StoreTerminHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("termin-store: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -289,21 +289,21 @@ func StoreTerminHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		var pmID *int64
 		if err := pool.QueryRow(ctx, `SELECT user_id, pm_id FROM projects WHERE id = $1`, projectID).Scan(&ownerID, &pmID); err != nil {
 			slog.Error("termin-store: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
 		subject, err := loadSubject(ctx, pool, caller.UserID())
 		if err != nil {
 			slog.Error("termin-store: subject", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
 		parties, err := loadProjectParties(ctx, pool, projectID)
 		if err != nil {
 			slog.Error("termin-store: parties", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 

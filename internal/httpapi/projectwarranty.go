@@ -125,7 +125,7 @@ func WarrantyClaimsIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		subject, err := loadSubject(ctx, pool, caller.UserID())
 		if err != nil {
 			slog.Error("warranty: subject", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		parties, err := loadProjectParties(ctx, pool, projectID)
@@ -135,7 +135,7 @@ func WarrantyClaimsIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("warranty: parties", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !isParticipant(parties, subject) {
@@ -147,7 +147,7 @@ func WarrantyClaimsIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			FROM project_warranty_claims WHERE project_id = $1 ORDER BY id`, projectID)
 		if err != nil {
 			slog.Error("warranty: query", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		defer rows.Close()
@@ -158,7 +158,7 @@ func WarrantyClaimsIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			values, err := scanRow(rows, len(fields))
 			if err != nil {
 				slog.Error("warranty: scan", "error", err)
-				serverError(w)
+				gateError(w, err)
 				return
 			}
 			byName := map[string]any{}
@@ -180,7 +180,7 @@ func WarrantyClaimsIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		if err := rows.Err(); err != nil {
 			slog.Error("warranty: rows", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -213,13 +213,13 @@ func StoreWarrantyClaimHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("warranty-store: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		subject, err := loadSubject(ctx, pool, caller.UserID())
 		if err != nil {
 			slog.Error("warranty-store: subject", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		parties, err := loadProjectParties(ctx, pool, projectID)
@@ -229,7 +229,7 @@ func StoreWarrantyClaimHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("warranty-store: parties", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !isParticipant(parties, subject) {
@@ -240,7 +240,7 @@ func StoreWarrantyClaimHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		projectFields, projectValues, err := projectRowByID(ctx, pool, projectID)
 		if err != nil {
 			slog.Error("warranty-store: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		project := projectColumnsByName(projectFields, projectValues)
@@ -418,14 +418,14 @@ func UpdateWarrantyClaimHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("warranty-update: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
 		byName, found, err := warrantyRow(ctx, pool, claimID)
 		if err != nil {
 			slog.Error("warranty-update: load", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !found {
@@ -495,7 +495,7 @@ func UpdateWarrantyClaimHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		fresh, _, err := warrantyRow(ctx, pool, claimID)
 		if err != nil {
 			slog.Error("warranty-update: reload", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 

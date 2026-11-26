@@ -63,14 +63,14 @@ func CreateAddendumHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("addendum: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
 		subject, err := loadSubject(ctx, pool, caller.UserID())
 		if err != nil {
 			slog.Error("addendum: subject", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -81,7 +81,7 @@ func CreateAddendumHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("addendum: parties", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -362,7 +362,7 @@ func HandleAddendumHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("addendum-status: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -388,7 +388,7 @@ func HandleAddendumHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("addendum-status: load", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		ownerID, pmID, proposerID = &owner, pm, proposer

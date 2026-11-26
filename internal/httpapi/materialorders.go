@@ -373,7 +373,7 @@ func MaterialOrdersIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("orders: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -395,14 +395,14 @@ func MaterialOrdersIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		rows, err := pool.Query(ctx, query, args...)
 		if err != nil {
 			slog.Error("orders: query", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		fields, values, err := collectRows(rows)
 		rows.Close()
 		if err != nil {
 			slog.Error("orders: scan", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -455,13 +455,13 @@ func MaterialOrderShowHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("order show: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		byName, found, err := materialOrderRow(ctx, pool, orderID)
 		if err != nil {
 			slog.Error("order show: load", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !found {
@@ -529,13 +529,13 @@ func UploadOrderPaymentProofHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("order proof: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		byName, found, err := materialOrderRow(ctx, pool, orderID)
 		if err != nil {
 			slog.Error("order proof: load", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !found {

@@ -215,7 +215,7 @@ func verifyOrderPayment(ctx context.Context, w http.ResponseWriter, pool *pgxpoo
 	byName, found, err := materialOrderRow(ctx, pool, orderID)
 	if err != nil {
 		slog.Error("order verify: load", "error", err)
-		serverError(w)
+		gateError(w, err)
 		return
 	}
 	if !found {
@@ -353,7 +353,7 @@ func verifyOrderPayment(ctx context.Context, w http.ResponseWriter, pool *pgxpoo
 	fresh, _, err := materialOrderRow(ctx, pool, orderID)
 	if err != nil {
 		slog.Error("order verify: reload", "error", err)
-		serverError(w)
+		gateError(w, err)
 		return
 	}
 	entry := materialOrderObject(fresh)
@@ -399,7 +399,7 @@ func VerifyOrderPaymentHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(r.Context(), pool, caller)
 		if err != nil {
 			slog.Error("order verify: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		verifyOrderPayment(r.Context(), w, pool, viewer, orderID)
@@ -473,13 +473,13 @@ func UpdateMaterialOrderHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("order update: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		byName, found, err := materialOrderRow(ctx, pool, orderID)
 		if err != nil {
 			slog.Error("order update: load", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !found {
@@ -638,7 +638,7 @@ func UpdateMaterialOrderHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		fresh, _, err := materialOrderRow(ctx, pool, orderID)
 		if err != nil {
 			slog.Error("order update: reload", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		entry := materialOrderObject(fresh)
@@ -738,14 +738,14 @@ func ConfirmOrderReceiptHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("order confirm: load", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("order confirm: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 

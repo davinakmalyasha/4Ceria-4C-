@@ -35,6 +35,21 @@ func directoryColumns(table string) string {
 	}
 }
 
+// directorySearchColumns is the per-table text search list.
+//
+// The search ORs the same four concepts (name/company/specialty/
+// location), but the columns differ per table: kontraktors has no
+// `lokasi` (its address column is `alamat`), and referencing a missing
+// column turns every search into a 500. Keep this beside
+// directoryColumns: same tables, text columns only.
+func directorySearchColumns(table string) []string {
+	if table == "kontraktors" {
+		return []string{"nama", "company_name", "spesialisasi", "alamat"}
+	}
+
+	return []string{"nama", "company_name", "spesialisasi", "lokasi"}
+}
+
 // THE PUBLIC DIRECTORIES.
 //
 // `GET /api/arsitek`, `/kontraktor`, `/interior`, `/notaris`,
@@ -92,7 +107,11 @@ func DirectoryHandler(pool *pgxpool.Pool, table, base string, withServices bool)
 		where := ` WHERE verification_status = 'verified'`
 		var args []any
 		if search != "" {
-			where += ` AND (nama ILIKE $1 OR company_name ILIKE $1 OR spesialisasi ILIKE $1 OR lokasi ILIKE $1)`
+			terms := make([]string, 0, len(directorySearchColumns(table)))
+			for _, column := range directorySearchColumns(table) {
+				terms = append(terms, column+` ILIKE $1`)
+			}
+			where += ` AND (` + strings.Join(terms, " OR ") + `)`
 			args = append(args, "%"+search+"%")
 		}
 		countSQL := `SELECT COUNT(*) FROM ` + table + where

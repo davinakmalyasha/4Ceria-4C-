@@ -198,7 +198,7 @@ func RequirementsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("requirements: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -209,7 +209,7 @@ func RequirementsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("requirements: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -218,7 +218,7 @@ func RequirementsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		allowed, err := requirementGate(ctx, pool, viewer, projectID, ownerID)
 		if err != nil {
 			slog.Error("requirements: gate", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !allowed {
@@ -229,7 +229,7 @@ func RequirementsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		rows, err := pool.Query(ctx, `SELECT `+requirementsColumns+` FROM project_requirements WHERE project_id = $1 ORDER BY id`, projectID)
 		if err != nil {
 			slog.Error("requirements: list", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		defer rows.Close()
@@ -239,7 +239,7 @@ func RequirementsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			row, err := scanRequirementRow(rows, 20)
 			if err != nil {
 				slog.Error("requirements: scan", "error", err)
-				serverError(w)
+				gateError(w, err)
 				return
 			}
 
@@ -253,7 +253,7 @@ func RequirementsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		if err := rows.Err(); err != nil {
 			slog.Error("requirements: rows", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 

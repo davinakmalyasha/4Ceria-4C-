@@ -129,13 +129,13 @@ func DailyLogsIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		subject, err := loadSubject(ctx, pool, caller.UserID())
 		if err != nil {
 			slog.Error("daily-index: subject", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		parties, err := loadProjectParties(ctx, pool, projectID)
 		if err != nil {
 			slog.Error("daily-index: parties", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !isParticipant(parties, subject) {
@@ -148,7 +148,7 @@ func DailyLogsIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			FROM project_daily_logs WHERE project_id = $1 ORDER BY log_date DESC, id`, projectID)
 		if err != nil {
 			slog.Error("daily-index: query", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		defer rows.Close()
@@ -159,7 +159,7 @@ func DailyLogsIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			values, err := scanRow(rows, len(fields))
 			if err != nil {
 				slog.Error("daily-index: scan", "error", err)
-				serverError(w)
+				gateError(w, err)
 				return
 			}
 			byName := map[string]any{}
@@ -207,7 +207,7 @@ func StoreDailyLogHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("daily-store: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -222,20 +222,20 @@ func StoreDailyLogHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("daily-store: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
 		subject, err := loadSubject(ctx, pool, caller.UserID())
 		if err != nil {
 			slog.Error("daily-store: subject", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		parties, err := loadProjectParties(ctx, pool, projectID)
 		if err != nil {
 			slog.Error("daily-store: parties", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -346,7 +346,7 @@ func StoreDailyLogHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		byName, found, err := loadDailyLog(ctx, pool, projectID, logID)
 		if err != nil || !found {
 			slog.Error("daily-store: reload", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -488,7 +488,7 @@ func DestroyDailyLogHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("daily-destroy: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 

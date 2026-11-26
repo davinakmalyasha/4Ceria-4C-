@@ -50,7 +50,7 @@ func renderProjectAnswer(ctx context.Context, pool *pgxpool.Pool, w http.Respons
 	fields, values, err := projectRowByID(ctx, pool, projectID)
 	if err != nil {
 		slog.Error("project answer: reload", "error", err)
-		serverError(w)
+		gateError(w, err)
 		return
 	}
 
@@ -97,7 +97,7 @@ func ApproveConstructionBriefHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("approve brief: load", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -164,7 +164,7 @@ func ReviseConstructionBriefHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("revise brief: load", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -255,7 +255,7 @@ func LockPhaseBriefHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("lock brief: load", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		_ = viewer
@@ -352,7 +352,7 @@ func IssueKickoffHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("kickoff: load", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -496,7 +496,7 @@ func ReviewProjectHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("review: load", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -620,7 +620,7 @@ func ReviewProjectHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			ORDER BY id DESC LIMIT 1`, projectID, caller.UserID(), *professionalID).Scan(&existingID)
 		if err != nil && !isNoRows(err) {
 			slog.Error("review: lookup", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -674,7 +674,7 @@ func ReviewProjectHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		rows, err := pool.Query(ctx, `SELECT `+profileRowColumns(role.table)+` FROM `+role.table+` WHERE id = $1`, reviewID)
 		if err != nil {
 			slog.Error("review: reload", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		defer rows.Close()
@@ -687,7 +687,7 @@ func ReviewProjectHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		reviewValues, err := scanRow(rows, len(reviewFields))
 		if err != nil {
 			slog.Error("review: scan", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 

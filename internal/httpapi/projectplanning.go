@@ -42,7 +42,7 @@ func leanProjectResponse(ctx context.Context, pool *pgxpool.Pool, w http.Respons
 	fields, values, err := projectRowByID(ctx, pool, projectID)
 	if err != nil {
 		slog.Error("planning: reload", "error", err)
-		serverError(w)
+		gateError(w, err)
 		return
 	}
 
@@ -108,14 +108,14 @@ func SubmitPlanningHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("planning-submit: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
 		subject, err := loadSubject(ctx, pool, caller.UserID())
 		if err != nil {
 			slog.Error("planning-submit: subject", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -126,7 +126,7 @@ func SubmitPlanningHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("planning-submit: parties", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -180,14 +180,14 @@ func ApprovePlanningHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("planning-approve: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
 		project, found, err := loadPlanningContext(ctx, pool, projectID)
 		if err != nil {
 			slog.Error("planning-approve: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !found {
@@ -244,14 +244,14 @@ func VerifyPlanningPMHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("planning-pm: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
 		project, found, err := loadPlanningContext(ctx, pool, projectID)
 		if err != nil {
 			slog.Error("planning-pm: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !found {
@@ -316,14 +316,14 @@ func UpdatePlanningAuditHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("planning-audit: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
 		project, found, err := loadPlanningContext(ctx, pool, projectID)
 		if err != nil {
 			slog.Error("planning-audit: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !found {
@@ -381,14 +381,14 @@ func RejectPlanningHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("planning-reject: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
 		project, found, err := loadPlanningContext(ctx, pool, projectID)
 		if err != nil {
 			slog.Error("planning-reject: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !found {

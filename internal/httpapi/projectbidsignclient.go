@@ -145,7 +145,7 @@ func ClientSignContractHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		bidFields, bidValues, found, err := findBid(ctx, pool, projectID, bidType, bidRaw)
 		if err != nil {
 			slog.Error("client-sign: lookup", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !found {
@@ -160,7 +160,7 @@ func ClientSignContractHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		var projectTitle string
 		if err := pool.QueryRow(ctx, `SELECT user_id, title FROM projects WHERE id = $1`, projectID).Scan(&ownerID, &projectTitle); err != nil {
 			slog.Error("client-sign: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -246,7 +246,7 @@ func ClientSignContractHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		if _, err := tx.Exec(ctx, `UPDATE projects SET status = 'awaiting_payment', updated_at = date_trunc('second', now()) WHERE id = $1 AND status::text NOT IN ('in_progress','completed','cancelled')`, projectID); err != nil {
 			slog.Error("client-sign: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -271,7 +271,7 @@ func ClientSignContractHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		refreshed, err := reloadBid(ctx, pool, physicalID)
 		if err != nil {
 			slog.Error("client-sign: reload", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 

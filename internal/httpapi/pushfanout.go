@@ -324,7 +324,7 @@ func notificationPushURL(kind, data string) string {
 // a bid or payment that then rolls back.
 func SendPendingPushes(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger) error {
 	rows, err := pool.Query(ctx, `
-		SELECT id, user_id, type, title, body, COALESCE(data, '')
+		SELECT id, user_id, type, title, body, COALESCE(data::text, '{}')
 		  FROM notifications
 		 WHERE push_sent_at IS NULL
 		   AND created_at > now() - interval '15 minutes'

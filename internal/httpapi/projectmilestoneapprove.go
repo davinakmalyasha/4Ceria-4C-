@@ -897,14 +897,14 @@ func ApproveMilestoneHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("milestone-approve: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
 		byName, found, err := loadMilestoneRow(ctx, pool, projectID, milestoneID)
 		if err != nil {
 			slog.Error("milestone-approve: load", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !found {
@@ -915,7 +915,7 @@ func ApproveMilestoneHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		fields, values, err := projectRowByID(ctx, pool, projectID)
 		if err != nil {
 			slog.Error("milestone-approve: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		project := projectColumnsByName(fields, values)

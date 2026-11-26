@@ -400,13 +400,13 @@ func StoreProjectHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		fieldsRow, valuesRow, err := projectRowByID(ctx, pool, projectID)
 		if err != nil {
 			slog.Error("project store: reload", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("project store: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		entry, err := projectResource(ctx, pool, fieldsRow, valuesRow, viewer,

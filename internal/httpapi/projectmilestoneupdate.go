@@ -92,14 +92,14 @@ func UpdateMilestoneHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("milestone-update: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
 		byName, found, err := loadMilestoneRow(ctx, pool, projectID, milestoneID)
 		if err != nil {
 			slog.Error("milestone-update: load", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !found {
@@ -115,7 +115,7 @@ func UpdateMilestoneHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		projectFields, projectValues, err := projectRowByID(ctx, pool, projectID)
 		if err != nil {
 			slog.Error("milestone-update: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		project := projectColumnsByName(projectFields, projectValues)

@@ -259,14 +259,14 @@ func SubProfessionalsIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("sub-index: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
 		subject, err := loadSubject(ctx, pool, caller.UserID())
 		if err != nil {
 			slog.Error("sub-index: subject", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -277,7 +277,7 @@ func SubProfessionalsIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("sub-index: parties", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -292,7 +292,7 @@ func SubProfessionalsIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			FROM project_sub_professionals WHERE project_id = $1 AND status::text <> 'removed' ORDER BY id`, projectID)
 		if err != nil {
 			slog.Error("sub-index: query", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		defer rows.Close()
@@ -303,7 +303,7 @@ func SubProfessionalsIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			values, err := scanRow(rows, len(fields))
 			if err != nil {
 				slog.Error("sub-index: scan", "error", err)
-				serverError(w)
+				gateError(w, err)
 				return
 			}
 			byName := map[string]any{}
@@ -332,7 +332,7 @@ func SubProfessionalsIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		if err := rows.Err(); err != nil {
 			slog.Error("sub-index: rows", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -366,14 +366,14 @@ func AssignSubProfessionalHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("sub-assign: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
 		project, found, err := loadSubProject(ctx, pool, projectID)
 		if err != nil {
 			slog.Error("sub-assign: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !found {
@@ -477,7 +477,7 @@ func AssignSubProfessionalHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		entry, err := subResult(ctx, pool, projectID, subID, true)
 		if err != nil {
 			slog.Error("sub-assign: reload", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -932,14 +932,14 @@ func RemoveSubProfessionalHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("sub-remove: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
 		project, found, err := loadSubProject(ctx, pool, projectID)
 		if err != nil {
 			slog.Error("sub-remove: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !found {
@@ -950,7 +950,7 @@ func RemoveSubProfessionalHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		byName, found, err := loadSub(ctx, pool, projectID, subID)
 		if err != nil {
 			slog.Error("sub-remove: load", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !found {
@@ -1009,14 +1009,14 @@ func ShortlistSubBidHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("sub-shortlist: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
 		project, found, err := loadSubProject(ctx, pool, projectID)
 		if err != nil {
 			slog.Error("sub-shortlist: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !found {
@@ -1117,7 +1117,7 @@ func ShortlistSubBidHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		entry, err := subResult(ctx, pool, projectID, subID, false)
 		if err != nil {
 			slog.Error("sub-shortlist: reload", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 

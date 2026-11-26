@@ -289,7 +289,7 @@ func AuthorizePhaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("authorize-phase: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -301,7 +301,7 @@ func AuthorizePhaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("authorize-phase: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -373,7 +373,7 @@ func AuthorizePhaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		fields, values, err := projectRowByID(ctx, pool, projectID)
 		if err != nil {
 			slog.Error("authorize-phase: reload", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 

@@ -44,7 +44,7 @@ func addendumForProject(ctx context.Context, pool *pgxpool.Pool, w http.Response
 			return nil, false
 		}
 		slog.Error("addendum: load", "error", err)
-		serverError(w)
+		gateError(w, err)
 		return nil, false
 	}
 	projectValue, ok := row.Get("project_id")
@@ -117,7 +117,7 @@ func RequestEngineeringRoleHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		if err := pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM projects WHERE id = $1)`,
 			projectID).Scan(&exists); err != nil {
 			slog.Error("request-engineering: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !exists {
@@ -128,13 +128,13 @@ func RequestEngineeringRoleHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		subject, err := loadSubject(ctx, pool, caller.UserID())
 		if err != nil {
 			slog.Error("request-engineering: subject", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		parties, err := loadProjectParties(ctx, pool, projectID)
 		if err != nil {
 			slog.Error("request-engineering: parties", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !isParticipant(parties, subject) {
@@ -256,7 +256,7 @@ func RequestEngineeringRoleHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		row, err := loadAddendumRow(ctx, pool, addendumID)
 		if err != nil {
 			slog.Error("request-engineering: reload", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -284,7 +284,7 @@ func VerifyEngineeringRequestHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		if err := pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM projects WHERE id = $1)`,
 			projectID).Scan(&projectExists); err != nil {
 			slog.Error("verify-engineering: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !projectExists {
@@ -429,7 +429,7 @@ func engineeringHireDecision(pool *pgxpool.Pool, newStatus, action, detailsPrefi
 		if err := pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM projects WHERE id = $1)`,
 			projectID).Scan(&projectExists); err != nil {
 			slog.Error("engineering-hire: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !projectExists {
@@ -508,7 +508,7 @@ func ApproveEngineeringIntegrationHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		if err := pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM projects WHERE id = $1)`,
 			projectID).Scan(&projectExists); err != nil {
 			slog.Error("approve-engineering: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !projectExists {
@@ -636,7 +636,7 @@ func AuthorizeSpecialistHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		if err := pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM projects WHERE id = $1)`,
 			projectID).Scan(&projectExists); err != nil {
 			slog.Error("authorize-specialist: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !projectExists {
@@ -743,7 +743,7 @@ func RejectSpecialistHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		if err := pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM projects WHERE id = $1)`,
 			projectID).Scan(&projectExists); err != nil {
 			slog.Error("reject-specialist: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !projectExists {
@@ -866,7 +866,7 @@ func RejectEngineeringBidHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		if err := pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM projects WHERE id = $1)`,
 			projectID).Scan(&projectExists); err != nil {
 			slog.Error("reject-engineering-bid: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !projectExists {
@@ -877,13 +877,13 @@ func RejectEngineeringBidHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		subject, err := loadSubject(ctx, pool, caller.UserID())
 		if err != nil {
 			slog.Error("reject-engineering-bid: subject", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		parties, err := loadProjectParties(ctx, pool, projectID)
 		if err != nil {
 			slog.Error("reject-engineering-bid: parties", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !isParticipant(parties, subject) {
@@ -996,14 +996,14 @@ func SubmitEngineeringInterviewHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("interview: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("interview: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		columns, err := projectHireColumns(ctx, pool, projectID)
@@ -1141,7 +1141,7 @@ func SubmitEngineeringInterviewHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		freshFields, freshValues, _, err := engineeringBid(ctx, pool, projectID, bidType, bidID)
 		if err != nil {
 			slog.Error("interview: reload", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 

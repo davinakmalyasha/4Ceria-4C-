@@ -130,7 +130,7 @@ func reportGate(ctx context.Context, pool *pgxpool.Pool, w http.ResponseWriter, 
 	viewer, err := loadViewer(ctx, pool, caller)
 	if err != nil {
 		slog.Error("report: viewer", "error", err)
-		serverError(w)
+		gateError(w, err)
 		return nil, false
 	}
 	fields, values, err := projectRowByID(ctx, pool, projectID)
@@ -140,7 +140,7 @@ func reportGate(ctx context.Context, pool *pgxpool.Pool, w http.ResponseWriter, 
 			return nil, false
 		}
 		slog.Error("report: project", "error", err)
-		serverError(w)
+		gateError(w, err)
 		return nil, false
 	}
 	project := projectColumnsByName(fields, values)
@@ -193,7 +193,7 @@ func ProjectReportsIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			ORDER BY published_at DESC, id DESC`, projectID)
 		if err != nil {
 			slog.Error("reports: query", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		defer rows.Close()
@@ -204,7 +204,7 @@ func ProjectReportsIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			values, err := scanRow(rows, len(fields))
 			if err != nil {
 				slog.Error("reports: scan", "error", err)
-				serverError(w)
+				gateError(w, err)
 				return
 			}
 			byName := map[string]any{}
@@ -226,7 +226,7 @@ func ProjectReportsIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		if err := rows.Err(); err != nil {
 			slog.Error("reports: rows", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -460,14 +460,14 @@ func UpdateReportHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("report update: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
 		byName, found, err := reportRow(ctx, pool, reportID)
 		if err != nil {
 			slog.Error("report update: load", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !found {
@@ -564,14 +564,14 @@ func UpdateReportHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		fresh, _, err := reportRow(ctx, pool, reportID)
 		if err != nil {
 			slog.Error("report update: reload", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		entry := projectReportObject(fresh)
 		project, err := rawProjectModel(ctx, pool, reportProject)
 		if err != nil {
 			slog.Error("report update: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		entry.Set("project", project)
@@ -616,14 +616,14 @@ func DestroyReportHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("report delete: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
 		byName, found, err := reportRow(ctx, pool, reportID)
 		if err != nil {
 			slog.Error("report delete: load", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !found {

@@ -50,7 +50,7 @@ func StoreRequirementHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("requirement-store: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -61,7 +61,7 @@ func StoreRequirementHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("requirement-store: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -70,7 +70,7 @@ func StoreRequirementHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		allowed, err := requirementGate(ctx, pool, viewer, projectID, ownerID)
 		if err != nil {
 			slog.Error("requirement-store: gate", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !allowed {

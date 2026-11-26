@@ -56,21 +56,21 @@ func MilestonesHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("milestones: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
 		parties, err := loadProjectParties(ctx, pool, projectID)
 		if err != nil {
 			slog.Error("milestones: parties", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
 		subject, err := loadSubject(ctx, pool, caller.UserID())
 		if err != nil {
 			slog.Error("milestones: subject", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -114,7 +114,7 @@ func MilestonesHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		rows, err := pool.Query(ctx, query, args...)
 		if err != nil {
 			slog.Error("milestones: list", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		defer rows.Close()
@@ -124,14 +124,14 @@ func MilestonesHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			entry, err := scanMilestone(ctx, pool, rows)
 			if err != nil {
 				slog.Error("milestones: scan", "error", err)
-				serverError(w)
+				gateError(w, err)
 				return
 			}
 			out = append(out, entry)
 		}
 		if err := rows.Err(); err != nil {
 			slog.Error("milestones: rows", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 

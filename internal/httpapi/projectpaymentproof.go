@@ -68,7 +68,7 @@ func UploadProofHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("proof: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -79,7 +79,7 @@ func UploadProofHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("proof: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 

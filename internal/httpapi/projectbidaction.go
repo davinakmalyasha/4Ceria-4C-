@@ -328,7 +328,7 @@ func AcceptInviteHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		bidFields, bidValues, found, err := findBid(ctx, pool, projectID, role, bidRaw)
 		if err != nil {
 			slog.Error("accept-invite: lookup", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !found {
@@ -368,7 +368,7 @@ func AcceptInviteHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		refreshed, err := reloadBid(ctx, pool, physicalID)
 		if err != nil {
 			slog.Error("accept-invite: reload", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -473,7 +473,7 @@ func RejectInviteHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		bidFields, bidValues, found, err := findBid(ctx, pool, projectID, role, bidRaw)
 		if err != nil {
 			slog.Error("reject-invite: lookup", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !found {
@@ -506,7 +506,7 @@ func RejectInviteHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		refreshed, err := reloadBid(ctx, pool, physicalID)
 		if err != nil {
 			slog.Error("reject-invite: reload", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -596,7 +596,7 @@ func NegotiateBidFeeHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("negotiate: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -607,14 +607,14 @@ func NegotiateBidFeeHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("negotiate: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
 		bidFields, bidValues, found, err := findBid(ctx, pool, projectID, role, bidRaw)
 		if err != nil {
 			slog.Error("negotiate: lookup", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !found {
@@ -630,7 +630,7 @@ func NegotiateBidFeeHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		ownerID, isPM, proUserID, leadArch, leadCont, err := negotiateParties(ctx, pool, viewer, projectID, role, bid)
 		if err != nil {
 			slog.Error("negotiate: parties", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -766,7 +766,7 @@ func NegotiateBidFeeHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		refreshed, err := reloadBid(ctx, pool, physicalID)
 		if err != nil {
 			slog.Error("negotiate: reload", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -921,7 +921,7 @@ func ConfirmBidFeeHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		bidFields, bidValues, found, err := findBid(ctx, pool, projectID, role, bidRaw)
 		if err != nil {
 			slog.Error("confirm-fee: lookup", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !found {
@@ -951,14 +951,14 @@ func ConfirmBidFeeHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("confirm-fee: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
 		ownerID, isPM, proUserID, leadArch, leadCont, err := negotiateParties(ctx, pool, viewer, projectID, role, bid)
 		if err != nil {
 			slog.Error("confirm-fee: parties", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -991,7 +991,7 @@ func ConfirmBidFeeHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		refreshed, err := reloadBid(ctx, pool, physicalID)
 		if err != nil {
 			slog.Error("confirm-fee: reload", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -1002,7 +1002,7 @@ func ConfirmBidFeeHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		projectFields, projectValues, err := projectRowByID(ctx, pool, projectID)
 		if err != nil {
 			slog.Error("confirm-fee: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 

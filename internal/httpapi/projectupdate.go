@@ -89,13 +89,13 @@ func UpdateProjectHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("project update: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("project update: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !projectUpdateGate(ctx, pool, viewer, values, fields) {

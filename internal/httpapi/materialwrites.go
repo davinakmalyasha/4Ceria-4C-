@@ -368,7 +368,7 @@ func UpdateMaterialHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("material update: load", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		current := map[string]any{}
@@ -470,7 +470,7 @@ func UpdateMaterialHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		freshRows, freshValues, err := materialRow(ctx, pool, materialID, intPtrDeref(supplier["id"]))
 		if err != nil {
 			slog.Error("material update: reload", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		fresh := map[string]any{}
@@ -553,7 +553,7 @@ func DestroyMaterialHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("material destroy: load", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 

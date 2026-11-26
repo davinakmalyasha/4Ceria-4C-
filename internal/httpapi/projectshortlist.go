@@ -33,14 +33,14 @@ func ShortlistBidHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("shortlist: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("shortlist: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 

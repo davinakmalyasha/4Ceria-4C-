@@ -93,7 +93,7 @@ func GetProjectBidsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(r.Context(), pool, caller)
 		if err != nil {
 			slog.Error("project bids: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -104,14 +104,14 @@ func GetProjectBidsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("project bids: query", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
 		allowed, err := canAccessBids(r.Context(), pool, viewer, projectID, projectColumns(values, fields, "selected_arsitek_id", "selected_kontraktor_id", "selected_notaris_id", "selected_interior_id", "structural_id", "mep_id"))
 		if err != nil {
 			slog.Error("project bids: gate", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 

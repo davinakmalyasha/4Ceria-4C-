@@ -120,7 +120,7 @@ func StoreDocumentHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("doc-store: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -245,7 +245,7 @@ func StoreDocumentHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		byName, found, err := documentRow(ctx, pool, projectID, docID)
 		if err != nil || !found {
 			slog.Error("doc-store: reload", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -441,7 +441,7 @@ func VerifyDocumentHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("doc-verify: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -453,7 +453,7 @@ func VerifyDocumentHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("doc-verify: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -487,7 +487,7 @@ func VerifyDocumentHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		updated, _, err := documentRow(ctx, pool, projectID, docID)
 		if err != nil {
 			slog.Error("doc-verify: reload", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -607,7 +607,7 @@ func documentMutation(pool *pgxpool.Pool, verb string) http.HandlerFunc {
 		updated, _, err := documentRow(ctx, pool, projectID, docID)
 		if err != nil {
 			slog.Error("doc-update: reload", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 

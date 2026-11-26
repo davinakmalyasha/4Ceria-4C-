@@ -56,7 +56,7 @@ func AddTransactionHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("txn: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -67,7 +67,7 @@ func AddTransactionHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("txn: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -166,7 +166,7 @@ func AddTransactionHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		entry, err := loadLedgerRow(ctx, pool, projectID, txnType, txnTitle(formFields))
 		if err != nil {
 			slog.Error("txn: reload", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -350,7 +350,7 @@ func sandboxProject(w http.ResponseWriter, ctx context.Context, pool *pgxpool.Po
 			return 0, nil, false
 		}
 		slog.Error("sandbox: project", "error", err)
-		serverError(w)
+		gateError(w, err)
 		return 0, nil, false
 	}
 	return owner, pm, true
@@ -406,7 +406,7 @@ func sandboxItemByID(w http.ResponseWriter, ctx context.Context, pool *pgxpool.P
 			return 0, false
 		}
 		slog.Error("sandbox: load", "error", err)
-		serverError(w)
+		gateError(w, err)
 		return 0, false
 	}
 
@@ -471,7 +471,7 @@ func AddSandboxHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("sandbox: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -510,7 +510,7 @@ func AddSandboxHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		var estimated string
 		if err := pool.QueryRow(ctx, `SELECT estimated_amount::text, created_at, updated_at FROM project_budget_sandbox WHERE id = $1`, itemID).Scan(&estimated, &createdAt, &updatedAt); err != nil {
 			slog.Error("sandbox: reload", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -565,7 +565,7 @@ func ToggleSandboxHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("sandbox: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -637,7 +637,7 @@ func UpdateSandboxHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("sandbox: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -722,7 +722,7 @@ func DeleteSandboxHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("sandbox: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 

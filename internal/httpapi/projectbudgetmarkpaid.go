@@ -99,7 +99,7 @@ func MarkPaidHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("markpaid: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -110,7 +110,7 @@ func MarkPaidHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("markpaid: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 

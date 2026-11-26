@@ -160,7 +160,7 @@ func MaterialFoldersIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("folders: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -173,7 +173,7 @@ func MaterialFoldersIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			FROM project_material_folders WHERE project_id = $1 ORDER BY id`, projectID)
 		if err != nil {
 			slog.Error("folders: query", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		defer rows.Close()
@@ -184,7 +184,7 @@ func MaterialFoldersIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			values, err := scanRow(rows, len(fields))
 			if err != nil {
 				slog.Error("folders: scan", "error", err)
-				serverError(w)
+				gateError(w, err)
 				return
 			}
 			byName := map[string]any{}
@@ -223,7 +223,7 @@ func StoreMaterialFolderHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("folders-store: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -299,7 +299,7 @@ func UpdateMaterialFolderHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("folders-update: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -378,7 +378,7 @@ func DestroyMaterialFolderHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("folders-destroy: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 

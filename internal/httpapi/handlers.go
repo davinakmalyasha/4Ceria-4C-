@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/davinakmalyasha/4ceria/internal/jsonwire"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -114,6 +116,22 @@ func StatsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 // query, a path or a stack to the caller.
 func serverError(w http.ResponseWriter) {
 	message(w, http.StatusInternalServerError, "Server Error")
+}
+
+// gateError answers a loader-gate failure.
+//
+// A gate that cannot find its row is answering for a client-supplied id
+// that names nothing: that is a 404, not a 500. Every other gate failure
+// keeps the old 500, so swapping a gate's `serverError` for this changes
+// nothing except genuine no-rows cases (matched with errors.Is, so
+// wrapped pgx.ErrNoRows counts too). The body stays entity-neutral:
+// these gates load projects, termins, bids and milestones alike.
+func gateError(w http.ResponseWriter, err error) {
+	if errors.Is(err, pgx.ErrNoRows) {
+		message(w, http.StatusNotFound, "Record not found.")
+		return
+	}
+	serverError(w)
 }
 
 // NotificationsHandler serves `GET /api/notifications`.

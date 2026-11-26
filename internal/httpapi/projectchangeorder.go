@@ -157,20 +157,20 @@ func ChangeOrdersIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("co-index: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
 		subject, err := loadSubject(ctx, pool, caller.UserID())
 		if err != nil {
 			slog.Error("co-index: subject", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		parties, err := loadProjectParties(ctx, pool, projectID)
 		if err != nil {
 			slog.Error("co-index: parties", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !isParticipant(parties, subject) {
@@ -204,7 +204,7 @@ func ChangeOrdersIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				&requesterID, &requesterName, &requesterRole); err != nil {
 				coRows.Close()
 				slog.Error("co-index: scan", "error", err)
-				serverError(w)
+				gateError(w, err)
 				return
 			}
 			mapped := "proposed"
@@ -342,20 +342,20 @@ func StoreChangeOrderHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("co-store: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
 		subject, err := loadSubject(ctx, pool, caller.UserID())
 		if err != nil {
 			slog.Error("co-store: subject", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		parties, err := loadProjectParties(ctx, pool, projectID)
 		if err != nil {
 			slog.Error("co-store: parties", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !isParticipant(parties, subject) {
@@ -405,7 +405,7 @@ func StoreChangeOrderHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		byName, _, err := loadChangeOrder(ctx, pool, projectID, orderID)
 		if err != nil {
 			slog.Error("co-store: reload", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 

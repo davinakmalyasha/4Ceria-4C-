@@ -350,14 +350,14 @@ func AcceptBidHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("accept-bid: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
 		ownerID, pmID, isPM, title, err := acceptGate(ctx, pool, viewer, projectID)
 		if err != nil {
 			slog.Error("accept-bid: gate", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -412,7 +412,7 @@ func AcceptBidHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		bidFields, bidValues, found, err := findBidTx(ctx, tx, projectID, bidType, bidID)
 		if err != nil {
 			slog.Error("accept-bid: lookup", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !found {
@@ -502,7 +502,7 @@ func AcceptBidHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			row, err := acceptShowAfterWrite(ctx, pool, acceptLoad(), projectID, viewer)
 			if err != nil {
 				slog.Error("accept-bid: reload", "error", err)
-				serverError(w)
+				gateError(w, err)
 				return
 			}
 
@@ -559,7 +559,7 @@ func AcceptBidHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		row, err := acceptShowAfterWrite(ctx, pool, acceptLoad(), projectID, viewer)
 		if err != nil {
 			slog.Error("accept-bid: reload", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -596,14 +596,14 @@ func DeclineBidHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("decline-bid: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
 		ownerID, pmID, isPM, _, err := acceptGate(ctx, pool, viewer, projectID)
 		if err != nil {
 			slog.Error("decline-bid: gate", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -656,7 +656,7 @@ func DeclineBidHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			projectID, bidType, bidID)
 		if err != nil {
 			slog.Error("decline-bid: lookup", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -669,7 +669,7 @@ func DeclineBidHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		rows.Close()
 		if err != nil {
 			slog.Error("decline-bid: scan", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !found {
@@ -726,7 +726,7 @@ func DeclineBidHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		row, err := acceptShowAfterWrite(ctx, pool, declineLoad(), projectID, viewer)
 		if err != nil {
 			slog.Error("decline-bid: reload", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 

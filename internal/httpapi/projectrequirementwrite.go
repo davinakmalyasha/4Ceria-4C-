@@ -74,7 +74,7 @@ func UpdateRequirementHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("requirement-update: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -85,7 +85,7 @@ func UpdateRequirementHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("requirement-update: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -98,7 +98,7 @@ func UpdateRequirementHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("requirement-update: load", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -110,7 +110,7 @@ func UpdateRequirementHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		allowed, err := requirementGate(ctx, pool, viewer, projectID, ownerID)
 		if err != nil {
 			slog.Error("requirement-update: gate", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !allowed {
@@ -213,7 +213,7 @@ func UpdateRequirementHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		refreshed, err := loadRequirement(ctx, pool, requirementID)
 		if err != nil {
 			slog.Error("requirement-update: reload", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -270,7 +270,7 @@ func DeleteRequirementHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("requirement-delete: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -281,7 +281,7 @@ func DeleteRequirementHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("requirement-delete: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -294,7 +294,7 @@ func DeleteRequirementHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("requirement-delete: load", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -306,7 +306,7 @@ func DeleteRequirementHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		allowed, err := requirementGate(ctx, pool, viewer, projectID, ownerID)
 		if err != nil {
 			slog.Error("requirement-delete: gate", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !allowed {

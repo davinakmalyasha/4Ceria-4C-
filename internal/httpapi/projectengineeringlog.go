@@ -54,14 +54,14 @@ func StoreEngineeringLogHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("eng-log: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
 		subject, err := loadSubject(ctx, pool, caller.UserID())
 		if err != nil {
 			slog.Error("eng-log: subject", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		parties, err := loadProjectParties(ctx, pool, projectID)
@@ -71,7 +71,7 @@ func StoreEngineeringLogHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("eng-log: parties", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !isParticipant(parties, subject) {
@@ -113,7 +113,7 @@ func StoreEngineeringLogHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		if err := pool.QueryRow(ctx, `SELECT count(*) FROM project_milestones WHERE project_id = $1 AND phase_context = $2`,
 			projectID, roleType).Scan(&sortOrder); err != nil {
 			slog.Error("eng-log: count", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -261,7 +261,7 @@ func DeleteEngineeringLogHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		subject, err := loadSubject(ctx, pool, caller.UserID())
 		if err != nil {
 			slog.Error("eng-del: subject", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		parties, err := loadProjectParties(ctx, pool, projectID)
@@ -271,7 +271,7 @@ func DeleteEngineeringLogHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("eng-del: parties", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !isParticipant(parties, subject) {
@@ -282,7 +282,7 @@ func DeleteEngineeringLogHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		byName, found, err := loadMilestoneRow(ctx, pool, projectID, milestoneID)
 		if err != nil {
 			slog.Error("eng-del: load", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !found {

@@ -178,13 +178,13 @@ func commentGate(ctx context.Context, pool *pgxpool.Pool, w http.ResponseWriter,
 	viewer, err := loadViewer(ctx, pool, caller)
 	if err != nil {
 		slog.Error("comment: viewer", "error", err)
-		serverError(w)
+		gateError(w, err)
 		return nil, false
 	}
 	subject, err := loadSubject(ctx, pool, caller.UserID())
 	if err != nil {
 		slog.Error("comment: subject", "error", err)
-		serverError(w)
+		gateError(w, err)
 		return nil, false
 	}
 	parties, err := loadProjectParties(ctx, pool, projectID)
@@ -194,7 +194,7 @@ func commentGate(ctx context.Context, pool *pgxpool.Pool, w http.ResponseWriter,
 			return nil, false
 		}
 		slog.Error("comment: parties", "error", err)
-		serverError(w)
+		gateError(w, err)
 		return nil, false
 	}
 	if !isParticipant(parties, subject) {
@@ -221,7 +221,7 @@ func ProjectCommentsIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			FROM project_comments WHERE project_id = $1 ORDER BY id`, projectID)
 		if err != nil {
 			slog.Error("comments: query", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		defer rows.Close()
@@ -232,7 +232,7 @@ func ProjectCommentsIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			values, err := scanRow(rows, len(fields))
 			if err != nil {
 				slog.Error("comments: scan", "error", err)
-				serverError(w)
+				gateError(w, err)
 				return
 			}
 			byName := map[string]any{}
@@ -249,7 +249,7 @@ func ProjectCommentsIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		if err := rows.Err(); err != nil {
 			slog.Error("comments: rows", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -353,7 +353,7 @@ func ProjectCommentsStoreHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		byName, found, err := commentRow(ctx, pool, commentID)
 		if err != nil || !found {
 			slog.Error("comment store: reload", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		entry, err := commentCreatedObject(ctx, pool, byName)
@@ -442,7 +442,7 @@ func UpdateCommentHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		byName, found, err := commentRow(ctx, pool, commentID)
 		if err != nil {
 			slog.Error("comment update: load", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !found {
@@ -479,7 +479,7 @@ func UpdateCommentHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		fresh, _, err := commentRow(ctx, pool, commentID)
 		if err != nil {
 			slog.Error("comment update: reload", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -514,7 +514,7 @@ func DestroyCommentHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		byName, found, err := commentRow(ctx, pool, commentID)
 		if err != nil {
 			slog.Error("comment delete: load", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !found {

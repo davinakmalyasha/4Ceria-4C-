@@ -235,7 +235,7 @@ func MaterialQuotesIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("quotes: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -262,7 +262,7 @@ func MaterialQuotesIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		rows, err := pool.Query(ctx, query, args...)
 		if err != nil {
 			slog.Error("quotes: query", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		defer rows.Close()
@@ -273,7 +273,7 @@ func MaterialQuotesIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			values, err := scanRow(rows, len(fields))
 			if err != nil {
 				slog.Error("quotes: scan", "error", err)
-				serverError(w)
+				gateError(w, err)
 				return
 			}
 			byName := map[string]any{}
@@ -290,7 +290,7 @@ func MaterialQuotesIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		if err := rows.Err(); err != nil {
 			slog.Error("quotes: rows", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 

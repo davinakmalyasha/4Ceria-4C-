@@ -118,7 +118,7 @@ func StickyNotesIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		rows, err := pool.Query(ctx, query, args...)
 		if err != nil {
 			slog.Error("sticky index: query", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		defer rows.Close()
@@ -129,7 +129,7 @@ func StickyNotesIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			values, err := scanRow(rows, len(fields))
 			if err != nil {
 				slog.Error("sticky index: scan", "error", err)
-				serverError(w)
+				gateError(w, err)
 				return
 			}
 			byName := map[string]any{}
@@ -140,7 +140,7 @@ func StickyNotesIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		if err := rows.Err(); err != nil {
 			slog.Error("sticky index: rows", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -281,7 +281,7 @@ func UpdateStickyNoteHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		byName, found, err := stickyNoteRow(ctx, pool, noteID)
 		if err != nil {
 			slog.Error("sticky update: load", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !found {
@@ -332,7 +332,7 @@ func UpdateStickyNoteHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		fresh, _, err := stickyNoteRow(ctx, pool, noteID)
 		if err != nil {
 			slog.Error("sticky update: reload", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -367,7 +367,7 @@ func DestroyStickyNoteHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		byName, found, err := stickyNoteRow(ctx, pool, noteID)
 		if err != nil {
 			slog.Error("sticky delete: load", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !found {
@@ -429,7 +429,7 @@ func GenerateShareTokenHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("share-token: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !shareTokenGate(ctx, pool, viewer, projectID) {
@@ -488,7 +488,7 @@ func RevokeShareTokenHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("share-revoke: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !shareTokenGate(ctx, pool, viewer, projectID) {
@@ -627,7 +627,7 @@ func NotificationPreferencesIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			ORDER BY type ASC NULLS FIRST`, caller.UserID())
 		if err != nil {
 			slog.Error("prefs: query", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		defer rows.Close()
@@ -639,7 +639,7 @@ func NotificationPreferencesIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			values, err := scanRow(rows, len(fields))
 			if err != nil {
 				slog.Error("prefs: scan", "error", err)
-				serverError(w)
+				gateError(w, err)
 				return
 			}
 			byName := map[string]any{}
@@ -677,7 +677,7 @@ func NotificationPreferencesIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		if err := rows.Err(); err != nil {
 			slog.Error("prefs: rows", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -783,7 +783,7 @@ func UpdateNotificationPreferenceHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				FROM notification_preferences WHERE id = $1`, preferenceID)
 			if err != nil {
 				slog.Error("prefs: reload", "error", err)
-				serverError(w)
+				gateError(w, err)
 				return
 			}
 			defer rows.Close()
@@ -1031,7 +1031,7 @@ func MarkNotificationReadHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("notif read: load", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if ownerID != caller.UserID() {
@@ -1095,7 +1095,7 @@ func BroadcastPhaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("broadcast: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -1106,7 +1106,7 @@ func BroadcastPhaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("broadcast: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		project := projectColumnsByName(fields, values)
@@ -1178,7 +1178,7 @@ func BroadcastPhaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		freshFields, freshValues, err := projectRowByID(ctx, pool, projectID)
 		if err != nil {
 			slog.Error("broadcast: reload", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		// Every project-nested route carries budget_summary (the resource's

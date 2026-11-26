@@ -164,7 +164,7 @@ func UpdatePaymentTerminHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("termin-update: load", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !terminProjectGate(w, termin, projectID) {
@@ -174,7 +174,7 @@ func UpdatePaymentTerminHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("termin-update: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -183,7 +183,7 @@ func UpdatePaymentTerminHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		if err := pool.QueryRow(ctx, `SELECT user_id, pm_id FROM projects WHERE id = $1`,
 			projectID).Scan(&ownerID, &pmID); err != nil {
 			slog.Error("termin-update: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -284,7 +284,7 @@ func UpdatePaymentTerminHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		entry, err := terminResponse(ctx, pool, terminID, true)
 		if err != nil {
 			slog.Error("termin-update: reload", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -496,7 +496,7 @@ func DeletePaymentTerminHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("termin-delete: load", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !terminProjectGate(w, termin, projectID) {
@@ -506,7 +506,7 @@ func DeletePaymentTerminHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("termin-delete: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -515,7 +515,7 @@ func DeletePaymentTerminHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		if err := pool.QueryRow(ctx, `SELECT user_id, pm_id FROM projects WHERE id = $1`,
 			projectID).Scan(&ownerID, &pmID); err != nil {
 			slog.Error("termin-delete: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -605,7 +605,7 @@ func LinkTerminMilestoneHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("termin-link: load", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !terminProjectGate(w, termin, projectID) {
@@ -615,13 +615,13 @@ func LinkTerminMilestoneHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("termin-link: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		var pmID *int64
 		if err := pool.QueryRow(ctx, `SELECT pm_id FROM projects WHERE id = $1`, projectID).Scan(&pmID); err != nil {
 			slog.Error("termin-link: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -683,7 +683,7 @@ func LinkTerminMilestoneHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		entry, err := terminResponse(ctx, pool, terminID, false)
 		if err != nil {
 			slog.Error("termin-link: reload", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -718,7 +718,7 @@ func UnlinkTerminMilestoneHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("termin-unlink: load", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !terminProjectGate(w, termin, projectID) {
@@ -728,13 +728,13 @@ func UnlinkTerminMilestoneHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("termin-unlink: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		var pmID *int64
 		if err := pool.QueryRow(ctx, `SELECT pm_id FROM projects WHERE id = $1`, projectID).Scan(&pmID); err != nil {
 			slog.Error("termin-unlink: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 

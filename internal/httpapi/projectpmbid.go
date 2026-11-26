@@ -63,7 +63,7 @@ func SubmitPMBidHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("pm-bid: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -90,7 +90,7 @@ func SubmitPMBidHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("pm-bid: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -539,7 +539,7 @@ func PMBidDecisionHandler(pool *pgxpool.Pool, verb string) http.HandlerFunc {
 			// PostgreSQL's FK rejects; fixed in the reference first.
 			if _, err := tx.Exec(ctx, `UPDATE projects SET pm_id = $2, updated_at = date_trunc('second', now()) WHERE id = $1`, projectID, bidderProfileID); err != nil {
 				slog.Error("pm-accept: project", "error", err)
-				serverError(w)
+				gateError(w, err)
 				return
 			}
 			if _, err := tx.Exec(ctx, `UPDATE bids SET status = 'contract_pending', verification_notes = NULL, updated_at = date_trunc('second', now()) WHERE id = $1`, bidID); err != nil {

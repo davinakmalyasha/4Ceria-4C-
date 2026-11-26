@@ -55,14 +55,14 @@ func InitiateWalkthroughHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("walkthrough: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
 		subject, err := loadSubject(ctx, pool, caller.UserID())
 		if err != nil {
 			slog.Error("walkthrough: subject", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		parties, err := loadProjectParties(ctx, pool, projectID)
@@ -72,7 +72,7 @@ func InitiateWalkthroughHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("walkthrough: parties", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -124,7 +124,7 @@ func OwnerAcceptProjectHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("owner-accept: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -135,7 +135,7 @@ func OwnerAcceptProjectHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("owner-accept: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		project := projectColumnsByName(fields, values)
@@ -204,7 +204,7 @@ func OwnerAcceptProjectHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		freshFields, freshValues, err := projectRowByID(ctx, pool, projectID)
 		if err != nil {
 			slog.Error("owner-accept: reload", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 

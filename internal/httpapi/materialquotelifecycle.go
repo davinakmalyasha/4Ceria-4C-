@@ -142,13 +142,13 @@ func RequestQuotePaymentHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("quote request-payment: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		byName, found, err := loadMaterialQuoteRow(ctx, pool, quoteID)
 		if err != nil {
 			slog.Error("quote request-payment: load", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !found {
@@ -304,13 +304,13 @@ func UploadQuotePaymentProofHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("quote proof: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		byName, found, err := loadMaterialQuoteRow(ctx, pool, quoteID)
 		if err != nil {
 			slog.Error("quote proof: load", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !found {
@@ -439,13 +439,13 @@ func MarkQuotePaidHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("quote mark-paid: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		byName, found, err := loadMaterialQuoteRow(ctx, pool, quoteID)
 		if err != nil {
 			slog.Error("quote mark-paid: load", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !found {
@@ -636,13 +636,13 @@ func ApproveQuoteHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("quote approve: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		byName, found, err := loadMaterialQuoteRow(ctx, pool, quoteID)
 		if err != nil {
 			slog.Error("quote approve: load", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !found {
@@ -1007,13 +1007,13 @@ func PostQuoteDeliveryJobHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("quote delivery-job: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		byName, found, err := loadMaterialQuoteRow(ctx, pool, quoteID)
 		if err != nil {
 			slog.Error("quote delivery-job: load", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !found {

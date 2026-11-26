@@ -130,14 +130,14 @@ func SubmitDesignHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("submit-design: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
 		project, found, err := loadPlanningContext(ctx, pool, projectID)
 		if err != nil {
 			slog.Error("submit-design: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !found {
@@ -160,13 +160,13 @@ func SubmitDesignHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		subject, err := loadSubject(ctx, pool, caller.UserID())
 		if err != nil {
 			slog.Error("submit-design: subject", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		parties, err := loadProjectParties(ctx, pool, projectID)
 		if err != nil {
 			slog.Error("submit-design: parties", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -258,14 +258,14 @@ func ApproveDesignHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("approve-design: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
 		project, found, err := loadPlanningContext(ctx, pool, projectID)
 		if err != nil {
 			slog.Error("approve-design: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !found {
@@ -311,7 +311,7 @@ func ApproveDesignHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		if _, err := tx.Exec(ctx, `UPDATE projects SET `+designApprovalColumn(role)+` = date_trunc('second', now()),
 			updated_at = date_trunc('second', now()) WHERE id = $1`, projectID); err != nil {
 			slog.Error("approve-design: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -583,14 +583,14 @@ func ReviseDesignHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("revise-design: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
 		project, found, err := loadPlanningContext(ctx, pool, projectID)
 		if err != nil {
 			slog.Error("revise-design: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !found {
@@ -637,7 +637,7 @@ func ReviseDesignHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		if _, err := tx.Exec(ctx, `UPDATE projects SET `+designApprovalColumn(role)+` = NULL,
 			updated_at = date_trunc('second', now()) WHERE id = $1`, projectID); err != nil {
 			slog.Error("revise-design: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 

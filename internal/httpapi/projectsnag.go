@@ -166,7 +166,7 @@ func SnagItemsIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		subject, err := loadSubject(ctx, pool, caller.UserID())
 		if err != nil {
 			slog.Error("snags: subject", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		parties, err := loadProjectParties(ctx, pool, projectID)
@@ -176,7 +176,7 @@ func SnagItemsIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("snags: parties", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !isParticipant(parties, subject) {
@@ -188,7 +188,7 @@ func SnagItemsIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			FROM project_snag_items WHERE project_id = $1 ORDER BY id`, projectID)
 		if err != nil {
 			slog.Error("snags: query", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		defer rows.Close()
@@ -199,7 +199,7 @@ func SnagItemsIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			values, err := scanRow(rows, len(fields))
 			if err != nil {
 				slog.Error("snags: scan", "error", err)
-				serverError(w)
+				gateError(w, err)
 				return
 			}
 			byName := map[string]any{}
@@ -224,7 +224,7 @@ func SnagItemsIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		if err := rows.Err(); err != nil {
 			slog.Error("snags: rows", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -256,7 +256,7 @@ func StoreSnagItemHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("snag-store: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -267,7 +267,7 @@ func StoreSnagItemHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("snag-store: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		project := projectColumnsByName(projectFields, projectValues)
@@ -495,14 +495,14 @@ func UpdateSnagItemHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("snag-update: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
 		byName, found, err := snagRow(ctx, pool, snagID)
 		if err != nil {
 			slog.Error("snag-update: load", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !found {
@@ -587,7 +587,7 @@ func UpdateSnagItemHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		fresh, _, err := snagRow(ctx, pool, snagID)
 		if err != nil {
 			slog.Error("snag-update: reload", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -678,14 +678,14 @@ func AcceptSnagHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("snag-accept: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
 		byName, found, err := snagRow(ctx, pool, snagID)
 		if err != nil {
 			slog.Error("snag-accept: load", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !found {

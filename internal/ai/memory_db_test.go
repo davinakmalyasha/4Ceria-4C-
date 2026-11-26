@@ -40,7 +40,7 @@ func memoryPool(t *testing.T) (*pgxpool.Pool, int64, int64) {
 
 func TestMemoryIngestSearchAndIsolation(t *testing.T) {
 	pool, userID, otherID := memoryPool(t)
-	defer pool.Close()
+	t.Cleanup(pool.Close)
 	ctx := context.Background()
 
 	cleanup := func() {
@@ -111,7 +111,7 @@ func TestMemoryIngestSearchAndIsolation(t *testing.T) {
 
 func TestLoadTurnStateSeesSessionQuotaAndMemory(t *testing.T) {
 	pool, userID, _ := memoryPool(t)
-	defer pool.Close()
+	t.Cleanup(pool.Close)
 	ctx := context.Background()
 
 	cleanup := func() {
@@ -162,7 +162,7 @@ func TestLoadTurnStateSeesSessionQuotaAndMemory(t *testing.T) {
 
 func TestMemoryCanBeDisabledAndCleared(t *testing.T) {
 	pool, userID, _ := memoryPool(t)
-	defer pool.Close()
+	t.Cleanup(pool.Close)
 	ctx := context.Background()
 
 	cleanup := func() {

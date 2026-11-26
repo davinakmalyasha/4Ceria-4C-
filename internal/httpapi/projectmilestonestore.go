@@ -728,7 +728,7 @@ func StoreMilestoneHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("milestone-store: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -739,7 +739,7 @@ func StoreMilestoneHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("milestone-store: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -750,14 +750,14 @@ func StoreMilestoneHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		subject, err := loadSubject(ctx, pool, caller.UserID())
 		if err != nil {
 			slog.Error("milestone-store: subject", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
 		parties, err := loadProjectParties(ctx, pool, projectID)
 		if err != nil {
 			slog.Error("milestone-store: parties", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 

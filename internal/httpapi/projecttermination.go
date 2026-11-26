@@ -187,7 +187,7 @@ func TerminateProfessionalHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("terminate: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		ownerID := projectInt(values, fields, "user_id")
@@ -345,7 +345,7 @@ func ResignFromProjectHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("resign: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -358,7 +358,7 @@ func ResignFromProjectHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("resign: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		role, ok := terminationRoleFor(viewer.role)

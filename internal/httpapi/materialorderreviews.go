@@ -407,7 +407,7 @@ func UpdateOrderReviewHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		byName, found, err := reviewRow(ctx, pool, reviewID)
 		if err != nil {
 			slog.Error("review update: load", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !found {
@@ -462,7 +462,7 @@ func UpdateOrderReviewHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		fresh, _, err := reviewRow(ctx, pool, reviewID)
 		if err != nil {
 			slog.Error("review update: reload", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -494,7 +494,7 @@ func DestroyOrderReviewHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		byName, found, err := reviewRow(ctx, pool, reviewID)
 		if err != nil {
 			slog.Error("review delete: load", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !found {
@@ -564,7 +564,7 @@ func SupplierReviewsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		var total int
 		if err := pool.QueryRow(ctx, `SELECT count(*) FROM material_order_reviews`+clause, args...).Scan(&total); err != nil {
 			slog.Error("supplier reviews: count", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -573,7 +573,7 @@ func SupplierReviewsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			` ORDER BY `+order+` LIMIT `+strconv.Itoa(perPage)+` OFFSET `+strconv.Itoa(offset), args...)
 		if err != nil {
 			slog.Error("supplier reviews: query", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		defer rows.Close()
@@ -584,7 +584,7 @@ func SupplierReviewsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			values, err := scanRow(rows, len(fields))
 			if err != nil {
 				slog.Error("supplier reviews: scan", "error", err)
-				serverError(w)
+				gateError(w, err)
 				return
 			}
 			byName := map[string]any{}
@@ -601,7 +601,7 @@ func SupplierReviewsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		if err := rows.Err(); err != nil {
 			slog.Error("supplier reviews: rows", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 

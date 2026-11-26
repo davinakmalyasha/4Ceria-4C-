@@ -80,20 +80,15 @@ func applyUpdates(ctx context.Context, pool *pgxpool.Pool, table string, profile
 	set := make([]string, 0, len(updates))
 	args := make([]any, 0, len(updates)+1)
 
-	for column, value := range updates {
-		args = append(args, value)
-		set = append(set, fmt.Sprintf("%s = $%d", column, len(args)))
-	}
-
 	// Deterministic SQL: the map order must not leak into the statement.
-	// (Sort by column for a stable query shape.)
-	for i := range set {
-		for j := i + 1; j < len(set); j++ {
-			if set[i] > set[j] {
-				set[i], set[j] = set[j], set[i]
-				args[i], args[j] = args[j], args[i]
-			}
-		}
+	// Sort by column FIRST, then number the placeholders in sorted order.
+	// (Numbering before sorting writes each value into the wrong column:
+	// `a = $2` travels with value-of-a while `$2` still points at the
+	// pre-sort position — a silent cross-column write on every
+	// multi-field professional update.)
+	for _, column := range sortedKeys(updates) {
+		set = append(set, fmt.Sprintf("%s = $%d", column, len(args)+1))
+		args = append(args, updates[column])
 	}
 
 	args = append(args, profileID)

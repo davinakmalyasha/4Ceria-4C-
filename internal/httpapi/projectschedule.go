@@ -174,7 +174,7 @@ func SchedulesIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("schedules: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -199,7 +199,7 @@ func SchedulesIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			FROM project_schedules WHERE project_id = $1 ORDER BY phase_slug`, projectID)
 		if err != nil {
 			slog.Error("schedules: query", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -211,7 +211,7 @@ func SchedulesIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			if err != nil {
 				rows.Close()
 				slog.Error("schedules: scan", "error", err)
-				serverError(w)
+				gateError(w, err)
 				return
 			}
 			byName := map[string]any{}
@@ -225,7 +225,7 @@ func SchedulesIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		rows.Close()
 		if err := rows.Err(); err != nil {
 			slog.Error("schedules: rows", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -506,7 +506,7 @@ func UpdateScheduleHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("schedule-update: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -523,7 +523,7 @@ func UpdateScheduleHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		byName, found, err := loadScheduleRow(ctx, pool, scheduleID)
 		if err != nil {
 			slog.Error("schedule-update: load", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !found {
@@ -578,7 +578,7 @@ func UpdateScheduleHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		fresh, _, err := loadScheduleRow(ctx, pool, scheduleID)
 		if err != nil {
 			slog.Error("schedule-update: reload", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -703,7 +703,7 @@ func LogDelayHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("delay: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -714,7 +714,7 @@ func LogDelayHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("delay: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		project := projectColumnsByName(projectFields, projectValues)

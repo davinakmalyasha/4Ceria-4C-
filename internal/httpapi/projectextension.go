@@ -85,13 +85,13 @@ func ExtensionsIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		subject, err := loadSubject(ctx, pool, caller.UserID())
 		if err != nil {
 			slog.Error("ext-index: subject", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		parties, err := loadProjectParties(ctx, pool, projectID)
 		if err != nil {
 			slog.Error("ext-index: parties", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !isParticipant(parties, subject) {
@@ -102,7 +102,7 @@ func ExtensionsIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		rows, err := pool.Query(ctx, `SELECT `+joinColumns(extensionColumns)+` FROM project_timeline_extensions WHERE project_id = $1 ORDER BY id`, projectID)
 		if err != nil {
 			slog.Error("ext-index: query", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		defer rows.Close()
@@ -113,7 +113,7 @@ func ExtensionsIndexHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			values, err := scanRow(rows, len(fields))
 			if err != nil {
 				slog.Error("ext-index: scan", "error", err)
-				serverError(w)
+				gateError(w, err)
 				return
 			}
 			byName := map[string]any{}
@@ -162,19 +162,19 @@ func StoreExtensionHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("ext-store: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		subject, err := loadSubject(ctx, pool, caller.UserID())
 		if err != nil {
 			slog.Error("ext-store: subject", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		parties, err := loadProjectParties(ctx, pool, projectID)
 		if err != nil {
 			slog.Error("ext-store: parties", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !isParticipant(parties, subject) {
@@ -211,7 +211,7 @@ func StoreExtensionHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		byName, _, err := loadExtension(ctx, pool, projectID, extID)
 		if err != nil {
 			slog.Error("ext-store: reload", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -381,7 +381,7 @@ func ExtensionDecisionHandler(pool *pgxpool.Pool, verb string) http.HandlerFunc 
 				if _, err := tx.Exec(ctx, `UPDATE projects SET deadline = $2, updated_at = date_trunc('second', now()) WHERE id = $1`,
 					projectID, newDeadline); err != nil {
 					slog.Error("ext-owner: project", "error", err)
-					serverError(w)
+					gateError(w, err)
 					return
 				}
 			}

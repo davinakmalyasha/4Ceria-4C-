@@ -59,7 +59,7 @@ func ImportExternalVendorHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("import-vendor: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -173,7 +173,7 @@ func ImportExternalVendorHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("import-vendor: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		ownerID := projectInt(values, fields, "user_id")

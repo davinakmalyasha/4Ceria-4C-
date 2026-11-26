@@ -52,7 +52,7 @@ func BudgetDashboardHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("budget: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -63,7 +63,7 @@ func BudgetDashboardHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("budget: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 

@@ -622,7 +622,7 @@ func SignContractHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		bidFields, bidValues, found, err := findBid(ctx, pool, projectID, bidType, bidRaw)
 		if err != nil {
 			slog.Error("sign-contract: lookup", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !found {
@@ -873,7 +873,7 @@ func SignContractHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		refreshed, err := reloadBid(ctx, pool, physicalID)
 		if err != nil {
 			slog.Error("sign-contract: reload", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 

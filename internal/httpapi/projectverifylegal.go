@@ -55,7 +55,7 @@ func VerifyLegalHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("verify-legal: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -69,7 +69,7 @@ func VerifyLegalHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("verify-legal: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -152,7 +152,7 @@ func VerifyLegalHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		fields, values, err := projectRowByID(ctx, pool, projectID)
 		if err != nil {
 			slog.Error("verify-legal: reload", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 

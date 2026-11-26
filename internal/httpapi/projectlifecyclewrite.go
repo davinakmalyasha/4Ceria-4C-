@@ -77,7 +77,7 @@ func InviteProfessionalHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("invite: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -88,7 +88,7 @@ func InviteProfessionalHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("invite: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -224,7 +224,7 @@ func InviteProfessionalHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		rows, err := pool.Query(ctx, `SELECT `+bidsColumns+` FROM bids WHERE id = $1`, bidID)
 		if err != nil {
 			slog.Error("invite: reload", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		defer rows.Close()
@@ -236,7 +236,7 @@ func InviteProfessionalHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		bidFields := fieldNames(rows)
 		if _, err := scanRow(rows, len(bidFields)); err != nil {
 			slog.Error("invite: scan", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -325,7 +325,7 @@ func MarkCompleteHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("complete: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -337,7 +337,7 @@ func MarkCompleteHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("complete: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -385,7 +385,7 @@ func MarkCompleteHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		fields, values, err := projectRowByID(ctx, pool, projectID)
 		if err != nil {
 			slog.Error("complete: reload", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -431,7 +431,7 @@ func DestroyProjectHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("destroy: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -448,7 +448,7 @@ func DestroyProjectHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("destroy: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 

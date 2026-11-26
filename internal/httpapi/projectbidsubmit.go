@@ -281,7 +281,7 @@ func SubmitProjectBidHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(r.Context(), pool, caller)
 		if err != nil {
 			slog.Error("project submit-bid: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -292,7 +292,7 @@ func SubmitProjectBidHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("project submit-bid: query", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -571,7 +571,7 @@ func SubmitProjectBidHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				row, err := bidShowAfterWrite(ctx, pool, projectID, viewer)
 				if err != nil {
 					slog.Error("project submit-bid: reload", "error", err)
-					serverError(w)
+					gateError(w, err)
 					return
 				}
 				payload := jsonwire.NewObject()
@@ -614,7 +614,7 @@ func SubmitProjectBidHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		row, err := bidShowAfterWrite(ctx, pool, projectID, viewer)
 		if err != nil {
 			slog.Error("project submit-bid: reload", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 

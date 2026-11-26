@@ -54,7 +54,7 @@ func ProcurementListHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("procure-list: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -65,7 +65,7 @@ func ProcurementListHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("procure-list: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -74,7 +74,7 @@ func ProcurementListHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		allowed, err := requirementGate(ctx, pool, viewer, projectID, ownerID)
 		if err != nil {
 			slog.Error("procure-list: gate", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		if !allowed {
@@ -85,7 +85,7 @@ func ProcurementListHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		rows, err := pool.Query(ctx, `SELECT `+procurementColumns+` FROM project_procurement_requests WHERE project_id = $1 ORDER BY id`, projectID)
 		if err != nil {
 			slog.Error("procure-list: list", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 		defer rows.Close()
@@ -95,7 +95,7 @@ func ProcurementListHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			row, err := scanProcurementRow(rows, 14)
 			if err != nil {
 				slog.Error("procure-list: scan", "error", err)
-				serverError(w)
+				gateError(w, err)
 				return
 			}
 
@@ -109,7 +109,7 @@ func ProcurementListHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		if err := rows.Err(); err != nil {
 			slog.Error("procure-list: rows", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -216,7 +216,7 @@ func RequestProcurementHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		viewer, err := loadViewer(ctx, pool, caller)
 		if err != nil {
 			slog.Error("procure: viewer", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -227,7 +227,7 @@ func RequestProcurementHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				return
 			}
 			slog.Error("procure: project", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
@@ -387,7 +387,7 @@ func RequestProcurementHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		created, err := loadProcurement(ctx, pool, createdID)
 		if err != nil {
 			slog.Error("procure: reload", "error", err)
-			serverError(w)
+			gateError(w, err)
 			return
 		}
 
