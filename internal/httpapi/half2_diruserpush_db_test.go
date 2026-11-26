@@ -2,6 +2,8 @@ package httpapi
 
 import (
 	"context"
+	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -27,10 +29,9 @@ func TestHalfDirectory(t *testing.T) {
 	}
 	for _, tc := range tables {
 		paths := []string{tc.base, tc.base + "?per_page=2&page=1", tc.base + "?per_page=200&page=abc", tc.base + "?page=9999"}
-		// kontraktor search references a missing lokasi column upstream; do not trigger it here.
-		if tc.table != "kontraktors" {
-			paths = append(paths, tc.base+"?search=a")
-		}
+		// kontraktors has no `lokasi` (fixed: searches `alamat` instead),
+		// so its search path must stay green like every other table.
+		paths = append(paths, tc.base+"?search=a")
 		for _, path := range paths {
 			req := httptest.NewRequest(http.MethodGet, path, nil)
 			rec := httptest.NewRecorder()
@@ -335,13 +336,30 @@ func TestHalfPushSubscriptions(t *testing.T) {
 	if notificationPushURL("x", "y") == "" {
 		t.Fatalf("pushURL empty")
 	}
-	// SendPendingPushes SQL uses COALESCE(data,'') which is invalid for json;
-	// pin the current behaviour (error) without failing the suite.
+	// Regression: the sweep used COALESCE(data,'') which PostgreSQL
+	// rejects for a json column (invalid input syntax), so ANY unpushed
+	// notification with NULL data failed the whole run. The query now
+	// reads COALESCE(data::text, '{}'): NULL data sweeps clean.
+	var nullID, jsonID int64
+	if err := pool.QueryRow(ctx, `INSERT INTO notifications (user_id, type, title, body, data) VALUES ($1,'half2-null','Null data','Body',NULL) RETURNING id`, uid).Scan(&nullID); err != nil {
+		t.Fatalf("insert null-data notification: %v", err)
+	}
+	if err := pool.QueryRow(ctx, `INSERT INTO notifications (user_id, type, title, body, data) VALUES ($1,'half2-json','JSON data','Body','{"a":1}'::json) RETURNING id`, uid).Scan(&jsonID); err != nil {
+		t.Fatalf("insert json-data notification: %v", err)
+	}
 	os.Unsetenv("VAPID_PUBLIC_KEY")
 	os.Unsetenv("VAPID_PRIVATE_KEY")
-	if err := SendPendingPushes(ctx, pool, nil); err != nil {
-		t.Logf("sendpending (known json-coalesce bug): %v", err)
+	discard := slog.New(slog.NewTextHandler(io.Discard, nil))
+	if err := SendPendingPushes(ctx, pool, discard); err != nil {
+		t.Fatalf("SendPendingPushes with NULL data = %v (json-coalesce regression)", err)
 	}
+	for _, id := range []int64{nullID, jsonID} {
+		var sent bool
+		if err := pool.QueryRow(ctx, `SELECT push_sent_at IS NOT NULL FROM notifications WHERE id = $1`, id).Scan(&sent); err != nil || !sent {
+			t.Fatalf("notification %d push_sent_at marked = %v, err = %v", id, sent, err)
+		}
+	}
+	pool.Exec(ctx, `DELETE FROM notifications WHERE id = ANY($1)`, []int64{nullID, jsonID})
 }
 
 func min(a, b int) int {

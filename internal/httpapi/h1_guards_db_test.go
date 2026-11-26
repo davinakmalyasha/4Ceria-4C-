@@ -329,11 +329,11 @@ func TestH1Guards(t *testing.T) {
 				// A 200 on a missing row would be a guard hole; log the body.
 				t.Fatalf("%s missing-row: status = %d, want 4xx (or 500), body %.200s", h.name, rec.Code, rec.Body.String())
 			}
-			// Several workspace writes answer 500 for a missing project
-			// (QueryRow no-rows treated as a server error upstream); the
-			// branch is covered either way.
-			if (rec.Code < 400 || rec.Code >= 600) && rec.Code != http.StatusInternalServerError {
-				t.Fatalf("%s missing-row: status = %d, want 4xx/500, body %.200s", h.name, rec.Code, rec.Body.String())
+			// A missing row is a client error, never a 500: loader gates map
+			// pgx.ErrNoRows to 404 via gateError (anything else stays 500,
+			// which fails here by design).
+			if rec.Code < 400 || rec.Code >= 500 {
+				t.Fatalf("%s missing-row: status = %d, want 4xx, body %.200s", h.name, rec.Code, rec.Body.String())
 			}
 		})
 
