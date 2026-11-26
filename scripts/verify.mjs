@@ -91,7 +91,7 @@ if (skipWeb) {
     failures.push('web/node_modules absent');
 } else {
     step('frontend type check', npm, ['exec', '--', 'tsc', '--noEmit'], { cwd: WEB });
-    step('frontend unit tests', npm, ['run', 'test'], { cwd: WEB });
+    step('frontend unit tests (with coverage gate)', npm, ['run', 'test:cov'], { cwd: WEB });
     step('frontend build', npm, ['run', 'build'], { cwd: WEB });
 }
 

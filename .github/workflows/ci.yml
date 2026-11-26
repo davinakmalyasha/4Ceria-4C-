@@ -112,7 +112,7 @@ jobs:
 
       - name: Unit tests
         working-directory: web
-        run: npm run test
+        run: npm run test:cov
 
       - name: Build
         working-directory: web
@@ -162,6 +162,28 @@ jobs:
 
       - name: Go suites against the fresh database
         run: go test ./...
+
+      - name: Coverage ratchet (DB-backed packages)
+        run: |
+          go test -count=1 -cover ./internal/httpapi/ ./internal/ai/ > /tmp/dbcov.log 2>&1
+          status=$?
+          cat /tmp/dbcov.log
+          if [ $status -ne 0 ]; then exit 1; fi
+          node -e "
+            const fs = require('fs');
+            const bars = { 'internal/httpapi': 38, 'internal/ai': 90 };
+            let fail = false, seen = new Set();
+            for (const line of fs.readFileSync('/tmp/dbcov.log', 'utf8').split('\n')) {
+              const m = line.match(/internal\/(httpapi|ai)\s+coverage:\s+([\d.]+)%/);
+              if (!m) continue;
+              const pkg = 'internal/' + m[1], pct = parseFloat(m[2]), bar = bars[pkg];
+              seen.add(pkg);
+              if (pct < bar) { console.error('::error::' + pkg + ' ' + pct + '% < bar ' + bar + '%'); fail = true; }
+              else console.log(pkg + ' ' + pct + '% >= ' + bar + '% OK');
+            }
+            for (const pkg of Object.keys(bars)) if (!seen.has(pkg)) { console.error('::error::no coverage line for ' + pkg); fail = true; }
+            if (fail) process.exit(1);
+          "
 
   docker:
     name: API image

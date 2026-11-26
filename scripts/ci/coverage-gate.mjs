@@ -7,13 +7,16 @@
  * with headroom for refactors — not aspirational:
  *
  *   identity   100%  (tiny, pure, fully pinned)
- *   money       95%  (integer minor units; every rounding path pinned)
- *   escrow      95%  (FreezeGate fail-closed, refund bypass, idempotency)
- *   authz       90%  (role matrix)
- *   terminplan  90%  (schedule math)
- *   jsonwire    90%  (compat_test.go stays the v1 byte oracle — untouched)
- *   ai          40%  (DB-free helpers only; store.go/memory.go/tools.go DB
- *                     paths need DATABASE_URL and run in the database job)
+ *   money       99%  (one provably-unreachable parse line aside)
+ *   escrow      99%  (two defensive Subtract lines unreachable:
+ *                     same-currency by construction / checked earlier)
+ *   authz      100%  (role matrix, incl. bogus-role + nil-project)
+ *   terminplan  98%  (remainder needs fault injection, not input)
+ *   jsonwire    99%  (key-write error path cannot fire: no mid-name
+ *                     flush + AllowInvalidUTF8 always true on the wire)
+ *   ai          45%  no-DB floor (DB-free helpers only). WITH a seeded
+ *                     DB the same gate must read >=90 (ai_db2_test.go);
+ *                     enforced by the database CI job, not this script.
  *
  * httpapi is intentionally NOT gated: the denominator is ~1500 DB-backed
  * handler funcs. Its pure helpers (numeric, paginator, storagepath,
@@ -29,12 +32,12 @@ import { spawnSync } from 'node:child_process';
 
 const BARS = new Map([
     ['internal/domain/identity', 100],
-    ['internal/domain/money', 95],
-    ['internal/domain/escrow', 95],
-    ['internal/domain/authz', 90],
-    ['internal/domain/terminplan', 90],
-    ['internal/jsonwire', 90],
-    ['internal/ai', 40],
+    ['internal/domain/money', 99],
+    ['internal/domain/escrow', 99],
+    ['internal/domain/authz', 100],
+    ['internal/domain/terminplan', 98],
+    ['internal/jsonwire', 99],
+    ['internal/ai', 45],
 ]);
 
 const result = spawnSync('go', ['test', '-cover', './internal/domain/...', './internal/jsonwire/...', './internal/ai/...'], {
