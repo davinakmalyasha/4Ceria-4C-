@@ -37,7 +37,7 @@ const BARS = new Map([
     ['internal/domain/authz', 100],
     ['internal/domain/terminplan', 98],
     ['internal/jsonwire', 99],
-    ['internal/ai', 45],
+    ['internal/ai', 47],
 ]);
 
 const result = spawnSync('go', ['test', '-cover', './internal/domain/...', './internal/jsonwire/...', './internal/ai/...'], {

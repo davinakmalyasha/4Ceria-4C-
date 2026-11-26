@@ -173,7 +173,7 @@ jobs:
           if [ $status -ne 0 ]; then echo "::error::go test failed, see above"; exit 1; fi
           node -e "
             const fs = require('fs');
-            const bars = { 'internal/httpapi': 38, 'internal/ai': 90 };
+            const bars = { 'internal/httpapi': 50, 'internal/ai': 92 };
             let fail = false, seen = new Set();
             for (const line of fs.readFileSync('/tmp/dbcov.log', 'utf8').split('\n')) {
               const m = line.match(/.*(internal\/(?:httpapi|ai))\s+(?:[\d.]+s|\(cached\))\s+coverage:\s+([\d.]+)%/);

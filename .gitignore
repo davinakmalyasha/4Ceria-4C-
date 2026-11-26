@@ -105,3 +105,6 @@ mobile.zip
 # Scratch output regenerated on demand.
 /.tmp/
 /junit.xml
+
+# Test-run upload fixtures (httptest storage base; regenerated on demand).
+/internal/httpapi/storage/
