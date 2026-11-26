@@ -247,6 +247,7 @@ func TestModelEdgeStreamReplaceCancelStops(t *testing.T) {
 		t.Fatalf("text = %q, want %q", result.Text, "HelloHello from mock")
 	}
 }
+
 // Yielding false on the tool-started chunk stops the run before the tool
 // executes: the started status is delivered and nothing else runs.
 func TestModelEdgeStreamToolStartedCancelStops(t *testing.T) {
