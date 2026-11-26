@@ -47,8 +47,9 @@ func TestPgLimiterBlocksOverLimit(t *testing.T) {
 	// leave in the shared database under the common httptest IP.
 	req = req.WithContext(withCaller(req.Context(), Session{ID: 9_999_001, Role: "arsitek"}))
 	lim := NewPgLimiter(pool)
-	// Clean slate for this key.
-	_, _ = pool.Exec(context.Background(), `DELETE FROM rate_limit_hits WHERE key = $1`, limiterKey(req))
+	// Clean slate for this bucket (bucket key, not the bare caller key —
+	// rows are stored under limiterBucket).
+	_, _ = pool.Exec(context.Background(), `DELETE FROM rate_limit_hits WHERE key = $1`, limiterBucket(req, 2, time.Minute))
 	allowed := 0
 	for i := 0; i < 3; i++ {
 		ok, _, _ := lim.Allow(req, 2, time.Minute)
@@ -62,7 +63,7 @@ func TestPgLimiterBlocksOverLimit(t *testing.T) {
 	if got := lim.Remaining(req, 2, time.Minute); got != 0 {
 		t.Fatalf("remaining = %d, want 0", got)
 	}
-	_, _ = pool.Exec(context.Background(), `DELETE FROM rate_limit_hits WHERE key = $1`, limiterKey(req))
+	_, _ = pool.Exec(context.Background(), `DELETE FROM rate_limit_hits WHERE key = $1`, limiterBucket(req, 2, time.Minute))
 }
 
 func TestMailOutboxEnqueueAndSend(t *testing.T) {

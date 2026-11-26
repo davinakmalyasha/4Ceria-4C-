@@ -242,8 +242,9 @@ func TestHalfRetentionScheduler(t *testing.T) {
 	// Caller-bound key: immune to rows other tests or earlier CI steps
 	// leave in the shared database under the common httptest IP.
 	req = req.WithContext(withCaller(req.Context(), Session{ID: 9_999_002, Role: "client"}))
-	// clean key then allow/block/remaining
-	_, _ = pool.Exec(ctx, `DELETE FROM rate_limit_hits WHERE key = $1`, limiterKey(req))
+	// clean bucket then allow/block/remaining (bucket key: rows are
+	// stored under limiterBucket, not the bare caller key)
+	_, _ = pool.Exec(ctx, `DELETE FROM rate_limit_hits WHERE key = $1`, limiterBucket(req, 1, time.Minute))
 	ok, _, _ := lim.Allow(req, 1, time.Minute)
 	if !ok {
 		t.Fatalf("allow first")
@@ -255,7 +256,7 @@ func TestHalfRetentionScheduler(t *testing.T) {
 	if got := lim.Remaining(req, 1, time.Minute); got != 0 {
 		t.Fatalf("remaining = %d", got)
 	}
-	_, _ = pool.Exec(ctx, `DELETE FROM rate_limit_hits WHERE key = $1`, limiterKey(req))
+	_, _ = pool.Exec(ctx, `DELETE FROM rate_limit_hits WHERE key = $1`, limiterBucket(req, 1, time.Minute))
 	// nil pool limiter
 	var nilLim *PgLimiter
 	if r := nilLim.Remaining(req, 5, time.Minute); r != 5 {
