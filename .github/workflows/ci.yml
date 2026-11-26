@@ -165,10 +165,12 @@ jobs:
 
       - name: Coverage ratchet (DB-backed packages)
         run: |
+          set +e
           go test -count=1 -cover ./internal/httpapi/ ./internal/ai/ > /tmp/dbcov.log 2>&1
           status=$?
+          set -e
           cat /tmp/dbcov.log
-          if [ $status -ne 0 ]; then exit 1; fi
+          if [ $status -ne 0 ]; then echo "::error::go test failed, see above"; exit 1; fi
           node -e "
             const fs = require('fs');
             const bars = { 'internal/httpapi': 38, 'internal/ai': 90 };
