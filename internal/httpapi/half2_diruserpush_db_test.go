@@ -350,16 +350,74 @@ func TestHalfPushSubscriptions(t *testing.T) {
 	os.Unsetenv("VAPID_PUBLIC_KEY")
 	os.Unsetenv("VAPID_PRIVATE_KEY")
 	discard := slog.New(slog.NewTextHandler(io.Discard, nil))
-	if err := SendPendingPushes(ctx, pool, discard); err != nil {
-		t.Fatalf("SendPendingPushes with NULL data = %v (json-coalesce regression)", err)
-	}
-	for _, id := range []int64{nullID, jsonID} {
-		var sent bool
-		if err := pool.QueryRow(ctx, `SELECT push_sent_at IS NOT NULL FROM notifications WHERE id = $1`, id).Scan(&sent); err != nil || !sent {
-			t.Fatalf("notification %d push_sent_at marked = %v, err = %v", id, sent, err)
+	t.Cleanup(func() {
+		pool.Exec(ctx, `DELETE FROM notifications WHERE id IN ($1,$2)`, nullID, jsonID)
+	})
+	// Drain the queue: the sweep takes the oldest 25 unpushed rows per
+	// run, and other tests leave unpushed rows behind. Ours may sit
+	// behind them; sweep until both are marked (bounded: 10 runs cover
+	// 250 rows, far above any leftover queue). A sweep error on ANY row
+	// fails here — that is the regression pin (NULL data must sweep).
+	marked := map[int64]bool{}
+	for i := 0; i < 10 && !(marked[nullID] && marked[jsonID]); i++ {
+		if err := SendPendingPushes(ctx, pool, discard); err != nil {
+			t.Fatalf("SendPendingPushes with NULL data = %v (json-coalesce regression)", err)
+		}
+		for _, id := range []int64{nullID, jsonID} {
+			var sent bool
+			if err := pool.QueryRow(ctx, `SELECT push_sent_at IS NOT NULL FROM notifications WHERE id = $1`, id).Scan(&sent); err != nil {
+				t.Fatalf("notification %d gone: %v", id, err)
+			}
+			marked[id] = sent
 		}
 	}
-	pool.Exec(ctx, `DELETE FROM notifications WHERE id = ANY($1)`, []int64{nullID, jsonID})
+	for _, id := range []int64{nullID, jsonID} {
+		if !marked[id] {
+			t.Fatalf("notification %d never swept in 10 runs", id)
+		}
+	}
+	for _, id := range []int64{nullID, jsonID} {
+		tag, err := pool.Exec(ctx, `DELETE FROM notifications WHERE id = $1`, id)
+		if err != nil || tag.RowsAffected() != 1 {
+			t.Fatalf("cleanup notification %d: rows=%d err=%v", id, tag.RowsAffected(), err)
+		}
+	}
+}
+
+// The inbox list had the same NULL-data flaw as the push sweep: a
+// single NULL `data` row 500d /api/notifications for the whole user
+// (scan of NULL into the row). The list query now coalesces to '{}',
+// so legacy/partial rows render with an empty document.
+func TestHalfNotificationsNullDataLists(t *testing.T) {
+	pool := testPool(t)
+	defer pool.Close()
+	ctx := context.Background()
+	var uid int64
+	if err := pool.QueryRow(ctx, `SELECT id FROM users ORDER BY id LIMIT 1`).Scan(&uid); err != nil {
+		t.Skip("no users")
+	}
+	var id int64
+	if err := pool.QueryRow(ctx, `INSERT INTO notifications (user_id, type, title, body, data) VALUES ($1,'half2-nulllist','Null list','Body',NULL) RETURNING id`, uid).Scan(&id); err != nil {
+		t.Fatalf("insert null-data notification: %v", err)
+	}
+	defer func() {
+		pool.Exec(ctx, `DELETE FROM notifications WHERE id = $1`, id)
+	}()
+
+	caller := roadmapCaller{id: uid, role: "user"}
+	req := httptest.NewRequest(http.MethodGet, "/api/notifications", nil)
+	req = req.WithContext(withCaller(req.Context(), caller))
+	rec := httptest.NewRecorder()
+	NotificationsHandler(pool)(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("notifications with NULL data = %d, want 200 %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "half2-nulllist") {
+		t.Fatalf("null-data row missing from list: %s", rec.Body.String())
+	}
+	if tag, err := pool.Exec(ctx, `DELETE FROM notifications WHERE id = $1`, id); err != nil || tag.RowsAffected() != 1 {
+		t.Fatalf("cleanup notification %d: rows=%d err=%v", id, tag.RowsAffected(), err)
+	}
 }
 
 func min(a, b int) int {

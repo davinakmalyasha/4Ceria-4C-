@@ -149,7 +149,7 @@ func NotificationsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		rows, err := pool.Query(r.Context(), `
-			SELECT id, user_id, type, title, body, data::text, read_at, created_at, updated_at
+			SELECT id, user_id, type, title, body, COALESCE(data::text, '{}'), read_at, created_at, updated_at
 			  FROM notifications
 			 WHERE user_id = $1
 			 ORDER BY created_at DESC
